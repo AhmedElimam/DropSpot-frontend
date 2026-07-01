@@ -8,8 +8,8 @@ import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@
 const { width } = Dimensions.get('window');
 
 const MOCK_SESSIONS = [
-  { id: '1', course_name: 'الرياضيات', teacher_name: 'أحمد محمد', time: '10:00 - 11:30', status: 'scheduled' },
-  { id: '2', course_name: 'العلوم', teacher_name: 'سارة علي', time: '12:30 - 14:00', status: 'scheduled' },
+  { id: '1', course_name: 'الرياضيات', teacher_name: 'أحمد محمد', time: '10:00 - 11:30', disabled: true },
+  { id: '2', course_name: 'العلوم', teacher_name: 'سارة علي', time: '12:30 - 14:00' },
 ];
 
 const MOCK_COVERAGE = [
@@ -32,16 +32,27 @@ const coverageLabels: Record<string, string> = {
   excused: 'attendance.excused',
 };
 
-type ModalType = 'excuse' | 'report' | null;
+const MOCK_ALTERNATIVES = [
+  { date: '2026-07-02', day: 'الخميس', slots: 3, total: 10 },
+  { date: '2026-07-03', day: 'الجمعة', slots: 0, total: 10 },
+  { date: '2026-07-06', day: 'الإثنين', slots: 5, total: 10 },
+  { date: '2026-07-07', day: 'الثلاثاء', slots: 8, total: 10 },
+];
+
+type ModalType = 'excuse' | 'report' | 'reschedule' | null;
 
 export default function CheckInTab() {
   const { t } = useTranslation();
-  const [selectedSession, setSelectedSession] = useState(MOCK_SESSIONS[1].id);
+  const activeSessions = MOCK_SESSIONS.filter((s) => !s.disabled);
+  const [selectedSession, setSelectedSession] = useState(activeSessions[0]?.id ?? '');
   const [checkedIn, setCheckedIn] = useState(false);
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [excuseText, setExcuseText] = useState('');
   const [reportText, setReportText] = useState('');
   const [showCoverage, setShowCoverage] = useState(true);
+  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [rescheduleSent, setRescheduleSent] = useState(false);
 
   if (checkedIn) {
     return (
@@ -193,10 +204,12 @@ export default function CheckInTab() {
 
             {MOCK_SESSIONS.map((session) => {
               const isSelected = selectedSession === session.id;
+              const isDisabled = session.disabled;
               return (
                 <TouchableOpacity
                   key={session.id}
-                  onPress={() => setSelectedSession(session.id)}
+                  onPress={() => { if (!isDisabled) setSelectedSession(session.id); }}
+                  disabled={isDisabled}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -205,7 +218,8 @@ export default function CheckInTab() {
                     backgroundColor: isSelected ? colors.primaryLight : colors.background,
                     marginBottom: spacing.sm,
                     borderWidth: 1.5,
-                    borderColor: isSelected ? colors.primary : 'transparent',
+                    borderColor: isSelected ? colors.primary : isDisabled ? colors.dangerLight : 'transparent',
+                    opacity: isDisabled ? 0.5 : 1,
                   }}
                 >
                   <View
@@ -214,7 +228,7 @@ export default function CheckInTab() {
                       height: 22,
                       borderRadius: 11,
                       borderWidth: 2,
-                      borderColor: isSelected ? colors.primary : colors.border,
+                      borderColor: isSelected ? colors.primary : isDisabled ? colors.danger : colors.border,
                       justifyContent: 'center',
                       alignItems: 'center',
                       marginEnd: spacing.md,
@@ -225,9 +239,14 @@ export default function CheckInTab() {
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={textPresets.subtitle}>{session.course_name}</Text>
-                    <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{session.teacher_name} · {session.time}</Text>
+                    <Text style={[textPresets.subtitle, isDisabled && { color: colors.textTertiary }]}>{session.course_name}</Text>
+                    <Text style={[textPresets.bodySmall, { marginTop: 2 }, isDisabled && { color: colors.textTertiary }]}>{session.teacher_name} · {session.time}</Text>
                   </View>
+                  {isDisabled && (
+                    <View style={{ backgroundColor: colors.dangerLight, paddingVertical: 2, paddingHorizontal: 8, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: colors.danger, textAlign: 'center' }}>انتهت</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -235,8 +254,9 @@ export default function CheckInTab() {
 
           <TouchableOpacity
             onPress={() => setCheckedIn(true)}
+            disabled={!selectedSession}
             activeOpacity={0.85}
-            style={{ borderRadius: radius.md, overflow: 'hidden' }}
+            style={{ borderRadius: radius.md, overflow: 'hidden', opacity: !selectedSession ? 0.4 : 1 }}
           >
             <LinearGradient
               colors={gradients.primary}
@@ -313,6 +333,28 @@ export default function CheckInTab() {
                 <Text style={{ fontSize: 24, marginBottom: spacing.xs }}>{'📊'}</Text>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.white }}>
                   {t('attendance.coverage')}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => { setActiveModal('reschedule'); setSelectedDate(null); setRescheduleReason(''); setRescheduleSent(false); }}
+              activeOpacity={0.8}
+              style={{
+                flex: 1,
+                borderRadius: radius.md,
+                overflow: 'hidden',
+              }}
+            >
+              <LinearGradient
+                colors={['#06B6D4', '#0891B2']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={{ padding: spacing.lg, alignItems: 'center' }}
+              >
+                <Text style={{ fontSize: 24, marginBottom: spacing.xs }}>{'🔄'}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.white }}>
+                  {t('session.reschedule')}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -436,6 +478,123 @@ export default function CheckInTab() {
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={activeModal === 'reschedule'} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => { setActiveModal(null); setRescheduleReason(''); setSelectedDate(null); }} />
+          <View
+            style={{
+              backgroundColor: colors.white,
+              borderTopLeftRadius: radius.xxl,
+              borderTopRightRadius: radius.xxl,
+              padding: spacing.xxl,
+              paddingBottom: spacing.xl5,
+              maxHeight: '80%',
+            }}
+          >
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl }} />
+
+            {rescheduleSent ? (
+              <>
+                <View style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
+                  <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.successLight, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.lg }}>
+                    <Text style={{ fontSize: 36, color: colors.success }}>{'✓'}</Text>
+                  </View>
+                  <Text style={textPresets.h2}>{t('session.request_sent')}</Text>
+                  <Text style={[textPresets.bodySmall, { textAlign: 'center', marginTop: spacing.sm }]}>
+                    {t('session.proposed_time')}: {selectedDate ? MOCK_ALTERNATIVES.find((a) => a.date === selectedDate)?.day : ''} {selectedDate}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setActiveModal(null)}
+                  style={{ marginTop: spacing.md, paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.primaryLight, alignItems: 'center' }}
+                >
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{t('common.back')}</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={textPresets.h2}>{t('session.reschedule_request')}</Text>
+                <Text style={[textPresets.bodySmall, { marginBottom: spacing.lg }]}>
+                  {t('session.course')}: العلوم · {t('session.teacher')}: سارة علي
+                </Text>
+
+                <Text style={[textPresets.label, { marginBottom: spacing.sm }]}>{t('session.proposed_time')}</Text>
+                {MOCK_ALTERNATIVES.map((alt) => {
+                  const isFull = alt.slots === 0;
+                  const isSelected = selectedDate === alt.date;
+                  return (
+                    <TouchableOpacity
+                      key={alt.date}
+                      onPress={() => { if (!isFull) setSelectedDate(alt.date); }}
+                      disabled={isFull}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        padding: spacing.md,
+                        borderRadius: radius.md,
+                        backgroundColor: isSelected ? colors.primaryLight : colors.background,
+                        marginBottom: spacing.sm,
+                        borderWidth: 1.5,
+                        borderColor: isSelected ? colors.primary : isFull ? colors.dangerLight : 'transparent',
+                        opacity: isFull ? 0.45 : 1,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 22, height: 22, borderRadius: 11, borderWidth: 2,
+                          borderColor: isSelected ? colors.primary : isFull ? colors.danger : colors.border,
+                          justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md,
+                        }}
+                      >
+                        {isSelected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary }} />}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[textPresets.body, isFull && { color: colors.textTertiary }]}>{alt.day} - {alt.date}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: spacing.sm }}>
+                          <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.borderLight, overflow: 'hidden' }}>
+                            <View style={{ width: `${(alt.slots / alt.total) * 100}%`, height: '100%', borderRadius: 3, backgroundColor: isFull ? colors.danger : colors.primary }} />
+                          </View>
+                          <Text style={[textPresets.caption, isFull && { color: colors.danger }]}>
+                            {isFull ? t('attendance.absent') : `${alt.slots}/${alt.total}`}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                <TextInput
+                  value={rescheduleReason}
+                  onChangeText={setRescheduleReason}
+                  placeholder={t('session.reason')}
+                  placeholderTextColor={colors.textTertiary}
+                  multiline
+                  numberOfLines={3}
+                  style={{
+                    fontFamily: fonts.regular, fontSize: 14,
+                    backgroundColor: colors.background, borderRadius: radius.md,
+                    padding: spacing.lg, marginTop: spacing.md, marginBottom: spacing.lg,
+                    color: colors.textPrimary, textAlign: 'right',
+                    minHeight: 80, borderWidth: 1, borderColor: colors.border,
+                  }}
+                />
+
+                <TouchableOpacity
+                  onPress={() => { if (selectedDate) setRescheduleSent(true); }}
+                  disabled={!selectedDate || !rescheduleReason.trim()}
+                  activeOpacity={0.85}
+                  style={{ borderRadius: radius.md, overflow: 'hidden', opacity: (!selectedDate || !rescheduleReason.trim()) ? 0.5 : 1 }}
+                >
+                  <LinearGradient colors={['#06B6D4', '#0891B2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, alignItems: 'center' }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white }}>{t('session.reschedule_request')}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>

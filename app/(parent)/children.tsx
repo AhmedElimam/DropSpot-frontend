@@ -11,7 +11,11 @@ const MOCK_CHILDREN = [
   { id: '3', name: 'سارة أحمد', grade: 'الصف الثاني الإعدادي', attendanceRate: 95, sessions: 20, absent: 1 },
 ];
 
-const avatarColors = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
+const childGradients = [
+  ['#6366F1', '#8B5CF6'] as const,
+  ['#10B981', '#059669'] as const,
+  ['#F59E0B', '#D97706'] as const,
+];
 
 export default function ChildrenList() {
   const { t } = useTranslation();
@@ -20,92 +24,117 @@ export default function ChildrenList() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight }} showsVerticalScrollIndicator={false}>
         <LinearGradient
-          colors={['#6366F1', '#8B5CF6']}
+          colors={['#1E1B4B', '#6366F1']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4, paddingBottom: spacing.xl4 }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.white, letterSpacing: -0.5 }}>
                 {t('parent.my_children')}
               </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
                 {MOCK_CHILDREN.length} {t('common.all')}
               </Text>
             </View>
-            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-              <Text style={{ fontSize: 20 }}>👤</Text>
-            </View>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.06)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ width: 48, height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+            >
+              <Text style={{ fontSize: 22 }}>👨‍👩‍👧‍👦</Text>
+            </LinearGradient>
           </View>
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
-          {MOCK_CHILDREN.map((child, index) => (
-            <TouchableOpacity
-              key={child.id}
-              onPress={() => router.push(`/(parent)/child/${child.id}`)}
-              activeOpacity={0.7}
-              style={{
-                backgroundColor: colors.white,
-                borderRadius: radius.xl,
-                overflow: 'hidden',
-                ...shadows.md,
-              }}
-            >
-              <LinearGradient
-                colors={['rgba(99,102,241,0.04)', 'transparent']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{ padding: spacing.xl }}
+          {MOCK_CHILDREN.map((child, index) => {
+            const cg = childGradients[index % childGradients.length];
+            return (
+              <TouchableOpacity
+                key={child.id}
+                onPress={() => router.push(`/(parent)/child/${child.id}`)}
+                activeOpacity={0.7}
+                style={{
+                  backgroundColor: colors.white,
+                  borderRadius: radius.xl,
+                  overflow: 'hidden',
+                  ...shadows.md,
+                }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <LinearGradient
-                    colors={['#6366F1', '#8B5CF6']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{ width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}
-                  >
-                    <Text style={{ fontSize: 20, color: '#fff' }}>{(child.name || '?')[0]}</Text>
-                  </LinearGradient>
-                  <View style={{ marginStart: spacing.md, flex: 1 }}>
-                    <Text style={textPresets.subtitle}>{child.name}</Text>
-                    <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{child.grade}</Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: child.attendanceRate >= 90 ? colors.success : child.attendanceRate >= 75 ? colors.primary : colors.warning }}>
-                      {child.attendanceRate}%
-                    </Text>
-                    <Text style={textPresets.caption}>{t('attendance.attendance_rate')}</Text>
-                  </View>
-                </View>
-
                 <LinearGradient
-                  colors={gradients.surface}
+                  colors={['rgba(99,102,241,0.03)', 'transparent']}
                   start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={{ flexDirection: 'row', marginTop: spacing.lg, borderRadius: radius.md, padding: spacing.sm, borderWidth: 1, borderColor: colors.borderLight }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ padding: spacing.xl }}
                 >
-                  <View style={{ flex: 1, alignItems: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.primary }}>{child.sessions}</Text>
-                    <Text style={textPresets.caption}>{t('session.today_sessions')}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <LinearGradient
+                      colors={cg}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={{ width: 52, height: 52, borderRadius: 18, justifyContent: 'center', alignItems: 'center', ...shadows.glow }}
+                    >
+                      <Text style={{ fontSize: 22, color: '#fff' }}>{(child.name || '?')[0]}</Text>
+                    </LinearGradient>
+                    <View style={{ marginStart: spacing.md, flex: 1 }}>
+                      <Text style={[textPresets.subtitle, { fontFamily: fonts.bold }]}>{child.name}</Text>
+                      <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{child.grade}</Text>
+                    </View>
                   </View>
-                  <View style={{ width: 1, backgroundColor: colors.borderLight }} />
-                  <View style={{ flex: 1, alignItems: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger }}>{child.absent}</Text>
-                    <Text style={textPresets.caption}>{t('attendance.absent')}</Text>
+
+                  <View style={{ marginTop: spacing.md }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                      <Text style={textPresets.caption}>{t('attendance.attendance_rate')}</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: child.attendanceRate >= 90 ? colors.success : child.attendanceRate >= 75 ? colors.primary : colors.warning }}>
+                        {child.attendanceRate}%
+                      </Text>
+                    </View>
+                    <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.borderLight, overflow: 'hidden' }}>
+                      <LinearGradient
+                        colors={child.attendanceRate >= 90 ? gradients.success : child.attendanceRate >= 75 ? gradients.primary : gradients.warm}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={{ width: `${child.attendanceRate}%`, height: '100%', borderRadius: 4 }}
+                      />
+                    </View>
                   </View>
-                  <View style={{ width: 1, backgroundColor: colors.borderLight }} />
-                  <View style={{ flex: 1, alignItems: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.warning }}>
-                      {child.sessions + child.absent}
-                    </Text>
-                    <Text style={textPresets.caption}>إجمالي</Text>
+
+                  <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.sm }}>
+                    <View style={{ flex: 1, backgroundColor: colors.primaryLight, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.primary }}>{child.sessions}</Text>
+                      <Text style={textPresets.caption}>{t('session.today_sessions')}</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: colors.dangerLight, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger }}>{child.absent}</Text>
+                      <Text style={textPresets.caption}>{t('attendance.absent')}</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: colors.warningLight, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.warning }}>{child.sessions + child.absent}</Text>
+                      <Text style={textPresets.caption}>إجمالي</Text>
+                    </View>
                   </View>
+
+                  <TouchableOpacity
+                    onPress={() => router.push(`/(parent)/child/${child.id}`)}
+                    activeOpacity={0.8}
+                    style={{ marginTop: spacing.md }}
+                  >
+                    <LinearGradient
+                      colors={cg}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={{ paddingVertical: 10, borderRadius: radius.md, alignItems: 'center' }}
+                    >
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('reports.view_details')}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </LinearGradient>
-              </LinearGradient>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </ScrollView>
     </View>

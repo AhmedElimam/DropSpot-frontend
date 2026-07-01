@@ -4,11 +4,19 @@ import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
 
+const labels: Record<string, string> = {
+  index: 'nav.home',
+  children: 'nav.children',
+  invoices: 'nav.invoices',
+  reports: 'nav.reports',
+  profile: 'nav.settings',
+};
+
 const icons: Record<string, string> = {
   index: '🔔',
   children: '👨‍👩‍👧‍👦',
   invoices: '💳',
-  support: '🎫',
+  reports: '📊',
   profile: '⚙️',
 };
 
@@ -33,18 +41,21 @@ export default function ParentTabLayout() {
           borderTopLeftRadius: radius.xl,
           borderTopRightRadius: radius.xl,
         },
-        tabBarLabel: ({ focused }) => (
-          <Text
-            style={{
-              fontFamily: fonts.medium,
-              fontSize: 10,
-              color: focused ? colors.primary : colors.textTertiary,
-              marginTop: 2,
-            }}
-          >
-            {route.name === 'index' ? t('nav.home') : route.name === 'children' ? t('nav.children') : route.name === 'invoices' ? t('nav.invoices') : route.name === 'support' ? t('nav.support') : t('nav.settings')}
-          </Text>
-        ),
+        tabBarLabel: ({ focused }) => {
+          const labelKey = labels[route.name];
+          return labelKey ? (
+            <Text
+              style={{
+                fontFamily: fonts.medium,
+                fontSize: 10,
+                color: focused ? colors.primary : colors.textTertiary,
+                marginTop: 2,
+              }}
+            >
+              {t(labelKey)}
+            </Text>
+          ) : null;
+        },
         tabBarIcon: ({ focused }) => (
           <View
             style={{
@@ -62,7 +73,7 @@ export default function ParentTabLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="children" />
       <Tabs.Screen name="invoices" />
-      <Tabs.Screen name="support" />
+      <Tabs.Screen name="reports" />
       <Tabs.Screen name="profile" />
     </Tabs>
   );

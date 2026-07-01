@@ -100,7 +100,7 @@
     "check_in_now": "تسجيل حضور الآن",
     "check_in_success_title": "تم تسجيل حضورك!",
     "check_in_success_desc": "تم تسجيل حضورك في حصة {{course}} بنجاح",
-    "excuse": "تقديم عذر",
+    "excuse": "عذر غياب",
     "excuse_title": "تقديم عذر غياب",
     "excuse_placeholder": "اكتب سبب الغياب...",
     "excuse_submit": "إرسال العذر",
@@ -186,7 +186,7 @@
     "discover": "اكتشف",
     "home": "الرئيسية",
     "invoices": "الفواتير",
-    "support": "الدعم الفني",
+    "reports": "التقارير",
     "settings": "الإعدادات"
   },
   "search": {
