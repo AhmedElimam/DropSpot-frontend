@@ -3,7 +3,8 @@ import type { Enrollment } from '@/types/enrollment';
 
 export async function getStudentEnrollments(studentId: number): Promise<Enrollment[]> {
   const { data } = await client.get(`/students/${studentId}/enrollments`);
-  return data.data?.map(extract) ?? [];
+  const items = data.data ?? data.enrollments ?? data;
+  return Array.isArray(items) ? items.map(extract) : [];
 }
 
 function extract(item: any): Enrollment {

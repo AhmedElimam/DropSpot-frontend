@@ -1,4 +1,5 @@
 import client from './client';
+import { extractList, extractAttrs } from './utils';
 import type { SessionInstance } from '@/types/session-instance';
 
 export async function getStudentSessions(studentId: number, params?: {
@@ -7,21 +8,21 @@ export async function getStudentSessions(studentId: number, params?: {
   to?: string;
 }): Promise<SessionInstance[]> {
   const { data } = await client.get(`/students/${studentId}/sessions`, { params });
-  return data.data?.map(extractSession) ?? [];
+  return extractList(data, 'sessions').map(extractSession);
 }
 
 export async function getTodayStudentSessions(studentId: number): Promise<SessionInstance[]> {
   const { data } = await client.get(`/students/${studentId}/sessions/today`);
-  return data.data?.map(extractSession) ?? [];
+  return extractList(data, 'sessions').map(extractSession);
 }
 
 export async function getUpcomingStudentSessions(studentId: number, limit = 10): Promise<SessionInstance[]> {
   const { data } = await client.get(`/students/${studentId}/sessions/upcoming`, { params: { limit } });
-  return data.data?.map(extractSession) ?? [];
+  return extractList(data, 'sessions').map(extractSession);
 }
 
 function extractSession(item: any): SessionInstance {
-  const a = item.attributes ?? item;
+  const a = extractAttrs(item);
   return {
     id: parseInt(item.id, 10),
     session_schedule_id: a.session_schedule_id,

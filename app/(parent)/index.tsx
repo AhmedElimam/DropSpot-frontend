@@ -1,28 +1,12 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
+import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
-
-interface Activity {
-  id: string;
-  type: 'absence' | 'grade' | 'invoice' | 'schedule';
-  childName: string;
-  description: string;
-  time: Date;
-  isRead: boolean;
-}
-
-const MOCK_ACTIVITIES: Activity[] = [
-  { id: '1', type: 'absence', childName: 'يوسف أحمد', description: 'غائب عن حصة الرياضيات', time: new Date(Date.now() - 30 * 60000), isRead: false },
-  { id: '2', type: 'grade', childName: 'مريم أحمد', description: 'حصلت على 92% في اختبار الجبر', time: new Date(Date.now() - 2 * 3600000), isRead: false },
-  { id: '3', type: 'absence', childName: 'يوسف أحمد', description: 'غائب عن حصة العلوم', time: new Date(Date.now() - 5 * 3600000), isRead: true },
-  { id: '4', type: 'invoice', childName: '', description: 'فاتورة شهر يوليو مستحقة الدفع', time: new Date(Date.now() - 24 * 3600000), isRead: true },
-  { id: '5', type: 'schedule', childName: 'مريم أحمد', description: 'تم تغيير موعد حصة اللغة العربية', time: new Date(Date.now() - 48 * 3600000), isRead: true },
-  { id: '6', type: 'grade', childName: 'يوسف أحمد', description: 'حصل على 88% في اختبار النحو', time: new Date(Date.now() - 72 * 3600000), isRead: true },
-];
+import { useChildren } from '@/hooks/useChildren';
+import { useNotifications, useUnreadCount } from '@/hooks/useNotifications';
 
 const typeConfig: Record<string, { icon: string; gradient: readonly [string, string] }> = {
   absence: { icon: '⚠️', gradient: ['#EF4444', '#DC2626'] },
@@ -52,7 +36,9 @@ function timeAgo(date: Date): string {
 export default function ParentHome() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
-  const unreadCount = MOCK_ACTIVITIES.filter((a) => !a.isRead).length;
+  const { data: children } = useChildren();
+  const { data: notifications, isLoading: notifLoading } = useNotifications();
+  const { data: unreadCount } = useUnreadCount();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -66,7 +52,7 @@ export default function ParentHome() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>
-                {t('common.greeting', { name: '' })}
+                {t('common.greeting', { name: user?.name || '' })}
               </Text>
               <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: '#fff', letterSpacing: -0.5, marginTop: 2 }}>
                 {user?.name || 'ولي الأمر'}
@@ -84,7 +70,7 @@ export default function ParentHome() {
               >
                 <Text style={{ fontSize: 22 }}>🔔</Text>
               </LinearGradient>
-              {unreadCount > 0 && (
+              {(unreadCount ?? 0) > 0 && (
                 <View style={{ position: 'absolute', top: -4, start: -4, backgroundColor: colors.danger, width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#1E1B4B' }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{unreadCount}</Text>
                 </View>
@@ -94,16 +80,16 @@ export default function ParentHome() {
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>3</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{children?.length ?? 0}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{t('nav.children')}</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{unreadCount}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{unreadCount ?? 0}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{t('notifications.title')}</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>12</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{t('session.today_sessions')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{notifications?.length ?? 0}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{t('activity.title')}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -135,45 +121,40 @@ export default function ParentHome() {
           </View>
 
           <View style={{ gap: spacing.sm }}>
-            {MOCK_ACTIVITIES.map((activity) => {
-              const cfg = typeConfig[activity.type];
-              return (
-                <TouchableOpacity
-                  key={activity.id}
-                  activeOpacity={0.7}
-                  style={{
-                    backgroundColor: colors.white,
-                    borderRadius: radius.xl,
-                    padding: spacing.lg,
-                    ...shadows.sm,
-                    borderStartWidth: 3,
-                    borderStartColor: cfg.gradient[0],
-                    opacity: activity.isRead ? 0.65 : 1,
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <LinearGradient
-                      colors={cfg.gradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={{ width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}
-                    >
-                      <Text style={{ fontSize: 16 }}>{cfg.icon}</Text>
-                    </LinearGradient>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                        {activity.childName ? (
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{activity.childName}</Text>
-                        ) : null}
-                        {!activity.isRead && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: cfg.gradient[0] }} />}
+            {notifLoading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : !notifications?.length ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', padding: spacing.xl }}>
+                {t('notifications.empty')}
+              </Text>
+            ) : (
+              notifications.map((notification: any) => {
+                const cfg = typeConfig[notification.type] || typeConfig.schedule;
+                return (
+                  <TouchableOpacity
+                    key={notification.id}
+                    activeOpacity={0.7}
+                    style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 3, borderStartColor: cfg.gradient[0], opacity: notification.is_read ? 0.65 : 1 }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <LinearGradient colors={cfg.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                        <Text style={{ fontSize: 16 }}>{cfg.icon}</Text>
+                      </LinearGradient>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                          {notification.child_name ? (
+                            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{notification.child_name}</Text>
+                          ) : null}
+                          {!notification.is_read && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: cfg.gradient[0] }} />}
+                        </View>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{notification.description ?? notification.body}</Text>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 4 }}>{timeAgo(new Date(notification.created_at))}</Text>
                       </View>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{activity.description}</Text>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 4 }}>{timeAgo(activity.time)}</Text>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </View>
         </View>
       </ScrollView>

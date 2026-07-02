@@ -1,4 +1,5 @@
 import client from './client';
+import { extractList, extractAttrs } from './utils';
 
 export interface Notification {
   id: number;
@@ -12,7 +13,10 @@ export interface Notification {
 
 export async function getNotifications(params?: { page?: number; per_page?: number }): Promise<Notification[]> {
   const { data } = await client.get('/notifications', { params });
-  return data.data?.map((item: any) => ({ id: parseInt(item.id, 10), ...item.attributes })) ?? [];
+  return extractList(data, 'notifications').map((item: any) => {
+    const attrs = extractAttrs(item);
+    return { id: parseInt(item.id, 10), ...attrs };
+  });
 }
 
 export async function markRead(id: number): Promise<void> {
@@ -25,5 +29,5 @@ export async function markAllRead(): Promise<void> {
 
 export async function getUnreadCount(): Promise<number> {
   const { data } = await client.get('/notifications/unread-count');
-  return data.data.attributes.count;
+  return data.data?.count ?? data.count ?? 0;
 }

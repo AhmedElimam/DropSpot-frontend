@@ -1,19 +1,20 @@
 import client from './client';
+import { extractList, extractAttrs } from './utils';
 import type { Quiz, QuizAttempt } from '@/types/quiz';
 
 export async function getQuizzes(studentId: number): Promise<Quiz[]> {
   const { data } = await client.get(`/students/${studentId}/quizzes`);
-  return data.data?.map(extractQuiz) ?? [];
+  return extractList(data, 'quizzes').map(extractQuiz);
 }
 
 export async function getQuizById(id: number): Promise<Quiz> {
   const { data } = await client.get(`/quizzes/${id}`);
-  return extractQuiz(data.data);
+  return extractQuiz(data.data ?? data);
 }
 
 export async function startAttempt(quizId: number, studentId: number): Promise<QuizAttempt> {
   const { data } = await client.post(`/quiz-attempts`, { quiz_id: quizId, student_id: studentId, action: 'start' });
-  return data.data.attributes;
+  return extractAttrs(data.data ?? data);
 }
 
 export async function submitAttempt(
@@ -21,11 +22,11 @@ export async function submitAttempt(
   answers: Record<string, string | string[]>
 ): Promise<QuizAttempt> {
   const { data } = await client.put(`/quiz-attempts/${attemptId}`, { answers, action: 'submit' });
-  return data.data.attributes;
+  return extractAttrs(data.data ?? data);
 }
 
 function extractQuiz(item: any): Quiz {
-  const a = item.attributes ?? item;
+  const a = extractAttrs(item);
   return {
     id: parseInt(item.id, 10),
     title: a.title,

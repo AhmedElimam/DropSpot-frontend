@@ -65,7 +65,9 @@ export default function LoginScreen() {
               {loginMutation.isError && (
                 <View style={{ backgroundColor: 'rgba(239,68,68,0.12)', padding: spacing.md, borderRadius: radius.md, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(239,68,68,0.15)' }}>
                   <Text style={{ fontSize: 14, marginEnd: spacing.sm }}>{'⚠️'}</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: '#FCA5A5', flex: 1 }}>{t('auth.invalid_credentials')}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: '#FCA5A5', flex: 1 }}>
+                    {(loginMutation.error as any)?.response?.data?.message || (loginMutation.error as any)?.message || t('auth.invalid_credentials')}
+                  </Text>
                 </View>
               )}
 

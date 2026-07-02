@@ -2,9 +2,11 @@ import { View, Text, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
+import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { useLogout } from '@/hooks/useAuth';
+import { useChildren } from '@/hooks/useChildren';
+import { formatDate } from '@/utils/format';
 import { useState } from 'react';
 
 interface SettingItem {
@@ -29,6 +31,7 @@ export default function ParentSettings() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
+  const { data: children } = useChildren();
   const [notifEnabled, setNotifEnabled] = useState(true);
 
   return (
@@ -100,11 +103,13 @@ export default function ParentSettings() {
             </Text>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm }}>
               <Text style={textPresets.bodySmall}>{t('profile.member_since')}</Text>
-              <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>يناير 2026</Text>
+              <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>
+                {user?.created_at ? formatDate(new Date(user.created_at), { month: 'long', year: 'numeric' }) : '-'}
+              </Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm }}>
               <Text style={textPresets.bodySmall}>{t('parent.my_children')}</Text>
-              <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>2</Text>
+              <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>{children?.length ?? 0}</Text>
             </View>
           </View>
 

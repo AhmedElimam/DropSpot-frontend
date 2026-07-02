@@ -5,7 +5,7 @@ import type { SessionInstance } from '@/types/session-instance';
 
 function useStudentId(): number {
   const user = useAuthStore((s) => s.user);
-  return user?.id ?? 0;
+  return user?.student_id ?? user?.id ?? 0;
 }
 
 export function useTodaySessions() {

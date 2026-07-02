@@ -6,6 +6,7 @@ export interface User {
   phone: string | null;
   email_verified_at: string | null;
   created_at: string;
+  student_id?: number | null;
 }
 
 export interface AuthTokens {
@@ -18,6 +19,11 @@ export interface LoginPayload {
   password: string;
   device_token?: string;
   platform?: 'ios' | 'android' | 'web';
+}
+
+export interface AuthResponse {
+  user: User;
+  tokens: AuthTokens;
 }
 
 export interface LoginResponse {

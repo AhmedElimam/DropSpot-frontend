@@ -10,10 +10,12 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   setTokens: (access: string, refresh: string) => Promise<void>;
-  setSession: (user: User, role: UserRole) => void;
+  setSession: (user: User, role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   hydrate: () => Promise<void>;
 }
+
+const SESSION_KEY = 'session_data';
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
@@ -21,7 +23,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   isLoading: true,
 
-  setSession: (user, role) => set({ user, role, isAuthenticated: true }),
+  setSession: async (user, role) => {
+    await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify({ user, role }));
+    set({ user, role, isAuthenticated: true });
+  },
 
   setTokens: async (access, refresh) => {
     await SecureStore.setItemAsync('access_token', access);
@@ -31,13 +36,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     await SecureStore.deleteItemAsync('access_token');
     await SecureStore.deleteItemAsync('refresh_token');
+    await SecureStore.deleteItemAsync(SESSION_KEY);
     set({ user: null, role: null, isAuthenticated: false });
   },
 
   hydrate: async () => {
     try {
       const token = await SecureStore.getItemAsync('access_token');
-      if (token) set({ isAuthenticated: true });
+      const sessionRaw = await SecureStore.getItemAsync(SESSION_KEY);
+      if (token && sessionRaw) {
+        const { user, role } = JSON.parse(sessionRaw);
+        set({ user, role, isAuthenticated: true });
+      } else if (token) {
+        set({ isAuthenticated: true });
+      }
     } catch {
       set({ isAuthenticated: false });
     } finally {

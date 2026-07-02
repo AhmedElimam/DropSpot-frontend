@@ -1,10 +1,12 @@
 import '../src/i18n';
-import { I18nManager } from 'react-native';
+import { I18nManager, View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/authStore';
+import { colors } from '@/theme/index';
 
 I18nManager.forceRTL(true);
 
@@ -18,6 +20,25 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function HydrateGate({ children }: { children: React.ReactNode }) {
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const hydrate = useAuthStore((s) => s.hydrate);
+
+  useEffect(() => {
+    hydrate();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return <>{children}</>;
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -36,7 +57,9 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Stack screenOptions={{ headerShown: false }} />
+      <HydrateGate>
+        <Stack screenOptions={{ headerShown: false }} />
+      </HydrateGate>
     </QueryClientProvider>
   );
 }

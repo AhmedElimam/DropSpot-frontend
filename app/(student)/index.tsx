@@ -1,17 +1,13 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
+import { useTodaySessions } from '@/hooks/useSessions';
+import { useCoverageStats } from '@/hooks/useAttendance';
 import { formatDate, formatTime } from '@/utils/format';
-
-const MOCK_SESSIONS = [
-  { id: '1', course_name: 'الرياضيات', teacher_name: 'أحمد محمد', time: '10:00', duration: 90, status: 'scheduled' as const, location: 'قاعة 3' },
-  { id: '2', course_name: 'العلوم', teacher_name: 'سارة علي', time: '12:30', duration: 90, status: 'scheduled' as const, location: 'معمل العلوم' },
-  { id: '3', course_name: 'اللغة العربية', teacher_name: 'خالد حسن', time: '14:00', duration: 60, status: 'completed' as const, location: 'قاعة 1' },
-];
 
 const statusDot: Record<string, string> = {
   live: colors.success,
@@ -23,6 +19,11 @@ const statusDot: Record<string, string> = {
 export default function StudentDashboard() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
+  const { data: sessions, isLoading: sessionsLoading } = useTodaySessions();
+  const { data: stats } = useCoverageStats();
+
+  const total = stats?.total ?? 0;
+  const pct = total > 0 ? Math.round(((stats?.present ?? 0) + (stats?.late ?? 0)) / total * 100) : 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -42,15 +43,15 @@ export default function StudentDashboard() {
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{MOCK_SESSIONS.length}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{sessions?.length ?? 0}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('session.today_sessions')}</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>2</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{sessions?.filter((s) => s.status === 'scheduled').length ?? 0}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('session.upcoming_sessions')}</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>1</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{stats?.absent ?? 0}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('attendance.absent')}</Text>
             </View>
           </View>
@@ -92,77 +93,82 @@ export default function StudentDashboard() {
             </TouchableOpacity>
           </View>
 
-          {MOCK_SESSIONS.map((session) => {
-            const endTime = new Date();
-            const [h, m] = session.time.split(':').map(Number);
-            endTime.setHours(h, m + session.duration);
-            return (
-              <TouchableOpacity
-                key={session.id}
-                onPress={() => router.navigate('/(student)/check-in')}
-                activeOpacity={0.7}
-                style={{
-                  backgroundColor: colors.white,
-                  borderRadius: radius.xl,
-                  padding: spacing.xl,
-                  ...shadows.md,
-                  borderStartWidth: 4,
-                  borderStartColor: statusDot[session.status] || colors.border,
-                }}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={textPresets.subtitle}>{session.course_name}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs, gap: spacing.sm }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 12, color: colors.textTertiary, marginEnd: 4 }}>{'👤'}</Text>
-                        <Text style={textPresets.bodySmall}>{session.teacher_name}</Text>
-                      </View>
-                      <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.border }} />
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 12, color: colors.textTertiary, marginEnd: 4 }}>{'📍'}</Text>
-                        <Text style={textPresets.bodySmall}>{session.location}</Text>
+          {sessionsLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ paddingVertical: spacing.xl }} />
+          ) : (sessions ?? []).length === 0 ? (
+            <Text style={[textPresets.bodySmall, { color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }]}>{t('session.no_sessions')}</Text>
+          ) : (
+            (sessions ?? []).map((session) => {
+              const start = new Date(session.scheduled_at);
+              const end = new Date(start.getTime() + session.duration_minutes * 60000);
+              return (
+                <TouchableOpacity
+                  key={session.id}
+                  onPress={() => router.navigate('/(student)/check-in')}
+                  activeOpacity={0.7}
+                  style={{
+                    backgroundColor: colors.white,
+                    borderRadius: radius.xl,
+                    padding: spacing.xl,
+                    ...shadows.md,
+                    borderStartWidth: 4,
+                    borderStartColor: statusDot[session.status] || colors.border,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={textPresets.subtitle}>{session.course_name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs, gap: spacing.sm }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 12, color: colors.textTertiary, marginEnd: 4 }}>{'👤'}</Text>
+                          <Text style={textPresets.bodySmall}>{session.teacher_name}</Text>
+                        </View>
+                        <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.border }} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 12, color: colors.textTertiary, marginEnd: 4 }}>{'📍'}</Text>
+                          <Text style={textPresets.bodySmall}>{session.location}</Text>
+                        </View>
                       </View>
                     </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: statusDot[session.status] + '18', paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full }}>
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusDot[session.status], marginEnd: 6 }} />
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: statusDot[session.status] }}>
+                        {session.status === 'completed' ? t('session.completed') : t('session.scheduled')}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: statusDot[session.status] + '18', paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full }}>
-                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusDot[session.status], marginEnd: 6 }} />
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: statusDot[session.status] }}>
-                      {session.status === 'completed' ? t('session.completed') : t('session.scheduled')}
-                    </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, gap: spacing.md }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryLight, paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.md }}>
+                      <Text style={{ fontSize: 12, color: colors.textTertiary, marginEnd: 6 }}>{'🕐'}</Text>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.primary }}>
+                        {formatTime(start)} - {formatTime(end)}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, gap: spacing.md }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryLight, paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.md }}>
-                    <Text style={{ fontSize: 12, color: colors.textTertiary, marginEnd: 6 }}>{'🕐'}</Text>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.primary }}>
-                      {formatTime(new Date(2026, 5, 30, h, m))} - {formatTime(endTime)}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+                </TouchableOpacity>
+              );
+            })
+          )}
 
           <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
             <Text style={textPresets.h3}>{t('attendance.attendance_rate')}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, gap: spacing.md }}>
               <View style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.borderLight, overflow: 'hidden' }}>
-                <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: '85%', height: '100%', borderRadius: 4 }} />
+                <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${pct}%`, height: '100%', borderRadius: 4 }} />
               </View>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>85%</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>{pct}%</Text>
             </View>
             <View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.md }}>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.success }}>12</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.success }}>{stats?.present ?? 0}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>{t('attendance.present')}</Text>
               </View>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.warningLight, borderRadius: radius.md, padding: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.warning }}>2</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.warning }}>{stats?.excused ?? 0}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>{t('attendance.excused')}</Text>
               </View>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.danger }}>1</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.danger }}>{stats?.absent ?? 0}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>{t('attendance.absent')}</Text>
               </View>
             </View>

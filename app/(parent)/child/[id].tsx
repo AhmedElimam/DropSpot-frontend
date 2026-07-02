@@ -1,64 +1,14 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal, FlatList, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
-
-const MOCK_CHILDREN = [
-  {
-    id: '1', name: 'يوسف أحمد', grade: 'الصف الثالث الإعدادي', studentCode: 'STU-2024001',
-    attendanceRate: 92, present: 22, absent: 2, excused: 1,
-    grades: [
-      { course: 'الرياضيات', score: 95, max: 100 },
-      { course: 'العلوم', score: 88, max: 100 },
-      { course: 'اللغة العربية', score: 92, max: 100 },
-      { course: 'اللغة الإنجليزية', score: 85, max: 100 },
-      { course: 'التربية الإسلامية', score: 98, max: 100 },
-    ],
-    recentSessions: [
-      { date: '2026-06-28', course: 'الرياضيات', status: 'present' as const },
-      { date: '2026-06-26', course: 'العلوم', status: 'present' as const },
-      { date: '2026-06-24', course: 'اللغة العربية', status: 'absent' as const },
-      { date: '2026-06-22', course: 'الرياضيات', status: 'present' as const },
-    ],
-  },
-  {
-    id: '2', name: 'مريم أحمد', grade: 'الصف الأول الإعدادي', studentCode: 'STU-2024002',
-    attendanceRate: 88, present: 15, absent: 4, excused: 2,
-    grades: [
-      { course: 'الرياضيات', score: 90, max: 100 },
-      { course: 'العلوم', score: 82, max: 100 },
-      { course: 'اللغة العربية', score: 95, max: 100 },
-      { course: 'اللغة الإنجليزية', score: 78, max: 100 },
-      { course: 'التربية الإسلامية', score: 91, max: 100 },
-    ],
-    recentSessions: [
-      { date: '2026-06-28', course: 'الرياضيات', status: 'present' as const },
-      { date: '2026-06-26', course: 'العلوم', status: 'absent' as const },
-      { date: '2026-06-24', course: 'اللغة العربية', status: 'present' as const },
-      { date: '2026-06-22', course: 'الرياضيات', status: 'late' as const },
-    ],
-  },
-  {
-    id: '3', name: 'سارة أحمد', grade: 'الصف الثاني الإعدادي', studentCode: 'STU-2024003',
-    attendanceRate: 95, present: 19, absent: 1, excused: 0,
-    grades: [
-      { course: 'الرياضيات', score: 98, max: 100 },
-      { course: 'العلوم', score: 94, max: 100 },
-      { course: 'اللغة العربية', score: 96, max: 100 },
-      { course: 'اللغة الإنجليزية', score: 92, max: 100 },
-      { course: 'التربية الإسلامية', score: 97, max: 100 },
-    ],
-    recentSessions: [
-      { date: '2026-06-28', course: 'الرياضيات', status: 'present' as const },
-      { date: '2026-06-26', course: 'العلوم', status: 'present' as const },
-      { date: '2026-06-24', course: 'اللغة العربية', status: 'present' as const },
-      { date: '2026-06-22', course: 'الرياضيات', status: 'present' as const },
-    ],
-  },
-];
+import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
+import { useChildren } from '@/hooks/useChildren';
+import { getStudentCoverage, getAttendanceRecords } from '@/api/attendance';
+import { getStudentGrades } from '@/api/grades';
 
 const statusColors: Record<string, string> = {
   present: colors.success,
@@ -71,18 +21,62 @@ type TabKey = 'attendance' | 'grades' | 'settings';
 
 export default function ChildDetailScreen() {
   const { t } = useTranslation();
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const params = useLocalSearchParams<{ id: string }>();
+  const { data: children, isLoading: childrenLoading } = useChildren();
   const [activeTab, setActiveTab] = useState<TabKey>('attendance');
   const [showPicker, setShowPicker] = useState(false);
 
-  const child = MOCK_CHILDREN[selectedIndex];
-  const avgGrade = child.grades.reduce((s, g) => s + g.score / g.max * 100, 0) / child.grades.length;
+  const selectedIndex = Math.max(0, (children ?? []).findIndex((c) => c.id === params.id));
+  const child = (children ?? [])[selectedIndex];
+
+  const { data: coverage, isLoading: coverageLoading } = useQuery({
+    queryKey: ['attendance', 'stats', child?.student_id],
+    queryFn: () => getStudentCoverage(child!.student_id),
+    enabled: !!child,
+  });
+
+  const { data: grades, isLoading: gradesLoading } = useQuery({
+    queryKey: ['grades', child?.student_id],
+    queryFn: () => getStudentGrades(child!.student_id),
+    enabled: !!child,
+  });
+
+  const { data: records, isLoading: recordsLoading } = useQuery({
+    queryKey: ['attendance', 'records', child?.student_id],
+    queryFn: () => getAttendanceRecords(child!.student_id),
+    enabled: !!child,
+  });
+
+  const present = coverage?.present ?? 0;
+  const absent = coverage?.absent ?? 0;
+  const excused = coverage?.excused ?? 0;
+  const total = present + absent + excused;
+  const attendanceRate = total > 0 ? Math.round((present / total) * 100) : 0;
+  const avgGrade = grades && grades.length > 0
+    ? Math.round(grades.reduce((s, g) => s + g.percentage, 0) / grades.length)
+    : 0;
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'attendance', label: t('reports.attendance') },
     { key: 'grades', label: t('reports.grades') },
     { key: 'settings', label: t('nav.settings') },
   ];
+
+  if (childrenLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!child) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary }}>{t('common.not_found')}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -121,21 +115,23 @@ export default function ChildDetailScreen() {
             </LinearGradient>
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{child.name}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{child.grade} · {child.studentCode}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>
+                {child.grade ?? ''}{child.student_code ? ` · ${child.student_code}` : ''}
+              </Text>
             </View>
           </View>
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{child.attendanceRate}%</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{attendanceRate}%</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('attendance.attendance_rate')}</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{Math.round(avgGrade)}%</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{avgGrade}%</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('quiz.avg_score')}</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{child.absent}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{absent}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('attendance.absent')}</Text>
             </View>
           </View>
@@ -148,11 +144,8 @@ export default function ChildDetailScreen() {
                 key={tab.key}
                 onPress={() => setActiveTab(tab.key)}
                 style={{
-                  flex: 1,
-                  paddingVertical: spacing.sm,
-                  borderRadius: radius.md - 2,
-                  backgroundColor: activeTab === tab.key ? colors.white : 'transparent',
-                  alignItems: 'center',
+                  flex: 1, paddingVertical: spacing.sm, borderRadius: radius.md - 2,
+                  backgroundColor: activeTab === tab.key ? colors.white : 'transparent', alignItems: 'center',
                   ...(activeTab === tab.key ? shadows.sm : {}),
                 }}
               >
@@ -171,35 +164,49 @@ export default function ChildDetailScreen() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
                   <Text style={textPresets.h3}>{t('attendance.attendance_summary')}</Text>
                 </View>
-                <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg }}>
-                  <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.success }}>{child.present}</Text>
-                    <Text style={textPresets.caption}>{t('attendance.present')}</Text>
-                  </View>
-                  <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.md }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.danger }}>{child.absent}</Text>
-                    <Text style={textPresets.caption}>{t('attendance.absent')}</Text>
-                  </View>
-                  <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.warningLight, borderRadius: radius.md, padding: spacing.md }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.warning }}>{child.excused}</Text>
-                    <Text style={textPresets.caption}>{t('attendance.excused')}</Text>
-                  </View>
-                </View>
-                <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.borderLight, marginBottom: spacing.lg, overflow: 'hidden' }}>
-                  <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${child.attendanceRate}%`, height: '100%', borderRadius: 4 }} />
-                </View>
+                {coverageLoading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <>
+                    <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg }}>
+                      <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.success }}>{present}</Text>
+                        <Text style={textPresets.caption}>{t('attendance.present')}</Text>
+                      </View>
+                      <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.md }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.danger }}>{absent}</Text>
+                        <Text style={textPresets.caption}>{t('attendance.absent')}</Text>
+                      </View>
+                      <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.warningLight, borderRadius: radius.md, padding: spacing.md }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.warning }}>{excused}</Text>
+                        <Text style={textPresets.caption}>{t('attendance.excused')}</Text>
+                      </View>
+                    </View>
+                    <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.borderLight, marginBottom: spacing.lg, overflow: 'hidden' }}>
+                      <LinearGradient colors={['#6366F1', '#8B5CF6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${attendanceRate}%`, height: '100%', borderRadius: 4 }} />
+                    </View>
+                  </>
+                )}
                 <Text style={[textPresets.bodySmall, { marginBottom: spacing.sm }]}>{t('session.your_sessions')}</Text>
-                {child.recentSessions.map((s, i) => (
-                  <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: i < child.recentSessions.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
-                    <View>
-                      <Text style={textPresets.body}>{s.course}</Text>
-                      <Text style={textPresets.caption}>{s.date}</Text>
+                {recordsLoading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : !records?.length ? (
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'center', padding: spacing.md }}>
+                    {t('common.no_data')}
+                  </Text>
+                ) : (
+                  records.slice(0, 10).map((s, i) => (
+                    <View key={s.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: i < Math.min(records.length, 10) - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                      <View>
+                        <Text style={textPresets.body}>{s.course_name ?? `#${s.session_instance_id}`}</Text>
+                        <Text style={textPresets.caption}>{s.session_time ?? ''}</Text>
+                      </View>
+                      <View style={{ backgroundColor: statusColors[s.status] + '20', paddingVertical: 2, paddingHorizontal: 10, borderRadius: radius.full }}>
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: statusColors[s.status] }}>{t(`attendance.${s.status}`)}</Text>
+                      </View>
                     </View>
-                    <View style={{ backgroundColor: statusColors[s.status] + '20', paddingVertical: 2, paddingHorizontal: 10, borderRadius: radius.full }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: statusColors[s.status] }}>{t(`attendance.${s.status}`)}</Text>
-                    </View>
-                  </View>
-                ))}
+                  ))
+                )}
               </View>
             </>
           )}
@@ -210,26 +217,33 @@ export default function ChildDetailScreen() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
                   <Text style={textPresets.h3}>{t('reports.grades')}</Text>
                 </View>
-                <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.borderLight, marginBottom: spacing.lg, overflow: 'hidden' }}>
-                  <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${avgGrade}%`, height: '100%', borderRadius: 4 }} />
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 36, color: colors.primary }}>{Math.round(avgGrade)}%</Text>
-                  <Text style={[textPresets.bodySmall, { marginStart: spacing.sm }]}>{t('quiz.avg_score')}</Text>
-                </View>
-                {child.grades.map((g, i) => {
-                  const pct = g.score / g.max * 100;
-                  return (
-                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: i < child.grades.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
-                      <Text style={[textPresets.body, { flex: 1 }]}>{g.course}</Text>
-                      <View style={{ width: 80, height: 6, borderRadius: 3, backgroundColor: colors.borderLight, marginEnd: spacing.md, overflow: 'hidden' }}>
-                        <LinearGradient colors={pct >= 90 ? gradients.success : pct >= 75 ? gradients.primary : gradients.warm} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${pct}%`, height: '100%', borderRadius: 3 }} />
-                      </View>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: pct >= 90 ? colors.success : pct >= 75 ? colors.primary : colors.warning }}>{g.score}</Text>
-                      <Text style={textPresets.caption}>/{g.max}</Text>
+                {gradesLoading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : !grades?.length ? (
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'center', padding: spacing.md }}>
+                    {t('common.no_data')}
+                  </Text>
+                ) : (
+                  <>
+                    <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.borderLight, marginBottom: spacing.lg, overflow: 'hidden' }}>
+                      <LinearGradient colors={['#6366F1', '#8B5CF6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${avgGrade}%`, height: '100%', borderRadius: 4 }} />
                     </View>
-                  );
-                })}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 36, color: colors.primary }}>{avgGrade}%</Text>
+                      <Text style={[textPresets.bodySmall, { marginStart: spacing.sm }]}>{t('quiz.avg_score')}</Text>
+                    </View>
+                    {grades.map((g, i) => (
+                      <View key={g.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: i < grades.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                        <Text style={[textPresets.body, { flex: 1 }]}>{g.course_name ?? g.quiz_title ?? `Quiz #${g.quiz_id}`}</Text>
+                        <View style={{ width: 80, height: 6, borderRadius: 3, backgroundColor: colors.borderLight, marginEnd: spacing.md, overflow: 'hidden' }}>
+                          <LinearGradient colors={g.percentage >= 90 ? ['#10B981', '#059669'] : g.percentage >= 75 ? ['#6366F1', '#8B5CF6'] : ['#F59E0B', '#D97706']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${g.percentage}%`, height: '100%', borderRadius: 3 }} />
+                        </View>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: g.percentage >= 90 ? colors.success : g.percentage >= 75 ? colors.primary : colors.warning }}>{g.score ?? 0}</Text>
+                        <Text style={textPresets.caption}>/{g.max_score}</Text>
+                      </View>
+                    ))}
+                  </>
+                )}
               </View>
             </>
           )}
@@ -241,11 +255,11 @@ export default function ChildDetailScreen() {
                 <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
                     <Text style={textPresets.body}>{t('child_settings.student_code')}</Text>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.primary }}>{child.studentCode}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.primary }}>{child.student_code ?? '-'}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
                     <Text style={textPresets.body}>{t('child_settings.grade_level')}</Text>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{child.grade}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{child.grade ?? '-'}</Text>
                   </View>
                 </View>
               </View>
@@ -303,11 +317,11 @@ export default function ChildDetailScreen() {
               <Text style={[textPresets.h3, { textAlign: 'center' }]}>{t('child_settings.switch_child')}</Text>
             </View>
             <FlatList
-              data={MOCK_CHILDREN}
+              data={children ?? []}
               keyExtractor={(item) => item.id}
               renderItem={({ item, index }) => (
                 <TouchableOpacity
-                  onPress={() => { setSelectedIndex(index); setShowPicker(false); }}
+                  onPress={() => { router.replace(`/(parent)/child/${item.id}`); setShowPicker(false); }}
                   style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: index === selectedIndex ? colors.primaryLight : 'transparent' }}
                 >
                   <LinearGradient colors={['#6366F1', '#8B5CF6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}>

@@ -2,9 +2,12 @@ import { View, Text, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
+import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { useLogout } from '@/hooks/useAuth';
+import { useCoverageStats } from '@/hooks/useAttendance';
+import { useQuizzes } from '@/hooks/useQuizzes';
+import { formatDate } from '@/utils/format';
 import { useState } from 'react';
 
 interface SettingItem {
@@ -29,7 +32,13 @@ export default function StudentProfile() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
+  const { data: coverage } = useCoverageStats();
+  const { data: quizzes } = useQuizzes();
   const [notifEnabled, setNotifEnabled] = useState(true);
+
+  const sessionsAttended = coverage ? coverage.present + coverage.late : 0;
+  const quizzesCompleted = (quizzes ?? []).filter((q: any) => q.status === 'completed').length;
+  const avgScore = coverage && coverage.total > 0 ? Math.round(((coverage.present + coverage.late) / coverage.total) * 100) : 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -100,19 +109,21 @@ export default function StudentProfile() {
             </Text>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm }}>
               <Text style={textPresets.bodySmall}>{t('profile.member_since')}</Text>
-              <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>يناير 2026</Text>
+              <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>
+                {user?.created_at ? formatDate(new Date(user.created_at), { month: 'long', year: 'numeric' }) : '-'}
+              </Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm }}>
               <Text style={textPresets.bodySmall}>{t('profile.sessions_attended')}</Text>
-              <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>12</Text>
+              <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>{sessionsAttended}</Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm }}>
               <Text style={textPresets.bodySmall}>{t('profile.quizzes_completed')}</Text>
-              <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>5</Text>
+              <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>{quizzesCompleted}</Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm }}>
               <Text style={textPresets.bodySmall}>{t('profile.avg_score')}</Text>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>88%</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{avgScore}%</Text>
             </View>
           </View>
 

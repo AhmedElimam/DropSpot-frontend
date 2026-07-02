@@ -1,4 +1,5 @@
 import client from './client';
+import { extractList, extractAttrs } from './utils';
 import type { AttendanceRecord, AbsenceExcuse, AttendanceStatus } from '@/types/attendance';
 
 export async function getAttendanceRecords(studentId: number, params?: {
@@ -6,7 +7,7 @@ export async function getAttendanceRecords(studentId: number, params?: {
   to?: string;
 }): Promise<AttendanceRecord[]> {
   const { data } = await client.get(`/students/${studentId}/attendance`, { params });
-  return data.data?.map(extractRecord) ?? [];
+  return extractList(data, 'attendance').map(extractRecord);
 }
 
 export async function checkIn(sessionInstanceId: number, studentId: number): Promise<AttendanceRecord> {
@@ -15,7 +16,7 @@ export async function checkIn(sessionInstanceId: number, studentId: number): Pro
     student_id: studentId,
     method: 'manual',
   });
-  return extractRecord(data.data);
+  return extractRecord(extractAttrs(data.data ?? data));
 }
 
 export async function submitExcuse(
@@ -26,12 +27,12 @@ export async function submitExcuse(
     attendance_record_id: attendanceRecordId,
     reason,
   });
-  return data.data.attributes;
+  return extractAttrs(data.data ?? data);
 }
 
 export async function getSessionAttendance(sessionInstanceId: number): Promise<AttendanceRecord[]> {
   const { data } = await client.get(`/session-instances/${sessionInstanceId}/attendance`);
-  return data.data?.map(extractRecord) ?? [];
+  return extractList(data, 'attendance').map(extractRecord);
 }
 
 export async function getStudentCoverage(studentId: number): Promise<{
@@ -42,13 +43,13 @@ export async function getStudentCoverage(studentId: number): Promise<{
   total: number;
 }> {
   const { data } = await client.get(`/students/${studentId}/attendance/stats`);
-  return data.data.attributes;
+  return extractAttrs(data.data ?? data);
 }
 
 function extractRecord(item: any): AttendanceRecord {
-  const a = item.attributes ?? item;
+  const a = extractAttrs(item);
   return {
-    id: parseInt(item.id, 10),
+    id: item.id ? parseInt(item.id, 10) : 0,
     session_instance_id: a.session_instance_id,
     student_id: a.student_id,
     status: a.status,

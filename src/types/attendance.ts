@@ -1,5 +1,5 @@
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
-export type CheckInMethod = 'qr' | 'gps' | 'manual';
+export type CheckInMethod = 'gps' | 'manual';
 
 export interface AttendanceRecord {
   id: number;

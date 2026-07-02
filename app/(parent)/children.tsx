@@ -1,15 +1,10 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
-
-const MOCK_CHILDREN = [
-  { id: '1', name: 'يوسف أحمد', grade: 'الصف الثالث الإعدادي', attendanceRate: 92, sessions: 24, absent: 2 },
-  { id: '2', name: 'مريم أحمد', grade: 'الصف الأول الإعدادي', attendanceRate: 88, sessions: 18, absent: 4 },
-  { id: '3', name: 'سارة أحمد', grade: 'الصف الثاني الإعدادي', attendanceRate: 95, sessions: 20, absent: 1 },
-];
+import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
+import { useChildren } from '@/hooks/useChildren';
 
 const childGradients = [
   ['#6366F1', '#8B5CF6'] as const,
@@ -19,6 +14,33 @@ const childGradients = [
 
 export default function ChildrenList() {
   const { t } = useTranslation();
+  const { data: children, isLoading, isError } = useChildren();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+        <Text style={{ fontSize: 40, marginBottom: spacing.md }}>{'⚠️'}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.danger, textAlign: 'center' }}>{t('common.error')}</Text>
+      </View>
+    );
+  }
+
+  if (!children || children.length === 0) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+        <Text style={{ fontSize: 40, marginBottom: spacing.md }}>{'👨‍👩‍👧‍👦'}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>{t('children.no_children')}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -35,7 +57,7 @@ export default function ChildrenList() {
                 {t('parent.my_children')}
               </Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
-                {MOCK_CHILDREN.length} {t('common.all')}
+                {children.length} {t('common.all')}
               </Text>
             </View>
             <LinearGradient
@@ -50,19 +72,15 @@ export default function ChildrenList() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
-          {MOCK_CHILDREN.map((child, index) => {
+          {children.map((child, index) => {
             const cg = childGradients[index % childGradients.length];
+            const rate = child.attendance_rate ?? 0;
             return (
               <TouchableOpacity
                 key={child.id}
                 onPress={() => router.push(`/(parent)/child/${child.id}`)}
                 activeOpacity={0.7}
-                style={{
-                  backgroundColor: colors.white,
-                  borderRadius: radius.xl,
-                  overflow: 'hidden',
-                  ...shadows.md,
-                }}
+                style={{ backgroundColor: colors.white, borderRadius: radius.xl, overflow: 'hidden', ...shadows.md }}
               >
                 <LinearGradient
                   colors={['rgba(99,102,241,0.03)', 'transparent']}
@@ -75,7 +93,7 @@ export default function ChildrenList() {
                       colors={cg}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
-                      style={{ width: 52, height: 52, borderRadius: 18, justifyContent: 'center', alignItems: 'center', ...shadows.glow }}
+                      style={{ width: 52, height: 52, borderRadius: 18, justifyContent: 'center', alignItems: 'center' }}
                     >
                       <Text style={{ fontSize: 22, color: '#fff' }}>{(child.name || '?')[0]}</Text>
                     </LinearGradient>
@@ -88,32 +106,17 @@ export default function ChildrenList() {
                   <View style={{ marginTop: spacing.md }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
                       <Text style={textPresets.caption}>{t('attendance.attendance_rate')}</Text>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: child.attendanceRate >= 90 ? colors.success : child.attendanceRate >= 75 ? colors.primary : colors.warning }}>
-                        {child.attendanceRate}%
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: rate >= 90 ? colors.success : rate >= 75 ? colors.primary : colors.warning }}>
+                        {rate}%
                       </Text>
                     </View>
                     <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.borderLight, overflow: 'hidden' }}>
                       <LinearGradient
-                        colors={child.attendanceRate >= 90 ? gradients.success : child.attendanceRate >= 75 ? gradients.primary : gradients.warm}
+                        colors={rate >= 90 ? ['#10B981', '#059669'] : rate >= 75 ? ['#6366F1', '#8B5CF6'] : ['#F59E0B', '#D97706']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
-                        style={{ width: `${child.attendanceRate}%`, height: '100%', borderRadius: 4 }}
+                        style={{ width: `${rate}%`, height: '100%', borderRadius: 4 }}
                       />
-                    </View>
-                  </View>
-
-                  <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.sm }}>
-                    <View style={{ flex: 1, backgroundColor: colors.primaryLight, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.primary }}>{child.sessions}</Text>
-                      <Text style={textPresets.caption}>{t('session.today_sessions')}</Text>
-                    </View>
-                    <View style={{ flex: 1, backgroundColor: colors.dangerLight, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger }}>{child.absent}</Text>
-                      <Text style={textPresets.caption}>{t('attendance.absent')}</Text>
-                    </View>
-                    <View style={{ flex: 1, backgroundColor: colors.warningLight, borderRadius: radius.md, paddingVertical: spacing.sm, alignItems: 'center' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.warning }}>{child.sessions + child.absent}</Text>
-                      <Text style={textPresets.caption}>إجمالي</Text>
                     </View>
                   </View>
 
