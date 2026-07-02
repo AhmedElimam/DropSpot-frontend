@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const icons: Record<string, string> = {
   index: '🏠',
@@ -14,6 +15,7 @@ const icons: Record<string, string> = {
 
 export default function StudentTabLayout() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
 
@@ -41,8 +43,8 @@ export default function StudentTabLayout() {
           backgroundColor: 'rgba(255,255,255,0.92)',
           borderTopWidth: 0,
           paddingTop: 8,
-          paddingBottom: 10,
-          height: 64,
+          paddingBottom: 10 + insets.bottom,
+          height: 64 + insets.bottom,
           position: 'absolute',
           bottom: 0,
           left: 0,

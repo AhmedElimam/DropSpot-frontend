@@ -8,6 +8,8 @@ export interface Invoice {
   due_date: string;
   status: 'paid' | 'pending' | 'overdue';
   items: string[];
+  student_name?: string;
+  teacher_name?: string;
 }
 
 export async function getInvoices(): Promise<Invoice[]> {

@@ -5,18 +5,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients } from '@/theme/index';
 import { useLogin } from '@/hooks/useAuth';
+import { router } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const { t } = useTranslation();
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const loginMutation = useLogin();
 
   const handleLogin = () => {
-    if (!email || !password) return;
-    loginMutation.mutate({ email, password });
+    if (!phone || !password) return;
+    loginMutation.mutate({ phone_number: phone, password });
   };
 
   return (
@@ -71,14 +72,14 @@ export default function LoginScreen() {
                 </View>
               )}
 
-              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: spacing.sm }}>{t('auth.email')}</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: spacing.sm }}>{t('auth.phone')}</Text>
               <TextInput
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
                 autoCapitalize="none"
                 autoCorrect={false}
-                placeholder="student@drosspot.com"
+                placeholder="01000000000"
                 placeholderTextColor="rgba(255,255,255,0.25)"
                 style={{
                   fontFamily: fonts.regular,
@@ -90,7 +91,7 @@ export default function LoginScreen() {
                   color: '#fff',
                   textAlign: 'right',
                   borderWidth: 1.5,
-                  borderColor: email ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.08)',
+                  borderColor: phone ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.08)',
                 }}
               />
 
@@ -117,9 +118,9 @@ export default function LoginScreen() {
 
               <TouchableOpacity
                 onPress={handleLogin}
-                disabled={!email || !password || loginMutation.isPending}
+                disabled={!phone || !password || loginMutation.isPending}
                 activeOpacity={0.85}
-                style={{ borderRadius: radius.md, overflow: 'hidden', opacity: !email || !password ? 0.5 : 1 }}
+                style={{ borderRadius: radius.md, overflow: 'hidden', opacity: !phone || !password ? 0.5 : 1 }}
               >
                 <LinearGradient
                   colors={gradients.primary}
@@ -140,9 +141,9 @@ export default function LoginScreen() {
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>
                 {t('auth.no_account')}
               </Text>
-              <TouchableOpacity style={{ marginTop: spacing.sm }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.55)' }}>
-                  {t('auth.contact_admin')}
+              <TouchableOpacity style={{ marginTop: spacing.sm }} onPress={() => router.push('/(auth)/register')}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(165,180,252,0.8)' }}>
+                  {t('auth.register')}
                 </Text>
               </TouchableOpacity>
             </View>

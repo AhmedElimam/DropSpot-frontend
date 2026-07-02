@@ -11,6 +11,11 @@ export interface Child {
   date_of_birth: string | null;
   student_id: number;
   user_id: number;
+  present_count: number;
+  absent_count: number;
+  late_count: number;
+  excused_count: number;
+  teachers: { id: string; name: string }[];
 }
 
 export async function getChildren(): Promise<Child[]> {

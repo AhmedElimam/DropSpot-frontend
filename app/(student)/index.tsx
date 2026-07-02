@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTodaySessions } from '@/hooks/useSessions';
 import { useCoverageStats } from '@/hooks/useAttendance';
 import { formatDate, formatTime } from '@/utils/format';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const statusDot: Record<string, string> = {
   live: colors.success,
@@ -18,6 +19,7 @@ const statusDot: Record<string, string> = {
 
 export default function StudentDashboard() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const { data: sessions, isLoading: sessionsLoading } = useTodaySessions();
   const { data: stats } = useCoverageStats();
@@ -32,7 +34,7 @@ export default function StudentDashboard() {
           colors={['#4F46E5', '#6366F1', '#8B5CF6']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.xl4 }}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
         >
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
             {t('common.greeting', { name: user?.name || '' })}

@@ -7,6 +7,7 @@ import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@
 import { useTodaySessions } from '@/hooks/useSessions';
 import { useCheckIn, useCoverageStats, useAttendanceRecords, useSubmitExcuse } from '@/hooks/useAttendance';
 import { formatTime } from '@/utils/format';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -33,13 +34,14 @@ type ModalType = 'excuse' | 'report' | 'reschedule' | null;
 
 export default function CheckInTab() {
   const { t } = useTranslation();
-  const { data: todaySessions, isLoading: sessionsLoading } = useTodaySessions();
+  const insets = useSafeAreaInsets();
+  const { data: sessions, isLoading: sessionsLoading } = useTodaySessions();
   const { data: stats } = useCoverageStats();
   const { data: records } = useAttendanceRecords();
   const checkInMutation = useCheckIn();
   const submitExcuseMutation = useSubmitExcuse();
 
-  const activeSessions = (todaySessions ?? []).filter((s) => s.status === 'scheduled');
+  const activeSessions = (sessions ?? []).filter((s) => s.status === 'scheduled');
   const [selectedSession, setSelectedSession] = useState(activeSessions[0]?.id ?? '');
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedInCourse, setCheckedInCourse] = useState('');
@@ -91,7 +93,7 @@ export default function CheckInTab() {
           colors={['#6366F1', '#8B5CF6']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.xl4 }}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
         >
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
             {t('attendance.check_in')}
@@ -102,7 +104,7 @@ export default function CheckInTab() {
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.md }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.white }}>{todaySessions?.length ?? 0}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.white }}>{sessions?.length ?? 0}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>{t('session.today_sessions')}</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>

@@ -40,3 +40,54 @@ export function getGreetingKey(): string {
 export function formatPercent(value: number): string {
   return `${Math.round(value)}%`;
 }
+
+export function timeAgo(date: string | Date): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const diff = Date.now() - d.getTime();
+  const seconds = Math.floor(diff / 1000);
+  const mins = Math.floor(seconds / 60);
+  const hrs = Math.floor(mins / 60);
+  const days = Math.floor(hrs / 24);
+
+  if (seconds < 60) return 'الآن';
+  if (mins === 1) return 'منذ دقيقة';
+  if (mins < 60) return `منذ ${mins} دقيقة`;
+  if (hrs === 1) return 'منذ ساعة';
+  if (hrs < 24) return `منذ ${hrs} ساعة`;
+  if (days === 1) return 'أمس';
+  if (days < 7) return `منذ ${days} أيام`;
+  if (days < 30) return `منذ ${Math.floor(days / 7)} أسبوع`;
+  return d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+}
+
+export type TimeFilter = 'all' | 'today' | 'week' | 'month';
+
+export function filterByTime<T extends { created_at?: string }>(
+  items: T[],
+  filter: TimeFilter,
+): T[] {
+  if (filter === 'all') return items;
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return items.filter((item) => {
+    if (!item.created_at) return true;
+    const d = new Date(item.created_at);
+    if (filter === 'today') return d >= startOfDay;
+    if (filter === 'week') {
+      const weekAgo = new Date(startOfDay.getTime() - 7 * 86400000);
+      return d >= weekAgo;
+    }
+    if (filter === 'month') {
+      const monthAgo = new Date(startOfDay.getTime() - 30 * 86400000);
+      return d >= monthAgo;
+    }
+    return true;
+  });
+}
+
+export const TIME_FILTERS: { key: TimeFilter; label: string }[] = [
+  { key: 'all', label: 'الكل' },
+  { key: 'today', label: 'اليوم' },
+  { key: 'week', label: 'هذا الأسبوع' },
+  { key: 'month', label: 'هذا الشهر' },
+];

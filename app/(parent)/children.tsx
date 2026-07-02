@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
 import { useChildren } from '@/hooks/useChildren';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const childGradients = [
   ['#6366F1', '#8B5CF6'] as const,
@@ -14,6 +15,7 @@ const childGradients = [
 
 export default function ChildrenList() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { data: children, isLoading, isError } = useChildren();
 
   if (isLoading) {
@@ -49,7 +51,7 @@ export default function ChildrenList() {
           colors={['#1E1B4B', '#6366F1']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4, paddingBottom: spacing.xl4 }}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
@@ -100,6 +102,19 @@ export default function ChildrenList() {
                     <View style={{ marginStart: spacing.md, flex: 1 }}>
                       <Text style={[textPresets.subtitle, { fontFamily: fonts.bold }]}>{child.name}</Text>
                       <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{child.grade}</Text>
+                      {child.teachers && child.teachers.length > 0 && (
+                        <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: 4, flexWrap: 'wrap' }}>
+                          {child.teachers.slice(0, 2).map((t) => (
+                            <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryLight, paddingVertical: 1, paddingHorizontal: 6, borderRadius: radius.full }}>
+                              <Text style={{ fontSize: 9, marginEnd: 2 }}>{'👨‍🏫'}</Text>
+                              <Text style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.primary }}>{t.name}</Text>
+                            </View>
+                          ))}
+                          {child.teachers.length > 2 && (
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.textTertiary }}>+{child.teachers.length - 2}</Text>
+                          )}
+                        </View>
+                      )}
                     </View>
                   </View>
 
@@ -119,6 +134,32 @@ export default function ChildrenList() {
                       />
                     </View>
                   </View>
+
+                  <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.xs }}>
+                    <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.successLight, borderRadius: radius.sm, paddingVertical: 4 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.success }}>{child.present_count ?? 0}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.success }}>{t('attendance.present')}</Text>
+                    </View>
+                    <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.sm, paddingVertical: 4 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{child.absent_count ?? 0}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.danger }}>{t('attendance.absent')}</Text>
+                    </View>
+                    <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.warningLight, borderRadius: radius.sm, paddingVertical: 4 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.warning }}>{child.late_count ?? 0}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.warning }}>{t('attendance.late')}</Text>
+                    </View>
+                    <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.primaryLight, borderRadius: radius.sm, paddingVertical: 4 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>{child.excused_count ?? 0}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.primary }}>{t('attendance.excused')}</Text>
+                    </View>
+                  </View>
+
+                  {child.student_code && (
+                    <View style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 11, marginEnd: 4 }}>{'🆔'}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t('child_settings.student_code')}: {child.student_code}</Text>
+                    </View>
+                  )}
 
                   <TouchableOpacity
                     onPress={() => router.push(`/(parent)/child/${child.id}`)}

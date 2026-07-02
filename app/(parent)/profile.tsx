@@ -8,6 +8,7 @@ import { useLogout } from '@/hooks/useAuth';
 import { useChildren } from '@/hooks/useChildren';
 import { formatDate } from '@/utils/format';
 import { useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface SettingItem {
   key: string;
@@ -29,6 +30,7 @@ const appSettings: SettingItem[] = [
 
 export default function ParentSettings() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const { data: children } = useChildren();
@@ -41,7 +43,7 @@ export default function ParentSettings() {
           colors={['#F59E0B', '#F97316']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingTop: spacing.xl4, paddingBottom: spacing.xl5, alignItems: 'center' }}
+          style={{ paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl5, alignItems: 'center' }}
         >
           <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.18)', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.25)', marginBottom: spacing.md }}>
             <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }}>

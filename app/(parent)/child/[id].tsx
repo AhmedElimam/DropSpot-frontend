@@ -196,13 +196,29 @@ export default function ChildDetailScreen() {
                   </Text>
                 ) : (
                   records.slice(0, 10).map((s, i) => (
-                    <View key={s.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: i < Math.min(records.length, 10) - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
-                      <View>
-                        <Text style={textPresets.body}>{s.course_name ?? `#${s.session_instance_id}`}</Text>
-                        <Text style={textPresets.caption}>{s.session_time ?? ''}</Text>
-                      </View>
-                      <View style={{ backgroundColor: statusColors[s.status] + '20', paddingVertical: 2, paddingHorizontal: 10, borderRadius: radius.full }}>
-                        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: statusColors[s.status] }}>{t(`attendance.${s.status}`)}</Text>
+                    <View key={s.id} style={{ paddingVertical: spacing.sm, borderBottomWidth: i < Math.min(records.length, 10) - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={textPresets.body}>{s.course_name ?? `#${s.session_instance_id}`}</Text>
+                          <Text style={textPresets.caption}>{s.session_time ?? ''}</Text>
+                          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 4, flexWrap: 'wrap' }}>
+                            {s.teacher_name && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={{ fontSize: 11, marginEnd: 2 }}>{'👨‍🏫'}</Text>
+                                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{s.teacher_name}</Text>
+                              </View>
+                            )}
+                            {s.location && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={{ fontSize: 11, marginEnd: 2 }}>{'📍'}</Text>
+                                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{s.location}</Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                        <View style={{ backgroundColor: statusColors[s.status] + '20', paddingVertical: 2, paddingHorizontal: 10, borderRadius: radius.full }}>
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: statusColors[s.status] }}>{t(`attendance.${s.status}`)}</Text>
+                        </View>
                       </View>
                     </View>
                   ))
@@ -233,13 +249,21 @@ export default function ChildDetailScreen() {
                       <Text style={[textPresets.bodySmall, { marginStart: spacing.sm }]}>{t('quiz.avg_score')}</Text>
                     </View>
                     {grades.map((g, i) => (
-                      <View key={g.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: i < grades.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
-                        <Text style={[textPresets.body, { flex: 1 }]}>{g.course_name ?? g.quiz_title ?? `Quiz #${g.quiz_id}`}</Text>
-                        <View style={{ width: 80, height: 6, borderRadius: 3, backgroundColor: colors.borderLight, marginEnd: spacing.md, overflow: 'hidden' }}>
-                          <LinearGradient colors={g.percentage >= 90 ? ['#10B981', '#059669'] : g.percentage >= 75 ? ['#6366F1', '#8B5CF6'] : ['#F59E0B', '#D97706']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${g.percentage}%`, height: '100%', borderRadius: 3 }} />
+                      <View key={g.id} style={{ paddingVertical: spacing.sm, borderBottomWidth: i < grades.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={[textPresets.body, { flex: 1 }]}>{g.course_name ?? g.quiz_title ?? `Quiz #${g.quiz_id}`}</Text>
+                          <View style={{ width: 80, height: 6, borderRadius: 3, backgroundColor: colors.borderLight, marginEnd: spacing.md, overflow: 'hidden' }}>
+                            <LinearGradient colors={g.percentage >= 90 ? ['#10B981', '#059669'] : g.percentage >= 75 ? ['#6366F1', '#8B5CF6'] : ['#F59E0B', '#D97706']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${g.percentage}%`, height: '100%', borderRadius: 3 }} />
+                          </View>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: g.percentage >= 90 ? colors.success : g.percentage >= 75 ? colors.primary : colors.warning }}>{g.score ?? 0}</Text>
+                          <Text style={textPresets.caption}>/{g.max_score}</Text>
                         </View>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: g.percentage >= 90 ? colors.success : g.percentage >= 75 ? colors.primary : colors.warning }}>{g.score ?? 0}</Text>
-                        <Text style={textPresets.caption}>/{g.max_score}</Text>
+                        {g.teacher_name && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                            <Text style={{ fontSize: 11, marginEnd: 2 }}>{'👨‍🏫'}</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{g.teacher_name}</Text>
+                          </View>
+                        )}
                       </View>
                     ))}
                   </>
@@ -263,6 +287,36 @@ export default function ChildDetailScreen() {
                   </View>
                 </View>
               </View>
+
+              {child.teachers && child.teachers.length > 0 && (
+                <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
+                  <Text style={textPresets.h3}>{t('parent.teachers')}</Text>
+                  <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+                    {child.teachers.map((teacher) => (
+                      <View key={teacher.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
+                        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                          <Text style={{ fontSize: 16 }}>{'👨‍🏫'}</Text>
+                        </View>
+                        <Text style={[textPresets.body, { flex: 1 }]}>{teacher.name}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => router.push(`/(parent)/child/${child.id}/teachers`)}
+                    activeOpacity={0.7}
+                    style={{ marginTop: spacing.md }}
+                  >
+                    <LinearGradient
+                      colors={['#EF4444', '#DC2626']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={{ paddingVertical: 10, borderRadius: radius.md, alignItems: 'center' }}
+                    >
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('parent.manage_teachers')}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
                 <Text style={textPresets.h3}>{t('profile.notifications')}</Text>

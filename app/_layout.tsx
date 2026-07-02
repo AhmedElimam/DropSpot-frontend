@@ -5,6 +5,7 @@ import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
 import { colors } from '@/theme/index';
 
@@ -72,9 +73,11 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <HydrationGate>
-        <Stack screenOptions={{ headerShown: false }} />
-      </HydrationGate>
+      <SafeAreaProvider>
+        <HydrationGate>
+          <Stack screenOptions={{ headerShown: false }} />
+        </HydrationGate>
+      </SafeAreaProvider>
     </QueryClientProvider>
   );
 }

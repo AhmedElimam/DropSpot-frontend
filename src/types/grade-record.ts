@@ -3,6 +3,7 @@ export interface GradeRecord {
   quiz_id: number;
   quiz_title: string | null;
   course_name: string | null;
+  teacher_name?: string | null;
   score: number | null;
   max_score: number;
   percentage: number;

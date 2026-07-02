@@ -15,10 +15,19 @@ export interface AuthTokens {
 }
 
 export interface LoginPayload {
-  email: string;
+  phone_number: string;
   password: string;
   device_token?: string;
   platform?: 'ios' | 'android' | 'web';
+}
+
+export interface RegisterPayload {
+  name: string;
+  phone_number: string;
+  password: string;
+  parent_phone: string;
+  parent_relation: string;
+  parent_name: string;
 }
 
 export interface AuthResponse {
@@ -35,5 +44,13 @@ export interface LoginResponse {
       user: User;
       tokens: AuthTokens;
     };
+  };
+}
+
+export interface RegisterResponse {
+  data: {
+    student_id: number;
+    parent_phone: string;
+    message: string;
   };
 }

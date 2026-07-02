@@ -4,10 +4,12 @@ import { useAuthStore } from '@/stores/authStore';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const labels: Record<string, string> = {
   index: 'nav.home',
   children: 'nav.children',
+  tickets: 'nav.tickets',
   invoices: 'nav.invoices',
   reports: 'nav.reports',
   profile: 'nav.settings',
@@ -16,6 +18,7 @@ const labels: Record<string, string> = {
 const icons: Record<string, string> = {
   index: '🔔',
   children: '👨‍👩‍👧‍👦',
+  tickets: '🎫',
   invoices: '💳',
   reports: '📊',
   profile: '⚙️',
@@ -23,6 +26,7 @@ const icons: Record<string, string> = {
 
 export default function ParentTabLayout() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
 
@@ -46,8 +50,8 @@ export default function ParentTabLayout() {
           backgroundColor: 'rgba(255,255,255,0.92)',
           borderTopWidth: 0,
           paddingTop: 8,
-          paddingBottom: 10,
-          height: 64,
+          paddingBottom: 10 + insets.bottom,
+          height: 64 + insets.bottom,
           position: 'absolute',
           bottom: 0,
           left: 0,
@@ -87,9 +91,12 @@ export default function ParentTabLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="children" />
+      <Tabs.Screen name="tickets" />
       <Tabs.Screen name="invoices" />
       <Tabs.Screen name="reports" />
       <Tabs.Screen name="profile" />
+      <Tabs.Screen name="child/[id]" options={{ href: null }} />
+      <Tabs.Screen name="child/[id]/teachers" options={{ href: null }} />
     </Tabs>
   );
 }

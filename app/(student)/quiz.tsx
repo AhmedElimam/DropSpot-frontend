@@ -6,6 +6,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
 import { useQuizzes } from '@/hooks/useQuizzes';
 import { formatShortDate } from '@/utils/format';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: 'quiz.upcoming_quiz', color: colors.warning, bg: colors.warningLight },
@@ -14,6 +15,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
 
 export default function QuizTab() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { data: quizzes, isLoading } = useQuizzes();
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
@@ -38,7 +40,7 @@ export default function QuizTab() {
           colors={['#06B6D4', '#6366F1']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.xxxl }}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xxxl }}
         >
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
             {t('quiz.quizzes')}

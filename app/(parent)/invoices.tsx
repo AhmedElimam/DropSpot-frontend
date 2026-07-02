@@ -6,6 +6,7 @@ import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/inde
 import { formatDate } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
 import { useInvoices } from '@/hooks/useInvoices';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   paid: { label: 'invoices.paid', color: colors.success, bg: colors.successLight },
@@ -15,6 +16,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { data: invoices, isLoading } = useInvoices();
 
   const totalDue = (invoices ?? []).filter((i) => i.status === 'pending' || i.status === 'overdue').reduce((s, i) => s + i.amount, 0);
@@ -36,7 +38,7 @@ export default function InvoicesPage() {
           colors={['#4F46E5', '#6366F1', '#8B5CF6']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.xl4 }}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
         >
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', letterSpacing: -0.5 }}>
             {t('invoices.title')}
@@ -89,6 +91,20 @@ export default function InvoicesPage() {
                       {(invoice.items ?? []).map((item, i) => (
                         <Text key={i} style={[textPresets.bodySmall, { marginTop: 2 }]}>{item}</Text>
                       ))}
+                      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 4, flexWrap: 'wrap' }}>
+                        {invoice.student_name && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 11, marginEnd: 2 }}>{'👤'}</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{invoice.student_name}</Text>
+                          </View>
+                        )}
+                        {invoice.teacher_name && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 11, marginEnd: 2 }}>{'👨‍🏫'}</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{invoice.teacher_name}</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.md }}>

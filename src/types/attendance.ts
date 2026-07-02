@@ -12,6 +12,9 @@ export interface AttendanceRecord {
   longitude: number | null;
   course_name?: string;
   session_time?: string;
+  teacher_name?: string;
+  teacher_id?: number | null;
+  location?: string | null;
 }
 
 export interface AbsenceExcuse {
