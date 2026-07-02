@@ -37,8 +37,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "apiUrl": "http://localhost:8000/api/v1",

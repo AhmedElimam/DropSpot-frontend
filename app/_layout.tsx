@@ -2,7 +2,7 @@ import '../src/i18n';
 import { I18nManager, View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
@@ -21,13 +21,17 @@ const queryClient = new QueryClient({
   },
 });
 
-function HydrateGate({ children }: { children: React.ReactNode }) {
+function HydrationGate({ children }: { children: React.ReactNode }) {
   const isLoading = useAuthStore((s) => s.isLoading);
   const hydrate = useAuthStore((s) => s.hydrate);
+  const [hydrationStarted, setHydrationStarted] = useState(false);
 
   useEffect(() => {
-    hydrate();
-  }, []);
+    if (!hydrationStarted) {
+      setHydrationStarted(true);
+      hydrate();
+    }
+  }, [hydrate, hydrationStarted]);
 
   if (isLoading) {
     return (
@@ -41,25 +45,36 @@ function HydrateGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     'Cairo-Regular': require('../assets/fonts/Cairo-Regular.ttf'),
     'Cairo-Medium': require('../assets/fonts/Cairo-Medium.ttf'),
     'Cairo-Bold': require('../assets/fonts/Cairo-Bold.ttf'),
   });
 
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
+  const [splashHidden, setSplashHidden] = useState(false);
 
-  if (!fontsLoaded) return null;
+  useEffect(() => {
+    if (fontError) {
+      console.warn('Font loading error:', fontError);
+    }
+  }, [fontError]);
+
+  useEffect(() => {
+    if (fontsLoaded && !splashHidden) {
+      SplashScreen.hideAsync();
+      setSplashHidden(true);
+    }
+  }, [fontsLoaded, splashHidden]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
-      <HydrateGate>
+      <HydrationGate>
         <Stack screenOptions={{ headerShown: false }} />
-      </HydrateGate>
+      </HydrationGate>
     </QueryClientProvider>
   );
 }

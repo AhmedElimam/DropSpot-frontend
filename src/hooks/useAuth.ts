@@ -1,6 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
 import { useAuthStore, type UserRole } from '@/stores/authStore';
-import { router } from 'expo-router';
 import { login as loginApi } from '@/api/auth';
 
 export function useLogin() {
@@ -11,10 +10,9 @@ export function useLogin() {
     mutationFn: (payload: { email: string; password: string }) =>
       loginApi(payload.email, payload.password),
     onSuccess: async (data) => {
-      const role: UserRole = data?.user?.student_id ? 'student' : 'parent';
-      await setSession(data.user, role);
+      const role: UserRole = data.role ?? (data.user?.student_id ? 'student' : 'parent');
       await setTokens(data.tokens.access_token, data.tokens.refresh_token);
-      router.replace(role === 'parent' ? '/(parent)' : '/(student)');
+      await setSession(data.user, role);
     },
   });
 }
@@ -25,7 +23,6 @@ export function useLogout() {
   return useMutation({
     mutationFn: async () => {
       await logout();
-      router.replace('/(auth)/login');
     },
   });
 }

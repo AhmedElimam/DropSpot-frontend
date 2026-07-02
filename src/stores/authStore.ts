@@ -34,6 +34,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    console.error('[AuthStore] logout() called');
     await SecureStore.deleteItemAsync('access_token');
     await SecureStore.deleteItemAsync('refresh_token');
     await SecureStore.deleteItemAsync(SESSION_KEY);
@@ -47,8 +48,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (token && sessionRaw) {
         const { user, role } = JSON.parse(sessionRaw);
         set({ user, role, isAuthenticated: true });
-      } else if (token) {
-        set({ isAuthenticated: true });
       }
     } catch {
       set({ isAuthenticated: false });

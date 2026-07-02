@@ -1,5 +1,6 @@
-import { Tabs } from 'expo-router';
-import { View, Text } from 'react-native';
+import { Redirect, Tabs } from 'expo-router';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { useAuthStore } from '@/stores/authStore';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +23,20 @@ const icons: Record<string, string> = {
 
 export default function ParentTabLayout() {
   const { t } = useTranslation();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   return (
     <Tabs

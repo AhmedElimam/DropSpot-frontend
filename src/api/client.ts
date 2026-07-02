@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { router } from 'expo-router';
+import { useAuthStore } from '@/stores/authStore';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -20,7 +20,11 @@ client.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
+    if (
+      error.response?.status === 401 &&
+      !original._retry &&
+      !original.url?.includes('/auth/login')
+    ) {
       original._retry = true;
       try {
         const rt = await SecureStore.getItemAsync('refresh_token');
@@ -30,10 +34,9 @@ client.interceptors.response.use(
         await SecureStore.setItemAsync('access_token', at);
         original.headers.Authorization = `Bearer ${at}`;
         return client(original);
-      } catch {
-        await SecureStore.deleteItemAsync('access_token');
-        await SecureStore.deleteItemAsync('refresh_token');
-        router.replace('/(auth)/login');
+      } catch (e) {
+        console.error('[API] Token refresh failed, calling logout()', e);
+        await useAuthStore.getState().logout();
         return Promise.reject(error);
       }
     }

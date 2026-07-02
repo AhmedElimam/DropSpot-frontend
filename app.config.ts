@@ -67,7 +67,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   experiments: {
     typedRoutes: true,
-    reactCompiler: true,
   },
   extra: {
     apiUrl: process.env.API_URL || 'http://localhost:8000/api/v1',

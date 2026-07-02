@@ -24,6 +24,7 @@ export interface LoginPayload {
 export interface AuthResponse {
   user: User;
   tokens: AuthTokens;
+  role?: 'student' | 'parent' | null;
 }
 
 export interface LoginResponse {
