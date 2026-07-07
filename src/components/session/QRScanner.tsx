@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { CameraView, type CameraType } from 'expo-camera';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
+import { colors } from '@/theme/index';
 
 interface QRScannerProps {
   onScan: (token: string) => void;
@@ -63,7 +64,7 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
             width: 250,
             height: 250,
             borderWidth: 2,
-            borderColor: '#208AEF',
+            borderColor: colors.primary,
             borderRadius: 16,
             backgroundColor: 'transparent',
           }}

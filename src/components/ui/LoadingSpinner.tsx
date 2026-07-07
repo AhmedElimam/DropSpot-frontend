@@ -1,5 +1,6 @@
 import { View, ActivityIndicator, Text } from 'react-native';
 import { fonts } from '@/theme/typography';
+import { colors } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
 
 interface LoadingSpinnerProps {
@@ -18,12 +19,12 @@ export function LoadingSpinner({ message }: LoadingSpinnerProps) {
         padding: 24,
       }}
     >
-      <ActivityIndicator size="large" color="#208AEF" />
+      <ActivityIndicator size="large" color={colors.primary} />
       <Text
         style={{
           fontFamily: fonts.regular,
-          fontSize: 14,
-          color: '#6B7280',
+          fontSize: 16,
+          color: colors.textSecondary,
           marginTop: 12,
         }}
       >

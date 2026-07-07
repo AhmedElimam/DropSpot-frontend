@@ -1,5 +1,5 @@
 import '../src/i18n';
-import { I18nManager, View, ActivityIndicator } from 'react-native';
+import { I18nManager, View, ActivityIndicator, Text, TextInput } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
@@ -10,6 +10,18 @@ import { useAuthStore } from '@/stores/authStore';
 import { colors } from '@/theme/index';
 
 I18nManager.forceRTL(true);
+
+// Respect the OS accessibility font size, but cap it so fixed-height layouts
+// (gradient headers, stat tiles) don't clip at extreme multipliers.
+type TextWithDefaults = typeof Text & { defaultProps?: { maxFontSizeMultiplier?: number } };
+(Text as TextWithDefaults).defaultProps = {
+  ...(Text as TextWithDefaults).defaultProps,
+  maxFontSizeMultiplier: 1.3,
+};
+(TextInput as TextWithDefaults).defaultProps = {
+  ...(TextInput as TextWithDefaults).defaultProps,
+  maxFontSizeMultiplier: 1.3,
+};
 
 SplashScreen.preventAutoHideAsync();
 

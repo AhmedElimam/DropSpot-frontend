@@ -18,7 +18,7 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-const avatarColors = ['#208AEF', '#7C3AED', '#059669', '#D97706', '#DC2626', '#0891B2'];
+const avatarColors = [colors.primary, '#7C3AED', '#059669', '#D97706', '#DC2626', '#0891B2'];
 
 function getColorForName(name: string): string {
   let hash = 0;

@@ -12,14 +12,19 @@ export const colors = {
   success: '#10B981',
   successLight: '#D1FAE5',
   successDark: '#059669',
+  // AA-contrast text colors for use on the matching *Light backgrounds
+  successText: '#065F46',
   warning: '#F59E0B',
   warningLight: '#FEF3C7',
   warningDark: '#D97706',
+  warningText: '#92400E',
   danger: '#EF4444',
   dangerLight: '#FEE2E2',
   dangerDark: '#DC2626',
+  dangerText: '#991B1B',
   info: '#6366F1',
   infoLight: '#EEF2FF',
+  infoText: '#3730A3',
   white: '#FFFFFF',
   background: '#F8FAFC',
   surface: '#FFFFFF',
@@ -103,9 +108,13 @@ export const textPresets = {
   h2: { fontFamily: fonts.bold, fontSize: 22, lineHeight: 30, color: colors.textPrimary, letterSpacing: -0.3 },
   h3: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 26, color: colors.textPrimary },
   subtitle: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 24, color: colors.textPrimary },
-  body: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textPrimary },
-  bodySmall: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary },
-  caption: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textTertiary },
+  // Parent-facing body text: 16px minimum (elderly-usability rule)
+  body: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.textPrimary },
+  bodySmall: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textSecondary },
+  caption: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.textTertiary },
   label: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.textSecondary },
   display: { fontFamily: fonts.bold, fontSize: 32, lineHeight: 42, color: colors.textPrimary, letterSpacing: -1 },
 } as const;
+
+// Minimum touch target (parent app rule: 44pt iOS / 48dp Android)
+export const touchTarget = { minHeight: 48, minWidth: 48 } as const;

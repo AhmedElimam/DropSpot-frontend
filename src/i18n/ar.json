@@ -29,7 +29,15 @@
       "thursday": "الخميس",
       "friday": "الجمعة",
       "saturday": "السبت"
-    }
+    },
+    "view_all": "عرض الكل",
+    "not_found": "غير موجود",
+    "not_available": "غير متاح حالياً",
+    "done": "تم",
+    "next": "التالي",
+    "call_teacher": "اتصل بالمعلم",
+    "call_teacher_named": "اتصل بالمعلم {{name}}",
+    "children_count": "{{count}} من الأبناء"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -129,7 +137,7 @@
     "excuse_title": "تقديم عذر غياب",
     "excuse_placeholder": "اكتب سبب الغياب...",
     "excuse_submit": "إرسال العذر",
-    "excuse_submitted": "تم إرسال العذر بنجاح",
+    "excuse_submitted": "تم إرسال العذر بنجاح. سيراجعه المعلم قريباً.",
     "excuse_required": "يرجى كتابة سبب العذر",
     "report_problem": "الإبلاغ عن مشكلة",
     "report_title": "الإبلاغ عن مشكلة",
@@ -145,7 +153,17 @@
     "coverage_absent": "غائب",
     "coverage_excused": "بعذر",
     "coverage_this_month": "هذا الشهر",
-    "select_session": "اختر الحصة"
+    "select_session": "اختر الحصة",
+    "location_denied": "لم يتم منح إذن الموقع",
+    "location_mocked": "تم الكشف عن استخدام موقع وهمي. يرجى تعطيل تطبيقات تحديد الموقع الوهمي.",
+    "from_class": "من الفصل",
+    "window_open": "نافذة تسجيل الحضور مفتوحة الآن",
+    "window_opens_in": "تفتح النافذة بعد {{minutes}} دقيقة",
+    "window_closed": "انتهت نافذة تسجيل الحضور",
+    "outside_window": "خارج نطاق الوقت المسموح",
+    "too_far": "أنت بعيد جداً عن موقع الفصل",
+    "proximity_status": "المسافة عن مكان الحصة",
+    "excuse_select_session": "اختر الحصة التي تريد تقديم عذر عنها"
   },
   "quiz": {
     "quiz": "اختبار",
@@ -164,7 +182,17 @@
     "course": "المادة",
     "questions_count": "{{count}} أسئلة",
     "duration": "{{minutes}} دقيقة",
-    "due_date": "تاريخ التسليم"
+    "due_date": "تاريخ التسليم",
+    "load_error": "تعذر تحميل الاختبار. حاول مرة أخرى.",
+    "submit_error": "تعذر إرسال الإجابات. حاول مرة أخرى.",
+    "answered": "تمت الإجابة على {{count}} من {{total}}",
+    "true": "صح",
+    "false": "خطأ",
+    "previous": "السابق",
+    "submit": "تسليم",
+    "deadline": "آخر موعد",
+    "time_warning": "انتبه: بقيت دقيقة واحدة فقط! سيتم التسليم تلقائياً عند انتهاء الوقت.",
+    "auto_submitted": "انتهى الوقت وتم تسليم إجاباتك تلقائياً."
   },
   "parent": {
     "dashboard": "لوحة التحكم",
@@ -188,7 +216,8 @@
     "attendance_report": "تقرير الحضور",
     "grades_report": "تقرير الدرجات",
     "view_report": "عرض التقرير",
-    "no_children": "لا يوجد أبناء مسجلين"
+    "no_children": "لا يوجد أبناء مسجلين",
+    "remove_error": "تعذر إزالة المعلم. حاول مرة أخرى."
   },
   "notifications": {
     "title": "الإشعارات",
@@ -204,7 +233,8 @@
     "absence_alert_desc": "{{name}} غائب عن حصة {{course}}",
     "new_grade_desc": "{{name}} حصل على {{score}}% في اختبار {{quiz}}",
     "invoice_reminder_desc": "موعد استحقاق الفاتورة {{amount}} ريال",
-    "schedule_change_desc": "تم تغيير موعد حصة {{course}} لـ {{name}}"
+    "schedule_change_desc": "تم تغيير موعد حصة {{course}} لـ {{name}}",
+    "empty": "لا توجد إشعارات جديدة"
   },
   "nav": {
     "dashboard": "الرئيسية",
@@ -264,7 +294,15 @@
     "required_field": "هذا الحقل مطلوب",
     "invalid_email": "البريد الإلكتروني غير صالح",
     "password_too_short": "كلمة المرور قصيرة جداً",
-    "session_expired": "انتهت صلاحية الجلسة"
+    "session_expired": "انتهت صلاحية الجلسة",
+    "friendly_title": "عذراً، لم ننجح في ذلك",
+    "friendly_body": "حدث خطأ ما. حاول مرة أخرى من فضلك.",
+    "generic_friendly": "حدث خطأ ما. حاول مرة أخرى، أو اتصل بالمعلم إذا استمرت المشكلة.",
+    "server_error_friendly": "الخدمة مشغولة حالياً. حاول مرة أخرى بعد قليل.",
+    "timeout": "استغرق الاتصال وقتاً طويلاً. تأكد من اتصالك بالإنترنت وحاول مرة أخرى.",
+    "forbidden": "ليس لديك صلاحية لهذا الإجراء.",
+    "not_found_generic": "لم نجد ما تبحث عنه.",
+    "no_connection": "لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى."
   },
   "home": {
     "performance_title": "أداء أبنائك"
@@ -290,7 +328,8 @@
     "this_month": "هذا الشهر",
     "last_month": "الشهر الماضي",
     "overdue_amount": "متأخرات",
-    "paid_amount": "المدفوع"
+    "paid_amount": "المدفوع",
+    "pay_hint": "للدفع أو الاستفسار عن الفاتورة، تواصل مع المعلم مباشرة"
   },
   "activity": {
     "title": "النشاطات",
@@ -366,7 +405,10 @@
     "empty": "لا توجد تذاكر حالياً",
     "type_message": "اكتب رسالتك...",
     "mark_resolved": "تم الحل",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "created_success": "تم إرسال رسالتك إلى المعلم",
+    "created_success_desc": "سيصلك رد المعلم هنا، وستصلك إشعارات عند الرد.",
+    "create_error": "تعذر إرسال الرسالة. حاول مرة أخرى، أو اتصل بالمعلم مباشرة."
   },
   "child_settings": {
     "title": "إعدادات الطالب",

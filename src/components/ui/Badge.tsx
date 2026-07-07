@@ -2,28 +2,34 @@ import { View, Text } from 'react-native';
 import { fonts } from '@/theme/typography';
 import { colors } from '@/theme/index';
 
+export type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info';
+
 interface BadgeProps {
   label: string;
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info';
+  variant?: BadgeVariant;
+  /** md is the parent-app default (larger, AA-readable); sm for dense student/teacher UI */
+  size?: 'sm' | 'md';
 }
 
-const badgeColors: Record<string, { bg: string; text: string }> = {
-  default: { bg: '#F1F5F9', text: '#475569' },
-  success: { bg: colors.successLight, text: colors.success },
-  warning: { bg: colors.warningLight, text: colors.warning },
-  danger: { bg: colors.dangerLight, text: colors.danger },
-  info: { bg: colors.primaryLight, text: colors.primary },
+// Text colors are the dark AA-contrast variants, not the mid-tone brand colors.
+const badgeColors: Record<BadgeVariant, { bg: string; text: string }> = {
+  default: { bg: '#F1F5F9', text: '#334155' },
+  success: { bg: colors.successLight, text: colors.successText },
+  warning: { bg: colors.warningLight, text: colors.warningText },
+  danger: { bg: colors.dangerLight, text: colors.dangerText },
+  info: { bg: colors.infoLight, text: colors.infoText },
 };
 
-export function Badge({ label, variant = 'default' }: BadgeProps) {
+export function Badge({ label, variant = 'default', size = 'md' }: BadgeProps) {
   const { bg, text } = badgeColors[variant];
+  const isSm = size === 'sm';
 
   return (
     <View
       style={{
         backgroundColor: bg,
-        paddingVertical: 4,
-        paddingHorizontal: 10,
+        paddingVertical: isSm ? 4 : 6,
+        paddingHorizontal: isSm ? 10 : 12,
         borderRadius: 20,
         alignSelf: 'flex-start',
       }}
@@ -31,7 +37,7 @@ export function Badge({ label, variant = 'default' }: BadgeProps) {
       <Text
         style={{
           fontFamily: fonts.medium,
-          fontSize: 11,
+          fontSize: isSm ? 12 : 14,
           color: text,
         }}
       >
