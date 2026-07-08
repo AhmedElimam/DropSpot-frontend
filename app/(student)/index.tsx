@@ -9,6 +9,8 @@ import { useTodaySessions } from '@/hooks/useSessions';
 import { useCoverageStats } from '@/hooks/useAttendance';
 import { formatDate, formatTime } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Icon } from '@/components/ui/Icon';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 const statusDot: Record<string, string> = {
   live: colors.success,
@@ -71,7 +73,7 @@ export default function StudentDashboard() {
                 style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden' }}
               >
                 <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ padding: spacing.lg, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 22, marginBottom: spacing.xs }}>{'📌'}</Text>
+                  <Icon name="card" size={24} color="#fff" style={{ marginBottom: spacing.xs }} />
                   <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('attendance.check_in')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -81,7 +83,7 @@ export default function StudentDashboard() {
                 style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden' }}
               >
                 <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ padding: spacing.lg, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 22, marginBottom: spacing.xs }}>{'📝'}</Text>
+                  <Icon name="quiz" size={24} color="#fff" style={{ marginBottom: spacing.xs }} />
                   <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('nav.quiz')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -122,26 +124,21 @@ export default function StudentDashboard() {
                       <Text style={textPresets.subtitle}>{session.course_name}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.xs, gap: spacing.sm }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Text style={{ fontSize: 12, color: colors.textTertiary, marginEnd: 4 }}>{'👤'}</Text>
+                          <Icon name="teacher" size={13} color={colors.textTertiary} outline style={{ marginEnd: 4 }} />
                           <Text style={textPresets.bodySmall}>{session.teacher_name}</Text>
                         </View>
                         <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.border }} />
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Text style={{ fontSize: 12, color: colors.textTertiary, marginEnd: 4 }}>{'📍'}</Text>
+                          <Icon name="location" size={13} color={colors.textTertiary} outline style={{ marginEnd: 4 }} />
                           <Text style={textPresets.bodySmall}>{session.location}</Text>
                         </View>
                       </View>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: statusDot[session.status] + '18', paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full }}>
-                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusDot[session.status], marginEnd: 6 }} />
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: statusDot[session.status] }}>
-                        {session.status === 'completed' ? t('session.completed') : t('session.scheduled')}
-                      </Text>
-                    </View>
+                    <StatusBadge status={session.status} size="sm" />
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, gap: spacing.md }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryLight, paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.md }}>
-                      <Text style={{ fontSize: 12, color: colors.textTertiary, marginEnd: 6 }}>{'🕐'}</Text>
+                      <Icon name="clock" size={13} color={colors.primary} outline style={{ marginEnd: 6 }} />
                       <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.primary }}>
                         {formatTime(start)} - {formatTime(end)}
                       </Text>
@@ -162,15 +159,15 @@ export default function StudentDashboard() {
             </View>
             <View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.md }}>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.success }}>{stats?.present ?? 0}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.successText }}>{stats?.present ?? 0}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>{t('attendance.present')}</Text>
               </View>
-              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.warningLight, borderRadius: radius.md, padding: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.warning }}>{stats?.excused ?? 0}</Text>
+              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.infoLight, borderRadius: radius.md, padding: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.infoText }}>{stats?.excused ?? 0}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>{t('attendance.excused')}</Text>
               </View>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.danger }}>{stats?.absent ?? 0}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.dangerText }}>{stats?.absent ?? 0}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>{t('attendance.absent')}</Text>
               </View>
             </View>

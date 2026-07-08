@@ -12,6 +12,9 @@ export interface SessionInstance {
   course_name?: string;
   course_latitude?: number | null;
   course_longitude?: number | null;
+  radius_horizontal_meters?: number;
+  phone_checkin_allowed?: boolean;
+  checkin_permission_expires_at?: string | null;
   teacher_name?: string;
   grade_name?: string;
   enrolled_count?: number;

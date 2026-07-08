@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
@@ -8,26 +8,8 @@ import { useLogout } from '@/hooks/useAuth';
 import { useCoverageStats } from '@/hooks/useAttendance';
 import { useQuizzes } from '@/hooks/useQuizzes';
 import { formatDate } from '@/utils/format';
-import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-interface SettingItem {
-  key: string;
-  icon: string;
-  type: 'link' | 'toggle';
-  color: string;
-}
-
-const accountSettings: SettingItem[] = [
-  { key: 'profile.personal_info', icon: '👤', type: 'link', color: colors.primary },
-  { key: 'profile.notifications', icon: '🔔', type: 'toggle', color: colors.accent },
-];
-
-const appSettings: SettingItem[] = [
-  { key: 'profile.language', icon: '🌐', type: 'link', color: colors.warning },
-  { key: 'profile.about', icon: 'ℹ️', type: 'link', color: colors.info },
-  { key: 'profile.contact_support', icon: '📞', type: 'link', color: colors.success },
-];
+import { Icon } from '@/components/ui/Icon';
 
 export default function StudentProfile() {
   const { t } = useTranslation();
@@ -36,11 +18,15 @@ export default function StudentProfile() {
   const logout = useLogout();
   const { data: coverage } = useCoverageStats();
   const { data: quizzes } = useQuizzes();
-  const [notifEnabled, setNotifEnabled] = useState(true);
 
   const sessionsAttended = coverage ? coverage.present + coverage.late : 0;
-  const quizzesCompleted = (quizzes ?? []).filter((q: any) => q.status === 'completed').length;
-  const avgScore = coverage && coverage.total > 0 ? Math.round(((coverage.present + coverage.late) / coverage.total) * 100) : 0;
+  const now = new Date();
+  const quizzesCompleted = (quizzes ?? []).filter(
+    (q) => !q.is_active || (q.ends_at ? new Date(q.ends_at) < now : false)
+  ).length;
+  const attendanceRate = coverage && coverage.total > 0
+    ? Math.round(((coverage.present + coverage.late) / coverage.total) * 100)
+    : 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -57,7 +43,11 @@ export default function StudentProfile() {
             </View>
           </View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{user?.name}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: spacing.xs }}>{user?.email}</Text>
+          {user?.student_code ? (
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.85)', marginTop: spacing.xs, letterSpacing: 1 }}>
+              {user.student_code}
+            </Text>
+          ) : null}
           <View style={{ marginTop: spacing.md, backgroundColor: 'rgba(255,255,255,0.18)', paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff' }}>{t('profile.role_student')}</Text>
           </View>
@@ -68,41 +58,17 @@ export default function StudentProfile() {
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.account')}
             </Text>
-            {accountSettings.map((item, index) => (
-              <TouchableOpacity
-                key={item.key}
-                disabled={item.type === 'toggle'}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: index < accountSettings.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}
-              >
-                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: item.color + '18', justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
-                  <Text style={{ fontSize: 18 }}>{item.icon}</Text>
-                </View>
-                <Text style={[textPresets.body, { flex: 1 }]}>{t(item.key)}</Text>
-                {item.type === 'toggle' ? (
-                  <Switch value={notifEnabled} onValueChange={setNotifEnabled} trackColor={{ false: colors.borderLight, true: colors.primaryLight }} thumbColor={notifEnabled ? colors.primary : colors.textTertiary} />
-                ) : (
-                  <Text style={{ fontSize: 18, color: colors.textTertiary, transform: [{ scaleX: -1 }] }}>{'<'}</Text>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
-            <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
-              {t('profile.app')}
-            </Text>
-            {appSettings.map((item, index) => (
-              <TouchableOpacity
-                key={item.key}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: index < appSettings.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}
-              >
-                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: item.color + '18', justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
-                  <Text style={{ fontSize: 18 }}>{item.icon}</Text>
-                </View>
-                <Text style={[textPresets.body, { flex: 1 }]}>{t(item.key)}</Text>
-                <Text style={{ fontSize: 18, color: colors.textTertiary, transform: [{ scaleX: -1 }] }}>{'<'}</Text>
-              </TouchableOpacity>
-            ))}
+            <TouchableOpacity
+              onPress={() => Linking.openSettings()}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: spacing.md }}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primary + '18', justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                <Icon name="bell" size={20} color={colors.primary} outline />
+              </View>
+              <Text style={[textPresets.body, { flex: 1 }]}>{t('profile.notifications')}</Text>
+              <Icon name="back" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
           </View>
 
           <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
@@ -124,13 +90,14 @@ export default function StudentProfile() {
               <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>{quizzesCompleted}</Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm }}>
-              <Text style={textPresets.bodySmall}>{t('profile.avg_score')}</Text>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{avgScore}%</Text>
+              <Text style={textPresets.bodySmall}>{t('attendance.attendance_rate')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{attendanceRate}%</Text>
             </View>
           </View>
 
           <TouchableOpacity onPress={() => logout.mutate()} activeOpacity={0.85} style={{ borderRadius: radius.md, overflow: 'hidden' }}>
-            <LinearGradient colors={['#EF4444', '#DC2626']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, alignItems: 'center' }}>
+            <LinearGradient colors={['#EF4444', '#DC2626']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: 52, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <Icon name="logout" size={20} color="#fff" outline />
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('common.logout')}</Text>
             </LinearGradient>
           </TouchableOpacity>

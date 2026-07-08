@@ -1,38 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Dimensions, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
 import { useTodaySessions } from '@/hooks/useSessions';
 import { useCheckIn, useCoverageStats, useAttendanceRecords, useSubmitExcuse } from '@/hooks/useAttendance';
+import { useAuthStore } from '@/stores/authStore';
 import { formatTime } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import type { SessionInstance } from '@/types/session-instance';
-
-const { width } = Dimensions.get('window');
-
-const MOCK_ALTERNATIVES = [
-  { date: '2026-07-02', day: 'الخميس', slots: 3, total: 10 },
-  { date: '2026-07-03', day: 'الجمعة', slots: 0, total: 10 },
-  { date: '2026-07-06', day: 'الإثنين', slots: 5, total: 10 },
-  { date: '2026-07-07', day: 'الثلاثاء', slots: 8, total: 10 },
-];
-
-const coverageColors: Record<string, string> = {
-  present: colors.success,
-  absent: colors.danger,
-  excused: colors.warning,
-};
-
-const coverageLabels: Record<string, string> = {
-  present: 'attendance.present',
-  absent: 'attendance.absent',
-  excused: 'attendance.excused',
-};
-
-type ModalType = 'excuse' | 'report' | 'reschedule' | null;
+import { Icon } from '@/components/ui/Icon';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SuccessConfirmation } from '@/components/ui/SuccessConfirmation';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -59,6 +41,7 @@ function getCheckInWindow(scheduledAt: string): { canCheckIn: boolean; opensIn: 
 export default function CheckInTab() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const user = useAuthStore((s) => s.user);
   const { data: sessions, isLoading: sessionsLoading } = useTodaySessions();
   const { data: stats } = useCoverageStats();
   const { data: records } = useAttendanceRecords();
@@ -69,26 +52,32 @@ export default function CheckInTab() {
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedInCourse, setCheckedInCourse] = useState('');
-  const [activeModal, setActiveModal] = useState<ModalType>(null);
+  const [excuseVisible, setExcuseVisible] = useState(false);
   const [excuseText, setExcuseText] = useState('');
-  const [reportText, setReportText] = useState('');
-  const [showCoverage, setShowCoverage] = useState(true);
-  const [excuseSessionId, setExcuseSessionId] = useState<number | null>(null);
-  const [rescheduleSent, setRescheduleSent] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [excuseRecordId, setExcuseRecordId] = useState<number | null>(null);
+  const [excuseSent, setExcuseSent] = useState(false);
 
   // Location state
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
+  const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [isMocked, setIsMocked] = useState<boolean>(false);
   const watchRef = useRef<Location.LocationSubscription | null>(null);
 
+  const selectedSessionData = activeSessions.find((s) => s.id === selectedSession) ?? null;
+  // Phone check-in is the exception, not the default: only when the teacher
+  // granted permission or the course runs in pilot mode (no scanner yet).
+  const phoneAllowed = selectedSessionData?.phone_checkin_allowed === true;
+
   useEffect(() => {
+    // Only ask for location when phone check-in is actually available.
+    if (!phoneAllowed) return;
+    let cancelled = false;
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
+      if (cancelled) return;
       if (status !== 'granted') {
         setLocationError(t('attendance.location_denied'));
         return;
@@ -96,47 +85,51 @@ export default function CheckInTab() {
       setLocationPermission(true);
 
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      if (loc.coords.isMocked) {
+      if (cancelled) return;
+      if (loc.mocked) {
         setIsMocked(true);
         setLocationError(t('attendance.location_mocked'));
         return;
       }
       setUserLat(loc.coords.latitude);
       setUserLng(loc.coords.longitude);
+      setUserAccuracy(loc.coords.accuracy ?? null);
 
       watchRef.current = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, distanceInterval: 5, timeInterval: 10000 },
-        (loc) => {
-          if (loc.coords.isMocked) {
+        (update) => {
+          if (update.mocked) {
             setIsMocked(true);
             setLocationError(t('attendance.location_mocked'));
             if (watchRef.current) watchRef.current.remove();
             return;
           }
-          setUserLat(loc.coords.latitude);
-          setUserLng(loc.coords.longitude);
+          setUserLat(update.coords.latitude);
+          setUserLng(update.coords.longitude);
+          setUserAccuracy(update.coords.accuracy ?? null);
         }
       );
     })();
 
     return () => {
+      cancelled = true;
       if (watchRef.current) watchRef.current.remove();
     };
-  }, []);
+  }, [phoneAllowed, t]);
 
-  const selectedSessionData = activeSessions.find((s) => s.id === selectedSession) ?? null;
-
-  const proximity = useCallback((session: SessionInstance | null): { distance: number | null; withinRange: boolean } => {
+  const proximity = useCallback((session: SessionInstance | null): { distance: number | null; withinRange: boolean; allowed: number } => {
+    const allowed = (session?.radius_horizontal_meters ?? 20) + Math.min(userAccuracy ?? 50, 50);
     if (!userLat || !userLng || !session?.course_latitude || !session?.course_longitude) {
-      return { distance: null, withinRange: false };
+      return { distance: null, withinRange: false, allowed };
     }
     const d = haversineDistance(userLat, userLng, session.course_latitude, session.course_longitude);
-    return { distance: Math.round(d), withinRange: d <= 50 };
-  }, [userLat, userLng]);
+    return { distance: Math.round(d), withinRange: d <= allowed, allowed };
+  }, [userLat, userLng, userAccuracy]);
 
-  const sessionProximity = selectedSessionData ? proximity(selectedSessionData) : { distance: null, withinRange: false };
+  const sessionProximity = selectedSessionData ? proximity(selectedSessionData) : { distance: null, withinRange: false, allowed: 50 };
   const sessionTimeInfo = selectedSessionData ? getCheckInWindow(selectedSessionData.scheduled_at) : null;
   const canCheckIn = !!selectedSessionData
+    && phoneAllowed
     && locationPermission
     && !isMocked
     && sessionProximity.withinRange
@@ -146,7 +139,12 @@ export default function CheckInTab() {
   const handleCheckIn = () => {
     if (!selectedSessionData || !userLat || !userLng) return;
     checkInMutation.mutate(
-      { sessionInstanceId: selectedSessionData.id, latitude: userLat, longitude: userLng },
+      {
+        sessionInstanceId: selectedSessionData.id,
+        latitude: userLat,
+        longitude: userLng,
+        accuracy: userAccuracy ?? undefined,
+      },
       {
         onSuccess: () => {
           setCheckedIn(true);
@@ -156,35 +154,16 @@ export default function CheckInTab() {
     );
   };
 
+  const absentRecords = (records ?? []).filter((r) => r?.status === 'absent').slice(0, 5);
+
   if (checkedIn) {
     return (
-      <LinearGradient
-        colors={['#EEF2FF', '#F8FAFC']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xxl }}
-      >
-        <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.xl, ...shadows.glow }}>
-          <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.successLight, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ fontSize: 36, color: colors.success }}>{'✓'}</Text>
-          </View>
-        </View>
-        <Text style={[textPresets.h1, { textAlign: 'center', marginBottom: spacing.sm }]}>
-          {t('attendance.check_in_success_title')}
-        </Text>
-        <Text style={[textPresets.body, { textAlign: 'center', color: colors.textSecondary }]}>
-          {t('attendance.check_in_success_desc', { course: checkedInCourse })}
-        </Text>
-        <Text style={[textPresets.bodySmall, { marginTop: spacing.sm }]}>
-          {new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-        <TouchableOpacity
-          onPress={() => setCheckedIn(false)}
-          style={{ marginTop: spacing.xxl, paddingVertical: 14, paddingHorizontal: spacing.xxxl, borderRadius: radius.md, backgroundColor: colors.white, ...shadows.sm }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{t('common.back')}</Text>
-        </TouchableOpacity>
-      </LinearGradient>
+      <SuccessConfirmation
+        title={t('attendance.check_in_success_title')}
+        message={t('attendance.check_in_success_desc', { course: checkedInCourse })}
+        doneLabel={t('common.back')}
+        onDone={() => setCheckedIn(false)}
+      />
     );
   }
 
@@ -221,6 +200,28 @@ export default function CheckInTab() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          {/* PRIMARY: card scan at the door */}
+          <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center' }}>
+                <Icon name="card" size={28} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={textPresets.h3}>{t('attendance.card_primary_title')}</Text>
+                <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{t('attendance.card_primary_desc')}</Text>
+              </View>
+            </View>
+            {user?.student_code ? (
+              <View style={{ marginTop: spacing.md, backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.borderLight }}>
+                <Text style={textPresets.caption}>{t('child_settings.student_code')}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary, letterSpacing: 2, marginTop: 2 }}>
+                  {user.student_code}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Session picker */}
           <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
             <Text style={[textPresets.h3, { marginBottom: spacing.lg }]}>
               {t('attendance.select_session')}
@@ -263,9 +264,17 @@ export default function CheckInTab() {
                       <Text style={textPresets.subtitle}>{session.course_name}</Text>
                       <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{session.teacher_name} · {timeStr}</Text>
                       {!inWindow && (
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.danger, marginTop: 2 }}>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.dangerText, marginTop: 2 }}>
                           {t('attendance.outside_window')}
                         </Text>
+                      )}
+                      {session.phone_checkin_allowed && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                          <Icon name="phone" size={12} color={colors.successText} />
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.successText }}>
+                            {t('attendance.phone_allowed_badge')}
+                          </Text>
+                        </View>
                       )}
                     </View>
                     {inWindow && (
@@ -277,329 +286,263 @@ export default function CheckInTab() {
             )}
           </View>
 
-          {/* Proximity status */}
-          {selectedSessionData && (
-            <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={textPresets.bodySmall}>{t('attendance.proximity_status')}</Text>
-                  {!locationPermission ? (
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger, marginTop: 2 }}>
-                      {locationError ?? t('attendance.location_denied')}
-                    </Text>
-                  ) : sessionProximity.distance === null ? (
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
-                      {t('common.loading')}
-                    </Text>
-                  ) : (
-                    <>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: sessionProximity.withinRange ? colors.success : colors.danger, marginTop: 2 }}>
-                        {sessionProximity.distance}m {t('attendance.from_class')}
-                      </Text>
-                      {sessionTimeInfo && (
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 1 }}>
-                          {sessionTimeInfo.canCheckIn
-                            ? t('attendance.window_open')
-                            : sessionTimeInfo.opensIn > 0
-                              ? t('attendance.window_opens_in', { minutes: sessionTimeInfo.opensIn })
-                              : t('attendance.window_closed')}
-                        </Text>
-                      )}
-                    </>
-                  )}
+          {/* Phone check-in: only offered when permitted */}
+          {selectedSessionData && !phoneAllowed && (
+            <View style={{ backgroundColor: colors.infoLight, borderRadius: radius.xl, padding: spacing.lg, flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }}>
+              <Icon name="info" size={22} color={colors.infoText} outline />
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.infoText }}>
+                {t('attendance.phone_not_allowed_hint')}
+              </Text>
+            </View>
+          )}
+
+          {selectedSessionData && phoneAllowed && (
+            <>
+              {selectedSessionData.checkin_permission_expires_at ? (
+                <View style={{ backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <Icon name="success" size={18} color={colors.successText} />
+                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.successText }}>
+                    {t('attendance.phone_permission_until', {
+                      time: new Date(selectedSessionData.checkin_permission_expires_at).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }),
+                    })}
+                  </Text>
                 </View>
-                <View style={{
-                  width: 12, height: 12, borderRadius: 6,
-                  backgroundColor: sessionProximity.withinRange ? colors.success : colors.danger,
-                }} />
+              ) : null}
+
+              {/* Proximity status — the GPS check always applies */}
+              <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={textPresets.bodySmall}>{t('attendance.proximity_status')}</Text>
+                    {!locationPermission ? (
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.dangerText, marginTop: 2 }}>
+                        {locationError ?? t('attendance.location_denied')}
+                      </Text>
+                    ) : sessionProximity.distance === null ? (
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginTop: 2 }}>
+                        {t('common.loading')}
+                      </Text>
+                    ) : (
+                      <>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: sessionProximity.withinRange ? colors.successText : colors.dangerText, marginTop: 2 }}>
+                          {sessionProximity.distance}m {t('attendance.from_class')}
+                        </Text>
+                        {sessionTimeInfo && (
+                          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>
+                            {sessionTimeInfo.canCheckIn
+                              ? t('attendance.window_open')
+                              : sessionTimeInfo.opensIn > 0
+                                ? t('attendance.window_opens_in', { minutes: sessionTimeInfo.opensIn })
+                                : t('attendance.window_closed')}
+                          </Text>
+                        )}
+                      </>
+                    )}
+                  </View>
+                  <Icon
+                    name={sessionProximity.withinRange ? 'success' : 'location'}
+                    size={26}
+                    color={sessionProximity.withinRange ? colors.success : colors.danger}
+                  />
+                </View>
+                {/* Proximity bar — high-contrast solid colors for outdoor daylight */}
+                {sessionProximity.distance !== null && (
+                  <View style={{ height: 10, borderRadius: 5, backgroundColor: colors.borderLight, marginTop: spacing.sm, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
+                    <View style={{
+                      width: `${Math.min(100, (sessionProximity.distance / Math.max(sessionProximity.allowed, 1)) * 100)}%`,
+                      height: '100%',
+                      borderRadius: 5,
+                      backgroundColor: sessionProximity.withinRange ? '#047857' : '#B91C1C',
+                    }} />
+                  </View>
+                )}
               </View>
-              {/* Proximity bar */}
-              {sessionProximity.distance !== null && (
-                <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.borderLight, marginTop: spacing.sm, overflow: 'hidden' }}>
-                  <View style={{
-                    width: `${Math.min(100, (sessionProximity.distance / 50) * 100)}%`,
-                    height: '100%',
-                    borderRadius: 2,
-                    backgroundColor: sessionProximity.withinRange ? colors.success : colors.danger,
-                  }} />
+
+              {/* Server rejection surfaced clearly (e.g. permission granted but not at location) */}
+              {checkInMutation.isError && (
+                <View style={{ backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.lg, flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}>
+                  <Icon name="error" size={20} color={colors.dangerText} />
+                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, lineHeight: 21, color: colors.dangerText }}>
+                    {getFriendlyErrorMessage(checkInMutation.error)}
+                  </Text>
                 </View>
               )}
-            </View>
+
+              <TouchableOpacity
+                onPress={handleCheckIn}
+                disabled={!canCheckIn}
+                activeOpacity={0.85}
+                style={{
+                  borderRadius: radius.md,
+                  overflow: 'hidden',
+                  opacity: canCheckIn ? 1 : 0.4,
+                }}
+              >
+                <LinearGradient
+                  colors={canCheckIn ? gradients.primary : ['#94A3B8', '#94A3B8']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{ minHeight: 56, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.white, letterSpacing: 0.5 }}>
+                    {checkInMutation.isPending
+                      ? t('common.loading')
+                      : !locationPermission
+                        ? t('attendance.location_denied')
+                        : isMocked
+                          ? t('attendance.location_mocked')
+                          : !sessionProximity.withinRange && sessionProximity.distance !== null
+                            ? t('attendance.too_far')
+                            : sessionTimeInfo && !sessionTimeInfo.canCheckIn
+                              ? t('attendance.outside_window')
+                              : t('attendance.check_in_now')}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </>
           )}
 
+          {/* Excuse for a recorded absence */}
           <TouchableOpacity
-            onPress={handleCheckIn}
-            disabled={!canCheckIn}
-            activeOpacity={0.85}
-            style={{
-              borderRadius: radius.md,
-              overflow: 'hidden',
-              opacity: canCheckIn ? 1 : 0.4,
-            }}
+            onPress={() => { setExcuseVisible(true); setExcuseRecordId(null); setExcuseSent(false); setExcuseText(''); }}
+            activeOpacity={0.8}
+            style={{ borderRadius: radius.md, overflow: 'hidden' }}
           >
-            <LinearGradient
-              colors={canCheckIn ? gradients.primary : ['#94A3B8', '#94A3B8']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{ paddingVertical: 18, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.white, letterSpacing: 0.5 }}>
-                {checkInMutation.isPending
-                  ? t('common.loading')
-                  : !locationPermission
-                    ? t('attendance.location_denied')
-                    : isMocked
-                      ? t('attendance.location_mocked')
-                      : !sessionProximity.withinRange && sessionProximity.distance !== null
-                        ? t('attendance.too_far')
-                        : sessionTimeInfo && !sessionTimeInfo.canCheckIn
-                          ? t('attendance.outside_window')
-                          : t('attendance.check_in_now')}
-              </Text>
-            </LinearGradient>
+            <View style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.warningLight, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.warning }}>
+              <Icon name="note" size={20} color={colors.warningText} outline />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.warningText }}>{t('attendance.excuse')}</Text>
+            </View>
           </TouchableOpacity>
 
-          <View style={{ flexDirection: 'row', gap: spacing.md }}>
-            <TouchableOpacity
-              onPress={() => { setActiveModal('excuse'); setExcuseSessionId(null); }}
-              activeOpacity={0.8}
-              style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden' }}
-            >
-              <LinearGradient colors={['#F59E0B', '#D97706']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ padding: spacing.lg, alignItems: 'center' }}>
-                <Text style={{ fontSize: 24, marginBottom: spacing.xs }}>{'📝'}</Text>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.white }}>{t('attendance.excuse')}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setActiveModal('report')}
-              activeOpacity={0.8}
-              style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden' }}
-            >
-              <LinearGradient colors={['#EF4444', '#DC2626']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ padding: spacing.lg, alignItems: 'center' }}>
-                <Text style={{ fontSize: 24, marginBottom: spacing.xs }}>{'⚠️'}</Text>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.white }}>{t('attendance.report_problem')}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setShowCoverage(!showCoverage)}
-              activeOpacity={0.8}
-              style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden' }}
-            >
-              <LinearGradient colors={['#6366F1', '#4F46E5']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ padding: spacing.lg, alignItems: 'center' }}>
-                <Text style={{ fontSize: 24, marginBottom: spacing.xs }}>{'📊'}</Text>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.white }}>{t('attendance.coverage')}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => { setActiveModal('reschedule'); setSelectedDate(null); setRescheduleReason(''); setRescheduleSent(false); }}
-              activeOpacity={0.8}
-              style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden' }}
-            >
-              <LinearGradient colors={['#06B6D4', '#0891B2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ padding: spacing.lg, alignItems: 'center' }}>
-                <Text style={{ fontSize: 24, marginBottom: spacing.xs }}>{'🔄'}</Text>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.white }}>{t('session.reschedule')}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-
-          {showCoverage && (
-            <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
-                <Text style={textPresets.h3}>{t('attendance.coverage')}</Text>
-                <Text style={textPresets.bodySmall}>{t('attendance.coverage_this_month')}</Text>
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg }}>
-                <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.success }}>{stats?.present ?? 0}</Text>
-                  <Text style={textPresets.caption}>{t('attendance.coverage_present')}</Text>
-                </View>
-                <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.danger }}>{stats?.absent ?? 0}</Text>
-                  <Text style={textPresets.caption}>{t('attendance.coverage_absent')}</Text>
-                </View>
-                <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.warningLight, borderRadius: radius.md, padding: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.warning }}>{stats?.excused ?? 0}</Text>
-                  <Text style={textPresets.caption}>{t('attendance.coverage_excused')}</Text>
-                </View>
-              </View>
-
-              {(records ?? []).slice(0, 10).map((record, i) => (
-                <View key={record?.id ?? i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
-                  <View>
-                    <Text style={textPresets.body}>{record?.course_name}</Text>
-                    <Text style={textPresets.caption}>
-                      {record?.session_time ? new Date(record.session_time).toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'short' }) : ''}
-                    </Text>
-                  </View>
-                  <View style={{ backgroundColor: coverageColors[record?.status] + '20', paddingVertical: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radius.full }}>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: coverageColors[record?.status] }}>{t(coverageLabels[record?.status])}</Text>
-                  </View>
-                </View>
-              ))}
+          {/* Attendance history */}
+          <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
+              <Text style={textPresets.h3}>{t('attendance.coverage')}</Text>
+              <Text style={textPresets.bodySmall}>{t('attendance.coverage_this_month')}</Text>
             </View>
-          )}
+
+            <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg }}>
+              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.successText }}>{stats?.present ?? 0}</Text>
+                <Text style={textPresets.caption}>{t('attendance.coverage_present')}</Text>
+              </View>
+              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.dangerText }}>{stats?.absent ?? 0}</Text>
+                <Text style={textPresets.caption}>{t('attendance.coverage_absent')}</Text>
+              </View>
+              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.infoLight, borderRadius: radius.md, padding: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.infoText }}>{stats?.excused ?? 0}</Text>
+                <Text style={textPresets.caption}>{t('attendance.coverage_excused')}</Text>
+              </View>
+            </View>
+
+            {(records ?? []).slice(0, 10).map((record, i) => (
+              <View key={record?.id ?? i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
+                <View>
+                  <Text style={textPresets.body}>{record?.course_name}</Text>
+                  <Text style={textPresets.caption}>
+                    {record?.session_time ? new Date(record.session_time).toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'short' }) : ''}
+                  </Text>
+                </View>
+                <StatusBadge status={record?.status ?? ''} size="sm" />
+              </View>
+            ))}
+          </View>
         </View>
       </ScrollView>
 
-      <Modal visible={activeModal === 'excuse'} transparent animationType="slide">
+      {/* Excuse modal — pick which absence, then explain */}
+      <Modal visible={excuseVisible} transparent animationType="slide" onRequestClose={() => setExcuseVisible(false)}>
         <View style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => { setActiveModal(null); setExcuseText(''); }} />
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setExcuseVisible(false)} />
           <View style={{ backgroundColor: colors.white, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl }} />
-            <Text style={textPresets.h2}>{t('attendance.excuse_title')}</Text>
-            <Text style={[textPresets.bodySmall, { marginBottom: spacing.xl }]}>
-              {t('session.course')}: {selectedSessionData?.course_name ?? ''}
-            </Text>
 
-            <TextInput
-              value={excuseText}
-              onChangeText={setExcuseText}
-              placeholder={t('attendance.excuse_placeholder')}
-              placeholderTextColor={colors.textTertiary}
-              multiline
-              numberOfLines={4}
-              style={{ fontFamily: fonts.regular, fontSize: 14, backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.lg, color: colors.textPrimary, textAlign: 'right', minHeight: 100, borderWidth: 1, borderColor: colors.border }}
-            />
-
-            <TouchableOpacity
-              onPress={() => {
-                if (!excuseText.trim() || !excuseSessionId) return;
-                submitExcuseMutation.mutate(
-                  { attendanceRecordId: excuseSessionId, reason: excuseText },
-                  { onSuccess: () => { setActiveModal(null); setExcuseText(''); }, onError: () => {} }
-                );
-              }}
-              disabled={!excuseText.trim() || !excuseSessionId || submitExcuseMutation.isPending}
-              activeOpacity={0.85}
-              style={{ borderRadius: radius.md, overflow: 'hidden', opacity: (!excuseText.trim() || !excuseSessionId || submitExcuseMutation.isPending) ? 0.5 : 1 }}
-            >
-              <LinearGradient colors={gradients.warm} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white }}>
-                  {submitExcuseMutation.isPending ? t('common.loading') : t('attendance.excuse_submit')}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={activeModal === 'reschedule'} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => { setActiveModal(null); setRescheduleReason(''); setSelectedDate(null); }} />
-          <View style={{ backgroundColor: colors.white, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xl5, maxHeight: '80%' }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl }} />
-
-            {rescheduleSent ? (
-              <>
-                <View style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
-                  <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.successLight, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.lg }}>
-                    <Text style={{ fontSize: 36, color: colors.success }}>{'✓'}</Text>
-                  </View>
-                  <Text style={textPresets.h2}>{t('session.request_sent')}</Text>
-                  <Text style={[textPresets.bodySmall, { textAlign: 'center', marginTop: spacing.sm }]}>
-                    {t('session.proposed_time')}: {selectedDate ? MOCK_ALTERNATIVES.find((a) => a.date === selectedDate)?.day : ''} {selectedDate}
-                  </Text>
+            {excuseSent ? (
+              <View style={{ alignItems: 'center', paddingVertical: spacing.lg }}>
+                <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.successLight, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.lg }}>
+                  <Icon name="success" size={40} color={colors.success} />
                 </View>
-                <TouchableOpacity onPress={() => setActiveModal(null)} style={{ marginTop: spacing.md, paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.primaryLight, alignItems: 'center' }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{t('common.back')}</Text>
+                <Text style={[textPresets.h3, { textAlign: 'center' }]}>{t('attendance.excuse_submitted')}</Text>
+                <TouchableOpacity
+                  onPress={() => setExcuseVisible(false)}
+                  style={{ marginTop: spacing.xl, minHeight: 48, justifyContent: 'center', paddingHorizontal: spacing.xxxl, borderRadius: radius.md, backgroundColor: colors.primaryLight }}
+                >
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.primary }}>{t('common.done')}</Text>
                 </TouchableOpacity>
-              </>
+              </View>
             ) : (
               <>
-                <Text style={textPresets.h2}>{t('session.reschedule_request')}</Text>
-                <Text style={[textPresets.bodySmall, { marginBottom: spacing.lg }]}>
-                  {t('session.course')}: {selectedSessionData?.course_name ?? ''} · {t('session.teacher')}: {selectedSessionData?.teacher_name ?? ''}
-                </Text>
+                <Text style={textPresets.h2}>{t('attendance.excuse_title')}</Text>
 
-                <Text style={[textPresets.label, { marginBottom: spacing.sm }]}>{t('session.proposed_time')}</Text>
-                {MOCK_ALTERNATIVES.map((alt) => {
-                  const isFull = alt.slots === 0;
-                  const isSel = selectedDate === alt.date;
-                  return (
-                    <TouchableOpacity
-                      key={alt.date}
-                      onPress={() => { if (!isFull) setSelectedDate(alt.date); }}
-                      disabled={isFull}
-                      style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: isSel ? colors.primaryLight : colors.background, marginBottom: spacing.sm, borderWidth: 1.5, borderColor: isSel ? colors.primary : isFull ? colors.dangerLight : 'transparent', opacity: isFull ? 0.45 : 1 }}
-                    >
-                      <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSel ? colors.primary : isFull ? colors.danger : colors.border, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
-                        {isSel && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary }} />}
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[textPresets.body, isFull && { color: colors.textTertiary }]}>{alt.day} - {alt.date}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: spacing.sm }}>
-                          <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.borderLight, overflow: 'hidden' }}>
-                            <View style={{ width: `${(alt.slots / alt.total) * 100}%`, height: '100%', borderRadius: 3, backgroundColor: isFull ? colors.danger : colors.primary }} />
+                {absentRecords.length === 0 ? (
+                  <Text style={[textPresets.body, { color: colors.textSecondary, paddingVertical: spacing.xl, textAlign: 'center' }]}>
+                    {t('attendance.no_absences_to_excuse')}
+                  </Text>
+                ) : (
+                  <>
+                    <Text style={[textPresets.label, { marginTop: spacing.md, marginBottom: spacing.sm }]}>
+                      {t('attendance.excuse_select_session')}
+                    </Text>
+                    {absentRecords.map((record) => {
+                      const isSel = excuseRecordId === record.id;
+                      return (
+                        <TouchableOpacity
+                          key={record.id}
+                          onPress={() => setExcuseRecordId(record.id)}
+                          style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: isSel ? colors.primaryLight : colors.background, marginBottom: spacing.sm, borderWidth: 1.5, borderColor: isSel ? colors.primary : 'transparent' }}
+                        >
+                          <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSel ? colors.primary : colors.border, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                            {isSel && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary }} />}
                           </View>
-                          <Text style={[textPresets.caption, isFull && { color: colors.danger }]}>
-                            {isFull ? t('attendance.absent') : `${alt.slots}/${alt.total}`}
-                          </Text>
-                        </View>
-                      </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={textPresets.body}>{record.course_name}</Text>
+                            <Text style={textPresets.caption}>
+                              {record.session_time ? new Date(record.session_time).toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                    <TextInput
+                      value={excuseText}
+                      onChangeText={setExcuseText}
+                      placeholder={t('attendance.excuse_placeholder')}
+                      placeholderTextColor={colors.textTertiary}
+                      multiline
+                      numberOfLines={4}
+                      style={{ fontFamily: fonts.regular, fontSize: 15, backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.lg, color: colors.textPrimary, textAlign: 'right', minHeight: 100, borderWidth: 1, borderColor: colors.border }}
+                    />
+
+                    {submitExcuseMutation.isError && (
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.dangerText, marginBottom: spacing.md }}>
+                        {getFriendlyErrorMessage(submitExcuseMutation.error)}
+                      </Text>
+                    )}
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (!excuseText.trim() || !excuseRecordId) return;
+                        submitExcuseMutation.mutate(
+                          { attendanceRecordId: excuseRecordId, reason: excuseText },
+                          { onSuccess: () => { setExcuseSent(true); setExcuseText(''); } }
+                        );
+                      }}
+                      disabled={!excuseText.trim() || !excuseRecordId || submitExcuseMutation.isPending}
+                      activeOpacity={0.85}
+                      style={{ borderRadius: radius.md, overflow: 'hidden', opacity: (!excuseText.trim() || !excuseRecordId || submitExcuseMutation.isPending) ? 0.5 : 1 }}
+                    >
+                      <LinearGradient colors={gradients.warm} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: 52, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white }}>
+                          {submitExcuseMutation.isPending ? t('common.loading') : t('attendance.excuse_submit')}
+                        </Text>
+                      </LinearGradient>
                     </TouchableOpacity>
-                  );
-                })}
-
-                <TextInput
-                  value={rescheduleReason}
-                  onChangeText={setRescheduleReason}
-                  placeholder={t('session.reason')}
-                  placeholderTextColor={colors.textTertiary}
-                  multiline
-                  numberOfLines={3}
-                  style={{ fontFamily: fonts.regular, fontSize: 14, backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.lg, marginTop: spacing.md, marginBottom: spacing.lg, color: colors.textPrimary, textAlign: 'right', minHeight: 80, borderWidth: 1, borderColor: colors.border }}
-                />
-
-                <TouchableOpacity
-                  onPress={() => { if (selectedDate) setRescheduleSent(true); }}
-                  disabled={!selectedDate || !rescheduleReason.trim()}
-                  activeOpacity={0.85}
-                  style={{ borderRadius: radius.md, overflow: 'hidden', opacity: (!selectedDate || !rescheduleReason.trim()) ? 0.5 : 1 }}
-                >
-                  <LinearGradient colors={['#06B6D4', '#0891B2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, alignItems: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white }}>{t('session.reschedule_request')}</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                  </>
+                )}
               </>
             )}
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={activeModal === 'report'} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => { setActiveModal(null); setReportText(''); }} />
-          <View style={{ backgroundColor: colors.white, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl }} />
-            <Text style={textPresets.h2}>{t('attendance.report_title')}</Text>
-            <Text style={[textPresets.bodySmall, { marginBottom: spacing.lg }]}>
-              {t('session.course')}: {selectedSessionData?.course_name ?? ''}
-            </Text>
-
-            <TextInput
-              value={reportText}
-              onChangeText={setReportText}
-              placeholder={t('attendance.report_placeholder')}
-              placeholderTextColor={colors.textTertiary}
-              multiline
-              numberOfLines={4}
-              style={{ fontFamily: fonts.regular, fontSize: 14, backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.lg, color: colors.textPrimary, textAlign: 'right', minHeight: 100, borderWidth: 1, borderColor: colors.border }}
-            />
-
-            <TouchableOpacity
-              onPress={() => { setActiveModal(null); setReportText(''); }}
-              disabled={!reportText.trim()}
-              activeOpacity={0.85}
-              style={{ borderRadius: radius.md, overflow: 'hidden', opacity: !reportText.trim() ? 0.5 : 1 }}
-            >
-              <LinearGradient colors={gradients.warm} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white }}>{t('attendance.report_submit')}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>

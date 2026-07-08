@@ -34,7 +34,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    console.error('[AuthStore] logout() called');
     await SecureStore.deleteItemAsync('access_token');
     await SecureStore.deleteItemAsync('refresh_token');
     await SecureStore.deleteItemAsync(SESSION_KEY);

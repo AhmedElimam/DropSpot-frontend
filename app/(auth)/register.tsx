@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
   View,
   Text,
@@ -161,9 +162,7 @@ export default function RegisterScreen() {
                       flex: 1,
                     }}
                   >
-                    {(registerMutation.error as any)?.response?.data?.message ||
-                      (registerMutation.error as any)?.message ||
-                      t('auth.invalid_credentials')}
+                    {getFriendlyErrorMessage(registerMutation.error)}
                   </Text>
                 </View>
               )}

@@ -15,12 +15,14 @@ export async function checkIn(
   studentId: number,
   latitude?: number,
   longitude?: number,
+  accuracy?: number,
 ): Promise<AttendanceRecord> {
   const { data } = await client.post('/attendance/check-in', {
     session_instance_id: sessionInstanceId,
     student_id: studentId,
     latitude,
     longitude,
+    accuracy,
   });
   return extractRecord(extractAttrs(data.data ?? data));
 }

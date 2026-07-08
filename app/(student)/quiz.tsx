@@ -7,6 +7,10 @@ import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@
 import { useQuizzes } from '@/hooks/useQuizzes';
 import { formatShortDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { Icon } from '@/components/ui/Icon';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: 'quiz.upcoming_quiz', color: colors.warning, bg: colors.warningLight },
@@ -68,9 +72,7 @@ export default function QuizTab() {
           {isLoading ? (
             <ActivityIndicator color={colors.primary} style={{ paddingVertical: spacing.xl }} />
           ) : filtered.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
-              <Text style={textPresets.bodySmall}>{t('quiz.no_quizzes')}</Text>
-            </View>
+            <EmptyState icon="quiz" title={t('quiz.no_quizzes')} />
           ) : (
             filtered.map((quiz) => {
               const config = statusConfig[quiz.status];
@@ -78,6 +80,7 @@ export default function QuizTab() {
                 <TouchableOpacity
                   key={quiz.id}
                   activeOpacity={0.7}
+                  onPress={() => { if (quiz.status === 'pending') router.push(`/(student)/quiz-run/${quiz.id}` as any); }}
                   style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, marginBottom: spacing.md, ...shadows.sm, borderStartWidth: 4, borderStartColor: config.color }}
                 >
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -86,7 +89,7 @@ export default function QuizTab() {
                       <Text style={[textPresets.bodySmall, { marginTop: spacing.xs }]}>{quiz.course_name}</Text>
                     </View>
                     <View style={{ backgroundColor: config.bg, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: config.color }}>{t(config.label)}</Text>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: config.color }}>{t(config.label)}</Text>
                     </View>
                   </View>
 
@@ -97,20 +100,24 @@ export default function QuizTab() {
                   )}
 
                   {quiz.status === 'pending' && (
-                    <TouchableOpacity activeOpacity={0.85} style={{ borderRadius: radius.md, overflow: 'hidden', marginTop: spacing.md }}>
-                      <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 12, alignItems: 'center' }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.white }}>{t('quiz.start_quiz')}</Text>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => router.push(`/(student)/quiz-run/${quiz.id}` as any)}
+                      style={{ borderRadius: radius.md, overflow: 'hidden', marginTop: spacing.md }}
+                    >
+                      <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: 48, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.white }}>{t('quiz.start_quiz')}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   )}
 
                   <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.md }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 12, color: colors.textTertiary, marginEnd: 4 }}>{'📝'}</Text>
+                      <Icon name="quiz" size={14} color={colors.textTertiary} outline style={{ marginEnd: 4 }} />
                       <Text style={textPresets.caption}>{t('quiz.questions_count', { count: quiz.question_count })}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 12, color: colors.textTertiary, marginEnd: 4 }}>{'⏱️'}</Text>
+                      <Icon name="clock" size={14} color={colors.textTertiary} outline style={{ marginEnd: 4 }} />
                       <Text style={textPresets.caption}>{t('quiz.duration', { minutes: quiz.duration_minutes })}</Text>
                     </View>
                   </View>

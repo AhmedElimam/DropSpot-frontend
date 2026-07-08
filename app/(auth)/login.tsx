@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Dimensions, StatusBar } from 'react-native';
+import { isAxiosError } from 'axios';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
@@ -67,7 +69,9 @@ export default function LoginScreen() {
                 <View style={{ backgroundColor: 'rgba(239,68,68,0.12)', padding: spacing.md, borderRadius: radius.md, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(239,68,68,0.15)' }}>
                   <Text style={{ fontSize: 14, marginEnd: spacing.sm }}>{'⚠️'}</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: '#FCA5A5', flex: 1 }}>
-                    {(loginMutation.error as any)?.response?.data?.message || (loginMutation.error as any)?.message || t('auth.invalid_credentials')}
+                    {isAxiosError(loginMutation.error) && loginMutation.error.response?.status === 401
+                      ? t('auth.invalid_credentials')
+                      : getFriendlyErrorMessage(loginMutation.error)}
                   </Text>
                 </View>
               )}

@@ -83,6 +83,7 @@ export default function StudentTabLayout() {
       <Tabs.Screen name="check-in" />
       <Tabs.Screen name="quiz" />
       <Tabs.Screen name="profile" />
+      <Tabs.Screen name="quiz-run/[quizId]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }

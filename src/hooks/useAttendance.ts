@@ -22,8 +22,8 @@ export function useCheckIn() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ sessionInstanceId, latitude, longitude }: { sessionInstanceId: number; latitude?: number; longitude?: number }) =>
-      checkInApi(sessionInstanceId, studentId, latitude, longitude),
+    mutationFn: ({ sessionInstanceId, latitude, longitude, accuracy }: { sessionInstanceId: number; latitude?: number; longitude?: number; accuracy?: number }) =>
+      checkInApi(sessionInstanceId, studentId, latitude, longitude, accuracy),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });

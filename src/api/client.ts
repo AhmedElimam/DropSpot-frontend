@@ -35,7 +35,7 @@ client.interceptors.response.use(
         original.headers.Authorization = `Bearer ${at}`;
         return client(original);
       } catch (e) {
-        console.error('[API] Token refresh failed, calling logout()', e);
+        // Refresh failed — session is over; fall through to logout.
         await useAuthStore.getState().logout();
         return Promise.reject(error);
       }

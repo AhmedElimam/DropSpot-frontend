@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
   View,
   Text,
@@ -168,9 +169,7 @@ export default function VerifyOtpScreen() {
                       flex: 1,
                     }}
                   >
-                    {(verifyMutation.error as any)?.response?.data?.message ||
-                      (verifyMutation.error as any)?.message ||
-                      t('auth.invalid_credentials')}
+                    {getFriendlyErrorMessage(verifyMutation.error)}
                   </Text>
                 </View>
               )}

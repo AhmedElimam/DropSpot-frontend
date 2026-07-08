@@ -7,6 +7,7 @@ export interface User {
   email_verified_at: string | null;
   created_at: string;
   student_id?: number | null;
+  student_code?: string | null;
 }
 
 export interface AuthTokens {

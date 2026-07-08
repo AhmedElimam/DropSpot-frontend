@@ -16,13 +16,17 @@ export function getFriendlyErrorMessage(error: unknown): string {
     }
     const status = error.response.status;
     if (status === 401) return t('errors.session_expired');
-    if (status === 403) return t('errors.forbidden');
+    if (status === 403) {
+      const msg = error.response.data?.message;
+      if (typeof msg === 'string' && msg.length > 0 && msg.length < 200 && /[\u0600-\u06FF]/.test(msg)) return msg;
+      return t('errors.forbidden');
+    }
     if (status === 404) return t('errors.not_found_generic');
     if (status === 422) {
       // Validation problems are the one case where the server message helps,
       // but only if it exists; still never fall through to raw JSON.
       const msg = error.response.data?.message;
-      if (typeof msg === 'string' && msg.length < 140) return msg;
+      if (typeof msg === 'string' && msg.length > 0 && msg.length < 200) return msg;
       return t('errors.validation_error');
     }
     if (status >= 500) return t('errors.server_error_friendly');
