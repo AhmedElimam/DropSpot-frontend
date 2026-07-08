@@ -1,15 +1,26 @@
 import client from './client';
 import { extractList, extractAttrs } from './utils';
-import type { Quiz, QuizAttempt } from '@/types/quiz';
+import type { Quiz, QuizAttempt, Question } from '@/types/quiz';
 
 export async function getQuizzes(studentId: number): Promise<Quiz[]> {
   const { data } = await client.get(`/students/${studentId}/quizzes`);
   return extractList(data, 'quizzes').map(extractQuiz);
 }
 
-export async function getQuizById(id: number): Promise<Quiz> {
+export async function getQuizWithQuestions(id: number): Promise<{ quiz: Quiz; questions: Question[] }> {
   const { data } = await client.get(`/quizzes/${id}`);
-  return extractQuiz(data.data ?? data);
+  const attrs = extractAttrs(data.data ?? data);
+  return {
+    quiz: extractQuiz(data.data ?? data),
+    questions: (attrs.questions ?? []).map((q: any) => ({
+      id: q.id,
+      text: q.text,
+      type: q.type as Question['type'],
+      options: q.options?.choices ?? null,
+      points: q.points,
+      order: q.order,
+    })),
+  };
 }
 
 export async function startAttempt(quizId: number, studentId: number): Promise<QuizAttempt> {

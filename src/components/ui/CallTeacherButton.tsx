@@ -2,6 +2,7 @@ import { TouchableOpacity, Text, Linking, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, touchTarget } from '@/theme/index';
+import { Icon } from './Icon';
 
 interface CallTeacherButtonProps {
   phone: string;
@@ -41,7 +42,7 @@ export function CallTeacherButton({ phone, name, style }: CallTeacherButtonProps
         style,
       ]}
     >
-      <Text style={{ fontSize: 18 }}>📞</Text>
+      <Icon name="call" size={20} color={colors.successText} />
       <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.successText }}>
         {label}
       </Text>

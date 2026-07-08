@@ -15,8 +15,12 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
 import { useChildren } from '@/hooks/useChildren';
 import { createTicket } from '@/api/tickets';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SuccessConfirmation } from '@/components/ui/SuccessConfirmation';
+import { CallTeacherButton } from '@/components/ui/CallTeacherButton';
+import { getFriendlyErrorMessage } from '@/utils/errors';
+import { Icon } from '@/components/ui/Icon';
 
 export default function CreateTicket() {
   const { t } = useTranslation();
@@ -29,17 +33,19 @@ export default function CreateTicket() {
   const [description, setDescription] = useState('');
 
   const selectedChild = (children ?? []).find((c) => c.id === selectedChildId);
+  const selectedTeacher = selectedChild?.teachers?.find((tc) => Number(tc.id) === selectedTeacherId);
+  const queryClient = useQueryClient();
 
   const createMutation = useMutation({
     mutationFn: () =>
       createTicket({
-        student_id: Number(selectedChildId!),
+        student_id: Number(selectedChild!.student_id),
         teacher_id: selectedTeacherId!,
         subject,
         description,
       }),
     onSuccess: () => {
-      router.back();
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
     },
   });
 
@@ -59,6 +65,16 @@ export default function CreateTicket() {
       setSelectedTeacherId(null);
     }
   };
+
+  if (createMutation.isSuccess) {
+    return (
+      <SuccessConfirmation
+        title={t('tickets.created_success')}
+        message={t('tickets.created_success_desc')}
+        onDone={() => router.back()}
+      />
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -82,7 +98,7 @@ export default function CreateTicket() {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity onPress={() => router.back()} style={{ marginEnd: spacing.md }}>
-                <Text style={{ fontSize: 24, color: '#fff' }}>{'←'}</Text>
+                <Icon name="forward" size={26} color="#fff" />
               </TouchableOpacity>
               <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>
                 {t('tickets.create')}
@@ -147,9 +163,7 @@ export default function CreateTicket() {
                           )}
                         </View>
                       </View>
-                      <Text style={{ fontSize: 18, color: isSelected ? colors.primary : colors.textTertiary }}>
-                        {isSelected ? '▼' : '◀'}
-                      </Text>
+                      <Icon name={isSelected ? 'down' : 'back'} size={18} color={isSelected ? colors.primary : colors.textTertiary} />
                     </TouchableOpacity>
 
                     {isSelected && (
@@ -199,7 +213,7 @@ export default function CreateTicket() {
                                         : colors.border,
                                   }}
                                 >
-                                  <Text style={{ fontSize: 14, marginEnd: spacing.xs }}>{'👨‍🏫'}</Text>
+                                  <Icon name="teacher" size={15} color={colors.textSecondary} outline style={{ marginEnd: spacing.xs }} />
                                   <Text
                                     style={{
                                       fontFamily: fonts.medium,
@@ -274,6 +288,21 @@ export default function CreateTicket() {
                     ...shadows.sm,
                   }}
                 />
+              </View>
+            )}
+
+            {/* Error feedback — calm, instructive, with a human fallback */}
+            {createMutation.isError && (
+              <View style={{ backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.lg, gap: spacing.sm }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: colors.dangerText }}>
+                  {t('tickets.create_error')}
+                </Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.dangerText }}>
+                  {getFriendlyErrorMessage(createMutation.error)}
+                </Text>
+                {selectedTeacher?.phone ? (
+                  <CallTeacherButton phone={selectedTeacher.phone} name={selectedTeacher.name} />
+                ) : null}
               </View>
             )}
 

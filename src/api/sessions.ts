@@ -35,6 +35,8 @@ function extractSession(item: any): SessionInstance {
     override_reason: a.override_reason,
     qr_token: a.qr_token,
     course_name: a.course_name,
+    course_latitude: a.course_latitude ?? null,
+    course_longitude: a.course_longitude ?? null,
     teacher_name: a.teacher_name,
     grade_name: a.grade_name,
   };

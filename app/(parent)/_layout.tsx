@@ -1,10 +1,13 @@
+import { useEffect, useRef } from 'react';
 import { Redirect, Tabs } from 'expo-router';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, AppState, AppStateStatus } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { registerForPushNotifications, unregisterPushNotifications } from '@/utils/push-notifications';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
 const labels: Record<string, string> = {
   index: 'nav.home',
@@ -15,13 +18,13 @@ const labels: Record<string, string> = {
   profile: 'nav.settings',
 };
 
-const icons: Record<string, string> = {
-  index: '🔔',
-  children: '👨‍👩‍👧‍👦',
-  tickets: '🎫',
-  invoices: '💳',
-  reports: '📊',
-  profile: '⚙️',
+const icons: Record<string, IconName> = {
+  index: 'home',
+  children: 'children',
+  tickets: 'tickets',
+  invoices: 'invoices',
+  reports: 'reports',
+  profile: 'settings',
 };
 
 export default function ParentTabLayout() {
@@ -29,6 +32,32 @@ export default function ParentTabLayout() {
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const pushTokenRef = useRef<string | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    registerForPushNotifications().then((token) => {
+      pushTokenRef.current = token;
+    });
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
+        registerForPushNotifications().then((token) => {
+          pushTokenRef.current = token;
+        });
+      }
+      appStateRef.current = nextState;
+    });
+
+    return () => {
+      subscription.remove();
+      if (pushTokenRef.current) {
+        unregisterPushNotifications(pushTokenRef.current);
+      }
+    };
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -66,7 +95,7 @@ export default function ParentTabLayout() {
             <Text
               style={{
                 fontFamily: fonts.medium,
-                fontSize: 10,
+                fontSize: 12,
                 color: focused ? colors.primary : colors.textTertiary,
                 marginTop: 2,
               }}
@@ -78,13 +107,16 @@ export default function ParentTabLayout() {
         tabBarIcon: ({ focused }) => (
           <View
             style={{
-              opacity: focused ? 1 : 0.45,
-              transform: [{ scale: focused ? 1.1 : 1 }],
+              opacity: focused ? 1 : 0.55,
+              transform: [{ scale: focused ? 1.08 : 1 }],
             }}
           >
-            <Text style={{ fontSize: 22 }}>
-              {icons[route.name] || '📄'}
-            </Text>
+            <Icon
+              name={icons[route.name] || 'home'}
+              size={24}
+              color={focused ? colors.primary : colors.textTertiary}
+              outline={!focused}
+            />
           </View>
         ),
       })}
@@ -97,6 +129,7 @@ export default function ParentTabLayout() {
       <Tabs.Screen name="profile" />
       <Tabs.Screen name="child/[id]" options={{ href: null }} />
       <Tabs.Screen name="child/[id]/teachers" options={{ href: null }} />
+      <Tabs.Screen name="quiz/[quizId]" options={{ href: null }} />
     </Tabs>
   );
 }

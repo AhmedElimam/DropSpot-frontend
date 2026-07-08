@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
 import { Button } from './Button';
+import { Icon } from './Icon';
 
 interface SuccessConfirmationProps {
   /** One plain sentence describing what just happened. */
@@ -40,7 +41,7 @@ export function SuccessConfirmation({ title, message, doneLabel, onDone }: Succe
           marginBottom: spacing.xl,
         }}
       >
-        <Text style={{ fontSize: 48 }}>✅</Text>
+        <Icon name="success" size={56} color={colors.success} />
       </View>
       <Text
         style={{

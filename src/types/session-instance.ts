@@ -10,6 +10,8 @@ export interface SessionInstance {
   override_reason: string | null;
   qr_token: string | null;
   course_name?: string;
+  course_latitude?: number | null;
+  course_longitude?: number | null;
   teacher_name?: string;
   grade_name?: string;
   enrolled_count?: number;

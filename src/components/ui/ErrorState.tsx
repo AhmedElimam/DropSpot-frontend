@@ -4,6 +4,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
 import { Button } from './Button';
 import { CallTeacherButton } from './CallTeacherButton';
+import { Icon } from './Icon';
 
 interface ErrorStateProps {
   /** Calm, human message. Never pass a raw API/server string here. */
@@ -26,7 +27,19 @@ export function ErrorState({ message, onRetry, teacherPhone, teacherName }: Erro
         padding: spacing.xxxl,
       }}
     >
-      <Text style={{ fontSize: 56, marginBottom: spacing.lg }}>😕</Text>
+      <View
+        style={{
+          width: 88,
+          height: 88,
+          borderRadius: 44,
+          backgroundColor: colors.warningLight,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: spacing.lg,
+        }}
+      >
+        <Icon name="warning" size={40} color={colors.warningText} outline />
+      </View>
       <Text
         style={{
           fontFamily: fonts.bold,

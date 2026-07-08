@@ -10,11 +10,17 @@ export async function getAttendanceRecords(studentId: number, params?: {
   return extractList(data, 'attendance').map(extractRecord);
 }
 
-export async function checkIn(sessionInstanceId: number, studentId: number): Promise<AttendanceRecord> {
+export async function checkIn(
+  sessionInstanceId: number,
+  studentId: number,
+  latitude?: number,
+  longitude?: number,
+): Promise<AttendanceRecord> {
   const { data } = await client.post('/attendance/check-in', {
     session_instance_id: sessionInstanceId,
     student_id: studentId,
-    method: 'manual',
+    latitude,
+    longitude,
   });
   return extractRecord(extractAttrs(data.data ?? data));
 }

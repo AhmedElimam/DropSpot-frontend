@@ -16,6 +16,10 @@ import { useChildren } from '@/hooks/useChildren';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import client from '@/api/client';
+import { Icon } from '@/components/ui/Icon';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { CallTeacherButton } from '@/components/ui/CallTeacherButton';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 
 export default function TeacherManagement() {
   const { t } = useTranslation();
@@ -31,7 +35,7 @@ export default function TeacherManagement() {
   const removeMutation = useMutation({
     mutationFn: async (teacherId: number) => {
       const { data } = await client.post('/parents/remove-teacher', {
-        student_id: Number(id),
+        student_id: child ? child.student_id : Number(id),
         teacher_id: teacherId,
       });
       return data;
@@ -40,8 +44,9 @@ export default function TeacherManagement() {
       queryClient.invalidateQueries({ queryKey: ['children'] });
       setRemovingTeacherId(null);
     },
-    onError: () => {
+    onError: (error) => {
       setRemovingTeacherId(null);
+      Alert.alert(t('common.error'), getFriendlyErrorMessage(error));
     },
   });
 
@@ -74,7 +79,7 @@ export default function TeacherManagement() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity onPress={() => router.back()} style={{ marginEnd: spacing.md }}>
-              <Text style={{ fontSize: 24, color: '#fff' }}>{'←'}</Text>
+              <Icon name="forward" size={26} color="#fff" />
             </TouchableOpacity>
             <View>
               <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>
@@ -91,12 +96,7 @@ export default function TeacherManagement() {
 
         <View style={{ padding: spacing.lg, gap: spacing.md }}>
           {!teachers.length ? (
-            <View style={{ alignItems: 'center', padding: spacing.xl4 }}>
-              <Text style={{ fontSize: 48, marginBottom: spacing.md }}>{'👨‍🏫'}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
-                {t('parent.no_teachers')}
-              </Text>
-            </View>
+            <EmptyState icon="teacher" title={t('parent.no_teachers')} />
           ) : (
             teachers.map((teacher) => {
               const isRemoving = removingTeacherId === Number(teacher.id);
@@ -129,12 +129,15 @@ export default function TeacherManagement() {
                     <Text style={{ fontSize: 20, color: '#fff' }}>{teacher.name[0]}</Text>
                   </LinearGradient>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>
                       {teacher.name}
                     </Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
                       {t('parent.teacher_subscribed')}
                     </Text>
+                    {teacher.phone ? (
+                      <CallTeacherButton phone={teacher.phone} style={{ marginTop: spacing.sm, alignSelf: 'flex-start' }} />
+                    ) : null}
                   </View>
                   {isRemoving ? (
                     <ActivityIndicator size="small" color={colors.danger} />
@@ -145,11 +148,13 @@ export default function TeacherManagement() {
                       style={{
                         backgroundColor: colors.dangerLight,
                         borderRadius: radius.md,
+                        minHeight: 44,
+                        justifyContent: 'center',
                         paddingVertical: spacing.sm,
-                        paddingHorizontal: spacing.md,
+                        paddingHorizontal: spacing.lg,
                       }}
                     >
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>
                         {t('parent.remove')}
                       </Text>
                     </TouchableOpacity>

@@ -5,12 +5,13 @@ import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
-const icons: Record<string, string> = {
-  index: '🏠',
-  'check-in': '📌',
-  quiz: '📝',
-  profile: '👤',
+const icons: Record<string, IconName> = {
+  index: 'home',
+  'check-in': 'attendance',
+  quiz: 'quiz',
+  profile: 'profile',
 };
 
 export default function StudentTabLayout() {
@@ -19,10 +20,7 @@ export default function StudentTabLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
 
-  console.log('[StudentLayout] Mounted, isLoading:', isLoading, 'isAuthenticated:', isAuthenticated, 'role:', useAuthStore.getState().role);
-
   if (isLoading) {
-    console.log('[StudentLayout] Loading state');
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -31,7 +29,6 @@ export default function StudentTabLayout() {
   }
 
   if (!isAuthenticated) {
-    console.log('[StudentLayout] Not authenticated, redirecting to login');
     return <Redirect href="/(auth)/login" />;
   }
 
@@ -68,13 +65,16 @@ export default function StudentTabLayout() {
         tabBarIcon: ({ focused }) => (
           <View
             style={{
-              opacity: focused ? 1 : 0.45,
-              transform: [{ scale: focused ? 1.1 : 1 }],
+              opacity: focused ? 1 : 0.55,
+              transform: [{ scale: focused ? 1.08 : 1 }],
             }}
           >
-            <Text style={{ fontSize: 22 }}>
-              {icons[route.name] || '📄'}
-            </Text>
+            <Icon
+              name={icons[route.name] || 'home'}
+              size={24}
+              color={focused ? colors.primary : colors.textTertiary}
+              outline={!focused}
+            />
           </View>
         ),
       })}

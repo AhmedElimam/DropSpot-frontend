@@ -23,6 +23,11 @@ export interface Question {
   order: number;
 }
 
+export interface QuizAnswer {
+  questionId: number;
+  value: string | string[];
+}
+
 export interface QuizAttempt {
   id: number;
   quiz_id: number;

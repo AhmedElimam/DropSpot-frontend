@@ -10,6 +10,7 @@ export interface Invoice {
   items: string[];
   student_name?: string;
   teacher_name?: string;
+  teacher_phone?: string | null;
 }
 
 export async function getInvoices(): Promise<Invoice[]> {

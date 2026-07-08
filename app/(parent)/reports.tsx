@@ -9,10 +9,11 @@ import { useChildren } from '@/hooks/useChildren';
 import { useQuery } from '@tanstack/react-query';
 import { getStudentGrades } from '@/api/grades';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Icon } from '@/components/ui/Icon';
 
 type TabKey = 'attendance' | 'grades';
 
-const medals = ['🥇', '🥈', '🥉'];
+const rankColors = ['#F59E0B', '#94A3B8', '#B45309'];
 
 export default function ReportsScreen() {
   const { t } = useTranslation();
@@ -202,7 +203,7 @@ export default function ReportsScreen() {
                           <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: 2, flexWrap: 'wrap' }}>
                             {child.teachers.map((t) => (
                               <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={{ fontSize: 10, marginEnd: 2 }}>{'👨‍🏫'}</Text>
+                                <Icon name="teacher" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
                                 <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>{t.name}</Text>
                               </View>
                             ))}
@@ -261,13 +262,18 @@ export default function ReportsScreen() {
                 <>
                   {teacherAvgList.length > 0 && (
                     <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
-                      <Text style={textPresets.h3}>{'🏆'} {t('reports.top_teachers')}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Icon name="trophy" size={20} color={colors.warning} />
+                        <Text style={textPresets.h3}>{t('reports.top_teachers')}</Text>
+                      </View>
                       <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
                         {teacherAvgList.slice(0, 3).map((teacher, i) => (
                           <View key={teacher.name} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Text style={{ fontSize: 20, marginEnd: spacing.sm }}>{medals[i]}</Text>
+                            <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: rankColors[i], justifyContent: 'center', alignItems: 'center', marginEnd: spacing.sm }}>
+                              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{i + 1}</Text>
+                            </View>
                             <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.sm }}>
-                              <Text style={{ fontSize: 16 }}>{'👨‍🏫'}</Text>
+                              <Icon name="teacher" size={18} color={colors.primary} />
                             </View>
                             <View style={{ flex: 1 }}>
                               <Text style={[textPresets.body, { fontFamily: fonts.medium }]}>{teacher.name}</Text>
@@ -301,7 +307,7 @@ export default function ReportsScreen() {
                               <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: 2, flexWrap: 'wrap' }}>
                                 {child.teachers.map((t) => (
                                   <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <Text style={{ fontSize: 10, marginEnd: 2 }}>{'👨‍🏫'}</Text>
+                                    <Icon name="teacher" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
                                     <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>{t.name}</Text>
                                   </View>
                                 ))}
@@ -323,9 +329,9 @@ export default function ReportsScreen() {
                   })}
                 </>
               ) : (
-                <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xxl, alignItems: 'center', ...shadows.md }}>
-                  <Text style={{ fontSize: 40, marginBottom: spacing.md }}>{'🎯'}</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
+                <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xxl, alignItems: 'center', ...shadows.md, gap: spacing.md }}>
+                  <Icon name="grades" size={40} color={colors.textTertiary} outline />
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 16, color: colors.textSecondary, textAlign: 'center' }}>
                     {t('common.no_data')}
                   </Text>
                 </View>

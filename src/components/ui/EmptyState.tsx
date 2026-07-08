@@ -2,17 +2,18 @@ import { View, Text } from 'react-native';
 import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
 import { Button } from './Button';
+import { Icon, type IconName } from './Icon';
 
 interface EmptyStateProps {
-  /** Large emoji shown above the title (no icon-only meaning: title is required) */
-  icon?: string;
+  /** Semantic icon shown above the title (no icon-only meaning: title is required) */
+  icon?: IconName;
   title: string;
   message?: string;
   actionLabel?: string;
   onAction?: () => void;
 }
 
-export function EmptyState({ icon = '📭', title, message, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({ icon = 'empty', title, message, actionLabel, onAction }: EmptyStateProps) {
   return (
     <View
       style={{
@@ -22,7 +23,19 @@ export function EmptyState({ icon = '📭', title, message, actionLabel, onActio
         padding: spacing.xxxl,
       }}
     >
-      <Text style={{ fontSize: 56, marginBottom: spacing.lg }}>{icon}</Text>
+      <View
+        style={{
+          width: 88,
+          height: 88,
+          borderRadius: 44,
+          backgroundColor: colors.primaryLight,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: spacing.lg,
+        }}
+      >
+        <Icon name={icon} size={40} color={colors.primary} outline />
+      </View>
       <Text
         style={{
           fontFamily: fonts.bold,

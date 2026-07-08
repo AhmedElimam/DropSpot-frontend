@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Dimensions, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Dimensions, ActivityIndicator, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
@@ -8,6 +8,8 @@ import { useTodaySessions } from '@/hooks/useSessions';
 import { useCheckIn, useCoverageStats, useAttendanceRecords, useSubmitExcuse } from '@/hooks/useAttendance';
 import { formatTime } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
+import type { SessionInstance } from '@/types/session-instance';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +34,28 @@ const coverageLabels: Record<string, string> = {
 
 type ModalType = 'excuse' | 'report' | 'reschedule' | null;
 
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function getCheckInWindow(scheduledAt: string): { canCheckIn: boolean; opensIn: number; closesIn: number } {
+  const now = new Date();
+  const start = new Date(scheduledAt);
+  const windowOpen = new Date(start.getTime() - 10 * 60000);
+  const windowClose = new Date(start.getTime() + 15 * 60000);
+  const opensIn = Math.ceil((windowOpen.getTime() - now.getTime()) / 60000);
+  const closesIn = Math.ceil((windowClose.getTime() - now.getTime()) / 60000);
+  return { canCheckIn: now >= windowOpen && now <= windowClose, opensIn, closesIn };
+}
+
 export default function CheckInTab() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -42,7 +66,7 @@ export default function CheckInTab() {
   const submitExcuseMutation = useSubmitExcuse();
 
   const activeSessions = (sessions ?? []).filter((s) => s.status === 'scheduled');
-  const [selectedSession, setSelectedSession] = useState(activeSessions[0]?.id ?? '');
+  const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedInCourse, setCheckedInCourse] = useState('');
   const [activeModal, setActiveModal] = useState<ModalType>(null);
@@ -53,6 +77,84 @@ export default function CheckInTab() {
   const [rescheduleSent, setRescheduleSent] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [rescheduleReason, setRescheduleReason] = useState('');
+
+  // Location state
+  const [userLat, setUserLat] = useState<number | null>(null);
+  const [userLng, setUserLng] = useState<number | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationPermission, setLocationPermission] = useState<boolean>(false);
+  const [isMocked, setIsMocked] = useState<boolean>(false);
+  const watchRef = useRef<Location.LocationSubscription | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError(t('attendance.location_denied'));
+        return;
+      }
+      setLocationPermission(true);
+
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      if (loc.coords.isMocked) {
+        setIsMocked(true);
+        setLocationError(t('attendance.location_mocked'));
+        return;
+      }
+      setUserLat(loc.coords.latitude);
+      setUserLng(loc.coords.longitude);
+
+      watchRef.current = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, distanceInterval: 5, timeInterval: 10000 },
+        (loc) => {
+          if (loc.coords.isMocked) {
+            setIsMocked(true);
+            setLocationError(t('attendance.location_mocked'));
+            if (watchRef.current) watchRef.current.remove();
+            return;
+          }
+          setUserLat(loc.coords.latitude);
+          setUserLng(loc.coords.longitude);
+        }
+      );
+    })();
+
+    return () => {
+      if (watchRef.current) watchRef.current.remove();
+    };
+  }, []);
+
+  const selectedSessionData = activeSessions.find((s) => s.id === selectedSession) ?? null;
+
+  const proximity = useCallback((session: SessionInstance | null): { distance: number | null; withinRange: boolean } => {
+    if (!userLat || !userLng || !session?.course_latitude || !session?.course_longitude) {
+      return { distance: null, withinRange: false };
+    }
+    const d = haversineDistance(userLat, userLng, session.course_latitude, session.course_longitude);
+    return { distance: Math.round(d), withinRange: d <= 50 };
+  }, [userLat, userLng]);
+
+  const sessionProximity = selectedSessionData ? proximity(selectedSessionData) : { distance: null, withinRange: false };
+  const sessionTimeInfo = selectedSessionData ? getCheckInWindow(selectedSessionData.scheduled_at) : null;
+  const canCheckIn = !!selectedSessionData
+    && locationPermission
+    && !isMocked
+    && sessionProximity.withinRange
+    && (sessionTimeInfo?.canCheckIn ?? false)
+    && !checkInMutation.isPending;
+
+  const handleCheckIn = () => {
+    if (!selectedSessionData || !userLat || !userLng) return;
+    checkInMutation.mutate(
+      { sessionInstanceId: selectedSessionData.id, latitude: userLat, longitude: userLng },
+      {
+        onSuccess: () => {
+          setCheckedIn(true);
+          setCheckedInCourse(selectedSessionData.course_name ?? '');
+        },
+      }
+    );
+  };
 
   if (checkedIn) {
     return (
@@ -136,6 +238,8 @@ export default function CheckInTab() {
                 const scheduled = new Date(session.scheduled_at);
                 const endTime = new Date(scheduled.getTime() + session.duration_minutes * 60000);
                 const timeStr = `${formatTime(scheduled)} - ${formatTime(endTime)}`;
+                const { canCheckIn: inWindow } = getCheckInWindow(session.scheduled_at);
+
                 return (
                   <TouchableOpacity
                     key={session.id}
@@ -149,6 +253,7 @@ export default function CheckInTab() {
                       marginBottom: spacing.sm,
                       borderWidth: 1.5,
                       borderColor: isSelected ? colors.primary : 'transparent',
+                      opacity: inWindow ? 1 : 0.5,
                     }}
                   >
                     <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? colors.primary : colors.border, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
@@ -157,32 +262,99 @@ export default function CheckInTab() {
                     <View style={{ flex: 1 }}>
                       <Text style={textPresets.subtitle}>{session.course_name}</Text>
                       <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{session.teacher_name} · {timeStr}</Text>
+                      {!inWindow && (
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.danger, marginTop: 2 }}>
+                          {t('attendance.outside_window')}
+                        </Text>
+                      )}
                     </View>
+                    {inWindow && (
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success }} />
+                    )}
                   </TouchableOpacity>
                 );
               })
             )}
           </View>
 
+          {/* Proximity status */}
+          {selectedSessionData && (
+            <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={textPresets.bodySmall}>{t('attendance.proximity_status')}</Text>
+                  {!locationPermission ? (
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger, marginTop: 2 }}>
+                      {locationError ?? t('attendance.location_denied')}
+                    </Text>
+                  ) : sessionProximity.distance === null ? (
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
+                      {t('common.loading')}
+                    </Text>
+                  ) : (
+                    <>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: sessionProximity.withinRange ? colors.success : colors.danger, marginTop: 2 }}>
+                        {sessionProximity.distance}m {t('attendance.from_class')}
+                      </Text>
+                      {sessionTimeInfo && (
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 1 }}>
+                          {sessionTimeInfo.canCheckIn
+                            ? t('attendance.window_open')
+                            : sessionTimeInfo.opensIn > 0
+                              ? t('attendance.window_opens_in', { minutes: sessionTimeInfo.opensIn })
+                              : t('attendance.window_closed')}
+                        </Text>
+                      )}
+                    </>
+                  )}
+                </View>
+                <View style={{
+                  width: 12, height: 12, borderRadius: 6,
+                  backgroundColor: sessionProximity.withinRange ? colors.success : colors.danger,
+                }} />
+              </View>
+              {/* Proximity bar */}
+              {sessionProximity.distance !== null && (
+                <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.borderLight, marginTop: spacing.sm, overflow: 'hidden' }}>
+                  <View style={{
+                    width: `${Math.min(100, (sessionProximity.distance / 50) * 100)}%`,
+                    height: '100%',
+                    borderRadius: 2,
+                    backgroundColor: sessionProximity.withinRange ? colors.success : colors.danger,
+                  }} />
+                </View>
+              )}
+            </View>
+          )}
+
           <TouchableOpacity
-            onPress={() => {
-              if (!selectedSession) return;
-              const session = activeSessions.find(s => s.id === selectedSession);
-              if (!session) return;
-              checkInMutation.mutate(session.id, {
-                onSuccess: () => {
-                  setCheckedIn(true);
-                  setCheckedInCourse(session.course_name ?? '');
-                },
-              });
-            }}
-            disabled={!selectedSession || checkInMutation.isPending}
+            onPress={handleCheckIn}
+            disabled={!canCheckIn}
             activeOpacity={0.85}
-            style={{ borderRadius: radius.md, overflow: 'hidden', opacity: (!selectedSession || checkInMutation.isPending) ? 0.4 : 1 }}
+            style={{
+              borderRadius: radius.md,
+              overflow: 'hidden',
+              opacity: canCheckIn ? 1 : 0.4,
+            }}
           >
-            <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 18, alignItems: 'center', justifyContent: 'center' }}>
+            <LinearGradient
+              colors={canCheckIn ? gradients.primary : ['#94A3B8', '#94A3B8']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ paddingVertical: 18, alignItems: 'center', justifyContent: 'center' }}
+            >
               <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.white, letterSpacing: 0.5 }}>
-                {checkInMutation.isPending ? t('common.loading') : t('attendance.check_in_now')}
+                {checkInMutation.isPending
+                  ? t('common.loading')
+                  : !locationPermission
+                    ? t('attendance.location_denied')
+                    : isMocked
+                      ? t('attendance.location_mocked')
+                      : !sessionProximity.withinRange && sessionProximity.distance !== null
+                        ? t('attendance.too_far')
+                        : sessionTimeInfo && !sessionTimeInfo.canCheckIn
+                          ? t('attendance.outside_window')
+                          : t('attendance.check_in_now')}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -280,7 +452,7 @@ export default function CheckInTab() {
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl }} />
             <Text style={textPresets.h2}>{t('attendance.excuse_title')}</Text>
             <Text style={[textPresets.bodySmall, { marginBottom: spacing.xl }]}>
-              {t('session.course')}: {activeSessions.find((s) => s.id === selectedSession)?.course_name ?? ''}
+              {t('session.course')}: {selectedSessionData?.course_name ?? ''}
             </Text>
 
             <TextInput
@@ -340,22 +512,22 @@ export default function CheckInTab() {
               <>
                 <Text style={textPresets.h2}>{t('session.reschedule_request')}</Text>
                 <Text style={[textPresets.bodySmall, { marginBottom: spacing.lg }]}>
-                  {t('session.course')}: {activeSessions.find((s) => s.id === selectedSession)?.course_name ?? ''} · {t('session.teacher')}: {activeSessions.find((s) => s.id === selectedSession)?.teacher_name ?? ''}
+                  {t('session.course')}: {selectedSessionData?.course_name ?? ''} · {t('session.teacher')}: {selectedSessionData?.teacher_name ?? ''}
                 </Text>
 
                 <Text style={[textPresets.label, { marginBottom: spacing.sm }]}>{t('session.proposed_time')}</Text>
                 {MOCK_ALTERNATIVES.map((alt) => {
                   const isFull = alt.slots === 0;
-                  const isSelected = selectedDate === alt.date;
+                  const isSel = selectedDate === alt.date;
                   return (
                     <TouchableOpacity
                       key={alt.date}
                       onPress={() => { if (!isFull) setSelectedDate(alt.date); }}
                       disabled={isFull}
-                      style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: isSelected ? colors.primaryLight : colors.background, marginBottom: spacing.sm, borderWidth: 1.5, borderColor: isSelected ? colors.primary : isFull ? colors.dangerLight : 'transparent', opacity: isFull ? 0.45 : 1 }}
+                      style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: isSel ? colors.primaryLight : colors.background, marginBottom: spacing.sm, borderWidth: 1.5, borderColor: isSel ? colors.primary : isFull ? colors.dangerLight : 'transparent', opacity: isFull ? 0.45 : 1 }}
                     >
-                      <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? colors.primary : isFull ? colors.danger : colors.border, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
-                        {isSelected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary }} />}
+                      <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSel ? colors.primary : isFull ? colors.danger : colors.border, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                        {isSel && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary }} />}
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={[textPresets.body, isFull && { color: colors.textTertiary }]}>{alt.day} - {alt.date}</Text>
@@ -405,7 +577,7 @@ export default function CheckInTab() {
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl }} />
             <Text style={textPresets.h2}>{t('attendance.report_title')}</Text>
             <Text style={[textPresets.bodySmall, { marginBottom: spacing.lg }]}>
-              {t('session.course')}: {activeSessions.find((s) => s.id === selectedSession)?.course_name ?? ''}
+              {t('session.course')}: {selectedSessionData?.course_name ?? ''}
             </Text>
 
             <TextInput

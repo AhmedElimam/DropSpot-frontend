@@ -7,17 +7,22 @@ import { formatDate } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { CallTeacherButton } from '@/components/ui/CallTeacherButton';
+import { Icon } from '@/components/ui/Icon';
 
-const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-  paid: { label: 'invoices.paid', color: colors.success, bg: colors.successLight },
-  pending: { label: 'invoices.pending', color: colors.warning, bg: colors.warningLight },
-  overdue: { label: 'invoices.overdue', color: colors.danger, bg: colors.dangerLight },
+const statusConfig: Record<string, { color: string }> = {
+  paid: { color: colors.success },
+  pending: { color: colors.warning },
+  overdue: { color: colors.danger },
 };
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data: invoices, isLoading } = useInvoices();
+  const { data: invoices, isLoading, isError, refetch } = useInvoices();
 
   const totalDue = (invoices ?? []).filter((i) => i.status === 'pending' || i.status === 'overdue').reduce((s, i) => s + i.amount, 0);
   const paidAmount = (invoices ?? []).filter((i) => i.status === 'paid').reduce((s, i) => s + i.amount, 0);
@@ -27,6 +32,14 @@ export default function InvoicesPage() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <ErrorState onRetry={() => refetch()} />
       </View>
     );
   }
@@ -65,11 +78,8 @@ export default function InvoicesPage() {
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {!invoices || invoices.length === 0 ? (
-            <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xxl, alignItems: 'center', ...shadows.md }}>
-              <Text style={{ fontSize: 40, marginBottom: spacing.md }}>{'💳'}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
-                {t('invoices.no_invoices')}
-              </Text>
+            <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, ...shadows.md }}>
+              <EmptyState icon="invoices" title={t('invoices.no_invoices')} />
             </View>
           ) : (
             invoices.map((invoice) => {
@@ -84,9 +94,7 @@ export default function InvoicesPage() {
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                         <Text style={textPresets.subtitle}>{invoice.number}</Text>
-                        <View style={{ backgroundColor: sc.bg, paddingVertical: 2, paddingHorizontal: 8, borderRadius: radius.full }}>
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: sc.color }}>{t(sc.label)}</Text>
-                        </View>
+                        <StatusBadge status={invoice.status} />
                       </View>
                       {(invoice.items ?? []).map((item, i) => (
                         <Text key={i} style={[textPresets.bodySmall, { marginTop: 2 }]}>{item}</Text>
@@ -94,13 +102,13 @@ export default function InvoicesPage() {
                       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 4, flexWrap: 'wrap' }}>
                         {invoice.student_name && (
                           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Text style={{ fontSize: 11, marginEnd: 2 }}>{'👤'}</Text>
+                            <Icon name="child" size={13} color={colors.textSecondary} outline style={{ marginEnd: 2 }} />
                             <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{invoice.student_name}</Text>
                           </View>
                         )}
                         {invoice.teacher_name && (
                           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Text style={{ fontSize: 11, marginEnd: 2 }}>{'👨‍🏫'}</Text>
+                            <Icon name="teacher" size={13} color={colors.textSecondary} outline style={{ marginEnd: 2 }} />
                             <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{invoice.teacher_name}</Text>
                           </View>
                         )}
@@ -114,16 +122,14 @@ export default function InvoicesPage() {
                     <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>{formatEGP(invoice.amount)}</Text>
                   </View>
                   {invoice.status !== 'paid' && (
-                    <TouchableOpacity activeOpacity={0.85} style={{ borderRadius: radius.md, overflow: 'hidden', marginTop: spacing.md }}>
-                      <LinearGradient
-                        colors={invoice.status === 'overdue' ? ['#F59E0B', '#D97706'] : ['#6366F1', '#8B5CF6']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={{ paddingVertical: 12, alignItems: 'center' }}
-                      >
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('invoices.pay_now')}</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                    <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textSecondary }}>
+                        {t('invoices.pay_hint')}
+                      </Text>
+                      {invoice.teacher_phone ? (
+                        <CallTeacherButton phone={invoice.teacher_phone} name={invoice.teacher_name} />
+                      ) : null}
+                    </View>
                   )}
                 </TouchableOpacity>
               );

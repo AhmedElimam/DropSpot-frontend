@@ -17,6 +17,10 @@ import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/inde
 import { useTicket, useAddMessage, useUpdateTicketStatus } from '@/hooks/useTickets';
 import { useAuthStore } from '@/stores/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { CallTeacherButton } from '@/components/ui/CallTeacherButton';
+import { getFriendlyErrorMessage } from '@/utils/errors';
+import { Icon } from '@/components/ui/Icon';
 
 const statusColors: Record<string, [string, string]> = {
   open: ['#6366F1', '#4F46E5'],
@@ -30,7 +34,7 @@ export default function TicketDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { data: ticket, isLoading } = useTicket(id ?? '');
+  const { data: ticket, isLoading, refetch } = useTicket(id ?? '');
   const addMessage = useAddMessage(id ?? '');
   const updateStatus = useUpdateTicketStatus(id ?? '');
   const [newMessage, setNewMessage] = useState('');
@@ -65,10 +69,8 @@ export default function TicketDetail() {
 
   if (!ticket) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary }}>
-          {t('common.error')}
-        </Text>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <ErrorState onRetry={() => refetch()} />
       </View>
     );
   }
@@ -92,7 +94,7 @@ export default function TicketDetail() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
             <TouchableOpacity onPress={() => router.back()} style={{ marginEnd: spacing.md }}>
-              <Text style={{ fontSize: 24, color: '#fff' }}>{'←'}</Text>
+              <Icon name="forward" size={26} color="#fff" />
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: '#fff' }} numberOfLines={1}>
@@ -213,6 +215,21 @@ export default function TicketDetail() {
               </View>
             );
           })}
+          {addMessage.isError && (
+            <View style={{ alignSelf: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.md }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.dangerText, textAlign: 'center' }}>
+                {getFriendlyErrorMessage(addMessage.error)}
+              </Text>
+            </View>
+          )}
+
+          {ticket.teacher_phone ? (
+            <CallTeacherButton
+              phone={ticket.teacher_phone}
+              name={ticket.teacher_name}
+              style={{ alignSelf: 'center', marginTop: spacing.md }}
+            />
+          ) : null}
         </ScrollView>
 
         {/* Input */}
@@ -262,7 +279,7 @@ export default function TicketDetail() {
               {addMessage.isPending ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={{ fontSize: 18, color: '#fff' }}>{'↑'}</Text>
+                <Icon name="send" size={18} color="#fff" />
               )}
             </TouchableOpacity>
           </View>

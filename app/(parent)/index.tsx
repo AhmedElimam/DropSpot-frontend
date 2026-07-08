@@ -3,27 +3,31 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'rea
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { useChildren } from '@/hooks/useChildren';
-import { useNotifications, useUnreadCount } from '@/hooks/useNotifications';
+import { useNotifications, useUnreadCount, useMarkRead, useMarkAllRead } from '@/hooks/useNotifications';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { timeAgo, filterByTime, TIME_FILTERS } from '@/utils/format';
+import { getStudentGrades } from '@/api/grades';
 import type { TimeFilter } from '@/utils/format';
 
-const typeConfig: Record<string, { icon: string; gradient: readonly [string, string] }> = {
-  absence: { icon: '⚠️', gradient: ['#EF4444', '#DC2626'] },
-  grade: { icon: '🎯', gradient: ['#10B981', '#059669'] },
-  invoice: { icon: '💳', gradient: ['#F59E0B', '#D97706'] },
-  schedule: { icon: '📅', gradient: ['#6366F1', '#4F46E5'] },
+const typeConfig: Record<string, { icon: IconName; gradient: readonly [string, string] }> = {
+  absence: { icon: 'warning', gradient: ['#EF4444', '#DC2626'] },
+  grade: { icon: 'grades', gradient: ['#10B981', '#059669'] },
+  invoice: { icon: 'invoices', gradient: ['#F59E0B', '#D97706'] },
+  schedule: { icon: 'calendar', gradient: ['#6366F1', '#4F46E5'] },
 };
 
 const quickActions = [
-  { icon: '👨‍👩‍👧‍👦', label: 'nav.children', route: '/(parent)/children', gradient: ['#6366F1', '#8B5CF6'] as const },
-  { icon: '💳', label: 'nav.invoices', route: '/(parent)/invoices', gradient: ['#10B981', '#059669'] as const },
-  { icon: '📊', label: 'nav.reports', route: '/(parent)/reports', gradient: ['#6366F1', '#8B5CF6'] as const },
-  { icon: '📊', label: 'activity.title', route: '', gradient: ['#F59E0B', '#D97706'] as const },
+  { icon: 'children' as IconName, label: 'nav.children', route: '/(parent)/children', gradient: ['#6366F1', '#8B5CF6'] as const },
+  { icon: 'tickets' as IconName, label: 'tickets.title', route: '/(parent)/tickets', gradient: ['#F59E0B', '#D97706'] as const },
+  { icon: 'invoices' as IconName, label: 'nav.invoices', route: '/(parent)/invoices', gradient: ['#10B981', '#059669'] as const },
+  { icon: 'reports' as IconName, label: 'nav.reports', route: '/(parent)/reports', gradient: ['#6366F1', '#8B5CF6'] as const },
 ];
 
 export default function ParentHome() {
@@ -33,8 +37,25 @@ export default function ParentHome() {
   const { data: children } = useChildren();
   const { data: notifications, isLoading: notifLoading } = useNotifications();
   const { data: unreadCount } = useUnreadCount();
+  const markRead = useMarkRead();
+  const markAllRead = useMarkAllRead();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const filteredNotifications = filterByTime(notifications ?? [], timeFilter);
+
+  const childrenList = children ?? [];
+  const { data: allGrades } = useQuery({
+    queryKey: ['parent-grades-summary', childrenList.map((c) => c.student_id)],
+    queryFn: async () => {
+      const results = await Promise.all(
+        childrenList.map((c) => getStudentGrades(c.student_id).catch(() => []))
+      );
+      return results.flat();
+    },
+    enabled: childrenList.length > 0,
+  });
+  const avgGrade = allGrades && allGrades.length > 0
+    ? Math.round(allGrades.reduce((s, g) => s + g.percentage, 0) / allGrades.length)
+    : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -64,7 +85,7 @@ export default function ParentHome() {
                 end={{ x: 1, y: 1 }}
                 style={{ width: 48, height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
               >
-                <Text style={{ fontSize: 22 }}>🔔</Text>
+                <Icon name="bell" size={24} color="#fff" outline />
               </LinearGradient>
               {(unreadCount ?? 0) > 0 && (
                 <View style={{ position: 'absolute', top: -4, start: -4, backgroundColor: colors.danger, width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#1E1B4B' }}>
@@ -101,9 +122,9 @@ export default function ParentHome() {
               >
                 <LinearGradient colors={['rgba(255,255,255,0.9)', 'rgba(248,250,252,0.95)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: spacing.lg, alignItems: 'center' }}>
                   <LinearGradient colors={action.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 48, height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.sm }}>
-                    <Text style={{ fontSize: 22 }}>{action.icon}</Text>
+                    <Icon name={action.icon} size={24} color="#fff" />
                   </LinearGradient>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{t(action.label)}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}>{t(action.label)}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             ))}
@@ -116,7 +137,7 @@ export default function ParentHome() {
               <Text style={textPresets.h3}>{t('home.performance_title')}</Text>
               <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.md }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={textPresets.caption}>{'📊'} {t('attendance.attendance_rate')}</Text>
+                  <Text style={textPresets.caption}>{t('attendance.attendance_rate')}</Text>
                   <TouchableOpacity
                     onPress={() => router.push('/(parent)/reports')}
                     style={{ marginTop: spacing.xs, backgroundColor: colors.primaryLight, borderRadius: radius.md, padding: spacing.sm, alignItems: 'center' }}
@@ -124,34 +145,44 @@ export default function ParentHome() {
                     <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.primary }}>
                       {Math.max(...children.map((c) => c.attendance_rate ?? 0))}%
                     </Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.textSecondary, marginTop: 1 }}>
-                      {children.sort((a, b) => (b.attendance_rate ?? 0) - (a.attendance_rate ?? 0))[0]?.name}
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>
+                      {[...children].sort((a, b) => (b.attendance_rate ?? 0) - (a.attendance_rate ?? 0))[0]?.name}
                     </Text>
                   </TouchableOpacity>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={textPresets.caption}>{'🏆'} {t('quiz.avg_score')}</Text>
+                  <Text style={textPresets.caption}>{t('quiz.avg_score')}</Text>
                   <TouchableOpacity
                     onPress={() => router.push('/(parent)/reports')}
                     style={{ marginTop: spacing.xs, backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.sm, alignItems: 'center' }}
                   >
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.success }}>—%</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 9, color: colors.textSecondary, marginTop: 1 }}>
-                      {t('reports.view_details')}
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.success }}>
+                      {avgGrade !== null ? `${avgGrade}%` : '—%'}
+                    </Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>
+                      {avgGrade !== null ? `${t('quiz.avg_score')}` : t('reports.view_details')}
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
               {children.map((child) => (
-                <View key={child.id} style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
-                  <LinearGradient colors={['#6366F1', '#8B5CF6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.sm }}>
-                    <Text style={{ fontSize: 13, color: '#fff' }}>{(child.name || '?')[0]}</Text>
+                <TouchableOpacity
+                  key={child.id}
+                  onPress={() => router.push(`/(parent)/child/${child.id}`)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={child.name}
+                  style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, minHeight: 48, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.borderLight }}
+                >
+                  <LinearGradient colors={['#6366F1', '#8B5CF6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.sm }}>
+                    <Text style={{ fontSize: 14, color: '#fff' }}>{(child.name || '?')[0]}</Text>
                   </LinearGradient>
                   <Text style={[textPresets.body, { flex: 1, fontFamily: fonts.medium }]}>{child.name}</Text>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: (child.attendance_rate ?? 0) >= 90 ? colors.success : colors.warning }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: (child.attendance_rate ?? 0) >= 90 ? colors.success : colors.warning }}>
                     {child.attendance_rate ?? 0}%
                   </Text>
-                </View>
+                  <Text style={{ fontSize: 14, color: colors.textTertiary, marginStart: spacing.sm, transform: [{ scaleX: -1 }] }}>‹</Text>
+                </TouchableOpacity>
               ))}
             </View>
           </View>
@@ -160,7 +191,18 @@ export default function ParentHome() {
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
             <Text style={textPresets.h3}>{t('activity.title')}</Text>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.primary }}>{t('reports.view_details')}</Text>
+            {(unreadCount ?? 0) > 0 && (
+              <TouchableOpacity
+                onPress={() => markAllRead.mutate()}
+                disabled={markAllRead.isPending}
+                accessibilityRole="button"
+                style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm }}
+              >
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.primary }}>
+                  {t('notifications.mark_all_read')}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={{ flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md }}>
@@ -169,11 +211,12 @@ export default function ParentHome() {
                 key={f.key}
                 onPress={() => setTimeFilter(f.key)}
                 style={{
-                  paddingVertical: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radius.full,
+                  minHeight: 40, justifyContent: 'center',
+                  paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radius.full,
                   backgroundColor: timeFilter === f.key ? colors.primary : colors.borderLight,
                 }}
               >
-                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: timeFilter === f.key ? '#fff' : colors.textSecondary }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: timeFilter === f.key ? '#fff' : colors.textSecondary }}>
                   {f.label}
                 </Text>
               </TouchableOpacity>
@@ -184,9 +227,7 @@ export default function ParentHome() {
             {notifLoading ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : !filteredNotifications.length ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', padding: spacing.xl }}>
-                {notifications?.length ? t('notifications.empty') : t('notifications.empty')}
-              </Text>
+              <EmptyState icon="bell" title={t('notifications.empty')} />
             ) : (
               filteredNotifications.map((notification: any) => {
                 const cfg = typeConfig[notification.type] || typeConfig.schedule;
@@ -195,48 +236,50 @@ export default function ParentHome() {
                   <TouchableOpacity
                     key={notification.id}
                     activeOpacity={0.7}
+                    onPress={() => { if (!notification.is_read) markRead.mutate(notification.id); }}
+                    accessibilityRole="button"
                     style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 3, borderStartColor: cfg.gradient[0], opacity: notification.is_read ? 0.65 : 1 }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <LinearGradient colors={cfg.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
-                        <Text style={{ fontSize: 16 }}>{cfg.icon}</Text>
+                        <Icon name={cfg.icon} size={18} color="#fff" />
                       </LinearGradient>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                           {nd.student_name ? (
-                            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{nd.student_name}</Text>
+                            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}>{nd.student_name}</Text>
                           ) : null}
                           {!notification.is_read && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: cfg.gradient[0] }} />}
                         </View>
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{notification.title}{notification.body ? `: ${notification.body}` : ''}</Text>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textSecondary, marginTop: 2 }}>{notification.title}{notification.body ? `: ${notification.body}` : ''}</Text>
                         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 2, flexWrap: 'wrap' }}>
                           {nd.teacher_name && (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <Text style={{ fontSize: 10, marginEnd: 2 }}>{'👨‍🏫'}</Text>
+                              <Icon name="teacher" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
                               <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textTertiary }}>{nd.teacher_name}</Text>
                             </View>
                           )}
                           {nd.location && (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <Text style={{ fontSize: 10, marginEnd: 2 }}>{'📍'}</Text>
+                              <Icon name="location" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
                               <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textTertiary }}>{nd.location}</Text>
                             </View>
                           )}
                           {nd.course_name && (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <Text style={{ fontSize: 10, marginEnd: 2 }}>{'📚'}</Text>
+                              <Icon name="book" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
                               <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textTertiary }}>{nd.course_name}</Text>
                             </View>
                           )}
                           {nd.notes && (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <Text style={{ fontSize: 10, marginEnd: 2 }}>{'📝'}</Text>
+                              <Icon name="note" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
                               <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textTertiary }}>{nd.notes}</Text>
                             </View>
                           )}
                           {nd.percentage !== undefined && nd.percentage !== null && (
                             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: (nd.percentage ?? 0) >= 75 ? colors.successLight : colors.dangerLight, paddingVertical: 1, paddingHorizontal: 6, borderRadius: radius.full }}>
-                              <Text style={{ fontSize: 10, marginEnd: 2 }}>{'🎯'}</Text>
+                              <Icon name="grades" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
                               <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: (nd.percentage ?? 0) >= 75 ? colors.success : colors.danger }}>{nd.score ?? '?'}/{nd.max_score ?? '?'} ({nd.percentage}%)</Text>
                             </View>
                           )}

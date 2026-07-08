@@ -7,6 +7,10 @@ import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/inde
 import { useTickets } from '@/hooks/useTickets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { Icon } from '@/components/ui/Icon';
 
 const statusColors: Record<string, [string, string]> = {
   open: ['#6366F1', '#4F46E5'],
@@ -15,16 +19,16 @@ const statusColors: Record<string, [string, string]> = {
   closed: ['#6B7280', '#4B5563'],
 };
 
-const priorityIcons: Record<string, string> = {
-  low: '🟢',
-  medium: '🟡',
-  high: '🔴',
+const priorityColors: Record<string, string> = {
+  low: colors.success,
+  medium: colors.warning,
+  high: colors.danger,
 };
 
 export default function TicketsList() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data: tickets, isLoading, refetch } = useTickets();
+  const { data: tickets, isLoading, isError, refetch } = useTickets();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {
@@ -52,7 +56,7 @@ export default function TicketsList() {
                 {t('tickets.title')}
               </Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
-                {tickets?.length ?? 0} {t('common.all')}
+                {t('tickets.count', { count: tickets?.length ?? 0 })}
               </Text>
             </View>
             <TouchableOpacity
@@ -75,28 +79,15 @@ export default function TicketsList() {
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
+          ) : isError ? (
+            <ErrorState onRetry={() => refetch()} />
           ) : !tickets?.length ? (
-            <View style={{ alignItems: 'center', padding: spacing.xl4 }}>
-              <Text style={{ fontSize: 48, marginBottom: spacing.md }}>{'🎫'}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
-                {t('tickets.empty')}
-              </Text>
-              <TouchableOpacity
-                onPress={() => router.push('/(parent)/tickets/create')}
-                style={{ marginTop: spacing.lg }}
-              >
-                <LinearGradient
-                  colors={['#6366F1', '#8B5CF6']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={{ paddingVertical: 12, paddingHorizontal: spacing.xxl, borderRadius: radius.md }}
-                >
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>
-                    {t('tickets.create_first')}
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+            <EmptyState
+              icon="tickets"
+              title={t('tickets.empty')}
+              actionLabel={t('tickets.create_first')}
+              onAction={() => router.push('/(parent)/tickets/create')}
+            />
           ) : (
             tickets.map((ticket) => {
               const sc = statusColors[ticket.status] || statusColors.open;
@@ -133,30 +124,19 @@ export default function TicketsList() {
                         {ticket.student_name} - {ticket.teacher_name}
                       </Text>
                     </View>
-                    <View
-                      style={{
-                        backgroundColor: sc[0] + '20',
-                        borderRadius: radius.sm,
-                        paddingVertical: 2,
-                        paddingHorizontal: spacing.sm,
-                      }}
-                    >
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: sc[0] }}>
-                        {t(`tickets.status_${ticket.status}`)}
-                      </Text>
-                    </View>
+                    <StatusBadge status={ticket.status} />
                   </View>
 
                   <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.lg }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 12, marginEnd: 4 }}>{priorityIcons[ticket.priority] || '🟡'}</Text>
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: priorityColors[ticket.priority] || colors.warning, marginEnd: 6 }} />
                       <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>
                         {t(`tickets.priority_${ticket.priority}`)}
                       </Text>
                     </View>
                     {ticket.message_count != null && (
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 12, marginEnd: 4 }}>{'💬'}</Text>
+                        <Icon name="ticket" size={13} color={colors.textTertiary} outline style={{ marginEnd: 4 }} />
                         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>
                           {ticket.message_count}
                         </Text>

@@ -26,12 +26,14 @@ export interface TicketMessage {
 
 export interface TicketDetail extends Ticket {
   description?: string;
+  teacher_phone?: string | null;
   messages: TicketMessage[];
 }
 
 export interface TeacherInfo {
   id: string;
   name: string;
+  phone?: string | null;
 }
 
 export async function getTickets(): Promise<Ticket[]> {
