@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Icon } from '@/components/ui/Icon';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
   View,
@@ -99,7 +100,7 @@ export default function VerifyOtpScreen() {
                   marginBottom: spacing.xl,
                 }}
               >
-                <Text style={{ fontSize: 40 }}>{'📱'}</Text>
+                <Icon name="phone" size={44} color="#fff" />
               </View>
               <Text
                 style={{
@@ -160,7 +161,7 @@ export default function VerifyOtpScreen() {
                     borderColor: 'rgba(239,68,68,0.15)',
                   }}
                 >
-                  <Text style={{ fontSize: 14, marginEnd: spacing.sm }}>{'⚠️'}</Text>
+                  <Icon name="warning" size={16} color="#FCA5A5" style={{ marginEnd: spacing.sm }} />
                   <Text
                     style={{
                       fontFamily: fonts.regular,

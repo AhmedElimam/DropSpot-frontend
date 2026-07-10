@@ -1,4 +1,5 @@
 import { View, TextInput, Text } from 'react-native';
+import { Icon } from '@/components/ui/Icon';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, radius, spacing } from '@/theme/index';
@@ -26,7 +27,7 @@ export function SearchBar({ value, onChangeText, placeholder, onFocus }: SearchB
         borderColor: colors.border,
       }}
     >
-      <Text style={{ fontSize: 16, color: colors.textTertiary, marginEnd: spacing.sm }}>{'🔍'}</Text>
+      <Icon name="search" size={18} color={colors.textTertiary} outline style={{ marginEnd: spacing.sm }} />
       <TextInput
         value={value}
         onChangeText={onChangeText}

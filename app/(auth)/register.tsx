@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from '@/components/ui/Icon';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
   View,
@@ -116,7 +117,7 @@ export default function RegisterScreen() {
                   marginBottom: spacing.lg,
                 }}
               >
-                <Text style={{ fontSize: 36 }}>{'🎓'}</Text>
+                <Icon name="teacher" size={40} color="#fff" />
               </View>
               <Text
                 style={{
@@ -153,7 +154,7 @@ export default function RegisterScreen() {
                     borderColor: 'rgba(239,68,68,0.15)',
                   }}
                 >
-                  <Text style={{ fontSize: 14, marginEnd: spacing.sm }}>{'⚠️'}</Text>
+                  <Icon name="warning" size={16} color="#FCA5A5" style={{ marginEnd: spacing.sm }} />
                   <Text
                     style={{
                       fontFamily: fonts.regular,
@@ -180,7 +181,7 @@ export default function RegisterScreen() {
                     borderColor: 'rgba(34,197,94,0.15)',
                   }}
                 >
-                  <Text style={{ fontSize: 14, marginEnd: spacing.sm }}>{'✅'}</Text>
+                  <Icon name="success" size={16} color="#86EFAC" style={{ marginEnd: spacing.sm }} />
                   <Text
                     style={{
                       fontFamily: fonts.regular,

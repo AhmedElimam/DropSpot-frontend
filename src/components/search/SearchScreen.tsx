@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from '@/components/ui/Icon';
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
@@ -11,13 +12,6 @@ interface SearchScreenProps {
   userType?: 'student' | 'parent';
 }
 
-const MOCK_STUDENTS = [
-  { id: '1', name: 'يوسف أحمد', code: '2024001', grade: 'الصف الثالث الإعدادي' },
-  { id: '2', name: 'مريم علي', code: '2024002', grade: 'الصف الأول الإعدادي' },
-  { id: '3', name: 'أحمد خالد', code: '2024003', grade: 'الصف الثاني الإعدادي' },
-  { id: '4', name: 'سارة عمر', code: '2024004', grade: 'الصف الثالث الإعدادي' },
-];
-
 export function SearchScreen({ userType }: SearchScreenProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
@@ -27,8 +21,6 @@ export function SearchScreen({ userType }: SearchScreenProps) {
     setQuery(text);
     search(text);
   };
-
-  const showMockData = !query.trim() && !hasSearched;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -45,7 +37,7 @@ export function SearchScreen({ userType }: SearchScreenProps) {
 
         {!isLoading && hasSearched && results.length === 0 && (
           <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
-            <Text style={{ fontSize: 40, marginBottom: spacing.md }}>{'🔍'}</Text>
+            <Icon name="search" size={40} color={colors.textTertiary} outline style={{ marginBottom: spacing.md }} />
             <Text style={textPresets.bodySmall}>{t('search.no_results')}</Text>
           </View>
         )}
@@ -77,15 +69,12 @@ export function SearchScreen({ userType }: SearchScreenProps) {
           </>
         )}
 
-        {showMockData && MOCK_STUDENTS.map((s) => (
-          <TouchableOpacity
-            key={s.id}
-            style={{ padding: spacing.md, backgroundColor: colors.white, borderRadius: radius.md, marginBottom: spacing.sm, ...shadows.sm }}
-          >
-            <Text style={textPresets.body}>{s.name}</Text>
-            <Text style={textPresets.caption}>{s.grade}</Text>
-          </TouchableOpacity>
-        ))}
+        {!isLoading && !hasSearched && (
+          <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
+            <Icon name="search" size={40} color={colors.textTertiary} outline style={{ marginBottom: spacing.md }} />
+            <Text style={textPresets.bodySmall}>{t('search.placeholder')}</Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );

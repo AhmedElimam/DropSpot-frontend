@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from '@/components/ui/Icon';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Dimensions, StatusBar } from 'react-native';
 import { isAxiosError } from 'axios';
 import { getFriendlyErrorMessage } from '@/utils/errors';
@@ -43,7 +44,7 @@ export default function LoginScreen() {
             {/* Brand header */}
             <View style={{ alignItems: 'center', marginBottom: spacing.xl5 }}>
               <View style={{ width: 88, height: 88, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.07)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: spacing.xl }}>
-                <Text style={{ fontSize: 40 }}>{'📚'}</Text>
+                <Icon name="book" size={44} color="#fff" />
               </View>
 
               {/* DrosSpot badge — in RTL, children render right-to-left, so "Spot" first then "Dros" = "Dros Spot" visually */}
@@ -67,7 +68,7 @@ export default function LoginScreen() {
             <View style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: radius.xxl, padding: spacing.xxl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
               {loginMutation.isError && (
                 <View style={{ backgroundColor: 'rgba(239,68,68,0.12)', padding: spacing.md, borderRadius: radius.md, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(239,68,68,0.15)' }}>
-                  <Text style={{ fontSize: 14, marginEnd: spacing.sm }}>{'⚠️'}</Text>
+                  <Icon name="warning" size={16} color="#FCA5A5" style={{ marginEnd: spacing.sm }} />
                   <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: '#FCA5A5', flex: 1 }}>
                     {isAxiosError(loginMutation.error) && loginMutation.error.response?.status === 401
                       ? t('auth.invalid_credentials')

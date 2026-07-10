@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "DrosSpot-frontend",
-    "slug": "DrosSpot-frontend",
+    "name": "دروس سبوت",
+    "slug": "DrosSpot",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "drosspotfrontend",
+    "scheme": "drosspot",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
