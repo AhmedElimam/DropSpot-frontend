@@ -133,15 +133,15 @@ export default function ChildDetailScreen() {
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{attendanceRate}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('attendance.attendance_rate')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{t('attendance.attendance_rate')}</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{avgGrade}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('quiz.avg_score')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{t('quiz.avg_score')}</Text>
             </View>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{absent}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('attendance.absent')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{t('attendance.absent')}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -158,7 +158,7 @@ export default function ChildDetailScreen() {
                   ...(activeTab === tab.key ? shadows.sm : {}),
                 }}
               >
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: activeTab === tab.key ? colors.primary : colors.textSecondary }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: activeTab === tab.key ? colors.primary : colors.textSecondary }}>
                   {tab.label}
                 </Text>
               </TouchableOpacity>
@@ -214,18 +214,25 @@ export default function ChildDetailScreen() {
                             {s.teacher_name && (
                               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <Icon name="teacher" size={13} color={colors.textSecondary} outline style={{ marginEnd: 2 }} />
-                                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{s.teacher_name}</Text>
+                                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{s.teacher_name}</Text>
                               </View>
                             )}
                             {s.location && (
                               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <Icon name="location" size={13} color={colors.textSecondary} outline style={{ marginEnd: 2 }} />
-                                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{s.location}</Text>
+                                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{s.location}</Text>
                               </View>
                             )}
                           </View>
                         </View>
-                        <StatusBadge status={s.status} />
+                        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                          <StatusBadge status={s.status} />
+                          {/* How the day was recorded — transparency for parents
+                              (card scan is primary; phone/manual are the exceptions). */}
+                          {s.check_in_method && (s.status === 'present' || s.status === 'late') ? (
+                            <StatusBadge status={s.check_in_method} size="sm" />
+                          ) : null}
+                        </View>
                       </View>
                     </View>
                   ))
@@ -268,7 +275,7 @@ export default function ChildDetailScreen() {
                         {g.teacher_name && (
                           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                             <Icon name="teacher" size={13} color={colors.textSecondary} outline style={{ marginEnd: 2 }} />
-                            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{g.teacher_name}</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{g.teacher_name}</Text>
                           </View>
                         )}
                       </View>
@@ -312,7 +319,7 @@ export default function ChildDetailScreen() {
                               <Text style={textPresets.caption}>{q.course_name}</Text>
                             </View>
                             <View style={{ backgroundColor: isPending ? colors.warningLight : colors.successLight, paddingVertical: 3, paddingHorizontal: 10, borderRadius: radius.full }}>
-                              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: isPending ? colors.warning : colors.success }}>
+                              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: isPending ? colors.warning : colors.success }}>
                                 {isPending ? t('quiz.upcoming_quiz') : t('session.completed')}
                               </Text>
                             </View>

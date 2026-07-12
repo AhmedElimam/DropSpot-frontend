@@ -67,5 +67,8 @@ function extractRecord(item: any): AttendanceRecord {
     longitude: a.longitude,
     course_name: a.course_name,
     session_time: a.session_time,
+    teacher_name: a.teacher_name,
+    teacher_id: a.teacher_id,
+    location: a.location,
   };
 }

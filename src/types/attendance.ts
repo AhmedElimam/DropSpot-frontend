@@ -1,5 +1,7 @@
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
-export type CheckInMethod = 'gps' | 'manual';
+// The methods the backend actually records: primary card scan, teacher-permitted
+// phone self check-in, or a manual teacher entry.
+export type CheckInMethod = 'card_scan' | 'phone_permitted' | 'manual';
 
 export interface AttendanceRecord {
   id: number;
