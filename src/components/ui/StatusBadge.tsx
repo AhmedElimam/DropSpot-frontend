@@ -39,8 +39,10 @@ const STATUS_MAP: Record<string, { variant: BadgeVariant; i18nKey: string }> = {
   permanent: { variant: 'info', i18nKey: 'status.discrepancy_permanent' },
   one_time: { variant: 'default', i18nKey: 'status.discrepancy_one_time' },
   via_swap: { variant: 'info', i18nKey: 'status.via_swap' },
-  // Incident report (calm, non-alarming)
-  report_approved: { variant: 'warning', i18nKey: 'status.report_approved' },
+  // Incident report — deliberately calm/informational, never alarming: a parent
+  // must be able to read the content before forming a reaction. Indigo (info) +
+  // neutral gray only; no amber/red, and Badge renders no icons (no warning glyphs).
+  report_approved: { variant: 'info', i18nKey: 'status.report_approved' },
   report_pending: { variant: 'default', i18nKey: 'status.report_pending' },
   report_rejected: { variant: 'default', i18nKey: 'status.report_rejected' },
 };
