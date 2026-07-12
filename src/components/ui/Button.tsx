@@ -1,22 +1,26 @@
 import { TouchableOpacity, Text, ActivityIndicator, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, gradients } from '@/theme/index';
+import { colors, gradients, control } from '@/theme/index';
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'destructive' | 'outline' | 'ghost';
+  variant?: 'primary' | 'accent' | 'success' | 'secondary' | 'destructive' | 'outline' | 'ghost';
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
   accessibilityLabel?: string;
 }
 
+// Sanad: grounded indigo primary, apricot accent for the single human moment,
+// muted green for positive confirmations. 52px tall — thumb-sized for elders.
 const variantStyles: Record<string, { bg: readonly [string, string]; textColor: string }> = {
   primary: { bg: gradients.primary, textColor: colors.textInverse },
-  secondary: { bg: ['#475569', '#64748B'] as const, textColor: colors.textInverse },
-  destructive: { bg: ['#DC2626', '#EF4444'] as const, textColor: colors.textInverse },
+  accent: { bg: gradients.accent, textColor: colors.onAccent },
+  success: { bg: gradients.success, textColor: colors.textInverse },
+  secondary: { bg: ['#4A57B5', '#3A46A8'] as const, textColor: colors.textInverse },
+  destructive: { bg: [colors.dangerDark, colors.danger] as const, textColor: colors.textInverse },
 };
 
 export function Button({
@@ -37,14 +41,15 @@ export function Button({
         activeOpacity={0.7}
         style={[
           {
+            minHeight: control.minHeight,
             paddingVertical: 14,
             paddingHorizontal: 24,
-            borderRadius: 12,
+            borderRadius: 14,
             alignItems: 'center',
             justifyContent: 'center',
             flexDirection: 'row',
             opacity: disabled ? 0.5 : 1,
-            backgroundColor: 'transparent',
+            backgroundColor: isOutline ? 'transparent' : colors.brandTint,
             borderWidth: isOutline ? 1.5 : 0,
             borderColor: isOutline ? colors.primary : 'transparent',
           },
@@ -60,7 +65,7 @@ export function Button({
           <Text
             style={{
               fontFamily: fonts.bold,
-              fontSize: 16,
+              fontSize: 17,
               textAlign: 'center',
               color: colors.primary,
             }}
@@ -79,7 +84,7 @@ export function Button({
       onPress={onPress}
       disabled={disabled || loading}
       activeOpacity={0.85}
-      style={[{ borderRadius: 12, overflow: 'hidden', opacity: disabled ? 0.5 : 1 }, style]}
+      style={[{ borderRadius: 14, overflow: 'hidden', opacity: disabled ? 0.5 : 1 }, style]}
       accessible
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel || title}
@@ -88,7 +93,7 @@ export function Button({
         colors={config.bg}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={{ paddingVertical: 14, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
+        style={{ minHeight: control.minHeight, paddingVertical: 14, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
       >
         {loading ? (
           <ActivityIndicator color={config.textColor} size="small" />
@@ -96,7 +101,7 @@ export function Button({
           <Text
             style={{
               fontFamily: fonts.bold,
-              fontSize: 16,
+              fontSize: 17,
               textAlign: 'center',
               color: config.textColor,
             }}

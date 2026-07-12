@@ -13,9 +13,11 @@ export function Card({ children, style, padded = true }: CardProps) {
     <View
       style={[
         {
-          backgroundColor: colors.white,
+          backgroundColor: colors.surface,
           borderRadius: radius.xl,
-          ...shadows.md,
+          borderWidth: 1,
+          borderColor: colors.border,
+          ...shadows.sm,
         },
         padded && { padding: 16 },
         style,

@@ -53,7 +53,7 @@ export function ScreenHeader({ title, showBack = true, rightAction }: ScreenHead
       <Text
         style={{
           fontFamily: fonts.bold,
-          fontSize: 17,
+          fontSize: 19,
           color: colors.textPrimary,
           textAlign: 'center',
           flex: 2,

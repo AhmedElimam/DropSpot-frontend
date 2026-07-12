@@ -18,7 +18,8 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-const avatarColors = [colors.primary, '#7C3AED', '#059669', '#D97706', '#DC2626', '#0891B2'];
+// Sanad palette — ink indigo, muted green, apricot and siblings (no bright purple/cyan)
+const avatarColors = [colors.brand, colors.success, colors.accentWarm, '#4A57B5', colors.danger, '#2A7DB0'];
 
 function getColorForName(name: string): string {
   let hash = 0;

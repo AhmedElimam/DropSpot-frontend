@@ -13,7 +13,7 @@ interface BadgeProps {
 
 // Text colors are the dark AA-contrast variants, not the mid-tone brand colors.
 const badgeColors: Record<BadgeVariant, { bg: string; text: string }> = {
-  default: { bg: '#F1F5F9', text: '#334155' },
+  default: { bg: colors.surfaceSunken, text: colors.inkSoft },
   success: { bg: colors.successLight, text: colors.successText },
   warning: { bg: colors.warningLight, text: colors.warningText },
   danger: { bg: colors.dangerLight, text: colors.dangerText },

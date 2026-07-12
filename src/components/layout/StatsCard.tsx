@@ -23,7 +23,7 @@ export function StatsCard({ label, value, color = colors.primary, bgColor = colo
       <Text
         style={{
           fontFamily: fonts.bold,
-          fontSize: 22,
+          fontSize: 24,
           color,
           marginBottom: spacing.xs,
         }}
@@ -33,7 +33,7 @@ export function StatsCard({ label, value, color = colors.primary, bgColor = colo
       <Text
         style={{
           fontFamily: fonts.regular,
-          fontSize: 12,
+          fontSize: 13,
           color: colors.textSecondary,
           textAlign: 'center',
         }}
