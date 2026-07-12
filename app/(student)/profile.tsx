@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native'
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
+import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { useLogout } from '@/hooks/useAuth';
 import { useCoverageStats } from '@/hooks/useAttendance';
@@ -32,7 +32,7 @@ export default function StudentProfile() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight }} showsVerticalScrollIndicator={false}>
         <LinearGradient
-          colors={['#6366F1', '#8B5CF6']}
+          colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl5, alignItems: 'center' }}
@@ -54,7 +54,7 @@ export default function StudentProfile() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
-          <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.account')}
             </Text>
@@ -63,7 +63,7 @@ export default function StudentProfile() {
               accessibilityRole="button"
               style={{ flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: spacing.md }}
             >
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primary + '18', justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
                 <Icon name="bell" size={20} color={colors.primary} outline />
               </View>
               <Text style={[textPresets.body, { flex: 1 }]}>{t('profile.notifications')}</Text>
@@ -71,7 +71,7 @@ export default function StudentProfile() {
             </TouchableOpacity>
           </View>
 
-          <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.account_info')}
             </Text>
@@ -96,7 +96,7 @@ export default function StudentProfile() {
           </View>
 
           <TouchableOpacity onPress={() => logout.mutate()} activeOpacity={0.85} style={{ borderRadius: radius.md, overflow: 'hidden' }}>
-            <LinearGradient colors={['#EF4444', '#DC2626']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: 52, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <LinearGradient colors={[colors.dangerDark, colors.danger]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: 52, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <Icon name="logout" size={20} color="#fff" outline />
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('common.logout')}</Text>
             </LinearGradient>

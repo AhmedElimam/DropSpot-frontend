@@ -54,7 +54,7 @@ export default function StudentTabLayout() {
           <Text
             style={{
               fontFamily: fonts.medium,
-              fontSize: 10,
+              fontSize: 11,
               color: focused ? colors.primary : colors.textTertiary,
               marginTop: 2,
             }}
