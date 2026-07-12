@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'rea
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
+import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
 import { formatDate } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
 import { useInvoices } from '@/hooks/useInvoices';
@@ -48,37 +48,37 @@ export default function InvoicesPage() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight }} showsVerticalScrollIndicator={false}>
         <LinearGradient
-          colors={['#4F46E5', '#6366F1', '#8B5CF6']}
+          colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
+          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
         >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', letterSpacing: -0.5 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: '#fff', letterSpacing: -0.5 }}>
             {t('invoices.title')}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.7)', marginTop: spacing.xs }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.72)', marginTop: spacing.xs }}>
             {formatDate(new Date())}
           </Text>
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{formatEGP(totalDue)}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('invoices.total_due')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('invoices.total_due')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{formatEGP(paidAmount)}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('invoices.paid_amount')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('invoices.paid_amount')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{overdueCount}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('invoices.overdue')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('invoices.overdue')}</Text>
             </View>
           </View>
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {!invoices || invoices.length === 0 ? (
-            <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, ...shadows.md }}>
+            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, ...shadows.sm }}>
               <EmptyState icon="invoices" title={t('invoices.no_invoices')} />
             </View>
           ) : (
@@ -88,7 +88,7 @@ export default function InvoicesPage() {
                 <TouchableOpacity
                   key={invoice.id}
                   activeOpacity={0.7}
-                  style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md, borderStartWidth: 4, borderStartColor: sc.color }}
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.xl, ...shadows.sm, borderStartWidth: 4, borderStartColor: sc.color }}
                 >
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1 }}>
@@ -102,14 +102,14 @@ export default function InvoicesPage() {
                       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 4, flexWrap: 'wrap' }}>
                         {invoice.student_name && (
                           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Icon name="child" size={13} color={colors.textSecondary} outline style={{ marginEnd: 2 }} />
-                            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{invoice.student_name}</Text>
+                            <Icon name="child" size={15} color={colors.textSecondary} outline style={{ marginEnd: 3 }} />
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary }}>{invoice.student_name}</Text>
                           </View>
                         )}
                         {invoice.teacher_name && (
                           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Icon name="teacher" size={13} color={colors.textSecondary} outline style={{ marginEnd: 2 }} />
-                            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{invoice.teacher_name}</Text>
+                            <Icon name="teacher" size={15} color={colors.textSecondary} outline style={{ marginEnd: 3 }} />
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary }}>{invoice.teacher_name}</Text>
                           </View>
                         )}
                       </View>

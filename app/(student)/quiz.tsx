@@ -41,7 +41,7 @@ export default function QuizTab() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight }} showsVerticalScrollIndicator={false}>
         <LinearGradient
-          colors={['#06B6D4', '#6366F1']}
+          colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xxxl }}
@@ -49,20 +49,20 @@ export default function QuizTab() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
             {t('quiz.quizzes')}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: spacing.xs }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginTop: spacing.xs }}>
             {pendingCount} {t('quiz.upcoming_quiz')} · {t('quiz.questions_count', { count: totalQuestions })}
           </Text>
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg }}>
-          <View style={{ flexDirection: 'row', backgroundColor: colors.borderLight, borderRadius: radius.full, padding: 3, marginBottom: spacing.lg }}>
+          <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.full, padding: 4, marginBottom: spacing.lg, ...shadows.sm }}>
             {(['all', 'pending', 'completed'] as const).map((key) => (
               <TouchableOpacity
                 key={key}
                 onPress={() => setFilter(key)}
-                style={{ flex: 1, paddingVertical: spacing.sm, borderRadius: radius.full, backgroundColor: filter === key ? colors.primary : 'transparent', alignItems: 'center' }}
+                style={{ flex: 1, paddingVertical: spacing.sm, borderRadius: radius.full, backgroundColor: filter === key ? colors.brand : 'transparent', alignItems: 'center' }}
               >
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: filter === key ? colors.textInverse : colors.textSecondary }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: filter === key ? colors.textInverse : colors.textSecondary }}>
                   {key === 'all' ? t('common.all') : key === 'pending' ? t('quiz.upcoming_quiz') : t('session.completed')}
                 </Text>
               </TouchableOpacity>
@@ -81,15 +81,15 @@ export default function QuizTab() {
                   key={quiz.id}
                   activeOpacity={0.7}
                   onPress={() => { if (quiz.status === 'pending') router.push(`/(student)/quiz-run/${quiz.id}` as any); }}
-                  style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, marginBottom: spacing.md, ...shadows.sm, borderStartWidth: 4, borderStartColor: config.color }}
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.xl, marginBottom: spacing.md, ...shadows.sm, borderStartWidth: 4, borderStartColor: config.color }}
                 >
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1 }}>
                       <Text style={textPresets.subtitle}>{quiz.title}</Text>
                       <Text style={[textPresets.bodySmall, { marginTop: spacing.xs }]}>{quiz.course_name}</Text>
                     </View>
-                    <View style={{ backgroundColor: config.bg, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: config.color }}>{t(config.label)}</Text>
+                    <View style={{ backgroundColor: config.bg, paddingVertical: 4, paddingHorizontal: 12, borderRadius: radius.full }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: config.color }}>{t(config.label)}</Text>
                     </View>
                   </View>
 

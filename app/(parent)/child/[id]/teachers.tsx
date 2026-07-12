@@ -11,14 +11,15 @@ import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
+import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
 import { useChildren } from '@/hooks/useChildren';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import client from '@/api/client';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { CallTeacherButton } from '@/components/ui/CallTeacherButton';
+import { Avatar } from '@/components/layout/Avatar';
+import { Button } from '@/components/ui/Button';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 
 export default function TeacherManagement() {
@@ -72,7 +73,7 @@ export default function TeacherManagement() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight }} showsVerticalScrollIndicator={false}>
         <LinearGradient
-          colors={['#1E1B4B', '#6366F1']}
+          colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
@@ -86,7 +87,7 @@ export default function TeacherManagement() {
                 {t('parent.manage_teachers')}
               </Text>
               {child && (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>
                   {child.name}
                 </Text>
               )}
@@ -104,61 +105,52 @@ export default function TeacherManagement() {
                 <View
                   key={teacher.id}
                   style={{
-                    backgroundColor: colors.white,
-                    borderRadius: radius.xl,
+                    backgroundColor: colors.surface,
+                    borderRadius: radius.xxl,
+                    borderWidth: 1,
+                    borderColor: colors.border,
                     padding: spacing.lg,
                     ...shadows.sm,
-                    flexDirection: 'row',
-                    alignItems: 'center',
                     opacity: isRemoving ? 0.5 : 1,
                   }}
                 >
-                  <LinearGradient
-                    colors={['#6366F1', '#8B5CF6']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 16,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      marginEnd: spacing.md,
-                    }}
-                  >
-                    <Text style={{ fontSize: 20, color: '#fff' }}>{teacher.name[0]}</Text>
-                  </LinearGradient>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>
-                      {teacher.name}
-                    </Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-                      {t('parent.teacher_subscribed')}
-                    </Text>
-                    {teacher.phone ? (
-                      <CallTeacherButton phone={teacher.phone} style={{ marginTop: spacing.sm, alignSelf: 'flex-start' }} />
-                    ) : null}
-                  </View>
-                  {isRemoving ? (
-                    <ActivityIndicator size="small" color={colors.danger} />
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => handleRemove(Number(teacher.id), teacher.name)}
-                      activeOpacity={0.7}
-                      style={{
-                        backgroundColor: colors.dangerLight,
-                        borderRadius: radius.md,
-                        minHeight: 44,
-                        justifyContent: 'center',
-                        paddingVertical: spacing.sm,
-                        paddingHorizontal: spacing.lg,
-                      }}
-                    >
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>
-                        {t('parent.remove')}
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Avatar name={teacher.name} size={48} />
+                    <View style={{ flex: 1, marginStart: spacing.md }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>
+                        {teacher.name}
                       </Text>
-                    </TouchableOpacity>
-                  )}
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, marginTop: 2 }}>
+                        {t('parent.teacher_subscribed')}
+                      </Text>
+                    </View>
+                    {isRemoving ? (
+                      <ActivityIndicator size="small" color={colors.danger} />
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleRemove(Number(teacher.id), teacher.name)}
+                        activeOpacity={0.7}
+                        style={{
+                          backgroundColor: colors.dangerLight,
+                          borderRadius: radius.md,
+                          minHeight: 48,
+                          justifyContent: 'center',
+                          paddingVertical: spacing.sm,
+                          paddingHorizontal: spacing.lg,
+                        }}
+                      >
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.dangerText }}>
+                          {t('parent.remove')}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <Button
+                    variant="outline"
+                    title={t('profile.contact_support')}
+                    onPress={() => router.push('/(parent)/tickets')}
+                    style={{ marginTop: spacing.md }}
+                  />
                 </View>
               );
             })

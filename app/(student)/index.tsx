@@ -33,7 +33,7 @@ export default function StudentDashboard() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight }} showsVerticalScrollIndicator={false}>
         <LinearGradient
-          colors={['#4F46E5', '#6366F1', '#8B5CF6']}
+          colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
@@ -46,45 +46,45 @@ export default function StudentDashboard() {
           </Text>
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{sessions?.length ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('session.today_sessions')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('session.today_sessions')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{sessions?.filter((s) => s.status === 'scheduled').length ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('session.upcoming_sessions')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('session.upcoming_sessions')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{stats?.absent ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{t('attendance.absent')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('attendance.absent')}</Text>
             </View>
           </View>
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
-          <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <Text style={[textPresets.h3, { marginBottom: spacing.md }]}>
               {t('nav.check_in')}
             </Text>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               <TouchableOpacity
                 onPress={() => router.navigate('/(student)/check-in')}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
                 style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden' }}
               >
                 <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ padding: spacing.lg, alignItems: 'center' }}>
                   <Icon name="card" size={24} color="#fff" style={{ marginBottom: spacing.xs }} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('attendance.check_in')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('attendance.check_in')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => router.navigate('/(student)/quiz')}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
                 style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden' }}
               >
                 <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ padding: spacing.lg, alignItems: 'center' }}>
-                  <Icon name="quiz" size={24} color="#fff" style={{ marginBottom: spacing.xs }} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('nav.quiz')}</Text>
+                  <Icon name="quiz" size={24} color={colors.onAccent} style={{ marginBottom: spacing.xs }} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.onAccent }}>{t('nav.quiz')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -111,10 +111,12 @@ export default function StudentDashboard() {
                   onPress={() => router.navigate('/(student)/check-in')}
                   activeOpacity={0.7}
                   style={{
-                    backgroundColor: colors.white,
+                    backgroundColor: colors.surface,
                     borderRadius: radius.xl,
                     padding: spacing.xl,
-                    ...shadows.md,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    ...shadows.sm,
                     borderStartWidth: 4,
                     borderStartColor: statusDot[session.status] || colors.border,
                   }}
@@ -137,9 +139,9 @@ export default function StudentDashboard() {
                     <StatusBadge status={session.status} size="sm" />
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, gap: spacing.md }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryLight, paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.md }}>
-                      <Icon name="clock" size={13} color={colors.primary} outline style={{ marginEnd: 6 }} />
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.primary }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.brandTint, paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.md }}>
+                      <Icon name="clock" size={13} color={colors.brand} outline style={{ marginEnd: 6 }} />
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>
                         {formatTime(start)} - {formatTime(end)}
                       </Text>
                     </View>
@@ -149,26 +151,26 @@ export default function StudentDashboard() {
             })
           )}
 
-          <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <Text style={textPresets.h3}>{t('attendance.attendance_rate')}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, gap: spacing.md }}>
               <View style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.borderLight, overflow: 'hidden' }}>
                 <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${pct}%`, height: '100%', borderRadius: 4 }} />
               </View>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>{pct}%</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.brand }}>{pct}%</Text>
             </View>
             <View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.md }}>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.successText }}>{stats?.present ?? 0}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>{t('attendance.present')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('attendance.present')}</Text>
               </View>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.infoLight, borderRadius: radius.md, padding: spacing.md }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.infoText }}>{stats?.excused ?? 0}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>{t('attendance.excused')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('attendance.excused')}</Text>
               </View>
               <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.md }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.dangerText }}>{stats?.absent ?? 0}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textSecondary }}>{t('attendance.absent')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('attendance.absent')}</Text>
               </View>
             </View>
           </View>

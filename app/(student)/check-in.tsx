@@ -171,7 +171,7 @@ export default function CheckInTab() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight }} showsVerticalScrollIndicator={false}>
         <LinearGradient
-          colors={['#6366F1', '#8B5CF6']}
+          colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
@@ -179,32 +179,32 @@ export default function CheckInTab() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
             {t('attendance.check_in')}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: spacing.xs }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: spacing.xs }}>
             {new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })}
           </Text>
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.md }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.white }}>{sessions?.length ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>{t('session.today_sessions')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('session.today_sessions')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.white }}>{stats?.total ? Math.round(((stats.present + stats.late) / stats.total) * 100) : 0}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>{t('attendance.coverage_rate')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('attendance.coverage_rate')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.white }}>{stats?.absent ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>{t('attendance.absent')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('attendance.absent')}</Text>
             </View>
           </View>
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {/* PRIMARY: card scan at the door */}
-          <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center' }}>
-                <Icon name="card" size={28} color={colors.primary} />
+              <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
+                <Icon name="card" size={28} color={colors.brand} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={textPresets.h3}>{t('attendance.card_primary_title')}</Text>
@@ -212,7 +212,7 @@ export default function CheckInTab() {
               </View>
             </View>
             {user?.student_code ? (
-              <View style={{ marginTop: spacing.md, backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.borderLight }}>
+              <View style={{ marginTop: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}>
                 <Text style={textPresets.caption}>{t('child_settings.student_code')}</Text>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary, letterSpacing: 2, marginTop: 2 }}>
                   {user.student_code}
@@ -222,7 +222,7 @@ export default function CheckInTab() {
           </View>
 
           {/* Session picker */}
-          <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <Text style={[textPresets.h3, { marginBottom: spacing.lg }]}>
               {t('attendance.select_session')}
             </Text>
@@ -250,28 +250,28 @@ export default function CheckInTab() {
                       alignItems: 'center',
                       padding: spacing.md,
                       borderRadius: radius.md,
-                      backgroundColor: isSelected ? colors.primaryLight : colors.background,
+                      backgroundColor: isSelected ? colors.brandTint : colors.surfaceSunken,
                       marginBottom: spacing.sm,
                       borderWidth: 1.5,
-                      borderColor: isSelected ? colors.primary : 'transparent',
+                      borderColor: isSelected ? colors.brand : colors.border,
                       opacity: inWindow ? 1 : 0.5,
                     }}
                   >
-                    <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? colors.primary : colors.border, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
-                      {isSelected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary }} />}
+                    <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? colors.brand : colors.borderStrong, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                      {isSelected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand }} />}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={textPresets.subtitle}>{session.course_name}</Text>
                       <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{session.teacher_name} · {timeStr}</Text>
                       {!inWindow && (
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.dangerText, marginTop: 2 }}>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.dangerText, marginTop: 2 }}>
                           {t('attendance.outside_window')}
                         </Text>
                       )}
                       {session.phone_checkin_allowed && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                           <Icon name="phone" size={12} color={colors.successText} />
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.successText }}>
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.successText }}>
                             {t('attendance.phone_allowed_badge')}
                           </Text>
                         </View>
@@ -310,7 +310,7 @@ export default function CheckInTab() {
               ) : null}
 
               {/* Proximity status — the GPS check always applies */}
-              <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm }}>
+              <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View style={{ flex: 1 }}>
                     <Text style={textPresets.bodySmall}>{t('attendance.proximity_status')}</Text>
@@ -379,7 +379,7 @@ export default function CheckInTab() {
                 }}
               >
                 <LinearGradient
-                  colors={canCheckIn ? gradients.primary : ['#94A3B8', '#94A3B8']}
+                  colors={canCheckIn ? gradients.primary : [colors.textTertiary, colors.textTertiary]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={{ minHeight: 56, alignItems: 'center', justifyContent: 'center' }}
@@ -415,7 +415,7 @@ export default function CheckInTab() {
           </TouchableOpacity>
 
           {/* Attendance history */}
-          <View style={{ backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl, ...shadows.md }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
               <Text style={textPresets.h3}>{t('attendance.coverage')}</Text>
               <Text style={textPresets.bodySmall}>{t('attendance.coverage_this_month')}</Text>
@@ -455,7 +455,7 @@ export default function CheckInTab() {
       <Modal visible={excuseVisible} transparent animationType="slide" onRequestClose={() => setExcuseVisible(false)}>
         <View style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
           <TouchableOpacity style={{ flex: 1 }} onPress={() => setExcuseVisible(false)} />
-          <View style={{ backgroundColor: colors.white, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
+          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl }} />
 
             {excuseSent ? (
@@ -466,9 +466,9 @@ export default function CheckInTab() {
                 <Text style={[textPresets.h3, { textAlign: 'center' }]}>{t('attendance.excuse_submitted')}</Text>
                 <TouchableOpacity
                   onPress={() => setExcuseVisible(false)}
-                  style={{ marginTop: spacing.xl, minHeight: 48, justifyContent: 'center', paddingHorizontal: spacing.xxxl, borderRadius: radius.md, backgroundColor: colors.primaryLight }}
+                  style={{ marginTop: spacing.xl, minHeight: 48, justifyContent: 'center', paddingHorizontal: spacing.xxxl, borderRadius: radius.md, backgroundColor: colors.brandTint }}
                 >
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.primary }}>{t('common.done')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('common.done')}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -490,10 +490,10 @@ export default function CheckInTab() {
                         <TouchableOpacity
                           key={record.id}
                           onPress={() => setExcuseRecordId(record.id)}
-                          style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: isSel ? colors.primaryLight : colors.background, marginBottom: spacing.sm, borderWidth: 1.5, borderColor: isSel ? colors.primary : 'transparent' }}
+                          style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: radius.md, backgroundColor: isSel ? colors.brandTint : colors.surfaceSunken, marginBottom: spacing.sm, borderWidth: 1.5, borderColor: isSel ? colors.brand : colors.border }}
                         >
-                          <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSel ? colors.primary : colors.border, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
-                            {isSel && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary }} />}
+                          <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSel ? colors.brand : colors.borderStrong, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                            {isSel && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand }} />}
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={textPresets.body}>{record.course_name}</Text>
