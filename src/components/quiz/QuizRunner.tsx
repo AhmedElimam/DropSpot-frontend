@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows } from '@/theme/index';
+import { colors, spacing, radius, textPresets, shadows, gradients } from '@/theme/index';
 import { getQuizWithQuestions, startAttempt, submitAttempt } from '@/api/quizzes';
 import type { Question } from '@/types/quiz';
 import { Icon } from '@/components/ui/Icon';
@@ -127,7 +127,7 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <LinearGradient
-          colors={result.passed ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
+          colors={result.passed ? gradients.success : [colors.dangerDark, colors.danger]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xxl }}
@@ -172,7 +172,7 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <LinearGradient
-        colors={['#6366F1', '#8B5CF6']}
+        colors={gradients.hero}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ paddingTop: 56, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}
@@ -184,7 +184,7 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff', flex: 1, textAlign: 'center', marginHorizontal: spacing.md }} numberOfLines={1}>
             {quiz?.title ?? ''}
           </Text>
-          <View style={{ backgroundColor: timeLeft < 60 ? '#EF4444' : 'rgba(255,255,255,0.2)', paddingVertical: 4, paddingHorizontal: 12, borderRadius: radius.full }}>
+          <View style={{ backgroundColor: timeLeft < 60 ? colors.danger : 'rgba(255,255,255,0.2)', paddingVertical: 4, paddingHorizontal: 12, borderRadius: radius.full }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff', direction: 'ltr' }}>
               {formatTime(timeLeft)}
             </Text>
@@ -216,7 +216,7 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
                     style={{
                       padding: spacing.lg, borderRadius: radius.md, borderWidth: 2,
                       borderColor: selected ? colors.primary : colors.border,
-                      backgroundColor: selected ? colors.primaryLight : colors.white,
+                      backgroundColor: selected ? colors.primaryLight : colors.surface,
                       ...shadows.sm,
                     }}
                   >
@@ -239,7 +239,7 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
                 style={{
                   padding: spacing.lg, borderRadius: radius.md, borderWidth: 2,
                   borderColor: selected ? colors.primary : colors.border,
-                  backgroundColor: selected ? colors.primaryLight : colors.white,
+                  backgroundColor: selected ? colors.primaryLight : colors.surface,
                   ...shadows.sm,
                 }}
               >
@@ -262,7 +262,7 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
         </View>
       </ScrollView>
 
-      <View style={{ padding: spacing.lg, paddingBottom: spacing.xl, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+      <View style={{ padding: spacing.lg, paddingBottom: spacing.xl, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           {currentIndex > 0 && (
             <TouchableOpacity
@@ -280,7 +280,7 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
               activeOpacity={0.8}
               style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden' }}
             >
-              <LinearGradient colors={['#6366F1', '#8B5CF6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
+              <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: 52, justifyContent: 'center', paddingVertical: spacing.md, alignItems: 'center' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('common.next')}</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -291,7 +291,7 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
               activeOpacity={0.8}
               style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden', opacity: submitting ? 0.6 : 1 }}
             >
-              <LinearGradient colors={['#10B981', '#059669']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
+              <LinearGradient colors={gradients.success} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: 52, justifyContent: 'center', paddingVertical: spacing.md, alignItems: 'center' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>
                   {submitting ? t('common.loading') : t('quiz.submit')}
                 </Text>
