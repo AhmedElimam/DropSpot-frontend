@@ -324,7 +324,20 @@
     "no_connection": "لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى."
   },
   "home": {
-    "performance_title": "أداء أبنائك"
+    "performance_title": "أداء أبنائك",
+    "children_section": "أبناؤك",
+    "actions_section": "ماذا تريد أن تفعل؟",
+    "latest_update": "آخر تحديث",
+    "all_well": "كل الأبناء بخير",
+    "some_attention": "بعض الأبناء بحاجة إلى متابعة",
+    "standing_excellent": "الحضور ممتاز",
+    "standing_good": "الحضور جيد",
+    "standing_watch": "الحضور يحتاج إلى متابعة",
+    "support_title": "المساعدة والدعم",
+    "support_sub": "افتح تذكرة وسنردّ عليك",
+    "invoices_title": "الفواتير والمدفوعات",
+    "no_updates": "لا توجد تحديثات بعد",
+    "welcome": "أهلاً بك"
   },
   "invoices": {
     "title": "الفواتير والمدفوعات",

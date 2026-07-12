@@ -9,14 +9,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { registerForPushNotifications, unregisterPushNotifications } from '@/utils/push-notifications';
 import { Icon, type IconName } from '@/components/ui/Icon';
 
-// Five primary tabs only. Reports is intentionally NOT here: it is demoted to a
-// stack screen (href: null below) reachable from Home and the child detail, so
-// the bottom bar stays within the parent-first, low-nesting target (one row of
-// large, always-labelled tabs — no icon-only crowding).
+// Sanad: FOUR large, always-labelled tabs — the elderly-friendly minimum.
+// Reports and Tickets are demoted to stack screens (href: null below): Reports
+// surfaces from the child detail, and support (Tickets) from the big
+// "المساعدة والدعم" action on Home. Keeps the bar calm and thumb-sized.
 const labels: Record<string, string> = {
   index: 'nav.home',
   children: 'nav.children',
-  tickets: 'nav.tickets',
   invoices: 'nav.invoices',
   profile: 'nav.settings',
 };
@@ -24,7 +23,6 @@ const labels: Record<string, string> = {
 const icons: Record<string, IconName> = {
   index: 'home',
   children: 'children',
-  tickets: 'tickets',
   invoices: 'invoices',
   profile: 'settings',
 };
@@ -125,11 +123,11 @@ export default function ParentTabLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="children" />
-      <Tabs.Screen name="tickets" />
       <Tabs.Screen name="invoices" />
       <Tabs.Screen name="profile" />
       {/* Demoted from the tab bar; still routable from Home / child detail. */}
       <Tabs.Screen name="reports" options={{ href: null }} />
+      <Tabs.Screen name="tickets" options={{ href: null }} />
       <Tabs.Screen name="child/[id]" options={{ href: null }} />
       <Tabs.Screen name="child/[id]/teachers" options={{ href: null }} />
       <Tabs.Screen name="quiz/[quizId]" options={{ href: null }} />
