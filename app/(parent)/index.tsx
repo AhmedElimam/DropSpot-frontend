@@ -16,11 +16,30 @@ import { timeAgo, filterByTime, TIME_FILTERS } from '@/utils/format';
 import { getStudentGrades } from '@/api/grades';
 import type { TimeFilter } from '@/utils/format';
 
+// Maps every notification `type` the backend actually emits to a calm, legible
+// icon + accent. Colour follows the app-wide meaning (green=good, amber=attention,
+// red=urgent-money/absence, indigo=informational). The incident report
+// (`student_report`) is deliberately INDIGO/informational — never red — so a
+// parent is not alarmed before reading it (per the incident-report spec).
 const typeConfig: Record<string, { icon: IconName; gradient: readonly [string, string] }> = {
+  // Attendance
+  attendance: { icon: 'attendance', gradient: ['#6366F1', '#4F46E5'] },
   absence: { icon: 'warning', gradient: ['#EF4444', '#DC2626'] },
+  left_early: { icon: 'clock', gradient: ['#F59E0B', '#D97706'] },
+  // Grades / quizzes
   grade: { icon: 'grades', gradient: ['#10B981', '#059669'] },
+  // Invoices / billing
   invoice: { icon: 'invoices', gradient: ['#F59E0B', '#D97706'] },
+  invoice_new: { icon: 'invoices', gradient: ['#6366F1', '#4F46E5'] },
+  invoice_overdue: { icon: 'money', gradient: ['#EF4444', '#DC2626'] },
+  // Scheduling: swaps / transfers / discrepancy resolution outcomes
+  session_swap: { icon: 'calendar', gradient: ['#6366F1', '#4F46E5'] },
+  enrollment_transfer: { icon: 'calendar', gradient: ['#6366F1', '#4F46E5'] },
   schedule: { icon: 'calendar', gradient: ['#6366F1', '#4F46E5'] },
+  // Incident report — calm/informational only (indigo), no alarm colouring
+  student_report: { icon: 'note', gradient: ['#6366F1', '#4F46E5'] },
+  // Daily digest
+  daily_digest: { icon: 'bell', gradient: ['#6366F1', '#4F46E5'] },
 };
 
 const quickActions = [
@@ -124,7 +143,7 @@ export default function ParentHome() {
                   <LinearGradient colors={action.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 48, height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.sm }}>
                     <Icon name={action.icon} size={24} color="#fff" />
                   </LinearGradient>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}>{t(action.label)}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary }}>{t(action.label)}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             ))}
@@ -211,12 +230,12 @@ export default function ParentHome() {
                 key={f.key}
                 onPress={() => setTimeFilter(f.key)}
                 style={{
-                  minHeight: 40, justifyContent: 'center',
+                  minHeight: 44, justifyContent: 'center',
                   paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radius.full,
                   backgroundColor: timeFilter === f.key ? colors.primary : colors.borderLight,
                 }}
               >
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: timeFilter === f.key ? '#fff' : colors.textSecondary }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: timeFilter === f.key ? '#fff' : colors.textSecondary }}>
                   {f.label}
                 </Text>
               </TouchableOpacity>
@@ -247,44 +266,44 @@ export default function ParentHome() {
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                           {nd.student_name ? (
-                            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}>{nd.student_name}</Text>
+                            <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary }}>{nd.student_name}</Text>
                           ) : null}
-                          {!notification.is_read && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: cfg.gradient[0] }} />}
+                          {!notification.is_read && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: cfg.gradient[0] }} />}
                         </View>
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textSecondary, marginTop: 2 }}>{notification.title}{notification.body ? `: ${notification.body}` : ''}</Text>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: colors.textSecondary, marginTop: 4 }}>{notification.title}{notification.body ? `: ${notification.body}` : ''}</Text>
                         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 2, flexWrap: 'wrap' }}>
                           {nd.teacher_name && (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                               <Icon name="teacher" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
-                              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textTertiary }}>{nd.teacher_name}</Text>
+                              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{nd.teacher_name}</Text>
                             </View>
                           )}
                           {nd.location && (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                               <Icon name="location" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
-                              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textTertiary }}>{nd.location}</Text>
+                              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{nd.location}</Text>
                             </View>
                           )}
                           {nd.course_name && (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                               <Icon name="book" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
-                              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textTertiary }}>{nd.course_name}</Text>
+                              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{nd.course_name}</Text>
                             </View>
                           )}
                           {nd.notes && (
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                               <Icon name="note" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
-                              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.textTertiary }}>{nd.notes}</Text>
+                              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{nd.notes}</Text>
                             </View>
                           )}
                           {nd.percentage !== undefined && nd.percentage !== null && (
                             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: (nd.percentage ?? 0) >= 75 ? colors.successLight : colors.dangerLight, paddingVertical: 1, paddingHorizontal: 6, borderRadius: radius.full }}>
                               <Icon name="grades" size={12} color={colors.textTertiary} outline style={{ marginEnd: 2 }} />
-                              <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: (nd.percentage ?? 0) >= 75 ? colors.success : colors.danger }}>{nd.score ?? '?'}/{nd.max_score ?? '?'} ({nd.percentage}%)</Text>
+                              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: (nd.percentage ?? 0) >= 75 ? colors.success : colors.danger }}>{nd.score ?? '?'}/{nd.max_score ?? '?'} ({nd.percentage}%)</Text>
                             </View>
                           )}
                         </View>
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 4 }}>{timeAgo(notification.created_at)}</Text>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginTop: 4 }}>{timeAgo(notification.created_at)}</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
