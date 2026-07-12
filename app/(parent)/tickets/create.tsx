@@ -12,7 +12,8 @@ import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, nav } from '@/theme/index';
+import { colors, spacing, radius, textPresets, shadows, nav, gradients, control } from '@/theme/index';
+import { Avatar } from '@/components/layout/Avatar';
 import { useChildren } from '@/hooks/useChildren';
 import { createTicket } from '@/api/tickets';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -86,7 +87,7 @@ export default function CreateTicket() {
           keyboardShouldPersistTaps="handled"
         >
           <LinearGradient
-            colors={['#1E1B4B', '#6366F1']}
+            colors={gradients.hero}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{
@@ -115,11 +116,11 @@ export default function CreateTicket() {
                   <View
                     key={child.id}
                     style={{
-                      backgroundColor: colors.white,
+                      backgroundColor: colors.surface,
                       borderRadius: radius.xl,
                       overflow: 'hidden',
                       borderWidth: 1.5,
-                      borderColor: isSelected ? colors.primary : colors.border,
+                      borderColor: isSelected ? colors.brand : colors.border,
                       ...shadows.sm,
                     }}
                   >
@@ -134,29 +135,15 @@ export default function CreateTicket() {
                       }}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                        <LinearGradient
-                          colors={['#6366F1', '#8B5CF6']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 14,
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            marginEnd: spacing.md,
-                          }}
-                        >
-                          <Text style={{ fontSize: 18, color: '#fff' }}>
-                            {(child.name || '?')[0]}
-                          </Text>
-                        </LinearGradient>
+                        <View style={{ marginEnd: spacing.md }}>
+                          <Avatar name={child.name} size={44} />
+                        </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>
                             {child.name}
                           </Text>
                           {child.grade && (
-                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
                               {child.grade}
                             </Text>
                           )}
@@ -186,7 +173,7 @@ export default function CreateTicket() {
                           </Text>
                         ) : (
                           <>
-                            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>
+                            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>
                               {t('tickets.select_teacher')}
                             </Text>
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
@@ -201,25 +188,26 @@ export default function CreateTicket() {
                                     paddingVertical: spacing.sm,
                                     paddingHorizontal: spacing.md,
                                     borderRadius: radius.md,
+                                    minHeight: 44,
                                     backgroundColor:
                                       selectedTeacherId === Number(teacher.id)
-                                        ? 'rgba(99,102,241,0.12)'
-                                        : colors.background,
+                                        ? colors.brandTint
+                                        : colors.surfaceSunken,
                                     borderWidth: 1.5,
                                     borderColor:
                                       selectedTeacherId === Number(teacher.id)
-                                        ? colors.primary
+                                        ? colors.brand
                                         : colors.border,
                                   }}
                                 >
-                                  <Icon name="teacher" size={15} color={colors.textSecondary} outline style={{ marginEnd: spacing.xs }} />
+                                  <Icon name="teacher" size={16} color={colors.textSecondary} outline style={{ marginEnd: spacing.xs }} />
                                   <Text
                                     style={{
                                       fontFamily: fonts.medium,
-                                      fontSize: 13,
+                                      fontSize: 14,
                                       color:
                                         selectedTeacherId === Number(teacher.id)
-                                          ? colors.primary
+                                          ? colors.brand
                                           : colors.textPrimary,
                                     }}
                                   >
@@ -248,15 +236,15 @@ export default function CreateTicket() {
                   placeholderTextColor={colors.textTertiary}
                   style={{
                     fontFamily: fonts.regular,
-                    fontSize: 16,
-                    backgroundColor: colors.white,
-                    borderRadius: radius.md,
+                    fontSize: 17,
+                    minHeight: control.minHeight,
+                    backgroundColor: colors.surfaceSunken,
+                    borderRadius: radius.lg,
                     padding: 16,
                     color: colors.textPrimary,
                     textAlign: 'right',
                     borderWidth: 1.5,
-                    borderColor: subject ? colors.primary : colors.border,
-                    ...shadows.sm,
+                    borderColor: subject ? colors.brand : colors.borderStrong,
                   }}
                 />
               </View>
@@ -275,16 +263,15 @@ export default function CreateTicket() {
                   numberOfLines={5}
                   style={{
                     fontFamily: fonts.regular,
-                    fontSize: 16,
-                    backgroundColor: colors.white,
-                    borderRadius: radius.md,
+                    fontSize: 17,
+                    backgroundColor: colors.surfaceSunken,
+                    borderRadius: radius.lg,
                     padding: 16,
                     color: colors.textPrimary,
                     textAlign: 'right',
                     minHeight: 120,
                     borderWidth: 1.5,
-                    borderColor: description ? colors.primary : colors.border,
-                    ...shadows.sm,
+                    borderColor: description ? colors.brand : colors.borderStrong,
                   }}
                 />
               </View>
@@ -308,13 +295,13 @@ export default function CreateTicket() {
                 onPress={handleSubmit}
                 disabled={!isValid || createMutation.isPending}
                 activeOpacity={0.85}
-                style={{ borderRadius: radius.md, overflow: 'hidden', opacity: !isValid ? 0.5 : 1 }}
+                style={{ borderRadius: radius.lg, overflow: 'hidden', opacity: !isValid ? 0.5 : 1 }}
               >
                 <LinearGradient
-                  colors={['#6366F1', '#8B5CF6']}
+                  colors={gradients.primary}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={{ paddingVertical: 16, alignItems: 'center' }}
+                  style={{ minHeight: control.minHeight, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' }}
                 >
                   {createMutation.isPending ? (
                     <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }}>
