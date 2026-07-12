@@ -10,7 +10,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { CallTeacherButton } from '@/components/ui/CallTeacherButton';
 import { Icon } from '@/components/ui/Icon';
 
 const statusConfig: Record<string, { color: string }> = {
@@ -126,9 +125,6 @@ export default function InvoicesPage() {
                       <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textSecondary }}>
                         {t('invoices.pay_hint')}
                       </Text>
-                      {invoice.teacher_phone ? (
-                        <CallTeacherButton phone={invoice.teacher_phone} name={invoice.teacher_name} />
-                      ) : null}
                     </View>
                   )}
                 </TouchableOpacity>

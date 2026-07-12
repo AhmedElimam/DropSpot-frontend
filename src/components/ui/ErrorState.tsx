@@ -3,19 +3,18 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
 import { Button } from './Button';
-import { CallTeacherButton } from './CallTeacherButton';
 import { Icon } from './Icon';
 
 interface ErrorStateProps {
   /** Calm, human message. Never pass a raw API/server string here. */
   message?: string;
   onRetry?: () => void;
-  /** When set, shows the "call the teacher" fallback under the retry button. */
+  /** @deprecated no longer used — support is handled through tickets, not phone calls */
   teacherPhone?: string | null;
   teacherName?: string | null;
 }
 
-export function ErrorState({ message, onRetry, teacherPhone, teacherName }: ErrorStateProps) {
+export function ErrorState({ message, onRetry }: ErrorStateProps) {
   const { t } = useTranslation();
 
   return (
@@ -65,9 +64,6 @@ export function ErrorState({ message, onRetry, teacherPhone, teacherName }: Erro
       </Text>
       {onRetry ? (
         <Button title={t('common.retry')} onPress={onRetry} style={{ minWidth: 200 }} />
-      ) : null}
-      {teacherPhone ? (
-        <CallTeacherButton phone={teacherPhone} name={teacherName} style={{ marginTop: spacing.md }} />
       ) : null}
     </View>
   );

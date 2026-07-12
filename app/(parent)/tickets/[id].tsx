@@ -18,7 +18,6 @@ import { useTicket, useAddMessage, useUpdateTicketStatus } from '@/hooks/useTick
 import { useAuthStore } from '@/stores/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { CallTeacherButton } from '@/components/ui/CallTeacherButton';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 
@@ -239,13 +238,6 @@ export default function TicketDetail() {
             </View>
           )}
 
-          {ticket.teacher_phone ? (
-            <CallTeacherButton
-              phone={ticket.teacher_phone}
-              name={ticket.teacher_name}
-              style={{ alignSelf: 'center', marginTop: spacing.md }}
-            />
-          ) : null}
         </ScrollView>
 
         {/* Input */}

@@ -18,7 +18,6 @@ import { createTicket } from '@/api/tickets';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SuccessConfirmation } from '@/components/ui/SuccessConfirmation';
-import { CallTeacherButton } from '@/components/ui/CallTeacherButton';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 
@@ -300,9 +299,6 @@ export default function CreateTicket() {
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.dangerText }}>
                   {getFriendlyErrorMessage(createMutation.error)}
                 </Text>
-                {selectedTeacher?.phone ? (
-                  <CallTeacherButton phone={selectedTeacher.phone} name={selectedTeacher.name} />
-                ) : null}
               </View>
             )}
 

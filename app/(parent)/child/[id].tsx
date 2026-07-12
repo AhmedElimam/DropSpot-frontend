@@ -12,7 +12,6 @@ import { getStudentGrades } from '@/api/grades';
 import { getQuizzes } from '@/api/quizzes';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { CallTeacherButton } from '@/components/ui/CallTeacherButton';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon } from '@/components/ui/Icon';
@@ -378,9 +377,6 @@ export default function ChildDetailScreen() {
                           </View>
                           <Text style={[textPresets.body, { flex: 1 }]}>{teacher.name}</Text>
                         </View>
-                        {teacher.phone ? (
-                          <CallTeacherButton phone={teacher.phone} name={teacher.name} style={{ marginTop: spacing.sm }} />
-                        ) : null}
                       </View>
                     ))}
                   </View>
