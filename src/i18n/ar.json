@@ -78,6 +78,21 @@
     "have_account": "لديك حساب بالفعل؟",
     "back_to_login": "تسجيل الدخول"
   },
+  "status": {
+    "card_active": "بطاقة فعّالة",
+    "card_expired": "بطاقة منتهية",
+    "card_revoked": "بطاقة ملغاة",
+    "billing_override_active": "استثناء سداد فعّال",
+    "method_card_scan": "مسح البطاقة",
+    "method_phone": "من الهاتف",
+    "method_manual": "تسجيل يدوي",
+    "discrepancy_permanent": "نقل دائم",
+    "discrepancy_one_time": "لمرة واحدة",
+    "via_swap": "حضور بموعد بديل",
+    "report_approved": "بلاغ معتمد",
+    "report_pending": "قيد المراجعة",
+    "report_rejected": "مرفوض"
+  },
   "session": {
     "today_sessions": "حصص اليوم",
     "no_sessions": "لا توجد حصص اليوم",
@@ -91,8 +106,6 @@
     "session_details": "تفاصيل الحصة",
     "duration_minutes": "{{minutes}} دقيقة",
     "view_session": "عرض حصة {{course}}",
-    "qr_code": "رمز QR",
-    "qr_token": "رمز الحصة",
     "reschedule": "إعادة جدولة",
     "reschedule_request": "طلب إعادة جدولة",
     "reason": "السبب",

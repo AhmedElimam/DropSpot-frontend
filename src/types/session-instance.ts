@@ -8,7 +8,6 @@ export interface SessionInstance {
   location: string | null;
   is_override: boolean;
   override_reason: string | null;
-  qr_token: string | null;
   course_name?: string;
   course_latitude?: number | null;
   course_longitude?: number | null;

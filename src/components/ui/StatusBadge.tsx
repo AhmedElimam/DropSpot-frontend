@@ -25,6 +25,24 @@ const STATUS_MAP: Record<string, { variant: BadgeVariant; i18nKey: string }> = {
   scheduled: { variant: 'info', i18nKey: 'session.scheduled' },
   completed: { variant: 'success', i18nKey: 'session.completed' },
   cancelled: { variant: 'danger', i18nKey: 'session.cancelled' },
+  // Cards (active/expired/revoked) — same color meaning as everywhere else
+  card_active: { variant: 'success', i18nKey: 'status.card_active' },
+  card_expired: { variant: 'default', i18nKey: 'status.card_expired' },
+  card_revoked: { variant: 'danger', i18nKey: 'status.card_revoked' },
+  // Billing override (temporary grace granted by the teacher)
+  billing_override_active: { variant: 'info', i18nKey: 'status.billing_override_active' },
+  // Attendance check-in method (transparency — how a day was recorded)
+  card_scan: { variant: 'success', i18nKey: 'status.method_card_scan' },
+  phone_permitted: { variant: 'warning', i18nKey: 'status.method_phone' },
+  manual: { variant: 'default', i18nKey: 'status.method_manual' },
+  // Session-swap / discrepancy resolution outcomes
+  permanent: { variant: 'info', i18nKey: 'status.discrepancy_permanent' },
+  one_time: { variant: 'default', i18nKey: 'status.discrepancy_one_time' },
+  via_swap: { variant: 'info', i18nKey: 'status.via_swap' },
+  // Incident report (calm, non-alarming)
+  report_approved: { variant: 'warning', i18nKey: 'status.report_approved' },
+  report_pending: { variant: 'default', i18nKey: 'status.report_pending' },
+  report_rejected: { variant: 'default', i18nKey: 'status.report_rejected' },
 };
 
 interface StatusBadgeProps {

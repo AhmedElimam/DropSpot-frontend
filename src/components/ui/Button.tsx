@@ -6,7 +6,7 @@ import { colors, gradients } from '@/theme/index';
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'destructive' | 'outline' | 'ghost';
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
@@ -16,6 +16,7 @@ interface ButtonProps {
 const variantStyles: Record<string, { bg: readonly [string, string]; textColor: string }> = {
   primary: { bg: gradients.primary, textColor: colors.textInverse },
   secondary: { bg: ['#475569', '#64748B'] as const, textColor: colors.textInverse },
+  destructive: { bg: ['#DC2626', '#EF4444'] as const, textColor: colors.textInverse },
 };
 
 export function Button({
