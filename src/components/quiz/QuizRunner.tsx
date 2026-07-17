@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } fr
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients } from '@/theme/index';
 import { getQuizWithQuestions, startAttempt, submitAttempt } from '@/api/quizzes';
@@ -16,6 +17,7 @@ interface QuizRunnerProps {
 
 export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   const [quiz, setQuiz] = useState<{ title: string; max_score: number; course_name?: string } | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -175,7 +177,7 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
         colors={gradients.hero}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{ paddingTop: 56, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}
+        style={{ paddingTop: insets.top + spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <TouchableOpacity onPress={() => router.back()} style={{ padding: spacing.xs }}>

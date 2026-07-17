@@ -10,6 +10,7 @@ import { useChildren } from '@/hooks/useChildren';
 import { getStudentCoverage, getAttendanceRecords } from '@/api/attendance';
 import { getStudentGrades } from '@/api/grades';
 import { getQuizzes } from '@/api/quizzes';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
@@ -29,6 +30,7 @@ const cardStyle = {
 
 export default function ChildDetailScreen() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string }>();
   const { data: children, isLoading: childrenLoading } = useChildren();
   const [activeTab, setActiveTab] = useState<TabKey>('attendance');
@@ -105,7 +107,7 @@ export default function ChildDetailScreen() {
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.xl4 }}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
             <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center' }}>
