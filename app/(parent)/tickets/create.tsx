@@ -83,7 +83,7 @@ export default function CreateTicket() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={{ paddingBottom: nav.bottomHeight }}
+          contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }}
           keyboardShouldPersistTaps="handled"
         >
           <LinearGradient

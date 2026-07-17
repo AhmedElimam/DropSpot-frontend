@@ -41,7 +41,7 @@ export default function TicketsList() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight }}
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
