@@ -9,13 +9,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { registerForPushNotifications, unregisterPushNotifications } from '@/utils/push-notifications';
 import { Icon, type IconName } from '@/components/ui/Icon';
 
-// Sanad: FOUR large, always-labelled tabs — the elderly-friendly minimum.
-// Reports and Tickets are demoted to stack screens (href: null below): Reports
-// surfaces from the child detail, and support (Tickets) from the big
-// "المساعدة والدعم" action on Home. Keeps the bar calm and thumb-sized.
+// Five large, always-labelled tabs. Teacher Management was added as its own tab
+// per an explicit founder decision (reversing the earlier 4-tab minimum); the
+// same management also stays inline in child detail as a shortcut. Reports and
+// Tickets remain demoted to stack screens (href: null below): Reports surfaces
+// from child detail, support (Tickets) from the "المساعدة والدعم" action on Home.
 const labels: Record<string, string> = {
   index: 'nav.home',
   children: 'nav.children',
+  teachers: 'parent.teachers',
   invoices: 'nav.invoices',
   profile: 'nav.settings',
 };
@@ -23,6 +25,7 @@ const labels: Record<string, string> = {
 const icons: Record<string, IconName> = {
   index: 'home',
   children: 'children',
+  teachers: 'teacher',
   invoices: 'invoices',
   profile: 'settings',
 };
@@ -123,6 +126,7 @@ export default function ParentTabLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="children" />
+      <Tabs.Screen name="teachers" />
       <Tabs.Screen name="invoices" />
       <Tabs.Screen name="profile" />
       {/* Demoted from the tab bar; still routable from Home / child detail. */}
