@@ -19,6 +19,7 @@ const labels: Record<string, string> = {
   children: 'nav.children',
   teachers: 'parent.teachers',
   invoices: 'nav.invoices',
+  tickets: 'nav.tickets',
   profile: 'nav.settings',
 };
 
@@ -27,6 +28,7 @@ const icons: Record<string, IconName> = {
   children: 'children',
   teachers: 'teacher',
   invoices: 'invoices',
+  tickets: 'tickets',
   profile: 'settings',
 };
 
@@ -128,10 +130,10 @@ export default function ParentTabLayout() {
       <Tabs.Screen name="children" />
       <Tabs.Screen name="teachers" />
       <Tabs.Screen name="invoices" />
+      <Tabs.Screen name="tickets" />
       <Tabs.Screen name="profile" />
       {/* Demoted from the tab bar; still routable from Home / child detail. */}
       <Tabs.Screen name="reports" options={{ href: null }} />
-      <Tabs.Screen name="tickets" options={{ href: null }} />
       <Tabs.Screen name="child/[id]" options={{ href: null }} />
       <Tabs.Screen name="child/[id]/teachers" options={{ href: null }} />
       <Tabs.Screen name="quiz/[quizId]" options={{ href: null }} />
