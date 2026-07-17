@@ -9,5 +9,6 @@ export default function Index() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  if (role === 'teacher') return <Redirect href="/(teacher)" />;
   return <Redirect href={role === 'student' ? '/(student)' : '/(parent)'} />;
 }

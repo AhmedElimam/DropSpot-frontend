@@ -457,5 +457,24 @@
     "student_code": "كود الطالب",
     "grade_level": "الصف الدراسي",
     "switch_child": "اختر طالباً"
+  },
+  "teacher": {
+    "scan_mode": "وضع المسح",
+    "live_now": "جارية الآن",
+    "pick_current_session": "اختر الحصة الجارية",
+    "no_live_session": "لا توجد حصة جارية الآن — اختر حصة",
+    "pick_any_hint": "اختر أي حصة من اليوم للبدء بالمسح",
+    "no_sessions_today": "لا توجد حصص اليوم",
+    "no_sessions_hint": "لا توجد حصص مجدولة لك اليوم.",
+    "camera_permission_title": "نحتاج إذن الكاميرا",
+    "camera_permission_body": "لاستخدام هاتفك كماسح لبطاقات الطلاب، اسمح بالوصول إلى الكاميرا.",
+    "grant_camera": "السماح بالكاميرا",
+    "switch_session": "تغيير الحصة",
+    "scanning_for": "المسح لحصة",
+    "torch": "الإضاءة",
+    "point_camera": "وجّه الكاميرا نحو بطاقة الطالب",
+    "checking": "جارٍ التحقق...",
+    "checked_in": "تم تسجيل الحضور",
+    "scan_failed": "تعذّر تسجيل الحضور"
   }
 }
