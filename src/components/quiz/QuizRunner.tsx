@@ -3,7 +3,6 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } fr
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { usePreventScreenCapture } from 'expo-screen-capture';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients } from '@/theme/index';
 import { getQuizWithQuestions, startAttempt, submitAttempt } from '@/api/quizzes';
@@ -17,10 +16,6 @@ interface QuizRunnerProps {
 
 export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
   const { t } = useTranslation();
-  // Block screenshots / screen recording while the quiz is on screen — stops
-  // questions and answers from being captured and shared. Scoped to this
-  // component only (active while mounted, released on unmount).
-  usePreventScreenCapture();
 
   const [quiz, setQuiz] = useState<{ title: string; max_score: number; course_name?: string } | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
