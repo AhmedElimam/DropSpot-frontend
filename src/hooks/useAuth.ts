@@ -10,15 +10,17 @@ export function useLogin() {
     mutationFn: (payload: { phone_number: string; password: string }) =>
       loginApi(payload.phone_number, payload.password),
     onSuccess: async (data) => {
-      // user_type_id 3 = teacher (in-app scan mode); otherwise student (has a
-      // student_id) or parent. Backend-provided data.role wins when present.
+      // user_type_id 3 = teacher, 6 = assistant (both use the teacher app);
+      // otherwise student (has a student_id) or parent. Backend data.role wins.
       const role: UserRole =
         data.role ??
         (data.user?.user_type_id === 3
           ? 'teacher'
-          : data.user?.student_id
-            ? 'student'
-            : 'parent');
+          : data.user?.user_type_id === 6
+            ? 'assistant'
+            : data.user?.student_id
+              ? 'student'
+              : 'parent');
       await setTokens(data.tokens.access_token, data.tokens.refresh_token);
       await setSession(data.user, role);
     },

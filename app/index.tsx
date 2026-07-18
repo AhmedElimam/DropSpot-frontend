@@ -9,6 +9,8 @@ export default function Index() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  if (role === 'teacher') return <Redirect href="/(teacher)" />;
+  // Teachers and their assistants share the teacher app (assistant access is
+  // reduced by role checks inside it).
+  if (role === 'teacher' || role === 'assistant') return <Redirect href="/(teacher)" />;
   return <Redirect href={role === 'student' ? '/(student)' : '/(parent)'} />;
 }

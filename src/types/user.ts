@@ -34,7 +34,7 @@ export interface RegisterPayload {
 export interface AuthResponse {
   user: User;
   tokens: AuthTokens;
-  role?: 'student' | 'parent' | 'teacher' | null;
+  role?: 'student' | 'parent' | 'teacher' | 'assistant' | null;
 }
 
 export interface LoginResponse {

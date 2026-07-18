@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { scanCard, type ScanResult } from '@/api/teacher';
+import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import { Icon } from '@/components/ui/Icon';
 
 const COOLDOWN_MS = 2500; // ignore repeat reads of the same card
@@ -16,6 +17,12 @@ export default function TeacherScan() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { name } = useLocalSearchParams<{ name: string; id: string }>();
+  const { data: sessions } = useTeacherTodaySessions();
+  // Session label: an explicit tap from Home wins; otherwise auto-derive from the
+  // single live session (fallback for a teacher who opens the Camera tab directly,
+  // spec §3). Scanning itself is per-card and works regardless of this label.
+  const currentSessions = (sessions ?? []).filter((s) => s.is_current);
+  const sessionName = name || (currentSessions.length === 1 ? currentSessions[0].course_name ?? '' : '');
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [feedback, setFeedback] = useState<ScanResult | null>(null);
@@ -90,7 +97,7 @@ export default function TeacherScan() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{t('teacher.scanning_for')}</Text>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }} numberOfLines={1}>{name || t('teacher.scan_mode')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }} numberOfLines={1}>{sessionName || t('teacher.scan_mode')}</Text>
         </View>
         <TouchableOpacity onPress={() => setTorch((v) => !v)} accessibilityRole="button" accessibilityLabel={t('teacher.torch')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: torch ? colors.accentWarm : 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="eye" size={22} color="#fff" />
