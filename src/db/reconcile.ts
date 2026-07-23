@@ -1,12 +1,6 @@
-import {
-  getTeacherTodaySessions,
-  syncOfflineBatch,
-  type TeacherSession,
-  type OfflineScanResult,
-} from '@/api/teacher';
-import { getPendingScans, deleteScans, markScanFailed } from './offlineScans';
-import { computeBuckets, type ScanBucket } from './buckets';
-import { useOfflineStore } from '@/stores/offlineStore';
+import type { TeacherSession, OfflineScanResult } from '@/api/teacher';
+import { deleteScans, markScanFailed } from './offlineScans';
+import type { ScanBucket } from './buckets';
 
 const HALF_HOUR_MS = 30 * 60_000;
 
@@ -23,12 +17,16 @@ function matchingSessions(bucket: ScanBucket, sessions: TeacherSession[]): Teach
   });
 }
 
-/** First plausible session for a bucket (UI pre-select — minimal-tap). */
+/** First plausible session for a bucket — used to PRE-SELECT an obvious match on
+ *  the reconciliation screen so the teacher confirms with one tap (not free
+ *  selection). Reconciliation is always teacher-confirmed; this is a hint only. */
 export function suggestSessionId(bucket: ScanBucket, sessions: TeacherSession[]): string | null {
   return matchingSessions(bucket, sessions)[0]?.id ?? null;
 }
 
-/** A session id ONLY when exactly one session plausibly matches (safe to auto-sync). */
+/** A session id only when exactly one session plausibly matches. Retained as a
+ *  shared helper (e.g. to mark a pre-selection as unambiguous in the UI); it is
+ *  NOT used to auto-submit — connectivity never triggers a sync. */
 export function confidentSessionId(bucket: ScanBucket, sessions: TeacherSession[]): string | null {
   const matches = matchingSessions(bucket, sessions);
   return matches.length === 1 ? matches[0].id : null;
@@ -37,7 +35,8 @@ export function confidentSessionId(bucket: ScanBucket, sessions: TeacherSession[
 /**
  * Apply a batch response to local storage: delete scans that are safely on the
  * server (synced/already_recorded), mark the rest failed (kept + surfaced).
- * Results are returned in submitted order, so we zip by index.
+ * Results are returned in submitted order, so we zip by index. Used by the
+ * manual reconciliation screen after the teacher confirms a bucket's session.
  */
 export async function applyBatchResults(
   bucket: ScanBucket,
@@ -57,45 +56,4 @@ export async function applyBatchResults(
   });
   await deleteScans(toDelete);
   return { synced: toDelete.length, failed };
-}
-
-/**
- * Auto-flush on reconnect: sync only buckets with EXACTLY ONE plausible session
- * (unambiguous → safe to submit without asking). Ambiguous buckets are left for
- * the teacher to resolve on the reconciliation screen. Uses each scan's original
- * scanned_at, so window validation stays correct however late this runs.
- * Best-effort: any error leaves that bucket buffered.
- *
- * @return number of scans auto-synced.
- */
-export async function autoFlush(): Promise<number> {
-  const pending = await getPendingScans();
-  if (pending.length === 0) return 0;
-
-  let sessions: TeacherSession[];
-  try {
-    sessions = await getTeacherTodaySessions();
-  } catch {
-    return 0; // still offline / unauthorized — nothing to do
-  }
-
-  let synced = 0;
-  for (const bucket of computeBuckets(pending)) {
-    const sessionId = confidentSessionId(bucket, sessions);
-    if (!sessionId) continue; // ambiguous → manual reconciliation
-
-    try {
-      const res = await syncOfflineBatch(
-        Number(sessionId),
-        bucket.scans.map((s) => ({ card_code: s.card_code, scanned_at: s.scanned_at })),
-      );
-      const applied = await applyBatchResults(bucket, res.results);
-      synced += applied.synced;
-    } catch {
-      // Leave this bucket buffered; the teacher can reconcile manually.
-    }
-  }
-
-  await useOfflineStore.getState().refresh();
-  return synced;
 }
