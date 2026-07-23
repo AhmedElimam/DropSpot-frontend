@@ -125,3 +125,37 @@ export async function searchStudents(q: string): Promise<StudentHit[]> {
     .filter((r: any) => r.type === 'student')
     .map((r: any) => ({ id: r.id, name: r.name, subtitle: r.subtitle }));
 }
+
+// ---- Offline reconciliation ----
+
+export interface OfflineScanResult {
+  card_code: string;
+  outcome: 'synced' | 'already_recorded' | 'failed';
+  code: string | null;
+  message: string;
+  student_name: string | null;
+}
+
+export interface OfflineBatchResponse {
+  session_instance_id: number;
+  synced: number;
+  total: number;
+  results: OfflineScanResult[];
+}
+
+/**
+ * Submit a bucket of buffered scans against an explicit session. Each scan
+ * carries its original scanned_at (backend validates the window against it, not
+ * sync time). Returns per-scan outcomes so the caller deletes what's safely on
+ * the server (synced/already_recorded) and keeps/surfaces failures.
+ */
+export async function syncOfflineBatch(
+  sessionInstanceId: number,
+  scans: { card_code: string; scanned_at: string }[],
+): Promise<OfflineBatchResponse> {
+  const { data } = await client.post('/checkin/offline-batch', {
+    session_instance_id: sessionInstanceId,
+    scans,
+  });
+  return (data.data ?? data) as OfflineBatchResponse;
+}

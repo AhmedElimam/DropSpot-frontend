@@ -1,8 +1,11 @@
+import { useEffect } from 'react';
 import { Redirect, Tabs } from 'expo-router';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
+import { useOfflineStore } from '@/stores/offlineStore';
+import { initOfflineScans } from '@/db/offlineScans';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -31,6 +34,24 @@ export default function TeacherTabLayout() {
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const pending = useOfflineStore((s) => s.pending);
+
+  // Ensure the offline buffer table exists, seed the pending count, and refresh
+  // it whenever the app returns to the foreground (a chance to reconcile).
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let active = true;
+    initOfflineScans().then(() => {
+      if (active) useOfflineStore.getState().refresh();
+    });
+    const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
+      if (s === 'active') useOfflineStore.getState().refresh();
+    });
+    return () => {
+      active = false;
+      sub.remove();
+    };
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -90,9 +111,14 @@ export default function TeacherTabLayout() {
       })}
     >
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="scan" />
+      <Tabs.Screen
+        name="scan"
+        options={{ tabBarBadge: pending > 0 ? pending : undefined }}
+      />
       <Tabs.Screen name="tickets" />
       <Tabs.Screen name="settings" />
+      {/* Reconciliation is reached from the pending badge / Home, not a tab. */}
+      <Tabs.Screen name="reconcile" options={{ href: null }} />
     </Tabs>
   );
 }

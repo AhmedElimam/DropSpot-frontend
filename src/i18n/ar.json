@@ -500,6 +500,20 @@
     "role_teacher": "معلم",
     "role_assistant": "مساعد",
     "notifications": "الإشعارات",
-    "notifications_hint": "تُدار من إعدادات النظام"
+    "notifications_hint": "تُدار من إعدادات النظام",
+    "saved_offline": "تم الحفظ بدون اتصال",
+    "pending_scans": "{{count}} مسح بانتظار المزامنة",
+    "tap_to_reconcile": "اضغط للمزامنة الآن",
+    "reconcile_title": "مزامنة المسح دون اتصال",
+    "reconcile_subtitle": "اربط كل مجموعة بالحصة الصحيحة",
+    "nothing_pending": "لا يوجد شيء بانتظار المزامنة",
+    "nothing_pending_hint": "كل عمليات المسح متزامنة مع الخادم.",
+    "scans_count": "{{count}} مسح",
+    "pick_session_for_bucket": "اختر الحصة لهذه المجموعة",
+    "suggested": "مقترح",
+    "sync_bucket": "مزامنة هذه المجموعة",
+    "sync_all_ok": "تمت مزامنة {{count}} بنجاح",
+    "sync_partial": "تمت مزامنة {{synced}} · فشل {{failed}}",
+    "sync_network_error": "تعذّرت المزامنة — تحقق من الاتصال وحاول مجددًا"
   }
 }

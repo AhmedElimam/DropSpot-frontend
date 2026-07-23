@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useLogout } from '@/hooks/useAuth';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import type { TeacherSession } from '@/api/teacher';
+import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { OverridesSection } from '@/components/teacher/OverridesSection';
@@ -39,6 +40,7 @@ export default function TeacherHome() {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const { data: sessions, isLoading, refetch } = useTeacherTodaySessions();
+  const pending = useOfflineStore((s) => s.pending);
   const [refreshing, setRefreshing] = useState(false);
   const now = Date.now();
 
@@ -111,6 +113,24 @@ export default function TeacherHome() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
+          {pending > 0 ? (
+            <TouchableOpacity
+              onPress={() => router.push('/(teacher)/reconcile' as Href)}
+              activeOpacity={0.85}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                backgroundColor: colors.warningLight, borderRadius: radius.xl,
+                borderWidth: 1, borderColor: colors.warning, padding: spacing.lg, marginBottom: spacing.lg,
+              }}
+            >
+              <Icon name="warning" size={24} color={colors.warningText} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.warningText }}>{t('teacher.pending_scans', { count: pending })}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.warningText }}>{t('teacher.tap_to_reconcile')}</Text>
+              </View>
+              <Icon name="back" size={20} color={colors.warningText} />
+            </TouchableOpacity>
+          ) : null}
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('teacher.todays_sessions')}</Text>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />

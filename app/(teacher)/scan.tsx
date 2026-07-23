@@ -8,6 +8,8 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { scanCard, type ScanResult } from '@/api/teacher';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
+import { bufferScan, deleteScan } from '@/db/offlineScans';
+import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon } from '@/components/ui/Icon';
 
 const COOLDOWN_MS = 2500; // ignore repeat reads of the same card
@@ -36,10 +38,27 @@ export default function TeacherScan() {
       if (data === lastRef.current.code && now - lastRef.current.at < COOLDOWN_MS) return;
       lastRef.current = { code: data, at: now };
       setBusy(true);
+
+      // 1) ALWAYS persist to disk first (offline spec §2) — the scan survives a
+      //    crash or a dead network before we even attempt to sync.
+      const scannedAt = new Date().toISOString();
+      let localId: number | null = null;
+      try {
+        localId = await bufferScan(data, scannedAt);
+        await useOfflineStore.getState().refresh();
+      } catch {
+        // If even the local write fails we still try the live path below.
+      }
+
+      // 2) Attempt the live sync. Any server RESPONSE (success OR a validation
+      //    failure like already-checked-in) means it's handled server-side → drop
+      //    the local copy. Only a network error (thrown) keeps it buffered.
       try {
         const res = await scanCard(data);
-        // Tactile feedback (no audio lib installed — sound would need a native
-        // module + dev build). Short buzz for success, double for failure.
+        if (localId !== null) {
+          await deleteScan(localId);
+          await useOfflineStore.getState().refresh();
+        }
         Vibration.vibrate(res.success ? 60 : [0, 120, 90, 120]);
         setFeedback(res);
         setTimeout(() => {
@@ -47,10 +66,16 @@ export default function TeacherScan() {
           setBusy(false);
         }, FEEDBACK_MS);
       } catch {
-        setBusy(false);
+        // Network failure — the scan stays buffered for later reconciliation.
+        Vibration.vibrate(40);
+        setFeedback({ success: true, message: t('teacher.saved_offline'), student_name: null });
+        setTimeout(() => {
+          setFeedback(null);
+          setBusy(false);
+        }, FEEDBACK_MS);
       }
     },
-    [busy, feedback],
+    [busy, feedback, t],
   );
 
   if (!permission) {
