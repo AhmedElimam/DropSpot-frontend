@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useAuthStore, type UserRole } from '@/stores/authStore';
+import { useAuthStore, resolveRole } from '@/stores/authStore';
 import { login as loginApi, register as registerApi } from '@/api/auth';
 
 export function useLogin() {
@@ -10,17 +10,10 @@ export function useLogin() {
     mutationFn: (payload: { phone_number: string; password: string }) =>
       loginApi(payload.phone_number, payload.password),
     onSuccess: async (data) => {
-      // user_type_id 3 = teacher, 6 = assistant (both use the teacher app);
-      // otherwise student (has a student_id) or parent. Backend data.role wins.
-      const role: UserRole =
-        data.role ??
-        (data.user?.user_type_id === 3
-          ? 'teacher'
-          : data.user?.user_type_id === 6
-            ? 'assistant'
-            : data.user?.student_id
-              ? 'student'
-              : 'parent');
+      // Role is derived from the authoritative user_type_id (teacher=3,
+      // assistant=6, student=5), not the backend's top-level role (null for
+      // teachers) — that mismatch was routing teachers into the parent app.
+      const role = resolveRole(data.user);
       await setTokens(data.tokens.access_token, data.tokens.refresh_token);
       await setSession(data.user, role);
     },
