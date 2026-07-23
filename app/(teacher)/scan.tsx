@@ -20,6 +20,7 @@ export default function TeacherScan() {
   const insets = useSafeAreaInsets();
   const { name } = useLocalSearchParams<{ name: string; id: string }>();
   const { data: sessions } = useTeacherTodaySessions();
+  const online = useOfflineStore((s) => s.online);
   // Session label: an explicit tap from Home wins; otherwise auto-derive from the
   // single live session (fallback for a teacher who opens the Camera tab directly,
   // spec §3). Scanning itself is per-card and works regardless of this label.
@@ -123,6 +124,12 @@ export default function TeacherScan() {
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{t('teacher.scanning_for')}</Text>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }} numberOfLines={1}>{sessionName || t('teacher.scan_mode')}</Text>
+          {!online ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.warning }} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.warningLight }}>{t('teacher.offline_saving_local')}</Text>
+            </View>
+          ) : null}
         </View>
         <TouchableOpacity onPress={() => setTorch((v) => !v)} accessibilityRole="button" accessibilityLabel={t('teacher.torch')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: torch ? colors.accentWarm : 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="eye" size={22} color="#fff" />

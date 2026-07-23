@@ -9,8 +9,9 @@ import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index'
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import type { TeacherSession } from '@/api/teacher';
 import { syncOfflineBatch } from '@/api/teacher';
-import { getPendingScans, deleteScans, markScanFailed } from '@/db/offlineScans';
+import { getPendingScans } from '@/db/offlineScans';
 import { computeBuckets, type ScanBucket } from '@/db/buckets';
+import { suggestSessionId, applyBatchResults } from '@/db/reconcile';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -21,20 +22,6 @@ function hhmm(iso: string): string {
   } catch {
     return '—';
   }
-}
-
-/** Suggest the session whose window contains the bucket's start time. */
-function suggestSession(bucket: ScanBucket, sessions: TeacherSession[]): string | null {
-  const start = new Date(bucket.startTime).getTime();
-  for (const s of sessions) {
-    if (!s.scheduled_at) continue;
-    const sched = new Date(s.scheduled_at).getTime();
-    if (Number.isNaN(sched)) continue;
-    const open = sched - 30 * 60_000;
-    const close = sched + (s.duration_minutes ?? 60) * 60_000;
-    if (start >= open && start <= close) return s.id;
-  }
-  return null;
 }
 
 export default function Reconcile() {
@@ -87,7 +74,7 @@ export default function Reconcile() {
 
 function BucketCard({ bucket, sessions, onDone }: { bucket: ScanBucket; sessions: TeacherSession[]; onDone: () => Promise<void> }) {
   const { t } = useTranslation();
-  const suggested = useMemo(() => suggestSession(bucket, sessions), [bucket, sessions]);
+  const suggested = useMemo(() => suggestSessionId(bucket, sessions), [bucket, sessions]);
   const [selected, setSelected] = useState<string | null>(suggested);
   const [syncing, setSyncing] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
@@ -101,24 +88,11 @@ function BucketCard({ bucket, sessions, onDone }: { bucket: ScanBucket; sessions
         Number(selected),
         bucket.scans.map((s) => ({ card_code: s.card_code, scanned_at: s.scanned_at })),
       );
-      // Results come back in submitted order — zip to local rows.
-      const toDelete: number[] = [];
-      let failed = 0;
-      res.results.forEach((r, idx) => {
-        const local = bucket.scans[idx];
-        if (!local) return;
-        if (r.outcome === 'synced' || r.outcome === 'already_recorded') {
-          toDelete.push(local.id);
-        } else {
-          failed++;
-          markScanFailed(local.id, r.message || r.code || 'failed');
-        }
-      });
-      await deleteScans(toDelete);
+      const { synced, failed } = await applyBatchResults(bucket, res.results);
       setSummary(
         failed === 0
-          ? t('teacher.sync_all_ok', { count: res.synced })
-          : t('teacher.sync_partial', { synced: res.synced, failed }),
+          ? t('teacher.sync_all_ok', { count: synced })
+          : t('teacher.sync_partial', { synced, failed }),
       );
       await onDone();
     } catch {

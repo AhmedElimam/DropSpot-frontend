@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Redirect, Tabs } from 'expo-router';
 import { View, Text, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { initOfflineScans } from '@/db/offlineScans';
+import { autoFlush } from '@/db/reconcile';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -35,6 +37,7 @@ export default function TeacherTabLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const pending = useOfflineStore((s) => s.pending);
+  const wasOnlineRef = useRef(true);
 
   // Ensure the offline buffer table exists, seed the pending count, and refresh
   // it whenever the app returns to the foreground (a chance to reconcile).
@@ -51,6 +54,22 @@ export default function TeacherTabLayout() {
       active = false;
       sub.remove();
     };
+  }, [isAuthenticated]);
+
+  // Connectivity: track online/offline and, on the offline→online transition,
+  // auto-flush any buckets that map unambiguously to a session (ambiguous ones
+  // stay for manual reconciliation). Each scan keeps its original scanned_at.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const unsub = NetInfo.addEventListener((state) => {
+      const online = !!state.isConnected && state.isInternetReachable !== false;
+      useOfflineStore.getState().setOnline(online);
+      if (online && !wasOnlineRef.current) {
+        autoFlush().catch(() => {});
+      }
+      wasOnlineRef.current = online;
+    });
+    return () => unsub();
   }, [isAuthenticated]);
 
   if (isLoading) {

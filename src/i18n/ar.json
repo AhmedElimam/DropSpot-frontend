@@ -514,6 +514,8 @@
     "sync_bucket": "مزامنة هذه المجموعة",
     "sync_all_ok": "تمت مزامنة {{count}} بنجاح",
     "sync_partial": "تمت مزامنة {{synced}} · فشل {{failed}}",
-    "sync_network_error": "تعذّرت المزامنة — تحقق من الاتصال وحاول مجددًا"
+    "sync_network_error": "تعذّرت المزامنة — تحقق من الاتصال وحاول مجددًا",
+    "offline_saving_local": "غير متصل — يُحفظ محليًا",
+    "back_online_synced": "عاد الاتصال — تمت مزامنة {{count}}"
   }
 }

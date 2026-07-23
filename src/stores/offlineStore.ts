@@ -8,11 +8,14 @@ import { countPendingScans } from '@/db/offlineScans';
  */
 interface OfflineState {
   pending: number;
+  online: boolean;
   refresh: () => Promise<void>;
+  setOnline: (online: boolean) => void;
 }
 
 export const useOfflineStore = create<OfflineState>((set) => ({
   pending: 0,
+  online: true,
   refresh: async () => {
     try {
       set({ pending: await countPendingScans() });
@@ -20,4 +23,5 @@ export const useOfflineStore = create<OfflineState>((set) => ({
       // DB not ready yet — leave the count as-is.
     }
   },
+  setOnline: (online) => set({ online }),
 }));
