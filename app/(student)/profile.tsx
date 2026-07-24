@@ -9,6 +9,7 @@ import { useCoverageStats } from '@/hooks/useAttendance';
 import { useQuizzes } from '@/hooks/useQuizzes';
 import { formatDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import QRCode from 'react-native-qrcode-svg';
 import { Icon } from '@/components/ui/Icon';
 
 export default function StudentProfile() {
@@ -54,6 +55,29 @@ export default function StudentProfile() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
+          {/* Digital card — the student's QR for check-in when the physical card
+              is forgotten/lost. Encodes the same student_code the scanner reads. */}
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm, alignItems: 'center' }}>
+            <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
+              {t('profile.my_card')}
+            </Text>
+            {user?.student_code ? (
+              <>
+                <View style={{ padding: spacing.md, backgroundColor: '#fff', borderRadius: radius.lg }}>
+                  <QRCode value={user.student_code} size={200} />
+                </View>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginTop: spacing.md, letterSpacing: 2 }}>
+                  {user.student_code}
+                </Text>
+                <Text style={[textPresets.caption, { textAlign: 'center', marginTop: spacing.xs }]}>
+                  {t('profile.show_to_teacher')}
+                </Text>
+              </>
+            ) : (
+              <Text style={[textPresets.bodySmall, { textAlign: 'center' }]}>{t('profile.no_code_yet')}</Text>
+            )}
+          </View>
+
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.account')}
