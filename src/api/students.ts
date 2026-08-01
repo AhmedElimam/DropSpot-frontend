@@ -54,13 +54,15 @@ export interface EnrollResult {
   report_notice?: boolean;
 }
 
-// Enroll an existing student into the chosen class from their scanned card.
+// Enroll an existing student into the course (schedule master) from their scanned
+// card. Enrollment is course-level; the home slot is auto-bound server-side when
+// the course has a single weekly slot.
 export async function enrollByCard(payload: {
   method: 'qr' | 'code';
   value: string;
   course_id: number;
-  session_schedule_id: number;
   academic_session_id: number;
+  session_schedule_id?: number;
 }): Promise<EnrollResult> {
   const { data } = await client.post('/students/enroll-by-card', payload);
   return (data.data ?? data) as EnrollResult;

@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
@@ -12,7 +11,6 @@ import {
   lookupStudent,
   enrollByCard,
   type EnrollableClass,
-  type EnrollableSlot,
   type LookupStudent,
 } from '@/api/students';
 
@@ -26,15 +24,14 @@ export default function TeacherEnroll() {
   const [permission, requestPermission] = useCameraPermissions();
   const { data: classes, isLoading } = useQuery({ queryKey: ['enrollable-classes'], queryFn: getEnrollableClasses });
 
+  // Enrollment is on the COURSE (schedule master) — pick the course, not a session.
   const [course, setCourse] = useState<EnrollableClass | null>(null);
-  const [slot, setSlot] = useState<EnrollableSlot | null>(null);
-  const [expanded, setExpanded] = useState<number | null>(null);
   const [review, setReview] = useState<Review>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
 
-  const ready = !!course && !!slot;
+  const ready = !!course;
 
   const handleScan = useCallback(
     async ({ data }: { data: string }) => {
@@ -62,7 +59,6 @@ export default function TeacherEnroll() {
         method: 'qr',
         value,
         course_id: course!.course_id,
-        session_schedule_id: slot!.id,
         academic_session_id: course!.academic_session_id,
       }),
   });
@@ -88,7 +84,7 @@ export default function TeacherEnroll() {
         <Icon name="scan" size={56} color={colors.brand} />
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.lg }}>نحتاج إذن الكاميرا</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm }}>
-          لمسح رمز QR على بطاقة الطالب وتسجيله في الحصة.
+          لمسح رمز QR على بطاقة الطالب وتسجيله في المقرر.
         </Text>
         <TouchableOpacity onPress={requestPermission} activeOpacity={0.85} style={{ marginTop: spacing.xl, backgroundColor: colors.brand, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }}>السماح بالكاميرا</Text>
@@ -97,14 +93,14 @@ export default function TeacherEnroll() {
     );
   }
 
-  // ---- Step 1: pick the class ----
+  // ---- Step 1: pick the course (schedule master) ----
   if (!ready) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
         <View style={{ padding: spacing.xl }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>تسجيل طالب بالبطاقة</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, marginTop: spacing.xs }}>
-            اختر الحصة أولًا، ثم امسح رمز QR على بطاقة الطالب.
+            اختر المقرر، ثم امسح رمز QR على بطاقة الطالب. يُسجَّل في المقرر ويحضر جميع حصصه.
           </Text>
         </View>
         {isLoading ? (
@@ -117,29 +113,20 @@ export default function TeacherEnroll() {
               </Text>
             ) : (
               (classes ?? []).map((c) => (
-                <View key={c.course_id} style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border }}>
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setExpanded(expanded === c.course_id ? null : c.course_id)}
-                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg }}
-                  >
+                <TouchableOpacity
+                  key={c.course_id}
+                  activeOpacity={0.7}
+                  onPress={() => setCourse(c)}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}
+                >
+                  <View style={{ flex: 1 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{c.course_name}</Text>
-                    <Icon name={expanded === c.course_id ? 'down' : 'forward'} size={18} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                  {expanded === c.course_id
-                    ? c.slots.map((s) => (
-                        <TouchableOpacity
-                          key={s.id}
-                          activeOpacity={0.7}
-                          onPress={() => { setCourse(c); setSlot(s); }}
-                          style={{ paddingVertical: spacing.md, paddingHorizontal: spacing.xl, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-                        >
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}>{s.label}</Text>
-                          <Icon name="forward" size={16} color={colors.brand} />
-                        </TouchableOpacity>
-                      ))
-                    : null}
-                </View>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
+                      {c.slots.length} {c.slots.length === 1 ? 'موعد أسبوعي' : 'مواعيد أسبوعية'}
+                    </Text>
+                  </View>
+                  <Icon name="forward" size={18} color={colors.brand} />
+                </TouchableOpacity>
               ))
             )}
           </ScrollView>
@@ -160,14 +147,14 @@ export default function TeacherEnroll() {
         onBarcodeScanned={busy || review || done ? undefined : handleScan}
       />
 
-      {/* Top bar: chosen class + change */}
+      {/* Top bar: chosen course + change */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, backgroundColor: 'rgba(23,28,59,0.72)', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <TouchableOpacity onPress={() => { setSlot(null); setCourse(null); setReview(null); }} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
+        <TouchableOpacity onPress={() => { setCourse(null); setReview(null); }} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>التسجيل في</Text>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }} numberOfLines={1}>{course!.course_name} · {slot!.label}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>التسجيل في المقرر</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }} numberOfLines={1}>{course!.course_name}</Text>
         </View>
       </View>
 
@@ -226,7 +213,7 @@ export default function TeacherEnroll() {
             <Icon name="success" size={64} color="#fff" />
           </View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', textAlign: 'center', marginTop: spacing.lg }}>{done}</Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 18, color: '#fff', marginTop: spacing.sm }}>تم التسجيل في الحصة</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 18, color: '#fff', marginTop: spacing.sm }}>تم التسجيل في المقرر</Text>
         </View>
       ) : null}
     </View>
