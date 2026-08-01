@@ -131,6 +131,22 @@ export default function TeacherHome() {
               <Icon name="back" size={20} color={colors.warningText} />
             </TouchableOpacity>
           ) : null}
+          <TouchableOpacity
+            onPress={() => router.push('/(teacher)/enroll' as Href)}
+            activeOpacity={0.85}
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+              backgroundColor: colors.surface, borderRadius: radius.xl,
+              borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
+            }}
+          >
+            <Icon name="add" size={24} color={colors.brand} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تسجيل طالب بالبطاقة</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح رمز QR على البطاقة لتسجيله في حصة</Text>
+            </View>
+            <Icon name="back" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('teacher.todays_sessions')}</Text>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />

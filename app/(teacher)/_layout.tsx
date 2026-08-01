@@ -132,6 +132,8 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="settings" />
       {/* Reconciliation is reached from the pending badge / Home, not a tab. */}
       <Tabs.Screen name="reconcile" options={{ href: null }} />
+      {/* Enroll-by-card is reached from Home, not a tab. */}
+      <Tabs.Screen name="enroll" options={{ href: null }} />
     </Tabs>
   );
 }
