@@ -62,19 +62,16 @@ export default function CheckInTab() {
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
-  const selectedSessionData = activeSessions.find((s) => s.id === selectedSession) ?? null;
-  // Phone check-in is the exception, not the default: only when the teacher
-  // granted permission or the course runs in pilot mode (no scanner yet).
+  // Default to the only session when there is one, so the button appears without
+  // the student having to pick first.
+  const selectedSessionData = activeSessions.find((s) => s.id === selectedSession)
+    ?? (activeSessions.length === 1 ? activeSessions[0] : null);
   const phoneAllowed = selectedSessionData?.phone_checkin_allowed === true;
 
   const sessionTimeInfo = selectedSessionData ? getCheckInWindow(selectedSessionData.scheduled_at) : null;
-  // The button is enabled by default (once a phone-check-in session is picked and
-  // its window is open); the location/geofence is validated on tap.
-  const canTap = !!selectedSessionData
-    && phoneAllowed
-    && (sessionTimeInfo?.canCheckIn ?? false)
-    && !checkInMutation.isPending
-    && !locating;
+  // The button shows/enabled by default once there's a session; ALL validation
+  // (phone-permission, time window, geofence) happens on tap.
+  const canTap = !!selectedSessionData && !checkInMutation.isPending && !locating;
 
   function proximity(session: SessionInstance, lat: number, lng: number, acc: number | null) {
     const allowed = (session.radius_horizontal_meters ?? 20) + Math.min(acc ?? 50, 50);
@@ -90,6 +87,18 @@ export default function CheckInTab() {
     if (!selectedSessionData) return;
     setLocationError(null);
     checkInMutation.reset();
+
+    // Validate on tap: phone check-in must be permitted for this session, and
+    // within the check-in time window — before we touch the GPS.
+    if (!phoneAllowed) {
+      setLocationError(t('attendance.phone_not_allowed_hint'));
+      return;
+    }
+    if (sessionTimeInfo && !sessionTimeInfo.canCheckIn) {
+      setLocationError(t('attendance.outside_window'));
+      return;
+    }
+
     setLocating(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -256,19 +265,12 @@ export default function CheckInTab() {
             )}
           </View>
 
-          {/* Phone check-in: only offered when permitted */}
-          {selectedSessionData && !phoneAllowed && (
-            <View style={{ backgroundColor: colors.infoLight, borderRadius: radius.xl, padding: spacing.lg, flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }}>
-              <Icon name="info" size={22} color={colors.infoText} outline />
-              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.infoText }}>
-                {t('attendance.phone_not_allowed_hint')}
-              </Text>
-            </View>
-          )}
-
-          {selectedSessionData && phoneAllowed && (
+          {/* Check-in button shows BY DEFAULT once a session is selected. Whether
+              phone check-in is permitted, the window is open, and the student is
+              at the classroom are all validated on tap. */}
+          {selectedSessionData && (
             <>
-              {selectedSessionData.checkin_permission_expires_at ? (
+              {phoneAllowed && selectedSessionData.checkin_permission_expires_at ? (
                 <View style={{ backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                   <Icon name="success" size={18} color={colors.successText} />
                   <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.successText }}>
@@ -279,15 +281,15 @@ export default function CheckInTab() {
                 </View>
               ) : null}
 
-              {/* The geofence runs when you tap — location is verified on check-in */}
+              {/* Hint: geofence-on-tap when phone check-in is on; else use the card */}
               <View style={{ backgroundColor: colors.infoLight, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
-                <Icon name="location" size={18} color={colors.infoText} outline />
+                <Icon name={phoneAllowed ? 'location' : 'info'} size={18} color={colors.infoText} outline />
                 <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.infoText }}>
-                  {t('attendance.location_checked_on_tap')}
+                  {phoneAllowed ? t('attendance.location_checked_on_tap') : t('attendance.phone_not_allowed_hint')}
                 </Text>
               </View>
 
-              {/* Errors: client geofence/permission OR server rejection */}
+              {/* Errors: client geofence/permission/window OR server rejection */}
               {(locationError || checkInMutation.isError) && (
                 <View style={{ backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.lg, flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}>
                   <Icon name="error" size={20} color={colors.dangerText} />
@@ -315,9 +317,7 @@ export default function CheckInTab() {
                       ? t('attendance.getting_location')
                       : checkInMutation.isPending
                         ? t('common.loading')
-                        : sessionTimeInfo && !sessionTimeInfo.canCheckIn
-                          ? t('attendance.outside_window')
-                          : t('attendance.check_in_now')}
+                        : t('attendance.check_in_now')}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
