@@ -87,23 +87,15 @@ export default function CheckInTab() {
     if (!selectedSessionData) return;
     setLocationError(null);
     checkInMutation.reset();
-
-    // Validate on tap: phone check-in must be permitted for this session, and
-    // within the check-in time window — before we touch the GPS.
-    if (!phoneAllowed) {
-      setLocationError(t('attendance.phone_not_allowed_hint'));
-      return;
-    }
-    if (sessionTimeInfo && !sessionTimeInfo.canCheckIn) {
-      setLocationError(t('attendance.outside_window'));
-      return;
-    }
-
     setLocating(true);
     try {
+      // 1) Location permission FIRST — this is the prompt the student expects on
+      //    tap. (The server still enforces whether phone check-in is permitted, so
+      //    we don't short-circuit on it here.)
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') { setLocationError(t('attendance.location_denied')); return; }
 
+      // 2) GPS fix (reject spoofed location).
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       if (loc.mocked) { setLocationError(t('attendance.location_mocked')); return; }
 
@@ -111,12 +103,21 @@ export default function CheckInTab() {
       const lng = loc.coords.longitude;
       const acc = loc.coords.accuracy ?? null;
 
+      // 3) Geofence — only when the course has an anchor; otherwise let the server
+      //    decide (a course with no location can't be validated client-side).
       const prox = proximity(selectedSessionData, lat, lng, acc);
-      if (!prox.withinRange) {
-        setLocationError(prox.distance !== null ? t('attendance.too_far') : t('attendance.location_denied'));
+      if (prox.distance !== null && !prox.withinRange) {
+        setLocationError(t('attendance.too_far'));
         return;
       }
 
+      // 4) Time window (client hint; the server enforces it too).
+      if (sessionTimeInfo && !sessionTimeInfo.canCheckIn) {
+        setLocationError(t('attendance.outside_window'));
+        return;
+      }
+
+      // 5) Submit — the server is the source of truth for permission/window/geofence.
       checkInMutation.mutate(
         { sessionInstanceId: selectedSessionData.id, latitude: lat, longitude: lng, accuracy: acc ?? undefined },
         {
