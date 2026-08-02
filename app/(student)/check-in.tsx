@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -57,101 +57,71 @@ export default function CheckInTab() {
   const [excuseRecordId, setExcuseRecordId] = useState<number | null>(null);
   const [excuseSent, setExcuseSent] = useState(false);
 
-  // Location state
-  const [userLat, setUserLat] = useState<number | null>(null);
-  const [userLng, setUserLng] = useState<number | null>(null);
-  const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
+  // Location is requested ON CHECK-IN (on tap), not eagerly — the geofence only
+  // runs when the student actually taps the button.
+  const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [locationPermission, setLocationPermission] = useState<boolean>(false);
-  const [isMocked, setIsMocked] = useState<boolean>(false);
-  const watchRef = useRef<Location.LocationSubscription | null>(null);
 
   const selectedSessionData = activeSessions.find((s) => s.id === selectedSession) ?? null;
   // Phone check-in is the exception, not the default: only when the teacher
   // granted permission or the course runs in pilot mode (no scanner yet).
   const phoneAllowed = selectedSessionData?.phone_checkin_allowed === true;
 
-  useEffect(() => {
-    // Only ask for location when phone check-in is actually available.
-    if (!phoneAllowed) return;
-    let cancelled = false;
-    (async () => {
+  const sessionTimeInfo = selectedSessionData ? getCheckInWindow(selectedSessionData.scheduled_at) : null;
+  // The button is enabled by default (once a phone-check-in session is picked and
+  // its window is open); the location/geofence is validated on tap.
+  const canTap = !!selectedSessionData
+    && phoneAllowed
+    && (sessionTimeInfo?.canCheckIn ?? false)
+    && !checkInMutation.isPending
+    && !locating;
+
+  function proximity(session: SessionInstance, lat: number, lng: number, acc: number | null) {
+    const allowed = (session.radius_horizontal_meters ?? 20) + Math.min(acc ?? 50, 50);
+    if (!session.course_latitude || !session.course_longitude) {
+      return { distance: null as number | null, withinRange: false, allowed };
+    }
+    const d = haversineDistance(lat, lng, session.course_latitude, session.course_longitude);
+    return { distance: Math.round(d), withinRange: d <= allowed, allowed };
+  }
+
+  // Tap → request permission → get GPS → validate geofence → submit.
+  const handleCheckIn = async () => {
+    if (!selectedSessionData) return;
+    setLocationError(null);
+    checkInMutation.reset();
+    setLocating(true);
+    try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (cancelled) return;
-      if (status !== 'granted') {
-        setLocationError(t('attendance.location_denied'));
-        return;
-      }
-      setLocationPermission(true);
+      if (status !== 'granted') { setLocationError(t('attendance.location_denied')); return; }
 
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      if (cancelled) return;
-      if (loc.mocked) {
-        setIsMocked(true);
-        setLocationError(t('attendance.location_mocked'));
+      if (loc.mocked) { setLocationError(t('attendance.location_mocked')); return; }
+
+      const lat = loc.coords.latitude;
+      const lng = loc.coords.longitude;
+      const acc = loc.coords.accuracy ?? null;
+
+      const prox = proximity(selectedSessionData, lat, lng, acc);
+      if (!prox.withinRange) {
+        setLocationError(prox.distance !== null ? t('attendance.too_far') : t('attendance.location_denied'));
         return;
       }
-      setUserLat(loc.coords.latitude);
-      setUserLng(loc.coords.longitude);
-      setUserAccuracy(loc.coords.accuracy ?? null);
 
-      watchRef.current = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, distanceInterval: 5, timeInterval: 10000 },
-        (update) => {
-          if (update.mocked) {
-            setIsMocked(true);
-            setLocationError(t('attendance.location_mocked'));
-            if (watchRef.current) watchRef.current.remove();
-            return;
-          }
-          setUserLat(update.coords.latitude);
-          setUserLng(update.coords.longitude);
-          setUserAccuracy(update.coords.accuracy ?? null);
+      checkInMutation.mutate(
+        { sessionInstanceId: selectedSessionData.id, latitude: lat, longitude: lng, accuracy: acc ?? undefined },
+        {
+          onSuccess: () => {
+            setCheckedIn(true);
+            setCheckedInCourse(selectedSessionData.course_name ?? '');
+          },
         }
       );
-    })();
-
-    return () => {
-      cancelled = true;
-      if (watchRef.current) watchRef.current.remove();
-    };
-  }, [phoneAllowed, t]);
-
-  const proximity = useCallback((session: SessionInstance | null): { distance: number | null; withinRange: boolean; allowed: number } => {
-    const allowed = (session?.radius_horizontal_meters ?? 20) + Math.min(userAccuracy ?? 50, 50);
-    if (!userLat || !userLng || !session?.course_latitude || !session?.course_longitude) {
-      return { distance: null, withinRange: false, allowed };
+    } catch {
+      setLocationError(t('attendance.location_denied'));
+    } finally {
+      setLocating(false);
     }
-    const d = haversineDistance(userLat, userLng, session.course_latitude, session.course_longitude);
-    return { distance: Math.round(d), withinRange: d <= allowed, allowed };
-  }, [userLat, userLng, userAccuracy]);
-
-  const sessionProximity = selectedSessionData ? proximity(selectedSessionData) : { distance: null, withinRange: false, allowed: 50 };
-  const sessionTimeInfo = selectedSessionData ? getCheckInWindow(selectedSessionData.scheduled_at) : null;
-  const canCheckIn = !!selectedSessionData
-    && phoneAllowed
-    && locationPermission
-    && !isMocked
-    && sessionProximity.withinRange
-    && (sessionTimeInfo?.canCheckIn ?? false)
-    && !checkInMutation.isPending;
-
-  const handleCheckIn = () => {
-    if (!selectedSessionData || !userLat || !userLng) return;
-    checkInMutation.mutate(
-      {
-        sessionInstanceId: selectedSessionData.id,
-        latitude: userLat,
-        longitude: userLng,
-        accuracy: userAccuracy ?? undefined,
-      },
-      {
-        onSuccess: () => {
-          setCheckedIn(true);
-          setCheckedInCourse(selectedSessionData.course_name ?? '');
-        },
-      }
-    );
   };
 
   const absentRecords = (records ?? []).filter((r) => r?.status === 'absent').slice(0, 5);
@@ -309,93 +279,45 @@ export default function CheckInTab() {
                 </View>
               ) : null}
 
-              {/* Proximity status — the GPS check always applies */}
-              <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={textPresets.bodySmall}>{t('attendance.proximity_status')}</Text>
-                    {!locationPermission ? (
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.dangerText, marginTop: 2 }}>
-                        {locationError ?? t('attendance.location_denied')}
-                      </Text>
-                    ) : sessionProximity.distance === null ? (
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginTop: 2 }}>
-                        {t('common.loading')}
-                      </Text>
-                    ) : (
-                      <>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: sessionProximity.withinRange ? colors.successText : colors.dangerText, marginTop: 2 }}>
-                          {sessionProximity.distance}m {t('attendance.from_class')}
-                        </Text>
-                        {sessionTimeInfo && (
-                          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>
-                            {sessionTimeInfo.canCheckIn
-                              ? t('attendance.window_open')
-                              : sessionTimeInfo.opensIn > 0
-                                ? t('attendance.window_opens_in', { minutes: sessionTimeInfo.opensIn })
-                                : t('attendance.window_closed')}
-                          </Text>
-                        )}
-                      </>
-                    )}
-                  </View>
-                  <Icon
-                    name={sessionProximity.withinRange ? 'success' : 'location'}
-                    size={26}
-                    color={sessionProximity.withinRange ? colors.success : colors.danger}
-                  />
-                </View>
-                {/* Proximity bar — high-contrast solid colors for outdoor daylight */}
-                {sessionProximity.distance !== null && (
-                  <View style={{ height: 10, borderRadius: 5, backgroundColor: colors.borderLight, marginTop: spacing.sm, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
-                    <View style={{
-                      width: `${Math.min(100, (sessionProximity.distance / Math.max(sessionProximity.allowed, 1)) * 100)}%`,
-                      height: '100%',
-                      borderRadius: 5,
-                      backgroundColor: sessionProximity.withinRange ? '#047857' : '#B91C1C',
-                    }} />
-                  </View>
-                )}
+              {/* The geofence runs when you tap — location is verified on check-in */}
+              <View style={{ backgroundColor: colors.infoLight, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+                <Icon name="location" size={18} color={colors.infoText} outline />
+                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.infoText }}>
+                  {t('attendance.location_checked_on_tap')}
+                </Text>
               </View>
 
-              {/* Server rejection surfaced clearly (e.g. permission granted but not at location) */}
-              {checkInMutation.isError && (
+              {/* Errors: client geofence/permission OR server rejection */}
+              {(locationError || checkInMutation.isError) && (
                 <View style={{ backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.lg, flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}>
                   <Icon name="error" size={20} color={colors.dangerText} />
                   <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, lineHeight: 21, color: colors.dangerText }}>
-                    {getFriendlyErrorMessage(checkInMutation.error)}
+                    {locationError ?? getFriendlyErrorMessage(checkInMutation.error)}
                   </Text>
                 </View>
               )}
 
               <TouchableOpacity
                 onPress={handleCheckIn}
-                disabled={!canCheckIn}
+                disabled={!canTap}
                 activeOpacity={0.85}
-                style={{
-                  borderRadius: radius.md,
-                  overflow: 'hidden',
-                  opacity: canCheckIn ? 1 : 0.4,
-                }}
+                style={{ borderRadius: radius.md, overflow: 'hidden', opacity: canTap ? 1 : 0.4 }}
               >
                 <LinearGradient
-                  colors={canCheckIn ? gradients.primary : [colors.textTertiary, colors.textTertiary]}
+                  colors={canTap ? gradients.primary : [colors.textTertiary, colors.textTertiary]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={{ minHeight: 56, alignItems: 'center', justifyContent: 'center' }}
+                  style={{ minHeight: 56, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm }}
                 >
+                  {locating ? <ActivityIndicator color={colors.white} /> : null}
                   <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.white, letterSpacing: 0.5 }}>
-                    {checkInMutation.isPending
-                      ? t('common.loading')
-                      : !locationPermission
-                        ? t('attendance.location_denied')
-                        : isMocked
-                          ? t('attendance.location_mocked')
-                          : !sessionProximity.withinRange && sessionProximity.distance !== null
-                            ? t('attendance.too_far')
-                            : sessionTimeInfo && !sessionTimeInfo.canCheckIn
-                              ? t('attendance.outside_window')
-                              : t('attendance.check_in_now')}
+                    {locating
+                      ? t('attendance.getting_location')
+                      : checkInMutation.isPending
+                        ? t('common.loading')
+                        : sessionTimeInfo && !sessionTimeInfo.canCheckIn
+                          ? t('attendance.outside_window')
+                          : t('attendance.check_in_now')}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>

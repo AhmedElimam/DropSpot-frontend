@@ -175,6 +175,8 @@
     "window_closed": "انتهت نافذة تسجيل الحضور",
     "outside_window": "خارج نطاق الوقت المسموح",
     "too_far": "أنت بعيد جداً عن موقع الفصل",
+    "location_checked_on_tap": "سيتم التحقق من موقعك عند الضغط على «تسجيل الحضور».",
+    "getting_location": "جارٍ تحديد موقعك…",
     "proximity_status": "المسافة عن مكان الحصة",
     "excuse_select_session": "اختر الحصة التي تريد تقديم عذر عنها",
     "card_primary_title": "امسح بطاقتك عند الباب",
