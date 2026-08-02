@@ -32,7 +32,7 @@ function getCheckInWindow(scheduledAt: string): { canCheckIn: boolean; opensIn: 
   const now = new Date();
   const start = new Date(scheduledAt);
   const windowOpen = new Date(start.getTime() - 10 * 60000);
-  const windowClose = new Date(start.getTime() + 15 * 60000);
+  const windowClose = new Date(start.getTime() + 30 * 60000);
   const opensIn = Math.ceil((windowOpen.getTime() - now.getTime()) / 60000);
   const closesIn = Math.ceil((windowClose.getTime() - now.getTime()) / 60000);
   return { canCheckIn: now >= windowOpen && now <= windowClose, opensIn, closesIn };

@@ -10,7 +10,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 const icons: Record<string, IconName> = {
   index: 'home',
   'check-in': 'attendance',
-  quiz: 'quiz',
+  invoices: 'invoices',
   profile: 'profile',
 };
 
@@ -59,7 +59,7 @@ export default function StudentTabLayout() {
               marginTop: 2,
             }}
           >
-            {route.name === 'index' ? t('nav.dashboard') : route.name === 'check-in' ? t('nav.check_in') : route.name === 'quiz' ? t('nav.quiz') : t('nav.profile')}
+            {route.name === 'index' ? t('nav.dashboard') : route.name === 'check-in' ? t('nav.check_in') : route.name === 'invoices' ? t('nav.invoices') : t('nav.profile')}
           </Text>
         ),
         tabBarIcon: ({ focused }) => (
@@ -81,9 +81,9 @@ export default function StudentTabLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="check-in" />
-      <Tabs.Screen name="quiz" />
+      <Tabs.Screen name="invoices" />
+      <Tabs.Screen name="swap" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="profile" />
-      <Tabs.Screen name="quiz-run/[quizId]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }

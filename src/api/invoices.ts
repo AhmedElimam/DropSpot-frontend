@@ -13,12 +13,23 @@ export interface Invoice {
   teacher_phone?: string | null;
 }
 
-export async function getInvoices(): Promise<Invoice[]> {
-  const { data } = await client.get('/parents/invoices');
+function mapInvoices(data: any): Invoice[] {
   return extractList(data, 'invoices').map((item: any) => {
     const attrs = extractAttrs(item);
     return { id: item.id, ...attrs };
   });
+}
+
+/** Parent: invoices across all of the parent's children. */
+export async function getInvoices(): Promise<Invoice[]> {
+  const { data } = await client.get('/parents/invoices');
+  return mapInvoices(data);
+}
+
+/** Student: the logged-in student's own invoices (self-scoped from the token). */
+export async function getStudentInvoices(): Promise<Invoice[]> {
+  const { data } = await client.get('/students/invoices');
+  return mapInvoices(data);
 }
 
 /**

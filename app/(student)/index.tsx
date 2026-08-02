@@ -78,16 +78,25 @@ export default function StudentDashboard() {
                 </LinearGradient>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => router.navigate('/(student)/quiz')}
+                onPress={() => router.navigate('/(student)/invoices')}
                 activeOpacity={0.85}
                 style={{ flex: 1, borderRadius: radius.md, overflow: 'hidden' }}
               >
                 <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ padding: spacing.lg, alignItems: 'center' }}>
-                  <Icon name="quiz" size={24} color={colors.onAccent} style={{ marginBottom: spacing.xs }} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.onAccent }}>{t('nav.quiz')}</Text>
+                  <Icon name="invoices" size={24} color={colors.onAccent} style={{ marginBottom: spacing.xs }} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.onAccent }}>{t('nav.invoices')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
+
+            <TouchableOpacity
+              onPress={() => router.navigate('/(student)/swap')}
+              activeOpacity={0.7}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: spacing.md, paddingVertical: spacing.sm }}
+            >
+              <Icon name="calendar" size={18} color={colors.primary} outline style={{ marginEnd: spacing.xs }} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.primary }}>{t('swap.entry')}</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
