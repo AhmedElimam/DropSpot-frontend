@@ -92,10 +92,10 @@ export default function StudentDashboard() {
             <TouchableOpacity
               onPress={() => router.navigate('/(student)/swap')}
               activeOpacity={0.7}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: spacing.md, paddingVertical: spacing.sm }}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: spacing.md, paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primaryLight }}
             >
               <Icon name="calendar" size={18} color={colors.primary} outline style={{ marginEnd: spacing.xs }} />
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.primary }}>{t('swap.entry')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{t('swap.entry')}</Text>
             </TouchableOpacity>
           </View>
 
