@@ -27,3 +27,21 @@ export async function verifyOtp(phone: string, code: string, purpose = 'registra
   const { data } = await client.post('/auth/verify-otp', { phone, code, purpose });
   return data;
 }
+
+export interface ParentSetupInfo {
+  name: string;
+  phone_number: string;
+  already_set: boolean;
+}
+
+/** First-time parent setup: read-only details (phone + name) for the token. */
+export async function getParentSetup(token: string): Promise<ParentSetupInfo> {
+  const { data } = await client.get(`/parent-setup/${token}`);
+  return extractAttrs(data.data ?? data);
+}
+
+/** Set the parent's password via the setup token; returns a logged-in session. */
+export async function setParentPassword(token: string, password: string): Promise<AuthResponse> {
+  const { data } = await client.post(`/parent-setup/${token}`, { password });
+  return extractAttrs(data.data ?? data);
+}

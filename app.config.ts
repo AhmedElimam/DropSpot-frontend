@@ -2,7 +2,7 @@
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Ø¯Ø±ÙˆØ³ Ø³Ø¨ÙˆØª',
+  name: 'DrosSpot',
   slug: 'DrosSpot',
   version: '1.0.0',
   orientation: 'portrait',
@@ -13,6 +13,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: 'com.drosspot.app',
     icon: './assets/expo.icon',
     supportsTablet: true,
+    // App uses only standard/exempt encryption (HTTPS) — declaring this avoids
+    // EAS prompting (and crashing) on ITSAppUsesNonExemptEncryption at build.
+    config: {
+      usesNonExemptEncryption: false,
+    },
   },
   android: {
     package: 'com.drosspot.app',
