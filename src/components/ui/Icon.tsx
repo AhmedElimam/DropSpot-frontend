@@ -40,6 +40,7 @@ const ICON_MAP = {
   search: 'search',
   logout: 'log-out',
   warning: 'warning',
+  refresh: 'refresh',
   error: 'alert-circle',
   success: 'checkmark-circle',
   info: 'information-circle',

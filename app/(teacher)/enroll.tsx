@@ -13,9 +13,16 @@ import {
   type EnrollableClass,
   type LookupStudent,
 } from '@/api/students';
+import {
+  scanPreCard,
+  confirmPreCard,
+  cancelPreCard,
+  type PreCardScanStudent,
+} from '@/api/preCardInvitation';
 
 type Review =
   | { kind: 'match'; student: LookupStudent; value: string }
+  | { kind: 'precard'; invitationId: number; student: PreCardScanStudent }
   | { kind: 'miss' }
   | null;
 
@@ -41,6 +48,24 @@ export default function TeacherEnroll() {
       lastRef.current = { code: data, at: now };
       setBusy(true);
       try {
+        // 1. Is this a parent-generated pre-card invitation token? (structurally
+        //    distinct from a card code — server reserves it and returns the student.)
+        try {
+          const pre = await scanPreCard(data);
+          Vibration.vibrate(50);
+          setReview({ kind: 'precard', invitationId: pre.invitation_id, student: pre.student });
+          return;
+        } catch (e: any) {
+          const code = e?.response?.data?.code;
+          // A real pre-card conflict must surface, not be retried as a card.
+          if (code === 'RESERVED_ELSEWHERE' || code === 'TEACHER_ONLY') {
+            Alert.alert('', e?.response?.data?.message || 'تعذّر استخدام هذا الرمز');
+            return;
+          }
+          // INVALID_TOKEN / anything else → fall through to a normal card scan.
+        }
+
+        // 2. Otherwise treat it as a physical card (QR/serial).
         const res = await lookupStudent('qr', data, course.course_id);
         Vibration.vibrate(50);
         setReview(res.found && res.student ? { kind: 'match', student: res.student, value: data } : { kind: 'miss' });
@@ -63,17 +88,46 @@ export default function TeacherEnroll() {
       }),
   });
 
+  // Pre-card: confirm the reserved token → enrollment (spec §5). Consumption
+  // happens server-side only on this commit.
+  const confirmPre = useMutation({
+    mutationFn: (invitationId: number) =>
+      confirmPreCard(invitationId, {
+        course_id: course!.course_id,
+        academic_session_id: course!.academic_session_id,
+      }),
+  });
+
+  const flashDone = (name: string) => {
+    setReview(null);
+    setDone(name);
+    setTimeout(() => setDone(null), 1800);
+  };
+
   const accept = () => {
-    if (!review || review.kind !== 'match') return;
-    const name = review.student.name;
-    enroll.mutate(review.value, {
-      onSuccess: () => {
-        setReview(null);
-        setDone(name);
-        setTimeout(() => setDone(null), 1800);
-      },
-      onError: (e: any) => Alert.alert('', e?.response?.data?.message || 'تعذّر التسجيل'),
-    });
+    if (!review) return;
+    if (review.kind === 'match') {
+      const name = review.student.name;
+      enroll.mutate(review.value, {
+        onSuccess: () => flashDone(name),
+        onError: (e: any) => Alert.alert('', e?.response?.data?.message || 'تعذّر التسجيل'),
+      });
+    } else if (review.kind === 'precard') {
+      const name = review.student.name;
+      confirmPre.mutate(review.invitationId, {
+        onSuccess: () => flashDone(name),
+        onError: (e: any) => Alert.alert('', e?.response?.data?.message || 'تعذّر التسجيل'),
+      });
+    }
+  };
+
+  // Backing out of a pre-card review releases the reservation so the family's
+  // one-time code isn't wasted (spec §5.4).
+  const dismiss = () => {
+    if (review?.kind === 'precard') {
+      cancelPreCard(review.invitationId).catch(() => {});
+    }
+    setReview(null);
   };
 
   // ---- Camera permission gate ----
@@ -98,9 +152,9 @@ export default function TeacherEnroll() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
         <View style={{ padding: spacing.xl }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>تسجيل طالب بالبطاقة</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>تسجيل طالب</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, marginTop: spacing.xs }}>
-            اختر المقرر، ثم امسح رمز QR على بطاقة الطالب. يُسجَّل في المقرر ويحضر جميع حصصه.
+            اختر المقرر، ثم امسح رمز QR على بطاقة الطالب أو رمز الدعوة الذي أنشأه ولي الأمر. يُسجَّل في المقرر ويحضر جميع حصصه.
           </Text>
         </View>
         {isLoading ? (
@@ -172,7 +226,30 @@ export default function TeacherEnroll() {
       {/* Review card — accept / reject */}
       {review ? (
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl }}>
-          {review.kind === 'match' ? (
+          {review.kind === 'precard' ? (
+            <>
+              <View style={{ alignSelf: 'flex-start', marginBottom: spacing.sm }}>
+                <Badge text="دعوة بواسطة ولي الأمر — قبل البطاقة" color={colors.brand} />
+              </View>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{review.student.name}</Text>
+              {review.student.grade ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>{review.student.grade}</Text>
+              ) : null}
+              {review.student.report_notice && review.student.report_notice_message ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.warning, marginTop: spacing.md }}>
+                  {review.student.report_notice_message}
+                </Text>
+              ) : null}
+              <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
+                <TouchableOpacity onPress={dismiss} activeOpacity={0.85} style={{ flex: 1, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger }}>رفض</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={accept} disabled={confirmPre.isPending} activeOpacity={0.85} style={{ flex: 2, backgroundColor: colors.success, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
+                  {confirmPre.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>قبول وتسجيل</Text>}
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : review.kind === 'match' ? (
             <>
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{review.student.name}</Text>
               <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, flexWrap: 'wrap' }}>
@@ -186,7 +263,7 @@ export default function TeacherEnroll() {
                 </Text>
               ) : null}
               <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
-                <TouchableOpacity onPress={() => setReview(null)} activeOpacity={0.85} style={{ flex: 1, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
+                <TouchableOpacity onPress={dismiss} activeOpacity={0.85} style={{ flex: 1, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger }}>رفض</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={accept} disabled={enroll.isPending} activeOpacity={0.85} style={{ flex: 2, backgroundColor: colors.success, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>

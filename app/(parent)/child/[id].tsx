@@ -367,6 +367,21 @@ export default function ChildDetailScreen() {
                 </View>
               </View>
 
+              {child.can_generate_pre_card && (
+                <View style={cardStyle}>
+                  <Text style={textPresets.h3}>تسجيل عند المعلم قبل استلام البطاقة</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginTop: spacing.sm }}>
+                    عندما تكون مع المعلم الآن، أنشئ رمزًا مؤقتًا واعرضه له ليُسجّل ابنك في حصصه — يصلح لدقائق قليلة فقط وللاستخدام الفوري أمام المعلم، ولا يُرسل عبر واتساب.
+                  </Text>
+                  <Button
+                    variant="primary"
+                    title="إنشاء رمز تسجيل"
+                    onPress={() => router.push(`/(parent)/child/${child.id}/invite-code`)}
+                    style={{ marginTop: spacing.lg }}
+                  />
+                </View>
+              )}
+
               {child.teachers && child.teachers.length > 0 && (
                 <View style={cardStyle}>
                   <Text style={textPresets.h3}>{t('parent.teachers')}</Text>

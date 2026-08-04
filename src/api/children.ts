@@ -7,6 +7,8 @@ export interface Child {
   grade: string | null;
   grade_id: number | null;
   student_code: string | null;
+  has_card?: boolean;
+  can_generate_pre_card?: boolean;
   attendance_rate: number;
   date_of_birth: string | null;
   student_id: number;
