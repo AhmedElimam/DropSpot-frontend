@@ -190,8 +190,6 @@ export default function TeacherEnroll() {
   }
 
   // ---- Step 2: scan + review ----
-  const sev = review?.kind === 'match' ? review.student.report_severity : null;
-
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <CameraView
@@ -254,11 +252,11 @@ export default function TeacherEnroll() {
               <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{review.student.name}</Text>
               <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, flexWrap: 'wrap' }}>
                 <Badge text={review.student.has_card ? 'لديه بطاقة' : 'بدون بطاقة'} color={review.student.has_card ? colors.success : colors.textSecondary} />
-                {sev === 'safety_critical' ? <Badge text="بلاغ أمان — خطر" color={colors.danger} /> : null}
-                {sev === 'standard' ? <Badge text="بلاغ سابق" color={colors.warning} /> : null}
               </View>
+              {/* Cross-tenant disclosure is a single fixed notice now — never a
+                  severity tier/score (Tiered Disclosure §3, §6). */}
               {review.student.report_notice && review.student.report_notice_message ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: sev === 'safety_critical' ? colors.danger : colors.warning, marginTop: spacing.md }}>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.danger, marginTop: spacing.md }}>
                   {review.student.report_notice_message}
                 </Text>
               ) : null}

@@ -31,7 +31,6 @@ export interface LookupStudent {
   name: string;
   has_card: boolean;
   report_notice: boolean;
-  report_severity: 'safety_critical' | 'standard' | null;
   report_notice_message: string | null;
 }
 
