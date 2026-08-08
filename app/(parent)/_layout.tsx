@@ -136,6 +136,7 @@ export default function ParentTabLayout() {
       <Tabs.Screen name="reports" options={{ href: null }} />
       <Tabs.Screen name="child/[id]" options={{ href: null }} />
       <Tabs.Screen name="child/[id]/teachers" options={{ href: null }} />
+      <Tabs.Screen name="child/[id]/invite-code" options={{ href: null }} />
       <Tabs.Screen name="quiz/[quizId]" options={{ href: null }} />
     </Tabs>
   );
