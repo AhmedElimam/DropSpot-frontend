@@ -4,14 +4,17 @@ import { useAuthStore } from '@/stores/authStore';
 export default function AuthLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
-  const role = useAuthStore((s) => s.role);
 
   if (isLoading) {
     return null;
   }
 
+  // Single source of role routing: hand authenticated users to app/index.tsx,
+  // which redirects by role (teacher/assistant/student/parent). Duplicating that
+  // logic here is exactly what sent a freshly-logged-in teacher to /(parent) —
+  // the two copies drifted, and only a reload (routing through index) fixed it.
   if (isAuthenticated) {
-    return <Redirect href={role === 'student' ? '/(student)' : '/(parent)'} />;
+    return <Redirect href="/" />;
   }
 
   return (
