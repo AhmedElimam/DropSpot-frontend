@@ -7,6 +7,7 @@ import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index'
 import { useAuthStore } from '@/stores/authStore';
 import { useLogout } from '@/hooks/useAuth';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 
 // Minimal Settings tab. Real per-category notification toggles are deferred until
 // a push-delivery pipeline exists to gate (there is nothing to switch on/off yet);
@@ -72,6 +73,8 @@ export default function TeacherSettings() {
             <Icon name="logout" size={22} color={colors.dangerText} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.dangerText }}>{t('common.logout')}</Text>
           </TouchableOpacity>
+
+          <DeleteAccountButton />
         </View>
       </ScrollView>
     </View>

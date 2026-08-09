@@ -23,6 +23,14 @@ export async function register(payload: {
   return data;
 }
 
+/**
+ * Request account deletion (Apple 5.1.1(v)). Server marks the account and blocks
+ * future login/refresh; the client then clears the local session.
+ */
+export async function deleteAccount(): Promise<void> {
+  await client.post('/account/delete');
+}
+
 export async function verifyOtp(phone: string, code: string, purpose = 'registration') {
   const { data } = await client.post('/auth/verify-otp', { phone, code, purpose });
   return data;

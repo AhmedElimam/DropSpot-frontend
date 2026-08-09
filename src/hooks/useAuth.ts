@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useAuthStore, resolveRole } from '@/stores/authStore';
-import { login as loginApi, register as registerApi, setParentPassword } from '@/api/auth';
+import { login as loginApi, register as registerApi, setParentPassword, deleteAccount } from '@/api/auth';
 
 export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
@@ -54,6 +54,19 @@ export function useLogout() {
 
   return useMutation({
     mutationFn: async () => {
+      await logout();
+    },
+  });
+}
+
+// Account deletion (Apple 5.1.1(v)): ask the server to block the account, then
+// clear the local session so the guards route back to login.
+export function useDeleteAccount() {
+  const logout = useAuthStore((s) => s.logout);
+
+  return useMutation({
+    mutationFn: async () => {
+      await deleteAccount();
       await logout();
     },
   });

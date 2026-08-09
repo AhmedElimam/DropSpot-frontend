@@ -11,6 +11,7 @@ import { formatDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { Icon } from '@/components/ui/Icon';
+import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 
 export default function StudentProfile() {
   const { t } = useTranslation();
@@ -127,6 +128,8 @@ export default function StudentProfile() {
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('common.logout')}</Text>
             </LinearGradient>
           </TouchableOpacity>
+
+          <DeleteAccountButton />
 
           <Text style={[textPresets.caption, { textAlign: 'center', marginTop: spacing.md }]}>DrosSpot v1.0.0</Text>
         </View>

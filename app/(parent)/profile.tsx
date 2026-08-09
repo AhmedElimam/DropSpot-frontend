@@ -10,6 +10,7 @@ import { useChildren } from '@/hooks/useChildren';
 import { formatDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 
 interface SettingItem {
   key: string;
@@ -107,6 +108,8 @@ export default function ParentSettings() {
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('common.logout')}</Text>
             </LinearGradient>
           </TouchableOpacity>
+
+          <DeleteAccountButton />
 
           <Text style={[textPresets.caption, { textAlign: 'center', marginTop: spacing.md }]}>DrosSpot v1.0.0</Text>
         </View>
