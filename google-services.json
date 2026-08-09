@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "96251183746",
+    "project_id": "dros-spot",
+    "storage_bucket": "dros-spot.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:96251183746:android:fd78f9ec5657a394f7ea9b",
+        "android_client_info": {
+          "package_name": "com.drosspot.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRzry0f8uTihBv3D_mOSEEt5PxQx1yEZk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
