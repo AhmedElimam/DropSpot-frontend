@@ -31,9 +31,14 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   try {
-    const { data: token } = await Notifications.getExpoPushTokenAsync({
-      projectId: 'f537825e-3329-40d0-827a-aa708f228509',
-    });
+    // Native device push token — on Android this is the raw FCM registration
+    // token. The backend sends via Firebase Cloud Messaging directly (Kreait), so
+    // it needs the native FCM token, NOT an Expo push token.
+    // NOTE (iOS): this returns an APNs token, which direct-FCM can't target as-is —
+    // iOS push needs the FCM token via @react-native-firebase/messaging (or the
+    // Expo push service). Android is functional now; iOS is a follow-up.
+    const devicePushToken = await Notifications.getDevicePushTokenAsync();
+    const token = String(devicePushToken.data);
 
     const platform = Platform.OS;
     const deviceName = Device.deviceName ?? undefined;
