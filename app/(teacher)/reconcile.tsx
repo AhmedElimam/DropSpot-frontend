@@ -87,6 +87,7 @@ function BucketCard({ bucket, sessions, onDone }: { bucket: ScanBucket; sessions
       const res = await syncOfflineBatch(
         Number(selected),
         bucket.scans.map((s) => ({ card_code: s.card_code, scanned_at: s.scanned_at })),
+        bucket.teacherId,
       );
       const { synced, failed } = await applyBatchResults(bucket, res.results);
       setSummary(

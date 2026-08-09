@@ -152,10 +152,34 @@ export interface OfflineBatchResponse {
 export async function syncOfflineBatch(
   sessionInstanceId: number,
   scans: { card_code: string; scanned_at: string }[],
+  expectedTeacherId?: number | null,
 ): Promise<OfflineBatchResponse> {
   const { data } = await client.post('/checkin/offline-batch', {
     session_instance_id: sessionInstanceId,
     scans,
+    // The scan-time teacher stamp; the server refuses (CONTEXT_MISMATCH) if the
+    // chosen session belongs to a different teacher, so a switched context can
+    // never misfile a batch scanned for someone else (§4).
+    ...(expectedTeacherId ? { expected_teacher_id: expectedTeacherId } : {}),
   });
   return (data.data ?? data) as OfflineBatchResponse;
+}
+
+export interface AssistantTeacher {
+  teacher_id: number;
+  name: string | null;
+  abilities: string[];
+  is_active_context: boolean;
+}
+
+/** Teachers this assistant works for + which is the active context on this token. */
+export async function getMyTeachers(): Promise<{ active_teacher_id: number | null; teachers: AssistantTeacher[] }> {
+  const { data } = await client.get('/auth/my-teachers');
+  return (data.data ?? data) as { active_teacher_id: number | null; teachers: AssistantTeacher[] };
+}
+
+/** Atomically switch the active teacher context on the current token. */
+export async function switchActiveTeacher(teacherId: number): Promise<{ active_teacher_id: number }> {
+  const { data } = await client.post('/auth/switch-teacher', { teacher_id: teacherId });
+  return (data.data ?? data) as { active_teacher_id: number };
 }

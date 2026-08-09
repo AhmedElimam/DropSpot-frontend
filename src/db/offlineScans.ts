@@ -11,6 +11,12 @@ export interface OfflineScan {
   id: number;
   card_code: string;
   scanned_at: string; // ISO8601, device capture time
+  // The teacher context ACTIVE ON THIS DEVICE at the moment of scanning
+  // (multi-teacher assistants). Stamped here at scan time — never re-resolved at
+  // sync time — so a batch scanned for teacher A stays attributed to A even if
+  // the assistant switches to teacher B before reconnecting (spec §4). 0/null for
+  // a solo teacher or an unknown context.
+  teacher_id: number | null;
   last_error: string | null;
 }
 
@@ -30,17 +36,28 @@ export async function initOfflineScans(): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       card_code TEXT NOT NULL,
       scanned_at TEXT NOT NULL,
+      teacher_id INTEGER,
       last_error TEXT
     );
   `);
+
+  // Additive migration for installs created before the teacher_id stamp existed.
+  // ALTER on an existing column throws; swallowing that is the standard SQLite
+  // "add column if missing" idiom.
+  try {
+    await db().execAsync('ALTER TABLE offline_scans ADD COLUMN teacher_id INTEGER');
+  } catch {
+    // Column already present — nothing to do.
+  }
 }
 
-/** Persist a scan to disk. Returns the local row id. */
-export async function bufferScan(cardCode: string, scannedAt: string): Promise<number> {
+/** Persist a scan to disk, stamped with the active teacher context. Returns the row id. */
+export async function bufferScan(cardCode: string, scannedAt: string, teacherId: number | null): Promise<number> {
   const res = await db().runAsync(
-    'INSERT INTO offline_scans (card_code, scanned_at, last_error) VALUES (?, ?, NULL)',
+    'INSERT INTO offline_scans (card_code, scanned_at, teacher_id, last_error) VALUES (?, ?, ?, NULL)',
     cardCode,
     scannedAt,
+    teacherId ?? null,
   );
   return res.lastInsertRowId;
 }

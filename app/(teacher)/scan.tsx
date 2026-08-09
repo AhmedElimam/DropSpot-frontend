@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Vibration, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -6,10 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
-import { scanCard, type ScanResult } from '@/api/teacher';
+import { scanCard, getMyTeachers, type ScanResult } from '@/api/teacher';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import { bufferScan, deleteScan } from '@/db/offlineScans';
 import { useOfflineStore } from '@/stores/offlineStore';
+import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { Icon } from '@/components/ui/Icon';
 
 const COOLDOWN_MS = 2500; // ignore repeat reads of the same card
@@ -32,6 +33,18 @@ export default function TeacherScan() {
   const [busy, setBusy] = useState(false);
   const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
 
+  // For an assistant, make sure the device knows its active teacher context so
+  // scans are stamped correctly at capture time (§4). Best-effort; if it fails,
+  // scans stamp null and the server falls back to a membership check at sync.
+  useEffect(() => {
+    const { role, activeTeacherId, setActiveTeacherId } = useAuthStore.getState();
+    if (role === 'assistant' && activeTeacherId == null) {
+      getMyTeachers()
+        .then((res) => { if (res.active_teacher_id != null) setActiveTeacherId(res.active_teacher_id); })
+        .catch(() => {});
+    }
+  }, []);
+
   const handleScan = useCallback(
     async ({ data }: { data: string }) => {
       const now = Date.now();
@@ -43,9 +56,12 @@ export default function TeacherScan() {
       // 1) ALWAYS persist to disk first (offline spec §2) — the scan survives a
       //    crash or a dead network before we even attempt to sync.
       const scannedAt = new Date().toISOString();
+      // Stamp the teacher context ACTIVE RIGHT NOW — before any await — so it can
+      // never be re-resolved from a later, switched context at sync time (§4).
+      const teacherId = stampTeacherId(useAuthStore.getState());
       let localId: number | null = null;
       try {
-        localId = await bufferScan(data, scannedAt);
+        localId = await bufferScan(data, scannedAt, teacherId);
         await useOfflineStore.getState().refresh();
       } catch {
         // If even the local write fails we still try the live path below.
