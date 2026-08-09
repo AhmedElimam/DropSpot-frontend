@@ -133,6 +133,7 @@ export default function SwapRequestScreen() {
                     <TouchableOpacity key={c.id} activeOpacity={0.7} onPress={() => setTargetId(c.id)}>
                       <SessionRow
                         title={c.course_name ?? '—'}
+                        teacher={c.teacher_name}
                         when={`${formatDate(new Date(c.scheduled_at), { weekday: 'long', day: 'numeric', month: 'short' })} · ${formatTime(c.scheduled_at)}`}
                         location={c.location}
                         badge={c.remaining_capacity === null ? t('swap.unlimited') : t('swap.remaining', { count: c.remaining_capacity })}
@@ -171,9 +172,10 @@ export default function SwapRequestScreen() {
   );
 }
 
-function SessionRow({ title, when, location, badge, selected }: {
+function SessionRow({ title, when, teacher, location, badge, selected }: {
   title: string;
   when: string;
+  teacher?: string | null;
   location?: string | null;
   badge?: string;
   selected?: boolean;
@@ -192,6 +194,12 @@ function SessionRow({ title, when, location, badge, selected }: {
     >
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{title}</Text>
+        {!!teacher && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+            <Icon name="teacher" size={14} color={colors.textSecondary} outline style={{ marginEnd: 4 }} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{teacher}</Text>
+          </View>
+        )}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
           <Icon name="clock" size={14} color={colors.textSecondary} outline style={{ marginEnd: 4 }} />
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{when}</Text>

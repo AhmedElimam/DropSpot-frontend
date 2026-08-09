@@ -5,6 +5,7 @@ export interface SwapCandidate {
   id: number;
   scheduled_at: string;
   course_name?: string | null;
+  teacher_name?: string | null;
   location?: string | null;
   session_schedule_id?: number | null;
   remaining_capacity: number | null;
@@ -27,6 +28,7 @@ export async function getSwapCandidates(
       id: parseInt(item.id, 10),
       scheduled_at: a.scheduled_at,
       course_name: a.course_name ?? null,
+      teacher_name: a.teacher_name ?? null,
       location: a.location ?? null,
       session_schedule_id: a.session_schedule_id ?? null,
       remaining_capacity: a.remaining_capacity ?? null,
