@@ -8,6 +8,8 @@ export interface User {
   created_at: string;
   student_id?: number | null;
   student_code?: string | null;
+  /** Opaque per-card credential to encode in the digital check-in QR (never the raw code). */
+  card_token?: string | null;
 }
 
 export interface AuthTokens {

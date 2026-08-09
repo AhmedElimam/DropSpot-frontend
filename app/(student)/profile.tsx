@@ -56,7 +56,9 @@ export default function StudentProfile() {
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
           {/* Digital card — the student's QR for check-in when the physical card
-              is forgotten/lost. Encodes the same student_code the scanner reads. */}
+              is forgotten/lost. Encodes the opaque per-card credential (card_token)
+              the scanner resolves, NOT the raw student_code. Falls back to the code
+              only during the pre-cutover transition. */}
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm, alignItems: 'center' }}>
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.my_card')}
@@ -64,7 +66,7 @@ export default function StudentProfile() {
             {user?.student_code ? (
               <>
                 <View style={{ padding: spacing.md, backgroundColor: '#fff', borderRadius: radius.lg }}>
-                  <QRCode value={user.student_code} size={200} />
+                  <QRCode value={user.card_token ?? user.student_code} size={200} />
                 </View>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginTop: spacing.md, letterSpacing: 2 }}>
                   {user.student_code}
