@@ -82,8 +82,15 @@ export default function LoginScreen() {
         secureTextEntry
         placeholder="••••••••"
         placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.xxl, borderColor: password ? colors.brand : colors.borderStrong }}
+        style={{ ...field, marginBottom: spacing.md, borderColor: password ? colors.brand : colors.borderStrong }}
       />
+
+      <TouchableOpacity
+        onPress={() => router.push('/(auth)/forgot-password')}
+        style={{ alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center', marginBottom: spacing.lg }}
+      >
+        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('auth.forgot_password')}</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         onPress={handleLogin}

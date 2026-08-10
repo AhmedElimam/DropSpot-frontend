@@ -35,6 +35,12 @@ export default function ParentSettings() {
       onPress: () => Linking.openSettings(),
     },
     {
+      key: 'auth.change_password',
+      icon: 'lock',
+      color: colors.accentWarm ?? colors.primary,
+      onPress: () => router.push('/change-password'),
+    },
+    {
       key: 'profile.contact_support',
       icon: 'tickets',
       color: colors.success,

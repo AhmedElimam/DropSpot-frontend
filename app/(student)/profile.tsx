@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
@@ -94,6 +95,17 @@ export default function StudentProfile() {
                 <Icon name="bell" size={20} color={colors.primary} outline />
               </View>
               <Text style={[textPresets.body, { flex: 1 }]}>{t('profile.notifications')}</Text>
+              <Icon name="back" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/change-password')}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                <Icon name="lock" size={20} color={colors.primary} outline />
+              </View>
+              <Text style={[textPresets.body, { flex: 1 }]}>{t('auth.change_password')}</Text>
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
           </View>

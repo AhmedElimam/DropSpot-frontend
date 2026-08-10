@@ -1,6 +1,14 @@
 import { useMutation } from '@tanstack/react-query';
 import { useAuthStore, resolveRole } from '@/stores/authStore';
-import { login as loginApi, register as registerApi, setParentPassword, deleteAccount } from '@/api/auth';
+import {
+  login as loginApi,
+  register as registerApi,
+  setParentPassword,
+  deleteAccount,
+  forgotPassword as forgotPasswordApi,
+  resetPassword as resetPasswordApi,
+  changePassword as changePasswordApi,
+} from '@/api/auth';
 
 export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
@@ -33,6 +41,37 @@ export function useParentSetup() {
       await setTokens(data.tokens.access_token, data.tokens.refresh_token);
       await setSession(data.user, role);
     },
+  });
+}
+
+// Forgot password — step 1: request the reset code by SMS.
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (phone_number: string) => forgotPasswordApi(phone_number),
+  });
+}
+
+// Forgot password — step 2: verify code + set new password → logged-in session.
+export function useResetPassword() {
+  const setSession = useAuthStore((s) => s.setSession);
+  const setTokens = useAuthStore((s) => s.setTokens);
+
+  return useMutation({
+    mutationFn: (payload: { phone_number: string; code: string; password: string }) =>
+      resetPasswordApi(payload.phone_number, payload.code, payload.password),
+    onSuccess: async (data) => {
+      const role = resolveRole(data.user);
+      await setTokens(data.tokens.access_token, data.tokens.refresh_token);
+      await setSession(data.user, role);
+    },
+  });
+}
+
+// Change password while logged in.
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (payload: { current_password: string; password: string }) =>
+      changePasswordApi(payload.current_password, payload.password),
   });
 }
 

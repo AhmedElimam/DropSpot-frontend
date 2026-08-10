@@ -92,7 +92,20 @@
     "registering": "جاري التسجيل...",
     "registration_success": "تم التسجيل بنجاح، سيتم إرسال رمز التحقق لولي الأمر",
     "have_account": "لديك حساب بالفعل؟",
-    "back_to_login": "تسجيل الدخول"
+    "back_to_login": "تسجيل الدخول",
+    "reset_password_title": "إعادة تعيين كلمة المرور",
+    "forgot_password_desc": "أدخل رقم هاتفك وسنرسل لك رمزًا لإعادة التعيين عبر رسالة نصية.",
+    "send_reset_code": "إرسال الرمز",
+    "reset_desc": "أدخل الرمز المُرسَل إلى هاتفك وكلمة المرور الجديدة.",
+    "new_password": "كلمة المرور الجديدة",
+    "reset_button": "تعيين كلمة المرور والدخول",
+    "resend_code": "إعادة إرسال الرمز",
+    "reset_code_sent": "إن كان الرقم مسجّلًا فستصلك رسالة بالرمز.",
+    "change_password": "تغيير كلمة المرور",
+    "current_password": "كلمة المرور الحالية",
+    "change_password_button": "حفظ كلمة المرور",
+    "password_changed": "تم تغيير كلمة المرور بنجاح",
+    "password_too_short": "كلمة المرور يجب ألا تقل عن 6 أحرف"
   },
   "status": {
     "card_active": "بطاقة فعّالة",

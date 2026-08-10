@@ -36,6 +36,22 @@ export async function verifyOtp(phone: string, code: string, purpose = 'registra
   return data;
 }
 
+/** Forgot password — step 1: request a reset code by SMS. Always succeeds (no enumeration). */
+export async function forgotPassword(phone_number: string): Promise<void> {
+  await client.post('/auth/forgot-password', { phone_number });
+}
+
+/** Forgot password — step 2: verify the code + set a new password → logged-in session. */
+export async function resetPassword(phone_number: string, code: string, password: string): Promise<AuthResponse> {
+  const { data } = await client.post('/auth/reset-password', { phone_number, code, password });
+  return extractAttrs(data.data ?? data);
+}
+
+/** Change password while logged in (verifies the current password server-side). */
+export async function changePassword(current_password: string, password: string): Promise<void> {
+  await client.post('/auth/change-password', { current_password, password });
+}
+
 export interface ParentSetupInfo {
   name: string;
   phone_number: string;
