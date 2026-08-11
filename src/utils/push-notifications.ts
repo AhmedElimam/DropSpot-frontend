@@ -40,13 +40,18 @@ export async function registerForPushNotifications(): Promise<string | null> {
     const devicePushToken = await Notifications.getDevicePushTokenAsync();
     const token = String(devicePushToken.data);
 
+    // TEMP(debug): surface the FCM token for manual push testing. Remove before commit.
+    console.log('[FCM] device push token:', token);
+
     const platform = Platform.OS;
     const deviceName = Device.deviceName ?? undefined;
 
     await registerDeviceToken(token, platform, deviceName);
 
     return token;
-  } catch {
+  } catch (err) {
+    // TEMP(debug): log why token registration failed. Remove before commit.
+    console.log('[FCM] registerForPushNotifications failed:', err);
     return null;
   }
 }
