@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useChildren } from '@/hooks/useChildren';
 import type { Child } from '@/api/children';
 import { useNotifications } from '@/hooks/useNotifications';
+import { usePendingPrecardInvites, useAcceptPrecardInvite, useRejectPrecardInvite } from '@/hooks/usePrecardPhone';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -74,6 +75,9 @@ export default function ParentHome() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg }}>
+
+          {/* §3 — pending phone pre-card invitations awaiting the family's consent */}
+          <PendingInvites t={t} />
 
           {/* Children */}
           <View style={{ gap: spacing.md }}>
@@ -151,6 +155,57 @@ function ChildCard({ child, t }: { child: Child; t: (k: string) => string }) {
       </View>
       <Text style={{ fontSize: 28, color: colors.textTertiary, transform: [{ scaleX: -1 }] }}>‹</Text>
     </TouchableOpacity>
+  );
+}
+
+// §3 — phone pre-card invitations awaiting the family's consent. A teacher invited
+// an already-registered, card-less student by phone; the family accepts or rejects
+// here (no card handoff needed). Renders nothing when there are none.
+function PendingInvites({ t }: { t: (k: string) => string }) {
+  const { data: invites } = usePendingPrecardInvites();
+  const accept = useAcceptPrecardInvite();
+  const reject = useRejectPrecardInvite();
+  const busy = accept.isPending || reject.isPending;
+
+  if (!invites || invites.length === 0) return null;
+
+  return (
+    <View style={{ gap: spacing.md }}>
+      <Text style={sectionLabel}>{t('invites.pending_section')}</Text>
+      {invites.map((inv) => (
+        <View key={inv.id} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 4, borderStartColor: colors.accentWarm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.accentWarmTint, justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name="profile" size={20} color={colors.accentWarm} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{inv.student_name}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>
+                {t('invites.from')} {inv.teacher_name}
+              </Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg }}>
+            <TouchableOpacity
+              onPress={() => accept.mutate(inv.id)}
+              disabled={busy}
+              activeOpacity={0.8}
+              style={{ flex: 1, minHeight: 46, borderRadius: radius.lg, backgroundColor: colors.success, justifyContent: 'center', alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+            >
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('invites.accept')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => reject.mutate(inv.id)}
+              disabled={busy}
+              activeOpacity={0.8}
+              style={{ flex: 1, minHeight: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border, justifyContent: 'center', alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+            >
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textSecondary }}>{t('invites.reject')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 

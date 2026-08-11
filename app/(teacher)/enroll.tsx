@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
@@ -19,6 +20,7 @@ import {
   cancelPreCard,
   type PreCardScanStudent,
 } from '@/api/preCardInvitation';
+import { sendPrecardPhone } from '@/api/precardPhone';
 
 type Review =
   | { kind: 'match'; student: LookupStudent; value: string }
@@ -27,6 +29,7 @@ type Review =
   | null;
 
 export default function TeacherEnroll() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const { data: classes, isLoading } = useQuery({ queryKey: ['enrollable-classes'], queryFn: getEnrollableClasses });
@@ -37,6 +40,34 @@ export default function TeacherEnroll() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
+
+  // §3 — invite an already-registered, card-less student by phone (family accepts).
+  const [phoneMode, setPhoneMode] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const submitPhoneInvite = async () => {
+    if (!course || phone.trim().length < 6 || sending) return;
+    setSending(true);
+    try {
+      const r = await sendPrecardPhone({
+        phone: phone.trim(),
+        course_id: course.course_id,
+        academic_session_id: course.academic_session_id,
+      });
+      setPhoneMode(false);
+      setPhone('');
+      if (r.action === 'use_card') {
+        Alert.alert(t('invites.use_card_title'), t('invites.use_card_body'));
+      } else {
+        Alert.alert(t('invites.sent_title'), t('invites.sent_body'));
+      }
+    } catch {
+      Alert.alert('خطأ', 'تعذّر إرسال الدعوة. حاول مرة أخرى.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   const ready = !!course;
 
@@ -196,7 +227,7 @@ export default function TeacherEnroll() {
         style={{ flex: 1 }}
         facing="back"
         barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128', 'code39', 'ean13'] }}
-        onBarcodeScanned={busy || review || done ? undefined : handleScan}
+        onBarcodeScanned={busy || review || done || phoneMode ? undefined : handleScan}
       />
 
       {/* Top bar: chosen course + change */}
@@ -211,13 +242,51 @@ export default function TeacherEnroll() {
       </View>
 
       {/* Scan frame */}
-      {!review && !done ? (
+      {!review && !done && !phoneMode ? (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
           <View style={{ width: 240, height: 240, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)', borderRadius: 24 }} />
           <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: '#fff', marginTop: spacing.lg }}>
             {busy ? 'جارٍ البحث…' : 'وجّه الكاميرا نحو رمز QR على البطاقة'}
           </Text>
           {busy ? <ActivityIndicator color="#fff" style={{ marginTop: spacing.md }} /> : null}
+        </View>
+      ) : null}
+
+      {/* §3 — "invite by phone" (already-registered, card-less student) */}
+      {!review && !done && !phoneMode ? (
+        <TouchableOpacity
+          onPress={() => setPhoneMode(true)}
+          activeOpacity={0.85}
+          style={{ position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: insets.bottom + spacing.xl, minHeight: 52, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: spacing.sm }}
+        >
+          <Icon name="phone" size={18} color="#fff" />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('invites.by_phone')}</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      {/* Phone-entry overlay */}
+      {phoneMode ? (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('invites.by_phone')}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invites.phone_label')}</Text>
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            placeholder="01xxxxxxxxx"
+            placeholderTextColor={colors.textTertiary}
+            style={{ fontFamily: fonts.regular, fontSize: 17, minHeight: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'left', borderWidth: 1.5, borderColor: phone ? colors.brand : colors.border }}
+          />
+          <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
+            <TouchableOpacity onPress={() => { setPhoneMode(false); setPhone(''); }} activeOpacity={0.85}
+              style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textSecondary }}>إلغاء</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={submitPhoneInvite} disabled={phone.trim().length < 6 || sending} activeOpacity={0.85}
+              style={{ flex: 2, backgroundColor: colors.brand, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center', opacity: phone.trim().length < 6 || sending ? 0.5 : 1 }}>
+              {sending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('invites.send')}</Text>}
+            </TouchableOpacity>
+          </View>
         </View>
       ) : null}
 
