@@ -9,6 +9,7 @@ import {
   resetPassword as resetPasswordApi,
   changePassword as changePasswordApi,
 } from '@/api/auth';
+import { acceptStudentInvite } from '@/api/invitation';
 
 export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
@@ -36,6 +37,23 @@ export function useParentSetup() {
   return useMutation({
     mutationFn: (payload: { token: string; password: string }) =>
       setParentPassword(payload.token, payload.password),
+    onSuccess: async (data) => {
+      const role = resolveRole(data.user);
+      await setTokens(data.tokens.access_token, data.tokens.refresh_token);
+      await setSession(data.user, role);
+    },
+  });
+}
+
+// §1 — Student-centric invite accept: set password via the invite token → the
+// student becomes the primary app user and is logged straight in.
+export function useAcceptInvite() {
+  const setSession = useAuthStore((s) => s.setSession);
+  const setTokens = useAuthStore((s) => s.setTokens);
+
+  return useMutation({
+    mutationFn: (payload: { token: string; password: string; name?: string }) =>
+      acceptStudentInvite(payload.token, { password: payload.password, name: payload.name }),
     onSuccess: async (data) => {
       const role = resolveRole(data.user);
       await setTokens(data.tokens.access_token, data.tokens.refresh_token);
