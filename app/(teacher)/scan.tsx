@@ -237,7 +237,7 @@ export default function TeacherScan() {
       {/* Header: session / revision / payment context */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, backgroundColor: payMode ? 'rgba(11,59,52,0.86)' : revisionMode ? 'rgba(76,29,149,0.82)' : 'rgba(23,28,59,0.72)', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <TouchableOpacity
-          onPress={() => (payMode ? router.replace('/(teacher)/(tabs)/collect' as Href) : revisionMode ? router.replace('/(teacher)/(tabs)/revisions' as Href) : router.replace('/(teacher)/(tabs)' as Href))}
+          onPress={() => (payMode ? router.replace('/(teacher)/collect' as Href) : revisionMode ? router.replace('/(teacher)/revisions' as Href) : router.replace('/(teacher)' as Href))}
           accessibilityRole="button"
           accessibilityLabel={t('teacher.switch_session')}
           style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
@@ -283,7 +283,7 @@ export default function TeacherScan() {
           enabled revision scanning) OR add guest by phone (revision mode). */}
       {!feedback && !guestPrompt && !phoneOpen && !payMode && (revisionMode || !!flags?.revision_kiosk) ? (
         <TouchableOpacity
-          onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/(tabs)/revisions' as Href))}
+          onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
           style={{ position: 'absolute', bottom: insets.bottom + spacing.xxxl, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: revisionMode ? colors.accentWarm : 'rgba(255,255,255,0.16)', borderRadius: radius.full }}
         >

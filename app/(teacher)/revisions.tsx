@@ -22,7 +22,7 @@ export default function TeacherRevisions() {
   function pick(rev: RevisionSummary) {
     if (rev.instance_id == null) return; // no slot to scan into
     router.push({
-      pathname: '/(teacher)/(tabs)/scan',
+      pathname: '/(teacher)/scan',
       params: {
         revisionId: String(rev.id),
         revisionInstanceId: String(rev.instance_id),

@@ -8,7 +8,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 function Option({ kind, title, subtitle, icon }: { kind: 'bill' | 'booklet'; title: string; subtitle: string; icon: IconName }) {
   return (
     <TouchableOpacity
-      onPress={() => router.push(`/(teacher)/(tabs)/scan?payKind=${kind}` as Href)}
+      onPress={() => router.push(`/(teacher)/scan?payKind=${kind}` as Href)}
       activeOpacity={0.85}
       style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}
     >

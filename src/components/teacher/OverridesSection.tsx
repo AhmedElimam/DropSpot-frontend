@@ -26,7 +26,7 @@ function fmtDate(iso: string | null): string {
  * assistant sees the same lists read-only with a clear "teacher only" note — the
  * server also hard-blocks assistant grant/revoke regardless of this UI.
  *
- * Granting a billing exception opens a dedicated page (/(teacher)/(tabs)/grant-exception)
+ * Granting a billing exception opens a dedicated page (/(teacher)/grant-exception)
  * rather than a popup — the full page makes searching by name/code and jumping to
  * the student profile comfortable.
  */
@@ -93,7 +93,7 @@ export function OverridesSection() {
           </View>
         ) : (
           <TouchableOpacity
-            onPress={() => router.push('/(teacher)/(tabs)/grant-exception' as Href)}
+            onPress={() => router.push('/(teacher)/grant-exception' as Href)}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primaryLight, borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: spacing.md }}
           >
             <Icon name="add" size={16} color={colors.primary} />
