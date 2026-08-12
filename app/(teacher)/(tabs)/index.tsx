@@ -31,7 +31,7 @@ function isHighlighted(s: TeacherSession, now: number): boolean {
 }
 
 function goToScan(session: TeacherSession) {
-  router.push(`/(teacher)/scan?name=${encodeURIComponent(session.course_name ?? '')}&id=${session.id}`);
+  router.push(`/(teacher)/(tabs)/scan?name=${encodeURIComponent(session.course_name ?? '')}&id=${session.id}` as Href);
 }
 
 export default function TeacherHome() {
@@ -115,7 +115,7 @@ export default function TeacherHome() {
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
           {pending > 0 ? (
             <TouchableOpacity
-              onPress={() => router.push('/(teacher)/reconcile' as Href)}
+              onPress={() => router.push('/(teacher)/(tabs)/reconcile' as Href)}
               activeOpacity={0.85}
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: spacing.md,
@@ -148,7 +148,7 @@ export default function TeacherHome() {
             <Icon name="back" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.push('/(teacher)/collect' as Href)}
+            onPress={() => router.push('/(teacher)/(tabs)/collect' as Href)}
             activeOpacity={0.85}
             style={{
               flexDirection: 'row', alignItems: 'center', gap: spacing.md,

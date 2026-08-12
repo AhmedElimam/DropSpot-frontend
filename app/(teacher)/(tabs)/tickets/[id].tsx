@@ -167,7 +167,7 @@ export default function TeacherTicketDetail() {
                   {msg.message}
                 </Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: isMine ? 'rgba(255,255,255,0.6)' : colors.textTertiary, marginTop: 6, alignSelf: 'flex-end' }}>
-                  {new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true })}
                 </Text>
               </View>
             );

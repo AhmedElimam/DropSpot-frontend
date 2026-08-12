@@ -276,7 +276,7 @@ export default function CheckInTab() {
                   <Icon name="success" size={18} color={colors.successText} />
                   <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.successText }}>
                     {t('attendance.phone_permission_until', {
-                      time: new Date(selectedSessionData.checkin_permission_expires_at).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }),
+                      time: new Date(selectedSessionData.checkin_permission_expires_at).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true, day: 'numeric', month: 'short' }),
                     })}
                   </Text>
                 </View>

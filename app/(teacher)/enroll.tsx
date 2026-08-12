@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -183,8 +184,13 @@ export default function TeacherEnroll() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
         <View style={{ padding: spacing.xl }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>تسجيل طالب</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, marginTop: spacing.xs }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name="back" size={22} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>تسجيل طالب</Text>
+          </View>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, marginTop: spacing.md }}>
             اختر المقرر، ثم امسح رمز QR على بطاقة الطالب أو رمز الدعوة الذي أنشأه ولي الأمر. يُسجَّل في المقرر ويحضر جميع حصصه.
           </Text>
         </View>

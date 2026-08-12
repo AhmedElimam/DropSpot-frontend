@@ -225,6 +225,7 @@ export default function TicketDetail() {
                   {new Date(msg.created_at).toLocaleTimeString('ar-EG', {
                     hour: '2-digit',
                     minute: '2-digit',
+                    hour12: true,
                   })}
                 </Text>
               </View>

@@ -31,6 +31,7 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
   const formattedTime = scheduledTime.toLocaleTimeString('ar-EG', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: true,
   });
 
   const formattedDate = scheduledTime.toLocaleDateString('ar-EG', {

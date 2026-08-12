@@ -2,7 +2,7 @@ const LOCALE = 'ar-EG';
 
 export function formatTime(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
@@ -18,6 +18,36 @@ export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOpt
 export function formatShortDate(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+// Full day + date, e.g. "الاثنين ١٢ أغسطس". Used wherever a session/attendance
+// row needs its calendar day spelled out.
+export function formatDayDate(date: string | Date): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+// A relative day word (اليوم / أمس / غدًا) when the date is within ±1 day of now,
+// else null. Callers fall back to formatDayDate for anything further out.
+export function relativeDay(date: string | Date): string | null {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return null;
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((startOf(d) - startOf(new Date())) / 86_400_000);
+  if (diff === 0) return 'اليوم';
+  if (diff === -1) return 'أمس';
+  if (diff === 1) return 'غدًا';
+  return null;
+}
+
+// The label a session/date row shows: a relative word when close, else the full
+// day + date. Optionally appends the full date after the relative word.
+export function dayLabel(date: string | Date | null): string {
+  if (!date) return '';
+  const rel = relativeDay(date);
+  const full = formatDayDate(date);
+  return rel ? `${rel} · ${full}` : full;
 }
 
 export function formatTimeRange(start: string | Date, end: string | Date): string {

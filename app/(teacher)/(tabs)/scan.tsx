@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, type ViewStyle } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,19 @@ import { Icon } from '@/components/ui/Icon';
 
 const COOLDOWN_MS = 2500; // ignore repeat reads of the same card
 const FEEDBACK_MS = 1600; // how long the green/red result stays before resuming
+
+// A framed aiming target with bright corner brackets so there's an obvious spot
+// to line the student's QR card up against (a plain rectangle read as "nothing to
+// aim for"). One bracket per corner; the box itself keeps a faint full outline.
+const BRACKET = 38;
+const STROKE = 4;
+function bracket(pos: 'tl' | 'tr' | 'bl' | 'br'): ViewStyle {
+  const s: ViewStyle = { position: 'absolute', width: BRACKET, height: BRACKET, borderColor: '#fff' };
+  if (pos === 'tl') return { ...s, top: -STROKE, left: -STROKE, borderTopWidth: STROKE, borderLeftWidth: STROKE, borderTopLeftRadius: 22 };
+  if (pos === 'tr') return { ...s, top: -STROKE, right: -STROKE, borderTopWidth: STROKE, borderRightWidth: STROKE, borderTopRightRadius: 22 };
+  if (pos === 'bl') return { ...s, bottom: -STROKE, left: -STROKE, borderBottomWidth: STROKE, borderLeftWidth: STROKE, borderBottomLeftRadius: 22 };
+  return { ...s, bottom: -STROKE, right: -STROKE, borderBottomWidth: STROKE, borderRightWidth: STROKE, borderBottomRightRadius: 22 };
+}
 
 export default function TeacherScan() {
   const { t } = useTranslation();
@@ -224,7 +237,7 @@ export default function TeacherScan() {
       {/* Header: session / revision / payment context */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, backgroundColor: payMode ? 'rgba(11,59,52,0.86)' : revisionMode ? 'rgba(76,29,149,0.82)' : 'rgba(23,28,59,0.72)', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <TouchableOpacity
-          onPress={() => (payMode ? router.replace('/(teacher)/collect' as Href) : revisionMode ? router.replace('/(teacher)/revisions' as Href) : router.replace('/(teacher)'))}
+          onPress={() => (payMode ? router.replace('/(teacher)/(tabs)/collect' as Href) : revisionMode ? router.replace('/(teacher)/(tabs)/revisions' as Href) : router.replace('/(teacher)/(tabs)' as Href))}
           accessibilityRole="button"
           accessibilityLabel={t('teacher.switch_session')}
           style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
@@ -253,7 +266,12 @@ export default function TeacherScan() {
       {/* Scan frame + hint */}
       {!feedback && !guestPrompt && !phoneOpen && !payConfirm && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
-          <View style={{ width: 260, height: 170, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)', borderRadius: 20 }} />
+          <View style={{ width: 250, height: 190, borderRadius: 22, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)' }}>
+            <View style={bracket('tl')} />
+            <View style={bracket('tr')} />
+            <View style={bracket('bl')} />
+            <View style={bracket('br')} />
+          </View>
           <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: '#fff', marginTop: spacing.lg, textAlign: 'center', paddingHorizontal: spacing.xl }}>
             {busy ? t('teacher.checking') : t('teacher.point_camera')}
           </Text>
@@ -265,9 +283,9 @@ export default function TeacherScan() {
           enabled revision scanning) OR add guest by phone (revision mode). */}
       {!feedback && !guestPrompt && !phoneOpen && !payMode && (revisionMode || !!flags?.revision_kiosk) ? (
         <TouchableOpacity
-          onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
+          onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/(tabs)/revisions' as Href))}
           activeOpacity={0.85}
-          style={{ position: 'absolute', bottom: insets.bottom + spacing.xl, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: revisionMode ? colors.accentWarm : 'rgba(255,255,255,0.16)', borderRadius: radius.full }}
+          style={{ position: 'absolute', bottom: insets.bottom + spacing.xxxl, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: revisionMode ? colors.accentWarm : 'rgba(255,255,255,0.16)', borderRadius: radius.full }}
         >
           <Icon name={revisionMode ? 'phone' : 'book'} size={18} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>
