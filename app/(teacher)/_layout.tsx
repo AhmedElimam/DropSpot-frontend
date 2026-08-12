@@ -134,6 +134,8 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="reconcile" options={{ href: null }} />
       {/* Enroll-by-card is reached from Home, not a tab. */}
       <Tabs.Screen name="enroll" options={{ href: null }} />
+      {/* Revision-session picker → scan tab in revision mode. Not a tab. */}
+      <Tabs.Screen name="revisions" options={{ href: null }} />
     </Tabs>
   );
 }
