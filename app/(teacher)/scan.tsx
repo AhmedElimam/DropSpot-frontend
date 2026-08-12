@@ -9,6 +9,7 @@ import { colors, spacing, radius } from '@/theme/index';
 import { scanCard, getMyTeachers, type ScanResult } from '@/api/teacher';
 import { scanRevision, addRevisionGuest, addRevisionGuestByPhone } from '@/api/revisions';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { bufferScan, deleteScan } from '@/db/offlineScans';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
@@ -25,6 +26,7 @@ export default function TeacherScan() {
     revisionId?: string; revisionInstanceId?: string; revisionTitle?: string; billingMode?: string;
   }>();
   const { data: sessions } = useTeacherTodaySessions();
+  const { data: flags } = useFeatureFlags();
   const online = useOfflineStore((s) => s.online);
 
   // ---- Revision mode (from the picker) — scan into a specific revision session.
@@ -214,8 +216,9 @@ export default function TeacherScan() {
         </View>
       )}
 
-      {/* Bottom action: enter revision picker (regular) OR add guest by phone (revision) */}
-      {!feedback && !guestPrompt && !phoneOpen ? (
+      {/* Bottom action: enter revision picker (regular, only when the super admin
+          enabled revision scanning) OR add guest by phone (revision mode). */}
+      {!feedback && !guestPrompt && !phoneOpen && (revisionMode || !!flags?.revision_kiosk) ? (
         <TouchableOpacity
           onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
