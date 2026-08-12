@@ -136,6 +136,8 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="enroll" options={{ href: null }} />
       {/* Revision-session picker → scan tab in revision mode. Not a tab. */}
       <Tabs.Screen name="revisions" options={{ href: null }} />
+      {/* Payment kind picker → scan tab in payment mode. Not a tab. */}
+      <Tabs.Screen name="collect" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -8,6 +8,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { scanCard, getMyTeachers, type ScanResult } from '@/api/teacher';
 import { scanRevision, addRevisionGuest, addRevisionGuestByPhone } from '@/api/revisions';
+import { previewPayment, collectPayment, type PayKind } from '@/api/payments';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { bufferScan, deleteScan } from '@/db/offlineScans';
@@ -24,6 +25,7 @@ export default function TeacherScan() {
   const params = useLocalSearchParams<{
     name?: string; id?: string;
     revisionId?: string; revisionInstanceId?: string; revisionTitle?: string; billingMode?: string;
+    payKind?: string;
   }>();
   const { data: sessions } = useTeacherTodaySessions();
   const { data: flags } = useFeatureFlags();
@@ -36,6 +38,12 @@ export default function TeacherScan() {
   const revisionId = params.revisionId ? Number(params.revisionId) : null;
   const revisionInstanceId = params.revisionInstanceId ? Number(params.revisionInstanceId) : null;
   const isSpread = params.billingMode === 'spread';
+
+  // ---- Payment mode (from the collect picker) — scan a card to collect a bill or
+  // booklet. Two steps: preview the amount, then collect after confirmation (the
+  // safety layer that makes phone collection acceptable). Online-only. ----
+  const payKind: PayKind | null = params.payKind === 'bill' || params.payKind === 'booklet' ? params.payKind : null;
+  const payMode = !!payKind;
 
   const currentSessions = (sessions ?? []).filter((s) => s.is_current);
   const sessionName = params.name || (currentSessions.length === 1 ? currentSessions[0].course_name ?? '' : '');
@@ -50,6 +58,8 @@ export default function TeacherScan() {
   const [gName, setGName] = useState('');
   const [gPhone, setGPhone] = useState('');
   const [gErr, setGErr] = useState('');
+  // Payment confirm popup: what was previewed, held until the teacher taps تأكيد.
+  const [payConfirm, setPayConfirm] = useState<{ name: string; amount: string; code: string } | null>(null);
   const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
 
   useEffect(() => {
@@ -67,7 +77,7 @@ export default function TeacherScan() {
     setTimeout(() => { setFeedback(null); setBusy(false); }, FEEDBACK_MS);
   }, []);
 
-  const paused = !!feedback || busy || !!guestPrompt || phoneOpen;
+  const paused = !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm;
 
   const handleScan = useCallback(
     async ({ data }: { data: string }) => {
@@ -76,6 +86,26 @@ export default function TeacherScan() {
       if (data === lastRef.current.code && now - lastRef.current.at < COOLDOWN_MS) return;
       lastRef.current = { code: data, at: now };
       setBusy(true);
+
+      // ---- Payment mode: preview the amount, then hold for confirmation. ----
+      if (payMode && payKind) {
+        try {
+          const res = await previewPayment(payKind, data);
+          if (res.success) {
+            setBusy(false);
+            setPayConfirm({ name: (res.student && res.student.name) || '', amount: res.amount || '', code: data });
+            return;
+          }
+          if (res.code === 'NOTHING_DUE') {
+            flash(true, 'لا توجد مستحقات', (res.student && res.student.name) || null);
+          } else {
+            flash(false, res.message || t('teacher.scan_failed'), (res.student && res.student.name) || null);
+          }
+        } catch {
+          flash(false, t('teacher.scan_failed'));
+        }
+        return;
+      }
 
       // ---- Revision mode: online-only, no offline buffer. ----
       if (revisionMode && revisionId != null && revisionInstanceId != null) {
@@ -115,8 +145,23 @@ export default function TeacherScan() {
         setTimeout(() => { setFeedback(null); setBusy(false); }, FEEDBACK_MS);
       }
     },
-    [paused, revisionMode, revisionId, revisionInstanceId, flash, t],
+    [paused, payMode, payKind, revisionMode, revisionId, revisionInstanceId, flash, t],
   );
+
+  const confirmPay = useCallback(async () => {
+    if (!payConfirm || !payKind) return;
+    const code = payConfirm.code;
+    setPayConfirm(null);
+    setBusy(true);
+    const res = await collectPayment(payKind, code);
+    if (res.success) {
+      flash(true, 'تم التحصيل — أُرسل إشعار SMS', (res.student && res.student.name) || null);
+    } else if (res.code === 'NOTHING_DUE') {
+      flash(true, 'لا توجد مستحقات', (res.student && res.student.name) || null);
+    } else {
+      flash(false, res.message || t('teacher.scan_failed'), (res.student && res.student.name) || null);
+    }
+  }, [payConfirm, payKind, flash, t]);
 
   const confirmGuest = useCallback(async () => {
     if (!guestPrompt || revisionId == null || revisionInstanceId == null) return;
@@ -176,10 +221,10 @@ export default function TeacherScan() {
         onBarcodeScanned={paused ? undefined : handleScan}
       />
 
-      {/* Header: session / revision context */}
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, backgroundColor: revisionMode ? 'rgba(76,29,149,0.82)' : 'rgba(23,28,59,0.72)', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+      {/* Header: session / revision / payment context */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, backgroundColor: payMode ? 'rgba(11,59,52,0.86)' : revisionMode ? 'rgba(76,29,149,0.82)' : 'rgba(23,28,59,0.72)', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <TouchableOpacity
-          onPress={() => (revisionMode ? router.replace('/(teacher)/revisions' as Href) : router.replace('/(teacher)'))}
+          onPress={() => (payMode ? router.replace('/(teacher)/collect' as Href) : revisionMode ? router.replace('/(teacher)/revisions' as Href) : router.replace('/(teacher)'))}
           accessibilityRole="button"
           accessibilityLabel={t('teacher.switch_session')}
           style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
@@ -188,12 +233,12 @@ export default function TeacherScan() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-            {revisionMode ? t('teacher.revision_scanning_for') : t('teacher.scanning_for')}
+            {payMode ? 'تحصيل الدفعات' : revisionMode ? t('teacher.revision_scanning_for') : t('teacher.scanning_for')}
           </Text>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }} numberOfLines={1}>
-            {revisionMode ? (params.revisionTitle || t('teacher.revisions_title')) : (sessionName || t('teacher.scan_mode'))}
+            {payMode ? (payKind === 'bill' ? 'دفع الفواتير' : 'دفع الملازم') : revisionMode ? (params.revisionTitle || t('teacher.revisions_title')) : (sessionName || t('teacher.scan_mode'))}
           </Text>
-          {!revisionMode && !online ? (
+          {!revisionMode && !payMode && !online ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
               <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.warning }} />
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.warningLight }}>{t('teacher.offline_saving_local')}</Text>
@@ -206,7 +251,7 @@ export default function TeacherScan() {
       </View>
 
       {/* Scan frame + hint */}
-      {!feedback && !guestPrompt && !phoneOpen && (
+      {!feedback && !guestPrompt && !phoneOpen && !payConfirm && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
           <View style={{ width: 260, height: 170, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)', borderRadius: 20 }} />
           <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: '#fff', marginTop: spacing.lg, textAlign: 'center', paddingHorizontal: spacing.xl }}>
@@ -218,7 +263,7 @@ export default function TeacherScan() {
 
       {/* Bottom action: enter revision picker (regular, only when the super admin
           enabled revision scanning) OR add guest by phone (revision mode). */}
-      {!feedback && !guestPrompt && !phoneOpen && (revisionMode || !!flags?.revision_kiosk) ? (
+      {!feedback && !guestPrompt && !phoneOpen && !payMode && (revisionMode || !!flags?.revision_kiosk) ? (
         <TouchableOpacity
           onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
@@ -248,6 +293,26 @@ export default function TeacherScan() {
           </TouchableOpacity>
           <TouchableOpacity onPress={() => { setGuestPrompt(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('teacher.guest_ignore')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {/* Payment confirmation — nothing is collected until تأكيد التحصيل */}
+      {payConfirm ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11,59,52,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+          <Icon name="money" size={56} color="#fff" />
+          {payConfirm.name ? (
+            <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', textAlign: 'center', marginTop: spacing.md }}>{payConfirm.name}</Text>
+          ) : null}
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginTop: spacing.md }}>
+            {payKind === 'bill' ? 'المطلوب تحصيله (فاتورة)' : 'المطلوب تحصيله (ملزمة)'}
+          </Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 40, color: '#fff', marginTop: 4 }}>{payConfirm.amount} ج.م</Text>
+          <TouchableOpacity onPress={confirmPay} activeOpacity={0.85} style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#0b3b34' }}>تأكيد التحصيل</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setPayConfirm(null)} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>إلغاء</Text>
           </TouchableOpacity>
         </View>
       ) : null}
