@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/Icon';
 import { StudentRow } from '@/components/student/StudentRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useTeacherStudents, useTeacherCourses } from '@/hooks/useStudents';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useTeacherSessionHistory } from '@/hooks/useTeacherSessionHistory';
 import type { SessionRow } from '@/api/teacherSessions';
 import { dayLabel } from '@/utils/format';
@@ -58,6 +59,7 @@ export default function TeacherStudents() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string | null>(null);
 
+  const { can } = useActiveAbilities();
   const { data: courses } = useTeacherCourses();
   const { data: students, isLoading: studentsLoading, refetch: refetchStudents, isRefetching: studentsRefetching } =
     useTeacherStudents({ course_id: courseId ?? undefined });
@@ -175,6 +177,19 @@ export default function TeacherStudents() {
         </>
       ) : (
         <>
+          {/* Add a weekly schedule slot — teachers always; assistants only with
+              manage_sessions on their active teacher context. */}
+          {can(ABILITY.MANAGE_SESSIONS) && (
+            <TouchableOpacity
+              onPress={() => router.push('/(teacher)/schedule-new' as Href)}
+              activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginHorizontal: spacing.lg, marginBottom: spacing.sm, minHeight: 46, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.surface }}
+            >
+              <Icon name="add" size={18} color={colors.brand} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('teacher.add_schedule')}</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Session status chips */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }} style={{ flexGrow: 0 }}>
             <Chip label={t('teacher.status_all')} active={status === null} onPress={() => setStatus(null)} />

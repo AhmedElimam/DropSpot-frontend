@@ -172,6 +172,8 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="collect" options={{ href: null }} />
       {/* Grant a billing exception — searched from Home, not a tab. */}
       <Tabs.Screen name="grant-exception" options={{ href: null }} />
+      {/* Add a weekly schedule slot — pushed from the sessions segment, not a tab. */}
+      <Tabs.Screen name="schedule-new" options={{ href: null }} />
       {/* Assistant management (teacher-only) — reached from Settings, not a tab. */}
       <Tabs.Screen name="assistants" options={{ href: null }} />
     </Tabs>
