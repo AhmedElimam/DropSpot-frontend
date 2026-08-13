@@ -7,6 +7,7 @@ import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
+import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { colors } from '@/theme/index';
 
 I18nManager.forceRTL(true);
@@ -87,7 +88,13 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <HydrationGate>
-          <Stack screenOptions={{ headerShown: false }} />
+          <View style={{ flex: 1, backgroundColor: colors.background }}>
+            {/* Persistent impersonation banner sits above every screen. */}
+            <ImpersonationBanner />
+            <View style={{ flex: 1 }}>
+              <Stack screenOptions={{ headerShown: false }} />
+            </View>
+          </View>
         </HydrationGate>
       </SafeAreaProvider>
     </QueryClientProvider>
