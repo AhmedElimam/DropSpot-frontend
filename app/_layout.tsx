@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
+import { SurveyModal } from '@/components/SurveyModal';
 import { colors } from '@/theme/index';
 
 I18nManager.forceRTL(true);
@@ -94,6 +95,8 @@ export default function RootLayout() {
             <View style={{ flex: 1 }}>
               <Stack screenOptions={{ headerShown: false }} />
             </View>
+            {/* Super-admin survey prompt — checked on app-open/login, once across platforms. */}
+            <SurveyModal />
           </View>
         </HydrationGate>
       </SafeAreaProvider>
