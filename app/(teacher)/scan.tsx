@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
-import { scanCard, getMyTeachers, type ScanResult } from '@/api/teacher';
+import { scanCard, grantDoorExemption, getMyTeachers, type ScanResult } from '@/api/teacher';
 import { scanRevision, addRevisionGuest, addRevisionGuestByPhone } from '@/api/revisions';
 import { previewPayment, collectPayment, type PayKind } from '@/api/payments';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
@@ -73,6 +73,8 @@ export default function TeacherScan() {
   const [gErr, setGErr] = useState('');
   // Payment confirm popup: what was previewed, held until the teacher taps تأكيد.
   const [payConfirm, setPayConfirm] = useState<{ name: string; amount: string; code: string } | null>(null);
+  // Overdue-bill block: held until the operator grants a 15-day exemption or cancels.
+  const [overdueBlock, setOverdueBlock] = useState<{ name: string; message: string; code: string } | null>(null);
   const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
 
   useEffect(() => {
@@ -90,7 +92,7 @@ export default function TeacherScan() {
     setTimeout(() => { setFeedback(null); setBusy(false); }, FEEDBACK_MS);
   }, []);
 
-  const paused = !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm;
+  const paused = !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock;
 
   const handleScan = useCallback(
     async ({ data }: { data: string }) => {
@@ -151,6 +153,13 @@ export default function TeacherScan() {
           await deleteScan(localId);
           await useOfflineStore.getState().refresh();
         }
+        // Overdue bill → hold on a blocking prompt offering the 15-day exemption,
+        // instead of a passing red flash.
+        if (!res.success && res.code === 'BILLING_OVERDUE') {
+          setBusy(false);
+          setOverdueBlock({ name: res.student_name ?? '', message: res.message, code: data });
+          return;
+        }
         flash(res.success, res.message || (res.success ? t('teacher.checked_in') : t('teacher.scan_failed')), res.student_name);
       } catch {
         Vibration.vibrate(40);
@@ -175,6 +184,21 @@ export default function TeacherScan() {
       flash(false, res.message || t('teacher.scan_failed'), (res.student && res.student.name) || null);
     }
   }, [payConfirm, payKind, flash, t]);
+
+  const confirmExemption = useCallback(async () => {
+    if (!overdueBlock) return;
+    const code = overdueBlock.code;
+    setOverdueBlock(null);
+    setBusy(true);
+    try {
+      // Grant the 15-day exemption at the door (no PIN — teacher or assistant); the
+      // server re-runs the scan and checks the student in.
+      const res = await grantDoorExemption(code);
+      flash(res.success, res.message || (res.success ? t('teacher.checked_in') : t('teacher.scan_failed')), res.student_name);
+    } catch {
+      flash(false, t('teacher.scan_failed'));
+    }
+  }, [overdueBlock, flash, t]);
 
   const confirmGuest = useCallback(async () => {
     if (!guestPrompt || revisionId == null || revisionInstanceId == null) return;
@@ -270,7 +294,7 @@ export default function TeacherScan() {
       </View>
 
       {/* Scan frame + hint */}
-      {!feedback && !guestPrompt && !phoneOpen && !payConfirm && (
+      {!feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
           <View style={{ width: 250, height: 190, borderRadius: 22, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)' }}>
             <View style={bracket('tl')} />
@@ -287,7 +311,7 @@ export default function TeacherScan() {
 
       {/* Bottom action: enter revision picker (regular, only when the super admin
           enabled revision scanning) OR add guest by phone (revision mode). */}
-      {!feedback && !guestPrompt && !phoneOpen && !payMode && (revisionMode || !!flags?.revision_kiosk) ? (
+      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && (revisionMode || !!flags?.revision_kiosk) ? (
         <TouchableOpacity
           onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
@@ -336,6 +360,26 @@ export default function TeacherScan() {
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#0b3b34' }}>تأكيد التحصيل</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setPayConfirm(null)} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>إلغاء</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {/* Overdue-bill block — cannot check in; offer an in-the-moment 15-day exemption */}
+      {overdueBlock ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(146,64,14,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+          <Icon name="warning" size={56} color="#fff" />
+          {overdueBlock.name ? (
+            <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', textAlign: 'center', marginTop: spacing.md }}>{overdueBlock.name}</Text>
+          ) : null}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff', marginTop: spacing.md }}>دفعة متأخرة</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.85)', marginTop: 4, textAlign: 'center', paddingHorizontal: spacing.lg }}>
+            {overdueBlock.message || 'لا يمكن تسجيل الحضور بسبب وجود مستحقات متأخرة.'}
+          </Text>
+          <TouchableOpacity onPress={confirmExemption} activeOpacity={0.85} style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#92400E' }}>منح إعفاء 15 يومًا وتسجيل الحضور</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { setOverdueBlock(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>إلغاء</Text>
           </TouchableOpacity>
         </View>
