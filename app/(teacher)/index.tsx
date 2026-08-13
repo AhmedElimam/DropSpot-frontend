@@ -14,6 +14,9 @@ import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { OverridesSection } from '@/components/teacher/OverridesSection';
+import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
+import { PendingInvitations } from '@/components/teacher/PendingInvitations';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 
 // Home's "current" HIGHLIGHT window — a UI convenience only. A session lights up
 // 30 min before its start through its scheduled end. This is DELIBERATELY separate
@@ -41,6 +44,7 @@ export default function TeacherHome() {
   const logout = useLogout();
   const { data: sessions, isLoading, refetch } = useTeacherTodaySessions();
   const pending = useOfflineStore((s) => s.pending);
+  const { isAssistant, can } = useActiveAbilities();
   const [refreshing, setRefreshing] = useState(false);
   const now = Date.now();
 
@@ -106,6 +110,8 @@ export default function TeacherHome() {
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{t('teacher.today')}</Text>
             <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 2 }}>{user?.name ?? ''}</Text>
+            {/* Active-teacher chip — only shows for multi-relationship assistants. */}
+            <TeacherSwitcher />
           </View>
           <TouchableOpacity onPress={() => logout.mutate()} accessibilityRole="button" accessibilityLabel={t('common.logout')} style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
             <Icon name="logout" size={22} color="#fff" outline />
@@ -113,6 +119,8 @@ export default function TeacherHome() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
+          {/* Assistant consent: pending invitations to work for a teacher. */}
+          <PendingInvitations />
           {pending > 0 ? (
             <TouchableOpacity
               onPress={() => router.push('/(teacher)/reconcile' as Href)}
@@ -131,38 +139,44 @@ export default function TeacherHome() {
               <Icon name="back" size={20} color={colors.warningText} />
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity
-            onPress={() => router.push('/(teacher)/enroll' as Href)}
-            activeOpacity={0.85}
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-              backgroundColor: colors.surface, borderRadius: radius.xl,
-              borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
-            }}
-          >
-            <Icon name="add" size={24} color={colors.brand} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تسجيل طالب بالبطاقة</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح رمز QR على البطاقة لتسجيله في حصة</Text>
-            </View>
-            <Icon name="back" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push('/(teacher)/collect' as Href)}
-            activeOpacity={0.85}
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-              backgroundColor: colors.surface, borderRadius: radius.xl,
-              borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
-            }}
-          >
-            <Icon name="money" size={24} color={colors.brand} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تحصيل الدفعات</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح البطاقة لتحصيل الفاتورة أو الملزمة</Text>
-            </View>
-            <Icon name="back" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
+          {/* Enroll (invite student) — requires the manage_students ability. */}
+          {can(ABILITY.MANAGE_STUDENTS) ? (
+            <TouchableOpacity
+              onPress={() => router.push('/(teacher)/enroll' as Href)}
+              activeOpacity={0.85}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                backgroundColor: colors.surface, borderRadius: radius.xl,
+                borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
+              }}
+            >
+              <Icon name="add" size={24} color={colors.brand} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تسجيل طالب بالبطاقة</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح رمز QR على البطاقة لتسجيله في حصة</Text>
+              </View>
+              <Icon name="back" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
+          {/* Payment collection is financial — NEVER shown to an assistant on mobile. */}
+          {!isAssistant ? (
+            <TouchableOpacity
+              onPress={() => router.push('/(teacher)/collect' as Href)}
+              activeOpacity={0.85}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                backgroundColor: colors.surface, borderRadius: radius.xl,
+                borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
+              }}
+            >
+              <Icon name="money" size={24} color={colors.brand} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تحصيل الدفعات</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح البطاقة لتحصيل الفاتورة أو الملزمة</Text>
+              </View>
+              <Icon name="back" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('teacher.todays_sessions')}</Text>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />

@@ -561,6 +561,13 @@
     "camera_permission_body": "لاستخدام هاتفك كماسح لبطاقات الطلاب، اسمح بالوصول إلى الكاميرا.",
     "grant_camera": "السماح بالكاميرا",
     "switch_session": "تغيير الحصة",
+    "switch_teacher": "تبديل المعلم",
+    "switch_teacher_hint": "اختر المعلم الذي تعمل لديه الآن. تتحدّث البيانات والصلاحيات فورًا.",
+    "no_reply_permission": "لا تملك صلاحية الرد على التذاكر لهذا المعلم.",
+    "invite_from": "يدعوك {{name}} للعمل كمساعد",
+    "invite_hint": "بقبولك ستعمل ضمن حساب هذا المعلم حسب الصلاحيات الممنوحة لك.",
+    "invite_accept": "قبول الدعوة",
+    "invite_reject": "رفض",
     "scanning_for": "المسح لحصة",
     "torch": "الإضاءة",
     "point_camera": "وجّه الكاميرا نحو بطاقة الطالب",
@@ -606,6 +613,7 @@
     "sync_all_ok": "تمت مزامنة {{count}} بنجاح",
     "sync_partial": "تمت مزامنة {{synced}} · فشل {{failed}}",
     "sync_network_error": "تعذّرت المزامنة — تحقق من الاتصال وحاول مجددًا",
+    "sync_context_mismatch": "هذه المسوحات تخص معلمًا آخر — اختر حصة تابعة للمعلم الصحيح.",
     "offline_saving_local": "غير متصل — يُحفظ محليًا",
     "back_online_synced": "عاد الاتصال — تمت مزامنة {{count}}",
     "revision_open": "مسح لحصة مراجعة",
@@ -668,5 +676,13 @@
     "exception_ends": "ينتهي الإعفاء في {{date}}",
     "override_until": "حتى {{date}}",
     "egp": "ج.م"
+  },
+  "assistants": {
+    "title": "المساعدون",
+    "subtitle": "إدارة مساعديك وصلاحياتهم",
+    "status_active": "نشط",
+    "status_pending": "بانتظار القبول",
+    "status_rejected": "مرفوضة",
+    "status_inactive": "معطّل"
   }
 }

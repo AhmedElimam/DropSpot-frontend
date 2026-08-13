@@ -16,6 +16,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
 import { useTicket, useAddMessage, useUpdateTicketStatus } from '@/hooks/useTickets';
 import { useAuthStore } from '@/stores/authStore';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
@@ -36,6 +37,7 @@ export default function TeacherTicketDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
+  const { can } = useActiveAbilities();
   const { data: ticket, isLoading, refetch } = useTicket(id ?? '');
   const addMessage = useAddMessage(id ?? '');
   const updateStatus = useUpdateTicketStatus(id ?? '');
@@ -181,7 +183,12 @@ export default function TeacherTicketDetail() {
           )}
         </ScrollView>
 
-        {ticket.status !== 'closed' && (
+        {ticket.status !== 'closed' && !can(ABILITY.REPLY_TICKETS) ? (
+          <View style={{ padding: spacing.lg, paddingBottom: spacing.lg + insets.bottom, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Icon name="lock" size={16} color={colors.textTertiary} />
+            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary }}>{t('teacher.no_reply_permission')}</Text>
+          </View>
+        ) : ticket.status !== 'closed' ? (
           <View
             style={{
               flexDirection: 'row', alignItems: 'flex-end', padding: spacing.md,
@@ -211,7 +218,7 @@ export default function TeacherTicketDetail() {
               {addMessage.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={20} color="#fff" />}
             </TouchableOpacity>
           </View>
-        )}
+        ) : null}
       </KeyboardAvoidingView>
     </View>
   );

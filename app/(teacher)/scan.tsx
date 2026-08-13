@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, type ViewStyle } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router, useLocalSearchParams, type Href } from 'expo-router';
+import { router, Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
@@ -202,6 +202,12 @@ export default function TeacherScan() {
       setGErr(res.message || t('teacher.scan_failed'));
     }
   }, [revisionId, revisionInstanceId, gName, gPhone, flash, t]);
+
+  // Financial (payment) scan mode is never available to an assistant — hard block
+  // even on a direct link, regardless of ability config.
+  if (payMode && useAuthStore.getState().role === 'assistant') {
+    return <Redirect href={'/(teacher)' as Href} />;
+  }
 
   if (!permission) {
     return <View style={{ flex: 1, backgroundColor: '#000' }} />;

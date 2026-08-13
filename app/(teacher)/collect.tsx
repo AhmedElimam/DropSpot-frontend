@@ -1,9 +1,10 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { router, type Href } from 'expo-router';
+import { router, Redirect, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { useAuthStore } from '@/stores/authStore';
 
 function Option({ kind, title, subtitle, icon }: { kind: 'bill' | 'booklet'; title: string; subtitle: string; icon: IconName }) {
   return (
@@ -26,6 +27,14 @@ function Option({ kind, title, subtitle, icon }: { kind: 'bill' | 'booklet'; tit
 
 export default function TeacherCollect() {
   const insets = useSafeAreaInsets();
+  const role = useAuthStore((s) => s.role);
+
+  // Financial collection is never available to an assistant on mobile — hard block
+  // even if this route is reached directly (deep link / back-stack), regardless of
+  // any ability config.
+  if (role === 'assistant') {
+    return <Redirect href={'/(teacher)' as Href} />;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>

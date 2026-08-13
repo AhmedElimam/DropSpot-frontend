@@ -96,8 +96,12 @@ function BucketCard({ bucket, sessions, onDone }: { bucket: ScanBucket; sessions
           : t('teacher.sync_partial', { synced, failed }),
       );
       await onDone();
-    } catch {
-      setSummary(t('teacher.sync_network_error'));
+    } catch (e: any) {
+      // A 422 CONTEXT_MISMATCH means the chosen session belongs to a different
+      // teacher than the one these scans were stamped for — surface that distinctly
+      // (never a generic "network error"), so the teacher picks the right session.
+      const code = e?.response?.data?.code;
+      setSummary(t(code === 'CONTEXT_MISMATCH' ? 'teacher.sync_context_mismatch' : 'teacher.sync_network_error'));
     } finally {
       setSyncing(false);
     }
