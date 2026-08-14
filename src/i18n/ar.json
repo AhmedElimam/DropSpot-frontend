@@ -171,6 +171,7 @@
     "today_sessions": "حصص اليوم",
     "no_sessions": "لا توجد حصص اليوم",
     "upcoming_sessions": "الحصص القادمة",
+    "no_upcoming": "لا توجد حصص قادمة",
     "live": "مباشر",
     "scheduled": "مجدول",
     "completed": "منتهية",
@@ -268,6 +269,7 @@
     "time_remaining": "الوقت المتبقي",
     "question": "سؤال {{number}}",
     "score": "النتيجة",
+    "avg_score": "متوسط النتيجة",
     "passing_score": "درجة النجاح",
     "your_score": "نتیجتك",
     "passed": "ناجح",
@@ -319,6 +321,7 @@
     "no_notifications": "لا توجد إشعارات",
     "mark_read": "تحديد كمقروء",
     "mark_all_read": "تحديد الكل كمقروء",
+    "view_all": "عرض كل الإشعارات",
     "attendance_reminder": "تذكير بالحضور",
     "absence_alert": "تنبيه غياب",
     "quiz_reminder": "تذكير باختبار",
@@ -330,6 +333,13 @@
     "invoice_reminder_desc": "موعد استحقاق الفاتورة {{amount}} ريال",
     "schedule_change_desc": "تم تغيير موعد حصة {{course}} لـ {{name}}",
     "empty": "لا توجد إشعارات جديدة"
+  },
+  "today": {
+    "title": "متابعة اليوم",
+    "subtitle": "حصص أبنائك اليوم وحالة الحضور مباشرةً",
+    "no_sessions": "لا توجد حصص اليوم",
+    "not_recorded": "لم تُسجَّل بعد",
+    "note_label": "ملاحظة المعلم"
   },
   "nav": {
     "dashboard": "الرئيسية",
@@ -495,7 +505,18 @@
     "top_attendees": "الأكثر حضوراً",
     "top_scorers": "الأعلى درجات",
     "top_teachers": "المعلمون حسب نتائج الطلاب",
-    "export": "تصدير التقرير"
+    "export": "تصدير التقرير",
+    "report_cards": "التقارير الدورية",
+    "report_cards_sub": "تقارير الأداء القابلة للتحميل بصيغة PDF",
+    "view_reports": "عرض التقارير الدورية",
+    "download_pdf": "تحميل التقرير (PDF)",
+    "opening": "جارٍ فتح التقرير…",
+    "open_failed": "تعذر فتح التقرير. حاول مرة أخرى.",
+    "no_reports": "لا توجد تقارير بعد",
+    "no_reports_sub": "ستظهر هنا تقارير الأداء الدورية عند إصدارها من المعلم.",
+    "overall": "التقدير العام",
+    "academic": "الدرجة الأكاديمية",
+    "sessions_count": "عدد الحصص"
   },
   "support": {
     "title": "مركز الدعم",

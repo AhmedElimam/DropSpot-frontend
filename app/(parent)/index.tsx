@@ -27,7 +27,7 @@ const notifIcon: Record<string, IconName> = {
   attendance: 'attendance', absence: 'warning', left_early: 'clock', grade: 'grades',
   invoice: 'invoices', invoice_new: 'invoices', invoice_overdue: 'money',
   session_swap: 'calendar', enrollment_transfer: 'calendar', schedule: 'calendar',
-  student_report: 'note', daily_digest: 'bell',
+  student_report: 'note', monthly_report: 'reports', daily_digest: 'bell',
 };
 
 type Standing = { key: string; color: string };
@@ -93,9 +93,19 @@ export default function ParentHome() {
           <View style={{ gap: spacing.md }}>
             <Text style={sectionLabel}>{t('home.actions_section')}</Text>
             <BigAction
+              icon="calendar" tint={colors.brandTint} iconColor={colors.brand}
+              title={t('today.title')} subtitle={t('today.subtitle')}
+              onPress={() => router.push('/(parent)/today')}
+            />
+            <BigAction
               icon="invoices" tint={colors.successLight} iconColor={colors.success}
               title={t('home.invoices_title')}
               onPress={() => router.push('/(parent)/invoices')}
+            />
+            <BigAction
+              icon="reports" tint={colors.brandTint} iconColor={colors.brand}
+              title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')}
+              onPress={() => router.push('/(parent)/report-cards')}
             />
             <BigAction
               icon="ticket" tint={colors.accentWarmTint} iconColor={colors.accentWarm}
@@ -106,9 +116,14 @@ export default function ParentHome() {
 
           {/* Latest update */}
           <View style={{ gap: spacing.md }}>
-            <Text style={sectionLabel}>{t('home.latest_update')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={sectionLabel}>{t('home.latest_update')}</Text>
+              <TouchableOpacity onPress={() => router.push('/(parent)/notifications')} hitSlop={8}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('notifications.view_all')}</Text>
+              </TouchableOpacity>
+            </View>
             {latest ? (
-              <View style={{ flexDirection: 'row', gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 4, borderStartColor: colors.brand }}>
+              <TouchableOpacity onPress={() => router.push('/(parent)/notifications')} activeOpacity={0.75} style={{ flexDirection: 'row', gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 4, borderStartColor: colors.brand }}>
                 <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
                   <Icon name={notifIcon[latest.type] || 'bell'} size={20} color={colors.brand} />
                 </View>
@@ -119,7 +134,7 @@ export default function ParentHome() {
                   ) : null}
                   <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginTop: 6 }}>{timeAgo(latest.created_at)}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ) : (
               <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.xl, alignItems: 'center' }}>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textTertiary }}>{t('home.no_updates')}</Text>

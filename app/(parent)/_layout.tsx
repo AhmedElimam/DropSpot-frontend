@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, router } from 'expo-router';
 import { View, Text, ActivityIndicator, AppState, AppStateStatus } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { registerForPushNotifications, unregisterPushNotifications } from '@/utils/push-notifications';
+import { registerForPushNotifications, unregisterPushNotifications, setupNotificationResponseHandler } from '@/utils/push-notifications';
+import { notificationRoute } from '@/utils/notification-routing';
 import { Icon, type IconName } from '@/components/ui/Icon';
 
 // Five large, always-labelled tabs. Teacher Management was added as its own tab
@@ -63,6 +64,17 @@ export default function ParentTabLayout() {
       }
     };
   }, [isAuthenticated]);
+
+  // Deep-link a tapped notification to the right screen (report cards, invoices,
+  // the child, or the notifications feed) — the response handler existed but was
+  // never registered, so taps went nowhere.
+  useEffect(() => {
+    const sub = setupNotificationResponseHandler((data) => {
+      const route = notificationRoute(String(data?.type ?? ''), data);
+      if (route) router.push(route as never);
+    });
+    return () => sub.remove();
+  }, []);
 
   if (isLoading) {
     return (
@@ -134,6 +146,9 @@ export default function ParentTabLayout() {
       <Tabs.Screen name="profile" />
       {/* Demoted from the tab bar; still routable from Home / child detail. */}
       <Tabs.Screen name="reports" options={{ href: null }} />
+      <Tabs.Screen name="report-cards" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="today" options={{ href: null }} />
       <Tabs.Screen name="child/[id]" options={{ href: null }} />
       <Tabs.Screen name="child/[id]/teachers" options={{ href: null }} />
       <Tabs.Screen name="child/[id]/invite-code" options={{ href: null }} />

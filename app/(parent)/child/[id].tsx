@@ -10,6 +10,7 @@ import { useChildren } from '@/hooks/useChildren';
 import { getStudentCoverage, getAttendanceRecords } from '@/api/attendance';
 import { getStudentGrades } from '@/api/grades';
 import { getQuizzes } from '@/api/quizzes';
+import { getUpcomingStudentSessions } from '@/api/sessions';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -27,6 +28,15 @@ const cardStyle = {
   padding: spacing.xl,
   ...shadows.sm,
 } as const;
+
+function fmtDateTime(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const day = d.toLocaleDateString('ar', { weekday: 'long', day: 'numeric', month: 'short' });
+  const time = d.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' });
+  return `${day} · ${time}`;
+}
 
 export default function ChildDetailScreen() {
   const { t } = useTranslation();
@@ -60,6 +70,12 @@ export default function ChildDetailScreen() {
   const { data: records, isLoading: recordsLoading } = useQuery({
     queryKey: ['attendance', 'records', child?.student_id],
     queryFn: () => getAttendanceRecords(child!.student_id),
+    enabled: !!child,
+  });
+
+  const { data: upcoming } = useQuery({
+    queryKey: ['sessions', 'upcoming', child?.student_id],
+    queryFn: () => getUpcomingStudentSessions(child!.student_id, 5),
     enabled: !!child,
   });
 
@@ -177,6 +193,29 @@ export default function ChildDetailScreen() {
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md, gap: spacing.md }}>
           {activeTab === 'attendance' && (
             <>
+              {upcoming && upcoming.length > 0 && (
+                <View style={cardStyle}>
+                  <Text style={textPresets.h3}>{t('session.upcoming_sessions')}</Text>
+                  <View style={{ marginTop: spacing.md }}>
+                    {upcoming.map((s, i) => (
+                      <View
+                        key={s.id}
+                        style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: i < upcoming.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}
+                      >
+                        <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                          <Icon name="calendar" size={18} color={colors.brand} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={textPresets.body}>{s.course_name ?? ''}</Text>
+                          <Text style={textPresets.caption}>
+                            {fmtDateTime(s.scheduled_at)}{s.teacher_name ? ` · ${s.teacher_name}` : ''}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
               <View style={cardStyle}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
                   <Text style={textPresets.h3}>{t('attendance.attendance_summary')}</Text>
@@ -291,6 +330,11 @@ export default function ChildDetailScreen() {
                   </>
                 )}
               </View>
+              <Button
+                variant="primary"
+                title={t('reports.view_reports')}
+                onPress={() => router.push(`/(parent)/report-cards?studentId=${child.student_id}`)}
+              />
             </>
           )}
 
