@@ -33,6 +33,8 @@ export interface SessionAttendee {
   sheet_marked: boolean;
   sheet_awaited: boolean;
   note: string | null;
+  /** Cross-tenant: this student's parent number was confirmed not genuine. */
+  number_flagged?: boolean;
 }
 
 export interface SessionDetail {

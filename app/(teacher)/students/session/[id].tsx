@@ -79,12 +79,13 @@ export default function SessionDetailScreen() {
             {item.checked_in_at ? ` · ${item.checked_in_at}` : ''}
           </Text>
           {/* Sheet + note signals */}
-          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: item.mark != null || item.note || item.sheet_awaited ? 4 : 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: item.mark != null || item.note || item.sheet_awaited || item.number_flagged ? 4 : 0 }}>
             {item.mark != null ? (
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{t('teacher.mark_short', { mark: item.mark })}</Text>
             ) : null}
             {item.sheet_awaited ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.warning }}>{t('teacher.sheet_awaited')}</Text> : null}
             {item.note ? <Icon name="note" size={13} color={colors.textTertiary} /> : null}
+            {item.number_flagged ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.danger }}>{t('teacher.number_fake')}</Text> : null}
           </View>
         </View>
         <Badge label={t(meta.key)} variant={meta.variant} size="sm" />

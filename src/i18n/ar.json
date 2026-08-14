@@ -718,6 +718,8 @@
     "checked_in_count": "{{count}} حاضر",
     "not_recorded": "لم يُسجَّل",
     "primary_parent": "أساسي",
+    "number_fake": "رقم غير صحيح",
+    "number_verified": "تم التحقق",
     "no_phone": "لا يوجد رقم",
     "no_grade": "بدون صف",
     "status_all": "الكل",

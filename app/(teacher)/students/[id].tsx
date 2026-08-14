@@ -154,12 +154,25 @@ export default function StudentDetailScreen() {
           {/* Parents */}
           {s.parents.length > 0 ? (
             <Section title={t('teacher.student_parents')}>
+              {s.parent_number_notice ? (
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm }}>
+                  <Icon name="call" size={18} color={colors.dangerText} />
+                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.dangerText }}>
+                    {s.parent_number_notice_message ?? t('teacher.number_fake')}
+                  </Text>
+                </View>
+              ) : null}
               {s.parents.map((p, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
                   <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{p.name ?? '—'}</Text>
                       {p.is_primary ? <Badge label={t('teacher.primary_parent')} variant="success" size="sm" /> : null}
+                      {p.number_flagged ? (
+                        <Badge label={t('teacher.number_fake')} variant="danger" size="sm" />
+                      ) : p.phone_verified ? (
+                        <Badge label={t('teacher.number_verified')} variant="success" size="sm" />
+                      ) : null}
                     </View>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
                       {p.relationship ?? ''}{p.phone ? ` · ${p.phone}` : ` · ${t('teacher.no_phone')}`}

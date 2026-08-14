@@ -118,6 +118,8 @@ export interface StudentParent {
   phone: string | null;
   relationship: string | null;
   is_primary: boolean;
+  phone_verified?: boolean;
+  number_flagged?: boolean;
 }
 
 export interface StudentAttendanceRow {
@@ -135,6 +137,8 @@ export interface StudentDetail {
   grade_name: string | null;
   courses: StudentCourse[];
   parents: StudentParent[];
+  parent_number_notice?: boolean;
+  parent_number_notice_message?: string | null;
   attendance_stats: { total: number; attended: number; absent: number; excused: number };
   attendance: StudentAttendanceRow[];
   billing: {
