@@ -26,6 +26,7 @@ const labels: Record<string, string> = {
   index: 'teacher.tab_home',
   scan: 'teacher.tab_camera',
   students: 'teacher.tab_students',
+  manage: 'teacher.tab_manage',
   tickets: 'teacher.tab_tickets',
   settings: 'teacher.tab_settings',
 };
@@ -34,15 +35,19 @@ const icons: Record<string, IconName> = {
   index: 'home',
   scan: 'scan',
   students: 'children',
+  manage: 'book',
   tickets: 'tickets',
   settings: 'settings',
 };
 
-// Top-level routes that must never show the tab bar (reached by push, not tabs).
-const FULLSCREEN_ROUTES = ['enroll'];
+// Top-level routes that must never show the tab bar. Any live CAMERA screen is
+// full-screen so the bar never overlaps the camera controls: the invite scanner
+// (enroll) and the attendance scanner (scan) — both exit via their own in-screen
+// close button, so hiding the bar never traps the user.
+const FULLSCREEN_ROUTES = ['enroll', 'scan'];
 
 // Decide whether the bar should be hidden for the currently-focused tab. Hidden on
-// the invite scanner (enroll) and on an open ticket conversation (tickets/[id]),
+// the camera screens (scan, enroll) and on an open ticket conversation (tickets/[id]),
 // where the reply box + keyboard need the whole screen. The ticket LIST keeps the bar.
 function shouldHideBar(state: { routes: { name: string; state?: unknown }[]; index: number }): boolean {
   const tab = state.routes[state.index];
@@ -160,9 +165,12 @@ export default function TeacherTabLayout() {
         options={{ tabBarBadge: pending > 0 ? pending : undefined }}
       />
       <Tabs.Screen name="students" />
+      {/* Management hub — courses, location, schedule tools. */}
+      <Tabs.Screen name="manage" />
       <Tabs.Screen name="tickets" />
       <Tabs.Screen name="settings" />
       {/* Reconciliation is reached from the pending badge / Home, not a tab. */}
+      <Tabs.Screen name="resolution" options={{ href: null }} />
       <Tabs.Screen name="reconcile" options={{ href: null }} />
       {/* Enroll-by-card (invite student) — pushed from Home; full screen, no bar. */}
       <Tabs.Screen name="enroll" options={{ href: null }} />
@@ -174,6 +182,13 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="grant-exception" options={{ href: null }} />
       {/* Add a weekly schedule slot — pushed from the sessions segment, not a tab. */}
       <Tabs.Screen name="schedule-new" options={{ href: null }} />
+      {/* Courses management (settings · GPS location · weekly slots) — from Settings. */}
+      <Tabs.Screen name="courses" options={{ href: null }} />
+      {/* Pause a date range (bulk-cancel) — from the sessions segment, not a tab. */}
+      <Tabs.Screen name="pause" options={{ href: null }} />
+      {/* Schedule tools — merge two slots, Ramadan time overrides. From the manage hub. */}
+      <Tabs.Screen name="schedule-merge" options={{ href: null }} />
+      <Tabs.Screen name="schedule-overrides" options={{ href: null }} />
       {/* Assistant management (teacher-only) — reached from Settings, not a tab. */}
       <Tabs.Screen name="assistants" options={{ href: null }} />
     </Tabs>

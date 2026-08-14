@@ -24,13 +24,20 @@ export interface SessionAttendee {
   student_id: number;
   name: string | null;
   student_code: string | null;
+  card_less: boolean;
   status: string; // present | late | absent | excused | not_recorded
   method: string | null;
   checked_in_at: string | null;
+  // Sheet tracking
+  mark: number | null;
+  sheet_marked: boolean;
+  sheet_awaited: boolean;
+  note: string | null;
 }
 
 export interface SessionDetail {
   id: string;
+  course_id: number | null;
   course_name: string | null;
   scheduled_at: string | null;
   date: string | null;
@@ -39,6 +46,13 @@ export interface SessionDetail {
   status: string;
   present_count: number;
   total_count: number;
+  // Session-level control state
+  is_cancelled: boolean;
+  is_completed: boolean;
+  is_past: boolean;
+  sheet_expected: boolean;
+  sheet_excluded: boolean;
+  sheet_max_mark: number | null;
   attendees: SessionAttendee[];
 }
 
@@ -55,4 +69,64 @@ export async function getTeacherSessions(params?: { status?: string; page?: numb
 export async function getSessionDetail(id: string | number): Promise<SessionDetail> {
   const { data } = await client.get(`/teacher/sessions/${id}`);
   return (data.data ?? data) as SessionDetail;
+}
+
+// ---- Session write controls (full parity with the web SessionsController) ----
+// Every mutation returns the refreshed SessionDetail so the screen updates in place.
+
+function detail(data: any): SessionDetail {
+  return (data.data ?? data) as SessionDetail;
+}
+
+export async function markAttendance(
+  sessionId: string | number,
+  studentId: number,
+  status: 'present' | 'late' | 'absent' | 'excused',
+): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/mark`, { student_id: studentId, status });
+  return detail(data);
+}
+
+export async function cancelSession(sessionId: string | number): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/cancel`);
+  return detail(data);
+}
+
+export async function restoreSession(sessionId: string | number): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/restore`);
+  return detail(data);
+}
+
+export async function recordNote(sessionId: string | number, studentId: number, note: string): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/note`, { student_id: studentId, note });
+  return detail(data);
+}
+
+export async function recordSheetGrade(
+  sessionId: string | number,
+  studentId: number,
+  mark: number | null,
+): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/sheet-grade`, { student_id: studentId, mark });
+  return detail(data);
+}
+
+export async function toggleSheet(sessionId: string | number, studentId: number): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/sheet-toggle`, { student_id: studentId });
+  return detail(data);
+}
+
+export async function toggleSheetExcluded(sessionId: string | number): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/sheet-excluded`);
+  return detail(data);
+}
+
+export async function updateSheetMaxMark(sessionId: string | number, max: number | null): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/sheet-max-mark`, { sheet_max_mark: max });
+  return detail(data);
+}
+
+export async function pauseSessions(from: string, to: string): Promise<{ cancelled: number }> {
+  const { data } = await client.post('/teacher/sessions/pause', { from, to });
+  return (data.data ?? data) as { cancelled: number };
 }

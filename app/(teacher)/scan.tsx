@@ -86,9 +86,9 @@ export default function TeacherScan() {
     }
   }, []);
 
-  const flash = useCallback((success: boolean, message: string, studentName?: string | null) => {
+  const flash = useCallback((success: boolean, message: string, studentName?: string | null, pending?: import('@/api/teacher').ScanPending | null) => {
     Vibration.vibrate(success ? 60 : [0, 120, 90, 120]);
-    setFeedback({ success, message, student_name: studentName ?? null });
+    setFeedback({ success, message, student_name: studentName ?? null, pending: pending ?? null });
     setTimeout(() => { setFeedback(null); setBusy(false); }, FEEDBACK_MS);
   }, []);
 
@@ -131,7 +131,9 @@ export default function TeacherScan() {
             setGuestPrompt(res.student); // hold for the teacher's decision
             return;
           }
-          flash(res.success, res.message || (res.success ? t('teacher.checked_in') : t('teacher.scan_failed')), res.student_name);
+          // Revision is cardless: scanning ENROLLS the student into the revision
+          // (booking), not an attendance check-in — hence the enrolment wording.
+          flash(res.success, res.message || (res.success ? t('teacher.revision_enrolled') : t('teacher.scan_failed')), res.student_name);
         } catch {
           flash(false, t('teacher.scan_failed'));
         }
@@ -160,7 +162,8 @@ export default function TeacherScan() {
           setOverdueBlock({ name: res.student_name ?? '', message: res.message, code: data });
           return;
         }
-        flash(res.success, res.message || (res.success ? t('teacher.checked_in') : t('teacher.scan_failed')), res.student_name);
+        // Passive flags ride along on the auto-dismissing success flash — non-interactive.
+        flash(res.success, res.message || (res.success ? t('teacher.checked_in') : t('teacher.scan_failed')), res.student_name, res.pending);
       } catch {
         Vibration.vibrate(40);
         setFeedback({ success: true, message: t('teacher.saved_offline'), student_name: null });
@@ -427,8 +430,31 @@ export default function TeacherScan() {
           <Text style={{ fontFamily: fonts.medium, fontSize: 19, lineHeight: 28, color: '#fff', textAlign: 'center', marginTop: spacing.sm }}>
             {feedback.message || (feedback.success ? t('teacher.checked_in') : t('teacher.scan_failed'))}
           </Text>
+          {/* PASSIVE flags — a reminder only. No buttons; auto-dismisses with the flash.
+              Collection happens later on the Pending Collections screen, never here. */}
+          {feedback.success && feedback.pending && (feedback.pending.bill || !!feedback.pending.booklets?.length || feedback.pending.booking) ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: spacing.lg }}>
+              {feedback.pending.bill ? (
+                <PendingChip text={feedback.pending.bill.escalated ? t('teacher.flag_bill_escalated') : (feedback.pending.bill.overdue ? t('teacher.flag_bill_overdue') : t('teacher.flag_bill_due'))} />
+              ) : null}
+              {feedback.pending.booklets?.length ? (
+                <PendingChip text={t('teacher.flag_booklet') + (feedback.pending.booklets.length > 1 ? ` (${feedback.pending.booklets.length})` : '')} />
+              ) : null}
+              {feedback.pending.booking ? <PendingChip text={t('teacher.flag_booking') + (feedback.pending.booking.secures ? ` — ${feedback.pending.booking.secures}` : '')} /> : null}
+            </View>
+          ) : null}
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/** Passive "has pending" pill shown on the scan-result flash — non-interactive. */
+function PendingChip({ text }: { text: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 999, paddingVertical: 5, paddingHorizontal: 12 }}>
+      <Icon name="money" size={14} color="#fff" />
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{text}</Text>
     </View>
   );
 }

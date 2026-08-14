@@ -47,6 +47,13 @@ export async function getTeacherTodaySessions(): Promise<TeacherSession[]> {
   });
 }
 
+/** Passive "has pending" flags shown after a successful scan (non-interactive). */
+export interface ScanPending {
+  bill: { total: number; count: number; overdue: boolean; escalated?: boolean } | null;
+  booklets: { id: number; course: string | null; amount: number }[];
+  booking: { total: number; count: number; secures?: string } | null;
+}
+
 export interface ScanResult {
   success: boolean;
   message: string;
@@ -55,6 +62,8 @@ export interface ScanResult {
   // out an overdue block and offer the in-the-moment 15-day exemption.
   code?: string | null;
   student_id?: number | null;
+  // Passive flags for the scanned student (bill / booklet / booking down-payment).
+  pending?: ScanPending | null;
 }
 
 /**
@@ -74,6 +83,7 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
       student_name: data.student_name ?? null,
       code: data.code ?? null,
       student_id: data.student_id ?? null,
+      pending: data.pending ?? null,
     };
   } catch (e: any) {
     // Non-2xx failures (expired card, not enrolled, overdue block, etc.) carry the same shape.

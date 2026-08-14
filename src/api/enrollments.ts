@@ -7,6 +7,12 @@ export async function getStudentEnrollments(studentId: number): Promise<Enrollme
   return Array.isArray(items) ? items.map(extract) : [];
 }
 
+// Soft-terminate (drop) an enrollment — mobile parity for the web action. History
+// and past billing are untouched; only future delivery/roster/capacity stop counting.
+export async function terminateEnrollment(enrollmentId: number): Promise<void> {
+  await client.post(`/teacher/enrollments/${enrollmentId}/terminate`);
+}
+
 function extract(item: any): Enrollment {
   const a = item.attributes ?? item;
   return {

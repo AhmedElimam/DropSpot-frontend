@@ -61,6 +61,7 @@ export default function TeacherSettings() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
+          {/* Courses & schedule management now live in the "الإدارة" tab. */}
           {/* Assistant management is teacher-only. */}
           {!isAssistant ? row('children', t('assistants.title'), t('assistants.subtitle'), () => router.push('/(teacher)/assistants' as Href)) : null}
           {row('bell', t('teacher.notifications'), t('teacher.notifications_hint'), () => Linking.openSettings())}

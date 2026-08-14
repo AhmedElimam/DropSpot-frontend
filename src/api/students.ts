@@ -6,11 +6,18 @@ export interface EnrollableSlot {
   label: string;
 }
 
+export type BookingSecures = 'session' | 'booklet' | 'flat';
+
 export interface EnrollableClass {
   course_id: number;
   course_name: string;
   academic_session_id: number;
   slots: EnrollableSlot[];
+  // Booking down-payment: the teacher's default + the price bases for prefill.
+  booking_secures_default: BookingSecures;
+  price_session: number | null;
+  price_booklet: number | null;
+  price_flat: number | null;
 }
 
 export async function getEnrollableClasses(): Promise<EnrollableClass[]> {
@@ -22,8 +29,18 @@ export async function getEnrollableClasses(): Promise<EnrollableClass[]> {
       course_name: a.course_name,
       academic_session_id: a.academic_session_id,
       slots: a.slots ?? [],
+      booking_secures_default: (a.booking_secures_default ?? 'flat') as BookingSecures,
+      price_session: a.price_session ?? null,
+      price_booklet: a.price_booklet ?? null,
+      price_flat: a.price_flat ?? null,
     } as EnrollableClass;
   });
+}
+
+export interface DisclosureFlag {
+  label: string;
+  color: string;
+  tooltip?: string | null;
 }
 
 export interface LookupStudent {
@@ -32,6 +49,8 @@ export interface LookupStudent {
   has_card: boolean;
   report_notice: boolean;
   report_notice_message: string | null;
+  // A confirmed report's cross-tenant colored flag (null → fixed message fallback).
+  report_flag?: DisclosureFlag | null;
 }
 
 export interface LookupResult {
@@ -91,6 +110,7 @@ export interface TeacherCourse {
 export interface StudentCourse {
   id: number;
   name: string | null;
+  enrollment_id?: number;
 }
 
 export interface StudentParent {

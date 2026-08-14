@@ -177,17 +177,27 @@ export default function TeacherStudents() {
         </>
       ) : (
         <>
-          {/* Add a weekly schedule slot — teachers always; assistants only with
-              manage_sessions on their active teacher context. */}
+          {/* Session tools — teachers always; assistants only with manage_sessions
+              on their active teacher context. Add a weekly slot, or pause a range. */}
           {can(ABILITY.MANAGE_SESSIONS) && (
-            <TouchableOpacity
-              onPress={() => router.push('/(teacher)/schedule-new' as Href)}
-              activeOpacity={0.85}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginHorizontal: spacing.lg, marginBottom: spacing.sm, minHeight: 46, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.surface }}
-            >
-              <Icon name="add" size={18} color={colors.brand} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('teacher.add_schedule')}</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.lg, marginBottom: spacing.sm }}>
+              <TouchableOpacity
+                onPress={() => router.push('/(teacher)/schedule-new' as Href)}
+                activeOpacity={0.85}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 46, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.surface }}
+              >
+                <Icon name="add" size={18} color={colors.brand} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('teacher.add_schedule')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push('/(teacher)/pause' as Href)}
+                activeOpacity={0.85}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 46, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}
+              >
+                <Icon name="clock" size={18} color={colors.textSecondary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>{t('teacher.pause_period')}</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* Session status chips */}

@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Avatar } from '@/components/layout/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useStudentDetail } from '@/hooks/useStudents';
+import { terminateEnrollment } from '@/api/enrollments';
 import { dayLabel, formatDayDate } from '@/utils/format';
 
 // Attendance status → an i18n key + Badge variant. 'not_recorded' is the neutral
@@ -45,6 +46,29 @@ export default function StudentDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: s, isLoading, refetch, isRefetching } = useStudentDetail(id);
+
+  const confirmTerminate = (courseName: string | null, enrollmentId?: number) => {
+    if (!enrollmentId) return;
+    Alert.alert(
+      t('teacher.terminate_title'),
+      t('teacher.terminate_body', { course: courseName ?? '' }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('teacher.terminate_confirm'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await terminateEnrollment(enrollmentId);
+              refetch();
+            } catch {
+              Alert.alert(t('common.error'), t('teacher.terminate_failed'));
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
@@ -114,8 +138,13 @@ export default function StudentDetailScreen() {
             <Section title={t('teacher.student_courses')}>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
                 {s.courses.map((c) => (
-                  <View key={c.id} style={{ backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+                  <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
                     <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{c.name ?? '—'}</Text>
+                    {c.enrollment_id ? (
+                      <TouchableOpacity onPress={() => confirmTerminate(c.name, c.enrollment_id)} accessibilityRole="button" hitSlop={8}>
+                        <Icon name="trash" size={15} color={colors.danger} />
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 ))}
               </View>

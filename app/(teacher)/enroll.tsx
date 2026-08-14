@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
@@ -14,6 +14,7 @@ import {
   enrollByCard,
   type EnrollableClass,
   type LookupStudent,
+  type BookingSecures,
 } from '@/api/students';
 import {
   scanPreCard,
@@ -45,7 +46,22 @@ export default function TeacherEnroll() {
   // §3 — invite an already-registered, card-less student by phone (family accepts).
   const [phoneMode, setPhoneMode] = useState(false);
   const [phone, setPhone] = useState('');
+  const [downPayment, setDownPayment] = useState('');
+  const [secures, setSecures] = useState<BookingSecures>('flat');
+  const [dpAuto, setDpAuto] = useState(true); // amount is auto-prefilled until the teacher edits it
   const [sending, setSending] = useState(false);
+
+  // Adopt the teacher's default "secures" kind when a course is picked.
+  useEffect(() => {
+    if (course) { setSecures(course.booking_secures_default); setDpAuto(true); }
+  }, [course]);
+
+  // Prefill the amount from the chosen basis (unless the teacher typed one).
+  useEffect(() => {
+    if (!course || !dpAuto) return;
+    const basis = secures === 'session' ? course.price_session : secures === 'booklet' ? course.price_booklet : course.price_flat;
+    setDownPayment(basis && basis > 0 ? String(basis) : '');
+  }, [course, secures, dpAuto]);
 
   const submitPhoneInvite = async () => {
     if (!course || phone.trim().length < 6 || sending) return;
@@ -55,11 +71,17 @@ export default function TeacherEnroll() {
         phone: phone.trim(),
         course_id: course.course_id,
         academic_session_id: course.academic_session_id,
+        // Typed amount = per-invite down-payment; blank = teacher/course default.
+        ...(downPayment.trim() ? { down_payment_amount: Number(downPayment.trim()), booking_secures: secures } : {}),
       });
       setPhoneMode(false);
       setPhone('');
+      setDownPayment('');
+      setDpAuto(true);
       if (r.action === 'use_card') {
         Alert.alert(t('invites.use_card_title'), t('invites.use_card_body'));
+      } else if (r.action === 'already_enrolled') {
+        Alert.alert(t('invites.already_enrolled_title'), r.message ?? t('invites.already_enrolled_body'));
       } else {
         Alert.alert(t('invites.sent_title'), t('invites.sent_body'));
       }
@@ -283,8 +305,29 @@ export default function TeacherEnroll() {
             placeholderTextColor={colors.textTertiary}
             style={{ fontFamily: fonts.regular, fontSize: 17, minHeight: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'left', borderWidth: 1.5, borderColor: phone ? colors.brand : colors.border }}
           />
+          {/* Optional per-invite booking down-payment. What it secures is selectable
+              (default = the teacher's setting); the amount prefills from that basis.
+              Blank = teacher/course default. */}
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invites.secures_label')}</Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            {(['session', 'booklet', 'flat'] as BookingSecures[]).map((k) => (
+              <TouchableOpacity key={k} onPress={() => { setSecures(k); setDpAuto(true); }} activeOpacity={0.85}
+                style={{ flex: 1, minHeight: 44, borderRadius: radius.lg, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, backgroundColor: secures === k ? colors.brandTint : colors.surfaceSunken, borderColor: secures === k ? colors.brand : colors.border }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: secures === k ? colors.brand : colors.textSecondary }}>{t(`invites.secures_${k}`)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invites.down_payment_label')}</Text>
+          <TextInput
+            value={downPayment}
+            onChangeText={(v) => { setDownPayment(v); setDpAuto(false); }}
+            keyboardType="numeric"
+            placeholder={t('invites.down_payment_ph')}
+            placeholderTextColor={colors.textTertiary}
+            style={{ fontFamily: fonts.regular, fontSize: 17, minHeight: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'right', borderWidth: 1.5, borderColor: colors.border }}
+          />
           <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
-            <TouchableOpacity onPress={() => { setPhoneMode(false); setPhone(''); }} activeOpacity={0.85}
+            <TouchableOpacity onPress={() => { setPhoneMode(false); setPhone(''); setDownPayment(''); setDpAuto(true); }} activeOpacity={0.85}
               style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textSecondary }}>إلغاء</Text>
             </TouchableOpacity>
@@ -308,6 +351,7 @@ export default function TeacherEnroll() {
               {review.student.grade ? (
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>{review.student.grade}</Text>
               ) : null}
+              {review.student.report_flag ? <FlagChip flag={review.student.report_flag} /> : null}
               {review.student.report_notice && review.student.report_notice_message ? (
                 <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.warning, marginTop: spacing.md }}>
                   {review.student.report_notice_message}
@@ -328,8 +372,9 @@ export default function TeacherEnroll() {
               <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, flexWrap: 'wrap' }}>
                 <Badge text={review.student.has_card ? 'لديه بطاقة' : 'بدون بطاقة'} color={review.student.has_card ? colors.success : colors.textSecondary} />
               </View>
-              {/* Cross-tenant disclosure is a single fixed notice now — never a
-                  severity tier/score (Tiered Disclosure §3, §6). */}
+              {/* Cross-tenant disclosure: a confirmed report's colored flag (label +
+                  color); legacy confirmed-without-flag falls back to the fixed notice. */}
+              {review.student.report_flag ? <FlagChip flag={review.student.report_flag} /> : null}
               {review.student.report_notice && review.student.report_notice_message ? (
                 <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.danger, marginTop: spacing.md }}>
                   {review.student.report_notice_message}
@@ -374,6 +419,20 @@ function Badge({ text, color }: { text: string; color: string }) {
   return (
     <View style={{ backgroundColor: color + '22', borderRadius: radius.sm, paddingVertical: 4, paddingHorizontal: 10 }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 12, color }}>{text}</Text>
+    </View>
+  );
+}
+
+// Cross-tenant Tier-2 disclosure flag: a solid colored chip + its tooltip/details.
+function FlagChip({ flag }: { flag: { label: string; color: string; tooltip?: string | null } }) {
+  return (
+    <View style={{ alignSelf: 'stretch', marginTop: spacing.md }}>
+      <View style={{ alignSelf: 'flex-start', backgroundColor: flag.color, borderRadius: radius.sm, paddingVertical: 5, paddingHorizontal: 12 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>⚑ {flag.label}</Text>
+      </View>
+      {flag.tooltip ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: 4 }}>{flag.tooltip}</Text>
+      ) : null}
     </View>
   );
 }
