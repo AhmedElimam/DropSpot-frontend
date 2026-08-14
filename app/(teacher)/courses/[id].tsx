@@ -9,6 +9,7 @@ import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule } from '@/hooks/useCourses';
+import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import type { CourseSchedule } from '@/api/courses';
 
 // Matches Course::PREFERRED_ACCURACY_METERS — a worse GPS fix is flagged low-confidence.
@@ -19,6 +20,7 @@ export default function CourseDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: course, isLoading } = useCourseDetail(id);
+  const { data: onboarding } = useTeacherOnboarding();
   const saveSettings = useUpdateCourseSettings(id);
   const saveLocation = useUpdateCourseLocation(id);
   const removeSlot = useRemoveSchedule(id);
@@ -164,6 +166,13 @@ export default function CourseDetailScreen() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
         {/* Location / phone check-in (automated) */}
         <Section icon="location" title={t('teacher.location_section')} />
+        {onboarding?.active ? (
+          <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.brand, textAlign: 'right' }}>
+              {t('onboarding.location_hint')}
+            </Text>
+          </View>
+        ) : null}
         <View style={{ backgroundColor: located ? colors.successLight : colors.warningLight, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <Icon name="location" size={20} color={located ? colors.success : colors.warning} />

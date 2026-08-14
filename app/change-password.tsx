@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, gradients, control, shadows } from '@/theme/index';
 import { useChangePassword } from '@/hooks/useAuth';
+import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 
@@ -33,6 +34,14 @@ export default function ChangePasswordScreen() {
 
   const change = useChangePassword();
 
+  // Forced first-login setup (?forced=1): a teacher must set their own password
+  // before entering the app; on success we clear the local flag and go home.
+  const { forced } = useLocalSearchParams<{ forced?: string }>();
+  const isForced = forced === '1';
+  const user = useAuthStore((s) => s.user);
+  const role = useAuthStore((s) => s.role);
+  const setSession = useAuthStore((s) => s.setSession);
+
   const mismatch = confirm.length > 0 && next !== confirm;
   const canSubmit = current.length > 0 && next.length >= 6 && next === confirm && !change.isPending;
 
@@ -40,7 +49,16 @@ export default function ChangePasswordScreen() {
     if (!canSubmit) return;
     change.mutate(
       { current_password: current, password: next },
-      { onSuccess: () => router.back() },
+      {
+        onSuccess: () => {
+          if (isForced && user && role) {
+            setSession({ ...user, must_set_password: false }, role);
+            router.replace('/(teacher)' as Href);
+          } else {
+            router.back();
+          }
+        },
+      },
     );
   };
 
@@ -52,15 +70,22 @@ export default function ChangePasswordScreen() {
         end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
       >
-        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="back" size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{t('auth.change_password')}</Text>
+        {!isForced && (
+          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="back" size={22} color="#fff" />
+          </TouchableOpacity>
+        )}
+        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{isForced ? t('onboarding.set_password_title') : t('auth.change_password')}</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
+            {isForced && (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.lg }}>
+                {t('onboarding.set_password_hint')}
+              </Text>
+            )}
             {change.isError && (
               <View style={{ backgroundColor: colors.dangerLight, padding: spacing.md, borderRadius: radius.md, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.danger }}>
                 <Icon name="warning" size={18} color={colors.danger} style={{ marginEnd: spacing.sm }} />

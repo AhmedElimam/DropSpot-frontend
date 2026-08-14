@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { useCourseFormOptions, useCreateCourse } from '@/hooks/useCourses';
+import { useTeacherOnboarding, useMarkOnboardingStep } from '@/hooks/useTeacherOnboarding';
 
 const DAYS_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -24,6 +25,10 @@ export default function CourseCreateScreen() {
   const insets = useSafeAreaInsets();
   const { data: options, isLoading } = useCourseFormOptions();
   const create = useCreateCourse();
+  const { data: onboarding } = useTeacherOnboarding();
+  const markStep = useMarkOnboardingStep();
+  const [showExplainer, setShowExplainer] = useState(false);
+  const explainerMarked = useRef(false);
 
   const [name, setName] = useState('');
   const [gradeId, setGradeId] = useState<string | null>(null);
@@ -52,6 +57,17 @@ export default function CourseCreateScreen() {
     }
   }, [options, termId]);
 
+  // Onboarding Step 2: show the explainer once when due, and mark course_form seen.
+  // Kept visible for the whole visit even after the state flips (local flag).
+  const explainerDue = !!onboarding?.active && !onboarding.steps.course_form;
+  useEffect(() => {
+    if (explainerDue && !explainerMarked.current) {
+      explainerMarked.current = true;
+      setShowExplainer(true);
+      markStep.mutate('course_form');
+    }
+  }, [explainerDue]);
+
   const slotsValid = slots.every((s) => TIME_RE.test(s.start_time) && TIME_RE.test(s.end_time) && s.end_time > s.start_time);
   const canSubmit = name.trim().length > 0 && !!gradeId && !!termId && slotsValid && !create.isPending;
 
@@ -78,8 +94,17 @@ export default function CourseCreateScreen() {
       },
       {
         onSuccess: (res) => {
-          Alert.alert(t('teacher.create_course'), res.term_ended ? t('teacher.create_term_ended') : t('teacher.create_done', { count: res.generated }), [
-            { text: t('common.ok'), onPress: () => router.replace(`/(teacher)/courses/${res.course.id}` as Href) },
+          // Onboarding Step 3: a popup showing the auto-generated sessions, then to
+          // the course detail (slots + upcoming counts).
+          const sessionsDue = !!onboarding?.active && !onboarding.steps.sessions;
+          if (sessionsDue) markStep.mutate('sessions');
+          const title = sessionsDue ? t('onboarding.sessions_title') : t('teacher.create_course');
+          const body = sessionsDue
+            ? (res.generated > 0 ? t('onboarding.sessions_body', { count: res.generated }) : t('onboarding.sessions_body_none'))
+            : (res.term_ended ? t('teacher.create_term_ended') : t('teacher.create_done', { count: res.generated }));
+          const okLabel = sessionsDue ? t('onboarding.view_course') : t('common.ok');
+          Alert.alert(title, body, [
+            { text: okLabel, onPress: () => router.replace(`/(teacher)/courses/${res.course.id}` as Href) },
           ]);
         },
         onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.create_failed')),
@@ -100,6 +125,14 @@ export default function CourseCreateScreen() {
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
         <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
+          {/* Onboarding Step 2: contextual explainer of this screen (geofence emphasized). */}
+          {showExplainer && (
+            <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand, textAlign: 'right' }}>{t('onboarding.course_form_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, color: colors.textSecondary, textAlign: 'right', marginTop: 4 }}>{t('onboarding.course_form_body')}</Text>
+            </View>
+          )}
+
           {/* Name */}
           <FieldLabel required>{t('teacher.course_name')}</FieldLabel>
           <TextInput value={name} onChangeText={setName} placeholder={t('teacher.course_name_ph')} placeholderTextColor={colors.textTertiary} style={input} />
@@ -135,6 +168,9 @@ export default function CourseCreateScreen() {
           {/* Radius */}
           <FieldLabel>{t('teacher.radius_label')}</FieldLabel>
           <Stepper value={radius_} min={10} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
+          {showExplainer && (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.brand, textAlign: 'right', marginTop: 4 }}>{t('onboarding.geofence_hint')}</Text>
+          )}
 
           {/* Description */}
           <FieldLabel>{t('teacher.description')}</FieldLabel>

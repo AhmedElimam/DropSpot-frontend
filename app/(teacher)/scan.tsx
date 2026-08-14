@@ -15,6 +15,7 @@ import { bufferScan, deleteScan } from '@/db/offlineScans';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { Icon } from '@/components/ui/Icon';
+import { TeacherTip } from '@/components/TeacherTip';
 
 const COOLDOWN_MS = 2500; // ignore repeat reads of the same card
 const FEEDBACK_MS = 1600; // how long the green/red result stays before resuming
@@ -259,6 +260,16 @@ export default function TeacherScan() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
+      {/* Attendance-only tip — never in payment or revision scanning modes. */}
+      {!payMode && !revisionMode && (
+        <TeacherTip
+          tip="attendance"
+          icon="scan"
+          titleKey="onboarding.tip_attendance_title"
+          bodyKey="onboarding.tip_attendance_body"
+          bulletKeys={['onboarding.tip_attendance_b1', 'onboarding.tip_attendance_b2']}
+        />
+      )}
       <CameraView
         style={{ flex: 1 }}
         facing="back"

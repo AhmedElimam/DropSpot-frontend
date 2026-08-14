@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { TeacherTip } from '@/components/TeacherTip';
 import {
   getResolutionSummary, getPendingExcuses, getPendingSwaps,
   approveExcuse, rejectExcuse, approveSwap, rejectSwap,
@@ -58,6 +59,14 @@ export default function ResolutionCenter() {
         </TouchableOpacity>
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('teacher.resolution_title')}</Text>
       </View>
+
+      <TeacherTip
+        tip="reports"
+        icon="reports"
+        titleKey="onboarding.tip_reports_title"
+        bodyKey="onboarding.tip_reports_body"
+        bulletKeys={['onboarding.tip_reports_b1']}
+      />
 
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />

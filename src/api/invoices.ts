@@ -1,6 +1,17 @@
 import client from './client';
 import { extractList, extractAttrs } from './utils';
 
+/** Informational payment target the teacher configured (where to send money). */
+export interface PaymentMethod {
+  type: 'vodafone_cash' | 'instapay';
+  /** Display label for the service, e.g. "فودافون كاش" / "إنستا باي". */
+  label: string;
+  /** The wallet number or InstaPay address to transfer to. */
+  number: string;
+  /** Expected name on the receiving account (services show it to the sender). */
+  name?: string | null;
+}
+
 export interface Invoice {
   id: string;
   number: string;
@@ -11,6 +22,8 @@ export interface Invoice {
   student_name?: string;
   teacher_name?: string;
   teacher_phone?: string | null;
+  /** Enabled, configured digital methods. Empty ⇒ cash/physical only. */
+  payment_methods?: PaymentMethod[];
 }
 
 function mapInvoices(data: any): Invoice[] {
@@ -42,7 +55,13 @@ export async function submitPaymentProof(invoiceId: string, imageUri: string): P
   const form = new FormData();
   const name = imageUri.split('/').pop() || 'proof.jpg';
   const ext = (name.split('.').pop() || 'jpg').toLowerCase();
-  const type = ext === 'png' ? 'image/png' : 'image/jpeg';
+  // Send the true MIME so the server sees the real format (iPhone gallery hands
+  // over HEIC/HEIF, not JPEG — mislabeling it broke the upload).
+  const MIME: Record<string, string> = {
+    png: 'image/png', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg',
+  };
+  const type = MIME[ext] ?? 'image/jpeg';
   // React Native FormData file shape.
   form.append('screenshot', { uri: imageUri, name, type } as any);
 

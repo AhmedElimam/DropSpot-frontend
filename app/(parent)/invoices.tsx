@@ -11,7 +11,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
-import { PaymentProofButton } from '@/components/parent/PaymentProofButton';
+import { PaymentSection } from '@/components/parent/PaymentSection';
 
 const statusConfig: Record<string, { color: string }> = {
   paid: { color: colors.success },
@@ -121,15 +121,7 @@ export default function InvoicesPage() {
                     </Text>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>{formatEGP(invoice.amount)}</Text>
                   </View>
-                  {invoice.status !== 'paid' && (
-                    <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
-                      {/* TEMP/INTERIM (Paymob blocked): remote transfer + screenshot proof. */}
-                      <PaymentProofButton invoice={invoice} />
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>
-                        {t('invoices.pay_hint')}
-                      </Text>
-                    </View>
-                  )}
+                  <PaymentSection invoice={invoice} />
                 </TouchableOpacity>
               );
             })

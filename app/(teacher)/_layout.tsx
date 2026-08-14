@@ -191,6 +191,8 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="schedule-overrides" options={{ href: null }} />
       {/* Assistant management (teacher-only) — reached from Settings, not a tab. */}
       <Tabs.Screen name="assistants" options={{ href: null }} />
+      {/* Getting Started reference — pushed from Settings, not a tab. */}
+      <Tabs.Screen name="getting-started" options={{ href: null }} />
     </Tabs>
   );
 }

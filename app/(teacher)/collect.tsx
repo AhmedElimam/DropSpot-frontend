@@ -5,6 +5,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
+import { TeacherTip } from '@/components/TeacherTip';
 
 function Option({ kind, title, subtitle, icon }: { kind: 'bill' | 'booklet'; title: string; subtitle: string; icon: IconName }) {
   return (
@@ -49,6 +50,14 @@ export default function TeacherCollect() {
         <Option kind="bill" title="دفع الفواتير" subtitle="امسح البطاقة لتحصيل الفاتورة المستحقة" icon="money" />
         <Option kind="booklet" title="دفع الملازم" subtitle="امسح البطاقة لتحصيل رسم الملزمة" icon="book" />
       </View>
+
+      <TeacherTip
+        tip="billing"
+        icon="money"
+        titleKey="onboarding.tip_billing_title"
+        bodyKey="onboarding.tip_billing_body"
+        bulletKeys={['onboarding.tip_billing_b1', 'onboarding.tip_billing_b2']}
+      />
     </View>
   );
 }

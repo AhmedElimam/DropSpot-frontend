@@ -23,6 +23,7 @@ import {
   type PreCardScanStudent,
 } from '@/api/preCardInvitation';
 import { sendPrecardPhone } from '@/api/precardPhone';
+import { TeacherTip } from '@/components/TeacherTip';
 
 type Review =
   | { kind: 'match'; student: LookupStudent; value: string }
@@ -205,6 +206,13 @@ export default function TeacherEnroll() {
   if (!ready) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+        <TeacherTip
+          tip="invitation"
+          icon="add"
+          titleKey="onboarding.tip_invitation_title"
+          bodyKey="onboarding.tip_invitation_body"
+          bulletKeys={['onboarding.tip_invitation_b1', 'onboarding.tip_invitation_b2']}
+        />
         <View style={{ padding: spacing.xl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>

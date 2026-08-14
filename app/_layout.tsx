@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { SurveyModal } from '@/components/SurveyModal';
+import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
 import { colors } from '@/theme/index';
 
 I18nManager.forceRTL(true);
@@ -97,6 +98,8 @@ export default function RootLayout() {
             </View>
             {/* Super-admin survey prompt — checked on app-open/login, once across platforms. */}
             <SurveyModal />
+            {/* Teacher onboarding — Step 1 intro popup for a brand-new teacher. */}
+            <TeacherOnboardingModal />
           </View>
         </HydrationGate>
       </SafeAreaProvider>
