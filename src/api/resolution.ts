@@ -11,7 +11,19 @@ export interface ResolutionSummary {
   excuses: number;
   swaps: number;
   tickets: number;
+  termination_candidates: number;
   total: number;
+}
+
+export interface TerminationCandidate {
+  id: number;
+  enrollment_id: number;
+  student_id: number;
+  student_code: string | null;
+  student_name: string | null;
+  course_name: string | null;
+  absences: number;
+  last_absent_at: string | null;
 }
 
 export interface ExcuseItem {
@@ -62,4 +74,15 @@ export async function approveSwap(id: number): Promise<void> {
 
 export async function rejectSwap(id: number): Promise<void> {
   await client.post(`/teacher/session-swaps/${id}/reject`);
+}
+
+/** Students with 3 consecutive unexcused absences — flagged for the teacher to confirm termination. */
+export async function getTerminationCandidates(): Promise<TerminationCandidate[]> {
+  const { data } = await client.get('/teacher/termination-candidates');
+  return extractList(data, 'termination-candidate').map((a: any) => ({ id: Number(a.id), ...a })) as TerminationCandidate[];
+}
+
+/** Confirm termination of a flagged enrollment (soft-drop + parent notice — same as manual). */
+export async function terminateEnrollment(enrollmentId: number): Promise<void> {
+  await client.post(`/teacher/enrollments/${enrollmentId}/terminate`);
 }

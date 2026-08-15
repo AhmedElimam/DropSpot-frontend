@@ -3,7 +3,7 @@ import client from './client';
 export type OnboardingStep = 'intro' | 'course_form' | 'sessions';
 
 /** Independent, non-blocking contextual tips — fire the first time each screen is reached, any order. */
-export type OnboardingTip = 'billing' | 'invitation' | 'attendance' | 'reports';
+export type OnboardingTip = 'billing' | 'invitation' | 'attendance' | 'reports' | 'payment';
 
 /** Any onboarding key the /seen endpoint accepts. */
 export type OnboardingKey = OnboardingStep | OnboardingTip;
@@ -13,7 +13,7 @@ export interface OnboardingState {
   steps: { intro: boolean; course_form: boolean; sessions: boolean };
   next_step: OnboardingStep | null;
   has_courses: boolean;
-  tips: { billing: boolean; invitation: boolean; attendance: boolean; reports: boolean };
+  tips: { billing: boolean; invitation: boolean; attendance: boolean; reports: boolean; payment: boolean };
 }
 
 const EMPTY: OnboardingState = {
@@ -21,7 +21,7 @@ const EMPTY: OnboardingState = {
   steps: { intro: false, course_form: false, sessions: false },
   next_step: null,
   has_courses: false,
-  tips: { billing: false, invitation: false, attendance: false, reports: false },
+  tips: { billing: false, invitation: false, attendance: false, reports: false, payment: false },
 };
 
 /** Teacher Onboarding Walkthrough state — shared with the web dashboard. */

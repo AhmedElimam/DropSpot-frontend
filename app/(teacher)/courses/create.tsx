@@ -69,7 +69,10 @@ export default function CourseCreateScreen() {
   }, [explainerDue]);
 
   const slotsValid = slots.every((s) => TIME_RE.test(s.start_time) && TIME_RE.test(s.end_time) && s.end_time > s.start_time);
-  const canSubmit = name.trim().length > 0 && !!gradeId && !!termId && slotsValid && !create.isPending;
+  // Session-based billing (الفوترة حسب عدد الحصص) is required — a course can't be
+  // created without a cycle size and a positive price.
+  const billingValid = parseFloat(cyclePrice) >= 1 && parseInt(cycleSessions, 10) >= 1;
+  const canSubmit = name.trim().length > 0 && !!gradeId && !!termId && slotsValid && billingValid && !create.isPending;
 
   const addSlot = () => setSlots((s) => [...s, { day_of_week: 0, start_time: '16:00', end_time: '18:00' }]);
   const removeSlot = (i: number) => setSlots((s) => s.filter((_, idx) => idx !== i));
@@ -87,8 +90,8 @@ export default function CourseCreateScreen() {
         radius_horizontal_meters: radius_,
         description: description.trim() || undefined,
         slots: slots.length ? slots : undefined,
-        ...(cycleSessions.trim() ? { sessions_per_billing_cycle: Number(cycleSessions.trim()) } : {}),
-        cycle_price: cyclePrice.trim() ? Number(cyclePrice.trim()) : null,
+        sessions_per_billing_cycle: Number(cycleSessions.trim()),
+        cycle_price: Number(cyclePrice.trim()),
         booklet_price: bookletPrice.trim() ? Number(bookletPrice.trim()) : null,
         booking_price: bookingPrice.trim() ? Number(bookingPrice.trim()) : null,
       },
@@ -209,15 +212,17 @@ export default function CourseCreateScreen() {
           )}
 
           {/* Session-based billing — set at creation so the course works immediately */}
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginTop: spacing.xl }}>{t('teacher.billing_section')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginTop: spacing.xl }}>
+            {t('teacher.billing_section')} <Text style={{ color: colors.danger }}>*</Text>
+          </Text>
           <View style={{ flexDirection: 'row', gap: spacing.md }}>
             <View style={{ flex: 1 }}>
-              <FieldLabel>{t('teacher.cycle_sessions')}</FieldLabel>
+              <FieldLabel required>{t('teacher.cycle_sessions')}</FieldLabel>
               <TextInput value={cycleSessions} onChangeText={setCycleSessions} placeholder="8" placeholderTextColor={colors.textTertiary} keyboardType="numeric" style={input} />
             </View>
             <View style={{ flex: 1 }}>
-              <FieldLabel>{t('teacher.cycle_price')}</FieldLabel>
-              <TextInput value={cyclePrice} onChangeText={setCyclePrice} placeholder={t('teacher.billing_off')} placeholderTextColor={colors.textTertiary} keyboardType="numeric" style={input} />
+              <FieldLabel required>{t('teacher.cycle_price')}</FieldLabel>
+              <TextInput value={cyclePrice} onChangeText={setCyclePrice} placeholder="مثال: 300" placeholderTextColor={colors.textTertiary} keyboardType="numeric" style={input} />
             </View>
           </View>
           <View style={{ flexDirection: 'row', gap: spacing.md }}>
@@ -232,6 +237,9 @@ export default function CourseCreateScreen() {
           </View>
           {perSession ? (
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginTop: spacing.sm }}>{t('teacher.per_session_hint', { price: perSession })}</Text>
+          ) : null}
+          {explainerDue ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.brand, textAlign: 'right', marginTop: spacing.sm }}>{t('onboarding.price_hint')}</Text>
           ) : null}
 
           <View style={{ marginTop: spacing.xl }}>

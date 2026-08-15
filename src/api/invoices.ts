@@ -24,6 +24,8 @@ export interface Invoice {
   teacher_phone?: string | null;
   /** Enabled, configured digital methods. Empty ⇒ cash/physical only. */
   payment_methods?: PaymentMethod[];
+  /** Whether "pay in person / cash" is offered (default true). */
+  accepts_physical?: boolean;
 }
 
 function mapInvoices(data: any): Invoice[] {

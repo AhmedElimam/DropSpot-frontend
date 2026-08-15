@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients, control } from '@/theme/index';
@@ -39,6 +39,12 @@ export default function ParentSettings() {
       icon: 'lock',
       color: colors.accentWarm ?? colors.primary,
       onPress: () => router.push('/change-password'),
+    },
+    {
+      key: 'auth.change_phone',
+      icon: 'call',
+      color: colors.primary,
+      onPress: () => router.push('/(parent)/change-phone' as Href),
     },
     {
       key: 'profile.contact_support',

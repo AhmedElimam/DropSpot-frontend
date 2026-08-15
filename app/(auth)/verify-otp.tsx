@@ -13,13 +13,15 @@ import { AuthScaffold } from '@/components/auth/AuthScaffold';
 
 export default function VerifyOtpScreen() {
   const { t } = useTranslation();
-  const { parent_phone } = useLocalSearchParams<{ parent_phone: string; student_id: string }>();
+  const { parent_phone, name } = useLocalSearchParams<{ parent_phone: string; student_id: string; name?: string }>();
   const [code, setCode] = useState('');
   const inputRef = useRef<TextInput>(null);
 
   const verifyMutation = useMutation({
     mutationFn: () => verifyOtp(parent_phone ?? '', code),
-    onSuccess: () => router.replace('/(auth)/login'),
+    // Land on the congrats wall (a warm welcome) rather than dropping straight to
+    // login — this is the moment the student account actually comes to life.
+    onSuccess: () => router.replace(`/(auth)/welcome?name=${encodeURIComponent(name ?? '')}`),
   });
 
   const handleVerify = () => {

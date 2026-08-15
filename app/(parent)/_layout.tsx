@@ -153,6 +153,8 @@ export default function ParentTabLayout() {
       <Tabs.Screen name="child/[id]/teachers" options={{ href: null }} />
       <Tabs.Screen name="child/[id]/invite-code" options={{ href: null }} />
       <Tabs.Screen name="quiz/[quizId]" options={{ href: null }} />
+      {/* Self-service phone change — pushed from the profile, not a tab. */}
+      <Tabs.Screen name="change-phone" options={{ href: null }} />
     </Tabs>
   );
 }

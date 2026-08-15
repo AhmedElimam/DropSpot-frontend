@@ -11,7 +11,8 @@ import { TeacherTip } from '@/components/TeacherTip';
 import {
   getResolutionSummary, getPendingExcuses, getPendingSwaps,
   approveExcuse, rejectExcuse, approveSwap, rejectSwap,
-  type ExcuseItem, type SwapItem,
+  getTerminationCandidates, terminateEnrollment,
+  type ExcuseItem, type SwapItem, type TerminationCandidate,
 } from '@/api/resolution';
 
 /**
@@ -28,11 +29,24 @@ export default function ResolutionCenter() {
   const summary = useQuery({ queryKey: ['resolution-summary'], queryFn: getResolutionSummary });
   const excuses = useQuery({ queryKey: ['resolution-excuses'], queryFn: getPendingExcuses });
   const swaps = useQuery({ queryKey: ['resolution-swaps'], queryFn: getPendingSwaps });
+  const candidates = useQuery({ queryKey: ['resolution-termination'], queryFn: getTerminationCandidates });
 
   const refetchAll = () => {
     qc.invalidateQueries({ queryKey: ['resolution-summary'] });
     qc.invalidateQueries({ queryKey: ['resolution-excuses'] });
     qc.invalidateQueries({ queryKey: ['resolution-swaps'] });
+    qc.invalidateQueries({ queryKey: ['resolution-termination'] });
+  };
+
+  const confirmTerminate = (c: TerminationCandidate) => {
+    Alert.alert(
+      t('resolution.terminate_title'),
+      t('resolution.terminate_confirm', { name: c.student_name ?? '', course: c.course_name ?? '', n: c.absences }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('resolution.terminate_action'), style: 'destructive', onPress: () => act(`term-${c.id}`, () => terminateEnrollment(c.enrollment_id)) },
+      ],
+    );
   };
 
   const act = async (key: string, fn: () => Promise<void>) => {
@@ -47,8 +61,8 @@ export default function ResolutionCenter() {
     }
   };
 
-  const loading = summary.isLoading || excuses.isLoading || swaps.isLoading;
-  const refreshing = summary.isRefetching || excuses.isRefetching || swaps.isRefetching;
+  const loading = summary.isLoading || excuses.isLoading || swaps.isLoading || candidates.isLoading;
+  const refreshing = summary.isRefetching || excuses.isRefetching || swaps.isRefetching || candidates.isRefetching;
   const s = summary.data;
 
   return (
@@ -80,7 +94,38 @@ export default function ResolutionCenter() {
             <SummaryTile label={t('resolution.excuses')} value={s?.excuses ?? 0} />
             <SummaryTile label={t('resolution.swaps')} value={s?.swaps ?? 0} />
             <SummaryTile label={t('resolution.tickets')} value={s?.tickets ?? 0} />
+            <SummaryTile label={t('resolution.candidates')} value={s?.termination_candidates ?? 0} />
           </View>
+
+          {/* Auto-termination candidates — 3 consecutive unexcused absences. Confirm only. */}
+          {candidates.data && candidates.data.length > 0 ? (
+            <>
+              <SectionTitle>{t('resolution.termination')}</SectionTitle>
+              {candidates.data.map((c: TerminationCandidate) => (
+                <View key={`term-${c.id}`} style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.danger + '55', padding: spacing.lg, marginBottom: spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                    <Icon name="warning" size={18} color={colors.danger} />
+                    <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.student_name ?? '—'}</Text>
+                  </View>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4 }}>
+                    {[c.course_name, t('resolution.absences_n', { n: c.absences })].filter(Boolean).join(' · ')}
+                  </Text>
+                  <TouchableOpacity
+                    disabled={busy === `term-${c.id}`}
+                    onPress={() => confirmTerminate(c)}
+                    activeOpacity={0.85}
+                    style={{ marginTop: spacing.md, minHeight: 44, borderRadius: radius.md, backgroundColor: colors.dangerLight, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm }}
+                  >
+                    {busy === `term-${c.id}` ? (
+                      <ActivityIndicator color={colors.dangerText} />
+                    ) : (
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>{t('resolution.terminate_action')}</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </>
+          ) : null}
 
           {(s?.total ?? 0) === 0 ? (
             <View style={{ alignItems: 'center', marginTop: spacing.xxl }}>
