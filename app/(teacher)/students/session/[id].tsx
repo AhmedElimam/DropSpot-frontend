@@ -190,6 +190,32 @@ export default function SessionDetailScreen() {
                 </View>
               </View>
 
+              {/* Session type: normal sheet vs big exam (§1). An exam's marks report separately. */}
+              <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginTop: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('teacher.session_type_label')}</Text>
+                <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: 4 }}>
+                  {(['normal_sheet', 'quiz_exam'] as const).map((ty) => {
+                    const on = (s.type ?? 'normal_sheet') === ty;
+                    return (
+                      <TouchableOpacity
+                        key={ty}
+                        onPress={() => { if (!on) controls.setType.mutate(ty); }}
+                        disabled={controls.setType.isPending}
+                        activeOpacity={0.85}
+                        style={{ flex: 1, paddingVertical: spacing.sm, borderRadius: radius.sm, backgroundColor: on ? colors.surface : 'transparent', alignItems: 'center' }}
+                      >
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary }}>
+                          {t(ty === 'normal_sheet' ? 'teacher.type_normal_sheet' : 'teacher.type_quiz_exam')}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {s.is_exam ? (
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: spacing.sm }}>{t('teacher.type_quiz_exam_hint')}</Text>
+                ) : null}
+              </View>
+
               {/* Sheet controls */}
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginTop: spacing.md }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

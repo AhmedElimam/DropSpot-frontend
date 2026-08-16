@@ -9,6 +9,8 @@ import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { initOfflineScans } from '@/db/offlineScans';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
+import { registerForPushNotifications } from '@/utils/push-notifications';
+import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -67,6 +69,7 @@ export default function TeacherTabLayout() {
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const role = useAuthStore((s) => s.role);
   const pending = useOfflineStore((s) => s.pending);
   const rejected = useOfflineStore((s) => s.rejected);
   // Badge = everything still unfinished: scans waiting to sync AND scans the
@@ -97,6 +100,20 @@ export default function TeacherTabLayout() {
     };
   }, [isAuthenticated]);
 
+  // Register this device's push token so teacher notifications (daily financial
+  // report, admin-ticket replies, etc.) can be delivered via FCM. Previously this
+  // was wired only in the parent layout, so teachers had no tokens. Fire-and-forget;
+  // a permission denial or iOS APNs limitation just yields no token (in-app inbox
+  // still works). Re-run on foreground so a later permission grant is picked up.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    registerForPushNotifications();
+    const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
+      if (s === 'active') registerForPushNotifications();
+    });
+    return () => sub.remove();
+  }, [isAuthenticated]);
+
   // Connectivity: drive the offline/online UI indicator only. Reconnecting does
   // NOT trigger any sync — reconciliation is teacher-initiated, full stop.
   useEffect(() => {
@@ -121,6 +138,9 @@ export default function TeacherTabLayout() {
   }
 
   return (
+    <>
+    {/* Relocation prompt — teachers only (assistants never edit geofence anchors). */}
+    {isAuthenticated && role === 'teacher' ? <RelocationPrompt enabled /> : null}
     <Tabs
       // Render NO bar on full-screen surfaces (invite scanner, open ticket) by not
       // mounting the bar component for them. Every real tab shows the bar.
@@ -186,11 +206,17 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="settings" />
       {/* Reconciliation is reached from the pending badge / Home, not a tab. */}
       <Tabs.Screen name="resolution" options={{ href: null }} />
+      {/* Insights — pushed from the manage hub, not a tab. */}
+      <Tabs.Screen name="insights" options={{ href: null }} />
+      {/* Order a card for an existing enrollment — pushed from the roster cards segment. */}
+      <Tabs.Screen name="card-order-new" options={{ href: null }} />
       <Tabs.Screen name="reconcile" options={{ href: null }} />
       {/* Enroll-by-card (invite student) — pushed from Home; full screen, no bar. */}
       <Tabs.Screen name="enroll" options={{ href: null }} />
       {/* Revision-session picker → scan tab in revision mode. Not a tab. */}
       <Tabs.Screen name="revisions" options={{ href: null }} />
+      {/* Merged-exam mark entry — pushed from the revisions list, not a tab. */}
+      <Tabs.Screen name="revision-marks" options={{ href: null }} />
       {/* Payment kind picker → scan tab in payment mode. Not a tab. */}
       <Tabs.Screen name="collect" options={{ href: null }} />
       {/* Grant a billing exception — searched from Home, not a tab. */}
@@ -209,5 +235,6 @@ export default function TeacherTabLayout() {
       {/* Getting Started reference — pushed from Settings, not a tab. */}
       <Tabs.Screen name="getting-started" options={{ href: null }} />
     </Tabs>
+    </>
   );
 }

@@ -1,6 +1,15 @@
 import client from './client';
 import { extractList, extractAttrs } from './utils';
 
+export interface ExamResult {
+  date?: string | null;
+  title?: string | null;
+  mark?: number | null;
+  max?: number | null;
+  pct?: number | null;
+  source?: 'session' | 'revision';
+}
+
 export interface ReportCard {
   id: string;
   student_id: string;
@@ -18,6 +27,8 @@ export interface ReportCard {
   attendance_score?: number | string | null;
   overall_score?: number | string | null;
   letter_grade?: string | null;
+  /** §1/§2 — big-exam results, separate from the academic average. */
+  exam_results?: ExamResult[];
   generated_at?: string;
 }
 

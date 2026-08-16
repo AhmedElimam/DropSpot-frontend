@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal, TextInput } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import {
   getTerminationCandidates, terminateEnrollment,
   type ExcuseItem, type SwapItem, type TerminationCandidate,
 } from '@/api/resolution';
+import { createAdminTicket, getMyAdminTickets, type AdminTicket } from '@/api/adminTickets';
 
 /**
  * Resolution Center — the teacher's consolidated review hub. Aggregates the review
@@ -26,10 +27,35 @@ export default function ResolutionCenter() {
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
 
+  // Admin-ticket compose ("مراسلة الإدارة") — a general teacher→super-admin channel.
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+
   const summary = useQuery({ queryKey: ['resolution-summary'], queryFn: getResolutionSummary });
   const excuses = useQuery({ queryKey: ['resolution-excuses'], queryFn: getPendingExcuses });
   const swaps = useQuery({ queryKey: ['resolution-swaps'], queryFn: getPendingSwaps });
   const candidates = useQuery({ queryKey: ['resolution-termination'], queryFn: getTerminationCandidates });
+  const myTickets = useQuery({ queryKey: ['my-admin-tickets'], queryFn: getMyAdminTickets });
+
+  const sendTicket = async () => {
+    if (subject.trim().length < 3 || message.trim().length < 20) {
+      Alert.alert('', t('resolution.ticket_too_short'));
+      return;
+    }
+    setSending(true);
+    try {
+      await createAdminTicket({ subject: subject.trim(), message: message.trim() });
+      setSubject(''); setMessage(''); setComposeOpen(false);
+      qc.invalidateQueries({ queryKey: ['my-admin-tickets'] });
+      Alert.alert('', t('resolution.ticket_sent'));
+    } catch {
+      Alert.alert(t('common.error'), t('resolution.ticket_failed'));
+    } finally {
+      setSending(false);
+    }
+  };
 
   const refetchAll = () => {
     qc.invalidateQueries({ queryKey: ['resolution-summary'] });
@@ -89,13 +115,46 @@ export default function ResolutionCenter() {
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetchAll} tintColor={colors.primary} />}
         >
-          {/* Summary tiles */}
-          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
+          {/* Summary tiles — 2×2 grid so the Arabic labels never crowd/overflow. */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
             <SummaryTile label={t('resolution.excuses')} value={s?.excuses ?? 0} />
             <SummaryTile label={t('resolution.swaps')} value={s?.swaps ?? 0} />
             <SummaryTile label={t('resolution.tickets')} value={s?.tickets ?? 0} />
             <SummaryTile label={t('resolution.candidates')} value={s?.termination_candidates ?? 0} />
           </View>
+
+          {/* Contact the admin — a general teacher→super-admin message channel. */}
+          <TouchableOpacity onPress={() => setComposeOpen(true)} activeOpacity={0.85}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginTop: spacing.md }}>
+            <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.brand + '18', justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name="tickets" size={22} color={colors.brand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('resolution.contact_admin')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('resolution.contact_admin_sub')}</Text>
+            </View>
+            <Icon name="add" size={20} color={colors.brand} />
+          </TouchableOpacity>
+
+          {/* My messages to admin — status tracking. */}
+          {myTickets.data && myTickets.data.length > 0 ? (
+            <>
+              <SectionTitle>{t('resolution.my_admin_tickets')}</SectionTitle>
+              {myTickets.data.map((tk: AdminTicket) => (
+                <View key={`at-${tk.id}`} style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>{tk.subject}</Text>
+                    <View style={{ backgroundColor: (tk.status === 'resolved' ? colors.success : colors.warning) + '22', borderRadius: radius.full, paddingVertical: 3, paddingHorizontal: 10 }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: tk.status === 'resolved' ? colors.success : colors.warning }}>
+                        {t(tk.status === 'resolved' ? 'resolution.status_resolved' : 'resolution.status_open')}
+                      </Text>
+                    </View>
+                  </View>
+                  {tk.admin_note ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>{tk.admin_note}</Text> : null}
+                </View>
+              ))}
+            </>
+          ) : null}
 
           {/* Auto-termination candidates — 3 consecutive unexcused absences. Confirm only. */}
           {candidates.data && candidates.data.length > 0 ? (
@@ -186,15 +245,41 @@ export default function ResolutionCenter() {
           ) : null}
         </ScrollView>
       )}
+
+      {/* Compose a message to the super-admin. */}
+      <Modal visible={composeOpen} transparent animationType="slide" onRequestClose={() => setComposeOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('resolution.contact_admin')}</Text>
+
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.xs }}>{t('resolution.ticket_subject')}</Text>
+            <TextInput value={subject} onChangeText={setSubject} placeholder={t('resolution.ticket_subject_ph')} placeholderTextColor={colors.textTertiary}
+              style={{ backgroundColor: colors.background, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, height: 46, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.md }} />
+
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.xs }}>{t('resolution.ticket_message')}</Text>
+            <TextInput value={message} onChangeText={setMessage} placeholder={t('resolution.ticket_message_ph')} placeholderTextColor={colors.textTertiary} multiline
+              style={{ backgroundColor: colors.background, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, minHeight: 100, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right', textAlignVertical: 'top', marginBottom: spacing.lg }} />
+
+            <TouchableOpacity onPress={sendTicket} disabled={sending} activeOpacity={0.85}
+              style={{ minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.sm }}>
+              {sending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('resolution.send')}</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setComposeOpen(false)} style={{ paddingVertical: spacing.sm, alignItems: 'center' }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 function SummaryTile({ label, value }: { label: string; value: number }) {
+  // width:'48%' + parent flexWrap → a 2×2 grid, so long Arabic labels never crowd.
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center' }}>
+    <View style={{ width: '48%', flexGrow: 1, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.sm, alignItems: 'center' }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: value > 0 ? colors.brand : colors.textTertiary }}>{value}</Text>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{label}</Text>
+      <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{label}</Text>
     </View>
   );
 }

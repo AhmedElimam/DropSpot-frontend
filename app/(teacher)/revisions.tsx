@@ -87,13 +87,28 @@ export default function TeacherRevisions() {
                   <Icon name="scan" size={22} color={colors.brand} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{rev.title}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{rev.title}</Text>
+                    {rev.is_quiz_exam ? (
+                      <View style={{ backgroundColor: colors.brand + '22', borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2 }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{t('teacher.exam_badge')}</Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
                     {billingLabel(rev.billing_mode, t)}
                     {disabled ? ` · ${t('teacher.revision_no_slot')}` : ''}
                   </Text>
                 </View>
-                {!disabled ? <Icon name="forward" size={20} color={colors.textSecondary} /> : null}
+                {/* A quiz_exam offers a marks shortcut in addition to scanning students in. */}
+                {rev.is_quiz_exam && rev.instance_id != null ? (
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: '/(teacher)/revision-marks', params: { revisionId: String(rev.id), instanceId: String(rev.instance_id), title: rev.title, maxMark: rev.max_mark != null ? String(rev.max_mark) : '' } })}
+                    style={{ paddingHorizontal: spacing.md, height: 40, borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand, justifyContent: 'center', alignItems: 'center' }}
+                  >
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.exam_marks')}</Text>
+                  </TouchableOpacity>
+                ) : (!disabled ? <Icon name="forward" size={20} color={colors.textSecondary} /> : null)}
               </TouchableOpacity>
             );
           })}

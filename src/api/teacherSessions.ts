@@ -61,6 +61,9 @@ export interface SessionDetail {
   sheet_expected: boolean;
   sheet_excluded: boolean;
   sheet_max_mark: number | null;
+  /** §1 — 'normal_sheet' | 'quiz_exam'. A big exam's marks report separately. */
+  type?: 'normal_sheet' | 'quiz_exam';
+  is_exam?: boolean;
   attendees: SessionAttendee[];
   /** Students swapped INTO this session — shown in a separate, non-default tab. */
   swap_ins?: SwapInAttendee[];
@@ -128,6 +131,12 @@ export async function toggleSheet(sessionId: string | number, studentId: number)
 
 export async function toggleSheetExcluded(sessionId: string | number): Promise<SessionDetail> {
   const { data } = await client.post(`/teacher/sessions/${sessionId}/sheet-excluded`);
+  return detail(data);
+}
+
+/** §1 — set this session's type: 'normal_sheet' or 'quiz_exam' (big physical exam). */
+export async function setSessionType(sessionId: string | number, type: 'normal_sheet' | 'quiz_exam'): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/type`, { type });
   return detail(data);
 }
 

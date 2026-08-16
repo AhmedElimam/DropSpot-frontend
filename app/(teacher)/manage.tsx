@@ -2,11 +2,14 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { StatsCard } from '@/components/layout/StatsCard';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { getTeacherInsights } from '@/api/insights';
 
 /**
  * "الإدارة" tab — the hub for course & schedule management (the web-dashboard
@@ -22,6 +25,9 @@ export default function TeacherManage() {
   const canCourses = can(ABILITY.MANAGE_COURSES);
   const canSessions = can(ABILITY.MANAGE_SESSIONS);
   const ramadanOn = !!flags?.ramadan_schedule;
+  const insights = useQuery({ queryKey: ['teacher-insights'], queryFn: getTeacherInsights });
+  const ins = insights.data;
+  const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
 
   const Row = ({ icon, title, sub, onPress, tint }: { icon: IconName; title: string; sub: string; onPress: () => void; tint?: string }) => (
     <TouchableOpacity
@@ -51,8 +57,34 @@ export default function TeacherManage() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}>
+        {/* Mini insights — a compact glance, tap through to the full screen. */}
+        <SectionTitle>{t('teacher.insights_title')}</SectionTitle>
+        {ins ? (
+          <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/(teacher)/insights' as Href)}>
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
+              <StatsCard label={t('insights.attendance_rate')} value={`${ins.attendance.rate}%`} color={colors.success} bgColor={colors.success + '18'} />
+              <StatsCard label={t('insights.at_risk')} value={ins.absence.at_risk} color={colors.warning} bgColor={colors.warning + '18'} />
+            </View>
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
+              <StatsCard label={t('insights.collected_month')} value={money(ins.financial.collected_this_month)} />
+              <StatsCard label={t('insights.new_students')} value={ins.growth.new_students} color={colors.brand} bgColor={colors.brand + '18'} />
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.view_all_insights')}</Text>
+              <Icon name="back" size={16} color={colors.brand} />
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <Row icon="reports" title={t('teacher.insights_title')} sub={t('teacher.insights_sub')} onPress={() => router.push('/(teacher)/insights' as Href)} />
+        )}
+
         <SectionTitle>{t('teacher.resolution_title')}</SectionTitle>
         <Row icon="bell" title={t('teacher.resolution_title')} sub={t('teacher.resolution_sub')} tint={colors.warning} onPress={() => router.push('/(teacher)/resolution' as Href)} />
+
+        {/* Special / exam sessions — run + enter marks (creation is on web). */}
+        {flags?.revision_kiosk ? (
+          <Row icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/revisions' as Href)} />
+        ) : null}
 
         <SectionTitle>{t('teacher.courses_title')}</SectionTitle>
         <Row icon="book" title={t('teacher.courses_title')} sub={t('teacher.courses_manage_hint')} onPress={() => router.push('/(teacher)/courses' as Href)} />

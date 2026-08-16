@@ -9,7 +9,7 @@ import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@
 import { useChildren } from '@/hooks/useChildren';
 import { getStudentCoverage, getAttendanceRecords } from '@/api/attendance';
 import { getStudentGrades } from '@/api/grades';
-import { getQuizzes } from '@/api/quizzes';
+import { getStudentExamResults } from '@/api/exams';
 import { getUpcomingStudentSessions } from '@/api/sessions';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon } from '@/components/ui/Icon';
 
-type TabKey = 'attendance' | 'grades' | 'quizzes' | 'settings';
+type TabKey = 'attendance' | 'grades' | 'exams' | 'settings';
 
 const cardStyle = {
   backgroundColor: colors.surface,
@@ -61,9 +61,10 @@ export default function ChildDetailScreen() {
     enabled: !!child,
   });
 
-  const { data: quizzes, isLoading: quizzesLoading } = useQuery({
-    queryKey: ['quizzes', child?.student_id],
-    queryFn: () => getQuizzes(child!.student_id),
+  // Physical exam results (نتيجة الامتحان) — repurposed from the retired in-app quizzes tab.
+  const { data: exams, isLoading: examsLoading } = useQuery({
+    queryKey: ['exam-results', child?.student_id],
+    queryFn: () => getStudentExamResults(child!.student_id),
     enabled: !!child,
   });
 
@@ -91,7 +92,7 @@ export default function ChildDetailScreen() {
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'attendance', label: t('reports.attendance') },
     { key: 'grades', label: t('reports.grades') },
-    { key: 'quizzes', label: t('quiz.quizzes') },
+    { key: 'exams', label: t('reports.exam_results') },
     { key: 'settings', label: t('nav.settings') },
   ];
 
@@ -338,54 +339,37 @@ export default function ChildDetailScreen() {
             </>
           )}
 
-          {activeTab === 'quizzes' && (
+          {activeTab === 'exams' && (
             <>
               <View style={cardStyle}>
-                <Text style={textPresets.h3}>{t('quiz.quizzes')}</Text>
-                {quizzesLoading ? (
+                <Text style={textPresets.h3}>{t('reports.exam_results')}</Text>
+                {examsLoading ? (
                   <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: spacing.md }} />
-                ) : !quizzes?.length ? (
+                ) : !exams?.length ? (
                   <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, textAlign: 'center', padding: spacing.xl }}>
-                    {t('quiz.no_quizzes')}
+                    {t('reports.no_exams')}
                   </Text>
                 ) : (
                   <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
-                    {quizzes.map((q) => {
-                      const now = new Date();
-                      const ended = q.ends_at ? new Date(q.ends_at) < now : false;
-                      const isPending = q.is_active && !ended;
-
+                    {exams.map((e, i) => {
+                      const pass = e.pct != null ? e.pct >= 50 : true;
                       return (
-                        <View key={q.id} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
+                        <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: i < exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <View
-                              style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md, backgroundColor: isPending ? colors.brandTint : colors.successLight }}
-                            >
-                              <Icon name={isPending ? 'quiz' : 'success'} size={20} color={isPending ? colors.brand : colors.success} />
+                            <View style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md, backgroundColor: pass ? colors.successLight : colors.dangerLight }}>
+                              <Icon name="reports" size={20} color={pass ? colors.success : colors.danger} />
                             </View>
                             <View style={{ flex: 1 }}>
-                              <Text style={[textPresets.body, { fontFamily: fonts.bold }]}>{q.title}</Text>
-                              <Text style={textPresets.caption}>{q.course_name}</Text>
+                              <Text style={[textPresets.body, { fontFamily: fonts.bold }]} numberOfLines={1}>{e.title ?? t('reports.exam_results')}</Text>
+                              {e.date ? <Text style={textPresets.caption}>{e.date}</Text> : null}
                             </View>
-                            <View style={{ backgroundColor: isPending ? colors.warningLight : colors.successLight, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full }}>
-                              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: isPending ? colors.warningText : colors.successText }}>
-                                {isPending ? t('quiz.upcoming_quiz') : t('session.completed')}
+                            <View style={{ alignItems: 'flex-end' }}>
+                              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.brand }}>
+                                {e.mark}{e.max ? ` / ${e.max}` : ''}
                               </Text>
+                              {e.pct != null ? <Text style={textPresets.caption}>{e.pct}%</Text> : null}
                             </View>
                           </View>
-                          <View style={{ flexDirection: 'row', marginTop: spacing.sm, gap: spacing.md }}>
-                            <Text style={textPresets.caption}>{t('quiz.questions_count', { count: q.question_count })}</Text>
-                            <Text style={textPresets.caption}>·</Text>
-                            <Text style={textPresets.caption}>{t('quiz.duration', { minutes: q.duration_minutes })}</Text>
-                          </View>
-                          {isPending && (
-                            <Button
-                              variant="primary"
-                              title={t('quiz.start_quiz')}
-                              onPress={() => router.push(`/(parent)/quiz/${q.id}?studentId=${child.student_id}`)}
-                              style={{ marginTop: spacing.sm }}
-                            />
-                          )}
                         </View>
                       );
                     })}

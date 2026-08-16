@@ -13,8 +13,20 @@ export interface RevisionSummary {
   id: number;
   title: string;
   billing_mode: BillingMode;
+  purpose?: 'revision' | 'quiz_exam';
+  is_quiz_exam?: boolean;
+  max_mark?: number | null;
   instance_id: number | null;
   scheduled_at: string | null;
+}
+
+export interface RevisionAttendee {
+  id: number;
+  student_id: number;
+  student_name: string;
+  status: string;
+  is_guest: boolean;
+  mark: number | null;
 }
 
 export interface RevisionScanResult {
@@ -68,6 +80,28 @@ export async function addRevisionGuest(revisionId: number, instanceId: number, s
   } catch (e) {
     return unwrap(e);
   }
+}
+
+// §2 quiz_exam marks — list an instance's attendees, then record per-student marks.
+export async function getRevisionAttendees(
+  revisionId: number,
+  instanceId: number,
+): Promise<{ max_mark: number | null; title: string; attendees: RevisionAttendee[] }> {
+  const { data } = await client.get(`/revisions/${revisionId}/instances/${instanceId}/attendees`);
+  const d = data.data ?? data;
+  return { max_mark: d.max_mark ?? null, title: d.title ?? '', attendees: (d.attendees ?? []) as RevisionAttendee[] };
+}
+
+export async function recordRevisionMark(
+  revisionId: number,
+  instanceId: number,
+  studentId: number,
+  mark: number | null,
+): Promise<void> {
+  await client.post(`/revisions/${revisionId}/instances/${instanceId}/mark`, {
+    student_id: studentId,
+    mark: mark === null ? '' : mark,
+  });
 }
 
 export async function addRevisionGuestByPhone(

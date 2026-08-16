@@ -122,6 +122,23 @@ function ReportRow({ report, opening, onOpen, t }: {
         <ScoreChip label={t('reports.attendance')} value={pct(report.attendance_score)} />
       </View>
 
+      {/* §1/§2 — big-exam results, shown separately from the academic average. */}
+      {(report.exam_results ?? []).length > 0 ? (
+        <View style={{ marginTop: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('reports.exam_results')}</Text>
+          {(report.exam_results ?? []).map((e, i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 3 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>
+                {e.title ?? t('reports.exam_results')}{e.date ? ` · ${e.date}` : ''}
+              </Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>
+                {e.mark}{e.max ? ` / ${e.max}` : ''}{e.pct != null ? ` (${e.pct}%)` : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       <TouchableOpacity
         onPress={onOpen}
         disabled={opening}

@@ -10,6 +10,7 @@ import {
   toggleSheet,
   toggleSheetExcluded,
   updateSheetMaxMark,
+  setSessionType,
   pauseSessions,
   type SessionDetail,
 } from '@/api/teacherSessions';
@@ -60,8 +61,9 @@ export function useSessionControls(id: string) {
   const sheet = useMutation({ mutationFn: (studentId: number) => toggleSheet(id, studentId), onSuccess: sync });
   const sheetExcluded = useMutation({ mutationFn: () => toggleSheetExcluded(id), onSuccess: sync });
   const sheetMax = useMutation({ mutationFn: (max: number | null) => updateSheetMaxMark(id, max), onSuccess: sync });
+  const setType = useMutation({ mutationFn: (type: 'normal_sheet' | 'quiz_exam') => setSessionType(id, type), onSuccess: sync });
 
-  return { mark, cancel, restore, note, grade, sheet, sheetExcluded, sheetMax };
+  return { mark, cancel, restore, note, grade, sheet, sheetExcluded, sheetMax, setType };
 }
 
 export function usePauseSessions() {

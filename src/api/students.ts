@@ -166,3 +166,45 @@ export async function getStudentDetail(id: string | number): Promise<StudentDeta
   const { data } = await client.get(`/teacher/students/${id}`);
   return (data.data ?? data) as StudentDetail;
 }
+
+// ---------------------------------------------------------------------------
+// Card orders raised for an existing enrollment (roster "cards" segment).
+// ---------------------------------------------------------------------------
+
+export interface TeacherCardOrder {
+  id: number;
+  student_name: string;
+  status: 'submitted' | 'approved' | 'rejected' | 'link_generated';
+  payment_option: string | null;
+  grade_label: string | null;
+  course_name: string | null;
+  created_at: string | null;
+}
+
+export async function getTeacherCardOrders(): Promise<TeacherCardOrder[]> {
+  const { data } = await client.get('/teacher/card-orders');
+  return (data.data ?? data ?? []) as TeacherCardOrder[];
+}
+
+export interface OrderCardPayload {
+  enrollment_id: number;
+  delivery_address: string;
+  payment_option: 'cash_on_delivery' | 'pay_now';
+  imageUri?: string | null; // pay-now proof screenshot
+}
+
+export async function orderCardForEnrollment(payload: OrderCardPayload): Promise<{ id: number; status: string }> {
+  const form = new FormData();
+  form.append('enrollment_id', String(payload.enrollment_id));
+  form.append('delivery_address', payload.delivery_address);
+  form.append('payment_option', payload.payment_option);
+  if (payload.payment_option === 'pay_now' && payload.imageUri) {
+    const name = payload.imageUri.split('/').pop() || 'proof.jpg';
+    const ext = (name.split('.').pop() || 'jpg').toLowerCase();
+    form.append('screenshot', { uri: payload.imageUri, name, type: `image/${ext === 'jpg' ? 'jpeg' : ext}` } as any);
+  }
+  const { data } = await client.post('/teacher/card-orders', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return (data.data ?? data) as { id: number; status: string };
+}
