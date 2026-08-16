@@ -94,7 +94,9 @@ export default function RootLayout() {
             {/* Persistent impersonation banner sits above every screen. */}
             <ImpersonationBanner />
             <View style={{ flex: 1 }}>
-              <Stack screenOptions={{ headerShown: false }} />
+              {/* A consistent content background so screen transitions never flash the
+                  navigator's default (white) card between two routes. */}
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
             </View>
             {/* Super-admin survey prompt — checked on app-open/login, once across platforms. */}
             <SurveyModal />

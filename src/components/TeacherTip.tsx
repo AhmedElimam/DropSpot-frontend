@@ -66,7 +66,7 @@ export function TeacherTip({ tip, icon, titleKey, bodyKey, bulletKeys, cta }: Te
             </Text>
 
             {bulletKeys?.map((k) => (
-              <View key={k} style={{ flexDirection: 'row-reverse', gap: spacing.sm, marginTop: spacing.md, alignItems: 'flex-start' }}>
+              <View key={k} style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, alignItems: 'flex-start' }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand, marginTop: 9 }} />
                 <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'right' }}>
                   {t(k)}
@@ -76,7 +76,7 @@ export function TeacherTip({ tip, icon, titleKey, bodyKey, bulletKeys, cta }: Te
           </ScrollView>
 
           <View style={{ flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.xl, paddingTop: spacing.xl }}>
-            <TouchableOpacity onPress={complete} style={{ flex: cta ? 1 : undefined, minWidth: cta ? undefined : '100%', minHeight: 50, borderRadius: radius.lg, borderWidth: cta ? 1 : 0, borderColor: colors.border, backgroundColor: cta ? 'transparent' : colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+            <TouchableOpacity onPress={complete} style={{ flex: 1, minHeight: 50, borderRadius: radius.lg, borderWidth: cta ? 1 : 0, borderColor: colors.border, backgroundColor: cta ? 'transparent' : colors.primary, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontFamily: cta ? fonts.medium : fonts.bold, fontSize: cta ? 15 : 16, color: cta ? colors.textSecondary : '#fff' }}>
                 {t('onboarding.got_it')}
               </Text>

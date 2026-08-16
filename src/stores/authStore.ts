@@ -109,6 +109,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
       await SecureStore.deleteItemAsync('access_token');
       await SecureStore.deleteItemAsync('refresh_token');
       await SecureStore.deleteItemAsync(SESSION_KEY);
+      // Never leave impersonation-restore crumbs behind after a full sign-out
+      // (e.g. signing out from settings while impersonating).
+      await SecureStore.deleteItemAsync('imp_admin_token');
+      await SecureStore.deleteItemAsync('imp_admin_refresh');
+      await SecureStore.deleteItemAsync('imp_admin_user');
       set({ user: null, role: null, activeTeacherId: null, impersonation: null, isAuthenticated: false });
     },
 

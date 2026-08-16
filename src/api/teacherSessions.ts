@@ -37,6 +37,12 @@ export interface SessionAttendee {
   number_flagged?: boolean;
 }
 
+/** A student swapped INTO this session (one-time makeup) — roster attendee + origin. */
+export interface SwapInAttendee extends SessionAttendee {
+  /** Where the student was swapped from ("course — day"), for the makeup tab. */
+  from_label: string | null;
+}
+
 export interface SessionDetail {
   id: string;
   course_id: number | null;
@@ -56,6 +62,8 @@ export interface SessionDetail {
   sheet_excluded: boolean;
   sheet_max_mark: number | null;
   attendees: SessionAttendee[];
+  /** Students swapped INTO this session — shown in a separate, non-default tab. */
+  swap_ins?: SwapInAttendee[];
 }
 
 export async function getTeacherSessions(params?: { status?: string; page?: number }): Promise<SessionsPage> {

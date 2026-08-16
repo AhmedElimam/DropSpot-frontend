@@ -36,6 +36,17 @@ export async function verifyOtp(phone: string, code: string, purpose = 'registra
   return data;
 }
 
+/** Resend the registration OTP to a pending parent phone (rate-limited server-side). */
+export async function resendOtp(phone: string): Promise<void> {
+  await client.post('/auth/resend-otp', { phone });
+}
+
+/** Correct the parent phone of a pending registration; sends a fresh OTP to the new number. */
+export async function changeRegistrationPhone(current_phone: string, new_phone: string): Promise<string> {
+  const { data } = await client.post('/auth/change-registration-phone', { current_phone, new_phone });
+  return (data?.data?.parent_phone as string) ?? new_phone;
+}
+
 /** Forgot password — step 1: request a reset code by SMS. Always succeeds (no enumeration). */
 export async function forgotPassword(phone_number: string): Promise<void> {
   await client.post('/auth/forgot-password', { phone_number });

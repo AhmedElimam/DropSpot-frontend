@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Switch, Alert, ScrollView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -12,8 +12,21 @@ import { Avatar } from '@/components/layout/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
-import type { SessionAttendee } from '@/api/teacherSessions';
+import type { SessionAttendee, SwapInAttendee } from '@/api/teacherSessions';
 import { dayLabel } from '@/utils/format';
+
+type RosterTab = 'roster' | 'swap';
+type AttnFilter = 'awaiting' | 'present' | 'absent' | 'excused' | 'all';
+
+/** Which filter bucket an attendance status falls into. */
+function attnBucket(status: string): Exclude<AttnFilter, 'all'> {
+  if (status === 'present' || status === 'late') return 'present';
+  if (status === 'absent') return 'absent';
+  if (status === 'excused') return 'excused';
+  return 'awaiting'; // not_recorded / anything else = still to fill in
+}
+
+const FILTER_ORDER: AttnFilter[] = ['awaiting', 'present', 'absent', 'excused', 'all'];
 
 const STATUS_META: Record<string, { key: string; variant: BadgeVariant }> = {
   present: { key: 'attendance.present', variant: 'success' },
@@ -42,14 +55,40 @@ export default function SessionDetailScreen() {
   const [selected, setSelected] = useState<SessionAttendee | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [gradeDraft, setGradeDraft] = useState('');
+  // Tabs + attendance filter (parity with the web dashboard). Default tab is the
+  // roster; default filter is "awaiting" — the still-empty rows to fill in.
+  const [tab, setTab] = useState<RosterTab>('roster');
+  const [filter, setFilter] = useState<AttnFilter>('awaiting');
+
+  const swapIns = s?.swap_ins ?? [];
+  const hasSwaps = swapIns.length > 0;
+  const activeTab: RosterTab = hasSwaps ? tab : 'roster'; // never strand on an empty swap tab
+  const baseList: (SessionAttendee | SwapInAttendee)[] = activeTab === 'swap' ? swapIns : s?.attendees ?? [];
+
+  // Per-filter counts over the active tab's list, for the pill labels.
+  const counts = useMemo(() => {
+    const c = { awaiting: 0, present: 0, absent: 0, excused: 0, all: baseList.length };
+    for (const a of baseList) c[attnBucket(a.status)]++;
+    return c;
+  }, [baseList]);
+
+  const filteredList = useMemo(
+    () => (filter === 'all' ? baseList : baseList.filter((a) => attnBucket(a.status) === filter)),
+    [baseList, filter],
+  );
 
   const openAttendee = (a: SessionAttendee) => {
     setSelected(a);
     setNoteDraft(a.note ?? '');
     setGradeDraft(a.mark != null ? String(a.mark) : '');
   };
-  // Keep the open sheet's data fresh after a mutation returns new detail.
-  const current = selected ? s?.attendees.find((a) => a.student_id === selected.student_id) ?? selected : null;
+  // Keep the open sheet's data fresh after a mutation returns new detail — search
+  // the roster AND the swap-in list (a makeup student can be marked here too).
+  const current = selected
+    ? s?.attendees.find((a) => a.student_id === selected.student_id)
+      ?? s?.swap_ins?.find((a) => a.student_id === selected.student_id)
+      ?? selected
+    : null;
 
   const doCancelRestore = () => {
     if (!s) return;
@@ -63,8 +102,9 @@ export default function SessionDetailScreen() {
     }
   };
 
-  const renderAttendee = ({ item }: { item: SessionAttendee }) => {
+  const renderAttendee = ({ item }: { item: SessionAttendee | SwapInAttendee }) => {
     const meta = STATUS_META[item.status] ?? STATUS_META.not_recorded;
+    const fromLabel = 'from_label' in item ? item.from_label : null;
     return (
       <TouchableOpacity
         onPress={() => openAttendee(item)}
@@ -78,6 +118,12 @@ export default function SessionDetailScreen() {
             {item.student_code ?? (item.card_less ? t('teacher.card_less') : '')}
             {item.checked_in_at ? ` · ${item.checked_in_at}` : ''}
           </Text>
+          {fromLabel ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+              <Icon name="refresh" size={12} color={colors.brand} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand }} numberOfLines={1}>{t('teacher.swapped_from', { from: fromLabel })}</Text>
+            </View>
+          ) : null}
           {/* Sheet + note signals */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: item.mark != null || item.note || item.sheet_awaited || item.number_flagged ? 4 : 0 }}>
             {item.mark != null ? (
@@ -109,7 +155,7 @@ export default function SessionDetailScreen() {
         <EmptyState icon="calendar" title={t('teacher.session_not_found')} />
       ) : (
         <FlatList
-          data={s.attendees}
+          data={filteredList}
           keyExtractor={(a) => String(a.student_id)}
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
@@ -161,11 +207,56 @@ export default function SessionDetailScreen() {
                 ) : null}
               </View>
 
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginTop: spacing.lg }}>{t('teacher.roster')}</Text>
+              {/* Tabs: enrolled roster (default) + swapped-in makeups (only when any) */}
+              {hasSwaps ? (
+                <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+                  {([['roster', t('teacher.tab_roster'), s.total_count], ['swap', t('teacher.tab_swaps'), swapIns.length]] as const).map(([key, label, n]) => {
+                    const on = activeTab === key;
+                    return (
+                      <TouchableOpacity
+                        key={key}
+                        onPress={() => setTab(key)}
+                        activeOpacity={0.8}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, height: 40, borderRadius: radius.full, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border }}
+                      >
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? '#fff' : colors.textSecondary }}>{label}</Text>
+                        <View style={{ minWidth: 20, paddingHorizontal: 6, height: 20, borderRadius: 10, backgroundColor: on ? 'rgba(255,255,255,0.25)' : colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: on ? '#fff' : colors.textTertiary }}>{n}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : (
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginTop: spacing.lg }}>{t('teacher.roster')}</Text>
+              )}
+
+              {/* Attendance filter — default "awaiting" (still to fill in) */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.md }}>
+                {FILTER_ORDER.map((f) => {
+                  const on = filter === f;
+                  return (
+                    <TouchableOpacity
+                      key={f}
+                      onPress={() => setFilter(f)}
+                      activeOpacity={0.8}
+                      style={{ paddingHorizontal: spacing.md, height: 34, borderRadius: radius.full, justifyContent: 'center', backgroundColor: on ? colors.primaryLight : colors.surface, borderWidth: 1, borderColor: on ? colors.primary : colors.border }}
+                    >
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.primary : colors.textSecondary }}>
+                        {t(`teacher.filter_${f}`)} · {counts[f]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
           }
           renderItem={renderAttendee}
-          ListEmptyComponent={<EmptyState icon="children" title={t('teacher.no_students')} />}
+          ListEmptyComponent={
+            baseList.length > 0
+              ? <EmptyState icon="children" title={t('teacher.no_students_in_filter')} />
+              : <EmptyState icon="children" title={t('teacher.no_students')} />
+          }
         />
       )}
 

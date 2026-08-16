@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMyTeachers, switchActiveTeacher } from '@/api/teacher';
 import { useAuthStore } from '@/stores/authStore';
+import { useOfflineStore } from '@/stores/offlineStore';
+import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 
 /**
  * The teachers an assistant works for + which context is active. Only assistants
@@ -30,6 +32,10 @@ export function useSwitchTeacher() {
     onSuccess: (res) => {
       useAuthStore.getState().setActiveTeacherId(res.active_teacher_id);
       qc.invalidateQueries();
+      // Add/refresh the newly-active teacher's OWN cache entry (keyed by that
+      // teacher_id) — never evicts the previous teacher's still-buffered roster, so
+      // their earlier scans still grade-check correctly. Fire-and-forget.
+      syncScheduleCacheOnOpen(useOfflineStore.getState().online, res.active_teacher_id);
     },
   });
 }

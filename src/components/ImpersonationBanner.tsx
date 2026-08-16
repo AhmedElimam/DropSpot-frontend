@@ -31,21 +31,30 @@ export function ImpersonationBanner() {
     if (busy) return;
     setBusy(true);
     try {
-      // Revoke server-side best-effort — NEVER await it, so a slow/dead token can't
-      // hang Exit. The session ends locally immediately either way.
-      stopImpersonation().catch(() => {});
-      // Clear the banner first so it can't get stuck on the spinner.
+      // Revoke the impersonation token server-side FIRST, while it is still the
+      // active bearer — so the revoke lands on THAT token and never on the admin's
+      // restored token (the race that used to force a re-login). Bounded so a
+      // slow/dead network can't hang Exit; if it doesn't finish, the impersonation
+      // token simply expires on its own (fail-closed).
+      await Promise.race([
+        stopImpersonation().catch(() => {}),
+        new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+      ]);
+
       await setImpersonation(null);
       qc.clear();
 
       // If a super-admin started this from the in-app picker, restore their own
-      // session so Exit returns to the picker. Otherwise (QR hand-off) log out.
+      // session — BOTH access and refresh token — so Exit returns to the picker and
+      // the restored session can still refresh. Otherwise (QR hand-off) log out.
       const adminToken = await SecureStore.getItemAsync('imp_admin_token');
       if (adminToken) {
+        const adminRefresh = await SecureStore.getItemAsync('imp_admin_refresh');
         const adminUserRaw = await SecureStore.getItemAsync('imp_admin_user');
         await SecureStore.deleteItemAsync('imp_admin_token');
+        await SecureStore.deleteItemAsync('imp_admin_refresh');
         await SecureStore.deleteItemAsync('imp_admin_user');
-        await setTokens(adminToken, '');
+        await setTokens(adminToken, adminRefresh ?? '');
         if (adminUserRaw) {
           const adminUser = JSON.parse(adminUserRaw);
           await setSession(adminUser, resolveRole(adminUser));

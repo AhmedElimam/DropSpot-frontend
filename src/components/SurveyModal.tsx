@@ -93,7 +93,7 @@ export function SurveyModal() {
                         key={opt}
                         onPress={() => setAnswer(q.key, opt)}
                         activeOpacity={0.8}
-                        style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm, paddingVertical: 12, paddingHorizontal: spacing.lg, marginBottom: spacing.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: selected ? colors.brand : colors.border, backgroundColor: selected ? colors.brand + '14' : colors.surface }}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 12, paddingHorizontal: spacing.lg, marginBottom: spacing.sm, borderRadius: radius.lg, borderWidth: 1, borderColor: selected ? colors.brand : colors.border, backgroundColor: selected ? colors.brand + '14' : colors.surface }}
                       >
                         <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: selected ? colors.brand : colors.border, alignItems: 'center', justifyContent: 'center' }}>
                           {selected ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand }} /> : null}

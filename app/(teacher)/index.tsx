@@ -44,6 +44,8 @@ export default function TeacherHome() {
   const logout = useLogout();
   const { data: sessions, isLoading, refetch } = useTeacherTodaySessions();
   const pending = useOfflineStore((s) => s.pending);
+  const rejected = useOfflineStore((s) => s.rejected);
+  const needsAttention = pending + rejected; // scans to sync OR to decide on (§2)
   const { isAssistant, can } = useActiveAbilities();
   const [refreshing, setRefreshing] = useState(false);
   const now = Date.now();
@@ -121,7 +123,7 @@ export default function TeacherHome() {
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
           {/* Assistant consent: pending invitations to work for a teacher. */}
           <PendingInvitations />
-          {pending > 0 ? (
+          {needsAttention > 0 ? (
             <TouchableOpacity
               onPress={() => router.push('/(teacher)/reconcile' as Href)}
               activeOpacity={0.85}
@@ -133,7 +135,9 @@ export default function TeacherHome() {
             >
               <Icon name="warning" size={24} color={colors.warningText} />
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.warningText }}>{t('teacher.pending_scans', { count: pending })}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.warningText }}>
+                  {pending > 0 ? t('teacher.pending_scans', { count: pending }) : t('teacher.rejected_title', { count: rejected })}
+                </Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.warningText }}>{t('teacher.tap_to_reconcile')}</Text>
               </View>
               <Icon name="back" size={20} color={colors.warningText} />

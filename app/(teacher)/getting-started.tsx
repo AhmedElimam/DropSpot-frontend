@@ -71,13 +71,13 @@ export default function GettingStarted() {
                 key={item.titleKey}
                 activeOpacity={item.go ? 0.8 : 1}
                 onPress={() => item.go && router.push(item.go)}
-                style={{ flexDirection: 'row-reverse', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}
+                style={{ flexDirection: 'row', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}
               >
                 <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
                   <Icon name={item.icon} size={22} color={colors.brand} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}>{t(item.titleKey)}</Text>
                     {item.done ? <Icon name="success" size={16} color={colors.success} /> : null}
                   </View>

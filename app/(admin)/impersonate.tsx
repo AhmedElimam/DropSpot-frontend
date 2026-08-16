@@ -55,9 +55,15 @@ export default function ImpersonatePicker() {
             if (starting) return;
             setStarting(true);
             try {
-              // Stash the super-admin's own session so "Exit" returns here.
+              // Stash the super-admin's own session so "Exit" returns here. BOTH
+              // tokens are saved: the impersonation swap below sets refresh_token to
+              // '' (an impersonation session is deliberately unrefreshable), so
+              // without stashing the admin's real refresh_token the restored admin
+              // session couldn't refresh and the next 401 would force a re-login.
               const currentToken = await SecureStore.getItemAsync('access_token');
+              const currentRefresh = await SecureStore.getItemAsync('refresh_token');
               await SecureStore.setItemAsync('imp_admin_token', currentToken ?? '');
+              await SecureStore.setItemAsync('imp_admin_refresh', currentRefresh ?? '');
               await SecureStore.setItemAsync('imp_admin_user', JSON.stringify(admin));
 
               const res = await startImpersonationForUser(u.id, canWrite);

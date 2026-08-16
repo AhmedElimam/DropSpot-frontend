@@ -96,11 +96,7 @@ export default function StudentInvoicesPage() {
             </>
           ) : null}
 
-          {!invoices || invoices.length === 0 ? (
-            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, ...shadows.sm }}>
-              <EmptyState icon="invoices" title={t('invoices.no_invoices')} />
-            </View>
-          ) : (
+          {invoices && invoices.length > 0 ? (
             invoices.map((invoice) => {
               const sc = statusConfig[invoice.status] ?? statusConfig.pending;
               return (
@@ -136,7 +132,11 @@ export default function StudentInvoicesPage() {
                 </TouchableOpacity>
               );
             })
-          )}
+          ) : (dues ?? []).length === 0 ? (
+            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, ...shadows.sm }}>
+              <EmptyState icon="invoices" title={t('invoices.no_invoices')} />
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </View>

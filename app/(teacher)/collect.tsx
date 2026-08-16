@@ -7,7 +7,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { TeacherTip } from '@/components/TeacherTip';
 
-function Option({ kind, title, subtitle, icon }: { kind: 'bill' | 'booklet'; title: string; subtitle: string; icon: IconName }) {
+function Option({ kind, title, subtitle, icon }: { kind: 'bill' | 'booklet' | 'booking'; title: string; subtitle: string; icon: IconName }) {
   return (
     <TouchableOpacity
       onPress={() => router.push(`/(teacher)/scan?payKind=${kind}` as Href)}
@@ -49,6 +49,7 @@ export default function TeacherCollect() {
       <View style={{ padding: spacing.lg, gap: spacing.md }}>
         <Option kind="bill" title="دفع الفواتير" subtitle="امسح البطاقة لتحصيل الفاتورة المستحقة" icon="money" />
         <Option kind="booklet" title="دفع الملازم" subtitle="امسح البطاقة لتحصيل رسم الملزمة" icon="book" />
+        <Option kind="booking" title="دفع دفعة الحجز" subtitle="امسح البطاقة لتحصيل دفعة الحجز — كليًا أو جزئيًا" icon="money" />
       </View>
 
       <TeacherTip

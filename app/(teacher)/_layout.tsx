@@ -5,9 +5,10 @@ import { BottomTabBar } from '@react-navigation/bottom-tabs';
 import NetInfo from '@react-native-community/netinfo';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { initOfflineScans } from '@/db/offlineScans';
+import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -67,6 +68,10 @@ export default function TeacherTabLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const pending = useOfflineStore((s) => s.pending);
+  const rejected = useOfflineStore((s) => s.rejected);
+  // Badge = everything still unfinished: scans waiting to sync AND scans the
+  // server rejected that need a decision (addendum §2).
+  const needsAttention = pending + rejected;
 
   // Ensure the offline buffer table exists, seed the pending count, and refresh
   // it whenever the app returns to the foreground (a chance to reconcile).
@@ -76,8 +81,15 @@ export default function TeacherTabLayout() {
     initOfflineScans().then(() => {
       if (active) useOfflineStore.getState().refresh();
     });
+    // Part 2: on open, enforce the date staleness guard and refresh the ACTIVE
+    // teacher's schedule entry when online. Fire-and-forget — never blocks the UI,
+    // and a failure just leaves the guard to fall back to manual reconciliation.
+    syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()));
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
-      if (s === 'active') useOfflineStore.getState().refresh();
+      if (s === 'active') {
+        useOfflineStore.getState().refresh();
+        syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()));
+      }
     });
     return () => {
       active = false;
@@ -118,6 +130,9 @@ export default function TeacherTabLayout() {
       }}
       screenOptions={({ route }) => ({
         headerShown: false,
+        // Consistent scene background so a tab switch never flashes a white frame
+        // between two screens (e.g. the black scanner and a cream screen).
+        sceneStyle: { backgroundColor: colors.background },
         tabBarStyle: {
           backgroundColor: 'rgba(255,255,255,0.92)',
           borderTopWidth: 0,
@@ -162,7 +177,7 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen
         name="scan"
-        options={{ tabBarBadge: pending > 0 ? pending : undefined }}
+        options={{ tabBarBadge: needsAttention > 0 ? needsAttention : undefined }}
       />
       <Tabs.Screen name="students" />
       {/* Management hub — courses, location, schedule tools. */}

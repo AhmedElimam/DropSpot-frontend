@@ -49,7 +49,13 @@ export default function CheckInTab() {
   const checkInMutation = useCheckIn();
   const submitExcuseMutation = useSubmitExcuse();
 
-  const activeSessions = (sessions ?? []).filter((s) => s.status === 'scheduled');
+  const todaySessions = sessions ?? [];
+  // Phone check-in is offered only when the session is still scheduled, phone check-in
+  // is permitted for it, the window is open, and the student hasn't already checked in.
+  const isCheckable = (s: SessionInstance) =>
+    s.status === 'scheduled' && s.phone_checkin_allowed === true
+    && getCheckInWindow(s.scheduled_at).canCheckIn && !s.checked_in;
+  const checkableSessions = todaySessions.filter(isCheckable);
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedInCourse, setCheckedInCourse] = useState('');
@@ -63,10 +69,10 @@ export default function CheckInTab() {
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
-  // Default to the only session when there is one, so the button appears without
-  // the student having to pick first.
-  const selectedSessionData = activeSessions.find((s) => s.id === selectedSession)
-    ?? (activeSessions.length === 1 ? activeSessions[0] : null);
+  // Only a checkable session can be selected, so the check-in button never appears
+  // for a completed / outside-window / card-only session. Auto-select the sole one.
+  const selectedSessionData = checkableSessions.find((s) => s.id === selectedSession)
+    ?? (checkableSessions.length === 1 ? checkableSessions[0] : null);
   const phoneAllowed = selectedSessionData?.phone_checkin_allowed === true;
 
   const sessionTimeInfo = selectedSessionData ? getCheckInWindow(selectedSessionData.scheduled_at) : null;
@@ -223,22 +229,28 @@ export default function CheckInTab() {
 
             {sessionsLoading ? (
               <ActivityIndicator color={colors.primary} style={{ paddingVertical: spacing.xl }} />
-            ) : activeSessions.length === 0 ? (
+            ) : todaySessions.length === 0 ? (
               <Text style={[textPresets.bodySmall, { color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }]}>
                 {t('session.no_sessions')}
               </Text>
             ) : (
-              activeSessions.map((session) => {
+              todaySessions.map((session) => {
                 const isSelected = selectedSession === session.id;
                 const scheduled = new Date(session.scheduled_at);
                 const endTime = new Date(scheduled.getTime() + session.duration_minutes * 60000);
                 const timeStr = `${formatTime(scheduled)} - ${formatTime(endTime)}`;
                 const { canCheckIn: inWindow } = getCheckInWindow(session.scheduled_at);
+                const checkable = isCheckable(session);
+                // The student's own outcome, else a finished session's lifecycle status.
+                const badgeStatus = session.attendance_status
+                  ?? (session.status !== 'scheduled' ? session.status : null);
 
                 return (
                   <TouchableOpacity
                     key={session.id}
-                    onPress={() => setSelectedSession(session.id)}
+                    onPress={() => checkable && setSelectedSession(session.id)}
+                    activeOpacity={checkable ? 0.7 : 1}
+                    disabled={!checkable}
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -248,32 +260,47 @@ export default function CheckInTab() {
                       marginBottom: spacing.sm,
                       borderWidth: 1.5,
                       borderColor: isSelected ? colors.brand : colors.border,
-                      opacity: inWindow ? 1 : 0.5,
+                      opacity: checkable || badgeStatus ? 1 : 0.6,
                     }}
                   >
-                    <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? colors.brand : colors.borderStrong, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
-                      {isSelected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand }} />}
-                    </View>
+                    {checkable && (
+                      <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? colors.brand : colors.borderStrong, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                        {isSelected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand }} />}
+                      </View>
+                    )}
                     <View style={{ flex: 1 }}>
                       <Text style={textPresets.subtitle}>{session.course_name}</Text>
                       <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{session.teacher_name} · {timeStr}</Text>
-                      {!inWindow && (
+                      {session.status === 'scheduled' && !inWindow && (
                         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.dangerText, marginTop: 2 }}>
                           {t('attendance.outside_window')}
                         </Text>
                       )}
-                      {session.phone_checkin_allowed && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                          <Icon name="phone" size={12} color={colors.successText} />
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.successText }}>
-                            {t('attendance.phone_allowed_badge')}
-                          </Text>
-                        </View>
+                      {session.status === 'scheduled' && (
+                        session.phone_checkin_allowed ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                            <Icon name="phone" size={12} color={colors.successText} />
+                            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.successText }}>
+                              {t('attendance.phone_allowed_badge')}
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                            <Icon name="card" size={12} color={colors.textTertiary} outline />
+                            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>
+                              {t('attendance.card_only_badge')}
+                            </Text>
+                          </View>
+                        )
                       )}
                     </View>
-                    {inWindow && (
+                    {/* The student's outcome (present/late/absent/excused) or a finished
+                        session's status; a live dot only while it's still checkable. */}
+                    {badgeStatus ? (
+                      <StatusBadge status={badgeStatus} size="sm" />
+                    ) : checkable ? (
                       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success }} />
-                    )}
+                    ) : null}
                   </TouchableOpacity>
                 );
               })

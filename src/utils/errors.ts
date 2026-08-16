@@ -36,6 +36,11 @@ export function getFriendlyErrorMessage(error: unknown): string {
       if (typeof msg === 'string' && msg.length > 0 && msg.length < 200) return msg;
       return t('errors.validation_error');
     }
+    if (status === 429) {
+      const msg = error.response.data?.message;
+      if (typeof msg === 'string' && msg.length > 0 && msg.length < 300 && /[؀-ۿ]/.test(msg)) return msg;
+      return t('errors.too_many_requests');
+    }
     if (status >= 500) return t('errors.server_error_friendly');
   }
   return t('errors.generic_friendly');
