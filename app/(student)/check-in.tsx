@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
@@ -42,9 +42,10 @@ export default function CheckInTab() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { data: sessions, isLoading: sessionsLoading } = useTodaySessions();
-  const { data: stats } = useCoverageStats();
-  const { data: records } = useAttendanceRecords();
+  const { data: sessions, isLoading: sessionsLoading, isRefetching, refetch: refetchSessions } = useTodaySessions();
+  const { data: stats, refetch: refetchStats } = useCoverageStats();
+  const { data: records, refetch: refetchRecords } = useAttendanceRecords();
+  const onRefresh = () => { refetchSessions(); refetchStats(); refetchRecords(); };
   const checkInMutation = useCheckIn();
   const submitExcuseMutation = useSubmitExcuse();
 
@@ -73,8 +74,17 @@ export default function CheckInTab() {
   // (phone-permission, time window, geofence) happens on tap.
   const canTap = !!selectedSessionData && !checkInMutation.isPending && !locating;
 
+  // Mirror the server geofence EXACTLY (AttendanceService::validateGeofence):
+  //   allowed = radius + min(reading accuracy, 50) + min(anchor accuracy, 50)
+  // The anchor term matters most for a low-confidence anchor (e.g. one set from a
+  // laptop indoors). Omitting it — as this used to — made the client stricter than
+  // the server, so it rejected check-ins the server would have accepted ("too far"
+  // while standing at the classroom). MAX must stay in sync with the server const.
+  const GEOFENCE_MAX_ACCURACY = 50;
   function proximity(session: SessionInstance, lat: number, lng: number, acc: number | null) {
-    const allowed = (session.radius_horizontal_meters ?? 20) + Math.min(acc ?? 50, 50);
+    const readingAllowance = Math.min(acc ?? GEOFENCE_MAX_ACCURACY, GEOFENCE_MAX_ACCURACY);
+    const anchorAllowance = Math.min(Math.max(0, session.location_accuracy_meters ?? 0), GEOFENCE_MAX_ACCURACY);
+    const allowed = (session.radius_horizontal_meters ?? 20) + readingAllowance + anchorAllowance;
     if (!session.course_latitude || !session.course_longitude) {
       return { distance: null as number | null, withinRange: false, allowed };
     }
@@ -148,8 +158,12 @@ export default function CheckInTab() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}

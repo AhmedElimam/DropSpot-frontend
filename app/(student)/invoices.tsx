@@ -1,17 +1,18 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
 import { formatDate } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
-import { useStudentInvoices } from '@/hooks/useInvoices';
+import { useStudentInvoices, useStudentPendingDues } from '@/hooks/useInvoices';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
 import { PaymentSection } from '@/components/parent/PaymentSection';
+import { PendingDueCard } from '@/components/parent/PendingDueCard';
 
 const statusConfig: Record<string, { color: string }> = {
   paid: { color: colors.success },
@@ -22,7 +23,9 @@ const statusConfig: Record<string, { color: string }> = {
 export default function StudentInvoicesPage() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data: invoices, isLoading, isError, refetch } = useStudentInvoices();
+  const { data: invoices, isLoading, isError, isRefetching, refetch } = useStudentInvoices();
+  const { data: dues, refetch: refetchDues } = useStudentPendingDues();
+  const onRefresh = () => { refetch(); refetchDues(); };
 
   const totalDue = (invoices ?? []).filter((i) => i.status === 'pending' || i.status === 'overdue').reduce((s, i) => s + i.amount, 0);
   const paidAmount = (invoices ?? []).filter((i) => i.status === 'paid').reduce((s, i) => s + i.amount, 0);
@@ -45,8 +48,12 @@ export default function StudentInvoicesPage() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
@@ -77,6 +84,18 @@ export default function StudentInvoicesPage() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          {(dues ?? []).length > 0 ? (
+            <>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs }}>
+                <Icon name="money" size={18} color={colors.warning} outline />
+                <Text style={textPresets.h3}>{t('dues.section_title')}</Text>
+              </View>
+              {(dues ?? []).map((due) => (
+                <PendingDueCard key={due.id} due={due} />
+              ))}
+            </>
+          ) : null}
+
           {!invoices || invoices.length === 0 ? (
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, ...shadows.sm }}>
               <EmptyState icon="invoices" title={t('invoices.no_invoices')} />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,7 +25,7 @@ export default function ReportCardsScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ studentId?: string }>();
-  const { data: reports, isLoading } = useReportCards();
+  const { data: reports, isLoading, isRefetching, refetch } = useReportCards();
   const [openingId, setOpeningId] = useState<string | null>(null);
 
   const list = (reports ?? []).filter(
@@ -47,10 +47,11 @@ export default function ReportCardsScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }}
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
       >
         <LinearGradient
           colors={gradients.hero}

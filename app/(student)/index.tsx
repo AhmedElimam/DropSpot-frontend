@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,7 +6,10 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { useTodaySessions } from '@/hooks/useSessions';
-import { useCoverageStats } from '@/hooks/useAttendance';
+import { useCoverageStats, useStudentAttendanceRisk } from '@/hooks/useAttendance';
+import { useStudentBillingStatus } from '@/hooks/useInvoices';
+import { AttendanceRiskCard } from '@/components/attendance/AttendanceRiskCard';
+import { BillingOverdueCard } from '@/components/attendance/BillingOverdueCard';
 import { formatDate, formatTime } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
@@ -23,15 +26,25 @@ export default function StudentDashboard() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { data: sessions, isLoading: sessionsLoading } = useTodaySessions();
-  const { data: stats } = useCoverageStats();
+  const { data: sessions, isLoading: sessionsLoading, isRefetching, refetch: refetchSessions } = useTodaySessions();
+  const { data: stats, refetch: refetchStats } = useCoverageStats();
+  const { data: risks, refetch: refetchRisks } = useStudentAttendanceRisk();
+  const { data: billingAlerts, refetch: refetchBilling } = useStudentBillingStatus();
+
+  const onRefresh = () => { refetchSessions(); refetchStats(); refetchRisks(); refetchBilling(); };
 
   const total = stats?.total ?? 0;
   const pct = total > 0 ? Math.round(((stats?.present ?? 0) + (stats?.late ?? 0)) / total * 100) : 0;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+    // Container painted the hero color so a top overscroll reveals the header tone,
+    // not the cream page background (which looked like an ugly gap).
+    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
@@ -62,6 +75,13 @@ export default function StudentDashboard() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          {(billingAlerts ?? []).map((alert, i) => (
+            <BillingOverdueCard key={`bill-${alert.student_id}-${i}`} alert={alert} />
+          ))}
+          {(risks ?? []).map((risk, i) => (
+            <AttendanceRiskCard key={`${risk.student_id}-${risk.course_name ?? i}`} risk={risk} />
+          ))}
+
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <Text style={[textPresets.h3, { marginBottom: spacing.md }]}>
               {t('nav.check_in')}
@@ -114,6 +134,10 @@ export default function StudentDashboard() {
             (sessions ?? []).map((session) => {
               const start = new Date(session.scheduled_at);
               const end = new Date(start.getTime() + session.duration_minutes * 60000);
+              // "Starting soon" = scheduled and within 4 hours of the start time.
+              const msToStart = start.getTime() - Date.now();
+              const startingSoon = session.status === 'scheduled' && !session.attendance_status
+                && msToStart > 0 && msToStart <= 4 * 60 * 60 * 1000;
               return (
                 <TouchableOpacity
                   key={session.id}
@@ -124,10 +148,10 @@ export default function StudentDashboard() {
                     borderRadius: radius.xl,
                     padding: spacing.xl,
                     borderWidth: 1,
-                    borderColor: colors.border,
+                    borderColor: startingSoon ? colors.brand : colors.border,
                     ...shadows.sm,
                     borderStartWidth: 4,
-                    borderStartColor: statusDot[session.status] || colors.border,
+                    borderStartColor: startingSoon ? colors.brand : (statusDot[session.status] || colors.border),
                   }}
                 >
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -145,7 +169,16 @@ export default function StudentDashboard() {
                         </View>
                       </View>
                     </View>
-                    <StatusBadge status={session.status} size="sm" />
+                    {/* Prefer the student's OWN outcome (present/late/absent/excused)
+                        once recorded; a "starting soon" chip flags the next 4h window;
+                        else fall back to the session lifecycle. */}
+                    {startingSoon ? (
+                      <View style={{ backgroundColor: colors.brandTint, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('attendance.starting_soon')}</Text>
+                      </View>
+                    ) : (
+                      <StatusBadge status={session.attendance_status ?? session.status} size="sm" />
+                    )}
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, gap: spacing.md }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.brandTint, paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.md }}>

@@ -28,6 +28,48 @@ export interface Invoice {
   accepts_physical?: boolean;
 }
 
+/**
+ * A non-invoice due a family owes — a booklet (ملزمة) fee or a booking down-payment
+ * (دفعة). These are separate from invoices and are collected in person or by
+ * transfer; the app shows them so a family knows what's outstanding.
+ */
+export interface PendingDue {
+  id: string;
+  kind: 'booking' | 'booklet';
+  /** Short Arabic label, e.g. "دفعة حجز" / "ملزمة". */
+  title: string;
+  course_name?: string | null;
+  /** Whose due it is — set so a parent can tell children apart. */
+  student_name?: string | null;
+  teacher_name?: string | null;
+  /** What's still owed (a part-paid دفعة shows only its remainder). */
+  amount: number;
+  paid: number;
+  total: number;
+  status: 'unpaid' | 'partial';
+  payment_methods?: PaymentMethod[];
+  accepts_physical?: boolean;
+}
+
+function mapPendingDues(data: any): PendingDue[] {
+  return extractList(data, 'pending-dues').map((item: any) => {
+    const attrs = extractAttrs(item);
+    return { id: item.id, ...attrs };
+  });
+}
+
+/** Student: the logged-in student's own outstanding booklet/booking dues. */
+export async function getStudentPendingDues(): Promise<PendingDue[]> {
+  const { data } = await client.get('/students/pending-dues');
+  return mapPendingDues(data);
+}
+
+/** Parent: outstanding booklet/booking dues across all the parent's children. */
+export async function getParentPendingDues(): Promise<PendingDue[]> {
+  const { data } = await client.get('/parents/pending-dues');
+  return mapPendingDues(data);
+}
+
 function mapInvoices(data: any): Invoice[] {
   return extractList(data, 'invoices').map((item: any) => {
     const attrs = extractAttrs(item);

@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,7 +15,7 @@ import { Icon } from '@/components/ui/Icon';
 export default function ChildrenList() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data: children, isLoading, isError, refetch } = useChildren();
+  const { data: children, isLoading, isError, isRefetching, refetch } = useChildren();
 
   if (isLoading) {
     return (
@@ -42,8 +42,12 @@ export default function ChildrenList() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+      >
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}

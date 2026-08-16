@@ -40,9 +40,9 @@ export default function TodayScreen() {
   const children = data?.children ?? [];
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }}
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
       >

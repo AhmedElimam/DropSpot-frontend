@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,10 @@ import { useAuthStore } from '@/stores/authStore';
 import { useChildren } from '@/hooks/useChildren';
 import type { Child } from '@/api/children';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useParentAttendanceRisk } from '@/hooks/useAttendance';
+import { useParentBillingStatus } from '@/hooks/useInvoices';
+import { AttendanceRiskCard } from '@/components/attendance/AttendanceRiskCard';
+import { BillingOverdueCard } from '@/components/attendance/BillingOverdueCard';
 import { usePendingPrecardInvites, useAcceptPrecardInvite, useRejectPrecardInvite } from '@/hooks/usePrecardPhone';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -41,16 +45,23 @@ export default function ParentHome() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { data: children, isLoading: childrenLoading } = useChildren();
-  const { data: notifications } = useNotifications();
+  const { data: children, isLoading: childrenLoading, isRefetching, refetch: refetchChildren } = useChildren();
+  const { data: notifications, refetch: refetchNotifications } = useNotifications();
+  const { data: risks, refetch: refetchRisks } = useParentAttendanceRisk();
+  const { data: billingAlerts, refetch: refetchBilling } = useParentBillingStatus();
+  const onRefresh = () => { refetchChildren(); refetchNotifications(); refetchRisks(); refetchBilling(); };
 
   const kids = children ?? [];
   const latest = (notifications ?? [])[0];
   const allWell = kids.length > 0 && kids.every((c) => (c.attendance_rate ?? 0) >= 75);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         {/* Deep-ink hero */}
         <LinearGradient
           colors={gradients.hero}
@@ -75,6 +86,14 @@ export default function ParentHome() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg }}>
+
+          {/* Overdue billing (may block check-in) then auto-termination risk */}
+          {(billingAlerts ?? []).map((alert, i) => (
+            <BillingOverdueCard key={`bill-${alert.student_id}-${i}`} alert={alert} showName />
+          ))}
+          {(risks ?? []).map((risk, i) => (
+            <AttendanceRiskCard key={`${risk.student_id}-${risk.course_name ?? i}`} risk={risk} showName />
+          ))}
 
           {/* §3 — pending phone pre-card invitations awaiting the family's consent */}
           <PendingInvites t={t} />
