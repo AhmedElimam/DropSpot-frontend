@@ -33,6 +33,10 @@ export default function CourseDetailScreen() {
   const [cyclePrice, setCyclePrice] = useState('');
   const [bookletPrice, setBookletPrice] = useState('');
   const [bookingPrice, setBookingPrice] = useState('');
+  // Explicit on/off for the two optional charges (mirrors the web toggles); default
+  // on when the course already carries that price, off otherwise.
+  const [hasBooklet, setHasBooklet] = useState(false);
+  const [hasBooking, setHasBooking] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [seeded, setSeeded] = useState(false);
 
@@ -45,6 +49,8 @@ export default function CourseDetailScreen() {
       setCyclePrice(course.cycle_price != null ? String(course.cycle_price) : '');
       setBookletPrice(course.booklet_price != null ? String(course.booklet_price) : '');
       setBookingPrice(course.booking_price != null ? String(course.booking_price) : '');
+      setHasBooklet(course.booklet_price != null);
+      setHasBooking(course.booking_price != null);
       setSeeded(true);
     }
   }, [course, seeded]);
@@ -57,8 +63,8 @@ export default function CourseDetailScreen() {
         sheet_max_mark: sheetMax.trim() ? Number(sheetMax.trim()) : null,
         sessions_per_billing_cycle: perCycle ?? undefined,
         cycle_price: cyclePrice.trim() ? Number(cyclePrice.trim()) : null,
-        booklet_price: bookletPrice.trim() ? Number(bookletPrice.trim()) : null,
-        booking_price: bookingPrice.trim() ? Number(bookingPrice.trim()) : null,
+        booklet_price: hasBooklet && bookletPrice.trim() ? Number(bookletPrice.trim()) : null,
+        booking_price: hasBooking && bookingPrice.trim() ? Number(bookingPrice.trim()) : null,
       },
       {
         onSuccess: () => Alert.alert(t('teacher.course_saved')),
@@ -237,11 +243,21 @@ export default function CourseDetailScreen() {
         <FieldLabel>{t('teacher.cycle_price_label')}</FieldLabel>
         <NumberInput value={cyclePrice} onChangeText={setCyclePrice} placeholder={t('teacher.egp')} />
 
-        <FieldLabel>{t('teacher.booklet_price_label')}</FieldLabel>
-        <NumberInput value={bookletPrice} onChangeText={setBookletPrice} placeholder={t('teacher.egp')} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>{t('teacher.booklet_price_label')}</Text>
+          <Switch value={hasBooklet} onValueChange={(v) => { setHasBooklet(v); if (!v) setBookletPrice(''); }} trackColor={{ true: colors.brand }} />
+        </View>
+        {hasBooklet ? (
+          <NumberInput value={bookletPrice} onChangeText={setBookletPrice} placeholder={t('teacher.egp')} />
+        ) : null}
 
-        <FieldLabel>{t('teacher.booking_price_label')}</FieldLabel>
-        <NumberInput value={bookingPrice} onChangeText={setBookingPrice} placeholder={t('teacher.egp')} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>{t('teacher.booking_price_label')}</Text>
+          <Switch value={hasBooking} onValueChange={(v) => { setHasBooking(v); if (!v) setBookingPrice(''); }} trackColor={{ true: colors.brand }} />
+        </View>
+        {hasBooking ? (
+          <NumberInput value={bookingPrice} onChangeText={setBookingPrice} placeholder={t('teacher.egp')} />
+        ) : null}
 
         <View style={{ marginTop: spacing.xl }}>
           <Button title={t('teacher.save_settings')} onPress={onSaveSettings} loading={saveSettings.isPending} variant="primary" />

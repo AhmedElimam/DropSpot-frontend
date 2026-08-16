@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +43,10 @@ export default function CourseCreateScreen() {
   const [cyclePrice, setCyclePrice] = useState('');
   const [bookletPrice, setBookletPrice] = useState('');
   const [bookingPrice, setBookingPrice] = useState('');
+  // Explicit on/off for the two optional charges (mirrors the web toggles). Off =
+  // the price field is hidden and the course is saved with no such charge.
+  const [hasBooklet, setHasBooklet] = useState(false);
+  const [hasBooking, setHasBooking] = useState(false);
 
   const perSession = (() => {
     const p = parseFloat(cyclePrice);
@@ -92,8 +96,8 @@ export default function CourseCreateScreen() {
         slots: slots.length ? slots : undefined,
         sessions_per_billing_cycle: Number(cycleSessions.trim()),
         cycle_price: Number(cyclePrice.trim()),
-        booklet_price: bookletPrice.trim() ? Number(bookletPrice.trim()) : null,
-        booking_price: bookingPrice.trim() ? Number(bookingPrice.trim()) : null,
+        booklet_price: hasBooklet && bookletPrice.trim() ? Number(bookletPrice.trim()) : null,
+        booking_price: hasBooking && bookingPrice.trim() ? Number(bookingPrice.trim()) : null,
       },
       {
         onSuccess: (res) => {
@@ -227,12 +231,22 @@ export default function CourseCreateScreen() {
           </View>
           <View style={{ flexDirection: 'row', gap: spacing.md }}>
             <View style={{ flex: 1 }}>
-              <FieldLabel>{t('teacher.booklet_price')}</FieldLabel>
-              <TextInput value={bookletPrice} onChangeText={setBookletPrice} placeholder={t('teacher.no_booklet')} placeholderTextColor={colors.textTertiary} keyboardType="numeric" style={input} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <FieldLabel>{t('teacher.booklet_price')}</FieldLabel>
+                <Switch value={hasBooklet} onValueChange={(v) => { setHasBooklet(v); if (!v) setBookletPrice(''); }} trackColor={{ true: colors.brand }} />
+              </View>
+              {hasBooklet ? (
+                <TextInput value={bookletPrice} onChangeText={setBookletPrice} placeholder={t('teacher.egp')} placeholderTextColor={colors.textTertiary} keyboardType="numeric" style={input} />
+              ) : null}
             </View>
             <View style={{ flex: 1 }}>
-              <FieldLabel>{t('teacher.booking_price')}</FieldLabel>
-              <TextInput value={bookingPrice} onChangeText={setBookingPrice} placeholder={t('teacher.no_booking')} placeholderTextColor={colors.textTertiary} keyboardType="numeric" style={input} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <FieldLabel>{t('teacher.booking_price')}</FieldLabel>
+                <Switch value={hasBooking} onValueChange={(v) => { setHasBooking(v); if (!v) setBookingPrice(''); }} trackColor={{ true: colors.brand }} />
+              </View>
+              {hasBooking ? (
+                <TextInput value={bookingPrice} onChangeText={setBookingPrice} placeholder={t('teacher.egp')} placeholderTextColor={colors.textTertiary} keyboardType="numeric" style={input} />
+              ) : null}
             </View>
           </View>
           {perSession ? (
