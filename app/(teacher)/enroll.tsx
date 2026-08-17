@@ -134,12 +134,13 @@ export default function TeacherEnroll() {
   );
 
   const enroll = useMutation({
-    mutationFn: (value: string) =>
+    mutationFn: (vars: { value: string; acceptGradeMismatch?: boolean }) =>
       enrollByCard({
         method: 'qr',
-        value,
+        value: vars.value,
         course_id: course!.course_id,
         academic_session_id: course!.academic_session_id,
+        accept_grade_mismatch: vars.acceptGradeMismatch,
       }),
   });
 
@@ -163,10 +164,24 @@ export default function TeacherEnroll() {
     if (!review) return;
     if (review.kind === 'match') {
       const name = review.student.name;
-      enroll.mutate(review.value, {
-        onSuccess: () => flashDone(name),
-        onError: (e: any) => Alert.alert('', e?.response?.data?.message || 'تعذّر التسجيل'),
-      });
+      const value = review.value;
+      const run = (acceptGradeMismatch?: boolean) =>
+        enroll.mutate({ value, acceptGradeMismatch }, {
+          onSuccess: () => flashDone(name),
+          onError: (e: any) => {
+            // Grade-mismatch confirm: the student's saved grade differs from the
+            // course's — ask, then re-enroll accepting the mismatch.
+            if (e?.response?.status === 409 && e?.response?.data?.code === 'GRADE_MISMATCH') {
+              Alert.alert(t('enroll.grade_mismatch_title'), e?.response?.data?.message || '', [
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('enroll.enroll_anyway'), onPress: () => run(true) },
+              ]);
+              return;
+            }
+            Alert.alert('', e?.response?.data?.message || 'تعذّر التسجيل');
+          },
+        });
+      run();
     } else if (review.kind === 'precard') {
       const name = review.student.name;
       confirmPre.mutate(review.invitationId, {

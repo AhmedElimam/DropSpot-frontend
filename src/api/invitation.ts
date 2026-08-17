@@ -79,6 +79,8 @@ export interface CreateInvitationPayload {
   link_student_id?: number;
   down_payment_amount?: number | null;
   booking_secures?: BookingSecures;
+  /** Confirm enrolling a linked student whose saved grade differs from the course. */
+  accept_grade_mismatch?: boolean;
 }
 
 export interface DedupeMatch { id: number; name?: string; [k: string]: unknown }
@@ -86,7 +88,8 @@ export interface DedupeMatch { id: number; name?: string; [k: string]: unknown }
 export type CreateInvitationResult =
   | { kind: 'minted'; message: string; smsSent: boolean }
   | { kind: 'linked'; message: string }
-  | { kind: 'dedupe'; matches: DedupeMatch[]; message: string };
+  | { kind: 'dedupe'; matches: DedupeMatch[]; message: string }
+  | { kind: 'grade_mismatch'; message: string };
 
 /**
  * Create a phone invitation. Mirrors the web flow: a parent-phone match returns a
@@ -103,6 +106,9 @@ export async function createInvitation(payload: CreateInvitationPayload): Promis
     const d = e?.response?.data;
     if (e?.response?.status === 409 && d?.code === 'DEDUPE_REQUIRED') {
       return { kind: 'dedupe', matches: d?.errors?.matches ?? [], message: d?.message ?? '' };
+    }
+    if (e?.response?.status === 409 && d?.code === 'GRADE_MISMATCH') {
+      return { kind: 'grade_mismatch', message: d?.message ?? '' };
     }
     throw e;
   }

@@ -79,6 +79,15 @@ export default function InvitePhone() {
         setMatches(res.matches);
         return;
       }
+      if (res.kind === 'grade_mismatch') {
+        // Linking an existing student whose saved grade differs from the course —
+        // ask, then resend accepting the mismatch (keeping the same link decision).
+        Alert.alert(t('enroll.grade_mismatch_title'), res.message, [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('enroll.enroll_anyway'), onPress: () => send({ ...extra, accept_grade_mismatch: true }) },
+        ]);
+        return;
+      }
       setMatches(null);
       Alert.alert('', res.kind === 'linked' ? t('invite_phone.linked') : t('invite_phone.sent'), [
         { text: t('common.close'), onPress: () => router.back() },

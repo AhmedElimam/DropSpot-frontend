@@ -56,7 +56,9 @@ export default function ScheduleNew() {
             [{ text: 'حسنًا', onPress: () => router.back() }],
           );
         },
-        onError: () => Alert.alert(t('teacher.schedule_create_failed')),
+        // Surface the server message — notably the schedule-conflict block
+        // ("يتعارض مع … في نفس اليوم").
+        onError: (e: any) => Alert.alert(t('teacher.schedule_create_failed'), e?.response?.data?.message || undefined),
       },
     );
   };

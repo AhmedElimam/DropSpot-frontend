@@ -81,6 +81,8 @@ export async function enrollByCard(payload: {
   course_id: number;
   academic_session_id: number;
   session_schedule_id?: number;
+  /** Confirm enrolling a student whose saved grade differs from the course's. */
+  accept_grade_mismatch?: boolean;
 }): Promise<EnrollResult> {
   const { data } = await client.post('/students/enroll-by-card', payload);
   return (data.data ?? data) as EnrollResult;

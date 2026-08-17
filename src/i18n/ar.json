@@ -1,4 +1,8 @@
 {
+  "enroll": {
+    "grade_mismatch_title": "اختلاف الصف الدراسي",
+    "enroll_anyway": "تسجيل رغم ذلك"
+  },
   "invite_phone": {
     "title": "دعوة طالب بالهاتف",
     "manage_sub": "أرسل دعوة عبر رسالة نصية لطالب جديد لينضم لمقررك",
