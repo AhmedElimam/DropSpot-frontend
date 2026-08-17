@@ -22,6 +22,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: 'com.drosspot.app',
     googleServicesFile: './google-services.json',
+    // Resize the screen when the keyboard opens so scroll/bottom-anchored content
+    // is never hidden behind it (Modals additionally wrap in KeyboardAvoidingView).
+    softwareKeyboardLayoutMode: 'resize',
     adaptiveIcon: {
       backgroundColor: '#E6F4FE',
       foregroundImage: './assets/images/android-icon-foreground.png',

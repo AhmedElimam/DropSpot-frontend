@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useState } from 'react';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
@@ -17,6 +16,7 @@ import { OverridesSection } from '@/components/teacher/OverridesSection';
 import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
 import { PendingInvitations } from '@/components/teacher/PendingInvitations';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 // Home's "current" HIGHLIGHT window — a UI convenience only. A session lights up
 // 30 min before its start through its scheduled end. This is DELIBERATELY separate
@@ -47,14 +47,8 @@ export default function TeacherHome() {
   const rejected = useOfflineStore((s) => s.rejected);
   const needsAttention = pending + rejected; // scans to sync OR to decide on (§2)
   const { isAssistant, can } = useActiveAbilities();
-  const [refreshing, setRefreshing] = useState(false);
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
   const now = Date.now();
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  };
 
   const renderSession = (s: TeacherSession) => {
     const highlighted = isHighlighted(s, now);

@@ -9,6 +9,7 @@ import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Avatar } from '@/components/layout/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useStudentDetail } from '@/hooks/useStudents';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { terminateEnrollment } from '@/api/enrollments';
 import { dayLabel, formatDayDate } from '@/utils/format';
 
@@ -45,7 +46,8 @@ export default function StudentDetailScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: s, isLoading, refetch, isRefetching } = useStudentDetail(id);
+  const { data: s, isLoading, refetch } = useStudentDetail(id);
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   const confirmTerminate = (courseName: string | null, enrollmentId?: number) => {
     if (!enrollmentId) return;
@@ -88,7 +90,7 @@ export default function StudentDetailScreen() {
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {/* Summary */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>

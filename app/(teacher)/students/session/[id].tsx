@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Switch, Alert, ScrollView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Switch, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/layout/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import type { SessionAttendee, SwapInAttendee } from '@/api/teacherSessions';
 import { dayLabel } from '@/utils/format';
@@ -47,7 +48,8 @@ export default function SessionDetailScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: s, isLoading, refetch, isRefetching } = useSessionDetail(id);
+  const { data: s, isLoading, refetch } = useSessionDetail(id);
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
   const controls = useSessionControls(id!);
   const { can } = useActiveAbilities();
   const canMark = can(ABILITY.MARK_MANUAL);
@@ -134,7 +136,37 @@ export default function SessionDetailScreen() {
             {item.number_flagged ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.danger }}>{t('teacher.number_fake')}</Text> : null}
           </View>
         </View>
-        <Badge label={t(meta.key)} variant={meta.variant} size="sm" />
+        {/* Quick present/absent — record straight from the row (no modal needed). */}
+        {canMark ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+            <TouchableOpacity
+              onPress={() => controls.mark.mutate(
+                { studentId: item.student_id, status: 'present' },
+                { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('common.error')) },
+              )}
+              disabled={controls.mark.isPending}
+              hitSlop={6}
+              accessibilityLabel={t('attendance.present')}
+              style={{ width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: colors.success, backgroundColor: (item.status === 'present' || item.status === 'late') ? colors.success : colors.surface }}
+            >
+              <Icon name="present" size={20} color={(item.status === 'present' || item.status === 'late') ? '#fff' : colors.success} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => controls.mark.mutate(
+                { studentId: item.student_id, status: 'absent' },
+                { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('common.error')) },
+              )}
+              disabled={controls.mark.isPending}
+              hitSlop={6}
+              accessibilityLabel={t('attendance.absent')}
+              style={{ width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: colors.danger, backgroundColor: item.status === 'absent' ? colors.danger : colors.surface }}
+            >
+              <Icon name="absent" size={20} color={item.status === 'absent' ? '#fff' : colors.danger} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <Badge label={t(meta.key)} variant={meta.variant} size="sm" />
+        )}
       </TouchableOpacity>
     );
   };
@@ -158,7 +190,7 @@ export default function SessionDetailScreen() {
           data={filteredList}
           keyExtractor={(a) => String(a.student_id)}
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListHeaderComponent={
             <View style={{ marginBottom: spacing.md }}>
               {/* Summary card */}
@@ -199,7 +231,7 @@ export default function SessionDetailScreen() {
                     return (
                       <TouchableOpacity
                         key={ty}
-                        onPress={() => { if (!on) controls.setType.mutate(ty); }}
+                        onPress={() => { if (!on) controls.setType.mutate(ty, { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.session_type_failed')) }); }}
                         disabled={controls.setType.isPending}
                         activeOpacity={0.85}
                         style={{ flex: 1, paddingVertical: spacing.sm, borderRadius: radius.sm, backgroundColor: on ? colors.surface : 'transparent', alignItems: 'center' }}
@@ -288,7 +320,7 @@ export default function SessionDetailScreen() {
 
       {/* Attendee action sheet */}
       <Modal visible={!!current} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
           <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             {current ? (
               <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
@@ -376,7 +408,7 @@ export default function SessionDetailScreen() {
               </ScrollView>
             ) : null}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

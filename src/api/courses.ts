@@ -43,6 +43,7 @@ export interface CourseDetail {
   cycle_price: number | null;
   booklet_price: number | null;
   booking_price: number | null;
+  booklet_is_down_payment?: boolean;
   min_sessions_per_cycle: number;
   max_sessions_per_cycle: number;
   // Location / phone check-in (automated)
@@ -80,6 +81,7 @@ export interface CourseFormOptions {
   terms: { id: string; name: string; ended: boolean; is_current: boolean }[];
   current_term_id: string | null;
   default_radius: number;
+  booklet_is_down_payment?: boolean;
 }
 
 export interface CreateCoursePayload {

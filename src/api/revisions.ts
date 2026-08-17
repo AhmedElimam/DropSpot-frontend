@@ -42,6 +42,41 @@ export interface RevisionScanResult {
   created?: boolean;
 }
 
+// ---- Creation (mobile parity for revise/create) ----
+
+export interface RevisionCreateSchedule { id: number; label: string }
+export interface RevisionCreateCourse { course_id: number; name: string; schedules: RevisionCreateSchedule[] }
+export interface RevisionCreateGrade { grade_id: number; grade_name: string; courses: RevisionCreateCourse[] }
+
+/** The teacher's grades → courses → mergeable schedules (the merge picker data). */
+export async function getRevisionCreateOptions(): Promise<RevisionCreateGrade[]> {
+  const { data } = await client.get('/revisions/create-options');
+  return (data.data?.grades ?? data.grades ?? []) as RevisionCreateGrade[];
+}
+
+export interface CreateRevisionPayload {
+  title: string;
+  grade_id: number;
+  purpose: 'revision' | 'quiz_exam';
+  max_mark?: number | null;
+  billing_mode: BillingMode;
+  fee_total?: number | null;
+  members: number[];
+  is_recurring: boolean;
+  day_of_week?: number | null;
+  start_time?: string | null; // HH:mm
+  end_time?: string | null;   // HH:mm
+  one_time_at?: string | null; // 'YYYY-MM-DD HH:mm'
+  duration_minutes: number;
+  location?: string | null;
+  notify_students: boolean;
+}
+
+export async function createRevision(payload: CreateRevisionPayload): Promise<{ id: number; title: string; is_quiz_exam: boolean }> {
+  const { data } = await client.post('/revisions', payload);
+  return (data.data ?? data) as { id: number; title: string; is_quiz_exam: boolean };
+}
+
 export async function getRevisions(): Promise<RevisionSummary[]> {
   const { data } = await client.get('/revisions');
   return (data?.data?.revisions ?? []) as RevisionSummary[];

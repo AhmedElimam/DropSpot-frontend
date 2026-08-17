@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
-import { formatDate } from '@/utils/format';
+import { formatDate, daysUntil } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
 import { useStudentInvoices, useStudentPendingDues } from '@/hooks/useInvoices';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -23,9 +24,9 @@ const statusConfig: Record<string, { color: string }> = {
 export default function StudentInvoicesPage() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data: invoices, isLoading, isError, isRefetching, refetch } = useStudentInvoices();
+  const { data: invoices, isLoading, isError, refetch } = useStudentInvoices();
   const { data: dues, refetch: refetchDues } = useStudentPendingDues();
-  const onRefresh = () => { refetch(); refetchDues(); };
+  const { refreshing, onRefresh } = usePullRefresh(refetch, refetchDues);
 
   const totalDue = (invoices ?? []).filter((i) => i.status === 'pending' || i.status === 'overdue').reduce((s, i) => s + i.amount, 0);
   const paidAmount = (invoices ?? []).filter((i) => i.status === 'paid').reduce((s, i) => s + i.amount, 0);
@@ -52,7 +53,7 @@ export default function StudentInvoicesPage() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <LinearGradient
           colors={gradients.hero}
@@ -123,9 +124,23 @@ export default function StudentInvoicesPage() {
                     </View>
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.md }}>
-                    <Text style={[textPresets.bodySmall]}>
-                      {t('invoices.due_date')}: {invoice.due_date ? formatDate(new Date(invoice.due_date), { day: 'numeric', month: 'short' }) : '-'}
-                    </Text>
+                    <View>
+                      <Text style={[textPresets.bodySmall]}>
+                        {t('invoices.due_date')}: {invoice.due_date ? formatDate(new Date(invoice.due_date), { day: 'numeric', month: 'short' }) : '-'}
+                      </Text>
+                      {invoice.status !== 'paid' && invoice.due_date ? (() => {
+                        const days = daysUntil(invoice.due_date);
+                        const overdue = invoice.status === 'overdue' || days < 0;
+                        const label = overdue
+                          ? t('invoices.overdue_since', { count: Math.abs(days) })
+                          : days === 0 ? t('invoices.due_today') : t('invoices.due_in', { count: days });
+                        return (
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 13, marginTop: 2, color: overdue ? colors.danger : colors.warning }}>
+                            {label}
+                          </Text>
+                        );
+                      })() : null}
+                    </View>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>{formatEGP(invoice.amount)}</Text>
                   </View>
                   <PaymentSection invoice={invoice} />

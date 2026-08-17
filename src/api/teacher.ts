@@ -49,9 +49,9 @@ export async function getTeacherTodaySessions(): Promise<TeacherSession[]> {
 
 /** Passive "has pending" flags shown after a successful scan (non-interactive). */
 export interface ScanPending {
-  bill: { total: number; count: number; overdue: boolean; escalated?: boolean } | null;
-  booklets: { id: number; course: string | null; amount: number }[];
-  booking: { total: number; count: number; secures?: string } | null;
+  bill: { total: number; count: number; overdue: boolean; escalated?: boolean; paid?: number; partial?: boolean } | null;
+  booklets: { id: number; course: string | null; amount: number; paid?: number; partial?: boolean }[];
+  booking: { total: number; count: number; secures?: string; paid?: number } | null;
 }
 
 export interface ScanResult {

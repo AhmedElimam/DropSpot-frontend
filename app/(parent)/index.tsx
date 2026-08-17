@@ -6,12 +6,14 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { useChildren } from '@/hooks/useChildren';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import type { Child } from '@/api/children';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useParentAttendanceRisk } from '@/hooks/useAttendance';
 import { useParentBillingStatus } from '@/hooks/useInvoices';
 import { AttendanceRiskCard } from '@/components/attendance/AttendanceRiskCard';
 import { BillingOverdueCard } from '@/components/attendance/BillingOverdueCard';
+import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
 import { usePendingPrecardInvites, useAcceptPrecardInvite, useRejectPrecardInvite } from '@/hooks/usePrecardPhone';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -45,11 +47,11 @@ export default function ParentHome() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { data: children, isLoading: childrenLoading, isRefetching, refetch: refetchChildren } = useChildren();
+  const { data: children, isLoading: childrenLoading, refetch: refetchChildren } = useChildren();
   const { data: notifications, refetch: refetchNotifications } = useNotifications();
   const { data: risks, refetch: refetchRisks } = useParentAttendanceRisk();
   const { data: billingAlerts, refetch: refetchBilling } = useParentBillingStatus();
-  const onRefresh = () => { refetchChildren(); refetchNotifications(); refetchRisks(); refetchBilling(); };
+  const { refreshing, onRefresh } = usePullRefresh(refetchChildren, refetchNotifications, refetchRisks, refetchBilling);
 
   const kids = children ?? [];
   const latest = (notifications ?? [])[0];
@@ -60,7 +62,7 @@ export default function ParentHome() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         {/* Deep-ink hero */}
         <LinearGradient
@@ -86,6 +88,8 @@ export default function ParentHome() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg }}>
+
+          <CardOrderBanner scope="parent" />
 
           {/* Overdue billing (may block check-in) then auto-termination risk */}
           {(billingAlerts ?? []).map((alert, i) => (

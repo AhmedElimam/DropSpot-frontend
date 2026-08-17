@@ -47,6 +47,13 @@ export default function TeacherRevisions() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('teacher.revisions_title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{t('teacher.revisions_subtitle')}</Text>
         </View>
+        <TouchableOpacity
+          onPress={() => router.push('/(teacher)/revision-create')}
+          accessibilityLabel={t('revision_create.title')}
+          style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brand, justifyContent: 'center', alignItems: 'center' }}
+        >
+          <Icon name="add" size={22} color="#fff" />
+        </TouchableOpacity>
       </View>
 
       {isLoading ? (

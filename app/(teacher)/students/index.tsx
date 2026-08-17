@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useTeacherStudents, useTeacherCourses } from '@/hooks/useStudents';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useTeacherSessionHistory } from '@/hooks/useTeacherSessionHistory';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import type { SessionRow } from '@/api/teacherSessions';
 import { getTeacherCardOrders, type TeacherCardOrder } from '@/api/students';
 import { dayLabel } from '@/utils/format';
@@ -70,11 +71,16 @@ export default function TeacherStudents() {
 
   const { can } = useActiveAbilities();
   const { data: courses } = useTeacherCourses();
-  const { data: students, isLoading: studentsLoading, refetch: refetchStudents, isRefetching: studentsRefetching } =
+  const { data: students, isLoading: studentsLoading, refetch: refetchStudents } =
     useTeacherStudents({ course_id: courseId ?? undefined });
-  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions, isRefetching: sessionsRefetching } =
+  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions } =
     useTeacherSessionHistory(status ?? undefined);
   const cardOrders = useQuery({ queryKey: ['teacher-card-orders'], queryFn: getTeacherCardOrders, enabled: segment === 'cards' });
+
+  // Each segment has its own list + RefreshControl, so keep the pull-refresh per segment.
+  const studentsRefresh = usePullRefresh(refetchStudents);
+  const sessionsRefresh = usePullRefresh(refetchSessions);
+  const cardsRefresh = usePullRefresh(cardOrders.refetch);
 
   // Search filters the loaded roster client-side (grade filter is server-side).
   const filteredStudents = useMemo(() => {
@@ -170,7 +176,7 @@ export default function TeacherStudents() {
               data={filteredStudents}
               keyExtractor={(s) => s.id}
               contentContainerStyle={listPad}
-              refreshControl={<RefreshControl refreshing={studentsRefetching} onRefresh={refetchStudents} />}
+              refreshControl={<RefreshControl refreshing={studentsRefresh.refreshing} onRefresh={studentsRefresh.onRefresh} />}
               renderItem={({ item }) => (
                 <StudentRow
                   id={item.id}
@@ -225,7 +231,7 @@ export default function TeacherStudents() {
               data={sessions?.items ?? []}
               keyExtractor={(s) => s.id}
               contentContainerStyle={listPad}
-              refreshControl={<RefreshControl refreshing={sessionsRefetching} onRefresh={refetchSessions} />}
+              refreshControl={<RefreshControl refreshing={sessionsRefresh.refreshing} onRefresh={sessionsRefresh.onRefresh} />}
               renderItem={renderSession}
               ListEmptyComponent={<EmptyState icon="calendar" title={t('teacher.no_sessions_history')} message={t('teacher.no_sessions_history_hint')} />}
             />
@@ -252,7 +258,7 @@ export default function TeacherStudents() {
               data={cardOrders.data ?? []}
               keyExtractor={(o: TeacherCardOrder) => String(o.id)}
               contentContainerStyle={listPad}
-              refreshControl={<RefreshControl refreshing={cardOrders.isRefetching} onRefresh={cardOrders.refetch} />}
+              refreshControl={<RefreshControl refreshing={cardsRefresh.refreshing} onRefresh={cardsRefresh.onRefresh} />}
               renderItem={({ item }: { item: TeacherCardOrder }) => {
                 const st = CARD_STATUS[item.status] ?? { key: 'teacher.co_submitted', color: colors.textSecondary };
                 return (

@@ -8,8 +8,10 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTodaySessions } from '@/hooks/useSessions';
 import { useCoverageStats, useStudentAttendanceRisk } from '@/hooks/useAttendance';
 import { useStudentBillingStatus } from '@/hooks/useInvoices';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { AttendanceRiskCard } from '@/components/attendance/AttendanceRiskCard';
 import { BillingOverdueCard } from '@/components/attendance/BillingOverdueCard';
+import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
 import { formatDate, formatTime } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
@@ -26,12 +28,12 @@ export default function StudentDashboard() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { data: sessions, isLoading: sessionsLoading, isRefetching, refetch: refetchSessions } = useTodaySessions();
+  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions } = useTodaySessions();
   const { data: stats, refetch: refetchStats } = useCoverageStats();
   const { data: risks, refetch: refetchRisks } = useStudentAttendanceRisk();
   const { data: billingAlerts, refetch: refetchBilling } = useStudentBillingStatus();
 
-  const onRefresh = () => { refetchSessions(); refetchStats(); refetchRisks(); refetchBilling(); };
+  const { refreshing, onRefresh } = usePullRefresh(refetchSessions, refetchStats, refetchRisks, refetchBilling);
 
   const total = stats?.total ?? 0;
   const pct = total > 0 ? Math.round(((stats?.present ?? 0) + (stats?.late ?? 0)) / total * 100) : 0;
@@ -43,7 +45,7 @@ export default function StudentDashboard() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <LinearGradient
           colors={gradients.hero}
@@ -75,6 +77,7 @@ export default function StudentDashboard() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          <CardOrderBanner scope="student" />
           {(billingAlerts ?? []).map((alert, i) => (
             <BillingOverdueCard key={`bill-${alert.student_id}-${i}`} alert={alert} />
           ))}

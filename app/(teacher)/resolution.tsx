@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import {
   type ExcuseItem, type SwapItem, type TerminationCandidate,
 } from '@/api/resolution';
 import { createAdminTicket, getMyAdminTickets, type AdminTicket } from '@/api/adminTickets';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 /**
  * Resolution Center — the teacher's consolidated review hub. Aggregates the review
@@ -88,7 +89,9 @@ export default function ResolutionCenter() {
   };
 
   const loading = summary.isLoading || excuses.isLoading || swaps.isLoading || candidates.isLoading;
-  const refreshing = summary.isRefetching || excuses.isRefetching || swaps.isRefetching || candidates.isRefetching;
+  const { refreshing, onRefresh } = usePullRefresh(
+    summary.refetch, excuses.refetch, swaps.refetch, candidates.refetch, myTickets.refetch,
+  );
   const s = summary.data;
 
   return (
@@ -113,7 +116,7 @@ export default function ResolutionCenter() {
       ) : (
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetchAll} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
           {/* Summary tiles — 2×2 grid so the Arabic labels never crowd/overflow. */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
@@ -248,7 +251,7 @@ export default function ResolutionCenter() {
 
       {/* Compose a message to the super-admin. */}
       <Modal visible={composeOpen} transparent animationType="slide" onRequestClose={() => setComposeOpen(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('resolution.contact_admin')}</Text>
 
@@ -268,7 +271,7 @@ export default function ResolutionCenter() {
               <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

@@ -7,6 +7,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
 import { useReportCards } from '@/hooks/useReportCards';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getReportDownloadUrl, type ReportCard } from '@/api/reports';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -25,7 +26,8 @@ export default function ReportCardsScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ studentId?: string }>();
-  const { data: reports, isLoading, isRefetching, refetch } = useReportCards();
+  const { data: reports, isLoading, refetch } = useReportCards();
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
   const [openingId, setOpeningId] = useState<string | null>(null);
 
   const list = (reports ?? []).filter(
@@ -51,7 +53,7 @@ export default function ReportCardsScreen() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <LinearGradient
           colors={gradients.hero}

@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
 import { useChildren } from '@/hooks/useChildren';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import client from '@/api/client';
 import { Avatar } from '@/components/layout/Avatar';
@@ -22,7 +23,8 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 export default function TeacherManagement() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data: children, isLoading, isRefetching, refetch } = useChildren();
+  const { data: children, isLoading, refetch } = useChildren();
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
   const queryClient = useQueryClient();
   const [removingId, setRemovingId] = useState<number | null>(null);
 
@@ -67,7 +69,7 @@ export default function TeacherManagement() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <LinearGradient
           colors={gradients.hero}

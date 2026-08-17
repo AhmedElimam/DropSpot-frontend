@@ -24,6 +24,8 @@ export default function CourseCreateScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { data: options, isLoading } = useCourseFormOptions();
+  // Teacher's down-payment IS the booklet → a separate booking price doesn't apply.
+  const bookletIsDownPayment = options?.booklet_is_down_payment ?? false;
   const create = useCreateCourse();
   const { data: onboarding } = useTeacherOnboarding();
   const markStep = useMarkOnboardingStep();
@@ -97,7 +99,7 @@ export default function CourseCreateScreen() {
         sessions_per_billing_cycle: Number(cycleSessions.trim()),
         cycle_price: Number(cyclePrice.trim()),
         booklet_price: hasBooklet && bookletPrice.trim() ? Number(bookletPrice.trim()) : null,
-        booking_price: hasBooking && bookingPrice.trim() ? Number(bookingPrice.trim()) : null,
+        booking_price: hasBooking && !bookletIsDownPayment && bookingPrice.trim() ? Number(bookingPrice.trim()) : null,
       },
       {
         onSuccess: (res) => {
@@ -242,9 +244,11 @@ export default function CourseCreateScreen() {
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <FieldLabel>{t('teacher.booking_price')}</FieldLabel>
-                <Switch value={hasBooking} onValueChange={(v) => { setHasBooking(v); if (!v) setBookingPrice(''); }} trackColor={{ true: colors.brand }} />
+                <Switch value={hasBooking && !bookletIsDownPayment} disabled={bookletIsDownPayment} onValueChange={(v) => { setHasBooking(v); if (!v) setBookingPrice(''); }} trackColor={{ true: colors.brand }} />
               </View>
-              {hasBooking ? (
+              {bookletIsDownPayment ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t('teacher.booking_is_booklet')}</Text>
+              ) : hasBooking ? (
                 <TextInput value={bookingPrice} onChangeText={setBookingPrice} placeholder={t('teacher.egp')} placeholderTextColor={colors.textTertiary} keyboardType="numeric" style={input} />
               ) : null}
             </View>

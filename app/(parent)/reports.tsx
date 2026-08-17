@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
 import { useChildren } from '@/hooks/useChildren';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useQuery } from '@tanstack/react-query';
 import { getStudentGrades } from '@/api/grades';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +21,7 @@ export default function ReportsScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabKey>('attendance');
-  const { data: children, isLoading, isRefetching, refetch } = useChildren();
+  const { data: children, isLoading, refetch } = useChildren();
 
   const sortedByAttendance = useMemo(() =>
     [...(children ?? [])].sort((a, b) => (b.attendance_rate ?? 0) - (a.attendance_rate ?? 0)),
@@ -51,6 +52,8 @@ export default function ReportsScreen() {
     },
     enabled: (children ?? []).length > 0,
   });
+
+  const { refreshing, onRefresh } = usePullRefresh(refetch, gradeQueries.refetch);
 
   const allGradeData = gradeQueries.data ?? [];
   const gradeMap: Record<number, { avg: number; count: number }> = {};
@@ -105,7 +108,7 @@ export default function ReportsScreen() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <LinearGradient
           colors={gradients.hero}

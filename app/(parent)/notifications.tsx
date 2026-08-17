@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
 import { useNotifications, useMarkRead, useMarkAllRead } from '@/hooks/useNotifications';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import type { Notification } from '@/api/notifications';
 import { notificationRoute } from '@/utils/notification-routing';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -28,7 +29,8 @@ const notifIcon: Record<string, IconName> = {
 export default function NotificationsScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data: notifications, isLoading, isRefetching, refetch } = useNotifications();
+  const { data: notifications, isLoading, refetch } = useNotifications();
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
 
@@ -48,7 +50,7 @@ export default function NotificationsScreen() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <LinearGradient
           colors={gradients.hero}

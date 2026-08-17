@@ -24,8 +24,11 @@ export default function TeacherManage() {
 
   const canCourses = can(ABILITY.MANAGE_COURSES);
   const canSessions = can(ABILITY.MANAGE_SESSIONS);
+  const canStudents = can(ABILITY.MANAGE_STUDENTS);
   const ramadanOn = !!flags?.ramadan_schedule;
-  const insights = useQuery({ queryKey: ['teacher-insights'], queryFn: getTeacherInsights });
+  // Insights are teacher-only (finance/analytics) — never fetched or shown to an
+  // assistant (the API rejects them with 403 anyway).
+  const insights = useQuery({ queryKey: ['teacher-insights'], queryFn: getTeacherInsights, enabled: !isAssistant });
   const ins = insights.data;
   const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
 
@@ -57,7 +60,9 @@ export default function TeacherManage() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}>
-        {/* Mini insights — a compact glance, tap through to the full screen. */}
+        {/* Mini insights — teacher-only (hidden from assistants). */}
+        {!isAssistant ? (
+        <>
         <SectionTitle>{t('teacher.insights_title')}</SectionTitle>
         {ins ? (
           <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/(teacher)/insights' as Href)}>
@@ -77,6 +82,8 @@ export default function TeacherManage() {
         ) : (
           <Row icon="reports" title={t('teacher.insights_title')} sub={t('teacher.insights_sub')} onPress={() => router.push('/(teacher)/insights' as Href)} />
         )}
+        </>
+        ) : null}
 
         <SectionTitle>{t('teacher.resolution_title')}</SectionTitle>
         <Row icon="bell" title={t('teacher.resolution_title')} sub={t('teacher.resolution_sub')} tint={colors.warning} onPress={() => router.push('/(teacher)/resolution' as Href)} />
@@ -90,6 +97,12 @@ export default function TeacherManage() {
         <Row icon="book" title={t('teacher.courses_title')} sub={t('teacher.courses_manage_hint')} onPress={() => router.push('/(teacher)/courses' as Href)} />
         {!isAssistant ? (
           <Row icon="add" title={t('teacher.create_course')} sub={t('teacher.create_course_sub')} onPress={() => router.push('/(teacher)/courses/create' as Href)} />
+        ) : null}
+        {canStudents ? (
+          <Row icon="phone" title={t('invite_phone.title')} sub={t('invite_phone.manage_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/invite-phone' as Href)} />
+        ) : null}
+        {canStudents ? (
+          <Row icon="send" title={t('invite_link.title')} sub={t('invite_link.manage_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/invite-link' as Href)} />
         ) : null}
 
         {canSessions || canCourses ? (

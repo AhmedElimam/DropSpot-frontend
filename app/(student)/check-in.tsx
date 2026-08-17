@@ -7,6 +7,7 @@ import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@
 import { useTodaySessions } from '@/hooks/useSessions';
 import { useCheckIn, useCoverageStats, useAttendanceRecords, useSubmitExcuse } from '@/hooks/useAttendance';
 import { useAuthStore } from '@/stores/authStore';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatTime } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -42,10 +43,10 @@ export default function CheckInTab() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { data: sessions, isLoading: sessionsLoading, isRefetching, refetch: refetchSessions } = useTodaySessions();
+  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions } = useTodaySessions();
   const { data: stats, refetch: refetchStats } = useCoverageStats();
   const { data: records, refetch: refetchRecords } = useAttendanceRecords();
-  const onRefresh = () => { refetchSessions(); refetchStats(); refetchRecords(); };
+  const { refreshing, onRefresh } = usePullRefresh(refetchSessions, refetchStats, refetchRecords);
   const checkInMutation = useCheckIn();
   const submitExcuseMutation = useSubmitExcuse();
 
@@ -168,7 +169,7 @@ export default function CheckInTab() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <LinearGradient
           colors={gradients.hero}

@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
 import { useChildren } from '@/hooks/useChildren';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -15,7 +16,8 @@ import { Icon } from '@/components/ui/Icon';
 export default function ChildrenList() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data: children, isLoading, isError, isRefetching, refetch } = useChildren();
+  const { data: children, isLoading, isError, refetch } = useChildren();
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   if (isLoading) {
     return (
@@ -46,7 +48,7 @@ export default function ChildrenList() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <LinearGradient
           colors={gradients.hero}

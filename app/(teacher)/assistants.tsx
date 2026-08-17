@@ -17,6 +17,7 @@ import {
   useToggleAssistant,
 } from '@/hooks/useAssistants';
 import type { ManagedAssistant, AbilityDef } from '@/api/assistants';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 const STATUS_META: Record<string, { key: string; variant: BadgeVariant }> = {
   accepted: { key: 'assistants.status_active', variant: 'success' },
@@ -85,7 +86,8 @@ function AssistantCard({ a, catalog }: { a: ManagedAssistant; catalog: AbilityDe
 export default function TeacherAssistants() {
   const insets = useSafeAreaInsets();
   const role = useAuthStore((s) => s.role);
-  const { data, isLoading, refetch, isRefetching } = useAssistants();
+  const { data, isLoading, refetch } = useAssistants();
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
   const invite = useInviteAssistant();
   const create = useCreateAssistant();
 
@@ -140,7 +142,7 @@ export default function TeacherAssistants() {
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.xxxl }}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Invite an existing assistant by phone */}
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}>

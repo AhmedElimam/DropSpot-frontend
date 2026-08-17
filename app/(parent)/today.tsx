@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav, gradients, textPresets } from '@/theme/index';
 import { useTodayFeed } from '@/hooks/useTodayFeed';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import type { FeedChild, FeedSession } from '@/api/feed';
 import { Icon } from '@/components/ui/Icon';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -35,7 +36,8 @@ function sessionTime(iso?: string): string {
 export default function TodayScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data, isLoading, isRefetching, refetch } = useTodayFeed();
+  const { data, isLoading, refetch } = useTodayFeed();
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   const children = data?.children ?? [];
 
@@ -44,7 +46,7 @@ export default function TodayScreen() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <LinearGradient
           colors={gradients.hero}

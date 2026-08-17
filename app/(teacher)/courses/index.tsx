@@ -7,6 +7,7 @@ import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useCourses } from '@/hooks/useCourses';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import type { CourseSummary } from '@/api/courses';
 
@@ -17,7 +18,8 @@ import type { CourseSummary } from '@/api/courses';
 export default function TeacherCourses() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data: courses, isLoading, refetch, isRefetching } = useCourses();
+  const { data: courses, isLoading, refetch } = useCourses();
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
   const { isAssistant } = useActiveAbilities();
 
   const renderCourse = ({ item }: { item: CourseSummary }) => (
@@ -83,7 +85,7 @@ export default function TeacherCourses() {
           keyExtractor={(c) => c.id}
           renderItem={renderCourse}
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom, paddingTop: spacing.sm }}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         />
       )}
     </View>

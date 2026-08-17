@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, TextInput, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, TextInput, ActivityIndicator, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
@@ -11,6 +11,7 @@ interface DueRow {
   kind: PayKind;
   label: string;
   remaining: number;
+  paid: number; // already collected toward this kind (a part-payment) — shows "the rest"
   input: string;
 }
 
@@ -38,15 +39,16 @@ export function PayDuesModal({
     if (!pending) return [];
     const rows: DueRow[] = [];
     if (pending.bill && pending.bill.total > 0) {
-      rows.push({ kind: 'bill', label: t('teacher.due_bill'), remaining: pending.bill.total, input: String(pending.bill.total) });
+      rows.push({ kind: 'bill', label: t('teacher.due_bill'), remaining: pending.bill.total, paid: pending.bill.paid ?? 0, input: String(pending.bill.total) });
     }
     const bookletTotal = (pending.booklets ?? []).reduce((s, b) => s + (b.amount ?? 0), 0);
+    const bookletPaid = (pending.booklets ?? []).reduce((s, b) => s + (b.paid ?? 0), 0);
     if (bookletTotal > 0) {
-      rows.push({ kind: 'booklet', label: `${t('teacher.due_booklet')} (${pending.booklets.length})`, remaining: bookletTotal, input: String(bookletTotal) });
+      rows.push({ kind: 'booklet', label: `${t('teacher.due_booklet')} (${pending.booklets.length})`, remaining: bookletTotal, paid: bookletPaid, input: String(bookletTotal) });
     }
     if (pending.booking && pending.booking.total > 0) {
       const label = pending.booking.secures ? `${t('teacher.due_booking')} — ${pending.booking.secures}` : t('teacher.due_booking');
-      rows.push({ kind: 'booking', label, remaining: pending.booking.total, input: String(pending.booking.total) });
+      rows.push({ kind: 'booking', label, remaining: pending.booking.total, paid: pending.booking.paid ?? 0, input: String(pending.booking.total) });
     }
     return rows;
   }, [pending, t]);
@@ -77,7 +79,7 @@ export function PayDuesModal({
         const remaining = Number(res.remaining) || 0;
         setRows((rs) => {
           const next = remaining > 0
-            ? rs.map((r) => (r.kind === row.kind ? { ...r, remaining, input: String(remaining) } : r))
+            ? rs.map((r) => (r.kind === row.kind ? { ...r, remaining, paid: r.paid + Math.max(0, r.remaining - remaining), input: String(remaining) } : r))
             : rs.filter((r) => r.kind !== row.kind);
           if (next.length === 0) setTimeout(onClose, 250);
           return next;
@@ -92,7 +94,7 @@ export function PayDuesModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
         <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom, maxHeight: '85%' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('teacher.dues_title')}</Text>
@@ -117,8 +119,11 @@ export function PayDuesModal({
                 <View key={row.kind} style={{ backgroundColor: colors.background, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.md }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>{row.label}</Text>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{row.remaining} {t('insights.egp')}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{row.paid > 0 ? 'المتبقّي ' : ''}{row.remaining} {t('insights.egp')}</Text>
                   </View>
+                  {row.paid > 0 ? (
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.success, marginTop: 2 }}>{`مدفوع مسبقًا: ${row.paid} `}{t('insights.egp')}</Text>
+                  ) : null}
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
                     <TextInput
@@ -153,7 +158,7 @@ export function PayDuesModal({
             <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.close')}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

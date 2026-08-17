@@ -20,6 +20,8 @@ export default function CourseDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: course, isLoading } = useCourseDetail(id);
+  // Teacher's down-payment IS the booklet → a separate booking price doesn't apply.
+  const bookletIsDownPayment = course?.booklet_is_down_payment ?? false;
   const { data: onboarding } = useTeacherOnboarding();
   const saveSettings = useUpdateCourseSettings(id);
   const saveLocation = useUpdateCourseLocation(id);
@@ -64,7 +66,7 @@ export default function CourseDetailScreen() {
         sessions_per_billing_cycle: perCycle ?? undefined,
         cycle_price: cyclePrice.trim() ? Number(cyclePrice.trim()) : null,
         booklet_price: hasBooklet && bookletPrice.trim() ? Number(bookletPrice.trim()) : null,
-        booking_price: hasBooking && bookingPrice.trim() ? Number(bookingPrice.trim()) : null,
+        booking_price: hasBooking && !bookletIsDownPayment && bookingPrice.trim() ? Number(bookingPrice.trim()) : null,
       },
       {
         onSuccess: () => Alert.alert(t('teacher.course_saved')),
@@ -253,9 +255,11 @@ export default function CourseDetailScreen() {
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>{t('teacher.booking_price_label')}</Text>
-          <Switch value={hasBooking} onValueChange={(v) => { setHasBooking(v); if (!v) setBookingPrice(''); }} trackColor={{ true: colors.brand }} />
+          <Switch value={hasBooking && !bookletIsDownPayment} disabled={bookletIsDownPayment} onValueChange={(v) => { setHasBooking(v); if (!v) setBookingPrice(''); }} trackColor={{ true: colors.brand }} />
         </View>
-        {hasBooking ? (
+        {bookletIsDownPayment ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t('teacher.booking_is_booklet')}</Text>
+        ) : hasBooking ? (
           <NumberInput value={bookingPrice} onChangeText={setBookingPrice} placeholder={t('teacher.egp')} />
         ) : null}
 

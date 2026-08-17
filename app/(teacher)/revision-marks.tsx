@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { getRevisionAttendees, recordRevisionMark, type RevisionAttendee } from '@/api/revisions';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 /**
  * §2 — mark-entry sheet for a merged (revision) big exam. Lists the instance's attendees
@@ -31,6 +32,7 @@ export default function RevisionMarks() {
 
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState<number | null>(null);
+  const { refreshing, onRefresh } = usePullRefresh(q.refetch);
 
   const save = async (a: RevisionAttendee) => {
     const raw = drafts[a.student_id] ?? (a.mark !== null ? String(a.mark) : '');
@@ -60,11 +62,13 @@ export default function RevisionMarks() {
       {q.isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <FlatList
           data={q.data?.attendees ?? []}
           keyExtractor={(a) => String(a.id)}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
-          refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={q.refetch} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           renderItem={({ item }) => {
             const val = drafts[item.student_id] ?? (item.mark !== null ? String(item.mark) : '');
             return (
@@ -89,6 +93,7 @@ export default function RevisionMarks() {
           }}
           ListEmptyComponent={<EmptyState icon="children" title={t('teacher.exam_no_attendees')} message="" />}
         />
+        </KeyboardAvoidingView>
       )}
     </View>
   );

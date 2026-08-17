@@ -8,6 +8,7 @@ import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { getTeacherInsights, type TeacherInsights, type TrendDay } from '@/api/insights';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 /**
  * Full teacher insights screen (pushed from the "الإدارة" hub). Mirrors the web
@@ -19,6 +20,7 @@ export default function InsightsScreen() {
   const insets = useSafeAreaInsets();
   const q = useQuery({ queryKey: ['teacher-insights'], queryFn: getTeacherInsights });
   const d = q.data;
+  const { refreshing, onRefresh } = usePullRefresh(q.refetch);
 
   const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
 
@@ -41,7 +43,7 @@ export default function InsightsScreen() {
       ) : (
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
-          refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={q.refetch} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
           {/* Attendance */}
           <Section title={t('insights.attendance')} />
