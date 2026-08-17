@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '@/stores/authStore';
@@ -10,11 +11,12 @@ import { useAuthStore } from '@/stores/authStore';
  * work from a phone or Android emulator. In development we derive the dev
  * machine's address from the Metro bundler host the device is already talking to
  * (Constants.expoConfig.hostUri, e.g. "192.168.1.50:8081") and target port 8000
- * there. An explicit EXPO_PUBLIC_API_URL always wins (use it for real builds).
+ * there. On the Android emulator the host loopback is reachable as 10.0.2.2.
+ * An explicit EXPO_PUBLIC_API_URL always wins (use it for real builds).
  *
  * NOTE: the Laravel server must be reachable at that host — run it with
  * `php artisan serve --host 0.0.0.0 --port 8000` and keep the device on the same
- * Wi-Fi as the Mac.
+ * Wi-Fi as the dev machine.
  */
 function resolveApiUrl(): string {
   if (process.env.EXPO_PUBLIC_API_URL) {
@@ -32,7 +34,12 @@ function resolveApiUrl(): string {
     return `http://${host}:8000/api/v1`;
   }
 
-  // Simulator / web fallback (shares the Mac's network).
+  // Android emulator: the host machine's loopback is aliased to 10.0.2.2.
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:8000/api/v1';
+  }
+
+  // iOS simulator / web fallback (shares the dev machine's network).
   return 'http://localhost:8000/api/v1';
 }
 
