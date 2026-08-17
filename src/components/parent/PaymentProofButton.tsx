@@ -84,19 +84,30 @@ export function PaymentProofButton({ invoice }: { invoice: Invoice }) {
                 {t('invoices.transfer_intro')}
               </Text>
 
-              {/* Teacher payment number (however it's communicated today). */}
-              <View style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg }}>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>
-                  {t('invoices.teacher_payment_number')}
-                </Text>
-                {invoice.teacher_phone ? (
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginTop: 2 }} selectable>
-                    {invoice.teacher_phone}
-                  </Text>
+              {/* Where to send money — each method the teacher configured, with the
+                  expected receiving-account name so a name mismatch doesn't make the
+                  parent doubt the number. Informational only. */}
+              <View style={{ gap: spacing.sm, marginBottom: spacing.lg }}>
+                {(invoice.payment_methods ?? []).length > 0 ? (
+                  (invoice.payment_methods ?? []).map((m) => (
+                    <View key={m.type} style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>{m.label}</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginTop: 4 }} selectable>
+                        {m.number}
+                      </Text>
+                      {m.name ? (
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
+                          {t('invoices.expected_name')}: <Text style={{ fontFamily: fonts.medium, color: colors.textPrimary }}>{m.name}</Text>
+                        </Text>
+                      ) : null}
+                    </View>
+                  ))
                 ) : (
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4 }}>
-                    {t('invoices.no_teacher_number')}
-                  </Text>
+                  <View style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md }}>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>
+                      {t('invoices.no_teacher_number')}
+                    </Text>
+                  </View>
                 )}
               </View>
 

@@ -5,8 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
 import { useTickets } from '@/hooks/useTickets';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useState } from 'react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -30,13 +30,7 @@ export default function TicketsList() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { data: tickets, isLoading, isError, refetch } = useTickets();
-  const [refreshing, setRefreshing] = useState(false);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  };
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>

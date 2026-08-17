@@ -1,13 +1,15 @@
 import { create } from 'zustand';
-import { countPendingScans } from '@/db/offlineScans';
+import { countPendingScans, countRejectedScans } from '@/db/offlineScans';
 
 /**
- * Always-available count of unsynced buffered scans, so a badge can show
- * "something is waiting to sync" anywhere in the teacher app (main spec §5),
- * not only on the reconciliation screen.
+ * Always-available counts of buffered scans, so a badge can show "something is
+ * waiting" anywhere in the teacher app (main spec §5), not only on the
+ * reconciliation screen. `pending` still needs a sync; `rejected` needs a human
+ * decision (addendum §2). The tab badge shows the sum — both mean "unfinished".
  */
 interface OfflineState {
   pending: number;
+  rejected: number;
   online: boolean;
   refresh: () => Promise<void>;
   setOnline: (online: boolean) => void;
@@ -15,12 +17,14 @@ interface OfflineState {
 
 export const useOfflineStore = create<OfflineState>((set) => ({
   pending: 0,
+  rejected: 0,
   online: true,
   refresh: async () => {
     try {
-      set({ pending: await countPendingScans() });
+      const [pending, rejected] = await Promise.all([countPendingScans(), countRejectedScans()]);
+      set({ pending, rejected });
     } catch {
-      // DB not ready yet — leave the count as-is.
+      // DB not ready yet — leave the counts as-is.
     }
   },
   setOnline: (online) => set({ online }),

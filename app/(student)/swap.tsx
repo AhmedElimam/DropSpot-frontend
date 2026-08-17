@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,7 @@ import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@
 import { formatDate, formatTime } from '@/utils/format';
 import { useUpcomingSessions } from '@/hooks/useSessions';
 import { useSwapCandidates, useRequestSwap } from '@/hooks/useSwaps';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -17,6 +18,13 @@ export default function SwapRequestScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
+  // Swap is a hidden tab (href:null), so there may be nothing on the stack to pop —
+  // router.back() then silently does nothing. Fall back to the dashboard tab.
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(student)');
+  };
+
   const [originalId, setOriginalId] = useState<number | null>(null);
   const [targetId, setTargetId] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -24,6 +32,7 @@ export default function SwapRequestScreen() {
   const { data: upcoming, isLoading: upcomingLoading, isError: upcomingError, refetch: refetchUpcoming } = useUpcomingSessions(20);
   const { data: candidates, isLoading: candidatesLoading } = useSwapCandidates(originalId);
   const requestMutation = useRequestSwap();
+  const { refreshing, onRefresh } = usePullRefresh(refetchUpcoming);
 
   const originalSession = (upcoming ?? []).find((s) => s.id === originalId) ?? null;
 
@@ -47,7 +56,7 @@ export default function SwapRequestScreen() {
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, textAlign: 'center' }}>
             {t('swap.pending_desc')}
           </Text>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} style={{ marginTop: spacing.md, borderRadius: radius.md, overflow: 'hidden', alignSelf: 'stretch' }}>
+          <TouchableOpacity onPress={goBack} activeOpacity={0.85} style={{ marginTop: spacing.md, borderRadius: radius.md, overflow: 'hidden', alignSelf: 'stretch' }}>
             <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ padding: spacing.lg, alignItems: 'center' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('swap.done')}</Text>
             </LinearGradient>
@@ -60,15 +69,19 @@ export default function SwapRequestScreen() {
   const step = originalId ? 2 : 1;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xxxl }}
         >
-          <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity onPress={goBack} style={{ marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center' }}>
             <Icon name="back" size={20} color="rgba(255,255,255,0.85)" />
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.85)', marginStart: 4 }}>{t('common.back')}</Text>
           </TouchableOpacity>

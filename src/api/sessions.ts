@@ -36,10 +36,14 @@ function extractSession(item: any): SessionInstance {
     course_name: a.course_name,
     course_latitude: a.course_latitude ?? null,
     radius_horizontal_meters: a.radius_horizontal_meters ?? 20,
+    location_accuracy_meters: a.location_accuracy_meters ?? null,
     phone_checkin_allowed: a.phone_checkin_allowed ?? false,
     checkin_permission_expires_at: a.checkin_permission_expires_at ?? null,
     course_longitude: a.course_longitude ?? null,
     teacher_name: a.teacher_name,
     grade_name: a.grade_name,
+    attendance_status: a.attendance_status ?? null,
+    checked_in: a.checked_in ?? false,
+    can_check_in: a.can_check_in ?? false,
   };
 }

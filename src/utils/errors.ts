@@ -16,6 +16,13 @@ export function getFriendlyErrorMessage(error: unknown): string {
     }
     const status = error.response.status;
     if (status === 401) return t('errors.session_expired');
+    if (status === 402) {
+      // Payment required — e.g. an overdue bill blocking check-in. The server sends a
+      // clear Arabic reason; surface it so the student knows WHY, not a generic error.
+      const msg = error.response.data?.message;
+      if (typeof msg === 'string' && msg.length > 0 && msg.length < 300 && /[؀-ۿ]/.test(msg)) return msg;
+      return t('errors.billing_overdue');
+    }
     if (status === 403) {
       const msg = error.response.data?.message;
       if (typeof msg === 'string' && msg.length > 0 && msg.length < 200 && /[\u0600-\u06FF]/.test(msg)) return msg;
@@ -28,6 +35,11 @@ export function getFriendlyErrorMessage(error: unknown): string {
       const msg = error.response.data?.message;
       if (typeof msg === 'string' && msg.length > 0 && msg.length < 200) return msg;
       return t('errors.validation_error');
+    }
+    if (status === 429) {
+      const msg = error.response.data?.message;
+      if (typeof msg === 'string' && msg.length > 0 && msg.length < 300 && /[؀-ۿ]/.test(msg)) return msg;
+      return t('errors.too_many_requests');
     }
     if (status >= 500) return t('errors.server_error_friendly');
   }

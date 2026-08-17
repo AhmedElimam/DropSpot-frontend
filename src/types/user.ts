@@ -10,6 +10,8 @@ export interface User {
   student_code?: string | null;
   /** Opaque per-card credential to encode in the digital check-in QR (never the raw code). */
   card_token?: string | null;
+  /** Teacher first-login gate: true until they set their own password (change-password stamps it). */
+  must_set_password?: boolean;
 }
 
 export interface AuthTokens {

@@ -17,6 +17,7 @@ export const ABILITY = {
   REPLY_TICKETS: 'reply_tickets',
   MANAGE_STUDENTS: 'manage_students',
   MANAGE_SESSIONS: 'manage_sessions',
+  MANAGE_COURSES: 'manage_courses',
 } as const;
 
 export function useActiveAbilities() {

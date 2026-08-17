@@ -47,10 +47,23 @@ export async function getTeacherTodaySessions(): Promise<TeacherSession[]> {
   });
 }
 
+/** Passive "has pending" flags shown after a successful scan (non-interactive). */
+export interface ScanPending {
+  bill: { total: number; count: number; overdue: boolean; escalated?: boolean; paid?: number; partial?: boolean } | null;
+  booklets: { id: number; course: string | null; amount: number; paid?: number; partial?: boolean }[];
+  booking: { total: number; count: number; secures?: string; paid?: number } | null;
+}
+
 export interface ScanResult {
   success: boolean;
   message: string;
   student_name: string | null;
+  // Machine code (e.g. 'BILLING_OVERDUE') + resolved student id — used to single
+  // out an overdue block and offer the in-the-moment 15-day exemption.
+  code?: string | null;
+  student_id?: number | null;
+  // Passive flags for the scanned student (bill / booklet / booking down-payment).
+  pending?: ScanPending | null;
 }
 
 /**
@@ -68,12 +81,48 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
       success: !!data.success,
       message: data.message ?? '',
       student_name: data.student_name ?? null,
+      code: data.code ?? null,
+      student_id: data.student_id ?? null,
+      pending: data.pending ?? null,
     };
   } catch (e: any) {
-    // Non-2xx failures (expired card, not enrolled, etc.) carry the same shape.
+    // Non-2xx failures (expired card, not enrolled, overdue block, etc.) carry the same shape.
     const d = e?.response?.data;
     if (d) {
-      return { success: false, message: d.message ?? '', student_name: d.student_name ?? null };
+      return {
+        success: false,
+        message: d.message ?? '',
+        student_name: d.student_name ?? null,
+        code: d.code ?? null,
+        student_id: d.student_id ?? null,
+      };
+    }
+    throw e;
+  }
+}
+
+/**
+ * Grant a 15-day billing exemption in the moment at the door (no PIN — teacher OR
+ * assistant), then the server re-runs the scan and checks the student in. Returns
+ * the resulting check-in outcome.
+ */
+export async function grantDoorExemption(cardCode: string): Promise<ScanResult> {
+  try {
+    const { data } = await client.post('/checkin/billing-override', {
+      card_code: cardCode,
+      scan_source: 'app_camera',
+    });
+    return {
+      success: !!data.success,
+      message: data.message ?? '',
+      student_name: data.student_name ?? null,
+      code: data.code ?? null,
+      student_id: data.student_id ?? null,
+    };
+  } catch (e: any) {
+    const d = e?.response?.data;
+    if (d) {
+      return { success: false, message: d.message ?? '', student_name: d.student_name ?? null, code: d.code ?? null };
     }
     throw e;
   }

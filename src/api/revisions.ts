@@ -13,8 +13,20 @@ export interface RevisionSummary {
   id: number;
   title: string;
   billing_mode: BillingMode;
+  purpose?: 'revision' | 'quiz_exam';
+  is_quiz_exam?: boolean;
+  max_mark?: number | null;
   instance_id: number | null;
   scheduled_at: string | null;
+}
+
+export interface RevisionAttendee {
+  id: number;
+  student_id: number;
+  student_name: string;
+  status: string;
+  is_guest: boolean;
+  mark: number | null;
 }
 
 export interface RevisionScanResult {
@@ -28,6 +40,41 @@ export interface RevisionScanResult {
   guest?: boolean;
   billed?: boolean;
   created?: boolean;
+}
+
+// ---- Creation (mobile parity for revise/create) ----
+
+export interface RevisionCreateSchedule { id: number; label: string }
+export interface RevisionCreateCourse { course_id: number; name: string; schedules: RevisionCreateSchedule[] }
+export interface RevisionCreateGrade { grade_id: number; grade_name: string; courses: RevisionCreateCourse[] }
+
+/** The teacher's grades → courses → mergeable schedules (the merge picker data). */
+export async function getRevisionCreateOptions(): Promise<RevisionCreateGrade[]> {
+  const { data } = await client.get('/revisions/create-options');
+  return (data.data?.grades ?? data.grades ?? []) as RevisionCreateGrade[];
+}
+
+export interface CreateRevisionPayload {
+  title: string;
+  grade_id: number;
+  purpose: 'revision' | 'quiz_exam';
+  max_mark?: number | null;
+  billing_mode: BillingMode;
+  fee_total?: number | null;
+  members: number[];
+  is_recurring: boolean;
+  day_of_week?: number | null;
+  start_time?: string | null; // HH:mm
+  end_time?: string | null;   // HH:mm
+  one_time_at?: string | null; // 'YYYY-MM-DD HH:mm'
+  duration_minutes: number;
+  location?: string | null;
+  notify_students: boolean;
+}
+
+export async function createRevision(payload: CreateRevisionPayload): Promise<{ id: number; title: string; is_quiz_exam: boolean }> {
+  const { data } = await client.post('/revisions', payload);
+  return (data.data ?? data) as { id: number; title: string; is_quiz_exam: boolean };
 }
 
 export async function getRevisions(): Promise<RevisionSummary[]> {
@@ -68,6 +115,28 @@ export async function addRevisionGuest(revisionId: number, instanceId: number, s
   } catch (e) {
     return unwrap(e);
   }
+}
+
+// §2 quiz_exam marks — list an instance's attendees, then record per-student marks.
+export async function getRevisionAttendees(
+  revisionId: number,
+  instanceId: number,
+): Promise<{ max_mark: number | null; title: string; attendees: RevisionAttendee[] }> {
+  const { data } = await client.get(`/revisions/${revisionId}/instances/${instanceId}/attendees`);
+  const d = data.data ?? data;
+  return { max_mark: d.max_mark ?? null, title: d.title ?? '', attendees: (d.attendees ?? []) as RevisionAttendee[] };
+}
+
+export async function recordRevisionMark(
+  revisionId: number,
+  instanceId: number,
+  studentId: number,
+  mark: number | null,
+): Promise<void> {
+  await client.post(`/revisions/${revisionId}/instances/${instanceId}/mark`, {
+    student_id: studentId,
+    mark: mark === null ? '' : mark,
+  });
 }
 
 export async function addRevisionGuestByPhone(

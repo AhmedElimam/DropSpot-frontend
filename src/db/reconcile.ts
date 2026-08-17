@@ -1,5 +1,5 @@
 import type { TeacherSession, OfflineScanResult } from '@/api/teacher';
-import { deleteScans, markScanFailed } from './offlineScans';
+import { deleteScans, markScanRejected } from './offlineScans';
 import type { ScanBucket } from './buckets';
 
 const HALF_HOUR_MS = 30 * 60_000;
@@ -33,27 +33,49 @@ export function confidentSessionId(bucket: ScanBucket, sessions: TeacherSession[
 }
 
 /**
- * Apply a batch response to local storage: delete scans that are safely on the
- * server (synced/already_recorded), mark the rest failed (kept + surfaced).
- * Results are returned in submitted order, so we zip by index. Used by the
- * manual reconciliation screen after the teacher confirms a bucket's session.
+ * Apply a batch response to local storage (addendum §1 & §2):
+ *  - synced / already_recorded → safely on the server, delete locally;
+ *  - failed → the server gave a definitive per-scan verdict; resending the same
+ *    scan to the same session can't change it, so mark it REJECTED (kept, out of
+ *    the retry queue, surfaced for a human decision) — never re-bucketed.
+ *
+ * Each result carries its card_code, so we MATCH BY card_code rather than blindly
+ * zipping by index. The server does preserve submit order, but a strict index zip
+ * would silently mis-map every row after any future reordering or a length
+ * mismatch. We consume matches in order to stay correct even when the same card
+ * appears twice in one bucket. A local row with no matching result is left
+ * untouched (still pending) — we never delete a scan we can't account for.
  */
 export async function applyBatchResults(
   bucket: ScanBucket,
   results: OfflineScanResult[],
-): Promise<{ synced: number; failed: number }> {
+): Promise<{ synced: number; rejected: number }> {
+  // card_code → queue of local row ids, in submit order (dup-safe: two scans of
+  // the same card get consumed one at a time, first-in-first-out).
+  const byCode = new Map<string, number[]>();
+  for (const local of bucket.scans) {
+    const q = byCode.get(local.card_code) ?? [];
+    q.push(local.id);
+    byCode.set(local.card_code, q);
+  }
+
   const toDelete: number[] = [];
-  let failed = 0;
-  results.forEach((r, idx) => {
-    const local = bucket.scans[idx];
-    if (!local) return;
+  const toReject: { id: number; reason: string }[] = [];
+
+  for (const r of results) {
+    const queue = byCode.get(r.card_code);
+    const localId = queue?.shift();
+    if (localId === undefined) continue; // result for a card not in this bucket — ignore
     if (r.outcome === 'synced' || r.outcome === 'already_recorded') {
-      toDelete.push(local.id);
+      toDelete.push(localId);
     } else {
-      failed++;
-      markScanFailed(local.id, r.message || r.code || 'failed');
+      toReject.push({ id: localId, reason: r.message || r.code || 'failed' });
     }
-  });
+  }
+
   await deleteScans(toDelete);
-  return { synced: toDelete.length, failed };
+  for (const { id, reason } of toReject) {
+    await markScanRejected(id, reason);
+  }
+  return { synced: toDelete.length, rejected: toReject.length };
 }

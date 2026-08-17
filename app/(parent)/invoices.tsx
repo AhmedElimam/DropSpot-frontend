@@ -1,17 +1,19 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
-import { formatDate } from '@/utils/format';
+import { formatDate, daysUntil } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
-import { useInvoices } from '@/hooks/useInvoices';
+import { useInvoices, useParentPendingDues } from '@/hooks/useInvoices';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
-import { PaymentProofButton } from '@/components/parent/PaymentProofButton';
+import { PaymentSection } from '@/components/parent/PaymentSection';
+import { PendingDueCard } from '@/components/parent/PendingDueCard';
 
 const statusConfig: Record<string, { color: string }> = {
   paid: { color: colors.success },
@@ -23,6 +25,8 @@ export default function InvoicesPage() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { data: invoices, isLoading, isError, refetch } = useInvoices();
+  const { data: dues, refetch: refetchDues } = useParentPendingDues();
+  const { refreshing, onRefresh } = usePullRefresh(refetch, refetchDues);
 
   const totalDue = (invoices ?? []).filter((i) => i.status === 'pending' || i.status === 'overdue').reduce((s, i) => s + i.amount, 0);
   const paidAmount = (invoices ?? []).filter((i) => i.status === 'paid').reduce((s, i) => s + i.amount, 0);
@@ -45,8 +49,12 @@ export default function InvoicesPage() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
@@ -77,11 +85,19 @@ export default function InvoicesPage() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
-          {!invoices || invoices.length === 0 ? (
-            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, ...shadows.sm }}>
-              <EmptyState icon="invoices" title={t('invoices.no_invoices')} />
-            </View>
-          ) : (
+          {(dues ?? []).length > 0 ? (
+            <>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs }}>
+                <Icon name="money" size={18} color={colors.warning} outline />
+                <Text style={textPresets.h3}>{t('dues.section_title')}</Text>
+              </View>
+              {(dues ?? []).map((due) => (
+                <PendingDueCard key={due.id} due={due} showStudent />
+              ))}
+            </>
+          ) : null}
+
+          {invoices && invoices.length > 0 ? (
             invoices.map((invoice) => {
               const sc = statusConfig[invoice.status] ?? statusConfig.pending;
               return (
@@ -116,24 +132,34 @@ export default function InvoicesPage() {
                     </View>
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.md }}>
-                    <Text style={[textPresets.bodySmall]}>
-                      {t('invoices.due_date')}: {invoice.due_date ? formatDate(new Date(invoice.due_date), { day: 'numeric', month: 'short' }) : '-'}
-                    </Text>
+                    <View>
+                      <Text style={[textPresets.bodySmall]}>
+                        {t('invoices.due_date')}: {invoice.due_date ? formatDate(new Date(invoice.due_date), { day: 'numeric', month: 'short' }) : '-'}
+                      </Text>
+                      {invoice.status !== 'paid' && invoice.due_date ? (() => {
+                        const days = daysUntil(invoice.due_date);
+                        const overdue = invoice.status === 'overdue' || days < 0;
+                        const label = overdue
+                          ? t('invoices.overdue_since', { count: Math.abs(days) })
+                          : days === 0 ? t('invoices.due_today') : t('invoices.due_in', { count: days });
+                        return (
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 13, marginTop: 2, color: overdue ? colors.danger : colors.warning }}>
+                            {label}
+                          </Text>
+                        );
+                      })() : null}
+                    </View>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>{formatEGP(invoice.amount)}</Text>
                   </View>
-                  {invoice.status !== 'paid' && (
-                    <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
-                      {/* TEMP/INTERIM (Paymob blocked): remote transfer + screenshot proof. */}
-                      <PaymentProofButton invoice={invoice} />
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>
-                        {t('invoices.pay_hint')}
-                      </Text>
-                    </View>
-                  )}
+                  <PaymentSection invoice={invoice} />
                 </TouchableOpacity>
               );
             })
-          )}
+          ) : (dues ?? []).length === 0 ? (
+            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, ...shadows.sm }}>
+              <EmptyState icon="invoices" title={t('invoices.no_invoices')} />
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </View>

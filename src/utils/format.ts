@@ -41,6 +41,14 @@ export function relativeDay(date: string | Date): string | null {
   return null;
 }
 
+/** Whole days from today until `date` (day-granular; past → negative, today → 0). */
+export function daysUntil(date: string | Date): number {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return 0;
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  return Math.round((startOf(d) - startOf(new Date())) / 86_400_000);
+}
+
 // The label a session/date row shows: a relative word when close, else the full
 // day + date. Optionally appends the full date after the relative word.
 export function dayLabel(date: string | Date | null): string {

@@ -31,6 +31,7 @@ export interface PreCardScanStudent {
   grade: string | null;
   report_notice: boolean;
   report_notice_message: string | null;
+  report_flag?: { label: string; color: string; tooltip?: string | null } | null;
 }
 
 export interface PreCardScanResult {

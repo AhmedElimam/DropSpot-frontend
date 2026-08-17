@@ -9,8 +9,13 @@ import { router } from 'expo-router';
 import { Icon } from '@/components/ui/Icon';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { AuthScaffold } from '@/components/auth/AuthScaffold';
+import { PhoneConfirmModal } from '@/components/auth/PhoneConfirmModal';
 
 const RELATIONS = ['father', 'mother', 'guardian', 'other'] as const;
+
+// Names are entered in Arabic. Flag the moment any Latin letter appears so the
+// user gets instant feedback instead of a server rejection after submit.
+const hasLatinLetters = (v: string) => /[A-Za-z]/.test(v);
 
 const labelStyle = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm };
 const fieldBase = {
@@ -36,10 +41,15 @@ export default function RegisterScreen() {
   const [parentName, setParentName] = useState('');
   const [parentPhone, setParentPhone] = useState('');
   const [parentRelation, setParentRelation] = useState<string>('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const registerMutation = useRegister();
+
+  const nameHasLatin = hasLatinLetters(name);
+  const parentNameHasLatin = hasLatinLetters(parentName);
 
   const handleRegister = () => {
     if (!name || !phone || !password || password !== confirmPassword || !parentName || !parentPhone || !parentRelation) return;
+    if (nameHasLatin || parentNameHasLatin) return;
     registerMutation.mutate(
       {
         name,
@@ -53,13 +63,13 @@ export default function RegisterScreen() {
         onSuccess: (data) => {
           const studentId = data?.data?.student_id;
           const pPhone = data?.data?.parent_phone;
-          router.replace(`/(auth)/verify-otp?parent_phone=${encodeURIComponent(pPhone)}&student_id=${studentId}`);
+          router.replace(`/(auth)/verify-otp?parent_phone=${encodeURIComponent(pPhone)}&student_id=${studentId}&name=${encodeURIComponent(name)}`);
         },
       },
     );
   };
 
-  const isValid = name && phone && password && password === confirmPassword && parentName && parentPhone && parentRelation;
+  const isValid = name && !nameHasLatin && phone && password && password === confirmPassword && parentName && !parentNameHasLatin && parentPhone && parentRelation;
 
   return (
     <AuthScaffold
@@ -100,8 +110,17 @@ export default function RegisterScreen() {
       <TextInput
         value={name} onChangeText={setName} autoCapitalize="words" autoCorrect={false}
         placeholder="محمد أحمد" placeholderTextColor={colors.textTertiary}
-        style={{ ...fieldBase, borderColor: name ? colors.brand : colors.borderStrong }}
+        style={{
+          ...fieldBase,
+          marginBottom: nameHasLatin ? spacing.xs : spacing.lg,
+          borderColor: nameHasLatin ? colors.danger : name ? colors.brand : colors.borderStrong,
+        }}
       />
+      {nameHasLatin ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>
+          {t('auth.name_arabic_only')}
+        </Text>
+      ) : null}
 
       {/* Student phone */}
       <Text style={labelStyle}>{t('auth.student_phone')}</Text>
@@ -141,16 +160,32 @@ export default function RegisterScreen() {
       <TextInput
         value={parentName} onChangeText={setParentName} autoCapitalize="words" autoCorrect={false}
         placeholder="أحمد محمد" placeholderTextColor={colors.textTertiary}
-        style={{ ...fieldBase, borderColor: parentName ? colors.brand : colors.borderStrong }}
+        style={{
+          ...fieldBase,
+          marginBottom: parentNameHasLatin ? spacing.xs : spacing.lg,
+          borderColor: parentNameHasLatin ? colors.danger : parentName ? colors.brand : colors.borderStrong,
+        }}
       />
+      {parentNameHasLatin ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>
+          {t('auth.name_arabic_only')}
+        </Text>
+      ) : null}
 
       {/* Parent phone */}
       <Text style={labelStyle}>{t('auth.parent_phone')}</Text>
       <TextInput
         value={parentPhone} onChangeText={setParentPhone} keyboardType="phone-pad" autoCapitalize="none" autoCorrect={false}
         placeholder="01000000000" placeholderTextColor={colors.textTertiary}
-        style={{ ...fieldBase, borderColor: parentPhone ? colors.brand : colors.borderStrong }}
+        style={{ ...fieldBase, marginBottom: spacing.sm, borderColor: parentPhone ? colors.brand : colors.borderStrong }}
       />
+      {/* Why-it-matters warning at the point of entry — before the confirm popup. */}
+      <View style={{ flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.warningLight ?? colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg }}>
+        <Icon name="warning" size={16} color={colors.warning} style={{ marginTop: 2 }} />
+        <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'right' }}>
+          {t('auth.parent_phone_warning')}
+        </Text>
+      </View>
 
       {/* Parent relation */}
       <Text style={labelStyle}>{t('auth.parent_relation')}</Text>
@@ -177,9 +212,9 @@ export default function RegisterScreen() {
         })}
       </View>
 
-      {/* Submit */}
+      {/* Submit — opens the pause-and-reconsider popup before proceeding to OTP. */}
       <TouchableOpacity
-        onPress={handleRegister}
+        onPress={() => setConfirmOpen(true)}
         disabled={!isValid || registerMutation.isPending}
         activeOpacity={0.85}
         style={{ borderRadius: radius.lg, overflow: 'hidden', opacity: !isValid ? 0.5 : 1 }}
@@ -199,6 +234,13 @@ export default function RegisterScreen() {
           )}
         </LinearGradient>
       </TouchableOpacity>
+
+      <PhoneConfirmModal
+        visible={confirmOpen}
+        phone={parentPhone}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => { setConfirmOpen(false); handleRegister(); }}
+      />
     </AuthScaffold>
   );
 }

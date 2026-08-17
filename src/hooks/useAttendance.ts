@@ -1,11 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAttendanceRecords, checkIn as checkInApi, submitExcuse, getStudentCoverage } from '@/api/attendance';
+import { getStudentAttendanceRisk, getParentAttendanceRisk } from '@/api/attendanceRisk';
 import { useAuthStore } from '@/stores/authStore';
 import type { AttendanceRecord } from '@/types/attendance';
 
 function useStudentId(): number {
   const user = useAuthStore((s) => s.user);
   return user?.student_id ?? user?.id ?? 0;
+}
+
+export function useStudentAttendanceRisk() {
+  return useQuery({ queryKey: ['attendance', 'risk', 'me'], queryFn: getStudentAttendanceRisk });
+}
+
+export function useParentAttendanceRisk() {
+  return useQuery({ queryKey: ['attendance', 'risk', 'children'], queryFn: getParentAttendanceRisk });
 }
 
 export function useAttendanceRecords(params?: { from?: string; to?: string }) {

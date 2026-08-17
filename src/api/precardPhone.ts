@@ -10,7 +10,7 @@ import { extractAttrs } from './utils';
  */
 export interface PrecardPhoneSendResult {
   found: boolean;
-  action: 'use_card' | 'invitation_sent';
+  action: 'use_card' | 'invitation_sent' | 'already_enrolled';
   message?: string;
 }
 
@@ -19,6 +19,10 @@ export async function sendPrecardPhone(payload: {
   course_id: number;
   academic_session_id: number;
   session_schedule_id?: number;
+  // Per-invitation booking down-payment (blank/undefined = none). Applied at accept.
+  down_payment_amount?: number | null;
+  // What the down-payment secures (session | booklet | flat). Drives the label.
+  booking_secures?: 'session' | 'booklet' | 'flat';
 }): Promise<PrecardPhoneSendResult> {
   const { data } = await client.post('/precard-phone-invitations/send', payload);
   return (data.data ?? data) as PrecardPhoneSendResult;

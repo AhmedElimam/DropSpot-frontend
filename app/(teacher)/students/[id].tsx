@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,8 @@ import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Avatar } from '@/components/layout/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useStudentDetail } from '@/hooks/useStudents';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { terminateEnrollment } from '@/api/enrollments';
 import { dayLabel, formatDayDate } from '@/utils/format';
 
 // Attendance status → an i18n key + Badge variant. 'not_recorded' is the neutral
@@ -44,7 +46,31 @@ export default function StudentDetailScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: s, isLoading, refetch, isRefetching } = useStudentDetail(id);
+  const { data: s, isLoading, refetch } = useStudentDetail(id);
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
+
+  const confirmTerminate = (courseName: string | null, enrollmentId?: number) => {
+    if (!enrollmentId) return;
+    Alert.alert(
+      t('teacher.terminate_title'),
+      t('teacher.terminate_body', { course: courseName ?? '' }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('teacher.terminate_confirm'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await terminateEnrollment(enrollmentId);
+              refetch();
+            } catch {
+              Alert.alert(t('common.error'), t('teacher.terminate_failed'));
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
@@ -64,7 +90,7 @@ export default function StudentDetailScreen() {
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {/* Summary */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>
@@ -114,8 +140,13 @@ export default function StudentDetailScreen() {
             <Section title={t('teacher.student_courses')}>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
                 {s.courses.map((c) => (
-                  <View key={c.id} style={{ backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+                  <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
                     <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{c.name ?? '—'}</Text>
+                    {c.enrollment_id ? (
+                      <TouchableOpacity onPress={() => confirmTerminate(c.name, c.enrollment_id)} accessibilityRole="button" hitSlop={8}>
+                        <Icon name="trash" size={15} color={colors.danger} />
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 ))}
               </View>
@@ -125,12 +156,25 @@ export default function StudentDetailScreen() {
           {/* Parents */}
           {s.parents.length > 0 ? (
             <Section title={t('teacher.student_parents')}>
+              {s.parent_number_notice ? (
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm }}>
+                  <Icon name="call" size={18} color={colors.dangerText} />
+                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.dangerText }}>
+                    {s.parent_number_notice_message ?? t('teacher.number_fake')}
+                  </Text>
+                </View>
+              ) : null}
               {s.parents.map((p, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
                   <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{p.name ?? '—'}</Text>
                       {p.is_primary ? <Badge label={t('teacher.primary_parent')} variant="success" size="sm" /> : null}
+                      {p.number_flagged ? (
+                        <Badge label={t('teacher.number_fake')} variant="danger" size="sm" />
+                      ) : p.phone_verified ? (
+                        <Badge label={t('teacher.number_verified')} variant="success" size="sm" />
+                      ) : null}
                     </View>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
                       {p.relationship ?? ''}{p.phone ? ` · ${p.phone}` : ` · ${t('teacher.no_phone')}`}

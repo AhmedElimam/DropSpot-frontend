@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,8 +6,14 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { useChildren } from '@/hooks/useChildren';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import type { Child } from '@/api/children';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useParentAttendanceRisk } from '@/hooks/useAttendance';
+import { useParentBillingStatus } from '@/hooks/useInvoices';
+import { AttendanceRiskCard } from '@/components/attendance/AttendanceRiskCard';
+import { BillingOverdueCard } from '@/components/attendance/BillingOverdueCard';
+import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
 import { usePendingPrecardInvites, useAcceptPrecardInvite, useRejectPrecardInvite } from '@/hooks/usePrecardPhone';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -27,7 +33,7 @@ const notifIcon: Record<string, IconName> = {
   attendance: 'attendance', absence: 'warning', left_early: 'clock', grade: 'grades',
   invoice: 'invoices', invoice_new: 'invoices', invoice_overdue: 'money',
   session_swap: 'calendar', enrollment_transfer: 'calendar', schedule: 'calendar',
-  student_report: 'note', daily_digest: 'bell',
+  student_report: 'note', monthly_report: 'reports', daily_digest: 'bell',
 };
 
 type Standing = { key: string; color: string };
@@ -41,16 +47,23 @@ export default function ParentHome() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { data: children, isLoading: childrenLoading } = useChildren();
-  const { data: notifications } = useNotifications();
+  const { data: children, isLoading: childrenLoading, refetch: refetchChildren } = useChildren();
+  const { data: notifications, refetch: refetchNotifications } = useNotifications();
+  const { data: risks, refetch: refetchRisks } = useParentAttendanceRisk();
+  const { data: billingAlerts, refetch: refetchBilling } = useParentBillingStatus();
+  const { refreshing, onRefresh } = usePullRefresh(refetchChildren, refetchNotifications, refetchRisks, refetchBilling);
 
   const kids = children ?? [];
   const latest = (notifications ?? [])[0];
   const allWell = kids.length > 0 && kids.every((c) => (c.attendance_rate ?? 0) >= 75);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         {/* Deep-ink hero */}
         <LinearGradient
           colors={gradients.hero}
@@ -76,6 +89,16 @@ export default function ParentHome() {
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg }}>
 
+          <CardOrderBanner scope="parent" />
+
+          {/* Overdue billing (may block check-in) then auto-termination risk */}
+          {(billingAlerts ?? []).map((alert, i) => (
+            <BillingOverdueCard key={`bill-${alert.student_id}-${i}`} alert={alert} showName />
+          ))}
+          {(risks ?? []).map((risk, i) => (
+            <AttendanceRiskCard key={`${risk.student_id}-${risk.course_name ?? i}`} risk={risk} showName />
+          ))}
+
           {/* §3 — pending phone pre-card invitations awaiting the family's consent */}
           <PendingInvites t={t} />
 
@@ -93,9 +116,19 @@ export default function ParentHome() {
           <View style={{ gap: spacing.md }}>
             <Text style={sectionLabel}>{t('home.actions_section')}</Text>
             <BigAction
+              icon="calendar" tint={colors.brandTint} iconColor={colors.brand}
+              title={t('today.title')} subtitle={t('today.subtitle')}
+              onPress={() => router.push('/(parent)/today')}
+            />
+            <BigAction
               icon="invoices" tint={colors.successLight} iconColor={colors.success}
               title={t('home.invoices_title')}
               onPress={() => router.push('/(parent)/invoices')}
+            />
+            <BigAction
+              icon="reports" tint={colors.brandTint} iconColor={colors.brand}
+              title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')}
+              onPress={() => router.push('/(parent)/report-cards')}
             />
             <BigAction
               icon="ticket" tint={colors.accentWarmTint} iconColor={colors.accentWarm}
@@ -106,9 +139,14 @@ export default function ParentHome() {
 
           {/* Latest update */}
           <View style={{ gap: spacing.md }}>
-            <Text style={sectionLabel}>{t('home.latest_update')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={sectionLabel}>{t('home.latest_update')}</Text>
+              <TouchableOpacity onPress={() => router.push('/(parent)/notifications')} hitSlop={8}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('notifications.view_all')}</Text>
+              </TouchableOpacity>
+            </View>
             {latest ? (
-              <View style={{ flexDirection: 'row', gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 4, borderStartColor: colors.brand }}>
+              <TouchableOpacity onPress={() => router.push('/(parent)/notifications')} activeOpacity={0.75} style={{ flexDirection: 'row', gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 4, borderStartColor: colors.brand }}>
                 <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
                   <Icon name={notifIcon[latest.type] || 'bell'} size={20} color={colors.brand} />
                 </View>
@@ -119,7 +157,7 @@ export default function ParentHome() {
                   ) : null}
                   <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginTop: 6 }}>{timeAgo(latest.created_at)}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ) : (
               <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.xl, alignItems: 'center' }}>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textTertiary }}>{t('home.no_updates')}</Text>

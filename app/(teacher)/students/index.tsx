@@ -3,17 +3,28 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, S
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { StudentRow } from '@/components/student/StudentRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useTeacherStudents, useTeacherCourses } from '@/hooks/useStudents';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useTeacherSessionHistory } from '@/hooks/useTeacherSessionHistory';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import type { SessionRow } from '@/api/teacherSessions';
+import { getTeacherCardOrders, type TeacherCardOrder } from '@/api/students';
 import { dayLabel } from '@/utils/format';
 
-type Segment = 'students' | 'sessions';
+type Segment = 'students' | 'sessions' | 'cards';
+
+const CARD_STATUS: Record<string, { key: string; color: string }> = {
+  submitted: { key: 'teacher.co_submitted', color: colors.warning },
+  approved: { key: 'teacher.co_approved', color: colors.success },
+  rejected: { key: 'teacher.co_rejected', color: colors.danger },
+  link_generated: { key: 'teacher.co_link', color: colors.textSecondary },
+};
 
 // Backend session status → an existing session.* i18n key + a chip variant.
 const SESSION_STATUS: Record<string, { key: string; color: string }> = {
@@ -58,11 +69,18 @@ export default function TeacherStudents() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string | null>(null);
 
+  const { can } = useActiveAbilities();
   const { data: courses } = useTeacherCourses();
-  const { data: students, isLoading: studentsLoading, refetch: refetchStudents, isRefetching: studentsRefetching } =
+  const { data: students, isLoading: studentsLoading, refetch: refetchStudents } =
     useTeacherStudents({ course_id: courseId ?? undefined });
-  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions, isRefetching: sessionsRefetching } =
+  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions } =
     useTeacherSessionHistory(status ?? undefined);
+  const cardOrders = useQuery({ queryKey: ['teacher-card-orders'], queryFn: getTeacherCardOrders, enabled: segment === 'cards' });
+
+  // Each segment has its own list + RefreshControl, so keep the pull-refresh per segment.
+  const studentsRefresh = usePullRefresh(refetchStudents);
+  const sessionsRefresh = usePullRefresh(refetchSessions);
+  const cardsRefresh = usePullRefresh(cardOrders.refetch);
 
   // Search filters the loaded roster client-side (grade filter is server-side).
   const filteredStudents = useMemo(() => {
@@ -113,17 +131,17 @@ export default function TeacherStudents() {
         <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary }}>{t('teacher.tab_students')}</Text>
       </View>
 
-      {/* Segmented: students / sessions */}
+      {/* Segmented: students / sessions / cards */}
       <View style={{ flexDirection: 'row', marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4, marginBottom: spacing.sm }}>
-        {(['students', 'sessions'] as Segment[]).map((seg) => (
+        {(['students', 'sessions', 'cards'] as Segment[]).map((seg) => (
           <TouchableOpacity
             key={seg}
             onPress={() => setSegment(seg)}
             activeOpacity={0.85}
             style={{ flex: 1, paddingVertical: spacing.sm, borderRadius: radius.md, backgroundColor: segment === seg ? colors.surface : 'transparent', alignItems: 'center' }}
           >
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: segment === seg ? colors.brand : colors.textSecondary }}>
-              {t(seg === 'students' ? 'teacher.seg_students' : 'teacher.seg_sessions')}
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: segment === seg ? colors.brand : colors.textSecondary }}>
+              {t(seg === 'students' ? 'teacher.seg_students' : seg === 'sessions' ? 'teacher.seg_sessions' : 'teacher.seg_cards')}
             </Text>
           </TouchableOpacity>
         ))}
@@ -158,7 +176,7 @@ export default function TeacherStudents() {
               data={filteredStudents}
               keyExtractor={(s) => s.id}
               contentContainerStyle={listPad}
-              refreshControl={<RefreshControl refreshing={studentsRefetching} onRefresh={refetchStudents} />}
+              refreshControl={<RefreshControl refreshing={studentsRefresh.refreshing} onRefresh={studentsRefresh.onRefresh} />}
               renderItem={({ item }) => (
                 <StudentRow
                   id={item.id}
@@ -173,8 +191,31 @@ export default function TeacherStudents() {
             />
           )}
         </>
-      ) : (
+      ) : segment === 'sessions' ? (
         <>
+          {/* Session tools — teachers always; assistants only with manage_sessions
+              on their active teacher context. Add a weekly slot, or pause a range. */}
+          {can(ABILITY.MANAGE_SESSIONS) && (
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.lg, marginBottom: spacing.sm }}>
+              <TouchableOpacity
+                onPress={() => router.push('/(teacher)/schedule-new' as Href)}
+                activeOpacity={0.85}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 46, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.surface }}
+              >
+                <Icon name="add" size={18} color={colors.brand} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('teacher.add_schedule')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push('/(teacher)/pause' as Href)}
+                activeOpacity={0.85}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 46, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}
+              >
+                <Icon name="clock" size={18} color={colors.textSecondary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>{t('teacher.pause_period')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Session status chips */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }} style={{ flexGrow: 0 }}>
             <Chip label={t('teacher.status_all')} active={status === null} onPress={() => setStatus(null)} />
@@ -190,9 +231,53 @@ export default function TeacherStudents() {
               data={sessions?.items ?? []}
               keyExtractor={(s) => s.id}
               contentContainerStyle={listPad}
-              refreshControl={<RefreshControl refreshing={sessionsRefetching} onRefresh={refetchSessions} />}
+              refreshControl={<RefreshControl refreshing={sessionsRefresh.refreshing} onRefresh={sessionsRefresh.onRefresh} />}
               renderItem={renderSession}
               ListEmptyComponent={<EmptyState icon="calendar" title={t('teacher.no_sessions_history')} message={t('teacher.no_sessions_history_hint')} />}
+            />
+          )}
+        </>
+      ) : (
+        <>
+          {/* Card orders — order a card for an existing enrollment + track requests. */}
+          <View style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm }}>
+            <TouchableOpacity
+              onPress={() => router.push('/(teacher)/card-order-new' as Href)}
+              activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 46, borderRadius: radius.lg, backgroundColor: colors.brand }}
+            >
+              <Icon name="add" size={18} color="#fff" />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('teacher.order_card')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {cardOrders.isLoading ? (
+            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
+          ) : (
+            <FlatList
+              data={cardOrders.data ?? []}
+              keyExtractor={(o: TeacherCardOrder) => String(o.id)}
+              contentContainerStyle={listPad}
+              refreshControl={<RefreshControl refreshing={cardsRefresh.refreshing} onRefresh={cardsRefresh.onRefresh} />}
+              renderItem={({ item }: { item: TeacherCardOrder }) => {
+                const st = CARD_STATUS[item.status] ?? { key: 'teacher.co_submitted', color: colors.textSecondary };
+                return (
+                  <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.sm }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>{item.student_name}</Text>
+                      <View style={{ backgroundColor: st.color, borderRadius: radius.full, paddingVertical: 3, paddingHorizontal: 10 }}>
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#fff' }}>{t(st.key)}</Text>
+                      </View>
+                    </View>
+                    {item.course_name || item.grade_label ? (
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>
+                        {item.course_name ?? item.grade_label}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              }}
+              ListEmptyComponent={<EmptyState icon="children" title={t('teacher.no_card_orders')} message={t('teacher.order_card_sub')} />}
             />
           )}
         </>
