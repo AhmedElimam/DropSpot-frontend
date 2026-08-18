@@ -13,8 +13,19 @@ Notifications.setNotificationHandler({
   }),
 });
 
+/** Push failures are otherwise invisible — every bail-out below returns null. */
+function pushLog(...args: unknown[]): void {
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log('[push]', ...args);
+  }
+}
+
 export async function registerForPushNotifications(): Promise<string | null> {
-  if (!Device.isDevice) {
+  // Android emulators running a Google Play system image DO receive FCM, so only
+  // the iOS Simulator is a hard stop here (no APNs).
+  if (!Device.isDevice && Platform.OS !== 'android') {
+    pushLog('skipped: iOS Simulator cannot receive remote push');
     return null;
   }
 
@@ -27,6 +38,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   if (finalStatus !== 'granted') {
+    pushLog('aborted: notification permission not granted, status =', finalStatus);
     return null;
   }
 
@@ -43,10 +55,25 @@ export async function registerForPushNotifications(): Promise<string | null> {
     const platform = Platform.OS;
     const deviceName = Device.deviceName ?? undefined;
 
+    pushLog('got FCM token', `${token.slice(0, 12)}…`, '- registering with backend');
     await registerDeviceToken(token, platform, deviceName);
+    pushLog('registered OK');
 
     return token;
-  } catch {
+  } catch (err: any) {
+    // Distinguish the two very different failure modes: no token from the OS
+    // (Expo Go on Android can't do remote push — needs a dev build), vs. the
+    // backend rejecting the registration (wrong base URL, expired auth, 404).
+    if (err?.isAxiosError) {
+      pushLog(
+        'backend rejected token registration:',
+        err.response?.status ?? err.code,
+        err.config?.baseURL ?? '',
+        err.response?.data ?? err.message,
+      );
+    } else {
+      pushLog('could not obtain a device push token:', err?.message ?? err);
+    }
     return null;
   }
 }
