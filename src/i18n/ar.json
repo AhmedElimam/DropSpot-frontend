@@ -1205,7 +1205,14 @@
     "special_sessions_title": "حصص خاصة / امتحانات",
     "special_sessions_sub": "سجّل الحضور وارصد درجات الامتحانات الخاصة",
     "booking_is_booklet": "دفعة الحجز = سعر الملزمة (حسب إعداداتك)",
-    "assistant_can_grant_override_note": "يمكنك منح استثناء سداد (15 يومًا)؛ سيصل إشعار للمعلم بذلك. الإلغاء وأذونات تسجيل الحضور تبقى للمعلم فقط."
+    "assistant_can_grant_override_note": "يمكنك منح استثناء سداد (15 يومًا)؛ سيصل إشعار للمعلم بذلك. الإلغاء وأذونات تسجيل الحضور تبقى للمعلم فقط.",
+    "parent_answered_q": "هل رد ولي الأمر؟",
+    "parent_answered_hint": "هل تمكنت من التواصل مع {{name}}؟",
+    "parent_answered_yes": "نعم، رد",
+    "parent_answered_no": "لا، لم يرد",
+    "parent_call_reported_title": "تم إشعار الطالب",
+    "parent_call_reported_body": "سيصل الطالب إشعارًا لإبلاغ ولي أمره بالتواصل معك بشكل عاجل.",
+    "parent_call_report_failed": "تعذّر إرسال الإشعار. حاول مرة أخرى."
   },
   "assistants": {
     "title": "المساعدون",

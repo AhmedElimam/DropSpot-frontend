@@ -169,6 +169,14 @@ export async function getStudentDetail(id: string | number): Promise<StudentDeta
   return (data.data ?? data) as StudentDetail;
 }
 
+/**
+ * The teacher/assistant called the parent and got no answer → nudge the student
+ * (in-app + push) to relay that their teacher urgently needs to reach the parent.
+ */
+export async function reportParentUnreachable(studentId: string | number): Promise<void> {
+  await client.post(`/teacher/students/${studentId}/parent-unreachable`);
+}
+
 // ---------------------------------------------------------------------------
 // Card orders raised for an existing enrollment (roster "cards" segment).
 // ---------------------------------------------------------------------------

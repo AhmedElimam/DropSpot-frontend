@@ -11,6 +11,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useStudentDetail } from '@/hooks/useStudents';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { terminateEnrollment } from '@/api/enrollments';
+import { reportParentUnreachable } from '@/api/students';
+import { useMutation } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
 
 // Attendance status → an i18n key + Badge variant. 'not_recorded' is the neutral
@@ -48,6 +50,26 @@ export default function StudentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: s, isLoading, refetch } = useStudentDetail(id);
   const { refreshing, onRefresh } = usePullRefresh(refetch);
+
+  // Nudge the student when a parent call goes unanswered.
+  const nudgeStudent = useMutation({
+    mutationFn: () => reportParentUnreachable(id),
+    onSuccess: () => Alert.alert(t('teacher.parent_call_reported_title'), t('teacher.parent_call_reported_body')),
+    onError: () => Alert.alert(t('common.error'), t('teacher.parent_call_report_failed')),
+  });
+
+  // Open the dialer, then ask whether the parent answered. "No" → nudge the student.
+  const callParent = (phone: string, parentName?: string | null) => {
+    Linking.openURL(`tel:${phone}`);
+    Alert.alert(
+      t('teacher.parent_answered_q'),
+      t('teacher.parent_answered_hint', { name: parentName ?? '' }),
+      [
+        { text: t('teacher.parent_answered_yes'), style: 'cancel' },
+        { text: t('teacher.parent_answered_no'), style: 'destructive', onPress: () => nudgeStudent.mutate() },
+      ],
+    );
+  };
 
   const confirmTerminate = (courseName: string | null, enrollmentId?: number) => {
     if (!enrollmentId) return;
@@ -181,7 +203,7 @@ export default function StudentDetailScreen() {
                     </Text>
                   </View>
                   {p.phone ? (
-                    <TouchableOpacity onPress={() => Linking.openURL(`tel:${p.phone}`)} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.successLight, justifyContent: 'center', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => callParent(p.phone!, p.name)} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.successLight, justifyContent: 'center', alignItems: 'center' }}>
                       <Icon name="call" size={20} color={colors.success} />
                     </TouchableOpacity>
                   ) : null}
