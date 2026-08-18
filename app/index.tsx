@@ -15,6 +15,12 @@ export default function Index() {
     return <Redirect href={'/change-password?forced=1' as Href} />;
   }
 
+  // Student deferred gate: their OWN number was never verified at registration and the
+  // daily sweep has now flagged it — hard-block until they OTP-verify it.
+  if (role === 'student' && user?.needs_own_number_verification) {
+    return <Redirect href={'/verify-own-number' as Href} />;
+  }
+
   // A super-admin / admin has no normal app — only the impersonation picker.
   if (role === 'admin') return <Redirect href={'/(admin)/impersonate' as Href} />;
   // Teachers and their assistants share the teacher app (assistant access is

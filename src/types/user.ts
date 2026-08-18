@@ -12,6 +12,8 @@ export interface User {
   card_token?: string | null;
   /** Teacher first-login gate: true until they set their own password (change-password stamps it). */
   must_set_password?: boolean;
+  /** Student deferred gate: true until they OTP-verify their OWN number (raised by the daily sweep). */
+  needs_own_number_verification?: boolean;
 }
 
 export interface AuthTokens {

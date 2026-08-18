@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { Icon } from '@/components/ui/Icon';
 import {
   useCheckinPermissions,
@@ -22,9 +23,11 @@ function fmtDate(iso: string | null): string {
 }
 
 /**
- * Overrides section for the teacher Home tab (§1). Teachers grant/revoke; an
- * assistant sees the same lists read-only with a clear "teacher only" note — the
- * server also hard-blocks assistant grant/revoke regardless of this UI.
+ * Overrides section for the teacher Home tab (§1). Teachers grant/revoke. An
+ * assistant granted scan_attendance may GRANT a billing exception too (the owning
+ * teacher is notified server-side); REVOKE and check-in permissions stay teacher-only.
+ * An assistant without scan_attendance sees the lists read-only with a "teacher only"
+ * note. The server enforces all of this regardless of the UI.
  *
  * Granting a billing exception opens a dedicated page (/(teacher)/grant-exception)
  * rather than a popup — the full page makes searching by name/code and jumping to
@@ -34,6 +37,10 @@ export function OverridesSection() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const isAssistant = user?.user_type_id === 6;
+  const { can } = useActiveAbilities();
+  // Billing exception GRANT is allowed for a teacher, or an assistant with
+  // scan_attendance (mirrors the server's route gate). Revoke stays teacher-only.
+  const canGrant = can(ABILITY.SCAN);
 
   const permissions = useCheckinPermissions();
   const overrides = useBillingOverrides();
@@ -86,12 +93,7 @@ export function OverridesSection() {
     <View style={{ marginTop: spacing.xl }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('teacher.overrides')}</Text>
-        {isAssistant ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Icon name="lock" size={14} color={colors.textTertiary} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{t('teacher.teacher_only')}</Text>
-          </View>
-        ) : (
+        {canGrant ? (
           <TouchableOpacity
             onPress={() => router.push('/(teacher)/grant-exception' as Href)}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primaryLight, borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: spacing.md }}
@@ -99,13 +101,18 @@ export function OverridesSection() {
             <Icon name="add" size={16} color={colors.primary} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>{t('teacher.grant_override')}</Text>
           </TouchableOpacity>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Icon name="lock" size={14} color={colors.textTertiary} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{t('teacher.teacher_only')}</Text>
+          </View>
         )}
       </View>
 
       {isAssistant ? (
         <View style={{ backgroundColor: colors.primaryLight, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>
-            {t('teacher.assistant_override_note')}
+            {canGrant ? t('teacher.assistant_can_grant_override_note') : t('teacher.assistant_override_note')}
           </Text>
         </View>
       ) : null}
