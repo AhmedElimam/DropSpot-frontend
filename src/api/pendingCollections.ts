@@ -17,11 +17,18 @@ export interface RosterBill {
   overdue: boolean;
 }
 
+/**
+ * One shape for every non-invoice due — booklets and bookings are now identical
+ * (KioskPendingService::due()). `amount` and `remaining` are the same number; prefer
+ * `remaining` in new code, it says what it means.
+ */
 export interface RosterDue {
   id: number;
   course: string | null;
-  amount: number; // remaining on this due
-  paid: number;
+  amount: number; // still owed — alias of `remaining`
+  remaining: number; // still owed
+  original: number; // the charge's face value
+  paid: number; // collected so far
   partial: boolean;
 }
 
@@ -31,7 +38,7 @@ export interface RosterStudent {
   code: string | null;
   bill: RosterBill | null;
   booklets: RosterDue[];
-  bookings: (RosterDue & { remaining: number })[];
+  bookings: RosterDue[];
 }
 
 export interface CollectResult {

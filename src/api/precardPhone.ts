@@ -21,6 +21,8 @@ export async function sendPrecardPhone(payload: {
   session_schedule_id?: number;
   // Per-invitation booking down-payment (blank/undefined = none). Applied at accept.
   down_payment_amount?: number | null;
+  /** Already collected up front — seeds paid_amount so the family sees the remainder. */
+  down_payment_paid?: number | null;
   // What the down-payment secures (session | booklet | flat). Drives the label.
   booking_secures?: 'session' | 'booklet' | 'flat';
 }): Promise<PrecardPhoneSendResult> {

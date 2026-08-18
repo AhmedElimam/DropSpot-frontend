@@ -48,6 +48,7 @@ export default function TeacherEnroll() {
   const [phoneMode, setPhoneMode] = useState(false);
   const [phone, setPhone] = useState('');
   const [downPayment, setDownPayment] = useState('');
+  const [downPaid, setDownPaid] = useState('');
   const [secures, setSecures] = useState<BookingSecures>('flat');
   const [dpAuto, setDpAuto] = useState(true); // amount is auto-prefilled until the teacher edits it
   const [sending, setSending] = useState(false);
@@ -64,6 +65,16 @@ export default function TeacherEnroll() {
     setDownPayment(basis && basis > 0 ? String(basis) : '');
   }, [course, secures, dpAuto]);
 
+  // Live remainder for the prepayment field — the figure the family's app will show.
+  const dpTotalNum = Number(downPayment) || 0;
+  const dpPaidNum = Number(downPaid) || 0;
+  const dpOverpaid = dpPaidNum > dpTotalNum && dpTotalNum > 0;
+  const dpPaidHint = dpOverpaid
+    ? t('invites.paid_now_over')
+    : dpTotalNum > 0 && dpPaidNum > 0
+      ? t('invites.paid_now_remaining').replace('{amount}', (dpTotalNum - dpPaidNum).toFixed(2))
+      : t('invites.paid_now_hint');
+
   const submitPhoneInvite = async () => {
     if (!course || phone.trim().length < 6 || sending) return;
     setSending(true);
@@ -73,11 +84,18 @@ export default function TeacherEnroll() {
         course_id: course.course_id,
         academic_session_id: course.academic_session_id,
         // Typed amount = per-invite down-payment; blank = teacher/course default.
-        ...(downPayment.trim() ? { down_payment_amount: Number(downPayment.trim()), booking_secures: secures } : {}),
+        ...(downPayment.trim()
+          ? {
+              down_payment_amount: Number(downPayment.trim()),
+              down_payment_paid: downPaid.trim() ? Number(downPaid.trim()) : null,
+              booking_secures: secures,
+            }
+          : {}),
       });
       setPhoneMode(false);
       setPhone('');
       setDownPayment('');
+      setDownPaid('');
       setDpAuto(true);
       if (r.action === 'use_card') {
         Alert.alert(t('invites.use_card_title'), t('invites.use_card_body'));
@@ -349,6 +367,23 @@ export default function TeacherEnroll() {
             placeholderTextColor={colors.textTertiary}
             style={{ fontFamily: fonts.regular, fontSize: 17, minHeight: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'right', borderWidth: 1.5, borderColor: colors.border }}
           />
+          {/* Prepayment taken now — only meaningful once a دفعة amount is set. */}
+          {downPayment.trim() ? (
+            <>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invites.paid_now_label')}</Text>
+              <TextInput
+                value={downPaid}
+                onChangeText={setDownPaid}
+                keyboardType="numeric"
+                placeholder={t('invites.paid_now_ph')}
+                placeholderTextColor={colors.textTertiary}
+                style={{ fontFamily: fonts.regular, fontSize: 17, minHeight: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'right', borderWidth: 1.5, borderColor: colors.border }}
+              />
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: dpOverpaid ? colors.warning : colors.textTertiary }}>
+                {dpPaidHint}
+              </Text>
+            </>
+          ) : null}
           <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
             <TouchableOpacity onPress={() => { setPhoneMode(false); setPhone(''); setDownPayment(''); setDpAuto(true); }} activeOpacity={0.85}
               style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>

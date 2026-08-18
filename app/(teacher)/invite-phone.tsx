@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, KeyboardAvoidingView, Platform, Alert, Switch } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,6 +41,10 @@ export default function InvitePhone() {
   const [parentPhone, setParentPhone] = useState('');
   const [secures, setSecures] = useState<BookingSecures | null>(null);
   const [downPayment, setDownPayment] = useState('');
+  const [downPaid, setDownPaid] = useState('');
+  // Per-student override of the teacher's requires_down_payment default, matching the
+  // web invite form. null = follow the teacher setting until explicitly toggled.
+  const [bookingOn, setBookingOn] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [matches, setMatches] = useState<DedupeMatch[] | null>(null);
 
@@ -54,7 +58,22 @@ export default function InvitePhone() {
     if (options?.requires_down_payment && !secures) setSecures(options.default_secures);
   };
 
-  const requiresDp = !!options?.requires_down_payment;
+  // The switch defaults to the teacher's setting but can be flipped either way per
+  // student — a teacher who normally takes a دفعة can waive it for one family, and
+  // one who normally doesn't can charge a single student.
+  const dpEnabled = bookingOn ?? !!options?.requires_down_payment;
+  const showDpSection = courseId != null;
+
+  // Live remainder, so the teacher sees the exact figure the family's app will show.
+  const dpTotalNum = Number(downPayment) || 0;
+  const dpPaidNum = Number(downPaid) || 0;
+  const dpOverpaid = dpPaidNum > dpTotalNum && dpTotalNum > 0;
+  const dpHint = dpOverpaid
+    ? t('invite_phone.paid_over')
+    : dpTotalNum > 0 && dpPaidNum > 0
+      ? t('invite_phone.paid_remaining').replace('{amount}', (dpTotalNum - dpPaidNum).toFixed(2))
+      : t('invite_phone.paid_hint');
+
   const canSubmit = courseId != null && termId != null
     && (studentPhone.trim().length >= 6 || parentPhone.trim().length >= 6)
     && !busy;
@@ -66,7 +85,16 @@ export default function InvitePhone() {
     invited_student_name: name.trim() || undefined,
     student_phone: studentPhone.trim() || undefined,
     parent_phone: parentPhone.trim() || undefined,
-    ...(requiresDp ? { down_payment_amount: downPayment.trim() === '' ? null : Number(downPayment), booking_secures: secures ?? options?.default_secures } : {}),
+    // Toggle OFF still sends the key with a null amount — the API reads that as an
+    // explicit "no دفعة for this student" and skips the charge, rather than falling
+    // back to the teacher/course default (which omitting the key would do).
+    ...(showDpSection
+      ? {
+          down_payment_amount: !dpEnabled || downPayment.trim() === '' ? null : Number(downPayment),
+          down_payment_paid: !dpEnabled || downPaid.trim() === '' ? null : Number(downPaid),
+          booking_secures: secures ?? options?.default_secures,
+        }
+      : {}),
     ...extra,
   });
 
@@ -177,30 +205,61 @@ export default function InvitePhone() {
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>{t('invite_phone.phone_hint')}</Text>
             </View>
 
-            {/* Booking down-payment — only when the teacher requires one */}
-            {requiresDp ? (
+            {/* Booking down-payment — an explicit per-student switch (parity with the
+                web invite form), defaulting to the teacher's requires_down_payment. */}
+            {showDpSection ? (
               <View style={card}>
-                <Lbl>{t('invite_phone.down_payment')}</Lbl>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
-                  {SECURES.map((s) => {
-                    const active = (secures ?? options?.default_secures) === s.key;
-                    return (
-                      <TouchableOpacity key={s.key} onPress={() => setSecures(s.key)} activeOpacity={0.8}
-                        style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: active ? colors.brand : colors.border, backgroundColor: active ? colors.brand + '18' : colors.surface }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.brand : colors.textSecondary }}>{s.label}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
+                    {t('invite_phone.booking_toggle')}
+                  </Text>
+                  <Switch
+                    value={dpEnabled}
+                    onValueChange={setBookingOn}
+                    trackColor={{ true: colors.brand, false: colors.border }}
+                  />
                 </View>
-                <TextInput
-                  value={downPayment}
-                  onChangeText={(v) => setDownPayment(v.replace(/[^0-9.]/g, ''))}
-                  keyboardType="numeric"
-                  placeholder={course?.booking_price != null ? String(course.booking_price) : t('invite_phone.amount_ph')}
-                  placeholderTextColor={colors.textTertiary}
-                  style={input}
-                />
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>{t('invite_phone.amount_hint')}</Text>
+
+                {dpEnabled ? (
+                  <View style={{ marginTop: spacing.md }}>
+                    <Lbl>{t('invite_phone.down_payment')}</Lbl>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
+                      {SECURES.map((s) => {
+                        const active = (secures ?? options?.default_secures) === s.key;
+                        return (
+                          <TouchableOpacity key={s.key} onPress={() => setSecures(s.key)} activeOpacity={0.8}
+                            style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: active ? colors.brand : colors.border, backgroundColor: active ? colors.brand + '18' : colors.surface }}>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.brand : colors.textSecondary }}>{s.label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <TextInput
+                      value={downPayment}
+                      onChangeText={(v) => setDownPayment(v.replace(/[^0-9.]/g, ''))}
+                      keyboardType="numeric"
+                      placeholder={course?.booking_price != null ? String(course.booking_price) : t('invite_phone.amount_ph')}
+                      placeholderTextColor={colors.textTertiary}
+                      style={input}
+                    />
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>{t('invite_phone.amount_hint')}</Text>
+
+                    <View style={{ marginTop: spacing.md }}>
+                      <Lbl>{t('invite_phone.paid_now')}</Lbl>
+                      <TextInput
+                        value={downPaid}
+                        onChangeText={(v) => setDownPaid(v.replace(/[^0-9.]/g, ''))}
+                        keyboardType="numeric"
+                        placeholder={t('invite_phone.paid_ph')}
+                        placeholderTextColor={colors.textTertiary}
+                        style={input}
+                      />
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: dpOverpaid ? colors.warning : colors.textTertiary, marginTop: spacing.sm }}>
+                        {dpHint}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
               </View>
             ) : null}
 
