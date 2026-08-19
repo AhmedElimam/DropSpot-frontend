@@ -132,13 +132,26 @@ export default function ChildDetailScreen() {
               <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginStart: spacing.sm }}>{t('common.back')}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => setShowPicker(true)}
-              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}
-            >
-              <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff' }}>{child.name}</Text>
-              <Icon name="down" size={14} color="rgba(255,255,255,0.7)" style={{ marginStart: 6 }} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              {/* Quick shortcut to the pre-card registration QR (else buried in Settings). */}
+              {child.can_generate_pre_card ? (
+                <TouchableOpacity
+                  onPress={() => router.push(`/(parent)/child/${child.id}/invite-code`)}
+                  accessibilityRole="button"
+                  accessibilityLabel="رمز التسجيل"
+                  style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
+                >
+                  <Icon name="scan" size={19} color="#fff" />
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                onPress={() => setShowPicker(true)}
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}
+              >
+                <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff' }}>{child.name}</Text>
+                <Icon name="down" size={14} color="rgba(255,255,255,0.7)" style={{ marginStart: 6 }} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -178,12 +191,17 @@ export default function ChildDetailScreen() {
                 key={tab.key}
                 onPress={() => setActiveTab(tab.key)}
                 style={{
-                  flex: 1, paddingVertical: 10, borderRadius: radius.sm,
-                  backgroundColor: activeTab === tab.key ? colors.surface : 'transparent', alignItems: 'center',
+                  flex: 1, paddingVertical: 10, paddingHorizontal: 4, borderRadius: radius.sm,
+                  backgroundColor: activeTab === tab.key ? colors.surface : 'transparent', alignItems: 'center', justifyContent: 'center',
                   ...(activeTab === tab.key ? shadows.sm : {}),
                 }}
               >
-                <Text style={{ fontFamily: activeTab === tab.key ? fonts.bold : fonts.medium, fontSize: 15, color: activeTab === tab.key ? colors.brand : colors.textSecondary }}>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  style={{ fontFamily: activeTab === tab.key ? fonts.bold : fonts.medium, fontSize: 14, color: activeTab === tab.key ? colors.brand : colors.textSecondary, textAlign: 'center' }}
+                >
                   {tab.label}
                 </Text>
               </TouchableOpacity>

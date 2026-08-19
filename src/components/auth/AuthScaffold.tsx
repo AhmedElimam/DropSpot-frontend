@@ -54,7 +54,7 @@ export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffold
               borderBottomRightRadius: radius.xxl + 12,
             }}
           >
-            <View style={{ marginBottom: spacing.lg, borderRadius: 30, ...shadows.md }}>
+            <View style={{ marginBottom: spacing.lg }}>
               <BrandMark size={104} />
             </View>
             <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', textAlign: 'center' }}>

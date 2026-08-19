@@ -29,7 +29,9 @@ export default function InviteCodeScreen() {
     mutationFn: (studentId: number) => generatePreCard(studentId),
     onSuccess: (t) => {
       setToken(t);
-      setRemaining(t.expires_in_seconds);
+      // The API's expires_in_seconds can be a float (Carbon diff) — floor it so the
+      // countdown never shows fractional "milliseconds".
+      setRemaining(Math.max(0, Math.floor(t.expires_in_seconds)));
     },
   });
 
@@ -49,8 +51,9 @@ export default function InviteCodeScreen() {
   }, [remaining > 0]);
 
   const expired = !!token && remaining <= 0;
-  const mm = Math.floor(remaining / 60);
-  const ss = String(remaining % 60).padStart(2, '0');
+  const safe = Math.max(0, Math.floor(remaining));
+  const mm = Math.floor(safe / 60);
+  const ss = String(safe % 60).padStart(2, '0');
 
   const regenerate = () => {
     if (child) gen.mutate(child.student_id);
@@ -66,7 +69,7 @@ export default function InviteCodeScreen() {
         <Text style={[textPresets.h3, { flex: 1 }]}>رمز التسجيل</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl, alignItems: 'center' }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl * 2, alignItems: 'center' }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center' }}>
           {child?.name ?? ''}
         </Text>

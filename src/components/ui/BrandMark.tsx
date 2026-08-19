@@ -9,16 +9,18 @@ const ASPECT = 0.82;
 interface BrandMarkProps {
   /** Height of the tile (with tile) or of the logo itself (tile=false), in px. */
   size?: number;
-  /** Rounded translucent-white tile behind the mark (for dark hero headers). */
+  /** Opt-in rounded white tile behind the mark. Default OFF — the transparent
+   *  pin renders directly (no background), as the brand asset intends. */
   tile?: boolean;
 }
 
 /**
  * The app's pin logo as a small, reusable brand mark. Used in the dark hero
  * headers of the role home screens so the brand is present in-app, not only on
- * the launcher icon / splash / auth screens.
+ * the launcher icon / splash / auth screens. Renders the TRANSPARENT logo with
+ * no background by default.
  */
-export function BrandMark({ size = 44, tile = true }: BrandMarkProps) {
+export function BrandMark({ size = 44, tile = false }: BrandMarkProps) {
   const logoHeight = tile ? Math.round(size * 0.74) : size;
   const logo = (
     <Image

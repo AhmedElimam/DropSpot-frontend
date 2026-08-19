@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, type ViewStyle } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, type ViewStyle } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -42,6 +42,32 @@ function bracket(pos: 'tl' | 'tr' | 'bl' | 'br'): ViewStyle {
   if (pos === 'tr') return { ...s, top: -STROKE, right: -STROKE, borderTopWidth: STROKE, borderRightWidth: STROKE, borderTopRightRadius: 22 };
   if (pos === 'bl') return { ...s, bottom: -STROKE, left: -STROKE, borderBottomWidth: STROKE, borderLeftWidth: STROKE, borderBottomLeftRadius: 22 };
   return { ...s, bottom: -STROKE, right: -STROKE, borderBottomWidth: STROKE, borderRightWidth: STROKE, borderBottomRightRadius: 22 };
+}
+
+// The aiming frame (must match the on-screen box in the render) plus slack, so a
+// card only registers when it's lined up INSIDE the frame — not read from anywhere
+// in view.
+const FRAME_W = 250;
+const FRAME_H = 190;
+const FRAME_SLACK = 56;
+
+type Pt = { x: number; y: number };
+
+// Centre of a scanned barcode in view coordinates, from whichever geometry the
+// platform reports. Returns null when neither bounds nor cornerPoints are present —
+// the caller then can't gate and accepts the read, so scanning never breaks.
+function scanCentre(
+  bounds?: { origin?: Pt; size?: { width: number; height: number } },
+  corners?: Pt[],
+): Pt | null {
+  if (bounds?.origin && bounds.size && (bounds.size.width > 0 || bounds.size.height > 0)) {
+    return { x: bounds.origin.x + bounds.size.width / 2, y: bounds.origin.y + bounds.size.height / 2 };
+  }
+  if (corners && corners.length > 0) {
+    const n = corners.length;
+    return { x: corners.reduce((s, p) => s + p.x, 0) / n, y: corners.reduce((s, p) => s + p.y, 0) / n };
+  }
+  return null;
 }
 
 export default function TeacherScan() {
@@ -127,9 +153,20 @@ export default function TeacherScan() {
   const paused = locked || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor;
 
   const handleScan = useCallback(
-    async ({ data }: { data: string }) => {
+    async ({ data, bounds, cornerPoints }: { data: string; bounds?: { origin?: Pt; size?: { width: number; height: number } }; cornerPoints?: Pt[] }) => {
       const now = Date.now();
       if (paused) return;
+      // Focus gate: only accept a code whose centre is inside the aiming frame, so a
+      // card must be lined up in the box — not read from anywhere in the view. When
+      // the platform reports no geometry, `scanCentre` is null and we don't gate.
+      const centre = scanCentre(bounds, cornerPoints);
+      if (centre) {
+        const win = Dimensions.get('window');
+        if (Math.abs(centre.x - win.width / 2) > FRAME_W / 2 + FRAME_SLACK
+          || Math.abs(centre.y - win.height / 2) > FRAME_H / 2 + FRAME_SLACK) {
+          return; // outside the frame — ignore silently
+        }
+      }
       // General throttle: at most one accepted scan per SCAN_THROTTLE_MS regardless
       // of the card, so a burst of reads (or two cards in quick succession) can't
       // fire the handler twice before the feedback pause takes hold.

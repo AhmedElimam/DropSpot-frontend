@@ -8,7 +8,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useChildren } from '@/hooks/useChildren';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import type { Child } from '@/api/children';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useNotifications, useUnreadCount } from '@/hooks/useNotifications';
 import { useParentAttendanceRisk } from '@/hooks/useAttendance';
 import { useParentBillingStatus } from '@/hooks/useInvoices';
 import { AttendanceRiskCard } from '@/components/attendance/AttendanceRiskCard';
@@ -17,7 +17,7 @@ import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
 import { usePendingPrecardInvites, useAcceptPrecardInvite, useRejectPrecardInvite } from '@/hooks/usePrecardPhone';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
-import { BrandMark } from '@/components/ui/BrandMark';
+import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { timeAgo } from '@/utils/format';
 
@@ -50,6 +50,7 @@ export default function ParentHome() {
   const user = useAuthStore((s) => s.user);
   const { data: children, isLoading: childrenLoading, refetch: refetchChildren } = useChildren();
   const { data: notifications, refetch: refetchNotifications } = useNotifications();
+  const { data: unread } = useUnreadCount();
   const { data: risks, refetch: refetchRisks } = useParentAttendanceRisk();
   const { data: billingAlerts, refetch: refetchBilling } = useParentBillingStatus();
   const { refreshing, onRefresh } = usePullRefresh(refetchChildren, refetchNotifications, refetchRisks, refetchBilling);
@@ -72,9 +73,7 @@ export default function ParentHome() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xxl }}
         >
-          <View style={{ alignSelf: 'flex-start', marginBottom: spacing.md }}>
-            <BrandMark size={44} />
-          </View>
+          <HeaderBrandBar onBell={() => router.push('/(parent)/notifications')} unread={unread} />
           <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.72)' }}>
             {t('home.welcome')}
           </Text>

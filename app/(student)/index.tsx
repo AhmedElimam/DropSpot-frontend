@@ -16,7 +16,7 @@ import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
 import { formatDate, formatTime } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
-import { BrandMark } from '@/components/ui/BrandMark';
+import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 
 const statusDot: Record<string, string> = {
@@ -56,31 +56,13 @@ export default function StudentDashboard() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <View style={{ flex: 1 }}>
-              <View style={{ alignSelf: 'flex-start', marginBottom: spacing.md }}>
-                <BrandMark size={44} />
-              </View>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
-                {t('common.greeting', { name: user?.name || '' })}
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: spacing.xs }}>
-                {formatDate(new Date())}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.navigate('/(student)/notifications' as never)}
-              accessibilityRole="button"
-              style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', justifyContent: 'center', alignItems: 'center' }}
-            >
-              <Icon name="bell" size={22} color="#fff" outline />
-              {unread ? (
-                <View style={{ position: 'absolute', top: 6, insetInlineEnd: 6, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: colors.danger, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{unread > 9 ? '9+' : unread}</Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-          </View>
+          <HeaderBrandBar onBell={() => router.navigate('/(student)/notifications' as never)} unread={unread} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
+            {t('common.greeting', { name: user?.name || '' })}
+          </Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: spacing.xs }}>
+            {formatDate(new Date())}
+          </Text>
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>

@@ -6,12 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
-import { useLogout } from '@/hooks/useAuth';
+import { useUnreadCount } from '@/hooks/useNotifications';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import type { TeacherSession } from '@/api/teacher';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon } from '@/components/ui/Icon';
-import { BrandMark } from '@/components/ui/BrandMark';
+import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { OverridesSection } from '@/components/teacher/OverridesSection';
 import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
@@ -42,7 +42,7 @@ export default function TeacherHome() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const logout = useLogout();
+  const { data: unread } = useUnreadCount();
   const { data: sessions, isLoading, refetch } = useTeacherTodaySessions();
   const pending = useOfflineStore((s) => s.pending);
   const rejected = useOfflineStore((s) => s.rejected);
@@ -102,20 +102,13 @@ export default function TeacherHome() {
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.xl, paddingBottom: spacing.xl, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.xl, paddingBottom: spacing.xl }}
         >
-          <View style={{ flex: 1 }}>
-            <View style={{ alignSelf: 'flex-start', marginBottom: spacing.md }}>
-              <BrandMark size={44} />
-            </View>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{t('teacher.today')}</Text>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 2 }}>{user?.name ?? ''}</Text>
-            {/* Active-teacher chip — only shows for multi-relationship assistants. */}
-            <TeacherSwitcher />
-          </View>
-          <TouchableOpacity onPress={() => logout.mutate()} accessibilityRole="button" accessibilityLabel={t('common.logout')} style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="logout" size={22} color="#fff" outline />
-          </TouchableOpacity>
+          <HeaderBrandBar onBell={() => router.push('/(teacher)/notifications' as Href)} unread={unread} />
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{t('teacher.today')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 2 }}>{user?.name ?? ''}</Text>
+          {/* Active-teacher chip — only shows for multi-relationship assistants. */}
+          <TeacherSwitcher />
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
