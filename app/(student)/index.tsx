@@ -16,6 +16,7 @@ import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
 import { formatDate, formatTime } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 
 const statusDot: Record<string, string> = {
@@ -57,6 +58,9 @@ export default function StudentDashboard() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <View style={{ flex: 1 }}>
+              <View style={{ alignSelf: 'flex-start', marginBottom: spacing.md }}>
+                <BrandMark size={44} />
+              </View>
               <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
                 {t('common.greeting', { name: user?.name || '' })}
               </Text>

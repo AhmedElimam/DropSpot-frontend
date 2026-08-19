@@ -8,7 +8,6 @@
     "scheme": "drosspot",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.drosspot.app",
       "supportsTablet": true,
       "infoPlist": {
@@ -19,9 +18,8 @@
       "package": "com.drosspot.app",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FBFBFB",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -36,10 +34,12 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#6366F1",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#FBFBFB",
           "android": {
             "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+            "imageWidth": 160
           }
         }
       ]

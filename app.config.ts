@@ -11,7 +11,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'automatic',
   ios: {
     bundleIdentifier: 'com.drosspot.app',
-    icon: './assets/expo.icon',
     supportsTablet: true,
     // App uses only standard/exempt encryption (HTTPS) — declaring this avoids
     // EAS prompting (and crashing) on ITSAppUsesNonExemptEncryption at build.
@@ -26,9 +25,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // is never hidden behind it (Modals additionally wrap in KeyboardAvoidingView).
     softwareKeyboardLayoutMode: 'resize',
     adaptiveIcon: {
-      backgroundColor: '#E6F4FE',
+      // Flat near-white ground (matches the iOS icon); the pin mark is the foreground.
+      backgroundColor: '#FBFBFB',
       foregroundImage: './assets/images/android-icon-foreground.png',
-      backgroundImage: './assets/images/android-icon-background.png',
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
@@ -54,23 +53,43 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-location',
       {
+        // Shown on the OS prompt AND read by App Store review. Must be plain Arabic
+        // (the app is when-in-use only; both keys carry the same justification).
+        locationWhenInUsePermission:
+          'يستخدم التطبيق موقعك للتأكد من حضورك الفعلي في مكان الحصة عند تسجيل الحضور.',
         locationAlwaysAndWhenInUsePermission:
-          'ÙŠØ­ØªØ§Ø¬ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ø¥Ù„Ù‰ Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ù…ÙˆÙ‚Ø¹Ùƒ Ù„ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø­Ø¶ÙˆØ±',
+          'يستخدم التطبيق موقعك للتأكد من حضورك الفعلي في مكان الحصة عند تسجيل الحضور.',
       },
     ],
     [
       'expo-camera',
       {
-        cameraPermission: 'ÙŠØ­ØªØ§Ø¬ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ø¥Ù„Ù‰ Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ø§Ù„ÙƒØ§Ù…ÙŠØ±Ø§ Ù„Ù…Ø³Ø­ Ø±Ù…Ø² QR',
+        cameraPermission:
+          'يستخدم التطبيق الكاميرا لمسح رمز الحضور أو التحقق من الكارت.',
+      },
+    ],
+    [
+      // Payment-proof + card-order photo uploads. Set the photo-library string
+      // (a used, review-visible permission); camera is owned by expo-camera above
+      // and the picker never records audio, so disable those two keys here to keep
+      // one justified string per permission (no generic placeholders).
+      'expo-image-picker',
+      {
+        photosPermission:
+          'يستخدم التطبيق صورك لإرفاق إثبات الدفع أو صورة الكارت عند الطلب.',
+        cameraPermission: false,
+        microphonePermission: false,
       },
     ],
     [
       'expo-splash-screen',
       {
-        backgroundColor: '#6366F1',
+        image: './assets/images/splash-icon.png',
+        imageWidth: 160,
+        backgroundColor: '#FBFBFB',
         android: {
           image: './assets/images/splash-icon.png',
-          imageWidth: 76,
+          imageWidth: 160,
         },
       },
     ],

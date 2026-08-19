@@ -17,6 +17,7 @@ import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
 import { usePendingPrecardInvites, useAcceptPrecardInvite, useRejectPrecardInvite } from '@/hooks/usePrecardPhone';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { timeAgo } from '@/utils/format';
 
@@ -71,6 +72,9 @@ export default function ParentHome() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xxl }}
         >
+          <View style={{ alignSelf: 'flex-start', marginBottom: spacing.md }}>
+            <BrandMark size={44} />
+          </View>
           <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.72)' }}>
             {t('home.welcome')}
           </Text>

@@ -4,14 +4,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import type { IconName } from '@/components/ui/Icon';
+import { BrandMark } from '@/components/ui/BrandMark';
 
 interface AuthScaffoldProps {
   /** Big line inside the ink hero (e.g. the app name or the screen title). */
   title: string;
   /** Calm supporting line under the title. */
   subtitle?: string;
-  /** Hero brand/context icon. */
+  /** Retained for call-site compatibility; the hero now shows the brand logo. */
   icon?: IconName;
   /** The form — rendered inside the white paper card that overlaps the hero. */
   children: ReactNode;
@@ -24,7 +25,7 @@ interface AuthScaffoldProps {
  * into a high-contrast white form card on warm paper. Keeps the first-impression
  * on-brand while leaving the form itself maximally legible for older parents.
  */
-export function AuthScaffold({ title, subtitle, icon = 'book', children, footer }: AuthScaffoldProps) {
+export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffoldProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -53,20 +54,8 @@ export function AuthScaffold({ title, subtitle, icon = 'book', children, footer 
               borderBottomRightRadius: radius.xxl + 12,
             }}
           >
-            <View
-              style={{
-                width: 84,
-                height: 84,
-                borderRadius: 26,
-                backgroundColor: 'rgba(255,255,255,0.14)',
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.22)',
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginBottom: spacing.lg,
-              }}
-            >
-              <Icon name={icon} size={42} color="#fff" />
+            <View style={{ marginBottom: spacing.lg, borderRadius: 30, ...shadows.md }}>
+              <BrandMark size={104} />
             </View>
             <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', textAlign: 'center' }}>
               {title}

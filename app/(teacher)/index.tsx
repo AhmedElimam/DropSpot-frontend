@@ -11,6 +11,7 @@ import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import type { TeacherSession } from '@/api/teacher';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon } from '@/components/ui/Icon';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { OverridesSection } from '@/components/teacher/OverridesSection';
 import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
@@ -101,9 +102,12 @@ export default function TeacherHome() {
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.xl, paddingBottom: spacing.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.xl, paddingBottom: spacing.xl, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}
         >
           <View style={{ flex: 1 }}>
+            <View style={{ alignSelf: 'flex-start', marginBottom: spacing.md }}>
+              <BrandMark size={44} />
+            </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{t('teacher.today')}</Text>
             <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 2 }}>{user?.name ?? ''}</Text>
             {/* Active-teacher chip — only shows for multi-relationship assistants. */}
