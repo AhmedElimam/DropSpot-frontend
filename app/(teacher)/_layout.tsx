@@ -1,19 +1,17 @@
 import { useEffect } from 'react';
 import { Redirect, Tabs } from 'expo-router';
-import { View, Text, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
-import { BottomTabBar } from '@react-navigation/bottom-tabs';
+import { View, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { initOfflineScans } from '@/db/offlineScans';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 import { registerForPushNotifications } from '@/utils/push-notifications';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
-import { fonts } from '@/theme/typography';
-import { colors, radius, shadows } from '@/theme/index';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import { colors } from '@/theme/index';
+import { RaisedTabBar } from '@/components/layout/RaisedTabBar';
+import { type IconName } from '@/components/ui/Icon';
 
 /**
  * Teacher (and assistant) app — a 5-tab bar (home · camera · students · tickets ·
@@ -25,21 +23,11 @@ import { Icon, type IconName } from '@/components/ui/Icon';
  * component is simply not mounted there (not a style override). Every actual tab —
  * scan/Camera included — renders the normal bar.
  */
-const labels: Record<string, string> = {
-  index: 'teacher.tab_home',
-  scan: 'teacher.tab_camera',
-  students: 'teacher.tab_students',
-  manage: 'teacher.tab_manage',
-  tickets: 'teacher.tab_tickets',
-  settings: 'teacher.tab_settings',
-};
-
 const icons: Record<string, IconName> = {
   index: 'home',
   scan: 'scan',
   students: 'children',
   manage: 'book',
-  tickets: 'tickets',
   settings: 'settings',
 };
 
@@ -66,7 +54,6 @@ function shouldHideBar(state: { routes: { name: string; state?: unknown }[]; ind
 
 export default function TeacherTabLayout() {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const role = useAuthStore((s) => s.role);
@@ -142,68 +129,37 @@ export default function TeacherTabLayout() {
     {/* Relocation prompt — teachers only (assistants never edit geofence anchors). */}
     {isAuthenticated && role === 'teacher' ? <RelocationPrompt enabled /> : null}
     <Tabs
-      // Render NO bar on full-screen surfaces (invite scanner, open ticket) by not
-      // mounting the bar component for them. Every real tab shows the bar.
-      tabBar={(props) => {
-        if (shouldHideBar(props.state)) return null;
-        return <BottomTabBar {...props} />;
-      }}
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        // Consistent scene background so a tab switch never flashes a white frame
-        // between two screens (e.g. the black scanner and a cream screen).
-        sceneStyle: { backgroundColor: colors.background },
-        tabBarStyle: {
-          backgroundColor: 'rgba(255,255,255,0.92)',
-          borderTopWidth: 0,
-          paddingTop: 8,
-          paddingBottom: 10 + insets.bottom,
-          height: 64 + insets.bottom,
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          ...shadows.glow,
-          borderTopLeftRadius: radius.xl,
-          borderTopRightRadius: radius.xl,
-        },
-        tabBarLabel: ({ focused }) => {
-          const labelKey = labels[route.name];
-          return labelKey ? (
-            <Text
-              style={{
-                fontFamily: fonts.medium,
-                fontSize: 12,
-                color: focused ? colors.primary : colors.textTertiary,
-                marginTop: 2,
-              }}
-            >
-              {t(labelKey)}
-            </Text>
-          ) : null;
-        },
-        tabBarIcon: ({ focused }) => (
-          <View style={{ opacity: focused ? 1 : 0.55, transform: [{ scale: focused ? 1.08 : 1 }] }}>
-            <Icon
-              name={icons[route.name] || 'home'}
-              size={24}
-              color={focused ? colors.primary : colors.textTertiary}
-              outline={!focused}
-            />
-          </View>
-        ),
-      })}
+      // Strip: index · students | [scan FAB] | manage · settings. The center FAB
+      // is the attendance scanner; on the scanner (and the invite scanner / an open
+      // ticket) the bar is force-hidden because a custom tabBar can't read each
+      // screen's tabBarStyle. Every pushed href:null flow hides itself in RaisedTabBar.
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.bg } }}
+      tabBar={(props) => (
+        <RaisedTabBar
+          {...props}
+          tabs={['index', 'students', 'manage', 'settings']}
+          icons={icons}
+          labels={{
+            index: t('teacher.tab_home'),
+            students: t('teacher.tab_students'),
+            manage: t('teacher.tab_courses'),
+            settings: t('teacher.tab_more'),
+            scan: t('teacher.tab_camera'),
+          }}
+          center={{ name: 'scan', icon: 'scan' }}
+          hidden={shouldHideBar(props.state)}
+          centerBadge={needsAttention}
+        />
+      )}
     >
       <Tabs.Screen name="index" />
-      <Tabs.Screen
-        name="scan"
-        options={{ tabBarBadge: needsAttention > 0 ? needsAttention : undefined }}
-      />
+      <Tabs.Screen name="scan" />
       <Tabs.Screen name="students" />
       {/* Management hub — courses, location, schedule tools. */}
       <Tabs.Screen name="manage" />
-      <Tabs.Screen name="tickets" />
       <Tabs.Screen name="settings" />
+      {/* Admin-ticket channel — opened from the "المزيد" (settings) hub, not a tab. */}
+      <Tabs.Screen name="tickets" options={{ href: null }} />
       {/* Reconciliation is reached from the pending badge / Home, not a tab. */}
       <Tabs.Screen name="resolution" options={{ href: null }} />
       {/* Insights — pushed from the manage hub, not a tab. */}

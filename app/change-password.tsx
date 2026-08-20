@@ -5,7 +5,7 @@ import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, gradients, control, shadows } from '@/theme/index';
+import { colors, spacing, radius, gradients, control, shadows, layout } from '@/theme/index';
 import { useChangePassword } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
@@ -63,20 +63,15 @@ export default function ChangePasswordScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <LinearGradient
-        colors={gradients.hero}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
-      >
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.md, paddingHorizontal: layout.screenPadding, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         {!isForced && (
-          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="back" size={22} color="#fff" />
+          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 44, height: 44, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ transform: [{ scaleX: -1 }] }}><Icon name="back" size={20} color={colors.ink} /></View>
           </TouchableOpacity>
         )}
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{isForced ? t('onboarding.set_password_title') : t('auth.change_password')}</Text>
-      </LinearGradient>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.ink }}>{isForced ? t('onboarding.set_password_title') : t('auth.change_password')}</Text>
+      </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>

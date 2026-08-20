@@ -22,8 +22,11 @@ export interface Invoice {
   student_name?: string;
   teacher_name?: string;
   teacher_phone?: string | null;
-  /** Enabled, configured digital methods. Empty ⇒ cash/physical only. */
+  /** Configured digital methods WITH a filled number (where to send money). */
   payment_methods?: PaymentMethod[];
+  /** Whether the teacher accepts a remote transfer at all (Vodafone/InstaPay on),
+   *  independent of whether a number is filled — drives the upload-proof option. */
+  accepts_digital?: boolean;
   /** Whether "pay in person / cash" is offered (default true). */
   accepts_physical?: boolean;
 }
@@ -48,6 +51,8 @@ export interface PendingDue {
   total: number;
   status: 'unpaid' | 'partial';
   payment_methods?: PaymentMethod[];
+  /** Teacher accepts a transfer (Vodafone/InstaPay on), independent of number. */
+  accepts_digital?: boolean;
   accepts_physical?: boolean;
 }
 

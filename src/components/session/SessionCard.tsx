@@ -3,6 +3,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, textPresets } from '@/theme/index';
 import { Badge } from '@/components/ui/Badge';
 import { useTranslation } from 'react-i18next';
+import { localizeGrade } from '@/utils/grade';
 import type { SessionInstance } from '@/types/session-instance';
 
 interface SessionCardProps {
@@ -62,7 +63,7 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
           </Text>
           {session.grade_name ? (
             <Text style={[textPresets.bodySmall, { marginTop: spacing.xs }]}>
-              {session.grade_name}
+              {localizeGrade(session.grade_name)}
             </Text>
           ) : null}
         </View>

@@ -1,14 +1,13 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
+import { colors, spacing, radius, shadows, layout } from '@/theme/index';
 import { useNotifications, useMarkRead, useMarkAllRead } from '@/hooks/useNotifications';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import type { Notification } from '@/api/notifications';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonList } from '@/components/ui/Skeleton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { timeAgo } from '@/utils/format';
 
@@ -40,39 +39,28 @@ export default function StudentNotificationsScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        contentContainerStyle={{ paddingHorizontal: layout.screenPadding, paddingTop: insets.top + spacing.md, paddingBottom: layout.tabBottom + insets.bottom, gap: layout.sectionGap }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl }}
-        >
-          <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-            <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginStart: spacing.sm }}>{t('common.back')}</Text>
-          </TouchableOpacity>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff' }}>{t('notifications.title')}</Text>
-            {hasUnread ? (
-              <TouchableOpacity
-                onPress={() => markAllRead.mutate()}
-                disabled={markAllRead.isPending}
-                style={{ backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: spacing.md }}
-              >
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff' }}>{t('notifications.mark_all_read')}</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        </LinearGradient>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 23, color: colors.ink, letterSpacing: -0.3 }}>{t('notifications.title')}</Text>
+          {hasUnread ? (
+            <TouchableOpacity
+              onPress={() => markAllRead.mutate()}
+              disabled={markAllRead.isPending}
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: spacing.md }}
+            >
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{t('notifications.mark_all_read')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
 
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md }}>
+        <View style={{ gap: layout.cardGap }}>
           {isLoading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl4 }} />
+            <SkeletonList count={5} />
           ) : list.length === 0 ? (
             <EmptyState icon="bell" title={t('notifications.no_notifications')} message={t('notifications.empty')} />
           ) : (

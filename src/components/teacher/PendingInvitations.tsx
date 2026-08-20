@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius } from '@/theme/index';
+import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { usePendingInvitations, useRespondInvitation } from '@/hooks/useAssistantInvites';
 
@@ -20,37 +20,41 @@ export function PendingInvitations() {
   const busyFor = (id: number) => respond.isPending && respond.variables?.id === id;
 
   return (
-    <View style={{ marginBottom: spacing.lg }}>
+    <View style={{ gap: spacing.md }}>
       {invites.map((inv) => (
         <View
           key={inv.id}
-          style={{ backgroundColor: colors.infoLight, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.info, padding: spacing.lg, marginBottom: spacing.md }}
+          style={{ backgroundColor: colors.surface, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, padding: 15, ...shadows.sm }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-            <Icon name="teacher" size={20} color={colors.infoText} />
-            <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.infoText }}>
-              {t('teacher.invite_from', { name: inv.teacher_name ?? '—' })}
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md }}>
+            <View style={{ width: 38, height: 38, borderRadius: 13, backgroundColor: colors.brandWash, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="teacher" size={18} color={colors.brand} outline />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.ink }}>
+                {t('teacher.invite_from', { name: inv.teacher_name ?? '—' })}
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: 2 }}>
+                {t('teacher.invite_hint')}
+              </Text>
+            </View>
           </View>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.infoText, marginBottom: spacing.md }}>
-            {t('teacher.invite_hint')}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: spacing.md }}>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <TouchableOpacity
               onPress={() => respond.mutate({ id: inv.id, action: 'reject' })}
               disabled={respond.isPending}
               activeOpacity={0.85}
-              style={{ flex: 1, minHeight: 46, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.danger, justifyContent: 'center', alignItems: 'center' }}
+              style={{ flex: 1, height: 44, borderRadius: 15, borderWidth: 1, borderColor: colors.line, justifyContent: 'center', alignItems: 'center' }}
             >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.danger }}>{t('teacher.invite_reject')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.danger }}>{t('teacher.invite_reject')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => respond.mutate({ id: inv.id, action: 'accept' })}
               disabled={respond.isPending}
               activeOpacity={0.85}
-              style={{ flex: 2, minHeight: 46, borderRadius: radius.lg, backgroundColor: colors.success, justifyContent: 'center', alignItems: 'center' }}
+              style={{ flex: 2, height: 44, borderRadius: 15, backgroundColor: colors.brand, justifyContent: 'center', alignItems: 'center' }}
             >
-              {busyFor(inv.id) ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('teacher.invite_accept')}</Text>}
+              {busyFor(inv.id) ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('teacher.invite_accept')}</Text>}
             </TouchableOpacity>
           </View>
         </View>

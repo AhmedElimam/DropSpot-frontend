@@ -66,11 +66,11 @@ export function PaymentProofButton({ invoice }: { invoice: Invoice }) {
         onPress={() => setOpen(true)}
         style={{
           flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs,
-          backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md,
+          backgroundColor: colors.brand, borderRadius: 15, height: 40,
         }}
       >
         <Icon name="invoices" size={16} color="#fff" outline />
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('invoices.pay_transfer')}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('invoices.pay_transfer')}</Text>
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={close}>

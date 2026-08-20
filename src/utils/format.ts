@@ -1,3 +1,5 @@
+import { toArabicDigits } from './numerals';
+
 const LOCALE = 'ar-EG';
 
 export function formatTime(date: string | Date): string {
@@ -65,9 +67,9 @@ export function formatTimeRange(start: string | Date, end: string | Date): strin
 export function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h === 0) { return `${m} د`; }
-  if (m === 0) { return `${h} س`; }
-  return `${h} س ${m} د`;
+  if (h === 0) { return `${toArabicDigits(m)} د`; }
+  if (m === 0) { return `${toArabicDigits(h)} س`; }
+  return `${toArabicDigits(h)} س ${toArabicDigits(m)} د`;
 }
 
 export function getGreetingKey(): string {
@@ -76,7 +78,7 @@ export function getGreetingKey(): string {
 }
 
 export function formatPercent(value: number): string {
-  return `${Math.round(value)}%`;
+  return `${toArabicDigits(Math.round(value))}%`;
 }
 
 export function timeAgo(date: string | Date): string {
@@ -89,12 +91,12 @@ export function timeAgo(date: string | Date): string {
 
   if (seconds < 60) return 'الآن';
   if (mins === 1) return 'منذ دقيقة';
-  if (mins < 60) return `منذ ${mins} دقيقة`;
+  if (mins < 60) return `منذ ${toArabicDigits(mins)} دقيقة`;
   if (hrs === 1) return 'منذ ساعة';
-  if (hrs < 24) return `منذ ${hrs} ساعة`;
+  if (hrs < 24) return `منذ ${toArabicDigits(hrs)} ساعة`;
   if (days === 1) return 'أمس';
-  if (days < 7) return `منذ ${days} أيام`;
-  if (days < 30) return `منذ ${Math.floor(days / 7)} أسبوع`;
+  if (days < 7) return `منذ ${toArabicDigits(days)} أيام`;
+  if (days < 30) return `منذ ${toArabicDigits(Math.floor(days / 7))} أسبوع`;
   return d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
 }
 

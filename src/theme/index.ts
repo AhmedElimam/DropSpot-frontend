@@ -10,64 +10,78 @@ export { fonts } from './typography';
  * screens keep compiling while they are re-skinned onto the new palette.
  */
 export const colors = {
-  // Brand — ink indigo (authority, records, trust)
+  // Palette is the EXACT redesign-spec :root (student-app-screens.html). Legacy
+  // token names are kept but remapped to these values so the whole app — new and
+  // old screens alike — renders the one true palette.
+  // Brand — ink indigo
   primary: '#34419B',
-  primaryLight: '#ECEEF9',
+  primaryLight: '#EEF0FA',
   primaryDark: '#1E2657',
-  // Secondary kept as an indigo sibling (no more purple)
-  secondary: '#4A57B5',
-  secondaryLight: '#ECEEF9',
-  // The single warm accent — apricot. Use rarely, for the most human moment.
+  secondary: '#4C5BC4',
+  secondaryLight: '#EEF0FA',
+  // The single warm accent — apricot, reserved for attention/warning only.
   accent: '#E7913A',
-  accentLight: '#FBEDDB',
+  accentLight: '#FDF1E3',
 
-  // Semantic — deliberately muted so state reads without shouting
-  success: '#1F9366',
-  successLight: '#E2F1EA',
-  successDark: '#17734F',
-  successText: '#14603F',
-  warning: '#B27C10',
-  warningLight: '#F6EBD1',
-  warningDark: '#8A6109',
-  warningText: '#6B4A05',
-  danger: '#CB3A4C',
-  dangerLight: '#F7E0E3',
-  dangerDark: '#A82C3C',
-  dangerText: '#7C1F2B',
+  // Semantic
+  success: '#17A673',
+  successLight: '#E6F6F0',
+  successDark: '#12855C',
+  successText: '#0F7A54',
+  warning: '#E7913A',
+  warningLight: '#FDF1E3',
+  warningDark: '#C9761F',
+  warningText: '#8A5A15',
+  danger: '#D6564F',
+  dangerLight: '#FCEBEA',
+  dangerDark: '#B23E38',
+  dangerText: '#A33A34',
   info: '#34419B',
-  infoLight: '#ECEEF9',
-  infoText: '#26306E',
+  infoLight: '#EEF0FA',
+  infoText: '#2A3585',
 
   white: '#FFFFFF',
-  // Warm paper canvas — chosen, not a default clinical grey
-  background: '#F4F1EB',
+  // Cool off-white canvas (spec --bg), never pure white
+  background: '#F7F6F3',
   surface: '#FFFFFF',
-  border: '#E7E1D5',
-  borderLight: '#EFEBE2',
+  border: '#EDEBE4',
+  borderLight: '#F2F0EA',
 
-  // Ink text ramp
-  textPrimary: '#1A2140',
-  textSecondary: '#55607A',
-  textTertiary: '#939AB0',
+  // Ink text ramp (spec ink/muted/faint)
+  textPrimary: '#16182B',
+  textSecondary: '#6E7385',
+  textTertiary: '#A3A7B7',
   textInverse: '#FFFFFF',
 
-  overlay: 'rgba(26, 33, 64, 0.5)',
-  overlayLight: 'rgba(26, 33, 64, 0.3)',
+  overlay: 'rgba(22, 24, 43, 0.5)',
+  overlayLight: 'rgba(22, 24, 43, 0.3)',
   whatsapp: '#25D366',
 
-  // --- New Sanad semantic tokens (additive) ---
-  paper: '#F4F1EB',
-  surfaceSunken: '#FAF8F3',
-  borderStrong: '#D8D1C2',
-  ink: '#1A2140',
-  inkSoft: '#55607A',
-  inkFaint: '#939AB0',
+  // --- Sanad / spec semantic tokens ---
+  paper: '#F7F6F3',
+  surfaceSunken: '#FAFAF8',
+  borderStrong: '#D9D7D0',
+  ink: '#16182B',
+  inkSoft: '#6E7385',
+  inkFaint: '#A3A7B7',
   brand: '#34419B',
+  brand2: '#4C5BC4',
   brandDeep: '#1E2657',
-  brandTint: '#ECEEF9',
+  brandTint: '#EEF0FA',
+  brandWash: '#EEF0FA',
+  good: '#17A673',
+  goodWash: '#E6F6F0',
+  warn: '#E7913A',
+  warnWash: '#FDF1E3',
+  dangerWash: '#FCEBEA',
   accentWarm: '#E7913A',
-  accentWarmTint: '#FBEDDB',
+  accentWarmTint: '#FDF1E3',
   onAccent: '#231303',
+  // Spec aliases (exact spec names)
+  bg: '#F7F6F3',
+  line: '#EDEBE4',
+  muted: '#6E7385',
+  faint: '#A3A7B7',
 } as const;
 
 export const spacing = {
@@ -88,7 +102,26 @@ export const radius = {
   lg: 16,
   xl: 20,
   xxl: 24,
+  // Large surfaces from the redesign — hero cards and bottom sheets
+  hero: 26,
+  sheet: 28,
+  // Redesign-spec aliases (card = list/hero body 20, chip = pill 20)
+  card: 20,
+  chip: 20,
   full: 9999,
+} as const;
+
+/**
+ * Layout rhythm — the spacing the redesign standardises across every screen so
+ * padding/gaps stop being ad-hoc per screen. Additive; screens adopt these as
+ * they are re-skinned. `tabBottom` is the scroll bottom-padding that clears the
+ * raised-centre tab bar.
+ */
+export const layout = {
+  screenPadding: 18,
+  cardGap: 11,
+  sectionGap: 22,
+  tabBottom: 108,
 } as const;
 
 /**
@@ -97,11 +130,12 @@ export const radius = {
  */
 export const shadows = {
   sm: {
-    shadowColor: '#1A2140',
-    shadowOffset: { width: 0, height: 1 },
+    // Spec --sh: a soft, wide float (not a tight drop) so cards lift off the canvas
+    shadowColor: '#16182B',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowRadius: 18,
+    elevation: 3,
   },
   md: {
     shadowColor: '#1A2140',
@@ -125,6 +159,14 @@ export const shadows = {
     shadowRadius: 12,
     elevation: 8,
   },
+  // Brand-tinted lift for the HeroCard — the one place a coloured shadow is used
+  hero: {
+    shadowColor: '#34419B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 24,
+    elevation: 8,
+  },
 } as const;
 
 /**
@@ -139,6 +181,8 @@ export const gradients = {
   surface: ['#FFFFFF', '#FAF8F3'] as const,
   // Deep-ink hero band for screen headers
   hero: ['#232C6B', '#1A2147', '#171C3B'] as const,
+  // Brand indigo for the HeroCard (spec: linear-gradient(145deg, brand, brand2))
+  brandCard: ['#34419B', '#4C5BC4'] as const,
 } as const;
 
 export const nav = {

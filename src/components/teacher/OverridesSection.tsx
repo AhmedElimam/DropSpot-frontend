@@ -2,16 +2,11 @@ import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, shadows } from '@/theme/index';
+import { colors, spacing, radius, shadows, layout } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { Icon } from '@/components/ui/Icon';
-import {
-  useCheckinPermissions,
-  useBillingOverrides,
-  useRevokeCheckinPermission,
-  useRevokeBillingOverride,
-} from '@/hooks/useOverrides';
+import { useBillingOverrides, useRevokeBillingOverride } from '@/hooks/useOverrides';
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
@@ -23,137 +18,99 @@ function fmtDate(iso: string | null): string {
 }
 
 /**
- * Overrides section for the teacher Home tab (§1). Teachers grant/revoke. An
- * assistant granted scan_attendance may GRANT a billing exception too (the owning
- * teacher is notified server-side); REVOKE and check-in permissions stay teacher-only.
- * An assistant without scan_attendance sees the lists read-only with a "teacher only"
- * note. The server enforces all of this regardless of the UI.
+ * Billing exceptions on the teacher Home (§1). A teacher — or an assistant granted
+ * scan_attendance — may GRANT one (the owning teacher is notified server-side);
+ * REVOKE stays teacher-only, so an assistant sees the list read-only with a note.
+ * The server enforces all of this regardless of the UI.
  *
- * Granting a billing exception opens a dedicated page (/(teacher)/grant-exception)
- * rather than a popup — the full page makes searching by name/code and jumping to
- * the student profile comfortable.
+ * Granting opens a dedicated page (/(teacher)/grant-exception) rather than a popup —
+ * the full page makes searching by name/code and jumping to the profile comfortable.
  */
 export function OverridesSection() {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const isAssistant = user?.user_type_id === 6;
   const { can } = useActiveAbilities();
-  // Billing exception GRANT is allowed for a teacher, or an assistant with
-  // scan_attendance (mirrors the server's route gate). Revoke stays teacher-only.
+  // GRANT is allowed for a teacher, or an assistant with scan_attendance (mirrors
+  // the server route gate). Revoke stays teacher-only.
   const canGrant = can(ABILITY.SCAN);
 
-  const permissions = useCheckinPermissions();
   const overrides = useBillingOverrides();
-  const revokePermission = useRevokeCheckinPermission();
   const revokeOverride = useRevokeBillingOverride();
 
-  const sectionTitle = (icon: 'phone' | 'money', title: string) => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-      <Icon name={icon} size={18} color={colors.textSecondary} />
-      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{title}</Text>
-    </View>
-  );
-
-  const row = (
-    key: string,
-    name: string | null,
-    sub: string,
-    onRevoke?: () => void,
-    revoking?: boolean,
-  ) => (
-    <View
-      key={key}
-      style={{
-        flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
-        borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border,
-        padding: spacing.md, marginBottom: spacing.sm, ...shadows.sm,
-      }}
-    >
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{name ?? '—'}</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginTop: 2 }}>{sub}</Text>
-      </View>
-      {onRevoke ? (
-        <TouchableOpacity
-          onPress={onRevoke}
-          disabled={revoking}
-          style={{ paddingVertical: 8, paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: colors.dangerLight }}
-        >
-          {revoking ? (
-            <ActivityIndicator size="small" color={colors.dangerText} />
-          ) : (
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.dangerText }}>{t('teacher.revoke')}</Text>
-          )}
-        </TouchableOpacity>
-      ) : null}
-    </View>
-  );
-
   return (
-    <View style={{ marginTop: spacing.xl }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('teacher.overrides')}</Text>
+    <View style={{ gap: layout.cardGap }}>
+      {/* Header — title + grant action (or a teacher-only note for assistants) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.ink }}>{t('teacher.billing_overrides')}</Text>
         {canGrant ? (
           <TouchableOpacity
             onPress={() => router.push('/(teacher)/grant-exception' as Href)}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primaryLight, borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: spacing.md }}
+            hitSlop={8}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.brandWash, borderRadius: radius.chip, paddingVertical: 7, paddingHorizontal: spacing.md }}
           >
-            <Icon name="add" size={16} color={colors.primary} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>{t('teacher.grant_override')}</Text>
+            <Icon name="add" size={15} color={colors.brand} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('teacher.grant_override')}</Text>
           </TouchableOpacity>
         ) : (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Icon name="lock" size={14} color={colors.textTertiary} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{t('teacher.teacher_only')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Icon name="lock" size={13} color={colors.faint} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.faint }}>{t('teacher.teacher_only')}</Text>
           </View>
         )}
       </View>
 
       {isAssistant ? (
-        <View style={{ backgroundColor: colors.primaryLight, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>
+        <View style={{ backgroundColor: colors.brandWash, borderRadius: radius.card, padding: spacing.md }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.muted }}>
             {canGrant ? t('teacher.assistant_can_grant_override_note') : t('teacher.assistant_override_note')}
           </Text>
         </View>
       ) : null}
 
-      {/* Billing overrides */}
-      {sectionTitle('money', t('teacher.billing_overrides'))}
       {overrides.isLoading ? (
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.brand} />
       ) : !overrides.data?.length ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.md }}>{t('teacher.no_overrides')}</Text>
+        <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.card, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md, ...shadows.sm }}>
+          <View style={{ width: 38, height: 38, borderRadius: 13, backgroundColor: colors.goodWash, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="success" size={18} color={colors.good} />
+          </View>
+          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.muted }}>{t('teacher.no_overrides')}</Text>
+        </View>
       ) : (
-        overrides.data.map((o) =>
-          row(
-            `o${o.id}`,
-            o.student_name,
-            `${t('teacher.until')} ${fmtDate(o.expires_at)}`,
-            isAssistant ? undefined : () => revokeOverride.mutate(o.id),
-            revokeOverride.isPending && revokeOverride.variables === o.id,
-          ),
-        )
+        <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.card, overflow: 'hidden', ...shadows.sm }}>
+          {overrides.data.map((o, i) => {
+            const revoking = revokeOverride.isPending && revokeOverride.variables === o.id;
+            return (
+              <View
+                key={o.id}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: 14, paddingHorizontal: 15, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.line }}
+              >
+                <View style={{ width: 38, height: 38, borderRadius: 13, backgroundColor: colors.brandWash, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="money" size={18} color={colors.brand} outline />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.ink }} numberOfLines={1}>{o.student_name ?? '—'}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: 2 }}>{t('teacher.until')} {fmtDate(o.expires_at)}</Text>
+                </View>
+                {!isAssistant ? (
+                  <TouchableOpacity
+                    onPress={() => revokeOverride.mutate(o.id)}
+                    disabled={revoking}
+                    style={{ paddingVertical: 7, paddingHorizontal: spacing.md, borderRadius: radius.chip, backgroundColor: colors.dangerWash }}
+                  >
+                    {revoking ? (
+                      <ActivityIndicator size="small" color={colors.danger} />
+                    ) : (
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger }}>{t('teacher.revoke')}</Text>
+                    )}
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
       )}
-
-      {/* Check-in permissions */}
-      <View style={{ marginTop: spacing.md }}>
-        {sectionTitle('phone', t('teacher.phone_permissions'))}
-        {permissions.isLoading ? (
-          <ActivityIndicator color={colors.primary} />
-        ) : !permissions.data?.length ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary }}>{t('teacher.no_permissions')}</Text>
-        ) : (
-          permissions.data.map((p) =>
-            row(
-              `p${p.id}`,
-              p.student_name,
-              `${p.course_name ?? ''} · ${t('teacher.until')} ${fmtDate(p.expires_at)}`,
-              isAssistant ? undefined : () => revokePermission.mutate(p.id),
-              revokePermission.isPending && revokePermission.variables === p.id,
-            ),
-          )
-        )}
-      </View>
     </View>
   );
 }

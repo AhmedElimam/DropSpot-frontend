@@ -17,7 +17,9 @@ export function PaymentSection({ invoice }: { invoice: Invoice }) {
 
   if (invoice.status === 'paid') return null;
 
-  const hasDigital = (invoice.payment_methods?.length ?? 0) > 0;
+  // Enabled transfer (Vodafone/InstaPay) → offer the upload-proof flow, even if a
+  // specific number is blank. Falls back to the numbers list for older payloads.
+  const hasDigital = invoice.accepts_digital === true || (invoice.payment_methods?.length ?? 0) > 0;
   // Default true — an invoice always offers at least one way to pay.
   const acceptsPhysical = invoice.accepts_physical !== false;
 

@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, gradients, control, shadows } from '@/theme/index';
+import { colors, spacing, radius, control, shadows, layout } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
@@ -87,18 +86,13 @@ export default function VerifyOwnNumberScreen() {
   const err = verify.isError ? verify.error : change.isError ? change.error : send.isError ? send.error : null;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <LinearGradient
-        colors={gradients.hero}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
-      >
-        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="call" size={20} color="#fff" />
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.md, paddingHorizontal: layout.screenPadding, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <View style={{ width: 44, height: 44, borderRadius: 15, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name="call" size={20} color={colors.brand} />
         </View>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{t('own_number.title')}</Text>
-      </LinearGradient>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.ink }}>{t('own_number.title')}</Text>
+      </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>

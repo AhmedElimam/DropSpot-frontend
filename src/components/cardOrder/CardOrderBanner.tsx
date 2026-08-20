@@ -51,27 +51,24 @@ export function CardOrderBanner({ scope }: { scope: 'student' | 'parent' }) {
       style={{
         backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: colors.brand,
-        borderRadius: radius.xl,
-        padding: spacing.lg,
-        marginBottom: spacing.lg,
-        borderStartWidth: 4,
-        borderStartColor: colors.brand,
+        borderColor: colors.line,
+        borderRadius: radius.card,
+        padding: 15,
         ...shadows.sm,
       }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
-        <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="card" size={22} color={colors.brand} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <View style={{ width: 38, height: 38, borderRadius: 13, backgroundColor: colors.brandWash, justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name="card" size={18} color={colors.brand} />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{title}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: 4 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.ink }}>{title}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.muted, marginTop: 2 }}>
             {t('card_order.banner_body')}
           </Text>
         </View>
         <TouchableOpacity onPress={() => dismiss(scope)} hitSlop={10} accessibilityLabel={t('common.close')}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textTertiary }}>✕</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.faint }}>✕</Text>
         </TouchableOpacity>
       </View>
 
@@ -84,9 +81,9 @@ export function CardOrderBanner({ scope }: { scope: 'student' | 'parent' }) {
           justifyContent: 'center',
           gap: spacing.xs,
           marginTop: spacing.md,
+          height: 44,
           backgroundColor: colors.brand,
-          borderRadius: radius.lg,
-          paddingVertical: spacing.md,
+          borderRadius: 15,
         }}
       >
         <Icon name="card" size={16} color="#fff" />

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, ActivityIndicator, ScrollView } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius } from '@/theme/index';
+import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { useMyTeachers, useSwitchTeacher } from '@/hooks/useMyTeachers';
 
@@ -33,15 +34,26 @@ export function TeacherSwitcher() {
 
   return (
     <>
-      <TouchableOpacity
-        onPress={() => setOpen(true)}
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.md, alignSelf: 'flex-start', marginTop: spacing.sm }}
-      >
-        <Icon name="teacher" size={14} color="#fff" />
-        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff', maxWidth: 180 }} numberOfLines={1}>{active.name ?? '—'}</Text>
-        <Icon name="down" size={14} color="#fff" />
+      {/* Context card (spec .ctx) — who this assistant is currently acting for. */}
+      <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.9} accessibilityRole="button">
+        <LinearGradient
+          colors={gradients.brandCard}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ borderRadius: 18, padding: 14, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: spacing.md, overflow: 'hidden', ...shadows.hero }}
+        >
+          <View pointerEvents="none" style={{ position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255,255,255,0.08)', top: -60, left: -30 }} />
+          <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{(active.name ?? '؟').trim().charAt(0)}</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: 'rgba(255,255,255,0.8)', letterSpacing: 1 }}>{t('teacher.working_with')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', marginTop: 2 }} numberOfLines={1}>{active.name ?? '—'}</Text>
+          </View>
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 11, paddingVertical: 8, paddingHorizontal: 13 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('teacher.switch_short')}</Text>
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>

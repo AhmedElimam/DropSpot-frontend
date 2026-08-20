@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients } from '@/theme/index';
+import { toArabicDigits } from '@/utils/numerals';
 import { getQuizWithQuestions, startAttempt, submitAttempt } from '@/api/quizzes';
 import type { Question } from '@/types/quiz';
 import { Icon } from '@/components/ui/Icon';
@@ -138,10 +139,10 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
             <Icon name={result.passed ? 'trophy' : 'info'} size={52} color="#fff" />
           </View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 48, color: '#fff', letterSpacing: -1 }}>
-            {pct}%
+            {toArabicDigits(pct)}%
           </Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 18, color: 'rgba(255,255,255,0.8)', marginTop: spacing.sm }}>
-            {result.score} / {result.max_score}
+            {toArabicDigits(result.score)} / {toArabicDigits(result.max_score)}
           </Text>
           <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.9)', marginTop: spacing.lg }}>
             {result.passed ? t('quiz.passed') : t('quiz.failed')}
@@ -198,7 +199,7 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
         </View>
 
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: spacing.sm }}>
-          {currentIndex + 1} / {questions.length} · {answeredCount}/{questions.length} {t('quiz.answered')}
+          {toArabicDigits(currentIndex + 1)} / {toArabicDigits(questions.length)} · {toArabicDigits(answeredCount)}/{toArabicDigits(questions.length)} {t('quiz.answered')}
         </Text>
       </LinearGradient>
 
