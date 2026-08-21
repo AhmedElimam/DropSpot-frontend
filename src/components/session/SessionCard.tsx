@@ -88,7 +88,7 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
         <Text style={textPresets.caption}>
           {formattedDate}
         </Text>
-        <Text style={{ fontSize: 16, color: colors.textTertiary, transform: [{ scaleX: -1 }] }}>{'<'}</Text>
+        <Text style={{ fontSize: 16, color: colors.textTertiary }}>{'<'}</Text>
       </View>
     </TouchableOpacity>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Redirect, Tabs, router } from 'expo-router';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { View, Text, ActivityIndicator, AppState, AppStateStatus } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { fonts } from '@/theme/typography';
@@ -90,9 +91,19 @@ export default function ParentTabLayout() {
 
   return (
     <Tabs
-      screenOptions={({ route }) => ({
+      screenOptions={({ route }) => {
+        // Inside an open ticket conversation ([id], the reply box) or the compose
+        // form (create), the floating absolute tab bar overlaps the input + send
+        // button, so hide it there — the ticket LIST keeps the bar. Focused nested
+        // route is undefined until the stack mounts, which defaults to the list.
+        const focusedName = getFocusedRouteNameFromRoute(route);
+        const hideBar = route.name === 'tickets' && (focusedName === '[id]' || focusedName === 'create');
+
+        return {
         headerShown: false,
-        tabBarStyle: {
+        tabBarStyle: hideBar
+          ? { display: 'none' }
+          : {
           backgroundColor: 'rgba(255,255,255,0.92)',
           borderTopWidth: 0,
           paddingTop: 8,
@@ -136,7 +147,8 @@ export default function ParentTabLayout() {
             />
           </View>
         ),
-      })}
+        };
+      }}
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="children" />

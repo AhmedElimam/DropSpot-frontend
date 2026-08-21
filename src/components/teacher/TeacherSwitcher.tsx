@@ -49,7 +49,7 @@ export function TeacherSwitcher() {
           <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.xl, paddingBottom: insets.bottom + spacing.xl, paddingHorizontal: spacing.xl, maxHeight: '70%' }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('teacher.switch_teacher')}</Text>
-              <TouchableOpacity onPress={() => setOpen(false)}><Icon name="back" size={24} color={colors.textSecondary} /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setOpen(false)}><Icon name="forward" size={24} color={colors.textSecondary} /></TouchableOpacity>
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.lg }}>{t('teacher.switch_teacher_hint')}</Text>
             <ScrollView>

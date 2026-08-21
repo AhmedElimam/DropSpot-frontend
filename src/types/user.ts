@@ -58,6 +58,10 @@ export interface RegisterResponse {
   data: {
     student_id: number;
     parent_phone: string;
+    /** false = the parent was already verified; the server skipped the OTP and linked. */
+    otp_required?: boolean;
+    /** Single-use parent setup link (only on the normal, non-skip path). */
+    parent_setup_link?: string | null;
     message: string;
   };
 }

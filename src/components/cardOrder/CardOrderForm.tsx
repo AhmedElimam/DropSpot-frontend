@@ -68,7 +68,7 @@ export function CardOrderForm({ preselectStudentId }: { preselectStudentId?: num
   const Header = () => (
     <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
       <TouchableOpacity onPress={() => router.back()} hitSlop={10}>
-        <Icon name="back" size={22} color={colors.textPrimary} />
+        <Icon name="forward" size={22} color={colors.textPrimary} />
       </TouchableOpacity>
       <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('card_order.order_title')}</Text>
     </View>

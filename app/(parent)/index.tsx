@@ -194,7 +194,7 @@ function ChildCard({ child, t }: { child: Child; t: (k: string) => string }) {
           ) : null}
         </View>
       </View>
-      <Text style={{ fontSize: 28, color: colors.textTertiary, transform: [{ scaleX: -1 }] }}>‹</Text>
+      <Text style={{ fontSize: 28, color: colors.textTertiary }}>‹</Text>
     </TouchableOpacity>
   );
 }
@@ -270,7 +270,7 @@ function BigAction({ icon, tint, iconColor, title, subtitle, onPress }: {
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>{subtitle}</Text>
         ) : null}
       </View>
-      <Text style={{ fontSize: 26, color: colors.textTertiary, transform: [{ scaleX: -1 }] }}>‹</Text>
+      <Text style={{ fontSize: 26, color: colors.textTertiary }}>‹</Text>
     </TouchableOpacity>
   );
 }

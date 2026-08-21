@@ -63,6 +63,13 @@ export default function RegisterScreen() {
         onSuccess: (data) => {
           const studentId = data?.data?.student_id;
           const pPhone = data?.data?.parent_phone;
+          // Parent already verified (completed setup) → the server skipped the OTP and
+          // linked to them. No code to enter; go straight to the welcome screen. The
+          // student's OWN number is still walled separately, so nothing is bypassed here.
+          if (data?.data?.otp_required === false) {
+            router.replace(`/(auth)/welcome?name=${encodeURIComponent(name)}`);
+            return;
+          }
           router.replace(`/(auth)/verify-otp?parent_phone=${encodeURIComponent(pPhone)}&student_id=${studentId}&name=${encodeURIComponent(name)}`);
         },
       },

@@ -18,6 +18,7 @@ const notifIcon: Record<string, IconName> = {
   invoice: 'invoices', invoice_new: 'invoices', invoice_overdue: 'money',
   session_swap: 'calendar', enrollment_transfer: 'calendar', schedule: 'calendar',
   student_report: 'note', monthly_report: 'reports', daily_digest: 'bell',
+  student_linked: 'child',
 };
 
 /**

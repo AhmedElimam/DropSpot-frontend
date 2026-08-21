@@ -71,7 +71,7 @@ export function StudentRow({ id, name, studentCode, grade, status, attendanceRat
       )}
 
       {onPress && (
-        <View style={{ transform: [{ scaleX: -1 }], marginStart: spacing.sm }}>
+        <View style={{ marginStart: spacing.sm }}>
           <Text style={{ fontSize: 14, color: colors.textTertiary }}>{'<'}</Text>
         </View>
       )}

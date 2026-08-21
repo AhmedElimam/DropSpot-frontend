@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, nav, gradients, control } from '@/theme/index';
+import { colors, spacing, radius, textPresets, shadows, gradients, control } from '@/theme/index';
 import { Avatar } from '@/components/layout/Avatar';
 import { useChildren } from '@/hooks/useChildren';
 import { createTicket } from '@/api/tickets';
@@ -83,7 +83,7 @@ export default function CreateTicket() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl4 }}
           keyboardShouldPersistTaps="handled"
         >
           <LinearGradient

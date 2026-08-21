@@ -32,7 +32,7 @@ export default function TeacherCourses() {
         <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>
           {item.name}
         </Text>
-        <Icon name="forward" size={20} color={colors.textTertiary} />
+        <Icon name="back" size={20} color={colors.textTertiary} />
       </View>
       {item.grade_name ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{item.grade_name}</Text>
@@ -60,7 +60,7 @@ export default function TeacherCourses() {
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="back" size={22} color={colors.textPrimary} />
+          <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('teacher.courses_title')}</Text>
         {/* Course creation is teacher-only (the API rejects assistants). */}

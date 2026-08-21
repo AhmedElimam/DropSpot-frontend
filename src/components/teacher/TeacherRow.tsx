@@ -52,7 +52,7 @@ export function TeacherRow({ id, name, subject, courseCount, onPress }: TeacherR
       )}
 
       {onPress && (
-        <View style={{ transform: [{ scaleX: -1 }], marginStart: spacing.sm }}>
+        <View style={{ marginStart: spacing.sm }}>
           <Text style={{ fontSize: 14, color: colors.textTertiary }}>{'<'}</Text>
         </View>
       )}

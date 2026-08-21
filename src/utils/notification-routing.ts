@@ -22,6 +22,7 @@ export function notificationRoute(type: string, data?: Record<string, unknown> |
     case 'absence':
     case 'left_early':
     case 'grade':
+    case 'student_linked':
       return studentId != null ? `/(parent)/child/${studentId}` : null;
     default:
       return null;

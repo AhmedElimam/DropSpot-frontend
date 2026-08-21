@@ -72,7 +72,7 @@ export default function ChangePasswordScreen() {
       >
         {!isForced && (
           <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="back" size={22} color="#fff" />
+            <Icon name="forward" size={22} color="#fff" />
           </TouchableOpacity>
         )}
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{isForced ? t('onboarding.set_password_title') : t('auth.change_password')}</Text>

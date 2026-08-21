@@ -111,7 +111,7 @@ export default function ImpersonatePicker() {
           {/* Header */}
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.md }}>
             <TouchableOpacity onPress={() => setOpen(false)}>
-              <Icon name="back" size={24} color={colors.textPrimary} />
+              <Icon name="forward" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>اختر مستخدمًا</Text>
           </View>

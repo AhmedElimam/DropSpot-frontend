@@ -249,7 +249,7 @@ export default function TeacherEnroll() {
         <View style={{ padding: spacing.xl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-              <Icon name="back" size={22} color={colors.textPrimary} />
+              <Icon name="forward" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>تسجيل طالب</Text>
           </View>
@@ -279,7 +279,7 @@ export default function TeacherEnroll() {
                       {c.slots.length} {c.slots.length === 1 ? 'موعد أسبوعي' : 'مواعيد أسبوعية'}
                     </Text>
                   </View>
-                  <Icon name="forward" size={18} color={colors.brand} />
+                  <Icon name="back" size={18} color={colors.brand} />
                 </TouchableOpacity>
               ))
             )}

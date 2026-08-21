@@ -82,7 +82,7 @@ export default function SwapRequestScreen() {
           style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xxxl }}
         >
           <TouchableOpacity onPress={goBack} style={{ marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center' }}>
-            <Icon name="back" size={20} color="rgba(255,255,255,0.85)" />
+            <Icon name="forward" size={20} color="rgba(255,255,255,0.85)" />
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.85)', marginStart: 4 }}>{t('common.back')}</Text>
           </TouchableOpacity>
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', letterSpacing: -0.5 }}>{t('swap.title')}</Text>
