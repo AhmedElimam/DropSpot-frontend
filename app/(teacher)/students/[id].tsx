@@ -9,6 +9,7 @@ import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Avatar } from '@/components/layout/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useStudentDetail } from '@/hooks/useStudents';
+import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { terminateEnrollment } from '@/api/enrollments';
 import { reportParentUnreachable } from '@/api/students';
@@ -50,6 +51,7 @@ export default function StudentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: s, isLoading, refetch } = useStudentDetail(id);
   const { refreshing, onRefresh } = usePullRefresh(refetch);
+  const allowanceBlock = useSetStudentAllowanceBlock(Number(id));
 
   // Nudge the student when a parent call goes unanswered.
   const nudgeStudent = useMutation({
@@ -155,6 +157,25 @@ export default function StudentDetailScreen() {
                 ) : null}
               </View>
             </View>
+
+            {/* Per-student 15-day-allowance block */}
+            <TouchableOpacity
+              onPress={() => allowanceBlock.mutate(!(s.billing.allowance_blocked ?? false))}
+              disabled={allowanceBlock.isPending}
+              activeOpacity={0.8}
+              style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: s.billing.allowance_blocked ? colors.danger : colors.border, padding: spacing.md }}
+            >
+              <Icon name={s.billing.allowance_blocked ? 'lock' : 'calendar'} size={20} color={s.billing.allowance_blocked ? colors.danger : colors.textSecondary} outline />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: s.billing.allowance_blocked ? colors.danger : colors.textPrimary }}>
+                  {s.billing.allowance_blocked ? t('teacher.allowance_allow_student') : t('teacher.allowance_block_student')}
+                </Text>
+                {s.billing.allowance_enabled === false ? (
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('teacher.allowance_off_all')}</Text>
+                ) : null}
+              </View>
+              {allowanceBlock.isPending ? <ActivityIndicator size="small" color={colors.brand} /> : null}
+            </TouchableOpacity>
           </Section>
 
           {/* Courses */}

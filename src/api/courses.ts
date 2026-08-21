@@ -88,6 +88,8 @@ export interface CreateCoursePayload {
   name: string;
   grade_id: number;
   academic_session_id: number;
+  /** "When do you want to start" — ISO date (YYYY-MM-DD). Omit/undefined = start now. */
+  starts_at?: string | null;
   code?: string;
   capacity?: number | null;
   radius_horizontal_meters?: number;

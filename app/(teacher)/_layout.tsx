@@ -210,6 +210,8 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="insights" options={{ href: null }} />
       {/* Order a card for an existing enrollment — pushed from the roster cards segment. */}
       <Tabs.Screen name="card-order-new" options={{ href: null }} />
+      {/* Mint a card-order portal link for a not-yet-enrolled family — from the manage hub. */}
+      <Tabs.Screen name="card-order-link" options={{ href: null }} />
       <Tabs.Screen name="reconcile" options={{ href: null }} />
       {/* Enroll-by-card (invite student) — pushed from Home; full screen, no bar. */}
       <Tabs.Screen name="enroll" options={{ href: null }} />

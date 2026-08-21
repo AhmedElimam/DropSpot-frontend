@@ -17,7 +17,11 @@ export function PaymentSection({ invoice }: { invoice: Invoice }) {
 
   if (invoice.status === 'paid') return null;
 
-  const hasDigital = (invoice.payment_methods?.length ?? 0) > 0;
+  // Gate the transfer + proof flow on the teacher's digital SWITCH, not on whether
+  // a number is filled: an enabled-but-blank method must still offer the transfer
+  // (and proof upload) — not fall back to "physical only". `payment_methods` is the
+  // pre-fix fallback for older payloads without the accepts_digital signal.
+  const hasDigital = invoice.accepts_digital === true || (invoice.payment_methods?.length ?? 0) > 0;
   // Default true — an invoice always offers at least one way to pay.
   const acceptsPhysical = invoice.accepts_physical !== false;
 

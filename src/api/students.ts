@@ -148,6 +148,10 @@ export interface StudentDetail {
     overdue_amount: string;
     override_active: boolean;
     override_expires_at: string | null;
+    /** Teacher-wide 15-day-allowance switch. */
+    allowance_enabled?: boolean;
+    /** This student is blocked from the 15-day allowance under this teacher. */
+    allowance_blocked?: boolean;
   };
 }
 
@@ -201,6 +205,23 @@ export interface OrderCardPayload {
   delivery_address: string;
   payment_option: 'cash_on_delivery' | 'pay_now';
   imageUri?: string | null; // pay-now proof screenshot
+}
+
+export interface MintedCardOrderLink {
+  id: number;
+  token: string;
+  url: string;
+  expires_at: string;
+}
+
+/**
+ * Mint a single-use card-order PORTAL link to hand a not-yet-enrolled family
+ * (mobile parity for the web card-orders.generate). The family fills the order
+ * with no OTP; it lands in the super-admin review queue. Takes no input.
+ */
+export async function mintCardOrderLink(): Promise<MintedCardOrderLink> {
+  const { data } = await client.post('/teacher/card-orders/generate-link');
+  return (data.data ?? data) as MintedCardOrderLink;
 }
 
 export async function orderCardForEnrollment(payload: OrderCardPayload): Promise<{ id: number; status: string }> {

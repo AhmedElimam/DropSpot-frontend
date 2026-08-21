@@ -15,6 +15,26 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 type Slot = { day_of_week: number; start_time: string; end_time: string };
 
+/** Local YYYY-MM-DD (never toISOString — that shifts by the UTC offset). */
+function toIsoDate(d: Date): string {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/** The next `count` calendar days starting today, as {iso, label} for the picker strip. */
+function upcomingDays(count: number): { iso: string; label: string }[] {
+  const out: { iso: string; label: string }[] = [];
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  for (let i = 0; i < count; i++) {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    out.push({ iso: toIsoDate(d), label: d.toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'short' }) });
+  }
+  return out;
+}
+
 /**
  * Create a course — full parity with the web /courses/create form: name, grade,
  * term, code, capacity, radius, description, and weekly slots. Teacher-only
@@ -40,6 +60,11 @@ export default function CourseCreateScreen() {
   const [radius_, setRadius] = useState(20);
   const [description, setDescription] = useState('');
   const [slots, setSlots] = useState<Slot[]>([]);
+  // "When do you want to start" — now (mint this week's remaining days immediately) or
+  // a specific date (holds generation until then). null date while mode is 'now'.
+  const [startMode, setStartMode] = useState<'now' | 'date'>('now');
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const days = useRef(upcomingDays(45)).current;
   // Pricing (empty = disabled/none) — mirrors the web create form.
   const [cycleSessions, setCycleSessions] = useState('8');
   const [cyclePrice, setCyclePrice] = useState('');
@@ -78,7 +103,8 @@ export default function CourseCreateScreen() {
   // Session-based billing (الفوترة حسب عدد الحصص) is required — a course can't be
   // created without a cycle size and a positive price.
   const billingValid = parseFloat(cyclePrice) >= 1 && parseInt(cycleSessions, 10) >= 1;
-  const canSubmit = name.trim().length > 0 && !!gradeId && !!termId && slotsValid && billingValid && !create.isPending;
+  const startValid = startMode === 'now' || !!startDate;
+  const canSubmit = name.trim().length > 0 && !!gradeId && !!termId && slotsValid && billingValid && startValid && !create.isPending;
 
   const addSlot = () => setSlots((s) => [...s, { day_of_week: 0, start_time: '16:00', end_time: '18:00' }]);
   const removeSlot = (i: number) => setSlots((s) => s.filter((_, idx) => idx !== i));
@@ -94,6 +120,7 @@ export default function CourseCreateScreen() {
         code: code.trim() || undefined,
         capacity: capacity.trim() ? Number(capacity.trim()) : undefined,
         radius_horizontal_meters: radius_,
+        starts_at: startMode === 'date' && startDate ? startDate : undefined,
         description: description.trim() || undefined,
         slots: slots.length ? slots : undefined,
         sessions_per_billing_cycle: Number(cycleSessions.trim()),
@@ -161,6 +188,27 @@ export default function CourseCreateScreen() {
               <Pill key={tm.id} label={tm.name + (tm.ended ? ` — ${t('teacher.term_ended_tag')}` : '')} active={tm.id === termId} onPress={() => setTermId(tm.id)} />
             ))}
           </View>
+
+          {/* When do you want to start — now, or a specific date */}
+          <FieldLabel>{t('teacher.start_when')}</FieldLabel>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Pill label={t('teacher.start_now')} active={startMode === 'now'} onPress={() => { setStartMode('now'); setStartDate(null); }} />
+            <Pill label={t('teacher.start_on_date')} active={startMode === 'date'} onPress={() => setStartMode('date')} />
+          </View>
+          {startMode === 'date' && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: spacing.sm }}>
+              {days.map((d) => (
+                <TouchableOpacity
+                  key={d.iso}
+                  onPress={() => setStartDate(d.iso)}
+                  style={{ paddingHorizontal: spacing.md, height: 40, justifyContent: 'center', borderRadius: radius.full, backgroundColor: startDate === d.iso ? colors.brand : colors.surface, borderWidth: 1, borderColor: startDate === d.iso ? colors.brand : colors.border }}
+                >
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: startDate === d.iso ? '#fff' : colors.textSecondary }}>{d.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, textAlign: 'right', marginTop: 4 }}>{t('teacher.start_hint')}</Text>
 
           {/* Code + capacity */}
           <View style={{ flexDirection: 'row', gap: spacing.md }}>

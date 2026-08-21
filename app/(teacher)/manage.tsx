@@ -104,6 +104,9 @@ export default function TeacherManage() {
         {canStudents ? (
           <Row icon="send" title={t('invite_link.title')} sub={t('invite_link.manage_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/invite-link' as Href)} />
         ) : null}
+        {canStudents ? (
+          <Row icon="card" title={t('card_order_link.title')} sub={t('card_order_link.manage_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/card-order-link' as Href)} />
+        ) : null}
 
         {canSessions || canCourses ? (
           <>

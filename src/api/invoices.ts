@@ -24,6 +24,10 @@ export interface Invoice {
   teacher_phone?: string | null;
   /** Enabled, configured digital methods. Empty ⇒ cash/physical only. */
   payment_methods?: PaymentMethod[];
+  /** Teacher accepts a transfer (Vodafone/InstaPay switch on) — independent of
+   *  whether a number is filled. Enabled-but-blank still offers the transfer +
+   *  proof flow, so this (not payment_methods.length) gates the digital option. */
+  accepts_digital?: boolean;
   /** Whether "pay in person / cash" is offered (default true). */
   accepts_physical?: boolean;
 }
@@ -48,6 +52,8 @@ export interface PendingDue {
   total: number;
   status: 'unpaid' | 'partial';
   payment_methods?: PaymentMethod[];
+  /** Teacher accepts a transfer (switch on), independent of a filled number. */
+  accepts_digital?: boolean;
   accepts_physical?: boolean;
 }
 

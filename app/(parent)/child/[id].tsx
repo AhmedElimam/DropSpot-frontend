@@ -11,6 +11,7 @@ import { getStudentCoverage, getAttendanceRecords } from '@/api/attendance';
 import { getStudentGrades } from '@/api/grades';
 import { getStudentExamResults } from '@/api/exams';
 import { getUpcomingStudentSessions } from '@/api/sessions';
+import { formatDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -331,19 +332,24 @@ export default function ChildDetailScreen() {
                     {grades.map((g, i) => (
                       <View key={g.id} style={{ paddingVertical: spacing.md, borderBottomWidth: i < grades.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Text style={[textPresets.body, { flex: 1 }]}>{g.course_name ?? g.quiz_title ?? `Quiz #${g.quiz_id}`}</Text>
+                          <Text style={[textPresets.body, { flex: 1 }]}>{g.course_name ?? '—'}</Text>
                           <View style={{ width: 80, height: 6, borderRadius: 3, backgroundColor: colors.borderLight, marginEnd: spacing.md, overflow: 'hidden' }}>
                             <LinearGradient colors={g.percentage >= 90 ? gradients.success : g.percentage >= 75 ? gradients.primary : gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${g.percentage}%`, height: '100%', borderRadius: 3 }} />
                           </View>
                           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: g.percentage >= 90 ? colors.success : g.percentage >= 75 ? colors.brand : colors.warning }}>{g.score ?? 0}</Text>
-                          <Text style={textPresets.caption}>/{g.max_score}</Text>
+                          {g.max_score != null ? <Text style={textPresets.caption}>/{g.max_score}</Text> : null}
                         </View>
-                        {g.teacher_name && (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                            <Icon name="teacher" size={14} color={colors.textSecondary} outline style={{ marginEnd: 2 }} />
-                            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{g.teacher_name}</Text>
-                          </View>
-                        )}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: spacing.md }}>
+                          {g.date ? (
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{formatDate(new Date(g.date))}</Text>
+                          ) : null}
+                          {g.teacher_name ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Icon name="teacher" size={14} color={colors.textSecondary} outline style={{ marginEnd: 2 }} />
+                              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{g.teacher_name}</Text>
+                            </View>
+                          ) : null}
+                        </View>
                       </View>
                     ))}
                   </>

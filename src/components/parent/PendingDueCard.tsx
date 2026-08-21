@@ -15,7 +15,10 @@ import type { PendingDue } from '@/api/invoices';
 export function PendingDueCard({ due, showStudent }: { due: PendingDue; showStudent?: boolean }) {
   const { t } = useTranslation();
 
-  const hasDigital = (due.payment_methods?.length ?? 0) > 0;
+  const hasNumbers = (due.payment_methods?.length ?? 0) > 0;
+  // Gate on the digital SWITCH, not on a filled number — enabled-but-blank still
+  // offers transfer (with a "no number configured" note), never "physical only".
+  const hasDigital = due.accepts_digital === true || hasNumbers;
   const acceptsPhysical = due.accepts_physical !== false;
   const kindColor = due.kind === 'booking' ? colors.primary : colors.info;
 
@@ -65,17 +68,23 @@ export function PendingDueCard({ due, showStudent }: { due: PendingDue; showStud
       <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
         {hasDigital ? (
           <View style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm }}>
-            {due.payment_methods!.map((m, i) => (
-              <View key={i}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{m.label}</Text>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.primary }} selectable>{m.number}</Text>
-                {m.name ? (
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>
-                    {t('invoices.expected_name')}: {m.name}
-                  </Text>
-                ) : null}
-              </View>
-            ))}
+            {hasNumbers ? (
+              due.payment_methods!.map((m, i) => (
+                <View key={i}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{m.label}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.primary }} selectable>{m.number}</Text>
+                  {m.name ? (
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>
+                      {t('invoices.expected_name')}: {m.name}
+                    </Text>
+                  ) : null}
+                </View>
+              ))
+            ) : (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>
+                {t('invoices.no_teacher_number')}
+              </Text>
+            )}
           </View>
         ) : null}
 

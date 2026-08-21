@@ -10,7 +10,9 @@ import { Avatar } from '@/components/layout/Avatar';
 import { StudentRow } from '@/components/student/StudentRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useTeacherStudents } from '@/hooks/useStudents';
-import { useGrantBillingOverride } from '@/hooks/useOverrides';
+import { useGrantBillingOverride, useAllowanceSetting, useSetAllowanceSetting } from '@/hooks/useOverrides';
+import { useActiveAbilities } from '@/hooks/useActiveAbilities';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatDayDate } from '@/utils/format';
 
 // Grants run a fixed 15-day exception; preview the day it lapses.
@@ -29,6 +31,10 @@ export default function GrantException() {
   const [reason, setReason] = useState('');
   const grant = useGrantBillingOverride();
   const { data: students, isLoading } = useTeacherStudents({});
+  const { isAssistant } = useActiveAbilities();
+  const { data: allowance } = useAllowanceSetting();
+  const setAllowance = useSetAllowanceSetting();
+  const allowanceOn = allowance?.enabled ?? true;
 
   // Search filters the loaded roster client-side (same as the students tab).
   const filtered = useMemo(() => {
@@ -56,6 +62,31 @@ export default function GrantException() {
         </TouchableOpacity>
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('teacher.grant_billing_override')}</Text>
       </View>
+
+      {/* Teacher-wide master switch (teacher-only; assistants can't change policy). */}
+      {!isAssistant ? (
+        <TouchableOpacity
+          onPress={() => setAllowance.mutate(!allowanceOn)}
+          disabled={setAllowance.isPending}
+          activeOpacity={0.8}
+          style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: allowanceOn ? colors.border : colors.warning, padding: spacing.md }}
+        >
+          <Icon name="calendar" size={22} color={allowanceOn ? colors.brand : colors.warningText} outline />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('teacher.allowance_setting_title')}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+              {allowanceOn ? t('teacher.allowance_on_hint') : t('teacher.allowance_off_hint')}
+            </Text>
+          </View>
+          {setAllowance.isPending ? (
+            <ActivityIndicator size="small" color={colors.brand} />
+          ) : (
+            <View style={{ width: 46, height: 28, borderRadius: 14, backgroundColor: allowanceOn ? colors.success : colors.borderStrong, justifyContent: 'center', paddingHorizontal: 3, alignItems: allowanceOn ? 'flex-end' : 'flex-start' }}>
+              <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' }} />
+            </View>
+          )}
+        </TouchableOpacity>
+      ) : null}
 
       {selected ? (
         <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl }} keyboardShouldPersistTaps="handled">
@@ -98,6 +129,15 @@ export default function GrantException() {
           >
             {grant.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('teacher.grant_15_days')}</Text>}
           </TouchableOpacity>
+
+          {grant.isError ? (
+            <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md }}>
+              <Icon name="warning" size={18} color={colors.dangerText} outline />
+              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 20, color: colors.dangerText }}>
+                {getFriendlyErrorMessage(grant.error)}
+              </Text>
+            </View>
+          ) : null}
         </ScrollView>
       ) : (
         <>

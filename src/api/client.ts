@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
-import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore, resolveRole } from '@/stores/authStore';
 
 /**
  * Resolve the API base URL.
@@ -76,8 +76,17 @@ client.interceptors.response.use(
         const rt = await SecureStore.getItemAsync('refresh_token');
         if (!rt) throw new Error('no refresh');
         const { data } = await axios.post(`${API_URL}/auth/refresh`, { refresh_token: rt });
-        const at = data.data.attributes.tokens.access_token;
+        const attrs = data?.data?.attributes ?? {};
+        const at = attrs.tokens.access_token;
         await SecureStore.setItemAsync('access_token', at);
+        // Propagate any server-recomputed user flags carried on the refresh payload.
+        // The app has no GET /me, so a flag raised AFTER login (e.g. the deferred
+        // own-number verification wall, set by the daily sweep) would otherwise never
+        // reach an already-signed-in session — it would only appear on a fresh login.
+        // Refreshing the stored user here lets it engage on the next token refresh.
+        if (attrs.user) {
+          await useAuthStore.getState().setSession(attrs.user, resolveRole(attrs.user));
+        }
         original.headers.Authorization = `Bearer ${at}`;
         return client(original);
       } catch (e) {

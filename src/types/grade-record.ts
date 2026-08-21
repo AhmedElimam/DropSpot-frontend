@@ -1,12 +1,13 @@
+/** One per-session SHEET mark (درجة الشريحة) for the parent/student "الدرجات" tab. */
 export interface GradeRecord {
   id: number;
-  quiz_id: number;
-  quiz_title: string | null;
   course_name: string | null;
   teacher_name?: string | null;
+  /** The session's scheduled date (ISO), so marks in the same course are distinguishable. */
+  date: string | null;
+  /** The recorded mark. */
   score: number | null;
-  max_score: number;
+  /** The effective sheet max (session override, else course default); null if unset. */
+  max_score: number | null;
   percentage: number;
-  passed: boolean | null;
-  submitted_at: string;
 }
