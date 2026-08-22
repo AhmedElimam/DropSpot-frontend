@@ -19,6 +19,9 @@ export async function sendPrecardPhone(payload: {
   course_id: number;
   academic_session_id: number;
   session_schedule_id?: number;
+  /** Optional — names the invited student for a brand-new-family fall-through
+   *  (a number that matches no existing student). Ignored for a card-less match. */
+  invited_student_name?: string;
   // Per-invitation booking down-payment (blank/undefined = none). Applied at accept.
   down_payment_amount?: number | null;
   /** Already collected up front — seeds paid_amount so the family sees the remainder. */

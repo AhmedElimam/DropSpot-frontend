@@ -70,14 +70,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     [
       // Payment-proof + card-order photo uploads. Set the photo-library string
-      // (a used, review-visible permission); camera is owned by expo-camera above
-      // and the picker never records audio, so disable those two keys here to keep
-      // one justified string per permission (no generic placeholders).
+      // (a used, review-visible permission). NOTE: cameraPermission MUST NOT be
+      // `false` here — that makes this plugin emit `tools:node="remove"` for
+      // android.permission.CAMERA, which STRIPS the permission expo-camera needs,
+      // so the Android camera prompt never appears and the scanner is dead. Give it
+      // the SAME justified Arabic string as expo-camera so CAMERA stays declared and
+      // the iOS usage string is consistent regardless of plugin order. The picker
+      // never records audio, so microphone stays removed.
       'expo-image-picker',
       {
         photosPermission:
           'يستخدم التطبيق صورك لإرفاق إثبات الدفع أو صورة الكارت عند الطلب.',
-        cameraPermission: false,
+        cameraPermission:
+          'يستخدم التطبيق الكاميرا لمسح رمز الحضور أو التحقق من الكارت.',
         microphonePermission: false,
       },
     ],

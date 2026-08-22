@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
 import { useOverrideOptions, useCreateOverride, useCancelOverride } from '@/hooks/useScheduleTools';
 
@@ -137,13 +138,13 @@ export default function ScheduleOverridesScreen() {
                       <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{s.label}</Text>
                       <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 2 }}>{t('teacher.overrides_new_start')}</Text>
                     </View>
-                    <TextInput
-                      value={times[s.id] ?? ''}
-                      onChangeText={(v) => setTimes((prev) => ({ ...prev, [s.id]: v }))}
-                      placeholder={s.start_time}
-                      placeholderTextColor={colors.textTertiary}
-                      style={{ width: 84, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, height: 42, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'center' }}
-                    />
+                    <View style={{ width: 132 }}>
+                      <TimePicker
+                        value={times[s.id] || null}
+                        onChange={(v) => setTimes((prev) => ({ ...prev, [s.id]: v }))}
+                        placeholder={s.start_time}
+                      />
+                    </View>
                   </View>
                 );
               })}

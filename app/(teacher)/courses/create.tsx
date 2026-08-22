@@ -7,6 +7,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { useCourseFormOptions, useCreateCourse } from '@/hooks/useCourses';
 import { useTeacherOnboarding, useMarkOnboardingStep } from '@/hooks/useTeacherOnboarding';
 
@@ -334,9 +335,11 @@ function Pill({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 function TimeField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const valid = TIME_RE.test(value);
+  // App-wide 12-hour time picker (stores 24h HH:mm for the backend). No free text.
   return (
-    <TextInput value={value} onChangeText={onChange} placeholder="16:00" placeholderTextColor={colors.textTertiary} style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: valid ? colors.border : colors.danger, borderRadius: radius.md, height: 44, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'center' }} />
+    <View style={{ flex: 1 }}>
+      <TimePicker value={value || null} onChange={onChange} invalid={!!value && !TIME_RE.test(value)} />
+    </View>
   );
 }
 

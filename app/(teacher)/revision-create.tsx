@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { getRevisionCreateOptions, createRevision, type BillingMode } from '@/api/revisions';
 
 const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -104,7 +105,7 @@ export default function RevisionCreate() {
   );
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}><Icon name="forward" size={22} color={colors.textPrimary} /></TouchableOpacity>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('revision_create.title')}</Text>
@@ -204,9 +205,9 @@ export default function RevisionCreate() {
                 </View>
                 <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
                   <View style={{ flex: 1 }}><Lbl>{t('revision_create.start_time')}</Lbl>
-                    <TextInput value={start} onChangeText={setStart} placeholder="09:00" placeholderTextColor={colors.textTertiary} style={input} /></View>
+                    <TimePicker value={start || null} onChange={setStart} /></View>
                   <View style={{ flex: 1 }}><Lbl>{t('revision_create.end_time')}</Lbl>
-                    <TextInput value={end} onChangeText={setEnd} placeholder="10:00" placeholderTextColor={colors.textTertiary} style={input} /></View>
+                    <TimePicker value={end || null} onChange={setEnd} /></View>
                 </View>
               </>
             ) : (
@@ -214,7 +215,7 @@ export default function RevisionCreate() {
                 <View style={{ flex: 1.4 }}><Lbl>{t('revision_create.date')}</Lbl>
                   <TextInput value={date} onChangeText={setDate} placeholder="2026-08-20" placeholderTextColor={colors.textTertiary} style={{ ...input, textAlign: 'left' }} /></View>
                 <View style={{ flex: 1 }}><Lbl>{t('revision_create.time')}</Lbl>
-                  <TextInput value={otTime} onChangeText={setOtTime} placeholder="18:00" placeholderTextColor={colors.textTertiary} style={{ ...input, textAlign: 'left' }} /></View>
+                  <TimePicker value={otTime || null} onChange={setOtTime} /></View>
               </View>
             )}
 

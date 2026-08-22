@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration, Keyboard } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -47,11 +47,25 @@ export default function TeacherEnroll() {
   // §3 — invite an already-registered, card-less student by phone (family accepts).
   const [phoneMode, setPhoneMode] = useState(false);
   const [phone, setPhone] = useState('');
+  // Optional — used only when the number is a brand-new family (no existing
+  // student): it names the invited student on the invitation + SMS. Ignored when
+  // the number already belongs to a card-less student.
+  const [studentName, setStudentName] = useState('');
   const [downPayment, setDownPayment] = useState('');
   const [downPaid, setDownPaid] = useState('');
   const [secures, setSecures] = useState<BookingSecures>('flat');
   const [dpAuto, setDpAuto] = useState(true); // amount is auto-prefilled until the teacher edits it
   const [sending, setSending] = useState(false);
+
+  // The phone-invite sheet is an absolute bottom overlay on the camera, so a
+  // KeyboardAvoidingView can't wrap it — track the keyboard height and lift the
+  // sheet by it so the phone/amount inputs never sit behind the keyboard.
+  const [kbHeight, setKbHeight] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setKbHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   // Adopt the teacher's default "secures" kind when a course is picked.
   useEffect(() => {
@@ -83,6 +97,7 @@ export default function TeacherEnroll() {
         phone: phone.trim(),
         course_id: course.course_id,
         academic_session_id: course.academic_session_id,
+        ...(studentName.trim() ? { invited_student_name: studentName.trim() } : {}),
         // Typed amount = per-invite down-payment; blank = teacher/course default.
         ...(downPayment.trim()
           ? {
@@ -94,6 +109,7 @@ export default function TeacherEnroll() {
       });
       setPhoneMode(false);
       setPhone('');
+      setStudentName('');
       setDownPayment('');
       setDownPaid('');
       setDpAuto(true);
@@ -102,6 +118,8 @@ export default function TeacherEnroll() {
       } else if (r.action === 'already_enrolled') {
         Alert.alert(t('invites.already_enrolled_title'), r.message ?? t('invites.already_enrolled_body'));
       } else {
+        // Neutral by design (phone-oracle safe): the invite reaches the family in-app
+        // AND by SMS, but the per-send status isn't returned on this endpoint.
         Alert.alert(t('invites.sent_title'), t('invites.sent_body'));
       }
     } catch {
@@ -333,9 +351,14 @@ export default function TeacherEnroll() {
         </TouchableOpacity>
       ) : null}
 
-      {/* Phone-entry overlay */}
+      {/* Phone-entry overlay — lifts above the keyboard (bottom = keyboard height). */}
       {phoneMode ? (
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl, gap: spacing.md }}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: kbHeight, maxHeight: '85%', backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl }}
+          contentContainerStyle={{ padding: spacing.xl, paddingBottom: (kbHeight > 0 ? spacing.xl : insets.bottom + spacing.xl), gap: spacing.md }}
+        >
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('invites.by_phone')}</Text>
           <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invites.phone_label')}</Text>
           <TextInput
@@ -345,6 +368,18 @@ export default function TeacherEnroll() {
             placeholder="01xxxxxxxxx"
             placeholderTextColor={colors.textTertiary}
             style={{ fontFamily: fonts.regular, fontSize: 17, minHeight: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'left', borderWidth: 1.5, borderColor: phone ? colors.brand : colors.border }}
+          />
+          {/* Optional student name — used only when this is a brand-new family (an
+              unknown number). For a card-less student already on the system it's
+              ignored (their own name is used), so it's never required. */}
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invites.name_label')}</Text>
+          <TextInput
+            value={studentName}
+            onChangeText={setStudentName}
+            placeholder={t('invites.name_ph')}
+            placeholderTextColor={colors.textTertiary}
+            maxLength={120}
+            style={{ fontFamily: fonts.regular, fontSize: 17, minHeight: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'right', borderWidth: 1.5, borderColor: colors.border }}
           />
           {/* Optional per-invite booking down-payment. What it secures is selectable
               (default = the teacher's setting); the amount prefills from that basis.
@@ -394,7 +429,7 @@ export default function TeacherEnroll() {
               {sending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('invites.send')}</Text>}
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       ) : null}
 
       {/* Review card — accept / reject */}

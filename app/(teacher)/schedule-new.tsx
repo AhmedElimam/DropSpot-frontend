@@ -7,6 +7,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { useTeacherCourses } from '@/hooks/useStudents';
 import { useCreateSchedule } from '@/hooks/useSchedules';
 
@@ -34,14 +35,24 @@ export default function ScheduleNew() {
   const startValid = TIME_RE.test(start);
   const endValid = TIME_RE.test(end);
   const orderValid = !startValid || !endValid || end > start;
-  const canSubmit = courseId !== null && startValid && endValid && orderValid && !create.isPending;
 
   const submit = () => {
-    if (courseId === null || !startValid || !endValid || !orderValid) return;
+    if (create.isPending) return;
+    // The button is always tappable (never a mystery-disabled state); on tap we tell
+    // the teacher exactly what's missing instead of silently doing nothing.
+    const missing: string[] = [];
+    if (courseId === null) missing.push(t('teacher.schedule_need_course'));
+    if (!startValid) missing.push(t('teacher.schedule_need_start'));
+    if (!endValid) missing.push(t('teacher.schedule_need_end'));
+    if (startValid && endValid && end <= start) missing.push(t('teacher.schedule_end_after'));
+    if (missing.length) {
+      Alert.alert(t('teacher.schedule_incomplete'), '• ' + missing.join('\n• '));
+      return;
+    }
     const cap = capacity.trim() ? Number(capacity.trim()) : undefined;
     create.mutate(
       {
-        course_id: courseId,
+        course_id: courseId!, // guaranteed non-null: validation above returns if missing
         day_of_week: day,
         start_time: start,
         end_time: end,
@@ -125,33 +136,15 @@ export default function ScheduleNew() {
           <View style={{ flexDirection: 'row', gap: spacing.md }}>
             <View style={{ flex: 1 }}>
               {label(t('teacher.schedule_start'))}
-              <TextInput
-                value={start}
-                onChangeText={setStart}
-                placeholder={t('teacher.schedule_time_ph')}
-                placeholderTextColor={colors.textTertiary}
-                keyboardType="numbers-and-punctuation"
-                maxLength={5}
-                style={{ fontFamily: fonts.regular, fontSize: 16, minHeight: 52, backgroundColor: colors.surface, borderWidth: 1, borderColor: start && !startValid ? colors.danger : colors.borderStrong, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'center' }}
-              />
+              <TimePicker value={start || null} onChange={setStart} />
             </View>
             <View style={{ flex: 1 }}>
               {label(t('teacher.schedule_end'))}
-              <TextInput
-                value={end}
-                onChangeText={setEnd}
-                placeholder={t('teacher.schedule_time_ph')}
-                placeholderTextColor={colors.textTertiary}
-                keyboardType="numbers-and-punctuation"
-                maxLength={5}
-                style={{ fontFamily: fonts.regular, fontSize: 16, minHeight: 52, backgroundColor: colors.surface, borderWidth: 1, borderColor: end && !endValid ? colors.danger : colors.borderStrong, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'center' }}
-              />
+              <TimePicker value={end || null} onChange={setEnd} invalid={startValid && endValid && end <= start} />
             </View>
           </View>
-          {end && endValid && startValid && !orderValid ? (
+          {startValid && endValid && end <= start ? (
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger, marginTop: spacing.xs }}>{t('teacher.schedule_end_after')}</Text>
-          ) : (start && !startValid) || (end && !endValid) ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger, marginTop: spacing.xs }}>{t('teacher.schedule_time_invalid')}</Text>
           ) : null}
 
           {/* Capacity */}
@@ -169,8 +162,8 @@ export default function ScheduleNew() {
           {/* Submit */}
           <TouchableOpacity
             onPress={submit}
-            disabled={!canSubmit}
-            style={{ marginTop: spacing.xl, minHeight: 52, borderRadius: radius.lg, backgroundColor: canSubmit ? colors.primary : colors.borderStrong, justifyContent: 'center', alignItems: 'center' }}
+            disabled={create.isPending}
+            style={{ marginTop: spacing.xl, minHeight: 52, borderRadius: radius.lg, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' }}
           >
             {create.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('teacher.schedule_submit')}</Text>}
           </TouchableOpacity>

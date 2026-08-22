@@ -78,7 +78,7 @@ export default function ChangePasswordScreen() {
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{isForced ? t('onboarding.set_password_title') : t('auth.change_password')}</Text>
       </LinearGradient>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
             {isForced && (

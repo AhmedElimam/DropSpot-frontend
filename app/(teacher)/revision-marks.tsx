@@ -62,7 +62,7 @@ export default function RevisionMarks() {
       {q.isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <FlatList
           data={q.data?.attendees ?? []}
           keyExtractor={(a) => String(a.id)}

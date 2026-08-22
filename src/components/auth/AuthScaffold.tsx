@@ -33,7 +33,7 @@ export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffold
       <StatusBar barStyle="light-content" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
       >
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, paddingBottom: spacing.xl4 }}

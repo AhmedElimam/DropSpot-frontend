@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useMergeOptions, useMergeSchedules } from '@/hooks/useScheduleTools';
@@ -199,15 +200,11 @@ export default function ScheduleMergeScreen() {
 }
 
 function TimeField({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
-  const valid = TIME_RE.test(value);
+  // App-wide 12-hour time picker (stores 24h HH:mm for the backend). No free text.
   return (
-    <TextInput
-      value={value}
-      onChangeText={onChange}
-      placeholder={placeholder}
-      placeholderTextColor={colors.textTertiary}
-      style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: valid ? colors.border : colors.danger, borderRadius: radius.md, height: 44, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'center' }}
-    />
+    <View style={{ flex: 1 }}>
+      <TimePicker value={value || null} onChange={onChange} placeholder={placeholder} invalid={!!value && !TIME_RE.test(value)} />
+    </View>
   );
 }
 

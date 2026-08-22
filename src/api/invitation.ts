@@ -92,7 +92,7 @@ export interface CreateInvitationPayload {
 export interface DedupeMatch { id: number; name?: string; [k: string]: unknown }
 
 export type CreateInvitationResult =
-  | { kind: 'minted'; message: string; smsSent: boolean }
+  | { kind: 'minted'; message: string; smsSent: boolean; smsWarning: string | null; smsTarget: string | null }
   | { kind: 'linked'; message: string }
   | { kind: 'dedupe'; matches: DedupeMatch[]; message: string }
   | { kind: 'grade_mismatch'; message: string };
@@ -106,8 +106,14 @@ export async function createInvitation(payload: CreateInvitationPayload): Promis
   try {
     const { data } = await client.post('/invitations', payload);
     if (data.data?.linked_existing) return { kind: 'linked', message: data.message ?? '' };
-    const smsSent = !!data.data?.attributes?.sms_sent;
-    return { kind: 'minted', message: data.message ?? '', smsSent };
+    const attrs = data.data?.attributes ?? {};
+    return {
+      kind: 'minted',
+      message: data.message ?? '',
+      smsSent: !!attrs.sms_sent,
+      smsWarning: attrs.sms_warning ?? null,
+      smsTarget: attrs.sms_target ?? null,
+    };
   } catch (e: any) {
     const d = e?.response?.data;
     if (e?.response?.status === 409 && d?.code === 'DEDUPE_REQUIRED') {

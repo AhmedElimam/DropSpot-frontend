@@ -7,6 +7,7 @@ import * as Location from 'expo-location';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { formatTime12 } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
 import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule } from '@/hooks/useCourses';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
@@ -285,7 +286,7 @@ export default function CourseDetailScreen() {
           course.schedules.map((slot) => (
             <View key={slot.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{slot.day_label} · {slot.start_time}–{slot.end_time}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{slot.day_label} · {formatTime12(slot.start_time)}–{formatTime12(slot.end_time)}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
                   {t('teacher.students_count', { count: slot.headcount })}
                   {slot.capacity != null ? ` / ${slot.capacity}` : ''} · {t('teacher.upcoming_count', { count: slot.upcoming_count })}

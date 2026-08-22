@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, KeyboardAvoidingView, Platform, Alert, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, KeyboardAvoidingView, Alert, Switch } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,9 +42,12 @@ export default function InvitePhone() {
   const [secures, setSecures] = useState<BookingSecures | null>(null);
   const [downPayment, setDownPayment] = useState('');
   const [downPaid, setDownPaid] = useState('');
-  // Per-student override of the teacher's requires_down_payment default, matching the
-  // web invite form. null = follow the teacher setting until explicitly toggled.
-  const [bookingOn, setBookingOn] = useState<boolean | null>(null);
+  // Per-student booking-down-payment switch (matches the web invite form). A plain
+  // boolean the Switch fully owns — seeded from the teacher's requires_down_payment
+  // default when a course is picked. (Was a null-then-derive value, which as a
+  // CONTROLLED Switch value on Android could fail to reveal the amount/paid inputs
+  // on toggle.)
+  const [bookingOn, setBookingOn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [matches, setMatches] = useState<DedupeMatch[] | null>(null);
 
@@ -55,13 +58,16 @@ export default function InvitePhone() {
     setCourseId(id);
     const c = options?.courses.find((x) => x.id === id);
     setTermId(c?.academic_session_id ?? termId);
+    // Seed the booking switch + secures from the teacher's default when a course is
+    // first picked; the teacher can still flip it per student below.
+    setBookingOn(!!options?.requires_down_payment);
     if (options?.requires_down_payment && !secures) setSecures(options.default_secures);
   };
 
-  // The switch defaults to the teacher's setting but can be flipped either way per
-  // student — a teacher who normally takes a دفعة can waive it for one family, and
-  // one who normally doesn't can charge a single student.
-  const dpEnabled = bookingOn ?? !!options?.requires_down_payment;
+  // The switch defaults to the teacher's setting (seeded on course-select) but can be
+  // flipped either way per student — a teacher who normally takes a دفعة can waive it
+  // for one family, and one who normally doesn't can charge a single student.
+  const dpEnabled = bookingOn;
   const showDpSection = courseId != null;
 
   // Live remainder, so the teacher sees the exact figure the family's app will show.
@@ -117,9 +123,20 @@ export default function InvitePhone() {
         return;
       }
       setMatches(null);
-      Alert.alert('', res.kind === 'linked' ? t('invite_phone.linked') : t('invite_phone.sent'), [
-        { text: t('common.close'), onPress: () => router.back() },
-      ]);
+      if (res.kind === 'linked') {
+        Alert.alert('', t('invite_phone.linked'), [{ text: t('common.close'), onPress: () => router.back() }]);
+      } else if (res.smsSent) {
+        Alert.alert('', t('invite_phone.sent'), [{ text: t('common.close'), onPress: () => router.back() }]);
+      } else {
+        // Invitation created, but the SMS provider did NOT accept it — tell the truth
+        // (parity with the web warning) instead of a false "sent". The invite still
+        // exists; the teacher can share the link or fix the number and resend.
+        Alert.alert(
+          t('invite_phone.sms_failed_title'),
+          res.smsWarning || t('invite_phone.sms_failed_body'),
+          [{ text: t('common.close'), onPress: () => router.back() }],
+        );
+      }
     } catch {
       Alert.alert(t('common.error'), t('invite_phone.failed'));
     } finally {
@@ -141,7 +158,11 @@ export default function InvitePhone() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.background }}>
+    // Expo SDK 54 enables Android edge-to-edge, where the old `adjustResize` no longer
+    // shrinks the window — the keyboard would overlay the lower inputs (down-payment /
+    // paid). Let KeyboardAvoidingView do the work on BOTH platforms so focused fields
+    // stay above the keyboard.
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.sm, paddingBottom: spacing.sm }}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}><Icon name="forward" size={22} color={colors.textPrimary} /></TouchableOpacity>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('invite_phone.title')}</Text>
