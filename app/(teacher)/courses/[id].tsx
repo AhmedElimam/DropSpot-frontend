@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Switch, Alert, KeyboardAvoidingView } from 'react-native';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -133,7 +133,7 @@ export default function CourseDetailScreen() {
   const retireSlot = (slot: CourseSchedule) => {
     Alert.alert(
       t('teacher.retire_slot_title'),
-      `${slot.day_label} ${slot.start_time}`,
+      `${slot.day_label} ${formatTime12(slot.start_time)}`,
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -160,7 +160,7 @@ export default function CourseDetailScreen() {
   const located = course.has_location;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
@@ -299,7 +299,7 @@ export default function CourseDetailScreen() {
           ))
         )}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

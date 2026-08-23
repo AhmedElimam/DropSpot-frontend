@@ -35,7 +35,8 @@ function fmtDateTime(iso?: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
   const day = d.toLocaleDateString('ar', { weekday: 'long', day: 'numeric', month: 'short' });
-  const time = d.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' });
+  // 12h (ص/م) — hour12 + ar-EG to match the app-wide formatTime12 convention.
+  const time = d.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit', hour12: true });
   return `${day} · ${time}`;
 }
 
@@ -276,7 +277,7 @@ export default function ChildDetailScreen() {
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <View style={{ flex: 1 }}>
                           <Text style={textPresets.body}>{s.course_name ?? `#${s.session_instance_id}`}</Text>
-                          <Text style={textPresets.caption}>{s.session_time ?? ''}</Text>
+                          <Text style={textPresets.caption}>{fmtDateTime(s.session_time)}</Text>
                           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 4, flexWrap: 'wrap' }}>
                             {s.teacher_name && (
                               <View style={{ flexDirection: 'row', alignItems: 'center' }}>

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
-import { TimePicker } from '@/components/ui/TimePicker';
+import { TimePicker, formatTime12, format12InText } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
 import { useOverrideOptions, useCreateOverride, useCancelOverride } from '@/hooks/useScheduleTools';
 
@@ -69,7 +69,7 @@ export default function ScheduleOverridesScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
@@ -94,7 +94,7 @@ export default function ScheduleOverridesScreen() {
                 <View key={o.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{o.label} · {o.course_name ?? ''}</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{o.slot_label} → {o.new_time}{o.end_date ? ` · ${t('teacher.until')} ${o.end_date}` : ''}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{format12InText(o.slot_label)} → {format12InText(o.new_time)}{o.end_date ? ` · ${t('teacher.until')} ${o.end_date}` : ''}</Text>
                   </View>
                   <TouchableOpacity onPress={() => confirmCancel(o.id)} disabled={cancel.isPending} style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
                     <Icon name="trash" size={18} color={colors.danger} />
@@ -135,14 +135,14 @@ export default function ScheduleOverridesScreen() {
                 return (
                   <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: included ? colors.brandTint : colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: included ? colors.brand : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{s.label}</Text>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{format12InText(s.label)}</Text>
                       <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 2 }}>{t('teacher.overrides_new_start')}</Text>
                     </View>
                     <View style={{ width: 132 }}>
                       <TimePicker
                         value={times[s.id] || null}
                         onChange={(v) => setTimes((prev) => ({ ...prev, [s.id]: v }))}
-                        placeholder={s.start_time}
+                        placeholder={formatTime12(s.start_time)}
                       />
                     </View>
                   </View>
@@ -156,7 +156,7 @@ export default function ScheduleOverridesScreen() {
           </View>
         </ScrollView>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

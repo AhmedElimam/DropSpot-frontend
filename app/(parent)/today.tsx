@@ -25,7 +25,8 @@ function sessionTime(iso?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' });
+  // 12h (ص/م) — hour12 + ar-EG to match the app-wide formatTime12 convention.
+  return d.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 /**

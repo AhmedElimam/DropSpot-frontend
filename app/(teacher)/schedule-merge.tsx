@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
-import { TimePicker } from '@/components/ui/TimePicker';
+import { TimePicker, format12InText } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useMergeOptions, useMergeSchedules } from '@/hooks/useScheduleTools';
@@ -89,7 +89,7 @@ export default function ScheduleMergeScreen() {
       activeOpacity={0.8}
       style={{ padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: active ? colors.brand : colors.border, backgroundColor: active ? colors.brandTint : colors.surface, marginBottom: spacing.sm }}
     >
-      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{slot.label}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{format12InText(slot.label)}</Text>
       <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('teacher.students_count', { count: slot.headcount })}</Text>
     </TouchableOpacity>
   );

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, type ViewStyle } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, type ViewStyle } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -548,7 +548,7 @@ export default function TeacherScan() {
       {/* Payment confirmation — nothing is collected until تأكيد التحصيل. Supports a
           PARTIAL amount (default = full) with a "pay full" shortcut and a live remainder. */}
       {payConfirm ? (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11,59,52,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+        <KeyboardAvoidingView behavior="padding" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11,59,52,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
           <Icon name="money" size={48} color="#fff" />
           {payConfirm.name ? (
             <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff', textAlign: 'center', marginTop: spacing.sm }}>{payConfirm.name}</Text>
@@ -584,7 +584,7 @@ export default function TeacherScan() {
           <TouchableOpacity onPress={() => setPayConfirm(null)} activeOpacity={0.85} style={{ marginTop: spacing.md }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>إلغاء</Text>
           </TouchableOpacity>
-        </View>
+        </KeyboardAvoidingView>
       ) : null}
 
       {/* Overdue-bill block — cannot check in; offer an in-the-moment 15-day exemption */}
@@ -609,7 +609,7 @@ export default function TeacherScan() {
 
       {/* Add-guest-by-phone form */}
       {phoneOpen ? (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,16,43,0.97)', justifyContent: 'center', padding: spacing.xl }}>
+        <KeyboardAvoidingView behavior="padding" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,16,43,0.97)', justifyContent: 'center', padding: spacing.xl }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', textAlign: 'center' }}>{t('teacher.guest_phone_title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: spacing.sm }}>{t('teacher.guest_phone_hint')}</Text>
           <TextInput
@@ -634,7 +634,7 @@ export default function TeacherScan() {
           <TouchableOpacity onPress={() => { setPhoneOpen(false); setGErr(''); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.md, alignItems: 'center' }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('teacher.guest_cancel')}</Text>
           </TouchableOpacity>
-        </View>
+        </KeyboardAvoidingView>
       ) : null}
 
       {/* Full-screen success/failure flash */}

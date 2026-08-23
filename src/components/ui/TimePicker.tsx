@@ -42,6 +42,20 @@ export function formatTime12(value?: string | null): string {
   });
 }
 
+/**
+ * Reformat every 24h "HH:mm" occurrence INSIDE a longer string to 12h (ص/م) —
+ * for backend-built composite labels like "الأحد · 16:00–18:00" or "الأحد 16:00"
+ * that the mobile app must display in 12h. Non-time text is left untouched. Do NOT
+ * use on ISO datetimes (parse those with a Date instead).
+ */
+export function format12InText(text?: string | null): string {
+  if (!text) return '';
+  return text.replace(/(\d{1,2}):([0-5]\d)/g, (m, h, mm) => {
+    const f = formatTime12(`${String(h).padStart(2, '0')}:${mm}`);
+    return f || m;
+  });
+}
+
 interface Props {
   value: string | null;
   onChange: (v: string) => void;
