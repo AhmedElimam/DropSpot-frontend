@@ -1,6 +1,16 @@
 import client from './client';
+import type { ScanPending } from './teacher';
 
 export type PayKind = 'bill' | 'booklet' | 'booking';
+
+export interface PreviewAllResult {
+  success: boolean;
+  message?: string;
+  code?: string;
+  student?: { id?: number; name: string };
+  // All three dues in one shape (same as the attendance scan) — feeds PayDuesModal.
+  pending?: ScanPending | null;
+}
 
 export interface PaymentResult {
   success: boolean;
@@ -24,6 +34,22 @@ function unwrap(e: any): PaymentResult {
   const d = e?.response?.data;
   if (d) return { success: false, message: d.message ?? '', code: d.code, student: d.student };
   throw e;
+}
+
+/**
+ * Combined preview — every due for one card (bill + booklet + booking) in a single
+ * read, so one scan collects everything. Materialises the idempotent booklet/booking
+ * charges server-side, so all dues appear on the FIRST scan.
+ */
+export async function previewAllPayments(cardCode: string): Promise<PreviewAllResult> {
+  try {
+    const { data } = await client.post('/payments/preview-all', { card_code: cardCode });
+    return data as PreviewAllResult;
+  } catch (e) {
+    const d = (e as any)?.response?.data;
+    if (d) return { success: false, message: d.message ?? '', code: d.code, student: d.student };
+    throw e;
+  }
 }
 
 export async function previewPayment(kind: PayKind, cardCode: string): Promise<PaymentResult> {

@@ -3,28 +3,9 @@ import { router, Redirect, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import { Icon } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { TeacherTip } from '@/components/TeacherTip';
-
-function Option({ kind, title, subtitle, icon }: { kind: 'bill' | 'booklet' | 'booking'; title: string; subtitle: string; icon: IconName }) {
-  return (
-    <TouchableOpacity
-      onPress={() => router.push(`/(teacher)/scan?payKind=${kind}` as Href)}
-      activeOpacity={0.85}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}
-    >
-      <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-        <Icon name={icon} size={24} color={colors.brand} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{title}</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{subtitle}</Text>
-      </View>
-      <Icon name="back" size={20} color={colors.textSecondary} />
-    </TouchableOpacity>
-  );
-}
 
 export default function TeacherCollect() {
   const insets = useSafeAreaInsets();
@@ -63,9 +44,22 @@ export default function TeacherCollect() {
           <Icon name="back" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        <Option kind="bill" title="دفع الفواتير" subtitle="امسح البطاقة لتحصيل الفاتورة المستحقة" icon="money" />
-        <Option kind="booklet" title="دفع الملازم" subtitle="امسح البطاقة لتحصيل رسم الملزمة" icon="book" />
-        <Option kind="booking" title="دفع دفعة الحجز" subtitle="امسح البطاقة لتحصيل دفعة الحجز — كليًا أو جزئيًا" icon="money" />
+        {/* One scan → every due (فاتورة + ملزمة + دفعة حجز) in a single popup, each
+            collectable fully or partially. Replaces the old per-type cards. */}
+        <TouchableOpacity
+          onPress={() => router.push('/(teacher)/scan?payKind=all' as Href)}
+          activeOpacity={0.85}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}
+        >
+          <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="scan" size={24} color={colors.brand} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>امسح لتحصيل المستحقات</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح البطاقة لعرض كل المستحقات — الفواتير والملازم ودفعة الحجز — والتحصيل كليًا أو جزئيًا</Text>
+          </View>
+          <Icon name="back" size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       <TeacherTip

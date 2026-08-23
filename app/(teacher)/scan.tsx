@@ -9,7 +9,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { scanCard, grantDoorExemption, getMyTeachers, type ScanResult } from '@/api/teacher';
 import { scanRevision, addRevisionGuest, addRevisionGuestByPhone } from '@/api/revisions';
-import { previewPayment, collectPayment, type PayKind } from '@/api/payments';
+import { previewPayment, previewAllPayments, collectPayment, type PayKind } from '@/api/payments';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { bufferScan, deleteScan } from '@/db/offlineScans';
@@ -93,11 +93,14 @@ export default function TeacherScan() {
   // ---- Payment mode (from the collect picker) — scan a card to collect a bill or
   // booklet. Two steps: preview the amount, then collect after confirmation (the
   // safety layer that makes phone collection acceptable). Online-only. ----
+  // `payKind=all` → combined collection: one scan surfaces EVERY due (bill + booklet
+  // + booking) in the PayDuesModal. The single-kind values stay for back-compat.
+  const payAll = params.payKind === 'all';
   const payKind: PayKind | null =
     params.payKind === 'bill' || params.payKind === 'booklet' || params.payKind === 'booking'
       ? params.payKind
       : null;
-  const payMode = !!payKind;
+  const payMode = payAll || !!payKind;
   const payWhatLabel = payKind === 'bill' ? 'فاتورة' : payKind === 'booklet' ? 'ملزمة' : 'دفعة حجز';
 
   const currentSessions = (sessions ?? []).filter((s) => s.is_current);
@@ -175,6 +178,31 @@ export default function TeacherScan() {
       if (data === lastRef.current.code && now - lastRef.current.at < COOLDOWN_MS) return;
       lastRef.current = { code: data, at: now };
       setBusy(true);
+
+      // ---- Combined payment mode: ONE scan → every due in the PayDuesModal. ----
+      if (payAll) {
+        // Payments are ONLINE-ONLY — never buffered offline (money must be real-time).
+        if (!online) {
+          flash(false, t('teacher.pay_offline'));
+          return;
+        }
+        try {
+          const res = await previewAllPayments(data);
+          if (res.success && hasDues(res.pending)) {
+            setBusy(false);
+            setDuesFor({ code: data, name: (res.student && res.student.name) || '', pending: res.pending! });
+            return;
+          }
+          if (res.success) {
+            flash(true, 'لا توجد مستحقات', (res.student && res.student.name) || null);
+          } else {
+            flash(false, res.message || t('teacher.scan_failed'), (res.student && res.student.name) || null);
+          }
+        } catch {
+          flash(false, t('teacher.scan_failed'));
+        }
+        return;
+      }
 
       // ---- Payment mode: preview the amount, then hold for confirmation. ----
       if (payMode && payKind) {
@@ -409,7 +437,7 @@ export default function TeacherScan() {
             {payMode ? 'تحصيل الدفعات' : revisionMode ? t('teacher.revision_scanning_for') : t('teacher.scanning_for')}
           </Text>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }} numberOfLines={1}>
-            {payMode ? (payKind === 'bill' ? 'دفع الفواتير' : payKind === 'booklet' ? 'دفع الملازم' : 'دفع دفعة الحجز') : revisionMode ? (params.revisionTitle || t('teacher.revisions_title')) : (sessionName || t('teacher.scan_mode'))}
+            {payMode ? (payAll ? 'كل المستحقات' : payKind === 'bill' ? 'دفع الفواتير' : payKind === 'booklet' ? 'دفع الملازم' : 'دفع دفعة الحجز') : revisionMode ? (params.revisionTitle || t('teacher.revisions_title')) : (sessionName || t('teacher.scan_mode'))}
           </Text>
           {!revisionMode && !payMode && !online ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
