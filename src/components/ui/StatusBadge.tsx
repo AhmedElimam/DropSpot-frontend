@@ -21,6 +21,9 @@ const STATUS_MAP: Record<string, { variant: BadgeVariant; i18nKey: string }> = {
   paid: { variant: 'success', i18nKey: 'invoices.paid' },
   pending: { variant: 'warning', i18nKey: 'invoices.pending' },
   overdue: { variant: 'danger', i18nKey: 'invoices.overdue' },
+  // Payment-proof review outcomes
+  approved: { variant: 'success', i18nKey: 'status.approved' },
+  rejected: { variant: 'danger', i18nKey: 'status.rejected' },
   // Sessions
   scheduled: { variant: 'info', i18nKey: 'session.scheduled' },
   completed: { variant: 'success', i18nKey: 'session.completed' },

@@ -18,6 +18,7 @@ export const ABILITY = {
   MANAGE_STUDENTS: 'manage_students',
   MANAGE_SESSIONS: 'manage_sessions',
   MANAGE_COURSES: 'manage_courses',
+  REVIEW_PAYMENT_PROOFS: 'review_payment_proofs',
 } as const;
 
 export function useActiveAbilities() {

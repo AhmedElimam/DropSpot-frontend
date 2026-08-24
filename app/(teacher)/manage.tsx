@@ -25,6 +25,7 @@ export default function TeacherManage() {
   const canCourses = can(ABILITY.MANAGE_COURSES);
   const canSessions = can(ABILITY.MANAGE_SESSIONS);
   const canStudents = can(ABILITY.MANAGE_STUDENTS);
+  const canReviewProofs = can(ABILITY.REVIEW_PAYMENT_PROOFS);
   const ramadanOn = !!flags?.ramadan_schedule;
   // Insights are teacher-only (finance/analytics) — never fetched or shown to an
   // assistant (the API rejects them with 403 anyway).
@@ -83,6 +84,20 @@ export default function TeacherManage() {
           <Row icon="reports" title={t('teacher.insights_title')} sub={t('teacher.insights_sub')} onPress={() => router.push('/(teacher)/insights' as Href)} />
         )}
         </>
+        ) : null}
+
+        {/* Payments — proof review (teacher, or assistant granted the ability) +
+            billing settings (teacher-only). Section hidden entirely if neither applies. */}
+        {canReviewProofs || !isAssistant ? (
+          <>
+            <SectionTitle>{t('teacher.payments_title')}</SectionTitle>
+            {canReviewProofs ? (
+              <Row icon="money" title={t('payment_proofs.title')} sub={t('payment_proofs.manage_sub')} tint={colors.success} onPress={() => router.push('/(teacher)/payment-proofs' as Href)} />
+            ) : null}
+            {!isAssistant ? (
+              <Row icon="card" title={t('billing_settings.title')} sub={t('billing_settings.manage_sub')} onPress={() => router.push('/(teacher)/billing-settings' as Href)} />
+            ) : null}
+          </>
         ) : null}
 
         <SectionTitle>{t('teacher.resolution_title')}</SectionTitle>

@@ -131,7 +131,7 @@ export default function TeacherScan() {
   const [payConfirm, setPayConfirm] = useState<{ name: string; owed: number; paid: number; code: string } | null>(null);
   const [payInput, setPayInput] = useState('');
   // Overdue-bill block: held until the operator grants a 15-day exemption or cancels.
-  const [overdueBlock, setOverdueBlock] = useState<{ name: string; message: string; code: string } | null>(null);
+  const [overdueBlock, setOverdueBlock] = useState<{ name: string; message: string; code: string; pending?: ScanPending | null } | null>(null);
   // Merged pay-on-scan popup: after an attendance scan surfaces dues, open ONE popup
   // listing every kind (bill / booklets / booking) with the paid/remaining + pay-full UI.
   const [duesFor, setDuesFor] = useState<{ code: string; name: string; pending: ScanPending } | null>(null);
@@ -275,7 +275,7 @@ export default function TeacherScan() {
         // instead of a passing red flash.
         if (!res.success && res.code === 'BILLING_OVERDUE') {
           setBusy(false);
-          setOverdueBlock({ name: res.student_name ?? '', message: res.message, code: data });
+          setOverdueBlock({ name: res.student_name ?? '', message: res.message, code: data, pending: res.pending ?? null });
           return;
         }
         // Passive flags ride along on the auto-dismissing success flash — non-interactive.
@@ -602,8 +602,23 @@ export default function TeacherScan() {
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.85)', marginTop: 4, textAlign: 'center', paddingHorizontal: spacing.lg }}>
             {overdueBlock.message || 'لا يمكن تسجيل الحضور بسبب وجود مستحقات متأخرة.'}
           </Text>
-          <TouchableOpacity onPress={confirmExemption} activeOpacity={0.85} style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#92400E' }}>منح إعفاء 15 يومًا وتسجيل الحضور</Text>
+          {/* Primary: collect the overdue dues now (pay → re-scan to check in). */}
+          {hasDues(overdueBlock.pending) ? (
+            <TouchableOpacity
+              onPress={() => {
+                const b = overdueBlock;
+                setOverdueBlock(null);
+                setDuesFor({ code: b.code, name: b.name, pending: b.pending! });
+              }}
+              activeOpacity={0.85}
+              style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}
+            >
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#92400E' }}>تحصيل المستحقات الآن</Text>
+            </TouchableOpacity>
+          ) : null}
+          {/* Secondary: waive with a 15-day exemption + check in. */}
+          <TouchableOpacity onPress={confirmExemption} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textDecorationLine: 'underline' }}>منح إعفاء 15 يومًا وتسجيل الحضور</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => { setOverdueBlock(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>إلغاء</Text>

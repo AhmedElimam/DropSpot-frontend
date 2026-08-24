@@ -95,6 +95,8 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
         student_name: d.student_name ?? null,
         code: d.code ?? null,
         student_id: d.student_id ?? null,
+        // The overdue block carries the dues so the app can open the collect modal.
+        pending: d.pending ?? null,
       };
     }
     throw e;

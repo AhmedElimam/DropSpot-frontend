@@ -224,6 +224,9 @@ export default function TeacherTabLayout() {
       {/* Payment kind picker → scan tab in payment mode. Not a tab. */}
       <Tabs.Screen name="collect" options={{ href: null }} />
       <Tabs.Screen name="pending-collections" options={{ href: null }} />
+      {/* Billing settings (teacher-only) + payment-proof review — from the manage hub. */}
+      <Tabs.Screen name="billing-settings" options={{ href: null }} />
+      <Tabs.Screen name="payment-proofs" options={{ href: null }} />
       {/* Notifications feed — opened from the home-header bell, not a tab. */}
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="invite-phone" options={{ href: null }} />
