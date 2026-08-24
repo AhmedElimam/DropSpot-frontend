@@ -313,7 +313,9 @@ export default function TeacherEnroll() {
       <CameraView
         style={{ flex: 1 }}
         facing="back"
-        barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128', 'code39', 'ean13'] }}
+        // QR first + a short list → reliable QR detection; Code128 keeps physical
+        // cards scannable (both symbologies encode the same credential).
+        barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128'] }}
         onBarcodeScanned={busy || review || done || phoneMode ? undefined : handleScan}
       />
 

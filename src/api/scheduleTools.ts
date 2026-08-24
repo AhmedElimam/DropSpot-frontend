@@ -6,20 +6,15 @@ import client from './client';
  * auto-revert. Overrides are gated by the ramadan_schedule feature flag server-side.
  */
 
-// ---- Merge ----
+// ---- Merge (COURSE-level / schedule-master) ----
 
-export interface MergeSlot {
+export interface MergeCourse {
   id: string;
   grade_id: number;
   course_name: string | null;
-  label: string;
+  /** The weekdays the course meets, e.g. "الأحد • الأربعاء". */
+  slots_label: string | null;
   headcount: number;
-}
-
-export interface MergeCustomSlot {
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
 }
 
 export interface MergeResult {
@@ -27,16 +22,14 @@ export interface MergeResult {
   warnings: string[];
 }
 
-export async function getMergeOptions(): Promise<MergeSlot[]> {
+export async function getMergeOptions(): Promise<MergeCourse[]> {
   const { data } = await client.get('/teacher/schedule-merges/options');
-  return ((data.data ?? data)?.schedules ?? []) as MergeSlot[];
+  return ((data.data ?? data)?.courses ?? []) as MergeCourse[];
 }
 
-export async function mergeSchedules(payload: {
-  survivor_id: number;
-  retiring_id: number;
-  time_choice: 'survivor' | 'retiring' | 'custom';
-  slots?: MergeCustomSlot[];
+export async function mergeCourses(payload: {
+  survivor_course_id: number;
+  retiring_course_id: number;
 }): Promise<MergeResult> {
   const { data } = await client.post('/teacher/schedule-merges', payload);
   return (data.data ?? data) as MergeResult;

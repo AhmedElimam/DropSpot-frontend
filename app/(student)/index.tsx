@@ -116,14 +116,24 @@ export default function StudentDashboard() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              onPress={() => router.navigate('/(student)/swap')}
-              activeOpacity={0.7}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: spacing.md, paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primaryLight }}
-            >
-              <Icon name="calendar" size={18} color={colors.primary} outline style={{ marginEnd: spacing.xs }} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{t('swap.entry')}</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+              <TouchableOpacity
+                onPress={() => router.navigate('/(student)/swap')}
+                activeOpacity={0.7}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primaryLight }}
+              >
+                <Icon name="calendar" size={18} color={colors.primary} outline style={{ marginEnd: spacing.xs }} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{t('swap.entry')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.navigate('/(student)/marks')}
+                activeOpacity={0.7}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primaryLight }}
+              >
+                <Icon name="reports" size={18} color={colors.primary} outline style={{ marginEnd: spacing.xs }} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{t('nav.marks')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -415,7 +415,11 @@ export default function TeacherScan() {
           style={{ flex: 1 }}
           facing="back"
           enableTorch={torch}
-          barcodeScannerSettings={{ barcodeTypes: ['code128', 'code39', 'ean13', 'ean8', 'upc_a', 'upc_e', 'qr', 'codabar', 'itf14'] }}
+          // Dros Spot cards carry ONLY a QR (back) + a Code128 barcode (front), both
+          // encoding the same credential. A short list — QR first — makes QR detection
+          // reliable (a long mixed list makes the scanner favour the wide barcode and
+          // miss QR, especially a QR shown on a screen/PDF).
+          barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128'] }}
           onBarcodeScanned={paused ? undefined : handleScan}
         />
       ) : (

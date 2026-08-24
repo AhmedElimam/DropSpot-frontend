@@ -17,6 +17,9 @@ export interface AttendanceRecord {
   teacher_name?: string;
   teacher_id?: number | null;
   location?: string | null;
+  // False once the course's next session has begun — the excuse window has closed
+  // for this absence. Absent from older API responses (treated as still open).
+  can_excuse?: boolean;
 }
 
 export interface AbsenceExcuse {

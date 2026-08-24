@@ -1,26 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getMergeOptions,
-  mergeSchedules,
+  mergeCourses,
   getOverrideOptions,
   createOverride,
   cancelOverride,
-  type MergeCustomSlot,
 } from '@/api/scheduleTools';
 
 export function useMergeOptions() {
   return useQuery({ queryKey: ['merge-options'], queryFn: getMergeOptions, staleTime: 15_000 });
 }
 
-export function useMergeSchedules() {
+export function useMergeCourses() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: {
-      survivor_id: number;
-      retiring_id: number;
-      time_choice: 'survivor' | 'retiring' | 'custom';
-      slots?: MergeCustomSlot[];
-    }) => mergeSchedules(payload),
+    mutationFn: (payload: { survivor_course_id: number; retiring_course_id: number }) => mergeCourses(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['merge-options'] });
       qc.invalidateQueries({ queryKey: ['teacher-courses'] });

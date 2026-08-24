@@ -139,12 +139,28 @@ export default function StudentDetailScreen() {
 
           {/* Billing */}
           <Section title={t('teacher.billing_section')}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: s.billing.has_overdue ? colors.danger : colors.border, padding: spacing.lg }}>
-              <Icon name="money" size={24} color={s.billing.has_overdue ? colors.danger : colors.success} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: s.billing.has_overdue ? colors.danger : (s.billing.has_pending ? colors.warning : colors.border), padding: spacing.lg }}>
+              <Icon name="money" size={24} color={s.billing.has_overdue ? colors.danger : (s.billing.has_pending ? colors.warning : colors.success)} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: s.billing.has_overdue ? colors.danger : colors.textPrimary }}>
-                  {s.billing.has_overdue ? `${t('teacher.billing_overdue')} · ${s.billing.overdue_amount} ${t('teacher.egp')}` : t('teacher.billing_clear')}
+                  {s.billing.has_pending
+                    ? `${t('teacher.billing_pending')} · ${s.billing.pending_total} ${t('teacher.egp')}`
+                    : t('teacher.billing_clear')}
                 </Text>
+                {s.billing.has_pending && s.billing.pending ? (
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                    {[
+                      Number(s.billing.pending.bill) > 0 ? `${t('teacher.due_bill')}: ${s.billing.pending.bill}` : null,
+                      Number(s.billing.pending.booklet) > 0 ? `${t('teacher.due_booklet')}: ${s.billing.pending.booklet}` : null,
+                      Number(s.billing.pending.booking) > 0 ? `${t('teacher.due_booking')}: ${s.billing.pending.booking}` : null,
+                    ].filter(Boolean).join('   ·   ')}
+                  </Text>
+                ) : null}
+                {s.billing.has_overdue ? (
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger, marginTop: 2 }}>
+                    {`${t('teacher.billing_overdue')} · ${s.billing.overdue_amount} ${t('teacher.egp')}`}
+                  </Text>
+                ) : null}
                 {s.billing.override_active ? (
                   <View style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
                     <Badge label={t('teacher.billing_override_active')} variant="info" size="sm" />

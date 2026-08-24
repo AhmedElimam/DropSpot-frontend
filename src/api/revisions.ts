@@ -45,7 +45,7 @@ export interface RevisionScanResult {
 // ---- Creation (mobile parity for revise/create) ----
 
 export interface RevisionCreateSchedule { id: number; label: string }
-export interface RevisionCreateCourse { course_id: number; name: string; schedules: RevisionCreateSchedule[] }
+export interface RevisionCreateCourse { course_id: number; name: string; slots_label?: string; schedules: RevisionCreateSchedule[] }
 export interface RevisionCreateGrade { grade_id: number; grade_name: string; courses: RevisionCreateCourse[] }
 
 /** The teacher's grades → courses → mergeable schedules (the merge picker data). */
@@ -61,7 +61,8 @@ export interface CreateRevisionPayload {
   max_mark?: number | null;
   billing_mode: BillingMode;
   fee_total?: number | null;
-  members: number[];
+  /** COURSE-level selection — every weekly slot of each course is merged in. */
+  course_ids: number[];
   is_recurring: boolean;
   day_of_week?: number | null;
   start_time?: string | null; // HH:mm

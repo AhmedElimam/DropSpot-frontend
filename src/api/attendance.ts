@@ -70,5 +70,6 @@ function extractRecord(item: any): AttendanceRecord {
     teacher_name: a.teacher_name,
     teacher_id: a.teacher_id,
     location: a.location,
+    can_excuse: a.can_excuse,
   };
 }

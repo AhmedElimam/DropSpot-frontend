@@ -57,6 +57,7 @@ const ICON_MAP = {
   star: 'star',
   language: 'language',
   help: 'help-circle',
+  close: 'close',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;

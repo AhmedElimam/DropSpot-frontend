@@ -188,9 +188,9 @@ function ChildCard({ child, t }: { child: Child; t: (k: string) => string }) {
         <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{child.name}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 6 }}>
           <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: standing.color }} />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: standing.color }}>{t(standing.key)}</Text>
+          <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 16, color: standing.color, flexShrink: 0 }}>{t(standing.key)}</Text>
           {child.grade ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary }}>· {child.grade}</Text>
+            <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, flexShrink: 1 }}>· {child.grade}</Text>
           ) : null}
         </View>
       </View>

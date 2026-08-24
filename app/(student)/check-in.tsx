@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, KeyboardAvoidingView, Keyboard } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
@@ -151,7 +151,12 @@ export default function CheckInTab() {
     }
   };
 
-  const absentRecords = (records ?? []).filter((r) => r?.status === 'absent').slice(0, 5);
+  // Only absences that can still be excused — the window closes once the course's
+  // next session begins (server-authoritative via `can_excuse`; `!== false` keeps
+  // older API responses that omit the field working).
+  const absentRecords = (records ?? [])
+    .filter((r) => r?.status === 'absent' && r?.can_excuse !== false)
+    .slice(0, 5);
 
   if (checkedIn) {
     return (
@@ -419,9 +424,31 @@ export default function CheckInTab() {
       {/* Excuse modal — pick which absence, then explain */}
       <Modal visible={excuseVisible} transparent animationType="slide" onRequestClose={() => setExcuseVisible(false)}>
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => setExcuseVisible(false)} />
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl }} />
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => { Keyboard.dismiss(); setExcuseVisible(false); }} />
+          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.md, paddingBottom: spacing.xl5, maxHeight: '85%' }}>
+            {/* Grab handle (tap anywhere on it to drop the keyboard) + a clear close button */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.xxl, marginBottom: spacing.md }}>
+              <TouchableOpacity
+                onPress={() => setExcuseVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
+                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}
+              >
+                <Icon name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={1} onPress={() => Keyboard.dismiss()} style={{ flex: 1, alignItems: 'center' }}>
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
+              </TouchableOpacity>
+              <View style={{ width: 36 }} />
+            </View>
+
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: spacing.xxl, paddingBottom: spacing.lg }}
+            >
 
             {excuseSent ? (
               <View style={{ alignItems: 'center', paddingVertical: spacing.lg }}>
@@ -508,6 +535,7 @@ export default function CheckInTab() {
                 )}
               </>
             )}
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>

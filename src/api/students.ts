@@ -152,6 +152,10 @@ export interface StudentDetail {
     allowance_enabled?: boolean;
     /** This student is blocked from the 15-day allowance under this teacher. */
     allowance_blocked?: boolean;
+    /** FULL pending collection (superset of the overdue slice): bill + booklet + booking. */
+    pending_total?: string;
+    has_pending?: boolean;
+    pending?: { bill: string; booklet: string; booking: string };
   };
 }
 

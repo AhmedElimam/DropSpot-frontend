@@ -82,6 +82,7 @@ export default function StudentTabLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="check-in" />
       <Tabs.Screen name="invoices" />
+      <Tabs.Screen name="marks" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="swap" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="order-card" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />

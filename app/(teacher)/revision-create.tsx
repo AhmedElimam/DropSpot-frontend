@@ -28,7 +28,7 @@ export default function RevisionCreate() {
   const [maxMark, setMaxMark] = useState('');
   const [title, setTitle] = useState('');
   const [gradeId, setGradeId] = useState<number | null>(null);
-  const [members, setMembers] = useState<number[]>([]);
+  const [members, setMembers] = useState<number[]>([]); // selected COURSE ids (course-level merge)
   const [billing, setBilling] = useState<BillingMode>('free');
   const [feeTotal, setFeeTotal] = useState('');
   const [recurring, setRecurring] = useState(false);
@@ -68,7 +68,7 @@ export default function RevisionCreate() {
         max_mark: isExam ? Number(maxMark) : null,
         billing_mode: billing,
         fee_total: billing === 'spread' ? Number(feeTotal) : null,
-        members,
+        course_ids: members,
         is_recurring: recurring,
         day_of_week: recurring ? day : null,
         start_time: recurring ? start : null,
@@ -149,21 +149,25 @@ export default function RevisionCreate() {
 
             {grade ? (
               <View style={{ marginTop: spacing.md }}>
-                <Lbl>{t('revision_create.merge_groups')}</Lbl>
-                {grade.courses.map((c) => (
-                  <View key={c.course_id} style={{ marginBottom: spacing.sm }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand, marginBottom: 4 }}>{c.name}</Text>
-                    {c.schedules.map((s) => (
-                      <TouchableOpacity key={s.id} onPress={() => toggleMember(s.id)} activeOpacity={0.8}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs }}>
-                        <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: members.includes(s.id) ? colors.brand : colors.border, backgroundColor: members.includes(s.id) ? colors.brand : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                          {members.includes(s.id) ? <Icon name="success" size={14} color="#fff" /> : null}
-                        </View>
-                        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>{s.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                ))}
+                <Lbl>{t('revision_create.merge_courses')}</Lbl>
+                {/* Course-level: one checkbox per COURSE — all its weekly days come with it. */}
+                {grade.courses.map((c) => {
+                  const on = members.includes(c.course_id);
+                  return (
+                    <TouchableOpacity key={c.course_id} onPress={() => toggleMember(c.course_id)} activeOpacity={0.8}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surface, marginBottom: spacing.sm }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                        {on ? <Icon name="success" size={14} color="#fff" /> : null}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: on ? colors.brand : colors.textPrimary }}>{c.name}</Text>
+                        {c.slots_label ? (
+                          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{c.slots_label}</Text>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             ) : (
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>{t('revision_create.pick_grade')}</Text>
