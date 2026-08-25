@@ -59,6 +59,10 @@ const client = axios.create({
 client.interceptors.request.use(async (config) => {
   const token = await SecureStore.getItemAsync('access_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  // App version for server-side observability (never a hard gate — the blocking
+  // update screen is enforced client-side against the shipped binary version).
+  const appVersion = Constants.expoConfig?.version;
+  if (appVersion) config.headers['X-App-Version'] = appVersion;
   return config;
 });
 

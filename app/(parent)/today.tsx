@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
+import { formatTime } from '@/utils/format';
 import { colors, spacing, radius, shadows, nav, gradients, textPresets } from '@/theme/index';
 import { useTodayFeed } from '@/hooks/useTodayFeed';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -26,7 +27,7 @@ function sessionTime(iso?: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
   // 12h (ص/م) — hour12 + ar-EG to match the app-wide formatTime12 convention.
-  return d.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return formatTime(d);
 }
 
 /**

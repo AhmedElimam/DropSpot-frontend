@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { useConfigRule } from '@/hooks/useAppConfig';
+import { formatDate, formatShortDate, formatDateTime, formatTime } from '@/utils/format';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
@@ -8,7 +10,6 @@ import { useTodaySessions } from '@/hooks/useSessions';
 import { useCheckIn, useCoverageStats, useAttendanceRecords, useSubmitExcuse } from '@/hooks/useAttendance';
 import { useAuthStore } from '@/stores/authStore';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { formatTime } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import type { SessionInstance } from '@/types/session-instance';
@@ -82,12 +83,14 @@ export default function CheckInTab() {
   const canTap = !!selectedSessionData && !checkInMutation.isPending && !locating;
 
   // Mirror the server geofence EXACTLY (AttendanceService::validateGeofence):
-  //   allowed = radius + min(reading accuracy, 50) + min(anchor accuracy, 50)
+  //   allowed = radius + min(reading accuracy, MAX) + min(anchor accuracy, MAX)
   // The anchor term matters most for a low-confidence anchor (e.g. one set from a
   // laptop indoors). Omitting it — as this used to — made the client stricter than
   // the server, so it rejected check-ins the server would have accepted ("too far"
-  // while standing at the classroom). MAX must stay in sync with the server const.
-  const GEOFENCE_MAX_ACCURACY = 50;
+  // while standing at the classroom). MAX is now served from /app-config
+  // (geofence_max_accuracy_m) — one source, so client & server can't drift; the
+  // bundled default (50) is the fallback when config hasn't loaded.
+  const GEOFENCE_MAX_ACCURACY = useConfigRule('geofence_max_accuracy_m');
   function proximity(session: SessionInstance, lat: number, lng: number, acc: number | null) {
     const readingAllowance = Math.min(acc ?? GEOFENCE_MAX_ACCURACY, GEOFENCE_MAX_ACCURACY);
     const anchorAllowance = Math.min(Math.max(0, session.location_accuracy_meters ?? 0), GEOFENCE_MAX_ACCURACY);
@@ -186,7 +189,7 @@ export default function CheckInTab() {
             {t('attendance.check_in')}
           </Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: spacing.xs }}>
-            {new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {formatDate(new Date())}
           </Text>
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.md }}>
@@ -323,7 +326,7 @@ export default function CheckInTab() {
                   <Icon name="success" size={18} color={colors.successText} />
                   <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.successText }}>
                     {t('attendance.phone_permission_until', {
-                      time: new Date(selectedSessionData.checkin_permission_expires_at).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true, day: 'numeric', month: 'short' }),
+                      time: formatDateTime(selectedSessionData.checkin_permission_expires_at, { hour: '2-digit' }),
                     })}
                   </Text>
                 </View>
@@ -411,7 +414,7 @@ export default function CheckInTab() {
                 <View>
                   <Text style={textPresets.body}>{record?.course_name}</Text>
                   <Text style={textPresets.caption}>
-                    {record?.session_time ? new Date(record.session_time).toLocaleDateString('ar-EG', { weekday: 'short', day: 'numeric', month: 'short' }) : ''}
+                    {record?.session_time ? formatShortDate(record.session_time) : ''}
                   </Text>
                 </View>
                 <StatusBadge status={record?.status ?? ''} size="sm" />
@@ -490,7 +493,7 @@ export default function CheckInTab() {
                           <View style={{ flex: 1 }}>
                             <Text style={textPresets.body}>{record.course_name}</Text>
                             <Text style={textPresets.caption}>
-                              {record.session_time ? new Date(record.session_time).toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
+                              {record.session_time ? formatDate(record.session_time) : ''}
                             </Text>
                           </View>
                         </TouchableOpacity>

@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
+import { formatTime } from '@/utils/format';
 import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import type { TeacherSession } from '@/api/teacher';
@@ -22,7 +23,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 function hhmm(iso: string): string {
   try {
-    return new Date(iso).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return formatTime(iso);
   } catch {
     return '—';
   }

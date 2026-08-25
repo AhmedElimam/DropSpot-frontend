@@ -3,6 +3,13 @@
     "name": "دروس سبوت",
     "slug": "DrosSpot",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f537825e-3329-40d0-827a-aa708f228509",
+      "fallbackToCacheTimeout": 0
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "drosspot",

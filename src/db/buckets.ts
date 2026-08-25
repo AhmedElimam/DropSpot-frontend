@@ -1,4 +1,5 @@
 import type { OfflineScan } from './offlineScans';
+import { configRule } from '@/stores/appConfigStore';
 
 export interface ScanBucket {
   startTime: string; // ISO of first scan
@@ -7,7 +8,8 @@ export interface ScanBucket {
   scans: OfflineScan[];
 }
 
-const ONE_HOUR_MS = 60 * 60 * 1000;
+// The bucket-split gap is config-driven (offline_bucket_gap_min); the bundled
+// default (60) reproduces the original ONE_HOUR_MS exactly.
 
 /**
  * Resolve a scan's academic grade offline (Part 1). Returns null when the grade
@@ -33,6 +35,7 @@ export type GradeResolver = (scan: OfflineScan) => number | null;
  * exactly as before. Assumes `scans` is sorted by scanned_at ascending.
  */
 export function computeBuckets(scans: OfflineScan[], gradeOf?: GradeResolver): ScanBucket[] {
+  const gapMs = configRule('offline_bucket_gap_min') * 60 * 1000;
   const buckets: ScanBucket[] = [];
   let current: OfflineScan[] = [];
   let prevMs: number | null = null;
@@ -44,7 +47,7 @@ export function computeBuckets(scans: OfflineScan[], gradeOf?: GradeResolver): S
     const teacher = scan.teacher_id ?? null;
     const grade = gradeOf ? gradeOf(scan) : null;
 
-    const gapBreak = prevMs !== null && ms - prevMs > ONE_HOUR_MS;
+    const gapBreak = prevMs !== null && ms - prevMs > gapMs;
     const teacherBreak = prevTeacher !== undefined && teacher !== prevTeacher;
     const gradeBreak = bucketGrade !== null && grade !== null && grade !== bucketGrade;
 

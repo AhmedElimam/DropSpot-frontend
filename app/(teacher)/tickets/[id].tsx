@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
+import { formatTime } from '@/utils/format';
 import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
 import { useTicket, useAddMessage, useUpdateTicketStatus } from '@/hooks/useTickets';
 import { useAuthStore } from '@/stores/authStore';
@@ -169,7 +170,7 @@ export default function TeacherTicketDetail() {
                   {msg.message}
                 </Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: isMine ? 'rgba(255,255,255,0.6)' : colors.textTertiary, marginTop: 6, alignSelf: 'flex-end' }}>
-                  {new Date(msg.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                  {formatTime(msg.created_at)}
                 </Text>
               </View>
             );

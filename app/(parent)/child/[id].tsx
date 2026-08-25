@@ -11,7 +11,7 @@ import { getStudentCoverage, getAttendanceRecords } from '@/api/attendance';
 import { getStudentGrades } from '@/api/grades';
 import { getStudentExamResults } from '@/api/exams';
 import { getUpcomingStudentSessions } from '@/api/sessions';
-import { formatDate } from '@/utils/format';
+import { formatDate, formatTime } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -34,9 +34,9 @@ function fmtDateTime(iso?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  const day = d.toLocaleDateString('ar', { weekday: 'long', day: 'numeric', month: 'short' });
+  const day = formatDate(d, { month: 'short' });
   // 12h (ص/م) — hour12 + ar-EG to match the app-wide formatTime12 convention.
-  const time = d.toLocaleTimeString('ar-EG', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const time = formatTime(d);
   return `${day} · ${time}`;
 }
 
@@ -140,7 +140,7 @@ export default function ChildDetailScreen() {
                 <TouchableOpacity
                   onPress={() => router.push(`/(parent)/child/${child.id}/invite-code`)}
                   accessibilityRole="button"
-                  accessibilityLabel="رمز التسجيل"
+                  accessibilityLabel={t('auth.invite_code_label')}
                   style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
                 >
                   <Icon name="scan" size={19} color="#fff" />
@@ -428,7 +428,7 @@ export default function ChildDetailScreen() {
                   </Text>
                   <Button
                     variant="primary"
-                    title="إنشاء رمز تسجيل"
+                    title={t('auth.create_invite_code')}
                     onPress={() => router.push(`/(parent)/child/${child.id}/invite-code`)}
                     style={{ marginTop: spacing.lg }}
                   />

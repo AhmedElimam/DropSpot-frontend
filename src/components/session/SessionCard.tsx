@@ -1,5 +1,6 @@
 import { TouchableOpacity, View, Text } from 'react-native';
 import { fonts } from '@/theme/typography';
+import { formatDate, formatTime } from '@/utils/format';
 import { colors, spacing, radius, shadows, textPresets } from '@/theme/index';
 import { Badge } from '@/components/ui/Badge';
 import { useTranslation } from 'react-i18next';
@@ -28,17 +29,8 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
   const { t } = useTranslation();
   const scheduledTime = new Date(session.scheduled_at);
 
-  const formattedTime = scheduledTime.toLocaleTimeString('ar-EG', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
-
-  const formattedDate = scheduledTime.toLocaleDateString('ar-EG', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  const formattedTime = formatTime(scheduledTime);
+  const formattedDate = formatDate(scheduledTime);
 
   return (
     <TouchableOpacity

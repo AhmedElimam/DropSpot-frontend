@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius } from '@/theme/index';
 import { fonts } from '@/theme/typography';
 import { Icon } from '@/components/ui/Icon';
+import { formatNumber } from '@/utils/format';
 
 /**
  * App-wide time picker (replaces free-text HH:mm inputs). Presents a 12-hour wheel
@@ -15,7 +16,7 @@ import { Icon } from '@/components/ui/Icon';
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 1); // 1..12
 const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5); // 0,5,…,55
-const arNum = (n: number) => n.toLocaleString('ar-EG');
+const arNum = (n: number) => formatNumber(n);
 const pad = (n: number) => String(n).padStart(2, '0');
 const VALID = /^\d{1,2}:\d{2}$/;
 
@@ -129,7 +130,7 @@ export function TimePicker({ value, onChange, placeholder, invalid }: Props) {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }}>
               {minutes.map((mm) => (
                 <TouchableOpacity key={mm} onPress={() => setMin(mm)} style={chip(mm === min)}>
-                  <Text style={chipTxt(mm === min)}>{mm.toLocaleString('ar-EG', { minimumIntegerDigits: 2 })}</Text>
+                  <Text style={chipTxt(mm === min)}>{formatNumber(mm, { minimumIntegerDigits: 2 })}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>

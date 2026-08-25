@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
+import { formatDate } from '@/utils/format';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
@@ -16,7 +17,7 @@ import {
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+    return formatDate(iso, { weekday: undefined, month: 'short' });
   } catch {
     return '—';
   }

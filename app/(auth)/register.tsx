@@ -116,7 +116,7 @@ export default function RegisterScreen() {
       <Text style={labelStyle}>{t('auth.name')}</Text>
       <TextInput
         value={name} onChangeText={setName} autoCapitalize="words" autoCorrect={false}
-        placeholder="محمد أحمد" placeholderTextColor={colors.textTertiary}
+        placeholder={t('auth.name_example')} placeholderTextColor={colors.textTertiary}
         style={{
           ...fieldBase,
           marginBottom: nameHasLatin ? spacing.xs : spacing.lg,
@@ -166,7 +166,7 @@ export default function RegisterScreen() {
       <Text style={labelStyle}>{t('auth.parent_name')}</Text>
       <TextInput
         value={parentName} onChangeText={setParentName} autoCapitalize="words" autoCorrect={false}
-        placeholder="أحمد محمد" placeholderTextColor={colors.textTertiary}
+        placeholder={t('auth.parent_name_example')} placeholderTextColor={colors.textTertiary}
         style={{
           ...fieldBase,
           marginBottom: parentNameHasLatin ? spacing.xs : spacing.lg,

@@ -1,23 +1,42 @@
 const LOCALE = 'ar-EG';
 
+// The platform operates in Africa/Cairo (the server's timezone). Every displayed
+// time/date is pinned to it so a teacher whose phone is set to another timezone
+// still sees the real session time — the screen is what they act on at the door.
+// This is correctness, not cosmetics. Always format through these helpers.
+const TZ = 'Africa/Cairo';
+
+/** Merge caller options over the Cairo-pinned base (never let a caller drop the tz). */
+function opts(base: Intl.DateTimeFormatOptions, extra?: Intl.DateTimeFormatOptions): Intl.DateTimeFormatOptions {
+  return { timeZone: TZ, ...base, ...extra };
+}
+
 export function formatTime(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', hour12: true });
+  return d.toLocaleTimeString(LOCALE, opts({ hour: '2-digit', minute: '2-digit', hour12: true }));
 }
 
 export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString(LOCALE, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    ...options,
-  });
+  return d.toLocaleDateString(LOCALE, opts({ weekday: 'long', day: 'numeric', month: 'long' }, options));
 }
 
 export function formatShortDate(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
+  return d.toLocaleDateString(LOCALE, opts({ weekday: 'short', day: 'numeric', month: 'short' }));
+}
+
+// Combined date + 12h time, e.g. "١٢ أغسطس ٤:٣٠ م". For rows that need both
+// (payment proofs, oversight, booking requests). Options override the date part.
+export function formatDateTime(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString(LOCALE, opts({ day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }, options));
+}
+
+/** Arabic-Indic number formatting — the ONE place numerals are localised. */
+export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
+  return value.toLocaleString(LOCALE, options);
 }
 
 // Full day + date, e.g. "الاثنين ١٢ أغسطس". Used wherever a session/attendance
@@ -25,7 +44,7 @@ export function formatShortDate(date: string | Date): string {
 export function formatDayDate(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
+  return d.toLocaleDateString(LOCALE, opts({ weekday: 'long', day: 'numeric', month: 'long' }));
 }
 
 // A relative day word (اليوم / أمس / غدًا) when the date is within ±1 day of now,
@@ -95,7 +114,7 @@ export function timeAgo(date: string | Date): string {
   if (days === 1) return 'أمس';
   if (days < 7) return `منذ ${days} أيام`;
   if (days < 30) return `منذ ${Math.floor(days / 7)} أسبوع`;
-  return d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString(LOCALE, opts({ day: 'numeric', month: 'short' }));
 }
 
 export type TimeFilter = 'all' | 'today' | 'week' | 'month';

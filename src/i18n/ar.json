@@ -73,6 +73,10 @@
     "thanks": "شكرًا، تم إرسال إجابتك.",
     "failed": "تعذّر إرسال إجابتك."
   },
+  "update": {
+    "required_title": "يلزم تحديث التطبيق",
+    "required_body": "هذا الإصدار لم يعد مدعومًا. يُرجى تحديث التطبيق من المتجر للمتابعة."
+  },
   "common": {
     "close": "إغلاق",
     "app_name": "دروس سبوت",
@@ -335,6 +339,10 @@
     "verifying": "جاري التأكيد...",
     "register_title": "تسجيل طالب جديد",
     "name": "اسم الطالب",
+    "name_example": "محمد أحمد",
+    "parent_name_example": "أحمد محمد",
+    "invite_code_label": "رمز التسجيل",
+    "create_invite_code": "إنشاء رمز تسجيل",
     "student_phone": "رقم هاتف الطالب",
     "parent_name": "اسم ولي الأمر",
     "parent_phone": "رقم هاتف ولي الأمر",
