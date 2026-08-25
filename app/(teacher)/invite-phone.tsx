@@ -15,7 +15,7 @@ import {
 } from '@/api/invitation';
 
 const SECURES: { key: BookingSecures; label: string }[] = [
-  { key: 'session', label: 'حصة قادمة' },
+  { key: 'session', label: 'الحصص' },
   { key: 'booklet', label: 'الملزمة' },
   { key: 'flat', label: 'حجز مبدئي' },
 ];

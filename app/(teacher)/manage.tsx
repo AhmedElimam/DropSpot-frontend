@@ -11,6 +11,7 @@ import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { getTeacherInsights } from '@/api/insights';
 import { getBookingRequests } from '@/api/bookingRequests';
+import { getAssistantActions } from '@/api/assistantActions';
 
 /**
  * "الإدارة" tab — the hub for course & schedule management (the web-dashboard
@@ -35,6 +36,9 @@ export default function TeacherManage() {
   // Existing-student booking requests awaiting accept/reject (highlighted when any).
   const bookingReqs = useQuery({ queryKey: ['booking-requests'], queryFn: getBookingRequests, enabled: canStudents });
   const pendingReqs = bookingReqs.data?.length ?? 0;
+  // Assistant money-action oversight (teacher-only — reviewing the assistant's approvals/collections).
+  const assistantActions = useQuery({ queryKey: ['assistant-actions'], queryFn: getAssistantActions, enabled: !isAssistant });
+  const pendingActions = assistantActions.data?.length ?? 0;
   const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
 
   const Row = ({ icon, title, sub, onPress, tint }: { icon: IconName; title: string; sub: string; onPress: () => void; tint?: string }) => (
@@ -101,16 +105,36 @@ export default function TeacherManage() {
             {!isAssistant ? (
               <Row icon="card" title={t('billing_settings.title')} sub={t('billing_settings.manage_sub')} onPress={() => router.push('/(teacher)/billing-settings' as Href)} />
             ) : null}
+            {!isAssistant ? (
+              <TouchableOpacity
+                onPress={() => router.push('/(teacher)/assistant-actions' as Href)}
+                activeOpacity={0.8}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: pendingActions > 0 ? '#FEF3E2' : colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: pendingActions > 0 ? colors.warning : colors.border, padding: spacing.lg, marginBottom: spacing.sm }}
+              >
+                <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.warning + '18', justifyContent: 'center', alignItems: 'center' }}>
+                  <Icon name="eye" size={22} color={colors.warning} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('assistant_actions.title')}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('assistant_actions.manage_sub')}</Text>
+                </View>
+                {pendingActions > 0 ? (
+                  <View style={{ minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{pendingActions}</Text>
+                  </View>
+                ) : (
+                  <Icon name="back" size={18} color={colors.textTertiary} />
+                )}
+              </TouchableOpacity>
+            ) : null}
           </>
         ) : null}
 
         <SectionTitle>{t('teacher.resolution_title')}</SectionTitle>
         <Row icon="bell" title={t('teacher.resolution_title')} sub={t('teacher.resolution_sub')} tint={colors.warning} onPress={() => router.push('/(teacher)/resolution' as Href)} />
 
-        {/* Special / exam sessions — run + enter marks (creation is on web). */}
-        {flags?.revision_kiosk ? (
-          <Row icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/revisions' as Href)} />
-        ) : null}
+        {/* Special / exam sessions — a normal-mode tool: create, run, and enter marks. */}
+        <Row icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/revisions' as Href)} />
 
         <SectionTitle>{t('teacher.courses_title')}</SectionTitle>
         <Row icon="book" title={t('teacher.courses_title')} sub={t('teacher.courses_manage_hint')} onPress={() => router.push('/(teacher)/courses' as Href)} />
@@ -152,9 +176,9 @@ export default function TeacherManage() {
         {canSessions || canCourses ? (
           <>
             <SectionTitle>{t('teacher.schedule_tools')}</SectionTitle>
-            {canSessions ? (
-              <Row icon="add" title={t('teacher.add_schedule')} sub={t('teacher.add_slot_sub')} onPress={() => router.push('/(teacher)/schedule-new' as Href)} />
-            ) : null}
+            {/* «إضافة جدول» removed from the hub — add/remove weekly slots from the
+                course's own Edit page (which routes to schedule-new). Avoids a redundant
+                second scheduling surface next to Create/Edit Course. */}
             {canSessions ? (
               <Row icon="clock" title={t('teacher.pause_period')} sub={t('teacher.pause_sub')} tint={colors.warning} onPress={() => router.push('/(teacher)/pause' as Href)} />
             ) : null}

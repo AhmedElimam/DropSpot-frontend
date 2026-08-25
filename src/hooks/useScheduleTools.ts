@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getMergeOptions,
   mergeCourses,
+  type MergePayload,
   getOverrideOptions,
   createOverride,
   cancelOverride,
@@ -14,7 +15,7 @@ export function useMergeOptions() {
 export function useMergeCourses() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { destination_course_id: number; source_course_ids: number[] }) => mergeCourses(payload),
+    mutationFn: (payload: MergePayload) => mergeCourses(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['merge-options'] });
       qc.invalidateQueries({ queryKey: ['teacher-courses'] });

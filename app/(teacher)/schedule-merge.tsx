@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,9 +7,13 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useMergeOptions, useMergeCourses } from '@/hooks/useScheduleTools';
 import type { MergeCourse } from '@/api/scheduleTools';
+
+const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+type NewSlot = { day: number; start: string; end: string };
 
 /**
  * Merge same-grade COURSES (schedule-master level). The teacher picks the courses to
@@ -24,7 +28,10 @@ export default function ScheduleMergeScreen() {
   const merge = useMergeCourses();
 
   const [sources, setSources] = useState<string[]>([]);       // courses to merge
-  const [destinationId, setDestinationId] = useState<string | null>(null);
+  const [destinationId, setDestinationId] = useState<string | null>(null); // a course id, or 'new'
+  const [newName, setNewName] = useState('');
+  const [newSlots, setNewSlots] = useState<NewSlot[]>([{ day: 0, start: '16:00', end: '17:00' }]);
+  const isNew = destinationId === 'new';
 
   // Everything must share one grade — locked by the first selection (source or destination).
   const lockedGradeId = useMemo(() => {
@@ -52,20 +59,31 @@ export default function ScheduleMergeScreen() {
   const realSources = sources.filter((id) => id !== destinationId);
   const destination = (courses ?? []).find((c) => c.id === destinationId) ?? null;
   const movingCount = realSources.reduce((sum, id) => sum + ((courses ?? []).find((c) => c.id === id)?.headcount ?? 0), 0);
-  const canSubmit = !!destinationId && realSources.length >= 1 && !merge.isPending;
+  const slotsValid = newSlots.length >= 1 && newSlots.every((s) => !!s.start && !!s.end);
+  const canSubmit = (isNew
+    ? newName.trim().length > 0 && slotsValid && realSources.length >= 1
+    : !!destinationId && realSources.length >= 1) && !merge.isPending;
+
+  const setSlot = (i: number, patch: Partial<NewSlot>) => setNewSlots((s) => s.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const addSlot = () => setNewSlots((s) => [...s, { day: 0, start: '16:00', end: '17:00' }]);
+  const removeSlot = (i: number) => setNewSlots((s) => (s.length > 1 ? s.filter((_, j) => j !== i) : s));
 
   const submit = () => {
-    if (!canSubmit || !destinationId) return;
+    if (!canSubmit) return;
+    const destName = isNew ? newName.trim() : (destination?.course_name ?? '');
+    const payload = isNew
+      ? { new_course_name: newName.trim(), new_course_slots: newSlots.map((s) => ({ day_of_week: s.day, start_time: s.start, end_time: s.end })), source_course_ids: sources.map(Number) }
+      : { destination_course_id: Number(destinationId), source_course_ids: sources.map(Number) };
     Alert.alert(
       t('teacher.merge_confirm_title'),
-      t('teacher.merge_course_confirm_multi', { count: movingCount, course: destination?.course_name ?? '', terminated: realSources.length }),
+      t('teacher.merge_course_confirm_multi', { count: movingCount, course: destName, terminated: realSources.length }),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('teacher.merge_title'),
           onPress: () =>
             merge.mutate(
-              { destination_course_id: Number(destinationId), source_course_ids: sources.map(Number) },
+              payload,
               {
                 onSuccess: (res) => {
                   const warn = res.warnings?.length ? `\n\n${res.warnings.join('\n')}` : '';
@@ -141,7 +159,58 @@ export default function ScheduleMergeScreen() {
               {candidates.map((c) => (
                 <CourseRow key={`d-${c.id}`} course={c} mode="radio" active={destinationId === c.id} onPress={() => setDestinationId(c.id)} />
               ))}
-              {destinationId ? (
+
+              {/* Create a brand-new course on the spot to move both into. */}
+              <TouchableOpacity
+                onPress={() => setDestinationId('new')}
+                activeOpacity={0.8}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: isNew ? colors.brand : colors.border, backgroundColor: isNew ? colors.brandTint : colors.surface, marginBottom: spacing.sm }}
+              >
+                <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isNew ? colors.brand : colors.borderStrong, justifyContent: 'center', alignItems: 'center' }}>
+                  {isNew ? <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand }} /> : null}
+                </View>
+                <Icon name="add" size={18} color={isNew ? colors.brand : colors.textSecondary} />
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: isNew ? colors.brand : colors.textPrimary }}>{t('teacher.merge_new_course')}</Text>
+              </TouchableOpacity>
+
+              {isNew ? (
+                <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('teacher.merge_new_course_name')}</Text>
+                  <TextInput
+                    value={newName}
+                    onChangeText={setNewName}
+                    placeholder={t('teacher.merge_new_course_name_ph')}
+                    placeholderTextColor={colors.textTertiary}
+                    maxLength={120}
+                    style={{ backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, height: 46, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.md }}
+                  />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('teacher.merge_new_course_slots')}</Text>
+                  {newSlots.map((s, i) => (
+                    <View key={i} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm }}>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm }}>
+                        {DAYS.map((d, di) => (
+                          <TouchableOpacity key={di} onPress={() => setSlot(i, { day: di })} activeOpacity={0.8}
+                            style={{ paddingHorizontal: spacing.sm, height: 30, justifyContent: 'center', borderRadius: radius.full, borderWidth: 1.5, borderColor: s.day === di ? colors.brand : colors.border, backgroundColor: s.day === di ? colors.brandTint : colors.surfaceSunken }}>
+                            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: s.day === di ? colors.brand : colors.textSecondary }}>{d}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                        <View style={{ flex: 1 }}><TimePicker value={s.start} onChange={(v) => setSlot(i, { start: v })} /></View>
+                        <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}>–</Text>
+                        <View style={{ flex: 1 }}><TimePicker value={s.end} onChange={(v) => setSlot(i, { end: v })} /></View>
+                        {newSlots.length > 1 ? (
+                          <TouchableOpacity onPress={() => removeSlot(i)} hitSlop={8}><Icon name="trash" size={18} color={colors.danger} /></TouchableOpacity>
+                        ) : null}
+                      </View>
+                    </View>
+                  ))}
+                  <TouchableOpacity onPress={addSlot} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.xs }}>
+                    <Icon name="add" size={16} color={colors.brand} />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.merge_add_slot')}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : destinationId ? (
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.infoLight, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.xs }}>
                   <Icon name="info" size={18} color={colors.infoText} outline />
                   <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.infoText }}>

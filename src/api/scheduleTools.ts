@@ -28,14 +28,22 @@ export async function getMergeOptions(): Promise<MergeCourse[]> {
   return ((data.data ?? data)?.courses ?? []) as MergeCourse[];
 }
 
+export interface NewCourseSlot {
+  day_of_week: number; // 0=Sunday … 6=Saturday
+  start_time: string;  // HH:mm
+  end_time: string;    // HH:mm
+}
+
 /**
- * Merge one or more source courses INTO a destination course (which may be a third
- * course, not one of the sources). Sources that aren't the destination are terminated.
+ * Merge sources INTO an existing destination course, OR into a BRAND-NEW course created
+ * on the spot with teacher-defined weekly slots (new_course_*). Sources that aren't the
+ * destination are terminated.
  */
-export async function mergeCourses(payload: {
-  destination_course_id: number;
-  source_course_ids: number[];
-}): Promise<MergeResult> {
+export type MergePayload =
+  | { destination_course_id: number; source_course_ids: number[] }
+  | { new_course_name: string; new_course_slots: NewCourseSlot[]; source_course_ids: number[] };
+
+export async function mergeCourses(payload: MergePayload): Promise<MergeResult> {
   const { data } = await client.post('/teacher/schedule-merges', payload);
   return (data.data ?? data) as MergeResult;
 }

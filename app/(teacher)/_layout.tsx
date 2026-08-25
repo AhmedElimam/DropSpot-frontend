@@ -218,6 +218,7 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="revision-create" options={{ href: null }} />
       <Tabs.Screen name="invite-link" options={{ href: null }} />
       <Tabs.Screen name="booking-requests" options={{ href: null }} />
+      <Tabs.Screen name="assistant-actions" options={{ href: null }} />
       {/* Revision-session picker → scan tab in revision mode. Not a tab. */}
       <Tabs.Screen name="revisions" options={{ href: null }} />
       {/* Merged-exam mark entry — pushed from the revisions list, not a tab. */}

@@ -11,7 +11,6 @@ import { scanCard, grantDoorExemption, getMyTeachers, type ScanResult } from '@/
 import { scanRevision, addRevisionGuest, addRevisionGuestByPhone } from '@/api/revisions';
 import { previewPayment, previewAllPayments, collectPayment, type PayKind } from '@/api/payments';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
-import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { bufferScan, deleteScan } from '@/db/offlineScans';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
@@ -79,7 +78,6 @@ export default function TeacherScan() {
     payKind?: string;
   }>();
   const { data: sessions } = useTeacherTodaySessions();
-  const { data: flags } = useFeatureFlags();
   const online = useOfflineStore((s) => s.online);
 
   // ---- Revision mode (from the picker) — scan into a specific revision session.
@@ -513,9 +511,9 @@ export default function TeacherScan() {
         </TouchableOpacity>
       ) : null}
 
-      {/* Bottom action: enter revision picker (regular, only when the super admin
-          enabled revision scanning) OR add guest by phone (revision mode). */}
-      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && (revisionMode || !!flags?.revision_kiosk) ? (
+      {/* Bottom action: enter the special/exam session picker (normal mode) OR add
+          a guest by phone (when already inside a special session). */}
+      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock ? (
         <TouchableOpacity
           onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
