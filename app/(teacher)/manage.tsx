@@ -10,6 +10,7 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { getTeacherInsights } from '@/api/insights';
+import { getBookingRequests } from '@/api/bookingRequests';
 
 /**
  * "الإدارة" tab — the hub for course & schedule management (the web-dashboard
@@ -31,6 +32,9 @@ export default function TeacherManage() {
   // assistant (the API rejects them with 403 anyway).
   const insights = useQuery({ queryKey: ['teacher-insights'], queryFn: getTeacherInsights, enabled: !isAssistant });
   const ins = insights.data;
+  // Existing-student booking requests awaiting accept/reject (highlighted when any).
+  const bookingReqs = useQuery({ queryKey: ['booking-requests'], queryFn: getBookingRequests, enabled: canStudents });
+  const pendingReqs = bookingReqs.data?.length ?? 0;
   const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
 
   const Row = ({ icon, title, sub, onPress, tint }: { icon: IconName; title: string; sub: string; onPress: () => void; tint?: string }) => (
@@ -118,6 +122,28 @@ export default function TeacherManage() {
         ) : null}
         {canStudents ? (
           <Row icon="send" title={t('invite_link.title')} sub={t('invite_link.manage_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/invite-link' as Href)} />
+        ) : null}
+        {canStudents ? (
+          <TouchableOpacity
+            onPress={() => router.push('/(teacher)/booking-requests' as Href)}
+            activeOpacity={0.8}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: pendingReqs > 0 ? ('#FEF3E2') : colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: pendingReqs > 0 ? colors.warning : colors.border, padding: spacing.lg, marginBottom: spacing.sm }}
+          >
+            <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.warning + '18', justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name="bell" size={22} color={colors.warning} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('booking_requests.title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('booking_requests.manage_sub')}</Text>
+            </View>
+            {pendingReqs > 0 ? (
+              <View style={{ minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{pendingReqs}</Text>
+              </View>
+            ) : (
+              <Icon name="back" size={18} color={colors.textTertiary} />
+            )}
+          </TouchableOpacity>
         ) : null}
         {canStudents ? (
           <Row icon="card" title={t('card_order_link.title')} sub={t('card_order_link.manage_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/card-order-link' as Href)} />

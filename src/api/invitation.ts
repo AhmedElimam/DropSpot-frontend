@@ -36,11 +36,17 @@ export interface MintedInviteLink {
  * fill the student's triple name + phones, and self-register). The student name is
  * OPTIONAL at mint — the family fills it. POST /invitations/link.
  */
-export async function mintInviteLink(courseId: number, studentName?: string): Promise<MintedInviteLink> {
+export async function mintInviteLink(
+  courseId: number,
+  studentName?: string,
+  opts?: { collectPayment?: boolean; issueInvoice?: boolean },
+): Promise<MintedInviteLink> {
   const name = (studentName ?? '').trim();
   const { data } = await client.post('/invitations/link', {
     course_id: courseId,
     ...(name ? { student_name: name } : {}),
+    booking_collect_payment: opts?.collectPayment ? 1 : 0,
+    booking_issue_invoice: opts?.issueInvoice ? 1 : 0,
   });
   return extractAttrs(data.data ?? data);
 }
