@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration, Keyboard } from 'react-native';
+import { useState, useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,6 @@ import {
   enrollByCard,
   type EnrollableClass,
   type LookupStudent,
-  type BookingSecures,
 } from '@/api/students';
 import {
   scanPreCard,
@@ -22,7 +21,6 @@ import {
   cancelPreCard,
   type PreCardScanStudent,
 } from '@/api/preCardInvitation';
-import { sendPrecardPhone } from '@/api/precardPhone';
 import { TeacherTip } from '@/components/TeacherTip';
 
 type Review =
@@ -43,91 +41,6 @@ export default function TeacherEnroll() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
-
-  // §3 — invite an already-registered, card-less student by phone (family accepts).
-  const [phoneMode, setPhoneMode] = useState(false);
-  const [phone, setPhone] = useState('');
-  // Optional — used only when the number is a brand-new family (no existing
-  // student): it names the invited student on the invitation + SMS. Ignored when
-  // the number already belongs to a card-less student.
-  const [studentName, setStudentName] = useState('');
-  const [downPayment, setDownPayment] = useState('');
-  const [downPaid, setDownPaid] = useState('');
-  const [secures, setSecures] = useState<BookingSecures>('flat');
-  const [dpAuto, setDpAuto] = useState(true); // amount is auto-prefilled until the teacher edits it
-  const [sending, setSending] = useState(false);
-
-  // The phone-invite sheet is an absolute bottom overlay on the camera, so a
-  // KeyboardAvoidingView can't wrap it — track the keyboard height and lift the
-  // sheet by it so the phone/amount inputs never sit behind the keyboard.
-  const [kbHeight, setKbHeight] = useState(0);
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', (e) => setKbHeight(e.endCoordinates.height));
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKbHeight(0));
-    return () => { show.remove(); hide.remove(); };
-  }, []);
-
-  // Adopt the teacher's default "secures" kind when a course is picked.
-  useEffect(() => {
-    if (course) { setSecures(course.booking_secures_default); setDpAuto(true); }
-  }, [course]);
-
-  // Prefill the amount from the chosen basis (unless the teacher typed one).
-  useEffect(() => {
-    if (!course || !dpAuto) return;
-    const basis = secures === 'session' ? course.price_session : secures === 'booklet' ? course.price_booklet : course.price_flat;
-    setDownPayment(basis && basis > 0 ? String(basis) : '');
-  }, [course, secures, dpAuto]);
-
-  // Live remainder for the prepayment field — the figure the family's app will show.
-  const dpTotalNum = Number(downPayment) || 0;
-  const dpPaidNum = Number(downPaid) || 0;
-  const dpOverpaid = dpPaidNum > dpTotalNum && dpTotalNum > 0;
-  const dpPaidHint = dpOverpaid
-    ? t('invites.paid_now_over')
-    : dpTotalNum > 0 && dpPaidNum > 0
-      ? t('invites.paid_now_remaining').replace('{amount}', (dpTotalNum - dpPaidNum).toFixed(2))
-      : t('invites.paid_now_hint');
-
-  const submitPhoneInvite = async () => {
-    if (!course || phone.trim().length < 6 || sending) return;
-    setSending(true);
-    try {
-      const r = await sendPrecardPhone({
-        phone: phone.trim(),
-        course_id: course.course_id,
-        academic_session_id: course.academic_session_id,
-        ...(studentName.trim() ? { invited_student_name: studentName.trim() } : {}),
-        // Typed amount = per-invite down-payment; blank = teacher/course default.
-        ...(downPayment.trim()
-          ? {
-              down_payment_amount: Number(downPayment.trim()),
-              down_payment_paid: downPaid.trim() ? Number(downPaid.trim()) : null,
-              booking_secures: secures,
-            }
-          : {}),
-      });
-      setPhoneMode(false);
-      setPhone('');
-      setStudentName('');
-      setDownPayment('');
-      setDownPaid('');
-      setDpAuto(true);
-      if (r.action === 'use_card') {
-        Alert.alert(t('invites.use_card_title'), t('invites.use_card_body'));
-      } else if (r.action === 'already_enrolled') {
-        Alert.alert(t('invites.already_enrolled_title'), r.message ?? t('invites.already_enrolled_body'));
-      } else {
-        // Neutral by design (phone-oracle safe): the invite reaches the family in-app
-        // AND by SMS, but the per-send status isn't returned on this endpoint.
-        Alert.alert(t('invites.sent_title'), t('invites.sent_body'));
-      }
-    } catch {
-      Alert.alert('خطأ', 'تعذّر إرسال الدعوة. حاول مرة أخرى.');
-    } finally {
-      setSending(false);
-    }
-  };
 
   const ready = !!course;
 
@@ -316,7 +229,7 @@ export default function TeacherEnroll() {
         // QR first + a short list → reliable QR detection; Code128 keeps physical
         // cards scannable (both symbologies encode the same credential).
         barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128'] }}
-        onBarcodeScanned={busy || review || done || phoneMode ? undefined : handleScan}
+        onBarcodeScanned={busy || review || done ? undefined : handleScan}
       />
 
       {/* Top bar: chosen course + change */}
@@ -331,7 +244,7 @@ export default function TeacherEnroll() {
       </View>
 
       {/* Scan frame */}
-      {!review && !done && !phoneMode ? (
+      {!review && !done ? (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
           <View style={{ width: 240, height: 240, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)', borderRadius: 24 }} />
           <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: '#fff', marginTop: spacing.lg }}>
@@ -341,97 +254,18 @@ export default function TeacherEnroll() {
         </View>
       ) : null}
 
-      {/* §3 — "invite by phone" (already-registered, card-less student) */}
-      {!review && !done && !phoneMode ? (
+      {/* Invite by phone — opens the SAME full invite-by-phone form as the manage hub
+          (name + student & parent phones + down-payment + dedupe, all validated). One
+          consistent phone-invite path, with the scanned course pre-selected. */}
+      {!review && !done ? (
         <TouchableOpacity
-          onPress={() => setPhoneMode(true)}
+          onPress={() => course && router.push({ pathname: '/(teacher)/invite-phone', params: { courseId: String(course.course_id) } })}
           activeOpacity={0.85}
           style={{ position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: insets.bottom + spacing.xl, minHeight: 52, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: spacing.sm }}
         >
           <Icon name="phone" size={18} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('invites.by_phone')}</Text>
         </TouchableOpacity>
-      ) : null}
-
-      {/* Phone-entry overlay — lifts above the keyboard (bottom = keyboard height). */}
-      {phoneMode ? (
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          style={{ position: 'absolute', left: 0, right: 0, bottom: kbHeight, maxHeight: '85%', backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl }}
-          contentContainerStyle={{ padding: spacing.xl, paddingBottom: (kbHeight > 0 ? spacing.xl : insets.bottom + spacing.xl), gap: spacing.md }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('invites.by_phone')}</Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invites.phone_label')}</Text>
-          <TextInput
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            placeholder="01xxxxxxxxx"
-            placeholderTextColor={colors.textTertiary}
-            style={{ fontFamily: fonts.regular, fontSize: 17, minHeight: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'left', borderWidth: 1.5, borderColor: phone ? colors.brand : colors.border }}
-          />
-          {/* Optional student name — used only when this is a brand-new family (an
-              unknown number). For a card-less student already on the system it's
-              ignored (their own name is used), so it's never required. */}
-          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invites.name_label')}</Text>
-          <TextInput
-            value={studentName}
-            onChangeText={setStudentName}
-            placeholder={t('invites.name_ph')}
-            placeholderTextColor={colors.textTertiary}
-            maxLength={120}
-            style={{ fontFamily: fonts.regular, fontSize: 17, minHeight: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'right', borderWidth: 1.5, borderColor: colors.border }}
-          />
-          {/* Optional per-invite booking down-payment. What it secures is selectable
-              (default = the teacher's setting); the amount prefills from that basis.
-              Blank = teacher/course default. */}
-          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invites.secures_label')}</Text>
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            {(['session', 'booklet', 'flat'] as BookingSecures[]).map((k) => (
-              <TouchableOpacity key={k} onPress={() => { setSecures(k); setDpAuto(true); }} activeOpacity={0.85}
-                style={{ flex: 1, minHeight: 44, borderRadius: radius.lg, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, backgroundColor: secures === k ? colors.brandTint : colors.surfaceSunken, borderColor: secures === k ? colors.brand : colors.border }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: secures === k ? colors.brand : colors.textSecondary }}>{t(`invites.secures_${k}`)}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invites.down_payment_label')}</Text>
-          <TextInput
-            value={downPayment}
-            onChangeText={(v) => { setDownPayment(v); setDpAuto(false); }}
-            keyboardType="numeric"
-            placeholder={t('invites.down_payment_ph')}
-            placeholderTextColor={colors.textTertiary}
-            style={{ fontFamily: fonts.regular, fontSize: 17, minHeight: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'right', borderWidth: 1.5, borderColor: colors.border }}
-          />
-          {/* Prepayment taken now — only meaningful once a دفعة amount is set. */}
-          {downPayment.trim() ? (
-            <>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invites.paid_now_label')}</Text>
-              <TextInput
-                value={downPaid}
-                onChangeText={setDownPaid}
-                keyboardType="numeric"
-                placeholder={t('invites.paid_now_ph')}
-                placeholderTextColor={colors.textTertiary}
-                style={{ fontFamily: fonts.regular, fontSize: 17, minHeight: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'right', borderWidth: 1.5, borderColor: colors.border }}
-              />
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: dpOverpaid ? colors.warning : colors.textTertiary }}>
-                {dpPaidHint}
-              </Text>
-            </>
-          ) : null}
-          <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
-            <TouchableOpacity onPress={() => { setPhoneMode(false); setPhone(''); setDownPayment(''); setDpAuto(true); }} activeOpacity={0.85}
-              style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textSecondary }}>إلغاء</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={submitPhoneInvite} disabled={phone.trim().length < 6 || sending} activeOpacity={0.85}
-              style={{ flex: 2, backgroundColor: colors.brand, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center', opacity: phone.trim().length < 6 || sending ? 0.5 : 1 }}>
-              {sending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('invites.send')}</Text>}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
       ) : null}
 
       {/* Review card — accept / reject */}

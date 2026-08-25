@@ -26,18 +26,22 @@ export async function getInvitation(token: string): Promise<InvitationInfo> {
 export interface MintedInviteLink {
   token: string;
   url: string;
-  student_name: string;
+  student_name: string | null;
   course_name: string;
   expires_at: string;
 }
 
 /**
- * Teacher mints a single-use invite link for a family (they open it, confirm, and
- * self-register into the chosen course). Mobile parity for the web "رابط مُعبّأ"
- * channel — POST /invitations/link.
+ * Teacher mints a single-use booking link for a family (they open it, read the rules,
+ * fill the student's triple name + phones, and self-register). The student name is
+ * OPTIONAL at mint — the family fills it. POST /invitations/link.
  */
-export async function mintInviteLink(courseId: number, studentName: string): Promise<MintedInviteLink> {
-  const { data } = await client.post('/invitations/link', { course_id: courseId, student_name: studentName });
+export async function mintInviteLink(courseId: number, studentName?: string): Promise<MintedInviteLink> {
+  const name = (studentName ?? '').trim();
+  const { data } = await client.post('/invitations/link', {
+    course_id: courseId,
+    ...(name ? { student_name: name } : {}),
+  });
   return extractAttrs(data.data ?? data);
 }
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -12,10 +12,10 @@ import { useMergeOptions, useMergeCourses } from '@/hooks/useScheduleTools';
 import type { MergeCourse } from '@/api/scheduleTools';
 
 /**
- * Merge two same-grade COURSES into one (schedule-master level). The survivor course
- * receives ALL the retiring course's students — they follow the survivor's weekly
- * schedule — and the retiring course's sessions are stopped. Course-level, so a
- * course that meets several weekdays is ONE pick, not one per day.
+ * Merge same-grade COURSES (schedule-master level). The teacher picks the courses to
+ * merge, then a DESTINATION course — which may be one of them (it survives) or a
+ * different third course. Every source's students move into the destination; each
+ * source that isn't the destination is terminated (its weekly slots retired).
  */
 export default function ScheduleMergeScreen() {
   const { t } = useTranslation();
@@ -23,35 +23,53 @@ export default function ScheduleMergeScreen() {
   const { data: courses, isLoading } = useMergeOptions();
   const merge = useMergeCourses();
 
-  const [survivorId, setSurvivorId] = useState<string | null>(null);
-  const [retiringId, setRetiringId] = useState<string | null>(null);
+  const [sources, setSources] = useState<string[]>([]);       // courses to merge
+  const [destinationId, setDestinationId] = useState<string | null>(null);
 
-  const survivor = courses?.find((c) => c.id === survivorId) ?? null;
-  // Retiring candidates: same grade as survivor, excluding the survivor itself.
-  const retiringCandidates = useMemo(
-    () => (courses ?? []).filter((c) => survivor && c.grade_id === survivor.grade_id && c.id !== survivor.id),
-    [courses, survivor],
-  );
+  // Everything must share one grade — locked by the first selection (source or destination).
+  const lockedGradeId = useMemo(() => {
+    const firstSource = sources.length ? (courses ?? []).find((c) => c.id === sources[0]) : null;
+    if (firstSource) return firstSource.grade_id;
+    const dest = destinationId ? (courses ?? []).find((c) => c.id === destinationId) : null;
+    return dest?.grade_id ?? null;
+  }, [sources, destinationId, courses]);
 
-  const canSubmit = !!survivorId && !!retiringId && survivorId !== retiringId && !merge.isPending;
+  const sameGrade = (c: MergeCourse) => lockedGradeId == null || c.grade_id === lockedGradeId;
+  const candidates = (courses ?? []).filter(sameGrade);
+
+  // Clear a destination that no longer matches the locked grade.
+  useEffect(() => {
+    if (destinationId) {
+      const d = (courses ?? []).find((c) => c.id === destinationId);
+      if (d && lockedGradeId != null && d.grade_id !== lockedGradeId) setDestinationId(null);
+    }
+  }, [lockedGradeId, destinationId, courses]);
+
+  const toggleSource = (id: string) =>
+    setSources((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+
+  // Sources that will actually be terminated (everything picked except the destination).
+  const realSources = sources.filter((id) => id !== destinationId);
+  const destination = (courses ?? []).find((c) => c.id === destinationId) ?? null;
+  const movingCount = realSources.reduce((sum, id) => sum + ((courses ?? []).find((c) => c.id === id)?.headcount ?? 0), 0);
+  const canSubmit = !!destinationId && realSources.length >= 1 && !merge.isPending;
 
   const submit = () => {
-    if (!canSubmit || !survivorId || !retiringId) return;
-    const retiring = courses?.find((c) => c.id === retiringId);
+    if (!canSubmit || !destinationId) return;
     Alert.alert(
       t('teacher.merge_confirm_title'),
-      t('teacher.merge_course_confirm_hint', { count: retiring?.headcount ?? 0, course: survivor?.course_name ?? '' }),
+      t('teacher.merge_course_confirm_multi', { count: movingCount, course: destination?.course_name ?? '', terminated: realSources.length }),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('teacher.merge_title'),
           onPress: () =>
             merge.mutate(
-              { survivor_course_id: Number(survivorId), retiring_course_id: Number(retiringId) },
+              { destination_course_id: Number(destinationId), source_course_ids: sources.map(Number) },
               {
                 onSuccess: (res) => {
                   const warn = res.warnings?.length ? `\n\n${res.warnings.join('\n')}` : '';
-                  Alert.alert(t('teacher.merge_title'), t('teacher.merge_done', { count: res.moved }) + warn, [
+                  Alert.alert(t('teacher.merge_title'), t('teacher.merge_done_multi', { count: res.moved, terminated: res.terminated }) + warn, [
                     { text: t('common.ok'), onPress: () => router.back() },
                   ]);
                 },
@@ -63,18 +81,28 @@ export default function ScheduleMergeScreen() {
     );
   };
 
-  const CourseRow = ({ course, active, onPress }: { course: MergeCourse; active: boolean; onPress: () => void }) => (
+  const CourseRow = ({ course, mode, active, onPress }: { course: MergeCourse; mode: 'check' | 'radio'; active: boolean; onPress: () => void }) => (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.8}
-      style={{ padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: active ? colors.brand : colors.border, backgroundColor: active ? colors.brandTint : colors.surface, marginBottom: spacing.sm }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: active ? colors.brand : colors.border, backgroundColor: active ? colors.brandTint : colors.surface, marginBottom: spacing.sm }}
     >
-      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: active ? colors.brand : colors.textPrimary }}>{course.course_name}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: 3 }}>
-        {course.slots_label ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{course.slots_label}</Text>
-        ) : null}
-        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('teacher.students_count', { count: course.headcount })}</Text>
+      <View style={{
+        width: 22, height: 22, borderRadius: mode === 'radio' ? 11 : 6, borderWidth: 2,
+        borderColor: active ? colors.brand : colors.borderStrong, justifyContent: 'center', alignItems: 'center',
+        backgroundColor: active && mode === 'check' ? colors.brand : 'transparent',
+      }}>
+        {active && mode === 'check' ? <Icon name="success" size={14} color="#fff" /> : null}
+        {active && mode === 'radio' ? <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand }} /> : null}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: active ? colors.brand : colors.textPrimary }}>{course.course_name}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: 3 }}>
+          {course.slots_label ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{course.slots_label}</Text>
+          ) : null}
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('teacher.students_count', { count: course.headcount })}</Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -99,31 +127,29 @@ export default function ScheduleMergeScreen() {
             <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('teacher.merge_course_intro')}</Text>
           </View>
 
-          {/* Survivor course (the one that stays) */}
-          <Text style={label}>{t('teacher.merge_survivor_course')}</Text>
-          {(courses ?? []).map((c) => (
-            <CourseRow key={c.id} course={c} active={c.id === survivorId} onPress={() => { setSurvivorId(c.id); if (retiringId === c.id) setRetiringId(null); }} />
+          {/* Courses to merge (multi-select, same grade) */}
+          <Text style={label}>{t('teacher.merge_sources')}</Text>
+          {candidates.map((c) => (
+            <CourseRow key={c.id} course={c} mode="check" active={sources.includes(c.id)} onPress={() => toggleSource(c.id)} />
           ))}
 
-          {/* Retiring course (same grade) */}
-          {survivor ? (
+          {/* Destination (single-select) — one of the merged courses OR a different one */}
+          {sources.length >= 1 ? (
             <>
-              <Text style={label}>{t('teacher.merge_retiring_course')}</Text>
-              {retiringCandidates.length === 0 ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{t('teacher.merge_no_same_grade')}</Text>
-              ) : (
-                retiringCandidates.map((c) => (
-                  <CourseRow key={c.id} course={c} active={c.id === retiringId} onPress={() => setRetiringId(c.id)} />
-                ))
-              )}
+              <Text style={label}>{t('teacher.merge_destination')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.merge_pick_destination')}</Text>
+              {candidates.map((c) => (
+                <CourseRow key={`d-${c.id}`} course={c} mode="radio" active={destinationId === c.id} onPress={() => setDestinationId(c.id)} />
+              ))}
+              {destinationId ? (
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.infoLight, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.xs }}>
+                  <Icon name="info" size={18} color={colors.infoText} outline />
+                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.infoText }}>
+                    {sources.includes(destinationId) ? t('teacher.merge_destination_hint_survives') : t('teacher.merge_destination_hint_new')}
+                  </Text>
+                </View>
+              ) : null}
             </>
-          ) : null}
-
-          {survivorId && retiringId ? (
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.infoLight, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.md }}>
-              <Icon name="info" size={18} color={colors.infoText} outline />
-              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.infoText }}>{t('teacher.merge_course_result_hint')}</Text>
-            </View>
           ) : null}
 
           <View style={{ marginTop: spacing.xl }}>

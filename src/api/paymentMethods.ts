@@ -19,6 +19,11 @@ export interface PaymentMethods {
   requires_down_payment: boolean;
   booklet_secures_booking: boolean;
   default_booking_secures: BookingSecures;
+  // Remote booking-link rules template + basic style.
+  booking_link_rules: string | null;
+  booking_link_font: 'default' | 'cairo' | 'tajawal' | 'amiri';
+  booking_link_font_size: 'sm' | 'md' | 'lg';
+  booking_link_bold: boolean;
 }
 
 export async function getPaymentMethods(): Promise<PaymentMethods> {
@@ -29,4 +34,16 @@ export async function getPaymentMethods(): Promise<PaymentMethods> {
 export async function updatePaymentMethods(payload: PaymentMethods): Promise<PaymentMethods> {
   const { data } = await client.post('/teacher/payment-methods', payload);
   return (data.data ?? data) as PaymentMethods;
+}
+
+/** Just the booking-link rules template — the endpoint only writes the fields it receives. */
+export interface BookingTemplate {
+  booking_link_rules: string | null;
+  booking_link_font: 'default' | 'cairo' | 'tajawal' | 'amiri';
+  booking_link_font_size: 'sm' | 'md' | 'lg';
+  booking_link_bold: boolean;
+}
+
+export async function saveBookingTemplate(t: BookingTemplate): Promise<void> {
+  await client.post('/teacher/payment-methods', t);
 }

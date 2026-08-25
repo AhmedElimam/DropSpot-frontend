@@ -14,7 +14,7 @@ export function useMergeOptions() {
 export function useMergeCourses() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { survivor_course_id: number; retiring_course_id: number }) => mergeCourses(payload),
+    mutationFn: (payload: { destination_course_id: number; source_course_ids: number[] }) => mergeCourses(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['merge-options'] });
       qc.invalidateQueries({ queryKey: ['teacher-courses'] });

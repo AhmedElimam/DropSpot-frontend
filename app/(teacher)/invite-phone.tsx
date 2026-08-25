@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, KeyboardAvoidingView, Alert, Switch } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -8,6 +8,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { isArabicName, isEgyptPhone } from '@/utils/validators';
 import {
   getInvitationOptions, createInvitation,
   type BookingSecures, type CreateInvitationPayload, type DedupeMatch,
@@ -54,6 +55,17 @@ export default function InvitePhone() {
   const course = useMemo(() => options?.courses.find((c) => c.id === courseId) ?? null, [options, courseId]);
   const eligible = useMemo(() => (options?.courses ?? []).filter((c) => c.has_schedule), [options]);
 
+  // Pre-select the course when opened from the scanner ("invite by phone") so both
+  // phone-invite entry points land on the SAME full form, already on the right class.
+  const params = useLocalSearchParams<{ courseId?: string }>();
+  useEffect(() => {
+    if (options && courseId == null && params.courseId) {
+      const id = Number(params.courseId);
+      if (options.courses.some((c) => c.id === id)) selectCourse(id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options, params.courseId]);
+
   const selectCourse = (id: number) => {
     setCourseId(id);
     const c = options?.courses.find((x) => x.id === id);
@@ -80,9 +92,16 @@ export default function InvitePhone() {
       ? t('invite_phone.paid_remaining').replace('{amount}', (dpTotalNum - dpPaidNum).toFixed(2))
       : t('invite_phone.paid_hint');
 
-  const canSubmit = courseId != null && termId != null
-    && (studentPhone.trim().length >= 6 || parentPhone.trim().length >= 6)
-    && !busy;
+  // Inline validation mirroring the server rules — a provided name must be Arabic and a
+  // provided phone must be a full Egyptian mobile (01xxxxxxxxx).
+  const nameError = name.trim() !== '' && !isArabicName(name);
+  const studentPhoneError = studentPhone.trim() !== '' && !isEgyptPhone(studentPhone);
+  const parentPhoneError = parentPhone.trim() !== '' && !isEgyptPhone(parentPhone);
+  const hasValidPhone = (studentPhone.trim() !== '' && isEgyptPhone(studentPhone))
+    || (parentPhone.trim() !== '' && isEgyptPhone(parentPhone));
+
+  const canSubmit = courseId != null && termId != null && hasValidPhone
+    && !nameError && !studentPhoneError && !parentPhoneError && !dpOverpaid && !busy;
 
   const buildPayload = (extra?: Partial<CreateInvitationPayload>): CreateInvitationPayload => ({
     course_id: courseId!,
@@ -146,6 +165,7 @@ export default function InvitePhone() {
 
   const card = { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, marginBottom: spacing.lg } as const;
   const input = { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' as const };
+  const errText = { fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginTop: 6 } as const;
   const Lbl = ({ children }: { children: string }) => (
     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{children}</Text>
   );
@@ -214,15 +234,18 @@ export default function InvitePhone() {
             {/* Student + phones */}
             <View style={card}>
               <Lbl>{t('invite_phone.student_name')}</Lbl>
-              <TextInput value={name} onChangeText={setName} placeholder={t('invite_phone.name_ph')} placeholderTextColor={colors.textTertiary} maxLength={120} style={input} />
+              <TextInput value={name} onChangeText={setName} placeholder={t('invite_phone.name_ph')} placeholderTextColor={colors.textTertiary} maxLength={120} style={{ ...input, borderColor: nameError ? colors.danger : colors.border }} />
+              {nameError ? <Text style={errText}>{t('invite_phone.name_arabic_error')}</Text> : null}
 
               <View style={{ height: spacing.md }} />
               <Lbl>{t('invite_phone.student_phone')}</Lbl>
-              <TextInput value={studentPhone} onChangeText={(v) => setStudentPhone(v.replace(/[^0-9]/g, ''))} keyboardType="phone-pad" placeholder="01xxxxxxxxx" placeholderTextColor={colors.textTertiary} maxLength={15} style={{ ...input, textAlign: 'left' }} />
+              <TextInput value={studentPhone} onChangeText={(v) => setStudentPhone(v.replace(/[^0-9]/g, ''))} keyboardType="phone-pad" placeholder="01xxxxxxxxx" placeholderTextColor={colors.textTertiary} maxLength={11} style={{ ...input, textAlign: 'left', borderColor: studentPhoneError ? colors.danger : colors.border }} />
+              {studentPhoneError ? <Text style={errText}>{t('invite_phone.phone_format_error')}</Text> : null}
 
               <View style={{ height: spacing.md }} />
               <Lbl>{t('invite_phone.parent_phone')}</Lbl>
-              <TextInput value={parentPhone} onChangeText={(v) => setParentPhone(v.replace(/[^0-9]/g, ''))} keyboardType="phone-pad" placeholder="01xxxxxxxxx" placeholderTextColor={colors.textTertiary} maxLength={15} style={{ ...input, textAlign: 'left' }} />
+              <TextInput value={parentPhone} onChangeText={(v) => setParentPhone(v.replace(/[^0-9]/g, ''))} keyboardType="phone-pad" placeholder="01xxxxxxxxx" placeholderTextColor={colors.textTertiary} maxLength={11} style={{ ...input, textAlign: 'left', borderColor: parentPhoneError ? colors.danger : colors.border }} />
+              {parentPhoneError ? <Text style={errText}>{t('invite_phone.phone_format_error')}</Text> : null}
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>{t('invite_phone.phone_hint')}</Text>
             </View>
 

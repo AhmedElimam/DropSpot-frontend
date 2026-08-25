@@ -178,6 +178,16 @@ export async function getStudentDetail(id: string | number): Promise<StudentDeta
 }
 
 /**
+ * Mint a short-lived SIGNED URL for this student's performance PDF. The teacher is
+ * authenticated here (Bearer) and the scope is baked into the signature; the returned
+ * 5-minute link is opened in the external browser (which can't carry the token).
+ */
+export async function getStudentPerformanceUrl(id: string | number): Promise<string> {
+  const { data } = await client.get(`/teacher/students/${id}/performance-pdf-url`);
+  return data?.data?.url ?? data?.url;
+}
+
+/**
  * The teacher/assistant called the parent and got no answer → nudge the student
  * (in-app + push) to relay that their teacher urgently needs to reach the parent.
  */

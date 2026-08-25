@@ -19,6 +19,7 @@ export interface MergeCourse {
 
 export interface MergeResult {
   moved: number;
+  terminated: number;
   warnings: string[];
 }
 
@@ -27,9 +28,13 @@ export async function getMergeOptions(): Promise<MergeCourse[]> {
   return ((data.data ?? data)?.courses ?? []) as MergeCourse[];
 }
 
+/**
+ * Merge one or more source courses INTO a destination course (which may be a third
+ * course, not one of the sources). Sources that aren't the destination are terminated.
+ */
 export async function mergeCourses(payload: {
-  survivor_course_id: number;
-  retiring_course_id: number;
+  destination_course_id: number;
+  source_course_ids: number[];
 }): Promise<MergeResult> {
   const { data } = await client.post('/teacher/schedule-merges', payload);
   return (data.data ?? data) as MergeResult;

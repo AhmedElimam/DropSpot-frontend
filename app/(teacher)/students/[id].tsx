@@ -1,4 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, Alert } from 'react-native';
+import { useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +14,7 @@ import { useStudentDetail } from '@/hooks/useStudents';
 import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { terminateEnrollment } from '@/api/enrollments';
-import { reportParentUnreachable } from '@/api/students';
+import { reportParentUnreachable, getStudentPerformanceUrl } from '@/api/students';
 import { useMutation } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
 
@@ -52,6 +54,22 @@ export default function StudentDetailScreen() {
   const { data: s, isLoading, refetch } = useStudentDetail(id);
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const allowanceBlock = useSetStudentAllowanceBlock(Number(id));
+  const [exporting, setExporting] = useState(false);
+
+  // Fetch a short-lived signed URL, then open the performance PDF in the external browser.
+  const exportPerformance = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const url = await getStudentPerformanceUrl(id);
+      if (!url) throw new Error('no url');
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      Alert.alert(t('common.error'), t('teacher.performance_export_failed'));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Nudge the student when a parent call goes unanswered.
   const nudgeStudent = useMutation({
@@ -126,6 +144,23 @@ export default function StudentDetailScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Export performance PDF */}
+          <TouchableOpacity
+            onPress={exportPerformance}
+            disabled={exporting}
+            accessibilityRole="button"
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.primary, paddingVertical: spacing.md }}
+          >
+            {exporting ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Icon name="download" size={18} color={colors.primary} />
+            )}
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>
+              {exporting ? t('teacher.performance_exporting') : t('teacher.performance_export')}
+            </Text>
+          </TouchableOpacity>
 
           {/* Attendance summary */}
           <Section title={t('teacher.attendance_summary')}>
