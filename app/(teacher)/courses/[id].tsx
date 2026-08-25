@@ -218,7 +218,7 @@ export default function CourseDetailScreen() {
 
         {/* Radius stepper */}
         <FieldLabel>{t('teacher.radius_label')}</FieldLabel>
-        <Stepper value={radius_} min={10} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
+        <Stepper value={radius_} min={5} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
 
         {/* Sheet default toggle */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg }}>

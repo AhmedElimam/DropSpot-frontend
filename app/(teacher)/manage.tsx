@@ -9,6 +9,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useReviseMode } from '@/hooks/useReviseMode';
 import { getTeacherInsights } from '@/api/insights';
 import { getBookingRequests } from '@/api/bookingRequests';
 import { getAssistantActions } from '@/api/assistantActions';
@@ -23,6 +24,7 @@ export default function TeacherManage() {
   const insets = useSafeAreaInsets();
   const { can, isAssistant } = useActiveAbilities();
   const { data: flags } = useFeatureFlags();
+  const { data: reviseOn } = useReviseMode();
 
   const canCourses = can(ABILITY.MANAGE_COURSES);
   const canSessions = can(ABILITY.MANAGE_SESSIONS);
@@ -133,8 +135,14 @@ export default function TeacherManage() {
         <SectionTitle>{t('teacher.resolution_title')}</SectionTitle>
         <Row icon="bell" title={t('teacher.resolution_title')} sub={t('teacher.resolution_sub')} tint={colors.warning} onPress={() => router.push('/(teacher)/resolution' as Href)} />
 
-        {/* Special / exam sessions — a normal-mode tool: create, run, and enter marks. */}
-        <Row icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/revisions' as Href)} />
+        {/* Special / exam sessions — NORMAL mode: create a one-off exam session on
+            any weekly slot, then mark attendance + enter exam grades. Always on. */}
+        <Row icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/exam-create' as Href)} />
+
+        {/* Revision engine (separate subsystem) — only when Revision Mode is on. */}
+        {reviseOn !== false ? (
+          <Row icon="book" title={t('teacher.revision_mode_row')} sub={t('teacher.revision_mode_row_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/revisions' as Href)} />
+        ) : null}
 
         <SectionTitle>{t('teacher.courses_title')}</SectionTitle>
         <Row icon="book" title={t('teacher.courses_title')} sub={t('teacher.courses_manage_hint')} onPress={() => router.push('/(teacher)/courses' as Href)} />

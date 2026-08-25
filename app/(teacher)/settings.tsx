@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking, Switch } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useLogout } from '@/hooks/useAuth';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
+import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
 
 // Minimal Settings tab. Real per-category notification toggles are deferred until
 // a push-delivery pipeline exists to gate (there is nothing to switch on/off yet);
@@ -19,6 +20,8 @@ export default function TeacherSettings() {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const isAssistant = user?.user_type_id === 6;
+  const { data: reviseOn } = useReviseMode();
+  const setRevise = useSetReviseMode();
 
   const row = (icon: IconName, label: string, sub: string, onPress: () => void) => (
     <TouchableOpacity
@@ -64,6 +67,32 @@ export default function TeacherSettings() {
           {/* Courses & schedule management now live in the "الإدارة" tab. */}
           {/* Assistant management is teacher-only. */}
           {row('help', t('onboarding.getting_started_row'), t('onboarding.getting_started_row_sub'), () => router.push('/(teacher)/getting-started' as Href))}
+
+          {/* Revision / special-session switch — teacher & assistant; gates the
+              special/exam-session entry across the app. */}
+          <View
+            style={{
+              flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
+              borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border,
+              padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm, minHeight: 64,
+            }}
+          >
+            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+              <Icon name="reports" size={22} color={colors.brand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{t('teacher.revise_switch_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginTop: 2 }}>{t('teacher.revise_switch_sub')}</Text>
+            </View>
+            <Switch
+              value={!!reviseOn}
+              onValueChange={(v) => setRevise.mutate(v)}
+              disabled={setRevise.isPending || reviseOn === undefined}
+              trackColor={{ true: colors.brand, false: colors.border }}
+              thumbColor="#fff"
+            />
+          </View>
+
           {!isAssistant ? row('children', t('assistants.title'), t('assistants.subtitle'), () => router.push('/(teacher)/assistants' as Href)) : null}
           {row('bell', t('teacher.notifications'), t('teacher.notifications_hint'), () => Linking.openSettings())}
           {row('lock', t('auth.change_password'), t('setup.password_hint'), () => router.push('/change-password'))}

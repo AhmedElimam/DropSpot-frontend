@@ -84,6 +84,37 @@ export async function getSessionDetail(id: string | number): Promise<SessionDeta
   return (data.data ?? data) as SessionDetail;
 }
 
+// ---- One-off special/exam session creation (normal mode, not the revision engine) ----
+
+/** A weekly slot the teacher can hang a one-off session on. */
+export interface SessionSlotOption {
+  schedule_id: string;
+  course_name: string | null;
+  day_label: string;
+  time_label: string;
+  label: string;
+}
+
+export interface CreateOneOffPayload {
+  session_schedule_id: number;
+  scheduled_at: string; // 'YYYY-MM-DD HH:mm'
+  type?: 'normal_sheet' | 'quiz_exam';
+  sheet_max_mark?: number | null;
+  duration_minutes?: number;
+  title?: string;
+}
+
+export async function getSessionCreateOptions(): Promise<SessionSlotOption[]> {
+  const { data } = await client.get('/teacher/sessions/create-options');
+  return (data?.data?.slots ?? []) as SessionSlotOption[];
+}
+
+/** Create a one-off session (default a big exam) and return its full detail. */
+export async function createOneOffSession(payload: CreateOneOffPayload): Promise<SessionDetail> {
+  const { data } = await client.post('/teacher/sessions', payload);
+  return (data.data ?? data) as SessionDetail;
+}
+
 // ---- Session write controls (full parity with the web SessionsController) ----
 // Every mutation returns the refreshed SessionDetail so the screen updates in place.
 

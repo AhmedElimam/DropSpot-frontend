@@ -230,7 +230,7 @@ export default function CourseCreateScreen() {
             </View>
 
             <FieldLabel>{t('teacher.radius_label')}</FieldLabel>
-            <Stepper value={radius_} min={10} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
+            <Stepper value={radius_} min={5} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
             {showExplainer && (
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.brand, textAlign: 'right', marginTop: 4 }}>{t('onboarding.geofence_hint')}</Text>
             )}
