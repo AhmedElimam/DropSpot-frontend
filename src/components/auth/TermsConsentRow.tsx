@@ -5,6 +5,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { termsUrl, type TermsRole } from '@/api/terms';
+import { useTermsContent } from '@/hooks/useTermsContent';
 
 /**
  * An UNCHECKED-by-default consent row: a checkbox the user must tap plus a link to
@@ -22,6 +23,8 @@ export function TermsConsentRow({
   onToggle: (next: boolean) => void;
 }) {
   const { t } = useTranslation();
+  const { contentFor } = useTermsContent();
+  const checkboxLabel = contentFor(role)?.checkbox ?? t(`terms.checkbox_${role}`);
 
   return (
     <View style={{ marginBottom: spacing.lg }}>
@@ -48,7 +51,7 @@ export function TermsConsentRow({
           {checked ? <Icon name="success" size={16} color={colors.textInverse} /> : null}
         </View>
         <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'right' }}>
-          {t(`terms.checkbox_${role}`)}
+          {checkboxLabel}
         </Text>
       </TouchableOpacity>
 

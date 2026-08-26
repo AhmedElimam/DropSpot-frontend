@@ -22,6 +22,12 @@ export default function Index() {
     return <Redirect href={'/accept-terms' as Href} />;
   }
 
+  // Self-registration wall: a student who signed up on their own can't use the app
+  // until a subscribed teacher has enrolled them. Clears once an enrollment exists.
+  if (role === 'student' && user?.needs_teacher_invitation) {
+    return <Redirect href={'/needs-teacher' as Href} />;
+  }
+
   // Student deferred gate: their OWN number was never verified at registration and the
   // daily sweep has now flagged it — hard-block until they OTP-verify it.
   if (role === 'student' && user?.needs_own_number_verification) {

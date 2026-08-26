@@ -2,7 +2,7 @@ import client from './client';
 import { BUNDLED_API_URL } from './client';
 import { getApiBaseOverride } from './apiBase';
 
-export type TermsRole = 'student' | 'parent' | 'teacher';
+export type TermsRole = 'student' | 'parent' | 'teacher' | 'assistant';
 
 /**
  * The public web URL of the binding Terms full text for a role. Derived from the
@@ -18,4 +18,26 @@ export function termsUrl(role: TermsRole): string {
 /** Accept the current Terms (in-app blocking gate). Backend stamps its own version. */
 export async function acceptTerms(): Promise<void> {
   await client.post('/terms/accept');
+}
+
+export interface TermsRoleContent {
+  heading: string;
+  intro: string;
+  checkbox: string;
+  body: string[];
+}
+
+export interface TermsContent {
+  version: string;
+  roles: Record<TermsRole, TermsRoleContent>;
+}
+
+/**
+ * The live Terms content (super-admin editable). Public — reachable before login on
+ * the registration screen. Callers fall back to the app's bundled copy if this
+ * fails, so it never blocks registration.
+ */
+export async function getTermsContent(): Promise<TermsContent> {
+  const { data } = await client.get('/terms/content');
+  return (data?.data ?? data) as TermsContent;
 }

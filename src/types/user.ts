@@ -16,6 +16,8 @@ export interface User {
   needs_own_number_verification?: boolean;
   /** Terms gate: true until they accept the current Terms version (POST /terms/accept clears it). */
   must_accept_terms?: boolean;
+  /** Self-registration wall (student): true until a subscribed teacher enrolls them. */
+  needs_teacher_invitation?: boolean;
 }
 
 export interface AuthTokens {

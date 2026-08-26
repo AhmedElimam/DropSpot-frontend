@@ -9,6 +9,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, gradients, control, shadows } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { acceptTerms, type TermsRole } from '@/api/terms';
+import { useTermsContent } from '@/hooks/useTermsContent';
 import { TermsConsentRow } from '@/components/auth/TermsConsentRow';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
@@ -30,9 +31,15 @@ export default function AcceptTermsScreen() {
   const setSession = useAuthStore((s) => s.setSession);
   const logout = useAuthStore((s) => s.logout);
 
-  const termsRole: TermsRole = role === 'student' ? 'student' : role === 'parent' ? 'parent' : 'teacher';
+  const termsRole: TermsRole =
+    role === 'student' ? 'student' : role === 'parent' ? 'parent' : role === 'assistant' ? 'assistant' : 'teacher';
 
-  const bullets = t(`terms.body_${termsRole}`, { returnObjects: true }) as string[];
+  // Live (super-admin editable) content, falling back to the bundled copy.
+  const { contentFor } = useTermsContent();
+  const live = contentFor(termsRole);
+  const heading = live?.heading ?? t(`terms.heading_${termsRole}`);
+  const intro = live?.intro ?? t(`terms.intro_${termsRole}`);
+  const bullets = live?.body ?? (t(`terms.body_${termsRole}`, { returnObjects: true }) as string[]);
 
   const accept = useMutation({
     mutationFn: () => acceptTerms(),
@@ -50,13 +57,13 @@ export default function AcceptTermsScreen() {
         end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg }}
       >
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{t(`terms.heading_${termsRole}`)}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{heading}</Text>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 15, lineHeight: 24, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.lg }}>
-            {t(`terms.intro_${termsRole}`)}
+            {intro}
           </Text>
 
           {bullets.map((line, i) => (
