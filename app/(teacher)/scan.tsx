@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
-import { scanCard, grantDoorExemption, getMyTeachers, type ScanResult } from '@/api/teacher';
+import { scanCard, grantDoorExemption, admitOnce, transferHere, getMyTeachers, type ScanResult, type ScanOffer } from '@/api/teacher';
 import { scanRevision, addRevisionGuest } from '@/api/revisions';
 import { issueGuestPass } from '@/api/guestPasses';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
@@ -143,6 +143,10 @@ export default function TeacherScan() {
   const [payInput, setPayInput] = useState('');
   // Overdue-bill block: held until the operator grants a 15-day exemption or cancels.
   const [overdueBlock, setOverdueBlock] = useState<{ name: string; message: string; code: string; pending?: ScanPending | null } | null>(null);
+  // Same-grade "wrong group" scan → admit once / transfer here.
+  const [otherGroup, setOtherGroup] = useState<{ name: string; message: string; cardCode: string; offer: ScanOffer } | null>(null);
+  const [otherBusy, setOtherBusy] = useState(false);
+  const canManageStudents = can(ABILITY.MANAGE_STUDENTS);
   // Merged pay-on-scan popup: after an attendance scan surfaces dues, open ONE popup
   // listing every kind (bill / booklets / booking) with the paid/remaining + pay-full UI.
   const [duesFor, setDuesFor] = useState<{ code: string; name: string; pending: ScanPending } | null>(null);
@@ -164,7 +168,7 @@ export default function TeacherScan() {
   }, []);
 
   // `locked` pauses scanning too — while the scanner is locked no card is read.
-  const paused = locked || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor;
+  const paused = locked || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup;
 
   const handleScan = useCallback(
     async ({ data, bounds, cornerPoints }: { data: string; bounds?: { origin?: Pt; size?: { width: number; height: number } }; cornerPoints?: Pt[] }) => {
@@ -290,6 +294,13 @@ export default function TeacherScan() {
           await deleteScan(localId);
           await useOfflineStore.getState().refresh();
         }
+        // Same-grade "wrong group": the student isn't in this running group but is the
+        // same grade → hold on a prompt to admit once or transfer them here.
+        if (!res.success && res.code === 'OTHER_GROUP_SAME_GRADE' && res.offer) {
+          setBusy(false);
+          setOtherGroup({ name: res.student_name ?? '', message: res.message, cardCode: data, offer: res.offer });
+          return;
+        }
         // Overdue bill → hold on a blocking prompt offering the 15-day exemption,
         // instead of a passing red flash.
         if (!res.success && res.code === 'BILLING_OVERDUE') {
@@ -389,6 +400,23 @@ export default function TeacherScan() {
       flash(false, t('teacher.scan_failed'));
     }
   }, [overdueBlock, flash, t]);
+
+  // Same-grade "wrong group": admit for THIS session only (no enrollment change) or
+  // move the student permanently into the running group, then check in.
+  const runOtherGroup = useCallback(async (kind: 'once' | 'transfer') => {
+    if (!otherGroup || otherBusy) return;
+    setOtherBusy(true);
+    try {
+      const call = kind === 'once' ? admitOnce : transferHere;
+      const res = await call(otherGroup.cardCode, otherGroup.offer.target_session_instance_id);
+      setOtherGroup(null);
+      flash(res.success, res.message || (res.success ? t('teacher.checked_in') : t('teacher.scan_failed')), res.student_name);
+    } catch {
+      flash(false, t('teacher.scan_failed'));
+    } finally {
+      setOtherBusy(false);
+    }
+  }, [otherGroup, otherBusy, flash, t]);
 
   const confirmGuest = useCallback(async () => {
     if (!guestPrompt || revisionId == null || revisionInstanceId == null) return;
@@ -537,7 +565,7 @@ export default function TeacherScan() {
       </View>
 
       {/* Scan frame + hint (hidden while the scanner is locked) */}
-      {!locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && (
+      {!locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
           <View style={{ width: 250, height: 190, borderRadius: 22, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)' }}>
             <View style={bracket('tl')} />
@@ -555,7 +583,7 @@ export default function TeacherScan() {
       {/* Locked overlay — scanning is paused. The overlay ITSELF is the unlock target:
           hold anywhere to resume (it covers the header, so the header lock button can't
           receive the long-press). Tap does nothing so a stray tap can't unlock. */}
-      {locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock ? (
+      {locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup ? (
         <TouchableOpacity
           activeOpacity={1}
           onLongPress={() => { setLocked(false); Vibration.vibrate(30); }}
@@ -577,7 +605,7 @@ export default function TeacherScan() {
       {/* Bottom action: enter the special/exam session picker (when the revision
           switch is on) OR issue a guest pass (already inside a special session, and
           only when the operator may issue one). */}
-      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && (revisionMode ? canIssuePass : reviseOn !== false) ? (
+      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && !otherGroup && (revisionMode ? canIssuePass : reviseOn !== false) ? (
         <TouchableOpacity
           onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
@@ -688,6 +716,55 @@ export default function TeacherScan() {
           <TouchableOpacity onPress={() => { setOverdueBlock(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>إلغاء</Text>
           </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {/* Same-grade "wrong group": admit for this session only, or transfer here */}
+      {otherGroup ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,16,43,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+          <Icon name="children" size={52} color="#fff" />
+          {otherGroup.name ? (
+            <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff', textAlign: 'center', marginTop: spacing.md }}>{otherGroup.name}</Text>
+          ) : null}
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.85)', marginTop: spacing.sm, textAlign: 'center', paddingHorizontal: spacing.lg }}>
+            {otherGroup.message}
+          </Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: spacing.sm, textAlign: 'center' }}>
+            {`${otherGroup.offer.current_course_name ?? '—'}  ←  ${otherGroup.offer.target_course_name ?? '—'}`}
+          </Text>
+
+          {otherBusy ? (
+            <ActivityIndicator color="#fff" style={{ marginTop: spacing.xl }} />
+          ) : (
+            <>
+              {/* Primary: admit for THIS session only (billing stays with their group). */}
+              <TouchableOpacity
+                onPress={() => runOtherGroup('once')}
+                activeOpacity={0.85}
+                style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.brand }}>{t('teacher.other_group_once')}</Text>
+              </TouchableOpacity>
+
+              {/* Secondary: permanently move them into this group (roster change). */}
+              {canManageStudents ? (
+                <TouchableOpacity
+                  onPress={() => Alert.alert(t('teacher.other_group_transfer'), t('teacher.other_group_transfer_confirm'), [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    { text: t('teacher.other_group_transfer'), onPress: () => runOtherGroup('transfer') },
+                  ])}
+                  activeOpacity={0.85}
+                  style={{ marginTop: spacing.lg }}
+                >
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textDecorationLine: 'underline' }}>{t('teacher.other_group_transfer')}</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              <TouchableOpacity onPress={() => { setOtherGroup(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       ) : null}
 

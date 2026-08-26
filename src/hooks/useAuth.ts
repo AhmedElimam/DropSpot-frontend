@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore, resolveRole } from '@/stores/authStore';
 import {
   login as loginApi,
@@ -14,11 +14,15 @@ import { acceptStudentInvite } from '@/api/invitation';
 export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
   const setTokens = useAuthStore((s) => s.setTokens);
+  const qc = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: { phone_number: string; password: string }) =>
       loginApi(payload.phone_number, payload.password),
     onSuccess: async (data) => {
+      // A new auth context must not inherit the previous session's cached data
+      // (e.g. the admin impersonation user-list, keyed on a process-global client).
+      qc.clear();
       // Role is derived from the authoritative user_type_id (teacher=3,
       // assistant=6, student=5), not the backend's top-level role (null for
       // teachers) — that mismatch was routing teachers into the parent app.
@@ -109,10 +113,14 @@ export function useRegister() {
 
 export function useLogout() {
   const logout = useAuthStore((s) => s.logout);
+  const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
       await logout();
+      // Drop every cached query so the next session starts clean (prevents a stale
+      // admin-scoped list, e.g. impersonation users, surviving into re-login).
+      qc.clear();
     },
   });
 }

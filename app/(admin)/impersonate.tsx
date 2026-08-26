@@ -39,7 +39,11 @@ export default function ImpersonatePicker() {
   const { data: users = [], isFetching } = useQuery({
     queryKey: ['imp-users', role, q],
     queryFn: () => listImpersonatableUsers(role, q),
-    enabled: open,
+    // Disabled the moment a start is in flight: otherwise the token swap below turns
+    // the bearer into the impersonated user's token while this observer is still
+    // active, and the subsequent qc.clear() refetches the admin-only list under that
+    // wrong token → 403 → the list gets cached empty and the picker looks broken next time.
+    enabled: open && !starting,
   });
 
   const start = (u: ImpersonatableUser) => {
@@ -102,7 +106,7 @@ export default function ImpersonatePicker() {
         <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textInverse }}>اختيار مستخدم للتصفّح</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => { logout(); router.replace('/(auth)/login'); }} style={{ marginTop: spacing.xl, alignItems: 'center' }}>
+      <TouchableOpacity onPress={() => { qc.clear(); logout(); router.replace('/(auth)/login'); }} style={{ marginTop: spacing.xl, alignItems: 'center' }}>
         <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary }}>تسجيل الخروج</Text>
       </TouchableOpacity>
 

@@ -54,6 +54,17 @@ export interface ScanPending {
   booking: { total: number; count: number; secures?: string; paid?: number } | null;
 }
 
+// Same-grade "wrong group" scan: the student isn't in the running session's course
+// but is the same grade + has a real group under this teacher → admit once / transfer.
+export interface ScanOffer {
+  code: 'OTHER_GROUP_SAME_GRADE';
+  target_session_instance_id: number;
+  target_course_id: number;
+  target_course_name: string | null;
+  from_enrollment_id: number;
+  current_course_name: string | null;
+}
+
 export interface ScanResult {
   success: boolean;
   message: string;
@@ -64,6 +75,8 @@ export interface ScanResult {
   student_id?: number | null;
   // Passive flags for the scanned student (bill / booklet / booking down-payment).
   pending?: ScanPending | null;
+  // Present on an OTHER_GROUP_SAME_GRADE scan.
+  offer?: ScanOffer | null;
 }
 
 /**
@@ -84,6 +97,7 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
       code: data.code ?? null,
       student_id: data.student_id ?? null,
       pending: data.pending ?? null,
+      offer: data.offer ?? null,
     };
   } catch (e: any) {
     // Non-2xx failures (expired card, not enrolled, overdue block, etc.) carry the same shape.
@@ -97,7 +111,33 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
         student_id: d.student_id ?? null,
         // The overdue block carries the dues so the app can open the collect modal.
         pending: d.pending ?? null,
+        offer: d.offer ?? null,
       };
+    }
+    throw e;
+  }
+}
+
+/** Same-grade "wrong group" — admit the student to the running session ONCE (no
+ *  enrollment change). Follows an OTHER_GROUP_SAME_GRADE scan. */
+export async function admitOnce(cardCode: string, sessionInstanceId: number): Promise<ScanResult> {
+  return postCheckinAction('/checkin/admit-once', cardCode, sessionInstanceId);
+}
+
+/** Same-grade "wrong group" — permanently move the student into the running session's
+ *  course, then check them in. Follows an OTHER_GROUP_SAME_GRADE scan. */
+export async function transferHere(cardCode: string, sessionInstanceId: number): Promise<ScanResult> {
+  return postCheckinAction('/checkin/transfer-here', cardCode, sessionInstanceId);
+}
+
+async function postCheckinAction(path: string, cardCode: string, sessionInstanceId: number): Promise<ScanResult> {
+  try {
+    const { data } = await client.post(path, { card_code: cardCode, session_instance_id: sessionInstanceId });
+    return { success: !!data.success, message: data.message ?? '', student_name: data.student_name ?? null, code: data.code ?? null };
+  } catch (e: any) {
+    const d = e?.response?.data;
+    if (d) {
+      return { success: false, message: d.message ?? '', student_name: d.student_name ?? null, code: d.code ?? null };
     }
     throw e;
   }

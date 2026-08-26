@@ -13,6 +13,20 @@ export async function terminateEnrollment(enrollmentId: number): Promise<void> {
   await client.post(`/teacher/enrollments/${enrollmentId}/terminate`);
 }
 
+// Move one student to another of the teacher's OWN courses (drops this enrollment,
+// creates a fresh one under the destination). A cross-grade move throws a 422 with
+// code 'GRADE_MISMATCH' first; re-call with acceptGradeMismatch=true to confirm it.
+export async function transferEnrollment(
+  enrollmentId: number,
+  toCourseId: number,
+  acceptGradeMismatch = false,
+): Promise<void> {
+  await client.post(`/teacher/enrollments/${enrollmentId}/transfer`, {
+    to_course_id: toCourseId,
+    accept_grade_mismatch: acceptGradeMismatch,
+  });
+}
+
 function extract(item: any): Enrollment {
   const a = item.attributes ?? item;
   return {
