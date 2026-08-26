@@ -101,7 +101,7 @@ export async function getStudentInvoices(): Promise<Invoice[]> {
  * teacher to review — does NOT mark the invoice paid. `imageUri` is a local
  * file URI from expo-image-picker.
  */
-export async function submitPaymentProof(invoiceId: string, imageUri: string): Promise<void> {
+export async function submitPaymentProof(invoiceId: string, imageUri: string, referenceNumber: string): Promise<void> {
   const form = new FormData();
   const name = imageUri.split('/').pop() || 'proof.jpg';
   const ext = (name.split('.').pop() || 'jpg').toLowerCase();
@@ -114,6 +114,8 @@ export async function submitPaymentProof(invoiceId: string, imageUri: string): P
   const type = MIME[ext] ?? 'image/jpeg';
   // React Native FormData file shape.
   form.append('screenshot', { uri: imageUri, name, type } as any);
+  // Dedup 2.1: transfer reference, unique per teacher (server rejects a repeat).
+  form.append('reference_number', referenceNumber);
 
   await client.post(`/invoices/${invoiceId}/payment-proofs`, form, {
     headers: { 'Content-Type': 'multipart/form-data' },

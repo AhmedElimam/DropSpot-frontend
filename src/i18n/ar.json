@@ -845,6 +845,8 @@
     "no_teacher_number": "لم يوفّر المعلم رقمًا للتحويل بعد. تواصل معه عبر الدعم.",
     "pick_screenshot": "اختر صورة إثبات التحويل",
     "screenshot_selected": "تم اختيار الصورة",
+    "reference_label": "رقم العملية (المرجع)",
+    "reference_placeholder": "أدخل رقم العملية من رسالة التحويل",
     "submit_proof": "إرسال الإثبات",
     "proof_submitting": "جارٍ الإرسال…",
     "proof_submitted": "تم إرسال إثبات الدفع. سيقوم المعلم بمراجعته.",
