@@ -123,7 +123,7 @@ export default function StudentDashboard() {
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primaryLight }}
               >
                 <Icon name="calendar" size={18} color={colors.primary} outline style={{ marginEnd: spacing.xs }} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{t('swap.entry')}</Text>
+                <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary, flexShrink: 1, textAlign: 'center' }}>{t('swap.entry')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => router.navigate('/(student)/marks')}

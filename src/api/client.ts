@@ -53,11 +53,24 @@ if (__DEV__) {
 const client = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-  timeout: 15000,
+  // The API lives on a shared host that can be slow to warm on a cold cellular
+  // connection (common on Android/Samsung after the process is killed in the
+  // background). A tight 15s ceiling turned those warm-ups into hard failures →
+  // the reload screen on first load; 30s lets the first request through.
+  timeout: 30000,
 });
 
 client.interceptors.request.use(async (config) => {
-  const token = await SecureStore.getItemAsync('access_token');
+  // A transient SecureStore/keystore read failure (seen on some Android devices
+  // right after a cold boot) must not reject the whole request — fall through
+  // unauthenticated and let the 401 refresh path handle it, rather than surfacing
+  // a network error / reload screen.
+  let token: string | null = null;
+  try {
+    token = await SecureStore.getItemAsync('access_token');
+  } catch {
+    token = null;
+  }
   if (token) config.headers.Authorization = `Bearer ${token}`;
   // App version for server-side observability (never a hard gate — the blocking
   // update screen is enforced client-side against the shipped binary version).

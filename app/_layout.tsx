@@ -32,7 +32,13 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
+      // Cold starts on Android/Samsung (process killed in the background, slow
+      // first cellular request) intermittently failed the very first fetch and
+      // dropped straight to the reload screen. Retry a little harder with a
+      // capped exponential backoff so a transient first-request blip recovers on
+      // its own instead of showing an error the user has to tap through.
+      retry: 3,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
       staleTime: 30000,
     },
   },
