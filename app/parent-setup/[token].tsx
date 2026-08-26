@@ -11,6 +11,7 @@ import { useParentSetup } from '@/hooks/useAuth';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 import { AuthScaffold } from '@/components/auth/AuthScaffold';
+import { TermsConsentRow } from '@/components/auth/TermsConsentRow';
 
 const label = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm } as const;
 const field = {
@@ -30,6 +31,7 @@ export default function ParentSetupScreen() {
   const { t } = useTranslation();
   const { token } = useLocalSearchParams<{ token: string }>();
   const [password, setPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const { data: info, isLoading, isError } = useQuery({
     queryKey: ['parent-setup', token],
@@ -41,9 +43,9 @@ export default function ParentSetupScreen() {
   const setupMutation = useParentSetup();
 
   const submit = () => {
-    if (!token || password.length < 6) return;
+    if (!token || password.length < 6 || !termsAccepted) return;
     setupMutation.mutate(
-      { token: token as string, password },
+      { token: token as string, password, terms_accepted: termsAccepted },
       { onSuccess: () => router.replace('/(parent)') },
     );
   };
@@ -105,15 +107,18 @@ export default function ParentSetupScreen() {
         placeholderTextColor={colors.textTertiary}
         style={{ ...field, marginBottom: spacing.xs, borderColor: password ? colors.brand : colors.borderStrong }}
       />
-      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.xxl }}>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.lg }}>
         {t('setup.password_hint')}
       </Text>
 
+      {/* The parent is the contracting party — consent is captured here at setup. */}
+      <TermsConsentRow role="parent" checked={termsAccepted} onToggle={setTermsAccepted} />
+
       <TouchableOpacity
         onPress={submit}
-        disabled={password.length < 6 || setupMutation.isPending}
+        disabled={password.length < 6 || !termsAccepted || setupMutation.isPending}
         activeOpacity={0.85}
-        style={{ borderRadius: radius.lg, overflow: 'hidden', opacity: password.length < 6 ? 0.5 : 1 }}
+        style={{ borderRadius: radius.lg, overflow: 'hidden', opacity: password.length < 6 || !termsAccepted ? 0.5 : 1 }}
       >
         <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
           style={{ minHeight: control.minHeight, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' }}>

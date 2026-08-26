@@ -15,6 +15,13 @@ export default function Index() {
     return <Redirect href={'/change-password?forced=1' as Href} />;
   }
 
+  // Terms gate (teacher first app open + anyone grandfathered / hit by a version
+  // bump). Student/parent primarily accept inline at registration/setup, so a fresh
+  // account clears this before it ever reaches here; this is the universal net.
+  if (user?.must_accept_terms) {
+    return <Redirect href={'/accept-terms' as Href} />;
+  }
+
   // Student deferred gate: their OWN number was never verified at registration and the
   // daily sweep has now flagged it — hard-block until they OTP-verify it.
   if (role === 'student' && user?.needs_own_number_verification) {

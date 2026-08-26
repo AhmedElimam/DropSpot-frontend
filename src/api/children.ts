@@ -17,7 +17,7 @@ export interface Child {
   absent_count: number;
   late_count: number;
   excused_count: number;
-  teachers: { id: string; name: string; phone?: string | null }[];
+  teachers: { id: string; name: string; phone?: string | null; logo_url?: string | null }[];
 }
 
 export async function getChildren(): Promise<Child[]> {

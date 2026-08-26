@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useLogout } from '@/hooks/useAuth';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
+import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
 import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
 
 // Minimal Settings tab. Real per-category notification toggles are deferred until
@@ -67,6 +68,9 @@ export default function TeacherSettings() {
           {/* Courses & schedule management now live in the "الإدارة" tab. */}
           {/* Assistant management is teacher-only. */}
           {row('help', t('onboarding.getting_started_row'), t('onboarding.getting_started_row_sub'), () => router.push('/(teacher)/getting-started' as Href))}
+
+          {/* The teacher's own brand logo (shown to parents). Teacher-only. */}
+          {!isAssistant ? <TeacherLogoRow /> : null}
 
           {/* Revision / special-session switch — teacher & assistant; gates the
               special/exam-session entry across the app. */}

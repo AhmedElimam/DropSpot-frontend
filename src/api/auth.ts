@@ -18,6 +18,7 @@ export async function register(payload: {
   parent_phone: string;
   parent_relation: string;
   parent_name: string;
+  terms_accepted: boolean;
 }): Promise<RegisterResponse> {
   const { data } = await client.post('/auth/register', payload);
   return data;
@@ -76,7 +77,7 @@ export async function getParentSetup(token: string): Promise<ParentSetupInfo> {
 }
 
 /** Set the parent's password via the setup token; returns a logged-in session. */
-export async function setParentPassword(token: string, password: string): Promise<AuthResponse> {
-  const { data } = await client.post(`/parent-setup/${token}`, { password });
+export async function setParentPassword(token: string, password: string, terms_accepted: boolean): Promise<AuthResponse> {
+  const { data } = await client.post(`/parent-setup/${token}`, { password, terms_accepted });
   return extractAttrs(data.data ?? data);
 }

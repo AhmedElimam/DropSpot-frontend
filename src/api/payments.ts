@@ -74,3 +74,28 @@ export async function collectPayment(kind: PayKind, cardCode: string, amount?: n
     return unwrap(e);
   }
 }
+
+export interface WaiveResult {
+  success: boolean;
+  message?: string;
+  code?: string;
+  student?: { name: string };
+  forgiven?: string; // amount written off
+  count?: number;
+  what?: string;
+}
+
+/**
+ * Write-off — forgive a kind's full remaining balance without collecting money.
+ * Teacher-only on the server (assistants get 403). Not counted as revenue, no SMS.
+ */
+export async function waivePayment(kind: PayKind, cardCode: string): Promise<WaiveResult> {
+  try {
+    const { data } = await client.post('/payments/waive', { card_code: cardCode, kind });
+    return data as WaiveResult;
+  } catch (e) {
+    const d = (e as any)?.response?.data;
+    if (d) return { success: false, message: d.message ?? '', code: d.code, student: d.student };
+    throw e;
+  }
+}

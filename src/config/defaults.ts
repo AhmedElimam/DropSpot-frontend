@@ -17,6 +17,8 @@ export interface AppConfigRules {
 export interface AppConfigPayload {
   schema_version: number;
   min_supported_app_version: string;
+  // Optional remote override of the API base URL (empty/absent = keep the bundled URL).
+  api_base_url?: string;
   feature_flags: Record<string, boolean>;
   rules: AppConfigRules;
   copy: Record<string, string>;

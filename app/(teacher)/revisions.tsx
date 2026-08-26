@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +7,8 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { useRevisions } from '@/hooks/useRevisions';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
+import { GuestPassModal } from '@/components/teacher/GuestPassModal';
 import type { BillingMode, RevisionSummary } from '@/api/revisions';
 
 function billingLabel(mode: BillingMode, t: (k: string) => string): string {
@@ -18,6 +21,10 @@ export default function TeacherRevisions() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { data: revisions, isLoading, refetch, isRefetching } = useRevisions();
+  const { can } = useActiveAbilities();
+  const canIssuePass = can(ABILITY.ISSUE_GUEST_PASSES);
+  // The session a guest pass is being issued for (null = sheet closed).
+  const [guestFor, setGuestFor] = useState<{ id: number; instanceId: number; title: string } | null>(null);
 
   function pick(rev: RevisionSummary) {
     if (rev.instance_id == null) return; // no slot to scan into
@@ -107,6 +114,17 @@ export default function TeacherRevisions() {
                     {disabled ? ` · ${t('teacher.revision_no_slot')}` : ''}
                   </Text>
                 </View>
+                {/* Add a guest to THIS session — issues a one-time pass, no scanner drilling. */}
+                {canIssuePass && !disabled ? (
+                  <TouchableOpacity
+                    onPress={() => setGuestFor({ id: rev.id, instanceId: rev.instance_id as number, title: rev.title })}
+                    accessibilityLabel={t('teacher.guest_pass_issue')}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 40, borderRadius: radius.md, backgroundColor: colors.brandTint, justifyContent: 'center' }}
+                  >
+                    <Icon name="add" size={16} color={colors.brand} />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.guest_add_short')}</Text>
+                  </TouchableOpacity>
+                ) : null}
                 {/* A quiz_exam offers a marks shortcut in addition to scanning students in. */}
                 {rev.is_quiz_exam && rev.instance_id != null ? (
                   <TouchableOpacity
@@ -115,7 +133,7 @@ export default function TeacherRevisions() {
                   >
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.exam_marks')}</Text>
                   </TouchableOpacity>
-                ) : (!disabled ? <Icon name="back" size={20} color={colors.textSecondary} /> : null)}
+                ) : (!disabled && !canIssuePass ? <Icon name="back" size={20} color={colors.textSecondary} /> : null)}
               </TouchableOpacity>
             );
           })}
@@ -125,6 +143,14 @@ export default function TeacherRevisions() {
       <TouchableOpacity onPress={() => refetch()} disabled={isRefetching} accessibilityRole="button" style={{ position: 'absolute', bottom: insets.bottom + spacing.lg, alignSelf: 'center', width: 48, height: 48, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.surfaceSunken, borderRadius: radius.full }}>
         {isRefetching ? <ActivityIndicator color={colors.textSecondary} /> : <Icon name="refresh" size={20} color={colors.textSecondary} />}
       </TouchableOpacity>
+
+      <GuestPassModal
+        visible={!!guestFor}
+        revisionId={guestFor?.id ?? null}
+        instanceId={guestFor?.instanceId ?? null}
+        sessionTitle={guestFor?.title}
+        onClose={() => setGuestFor(null)}
+      />
     </View>
   );
 }

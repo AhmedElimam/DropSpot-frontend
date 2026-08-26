@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
-import { collectPayment, type PayKind } from '@/api/payments';
+import { collectPayment, waivePayment, type PayKind } from '@/api/payments';
 import type { ScanPending } from '@/api/teacher';
 
 interface DueRow {
@@ -22,13 +22,16 @@ interface DueRow {
  * oldest-first per kind). Rows drop as they clear; the modal closes when nothing is left.
  */
 export function PayDuesModal({
-  visible, card, name, pending, online = true, onClose, onCollected,
+  visible, card, name, pending, online = true, canWaive = false, onClose, onCollected,
 }: {
   visible: boolean;
   card: string;
   name: string;
   pending: ScanPending | null;
   online?: boolean;
+  // Teacher-only: when true, clearing a row's amount to 0 lets the teacher WAIVE
+  // (write off) that due instead of collecting. Assistants never see it.
+  canWaive?: boolean;
   onClose: () => void;
   onCollected?: () => void;
 }) {
@@ -92,6 +95,43 @@ export function PayDuesModal({
     }
   };
 
+  // Write-off (teacher-only): forgive the row's remaining balance without collecting.
+  // Guarded by a confirm dialog since it can't be undone.
+  const waive = (row: DueRow) => {
+    if (!online) { Alert.alert('', t('teacher.pay_offline')); return; }
+    Alert.alert(
+      t('teacher.waive_confirm_title'),
+      t('teacher.waive_confirm_body', { amount: row.remaining, what: row.label }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('teacher.waive_confirm_yes'),
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(row.kind);
+            try {
+              const res = await waivePayment(row.kind, card);
+              if (res.success) {
+                onCollected?.();
+                setRows((rs) => {
+                  const next = rs.filter((r) => r.kind !== row.kind);
+                  if (next.length === 0) setTimeout(onClose, 250);
+                  return next;
+                });
+              } else {
+                Alert.alert('', res.message || t('teacher.scan_failed'));
+              }
+            } catch {
+              Alert.alert(t('common.error'), t('teacher.scan_failed'));
+            } finally {
+              setBusy(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
@@ -141,14 +181,21 @@ export function PayDuesModal({
                     {`المتبقي بعد الدفع: ${after} `}{t('insights.egp')}
                   </Text>
 
-                  <TouchableOpacity
-                    onPress={() => collect(row)}
-                    disabled={busy === row.kind || !(amt > 0) || !online}
-                    activeOpacity={0.85}
-                    style={{ marginTop: spacing.sm, minHeight: 46, borderRadius: radius.md, backgroundColor: (amt > 0 && online) ? colors.success : colors.border, justifyContent: 'center', alignItems: 'center' }}
-                  >
-                    {busy === row.kind ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>تأكيد التحصيل</Text>}
-                  </TouchableOpacity>
+                  {(() => {
+                    // amount > 0 → collect; amount 0 with a teacher → waive (write-off).
+                    const isWaive = amt <= 0 && canWaive;
+                    const enabled = online && (amt > 0 || isWaive);
+                    return (
+                      <TouchableOpacity
+                        onPress={() => (amt > 0 ? collect(row) : isWaive ? waive(row) : undefined)}
+                        disabled={busy === row.kind || !enabled}
+                        activeOpacity={0.85}
+                        style={{ marginTop: spacing.sm, minHeight: 46, borderRadius: radius.md, backgroundColor: !enabled ? colors.border : isWaive ? colors.warning : colors.success, justifyContent: 'center', alignItems: 'center' }}
+                      >
+                        {busy === row.kind ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{isWaive ? t('teacher.waive_button') : 'تأكيد التحصيل'}</Text>}
+                      </TouchableOpacity>
+                    );
+                  })()}
                 </View>
               );
             })}

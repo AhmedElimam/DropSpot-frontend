@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Ref
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as WebBrowser from 'expo-web-browser';
+import { openRemotePdf } from '@/utils/openPdf';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
 import { useReportCards } from '@/hooks/useReportCards';
@@ -40,7 +40,8 @@ export default function ReportCardsScreen() {
     try {
       const url = await getReportDownloadUrl(report.id);
       if (!url) throw new Error('no url');
-      await WebBrowser.openBrowserAsync(url);
+      const label = [report.student_name, report.course_name].filter(Boolean).join('-') || `report-${report.id}`;
+      await openRemotePdf(url, label);
     } catch {
       Alert.alert(t('reports.open_failed'));
     } finally {

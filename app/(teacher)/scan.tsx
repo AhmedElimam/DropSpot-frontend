@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, type ViewStyle } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Alert, type ViewStyle } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -8,8 +8,11 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { scanCard, grantDoorExemption, getMyTeachers, type ScanResult } from '@/api/teacher';
-import { scanRevision, addRevisionGuest, addRevisionGuestByPhone } from '@/api/revisions';
-import { previewPayment, previewAllPayments, collectPayment, type PayKind } from '@/api/payments';
+import { scanRevision, addRevisionGuest } from '@/api/revisions';
+import { issueGuestPass } from '@/api/guestPasses';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
+import * as WebBrowser from 'expo-web-browser';
+import { previewPayment, previewAllPayments, collectPayment, waivePayment, type PayKind } from '@/api/payments';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import { useReviseMode } from '@/hooks/useReviseMode';
 import { bufferScan, deleteScan } from '@/db/offlineScans';
@@ -81,6 +84,12 @@ export default function TeacherScan() {
   const { data: sessions } = useTeacherTodaySessions();
   const { data: reviseOn } = useReviseMode();
   const online = useOfflineStore((s) => s.online);
+  const role = useAuthStore((s) => s.role);
+  // Forgiving a debt (waive) is a teacher-only decision; assistants can collect only.
+  const canWaive = role === 'teacher';
+  // Issuing a guest pass: teacher, or an assistant granted `issue_guest_passes`.
+  const { can } = useActiveAbilities();
+  const canIssuePass = can(ABILITY.ISSUE_GUEST_PASSES);
 
   // ---- Revision mode (from the picker) — scan into a specific revision session.
   // Online-only: no offline buffering (guest creation / SMS / spread split can't
@@ -124,6 +133,8 @@ export default function TeacherScan() {
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [gName, setGName] = useState('');
   const [gPhone, setGPhone] = useState('');
+  const [gFee, setGFee] = useState('');
+  const [gPaid, setGPaid] = useState(false);
   const [gErr, setGErr] = useState('');
   // Payment confirm popup: what was previewed, held until the teacher taps تأكيد.
   // `owed` is the remaining balance; `payInput` is the amount to collect now
@@ -162,12 +173,20 @@ export default function TeacherScan() {
       // Focus gate: only accept a code whose centre is inside the aiming frame, so a
       // card must be lined up in the box — not read from anywhere in the view. When
       // the platform reports no geometry, `scanCentre` is null and we don't gate.
+      //
+      // IMPORTANT (Samsung/Android): several devices report barcode geometry in the
+      // camera-SENSOR coordinate space (e.g. 1080×1920 px), not screen points. Gating
+      // those silently drops EVERY read — the scanner "doesn't scan" at all. So we only
+      // trust the geometry when the centre lands within the screen; if it's off-screen
+      // the space is untrusted and we accept the read rather than gate on bad numbers.
       const centre = scanCentre(bounds, cornerPoints);
       if (centre) {
         const win = Dimensions.get('window');
-        if (Math.abs(centre.x - win.width / 2) > FRAME_W / 2 + FRAME_SLACK
-          || Math.abs(centre.y - win.height / 2) > FRAME_H / 2 + FRAME_SLACK) {
-          return; // outside the frame — ignore silently
+        const trusted = centre.x >= 0 && centre.y >= 0 && centre.x <= win.width && centre.y <= win.height;
+        if (trusted
+          && (Math.abs(centre.x - win.width / 2) > FRAME_W / 2 + FRAME_SLACK
+            || Math.abs(centre.y - win.height / 2) > FRAME_H / 2 + FRAME_SLACK)) {
+          return; // trustworthy coordinates AND outside the frame — ignore silently
         }
       }
       // General throttle: at most one accepted scan per SCAN_THROTTLE_MS regardless
@@ -307,7 +326,36 @@ export default function TeacherScan() {
     if (!payConfirm || !payKind) return;
     const code = payConfirm.code;
     const amt = Number(payInput);
-    if (!(amt > 0)) return; // must collect a positive amount
+    // Amount 0 (or cleared) → WAIVE (write-off) the remaining balance instead of
+    // collecting. Payment mode is teacher-only, so no extra permission gate is needed.
+    // Guarded by a confirm dialog since a waive can't be undone.
+    if (!(amt > 0)) {
+      const pc = payConfirm;
+      Alert.alert(
+        t('teacher.waive_confirm_title'),
+        t('teacher.waive_confirm_body', { amount: pc.owed, what: payWhatLabel }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('teacher.waive_confirm_yes'),
+            style: 'destructive',
+            onPress: async () => {
+              setPayConfirm(null);
+              setBusy(true);
+              const res = await waivePayment(payKind, code);
+              if (res.success) {
+                flash(true, t('teacher.waive_done'), (res.student && res.student.name) || pc.name || null);
+              } else if (res.code === 'NOTHING_DUE') {
+                flash(true, 'لا توجد مستحقات', (res.student && res.student.name) || null);
+              } else {
+                flash(false, res.message || t('teacher.scan_failed'), (res.student && res.student.name) || null);
+              }
+            },
+          },
+        ],
+      );
+      return;
+    }
     setPayConfirm(null);
     setBusy(true);
     const res = await collectPayment(payKind, code, amt);
@@ -325,7 +373,7 @@ export default function TeacherScan() {
     } else {
       flash(false, res.message || t('teacher.scan_failed'), (res.student && res.student.name) || null);
     }
-  }, [payConfirm, payKind, payInput, flash, t]);
+  }, [payConfirm, payKind, payInput, payWhatLabel, flash, t]);
 
   const confirmExemption = useCallback(async () => {
     if (!overdueBlock) return;
@@ -351,23 +399,36 @@ export default function TeacherScan() {
     flash(res.success, res.message || t('teacher.guest_added'), res.student_name ?? student.name);
   }, [guestPrompt, revisionId, revisionInstanceId, flash, t]);
 
+  // Issue a session-scoped guest pass: name (+ optional phone), an optional flat fee
+  // (paid now or pending). On success we open the printable slip (QR + Code128) for an
+  // immediate scan, and flash. Phone is OPTIONAL; fee is optional.
   const submitPhone = useCallback(async () => {
     if (revisionId == null || revisionInstanceId == null) return;
     const name = gName.trim();
     const phone = gPhone.trim();
+    const feeStr = gFee.trim();
     if (name.length < 2) { setGErr(t('teacher.guest_name')); return; }
-    if (phone.length < 6) { setGErr(t('teacher.guest_phone_ph')); return; }
+    const feeAmount = feeStr === '' ? undefined : Number(feeStr);
+    if (feeAmount !== undefined && !(feeAmount >= 0)) { setGErr(t('teacher.guest_fee_invalid')); return; }
     setGErr('');
     setBusy(true);
-    const res = await addRevisionGuestByPhone(revisionId, revisionInstanceId, name, phone);
+    const res = await issueGuestPass(revisionId, revisionInstanceId, {
+      name,
+      phone: phone || undefined,
+      feeAmount,
+      paidNow: gPaid,
+    });
     if (res.success) {
-      setPhoneOpen(false); setGName(''); setGPhone('');
-      flash(true, res.message || t('teacher.guest_added'), res.student_name ?? name);
+      setPhoneOpen(false); setGName(''); setGPhone(''); setGFee(''); setGPaid(false);
+      if (res.slip_url) {
+        try { await WebBrowser.openBrowserAsync(res.slip_url); } catch { /* slip is optional to display */ }
+      }
+      flash(true, res.message || t('teacher.guest_pass_issued'), res.name ?? name);
     } else {
       setBusy(false);
       setGErr(res.message || t('teacher.scan_failed'));
     }
-  }, [revisionId, revisionInstanceId, gName, gPhone, flash, t]);
+  }, [revisionId, revisionInstanceId, gName, gPhone, gFee, gPaid, flash, t]);
 
   // Financial (payment) scan mode is never available to an assistant — hard block
   // even on a direct link, regardless of ability config.
@@ -514,16 +575,17 @@ export default function TeacherScan() {
       ) : null}
 
       {/* Bottom action: enter the special/exam session picker (when the revision
-          switch is on) OR add a guest by phone (already inside a special session). */}
-      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && (revisionMode || reviseOn !== false) ? (
+          switch is on) OR issue a guest pass (already inside a special session, and
+          only when the operator may issue one). */}
+      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && (revisionMode ? canIssuePass : reviseOn !== false) ? (
         <TouchableOpacity
           onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
           style={{ position: 'absolute', bottom: insets.bottom + spacing.xxxl, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: revisionMode ? colors.accentWarm : 'rgba(255,255,255,0.16)', borderRadius: radius.full }}
         >
-          <Icon name={revisionMode ? 'phone' : 'book'} size={18} color="#fff" />
+          <Icon name={revisionMode ? 'card' : 'book'} size={18} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>
-            {revisionMode ? t('teacher.guest_by_phone') : t('teacher.revision_open')}
+            {revisionMode ? t('teacher.guest_pass_issue') : t('teacher.revision_open')}
           </Text>
         </TouchableOpacity>
       ) : null}
@@ -540,9 +602,11 @@ export default function TeacherScan() {
           <TouchableOpacity onPress={confirmGuest} activeOpacity={0.85} style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#4c1d95' }}>{t('teacher.guest_add')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => { setGuestPrompt(null); setGErr(''); setPhoneOpen(true); }} activeOpacity={0.85} style={{ marginTop: spacing.md }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('teacher.guest_by_phone')}</Text>
-          </TouchableOpacity>
+          {canIssuePass ? (
+            <TouchableOpacity onPress={() => { setGuestPrompt(null); setGErr(''); setPhoneOpen(true); }} activeOpacity={0.85} style={{ marginTop: spacing.md }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('teacher.guest_pass_issue')}</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity onPress={() => { setGuestPrompt(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('teacher.guest_ignore')}</Text>
           </TouchableOpacity>
@@ -582,8 +646,9 @@ export default function TeacherScan() {
             المتبقي بعد الدفع: {Math.max(0, payConfirm.owed - (Number(payInput) || 0)).toFixed(2)} ج.م
           </Text>
 
-          <TouchableOpacity onPress={confirmPay} disabled={!(Number(payInput) > 0)} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: Number(payInput) > 0 ? '#fff' : 'rgba(255,255,255,0.4)', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#0b3b34' }}>تأكيد التحصيل</Text>
+          {/* Amount > 0 → collect; amount 0/cleared → waive (write-off, teacher-only mode). */}
+          <TouchableOpacity onPress={confirmPay} disabled={Number.isNaN(Number(payInput))} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: Number(payInput) > 0 ? '#0b3b34' : '#92400E' }}>{Number(payInput) > 0 ? 'تأكيد التحصيل' : t('teacher.waive_button')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setPayConfirm(null)} activeOpacity={0.85} style={{ marginTop: spacing.md }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>إلغاء</Text>
@@ -626,11 +691,11 @@ export default function TeacherScan() {
         </View>
       ) : null}
 
-      {/* Add-guest-by-phone form */}
+      {/* Issue-guest-pass form (name + optional phone + optional flat fee) */}
       {phoneOpen ? (
         <KeyboardAvoidingView behavior="padding" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,16,43,0.97)', justifyContent: 'center', padding: spacing.xl }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', textAlign: 'center' }}>{t('teacher.guest_phone_title')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: spacing.sm }}>{t('teacher.guest_phone_hint')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', textAlign: 'center' }}>{t('teacher.guest_pass_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: spacing.sm }}>{t('teacher.guest_pass_hint')}</Text>
           <TextInput
             value={gName}
             onChangeText={setGName}
@@ -641,14 +706,28 @@ export default function TeacherScan() {
           <TextInput
             value={gPhone}
             onChangeText={setGPhone}
-            placeholder={t('teacher.guest_phone_ph')}
+            placeholder={t('teacher.guest_pass_phone_optional')}
             placeholderTextColor="rgba(0,0,0,0.4)"
             keyboardType="phone-pad"
             style={{ marginTop: spacing.md, backgroundColor: '#fff', borderRadius: radius.lg, paddingHorizontal: spacing.lg, height: 54, fontFamily: fonts.medium, fontSize: 18, color: '#111', textAlign: 'center' }}
           />
+          <TextInput
+            value={gFee}
+            onChangeText={setGFee}
+            placeholder={t('teacher.guest_pass_fee_optional')}
+            placeholderTextColor="rgba(0,0,0,0.4)"
+            keyboardType="numeric"
+            style={{ marginTop: spacing.md, backgroundColor: '#fff', borderRadius: radius.lg, paddingHorizontal: spacing.lg, height: 54, fontFamily: fonts.medium, fontSize: 18, color: '#111', textAlign: 'center' }}
+          />
+          <TouchableOpacity onPress={() => setGPaid((v) => !v)} activeOpacity={0.8} style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <View style={{ width: 26, height: 26, borderRadius: 8, borderWidth: 2, borderColor: '#fff', backgroundColor: gPaid ? '#fff' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+              {gPaid ? <Icon name="success" size={18} color={colors.accentWarm} /> : null}
+            </View>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff' }}>{t('teacher.guest_pass_paid_now')}</Text>
+          </TouchableOpacity>
           {gErr ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.warningLight, textAlign: 'center', marginTop: spacing.md }}>{gErr}</Text> : null}
           <TouchableOpacity onPress={submitPhone} disabled={busy} activeOpacity={0.85} style={{ marginTop: spacing.xl, backgroundColor: colors.accentWarm, borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', alignItems: 'center' }}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('teacher.guest_phone_submit')}</Text>}
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('teacher.guest_pass_submit')}</Text>}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => { setPhoneOpen(false); setGErr(''); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.md, alignItems: 'center' }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('teacher.guest_cancel')}</Text>
@@ -691,6 +770,7 @@ export default function TeacherScan() {
         name={duesFor?.name ?? ''}
         pending={duesFor?.pending ?? null}
         online={online}
+        canWaive={canWaive}
         onClose={() => { setDuesFor(null); setBusy(false); }}
       />
     </View>

@@ -140,20 +140,3 @@ export async function recordRevisionMark(
   });
 }
 
-export async function addRevisionGuestByPhone(
-  revisionId: number,
-  instanceId: number,
-  name: string,
-  phone: string,
-): Promise<RevisionScanResult> {
-  try {
-    const { data } = await client.post(`/revisions/${revisionId}/guest-phone`, {
-      name,
-      phone,
-      revision_session_instance_id: instanceId,
-    });
-    return data as RevisionScanResult;
-  } catch (e) {
-    return unwrap(e);
-  }
-}

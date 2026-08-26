@@ -35,8 +35,8 @@ export function useParentSetup() {
   const setTokens = useAuthStore((s) => s.setTokens);
 
   return useMutation({
-    mutationFn: (payload: { token: string; password: string }) =>
-      setParentPassword(payload.token, payload.password),
+    mutationFn: (payload: { token: string; password: string; terms_accepted: boolean }) =>
+      setParentPassword(payload.token, payload.password, payload.terms_accepted),
     onSuccess: async (data) => {
       const role = resolveRole(data.user);
       await setTokens(data.tokens.access_token, data.tokens.refresh_token);
@@ -102,6 +102,7 @@ export function useRegister() {
       parent_phone: string;
       parent_relation: string;
       parent_name: string;
+      terms_accepted: boolean;
     }) => registerApi(payload),
   });
 }

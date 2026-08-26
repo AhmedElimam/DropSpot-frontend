@@ -53,7 +53,9 @@ export default function ChangePasswordScreen() {
         onSuccess: () => {
           if (isForced && user && role) {
             setSession({ ...user, must_set_password: false }, role);
-            router.replace('/(teacher)' as Href);
+            // Route through the index gate (not straight to /(teacher)) so any
+            // remaining first-open gate — e.g. Terms acceptance — is evaluated next.
+            router.replace('/' as Href);
           } else {
             router.back();
           }

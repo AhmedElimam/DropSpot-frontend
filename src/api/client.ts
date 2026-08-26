@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore, resolveRole } from '@/stores/authStore';
+import { ensureApiBaseHydrated, getApiBaseOverride } from '@/api/apiBase';
 
 /**
  * Resolve the API base URL.
@@ -45,6 +46,9 @@ function resolveApiUrl(): string {
 
 const API_URL = resolveApiUrl();
 
+/** The build-time (bundled) API URL — the safe fallback the app can always reach. */
+export const BUNDLED_API_URL = API_URL;
+
 if (__DEV__) {
   // eslint-disable-next-line no-console
   console.log('[api] baseURL =', API_URL);
@@ -61,6 +65,14 @@ const client = axios.create({
 });
 
 client.interceptors.request.use(async (config) => {
+  // Effective base URL = the super-admin remote override (once safely adopted) else
+  // the bundled URL. Read per-request so a runtime failover takes effect immediately.
+  try {
+    await ensureApiBaseHydrated();
+    config.baseURL = getApiBaseOverride() ?? BUNDLED_API_URL;
+  } catch {
+    config.baseURL = BUNDLED_API_URL;
+  }
   // A transient SecureStore/keystore read failure (seen on some Android devices
   // right after a cold boot) must not reject the whole request — fall through
   // unauthenticated and let the 401 refresh path handle it, rather than surfacing
@@ -92,7 +104,9 @@ client.interceptors.response.use(
       try {
         const rt = await SecureStore.getItemAsync('refresh_token');
         if (!rt) throw new Error('no refresh');
-        const { data } = await axios.post(`${API_URL}/auth/refresh`, { refresh_token: rt });
+        // Refresh against the SAME effective base as the request (override or bundled).
+        const refreshBase = getApiBaseOverride() ?? BUNDLED_API_URL;
+        const { data } = await axios.post(`${refreshBase}/auth/refresh`, { refresh_token: rt });
         const attrs = data?.data?.attributes ?? {};
         const at = attrs.tokens.access_token;
         await SecureStore.setItemAsync('access_token', at);

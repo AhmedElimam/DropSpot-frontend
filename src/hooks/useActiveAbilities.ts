@@ -19,6 +19,7 @@ export const ABILITY = {
   MANAGE_SESSIONS: 'manage_sessions',
   MANAGE_COURSES: 'manage_courses',
   REVIEW_PAYMENT_PROOFS: 'review_payment_proofs',
+  ISSUE_GUEST_PASSES: 'issue_guest_passes',
 } as const;
 
 export function useActiveAbilities() {

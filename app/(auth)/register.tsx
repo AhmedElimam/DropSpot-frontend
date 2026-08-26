@@ -10,6 +10,7 @@ import { Icon } from '@/components/ui/Icon';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { AuthScaffold } from '@/components/auth/AuthScaffold';
 import { PhoneConfirmModal } from '@/components/auth/PhoneConfirmModal';
+import { TermsConsentRow } from '@/components/auth/TermsConsentRow';
 
 const RELATIONS = ['father', 'mother', 'guardian', 'other'] as const;
 
@@ -41,6 +42,7 @@ export default function RegisterScreen() {
   const [parentName, setParentName] = useState('');
   const [parentPhone, setParentPhone] = useState('');
   const [parentRelation, setParentRelation] = useState<string>('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const registerMutation = useRegister();
 
@@ -49,7 +51,7 @@ export default function RegisterScreen() {
 
   const handleRegister = () => {
     if (!name || !phone || !password || password !== confirmPassword || !parentName || !parentPhone || !parentRelation) return;
-    if (nameHasLatin || parentNameHasLatin) return;
+    if (nameHasLatin || parentNameHasLatin || !termsAccepted) return;
     registerMutation.mutate(
       {
         name,
@@ -58,6 +60,7 @@ export default function RegisterScreen() {
         parent_name: parentName,
         parent_phone: parentPhone,
         parent_relation: parentRelation,
+        terms_accepted: termsAccepted,
       },
       {
         onSuccess: (data) => {
@@ -76,7 +79,7 @@ export default function RegisterScreen() {
     );
   };
 
-  const isValid = name && !nameHasLatin && phone && password && password === confirmPassword && parentName && !parentNameHasLatin && parentPhone && parentRelation;
+  const isValid = name && !nameHasLatin && phone && password && password === confirmPassword && parentName && !parentNameHasLatin && parentPhone && parentRelation && termsAccepted;
 
   return (
     <AuthScaffold
@@ -218,6 +221,10 @@ export default function RegisterScreen() {
           );
         })}
       </View>
+
+      {/* Rules acknowledgment — must be checked before proceeding to OTP (before any
+          account is verified). Student ACKNOWLEDGES rules of use, not a contract. */}
+      <TermsConsentRow role="student" checked={termsAccepted} onToggle={setTermsAccepted} />
 
       {/* Submit — opens the pause-and-reconsider popup before proceeding to OTP. */}
       <TouchableOpacity

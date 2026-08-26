@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, Alert } from 'react-native';
 import { useState } from 'react';
-import * as WebBrowser from 'expo-web-browser';
+import { openRemotePdf } from '@/utils/openPdf';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -56,14 +56,14 @@ export default function StudentDetailScreen() {
   const allowanceBlock = useSetStudentAllowanceBlock(Number(id));
   const [exporting, setExporting] = useState(false);
 
-  // Fetch a short-lived signed URL, then open the performance PDF in the external browser.
+  // Fetch a short-lived signed URL, then download + share the performance PDF.
   const exportPerformance = async () => {
     if (exporting) return;
     setExporting(true);
     try {
       const url = await getStudentPerformanceUrl(id);
       if (!url) throw new Error('no url');
-      await WebBrowser.openBrowserAsync(url);
+      await openRemotePdf(url, s?.name ? `أداء-${s.name}` : `performance-${id}`);
     } catch {
       Alert.alert(t('common.error'), t('teacher.performance_export_failed'));
     } finally {
