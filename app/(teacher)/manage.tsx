@@ -150,6 +150,9 @@ export default function TeacherManage() {
           <Row icon="add" title={t('teacher.create_course')} sub={t('teacher.create_course_sub')} onPress={() => router.push('/(teacher)/courses/create' as Href)} />
         ) : null}
         {canStudents ? (
+          <Row icon="add" title="تسجيل سريع للطلاب" sub="أضِف الطلاب بالاسم ورقم ولي الأمر — يُفعّلون حساباتهم لاحقًا" tint={colors.brand} onPress={() => router.push('/(teacher)/record-student' as Href)} />
+        ) : null}
+        {canStudents ? (
           <Row icon="phone" title={t('invite_phone.title')} sub={t('invite_phone.manage_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/invite-phone' as Href)} />
         ) : null}
         {canStudents ? (
