@@ -30,6 +30,7 @@ export function mergeConfig(server: Partial<AppConfigPayload>): AppConfigPayload
     rules: { ...CONFIG_DEFAULTS.rules, ...(server.rules ?? {}) },
     copy: { ...(server.copy ?? {}) },
     pricing: { ...CONFIG_DEFAULTS.pricing, ...(server.pricing ?? {}) },
+    contact: { ...CONFIG_DEFAULTS.contact, ...(server.contact ?? {}) },
   };
 }
 
@@ -61,4 +62,9 @@ export const useAppConfigStore = create<State>((set) => ({
 /** Non-React accessor for a single rule (e.g. offline batching in src/db). */
 export function configRule<K extends keyof AppConfigRules>(key: K): AppConfigRules[K] {
   return useAppConfigStore.getState().config.rules[key] ?? CONFIG_DEFAULTS.rules[key];
+}
+
+/** A single contact/payment value — server override ← bundled default. */
+export function configContact<K extends keyof AppConfigPayload['contact']>(key: K): AppConfigPayload['contact'][K] {
+  return useAppConfigStore.getState().config.contact?.[key] ?? CONFIG_DEFAULTS.contact[key];
 }

@@ -14,6 +14,15 @@ export interface AppConfigRules {
   offline_bucket_gap_min: number;
 }
 
+export interface AppConfigContact {
+  support_email: string;
+  support_phone: string;
+  company_name: string;
+  card_instapay_number: string;
+  card_instapay_name: string;
+  card_vodafone_number: string; // blank unless the super-admin sets one
+}
+
 export interface AppConfigPayload {
   schema_version: number;
   min_supported_app_version: string;
@@ -23,6 +32,8 @@ export interface AppConfigPayload {
   rules: AppConfigRules;
   copy: Record<string, string>;
   pricing: { tiers: unknown[] };
+  // Super-admin-editable contact + card-order payment (server AppConfig 'contact').
+  contact: AppConfigContact;
 }
 
 export const CONFIG_DEFAULTS: AppConfigPayload = {
@@ -41,4 +52,12 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
   },
   copy: {},
   pricing: { tiers: [] },
+  contact: {
+    support_email: 'drosspot.support@gmail.com',
+    support_phone: '01040981855',
+    company_name: 'دروس سبوت',
+    card_instapay_number: '01208020372',
+    card_instapay_name: 'Ahmed Mohamed Imam',
+    card_vodafone_number: '',
+  },
 };

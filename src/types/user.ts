@@ -18,6 +18,8 @@ export interface User {
   must_accept_terms?: boolean;
   /** Self-registration wall (student): true until a subscribed teacher enrolls them. */
   needs_teacher_invitation?: boolean;
+  /** First-cohort teacher — the app shows a «عضو مؤسس» (Founding Member) badge. */
+  is_founding_teacher?: boolean;
 }
 
 export interface AuthTokens {

@@ -11,6 +11,7 @@ import { formatDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
+import { SupportContact } from '@/components/SupportContact';
 
 interface SettingItem {
   key: string;
@@ -112,6 +113,10 @@ export default function ParentSettings() {
               <Text style={textPresets.bodySmall}>{t('parent.my_children')}</Text>
               <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>{children?.length ?? 0}</Text>
             </View>
+          </View>
+
+          <View style={{ marginBottom: spacing.md }}>
+            <SupportContact />
           </View>
 
           <TouchableOpacity onPress={() => logout.mutate()} activeOpacity={0.85} style={{ borderRadius: radius.lg, overflow: 'hidden' }}>

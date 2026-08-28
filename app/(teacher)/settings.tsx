@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useLogout } from '@/hooks/useAuth';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
+import { SupportContact } from '@/components/SupportContact';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
 import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
 
@@ -62,6 +63,12 @@ export default function TeacherSettings() {
             {isAssistant ? t('teacher.role_assistant') : t('teacher.role_teacher')}
             {user?.phone ? ` · ${user.phone}` : ''}
           </Text>
+          {user?.is_founding_teacher ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderColor: 'rgba(255,209,102,0.9)', paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999 }}>
+              <Icon name="star" size={14} color="#FFD166" />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#fff' }}>عضو مؤسس</Text>
+            </View>
+          ) : null}
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
@@ -100,6 +107,10 @@ export default function TeacherSettings() {
           {!isAssistant ? row('children', t('assistants.title'), t('assistants.subtitle'), () => router.push('/(teacher)/assistants' as Href)) : null}
           {row('bell', t('teacher.notifications'), t('teacher.notifications_hint'), () => Linking.openSettings())}
           {row('lock', t('auth.change_password'), t('setup.password_hint'), () => router.push('/change-password'))}
+
+          <View style={{ marginTop: spacing.md }}>
+            <SupportContact />
+          </View>
 
           <TouchableOpacity
             onPress={() => logout.mutate()}

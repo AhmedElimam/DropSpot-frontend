@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { Icon } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
+import { SupportContact } from '@/components/SupportContact';
 
 export default function StudentProfile() {
   const { t } = useTranslation();
@@ -132,6 +133,10 @@ export default function StudentProfile() {
               <Text style={textPresets.bodySmall}>{t('attendance.attendance_rate')}</Text>
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{attendanceRate}%</Text>
             </View>
+          </View>
+
+          <View style={{ marginBottom: spacing.md }}>
+            <SupportContact />
           </View>
 
           <TouchableOpacity onPress={() => logout.mutate()} activeOpacity={0.85} style={{ borderRadius: radius.md, overflow: 'hidden' }}>

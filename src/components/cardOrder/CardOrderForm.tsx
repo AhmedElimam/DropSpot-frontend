@@ -153,14 +153,17 @@ export function CardOrderForm({ preselectStudentId }: { preselectStudentId?: num
 
               {payment === 'pay_now' ? (
                 <View style={{ marginTop: spacing.md }}>
-                  {selected.payment_methods.length > 0 ? (
+                  {selected.card_instapay ? (
                     <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginBottom: spacing.xs }}>{t('card_order.pay_to')}</Text>
-                      {selected.payment_methods.map((m) => (
-                        <Text key={m.type} style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-                          {m.label}: <Text style={{ fontFamily: fonts.bold }}>{m.number}</Text>{m.name ? ` — ${m.name}` : ''}
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
+                        إنستا باي (InstaPay): <Text style={{ fontFamily: fonts.bold }}>{selected.card_instapay.number}</Text> — {selected.card_instapay.name}
+                      </Text>
+                      {selected.card_vodafone ? (
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
+                          فودافون كاش (Vodafone Cash): <Text style={{ fontFamily: fonts.bold }}>{selected.card_vodafone}</Text>
                         </Text>
-                      ))}
+                      ) : null}
                     </View>
                   ) : null}
                   <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('card_order.upload_proof')}</Text>

@@ -18,6 +18,10 @@ export interface CardOrderTarget {
   reason: 'NO_TEACHER' | 'PENDING_REVIEW' | null;
   teacher: { id: number; name: string } | null;
   payment_methods: CardOrderPaymentMethod[];
+  /** Platform InstaPay the card-production fee is paid to (not the teacher's number). */
+  card_instapay?: { number: string; name: string } | null;
+  /** Optional platform Vodafone Cash number (null when not configured). */
+  card_vodafone?: string | null;
 }
 
 /** Students without a card that the logged-in family member can order for. */
