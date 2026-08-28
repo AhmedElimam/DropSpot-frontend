@@ -7,6 +7,7 @@ import { colors, spacing, radius, gradients, control } from '@/theme/index';
 import { useRegister } from '@/hooks/useAuth';
 import { router } from 'expo-router';
 import { Icon } from '@/components/ui/Icon';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { AuthScaffold } from '@/components/auth/AuthScaffold';
 import { PhoneConfirmModal } from '@/components/auth/PhoneConfirmModal';
@@ -142,16 +143,16 @@ export default function RegisterScreen() {
 
       {/* Password */}
       <Text style={labelStyle}>{t('auth.password')}</Text>
-      <TextInput
-        value={password} onChangeText={setPassword} secureTextEntry
+      <PasswordInput
+        value={password} onChangeText={setPassword}
         placeholder="••••••••" placeholderTextColor={colors.textTertiary}
         style={{ ...fieldBase, borderColor: password ? colors.brand : colors.borderStrong }}
       />
 
       {/* Confirm password */}
       <Text style={labelStyle}>{t('auth.confirm_password')}</Text>
-      <TextInput
-        value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry
+      <PasswordInput
+        value={confirmPassword} onChangeText={setConfirmPassword}
         placeholder="••••••••" placeholderTextColor={colors.textTertiary}
         style={{
           ...fieldBase,

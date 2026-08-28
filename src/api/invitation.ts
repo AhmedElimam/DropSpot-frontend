@@ -142,7 +142,14 @@ export async function createInvitation(payload: CreateInvitationPayload): Promis
  */
 export async function acceptStudentInvite(
   token: string,
-  payload: { password: string; name?: string },
+  payload: {
+    password: string;
+    name?: string;
+    parent_name: string;
+    parent_phone: string;
+    parent_relation: string;
+    terms_accepted: boolean;
+  },
 ): Promise<AuthResponse> {
   const { data } = await client.post(`/invitations/${token}/accept`, payload);
   return extractAttrs(data.data ?? data);

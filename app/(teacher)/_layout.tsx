@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { initOfflineScans } from '@/db/offlineScans';
+import { triggerAutoSync } from '@/db/autoSync';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 import { registerForPushNotifications } from '@/utils/push-notifications';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
@@ -87,11 +88,14 @@ export default function TeacherTabLayout() {
     // Part 2: on open, enforce the date staleness guard and refresh the ACTIVE
     // teacher's schedule entry when online. Fire-and-forget — never blocks the UI,
     // and a failure just leaves the guard to fall back to manual reconciliation.
-    syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()));
+    syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
+      .finally(() => { void triggerAutoSync(); });
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') {
         useOfflineStore.getState().refresh();
-        syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()));
+        // Refresh the cache first so auto-sync runs against fresh windows.
+        syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
+          .finally(() => { void triggerAutoSync(); });
       }
     });
     return () => {
@@ -114,13 +118,17 @@ export default function TeacherTabLayout() {
     return () => sub.remove();
   }, [isAuthenticated]);
 
-  // Connectivity: drive the offline/online UI indicator only. Reconnecting does
-  // NOT trigger any sync — reconciliation is teacher-initiated, full stop.
+  // Connectivity: drive the offline/online indicator AND kick a window-bounded
+  // auto-sync pass when connectivity is restored (the unambiguous scans upload
+  // themselves; everything else stays for manual reconcile). triggerAutoSync is
+  // rate-limited + single-flight, so a flapping connection never hammers the endpoint.
   useEffect(() => {
     if (!isAuthenticated) return;
     const unsub = NetInfo.addEventListener((state) => {
       const online = !!state.isConnected && state.isInternetReachable !== false;
+      const wasOnline = useOfflineStore.getState().online;
       useOfflineStore.getState().setOnline(online);
+      if (online && !wasOnline) void triggerAutoSync();
     });
     return () => unsub();
   }, [isAuthenticated]);

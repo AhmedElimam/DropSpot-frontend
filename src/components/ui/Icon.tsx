@@ -50,6 +50,7 @@ const ICON_MAP = {
   note: 'create',
   trash: 'trash',
   eye: 'eye',
+  eyeOff: 'eye-off',
   lock: 'lock-closed',
   phone: 'phone-portrait',
   gps: 'navigate',

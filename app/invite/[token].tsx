@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -10,7 +10,12 @@ import { getInvitation } from '@/api/invitation';
 import { useAcceptInvite } from '@/hooks/useAuth';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { AuthScaffold } from '@/components/auth/AuthScaffold';
+import { TermsConsentRow } from '@/components/auth/TermsConsentRow';
+
+const RELATIONS = ['father', 'mother', 'guardian'] as const;
+const hasLatinLetters = (v: string) => /[A-Za-z]/.test(v);
 
 const label = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm } as const;
 const field = {
@@ -30,7 +35,12 @@ export default function InviteAcceptScreen() {
   const { t } = useTranslation();
   const { token } = useLocalSearchParams<{ token: string }>();
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [parentName, setParentName] = useState('');
+  const [parentPhone, setParentPhone] = useState('');
+  const [parentRelation, setParentRelation] = useState<string>('');
+  const [terms, setTerms] = useState(false);
 
   const { data: info, isLoading, isError } = useQuery({
     queryKey: ['invitation', token],
@@ -39,16 +49,35 @@ export default function InviteAcceptScreen() {
     retry: false,
   });
 
+  // Prefill the parent phone the teacher put on the invite (still editable).
+  useEffect(() => {
+    if (info?.parent_phone) setParentPhone((p) => p || info.parent_phone!);
+  }, [info]);
+
   const acceptMutation = useAcceptInvite();
 
   const needsName = !!info && !info.invited_student_name;
-  const nameOk = !needsName || name.trim().length > 0;
-  const canSubmit = password.length >= 6 && nameOk && !acceptMutation.isPending;
+  const nameHasLatin = hasLatinLetters(name);
+  const parentNameHasLatin = hasLatinLetters(parentName);
+  const nameOk = !needsName || (name.trim().length > 0 && !nameHasLatin);
+  const isValid =
+    password.length >= 6 && password === confirmPassword && nameOk &&
+    parentName.trim().length > 0 && !parentNameHasLatin && parentPhone.trim().length > 0 &&
+    parentRelation && terms;
+  const canSubmit = isValid && !acceptMutation.isPending;
 
   const submit = () => {
     if (!token || !canSubmit) return;
     acceptMutation.mutate(
-      { token: token as string, password, name: needsName ? name.trim() : undefined },
+      {
+        token: token as string,
+        password,
+        name: needsName ? name.trim() : undefined,
+        parent_name: parentName.trim(),
+        parent_phone: parentPhone.trim(),
+        parent_relation: parentRelation,
+        terms_accepted: terms,
+      },
       { onSuccess: () => router.replace('/(student)') },
     );
   };
@@ -120,23 +149,77 @@ export default function InviteAcceptScreen() {
             onChangeText={setName}
             placeholder={t('invite.name_placeholder')}
             placeholderTextColor={colors.textTertiary}
-            style={{ ...field, marginBottom: spacing.lg, borderColor: name ? colors.brand : colors.borderStrong }}
+            style={{ ...field, marginBottom: nameHasLatin ? spacing.xs : spacing.lg, borderColor: nameHasLatin ? colors.danger : name ? colors.brand : colors.borderStrong }}
           />
+          {nameHasLatin ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>{t('auth.name_arabic_only')}</Text>
+          ) : null}
         </>
       )}
 
-      <Text style={label}>{t('invite.password')}</Text>
+      {/* Parent details — same as a normal signup. */}
+      <Text style={label}>{t('auth.parent_name')}</Text>
       <TextInput
+        value={parentName}
+        onChangeText={setParentName}
+        placeholder={t('auth.parent_name_example')}
+        placeholderTextColor={colors.textTertiary}
+        style={{ ...field, marginBottom: parentNameHasLatin ? spacing.xs : spacing.lg, borderColor: parentNameHasLatin ? colors.danger : parentName ? colors.brand : colors.borderStrong }}
+      />
+      {parentNameHasLatin ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>{t('auth.name_arabic_only')}</Text>
+      ) : null}
+
+      <Text style={label}>{t('auth.parent_phone')}</Text>
+      <TextInput
+        value={parentPhone}
+        onChangeText={setParentPhone}
+        keyboardType="phone-pad"
+        autoCapitalize="none"
+        placeholder="01000000000"
+        placeholderTextColor={colors.textTertiary}
+        style={{ ...field, marginBottom: spacing.lg, borderColor: parentPhone ? colors.brand : colors.borderStrong }}
+      />
+
+      <Text style={label}>{t('auth.parent_relation')}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg }}>
+        {RELATIONS.map((rel) => {
+          const on = parentRelation === rel;
+          return (
+            <TouchableOpacity
+              key={rel}
+              onPress={() => setParentRelation(rel)}
+              activeOpacity={0.75}
+              style={{ minHeight: 48, justifyContent: 'center', paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radius.md, backgroundColor: on ? colors.brandTint : colors.surfaceSunken, borderWidth: 1.5, borderColor: on ? colors.brand : colors.borderStrong }}
+            >
+              <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: on ? colors.brand : colors.textSecondary }}>{t(`auth.${rel}`)}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <Text style={label}>{t('invite.password')}</Text>
+      <PasswordInput
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
         placeholder="••••••••"
         placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.xs, borderColor: password ? colors.brand : colors.borderStrong }}
+        style={{ ...field, marginBottom: spacing.lg, borderColor: password ? colors.brand : colors.borderStrong }}
       />
-      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.xxl }}>
-        {t('invite.password_hint')}
-      </Text>
+
+      <Text style={label}>{t('auth.confirm_password')}</Text>
+      <PasswordInput
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        placeholder="••••••••"
+        placeholderTextColor={colors.textTertiary}
+        style={{ ...field, marginBottom: confirmPassword && password !== confirmPassword ? spacing.xs : spacing.lg, borderColor: confirmPassword ? (confirmPassword === password ? colors.success : colors.danger) : colors.borderStrong }}
+      />
+      {confirmPassword && password !== confirmPassword ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>{t('auth.password_mismatch')}</Text>
+      ) : null}
+
+      <TermsConsentRow role="student" checked={terms} onToggle={setTerms} />
 
       <TouchableOpacity
         onPress={submit}

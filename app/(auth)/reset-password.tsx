@@ -8,6 +8,7 @@ import { colors, spacing, radius, gradients, control } from '@/theme/index';
 import { useResetPassword, useForgotPassword } from '@/hooks/useAuth';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { AuthScaffold } from '@/components/auth/AuthScaffold';
 
 const label = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm };
@@ -76,10 +77,9 @@ export default function ResetPasswordScreen() {
       />
 
       <Text style={label}>{t('auth.new_password')}</Text>
-      <TextInput
+      <PasswordInput
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
         placeholder="••••••••"
         placeholderTextColor={colors.textTertiary}
         style={{ ...field, marginBottom: spacing.xs, borderColor: password ? colors.brand : colors.borderStrong }}

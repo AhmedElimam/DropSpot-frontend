@@ -37,6 +37,9 @@ export default function Reconcile() {
   const [rejected, setRejected] = useState<OfflineScan[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [oldestPending, setOldestPending] = useState<string | null>(null);
+  // Passive confirmation (§7): how many scans auto-sync uploaded since last dismissed.
+  const autoSynced = useOfflineStore((s) => s.autoSynced);
+  const dismissAutoSynced = useOfflineStore((s) => s.dismissAutoSynced);
   // Today's cached schedule (Part 2): offline fallback for session hints, and the
   // grade source for Part 1's grade-aware bucket split. Null if stale/absent.
   const [cachedSessions, setCachedSessions] = useState<TeacherSession[]>([]);
@@ -95,6 +98,20 @@ export default function Reconcile() {
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('teacher.reconcile_subtitle')}</Text>
         </View>
       </LinearGradient>
+
+      {/* §7: passive, DISMISSIBLE confirmation that attendance was recorded on the
+          teacher's behalf. The records are audit-logged regardless, so dismissing loses nothing. */}
+      {autoSynced > 0 ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.successLight, borderBottomWidth: 1, borderBottomColor: colors.success, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
+          <Icon name="success" size={18} color={colors.success} />
+          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.successText }}>
+            {t('teacher.auto_synced_notice', { count: autoSynced })}
+          </Text>
+          <TouchableOpacity onPress={dismissAutoSynced} hitSlop={10} accessibilityRole="button">
+            <Icon name="close" size={18} color={colors.successText} />
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {buckets === null ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl4 }} />

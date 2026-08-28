@@ -34,8 +34,8 @@ export function useParentBillingStatus() {
 export function useSubmitPaymentProof() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ invoiceId, imageUri, referenceNumber }: { invoiceId: string; imageUri: string; referenceNumber: string }) =>
-      submitPaymentProof(invoiceId, imageUri, referenceNumber),
+    mutationFn: ({ invoiceId, imageUri }: { invoiceId: string; imageUri: string }) =>
+      submitPaymentProof(invoiceId, imageUri),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['invoices'] }),
   });
 }

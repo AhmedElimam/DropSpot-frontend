@@ -244,6 +244,7 @@ export async function syncOfflineBatch(
   sessionInstanceId: number,
   scans: { card_code: string; scanned_at: string }[],
   expectedTeacherId?: number | null,
+  auto = false,
 ): Promise<OfflineBatchResponse> {
   const { data } = await client.post('/checkin/offline-batch', {
     session_instance_id: sessionInstanceId,
@@ -252,6 +253,9 @@ export async function syncOfflineBatch(
     // chosen session belongs to a different teacher, so a switched context can
     // never misfile a batch scanned for someone else (§4).
     ...(expectedTeacherId ? { expected_teacher_id: expectedTeacherId } : {}),
+    // Window-bounded automatic sync: the client attributed these unambiguously
+    // (exactly-one-window) with no human in the loop → tagged offline_auto server-side.
+    ...(auto ? { auto: true } : {}),
   });
   return (data.data ?? data) as OfflineBatchResponse;
 }

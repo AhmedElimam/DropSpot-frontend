@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuthStore } from '@/stores/authStore';
@@ -165,7 +166,7 @@ export default function TeacherAssistants() {
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, gap: spacing.sm }}>
             <TextInput value={cFirst} onChangeText={setCFirst} placeholder="اسم المساعد" placeholderTextColor={colors.textTertiary} style={field} />
             <TextInput value={cPhone} onChangeText={setCPhone} placeholder="رقم الهاتف" placeholderTextColor={colors.textTertiary} keyboardType="phone-pad" style={field} />
-            <TextInput value={cPass} onChangeText={setCPass} placeholder="كلمة المرور (6 أحرف على الأقل)" placeholderTextColor={colors.textTertiary} secureTextEntry style={field} />
+            <PasswordInput value={cPass} onChangeText={setCPass} placeholder="كلمة المرور (6 أحرف على الأقل)" placeholderTextColor={colors.textTertiary} style={field} />
             {createErr ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger }}>{createErr}</Text> : null}
             <TouchableOpacity onPress={submitCreate} disabled={create.isPending} activeOpacity={0.85} style={{ minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginTop: spacing.xs }}>
               {create.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>إنشاء</Text>}

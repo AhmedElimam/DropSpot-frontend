@@ -10,6 +10,7 @@ import { useChangePassword } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 
 const label = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm };
 const field = {
@@ -98,20 +99,18 @@ export default function ChangePasswordScreen() {
             )}
 
             <Text style={label}>{t('auth.current_password')}</Text>
-            <TextInput
+            <PasswordInput
               value={current}
               onChangeText={setCurrent}
-              secureTextEntry
               placeholder="••••••••"
               placeholderTextColor={colors.textTertiary}
               style={{ ...field, marginBottom: spacing.lg, borderColor: current ? colors.brand : colors.borderStrong }}
             />
 
             <Text style={label}>{t('auth.new_password')}</Text>
-            <TextInput
+            <PasswordInput
               value={next}
               onChangeText={setNext}
-              secureTextEntry
               placeholder="••••••••"
               placeholderTextColor={colors.textTertiary}
               style={{ ...field, marginBottom: spacing.xs, borderColor: next ? colors.brand : colors.borderStrong }}
@@ -121,10 +120,9 @@ export default function ChangePasswordScreen() {
             </Text>
 
             <Text style={label}>{t('auth.confirm_password')}</Text>
-            <TextInput
+            <PasswordInput
               value={confirm}
               onChangeText={setConfirm}
-              secureTextEntry
               placeholder="••••••••"
               placeholderTextColor={colors.textTertiary}
               style={{ ...field, marginBottom: mismatch ? spacing.xs : spacing.xxl, borderColor: confirm ? (mismatch ? colors.danger : colors.success) : colors.borderStrong }}

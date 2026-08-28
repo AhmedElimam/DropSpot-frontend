@@ -56,8 +56,15 @@ export function useAcceptInvite() {
   const setTokens = useAuthStore((s) => s.setTokens);
 
   return useMutation({
-    mutationFn: (payload: { token: string; password: string; name?: string }) =>
-      acceptStudentInvite(payload.token, { password: payload.password, name: payload.name }),
+    mutationFn: (payload: {
+      token: string; password: string; name?: string;
+      parent_name: string; parent_phone: string; parent_relation: string; terms_accepted: boolean;
+    }) =>
+      acceptStudentInvite(payload.token, {
+        password: payload.password, name: payload.name,
+        parent_name: payload.parent_name, parent_phone: payload.parent_phone,
+        parent_relation: payload.parent_relation, terms_accepted: payload.terms_accepted,
+      }),
     onSuccess: async (data) => {
       const role = resolveRole(data.user);
       await setTokens(data.tokens.access_token, data.tokens.refresh_token);

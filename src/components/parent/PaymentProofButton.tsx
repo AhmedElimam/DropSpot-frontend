@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, Image, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Image, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, spacing, radius, fonts } from '@/theme/index';
@@ -17,12 +17,10 @@ export function PaymentProofButton({ invoice }: { invoice: Invoice }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [reference, setReference] = useState('');
   const submit = useSubmitPaymentProof();
 
   const reset = () => {
     setImageUri(null);
-    setReference('');
     submit.reset();
   };
 
@@ -48,15 +46,14 @@ export function PaymentProofButton({ invoice }: { invoice: Invoice }) {
   };
 
   const onSubmit = () => {
-    if (!imageUri || !reference.trim()) return;
+    if (!imageUri) return;
     submit.mutate(
-      { invoiceId: invoice.id, imageUri, referenceNumber: reference.trim() },
+      { invoiceId: invoice.id, imageUri },
       {
         onSuccess: () => {
           Alert.alert('', t('invoices.proof_submitted'));
           close();
         },
-        // Surface the server message — e.g. a duplicate reference is rejected here.
         onError: (e: any) => Alert.alert('', e?.response?.data?.message || t('invoices.proof_failed')),
       }
     );
@@ -114,23 +111,6 @@ export function PaymentProofButton({ invoice }: { invoice: Invoice }) {
                 )}
               </View>
 
-              {/* Transaction reference — required, rejected server-side if reused. */}
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.xs }}>
-                {t('invoices.reference_label')}
-              </Text>
-              <TextInput
-                value={reference}
-                onChangeText={setReference}
-                placeholder={t('invoices.reference_placeholder')}
-                placeholderTextColor={colors.textTertiary}
-                maxLength={100}
-                style={{
-                  borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
-                  paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md,
-                  fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right',
-                }}
-              />
-
               {/* Screenshot picker + preview. */}
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -159,10 +139,10 @@ export function PaymentProofButton({ invoice }: { invoice: Invoice }) {
 
               <TouchableOpacity
                 activeOpacity={0.8}
-                disabled={!imageUri || !reference.trim() || submit.isPending}
+                disabled={!imageUri || submit.isPending}
                 onPress={onSubmit}
                 style={{
-                  backgroundColor: !imageUri || !reference.trim() || submit.isPending ? colors.border : colors.primary,
+                  backgroundColor: !imageUri || submit.isPending ? colors.border : colors.primary,
                   borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.sm,
                 }}
               >

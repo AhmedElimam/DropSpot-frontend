@@ -9,6 +9,7 @@ import { colors, spacing, radius, gradients, control } from '@/theme/index';
 import { useLogin } from '@/hooks/useAuth';
 import { router } from 'expo-router';
 import { Icon } from '@/components/ui/Icon';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { AuthScaffold } from '@/components/auth/AuthScaffold';
 
 const label = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm };
@@ -76,10 +77,9 @@ export default function LoginScreen() {
       />
 
       <Text style={label}>{t('auth.password')}</Text>
-      <TextInput
+      <PasswordInput
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
         placeholder="••••••••"
         placeholderTextColor={colors.textTertiary}
         style={{ ...field, marginBottom: spacing.md, borderColor: password ? colors.brand : colors.borderStrong }}

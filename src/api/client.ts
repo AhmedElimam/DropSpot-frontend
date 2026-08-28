@@ -91,6 +91,39 @@ client.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Single-flight token refresh. When the access token has expired, an app open/resume
+// fires several requests at once and they ALL 401. Without a shared refresh, each one
+// POSTs /auth/refresh with the same refresh token; the server rotates (revokes) it on
+// the first call, so every other concurrent refresh replays a now-revoked token, fails,
+// and forces a logout. Funnelling every 401 through ONE in-flight refresh promise means
+// the rotated token is used exactly once — no race, no spurious sign-out.
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const rt = await SecureStore.getItemAsync('refresh_token');
+  if (!rt) return null;
+  // Refresh against the SAME effective base as the request (override or bundled).
+  const refreshBase = getApiBaseOverride() ?? BUNDLED_API_URL;
+  const { data } = await axios.post(`${refreshBase}/auth/refresh`, { refresh_token: rt });
+  const attrs = data?.data?.attributes ?? {};
+  const at = attrs.tokens?.access_token;
+  if (!at) return null;
+  await SecureStore.setItemAsync('access_token', at);
+  // The server ROTATES the refresh token on every refresh (it revokes the one we just
+  // sent). We MUST persist the new one it returns, or the next refresh would replay a
+  // revoked token and force a logout.
+  const newRt = attrs.tokens?.refresh_token;
+  if (newRt) await SecureStore.setItemAsync('refresh_token', newRt);
+  // Propagate any server-recomputed user flags carried on the refresh payload. The app
+  // has no GET /me, so a flag raised AFTER login (e.g. the deferred own-number
+  // verification wall, set by the daily sweep) would otherwise never reach an
+  // already-signed-in session — it would only appear on a fresh login.
+  if (attrs.user) {
+    await useAuthStore.getState().setSession(attrs.user, resolveRole(attrs.user));
+  }
+  return at;
+}
+
 client.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -98,36 +131,24 @@ client.interceptors.response.use(
     if (
       error.response?.status === 401 &&
       !original._retry &&
-      !original.url?.includes('/auth/login')
+      !original.url?.includes('/auth/login') &&
+      !original.url?.includes('/auth/refresh')
     ) {
       original._retry = true;
       try {
-        const rt = await SecureStore.getItemAsync('refresh_token');
-        if (!rt) throw new Error('no refresh');
-        // Refresh against the SAME effective base as the request (override or bundled).
-        const refreshBase = getApiBaseOverride() ?? BUNDLED_API_URL;
-        const { data } = await axios.post(`${refreshBase}/auth/refresh`, { refresh_token: rt });
-        const attrs = data?.data?.attributes ?? {};
-        const at = attrs.tokens.access_token;
-        await SecureStore.setItemAsync('access_token', at);
-        // The server ROTATES the refresh token on every refresh (it revokes the one
-        // we just sent). We MUST persist the new one it returns, or the next refresh
-        // would replay a revoked token and force a logout. Missing this line was
-        // silently signing everyone out ~one access-token lifetime after login.
-        const newRt = attrs.tokens.refresh_token;
-        if (newRt) await SecureStore.setItemAsync('refresh_token', newRt);
-        // Propagate any server-recomputed user flags carried on the refresh payload.
-        // The app has no GET /me, so a flag raised AFTER login (e.g. the deferred
-        // own-number verification wall, set by the daily sweep) would otherwise never
-        // reach an already-signed-in session — it would only appear on a fresh login.
-        // Refreshing the stored user here lets it engage on the next token refresh.
-        if (attrs.user) {
-          await useAuthStore.getState().setSession(attrs.user, resolveRole(attrs.user));
+        // Join the in-flight refresh if one is already running; otherwise start it.
+        // Reset the shared slot once it settles so a later expiry refreshes again.
+        if (!refreshPromise) {
+          refreshPromise = refreshAccessToken().finally(() => {
+            refreshPromise = null;
+          });
         }
+        const at = await refreshPromise;
+        if (!at) throw new Error('no refresh');
         original.headers.Authorization = `Bearer ${at}`;
         return client(original);
       } catch (e) {
-        // Refresh failed — session is over; fall through to logout.
+        // Refresh genuinely failed (no/expired refresh token) — session is over.
         await useAuthStore.getState().logout();
         return Promise.reject(error);
       }
