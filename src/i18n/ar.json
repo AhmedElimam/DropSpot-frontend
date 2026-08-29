@@ -1222,6 +1222,8 @@
     "terminate_confirm": "إنهاء التسجيل",
     "terminate_failed": "تعذّر إنهاء التسجيل",
     "transfer_title": "نقل إلى مجموعة أخرى",
+    "transfer_action": "نقل",
+    "terminate_action": "إنهاء",
     "transfer_from": "النقل من «{{course}}» — اختر المقرر الجديد:",
     "transfer_no_courses": "لا توجد مقررات أخرى للنقل إليها",
     "transfer_confirm": "نقل رغم اختلاف الصف",

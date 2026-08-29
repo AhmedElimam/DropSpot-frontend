@@ -265,26 +265,38 @@ export default function StudentDetailScreen() {
             </TouchableOpacity>
           </Section>
 
-          {/* Courses */}
+          {/* Courses — one row per enrollment with clearly LABELED actions (transfer to
+              another of the teacher's courses / terminate). Previously these were tiny
+              unlabeled icons inside a pill and were hard to find. */}
           {s.courses.length > 0 ? (
             <Section title={t('teacher.student_courses')}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              <View style={{ gap: spacing.sm }}>
                 {s.courses.map((c) => (
-                  <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{c.name ?? '—'}</Text>
+                  <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+                    <Icon name="book" size={16} color={colors.brand} outline />
+                    <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>{c.name ?? '—'}</Text>
                     {c.enrollment_id && canManage ? (
                       <TouchableOpacity
                         onPress={() => setTransferFor({ enrollmentId: c.enrollment_id!, courseId: c.id, courseName: c.name })}
                         accessibilityRole="button"
                         accessibilityLabel={t('teacher.transfer_title')}
-                        hitSlop={8}
+                        activeOpacity={0.85}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.sm }}
                       >
-                        <Icon name="send" size={15} color={colors.brand} />
+                        <Icon name="transfer" size={16} color={colors.brand} />
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('teacher.transfer_action')}</Text>
                       </TouchableOpacity>
                     ) : null}
-                    {c.enrollment_id ? (
-                      <TouchableOpacity onPress={() => confirmTerminate(c.name, c.enrollment_id)} accessibilityRole="button" hitSlop={8}>
-                        <Icon name="trash" size={15} color={colors.danger} />
+                    {c.enrollment_id && canManage ? (
+                      <TouchableOpacity
+                        onPress={() => confirmTerminate(c.name, c.enrollment_id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('teacher.terminate_title')}
+                        activeOpacity={0.85}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.dangerLight, borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.sm }}
+                      >
+                        <Icon name="trash" size={14} color={colors.danger} />
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>{t('teacher.terminate_action')}</Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>

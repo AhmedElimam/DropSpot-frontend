@@ -33,6 +33,7 @@ const ICON_MAP = {
   card: 'id-card',
   scan: 'qr-code',
   send: 'send',
+  transfer: 'swap-horizontal',
   add: 'add',
   back: 'chevron-back',
   forward: 'chevron-forward',
