@@ -212,7 +212,10 @@ export default function InviteLink() {
                   <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: courseId === Number(c.id) ? colors.brand : colors.border, alignItems: 'center', justifyContent: 'center' }}>
                     {courseId === Number(c.id) ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand }} /> : null}
                   </View>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` — ${c.grade_name}` : ''}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` — ${c.grade_name}` : ''}</Text>
+                    {c.schedule_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{c.schedule_label}</Text> : null}
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>

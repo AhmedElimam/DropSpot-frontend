@@ -64,20 +64,31 @@ export async function changePassword(current_password: string, password: string)
   await client.post('/auth/change-password', { current_password, password });
 }
 
+export type ParentRelationship = 'father' | 'mother' | 'guardian';
+
 export interface ParentSetupInfo {
   name: string;
   phone_number: string;
+  relationship?: ParentRelationship | null;
   already_set: boolean;
 }
 
-/** First-time parent setup: read-only details (phone + name) for the token. */
+/** First-time parent setup: details (phone read-only; name + relation editable). */
 export async function getParentSetup(token: string): Promise<ParentSetupInfo> {
   const { data } = await client.get(`/parent-setup/${token}`);
   return extractAttrs(data.data ?? data);
 }
 
-/** Set the parent's password via the setup token; returns a logged-in session. */
-export async function setParentPassword(token: string, password: string, terms_accepted: boolean): Promise<AuthResponse> {
-  const { data } = await client.post(`/parent-setup/${token}`, { password, terms_accepted });
+export interface ParentSetupPayload {
+  password: string;
+  terms_accepted: boolean;
+  /** Optional — the parent may set/modify their own name + relation at setup. */
+  name?: string;
+  relationship?: ParentRelationship;
+}
+
+/** Set the parent's password (+ optional name/relation) via the setup token. */
+export async function setParentPassword(token: string, payload: ParentSetupPayload): Promise<AuthResponse> {
+  const { data } = await client.post(`/parent-setup/${token}`, payload);
   return extractAttrs(data.data ?? data);
 }

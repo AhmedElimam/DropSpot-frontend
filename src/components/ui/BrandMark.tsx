@@ -9,19 +9,19 @@ const ASPECT = 1.14;
 interface BrandMarkProps {
   /** Height of the tile (with tile) or of the logo itself (tile=false), in px. */
   size?: number;
-  /** Rounded white tile behind the mark. Default ON — the brand emblem is dark
-   *  navy and both call sites sit on the dark hero, so it needs a light backing
-   *  to stay visible. Pass `tile={false}` on a light surface. */
+  /** Opt-in rounded white tile behind the mark. Default OFF — the in-app asset is
+   *  the WHITE emblem, which reads directly on the dark hero with no background. */
   tile?: boolean;
 }
 
 /**
- * The app's emblem as a small, reusable brand mark. Used in the dark hero
- * headers of the role home screens (and the auth hero) so the brand is present
- * in-app, not only on the launcher icon / splash. The emblem is dark navy, so it
- * renders on a light rounded tile by default (visible on the dark hero).
+ * The app's emblem as a small, reusable brand mark. Used in the dark hero headers
+ * of the role home screens (and the auth hero) so the brand is present in-app, not
+ * only on the launcher icon / splash. The in-app `brand-logo.png` is the WHITE
+ * variant of the emblem (the file the launcher icon uses is navy-on-white), so it
+ * renders directly on the dark hero — no tile.
  */
-export function BrandMark({ size = 44, tile = true }: BrandMarkProps) {
+export function BrandMark({ size = 44, tile = false }: BrandMarkProps) {
   const logoHeight = tile ? Math.round(size * 0.74) : size;
   const logo = (
     <Image

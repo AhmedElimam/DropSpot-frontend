@@ -1,7 +1,7 @@
 import { forwardRef, useState } from 'react';
 import { View, TextInput, TouchableOpacity, type TextInputProps } from 'react-native';
 import { Icon } from './Icon';
-import { colors, spacing, control } from '@/theme/index';
+import { colors, spacing } from '@/theme/index';
 
 /**
  * Password field with a show/hide eye toggle. Drop-in replacement for a bare
@@ -30,10 +30,14 @@ export const PasswordInput = forwardRef<TextInput, TextInputProps>(
           style={{
             position: 'absolute',
             left: spacing.sm,
+            // Span the field's full height and centre, then lift a few px: the input's
+            // text sits optically above the box centre (Android especially), so a pure
+            // centre reads slightly low against the glyphs.
             top: 0,
-            height: control.minHeight,
+            bottom: 0,
             justifyContent: 'center',
             paddingHorizontal: 6,
+            transform: [{ translateY: -3 }],
           }}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"

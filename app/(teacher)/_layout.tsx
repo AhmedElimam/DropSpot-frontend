@@ -223,6 +223,8 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="reconcile" options={{ href: null }} />
       {/* Enroll-by-card (invite student) — pushed from Home; full screen, no bar. */}
       <Tabs.Screen name="enroll" options={{ href: null }} />
+      {/* Fast student recording (name + parent phone) — pushed from Home, not a tab. */}
+      <Tabs.Screen name="record-student" options={{ href: null }} />
       <Tabs.Screen name="revision-create" options={{ href: null }} />
       {/* One-off special/exam session creator (normal mode) — pushed from Manage. */}
       <Tabs.Screen name="exam-create" options={{ href: null }} />

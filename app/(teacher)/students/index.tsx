@@ -162,7 +162,7 @@ export default function TeacherStudents() {
           </View>
 
           {/* Course filter chips — the teacher scopes by "which of my classes". */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }} style={{ flexGrow: 0 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.sm, alignItems: 'center' }} style={{ flexGrow: 0 }}>
             <Chip label={t('teacher.all_courses')} active={courseId === null} onPress={() => setCourseId(null)} />
             {(courses ?? []).map((c) => (
               <Chip key={c.id} label={c.name} active={courseId === c.id} onPress={() => setCourseId(c.id)} />
@@ -217,7 +217,7 @@ export default function TeacherStudents() {
           )}
 
           {/* Session status chips */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }} style={{ flexGrow: 0 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.sm, alignItems: 'center' }} style={{ flexGrow: 0 }}>
             <Chip label={t('teacher.status_all')} active={status === null} onPress={() => setStatus(null)} />
             {(['scheduled', 'completed', 'cancelled'] as const).map((s) => (
               <Chip key={s} label={t(`session.${s}`)} active={status === s} onPress={() => setStatus(s)} />

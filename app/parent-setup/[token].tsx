@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, gradients, control } from '@/theme/index';
-import { getParentSetup } from '@/api/auth';
+import { getParentSetup, type ParentRelationship } from '@/api/auth';
 import { useParentSetup } from '@/hooks/useAuth';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
@@ -33,6 +33,8 @@ export default function ParentSetupScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
   const [password, setPassword] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [name, setName] = useState('');
+  const [relationship, setRelationship] = useState<ParentRelationship | null>(null);
 
   const { data: info, isLoading, isError } = useQuery({
     queryKey: ['parent-setup', token],
@@ -41,12 +43,21 @@ export default function ParentSetupScreen() {
     retry: false,
   });
 
+  // Pre-fill the editable name + relation once the token details arrive.
+  useEffect(() => {
+    if (info) {
+      setName(info.name ?? '');
+      setRelationship(info.relationship ?? null);
+    }
+  }, [info]);
+
   const setupMutation = useParentSetup();
 
+  const nameValid = name.trim().length >= 2;
   const submit = () => {
-    if (!token || password.length < 6 || !termsAccepted) return;
+    if (!token || password.length < 6 || !termsAccepted || !nameValid) return;
     setupMutation.mutate(
-      { token: token as string, password, terms_accepted: termsAccepted },
+      { token: token as string, password, terms_accepted: termsAccepted, name: name.trim(), ...(relationship ? { relationship } : {}) },
       { onSuccess: () => router.replace('/(parent)') },
     );
   };
@@ -84,13 +95,37 @@ export default function ParentSetupScreen() {
         </View>
       )}
 
-      {/* Read-only: the parent confirms who they are, but can't edit it. */}
+      {/* Editable: the parent sets or corrects their own name. */}
       <Text style={label}>{t('setup.name')}</Text>
       <TextInput
-        value={info.name}
-        editable={false}
-        style={{ ...field, marginBottom: spacing.lg, borderColor: colors.border, backgroundColor: colors.surfaceSunken, color: colors.textSecondary }}
+        value={name}
+        onChangeText={setName}
+        placeholder={t('setup.name')}
+        placeholderTextColor={colors.textTertiary}
+        style={{ ...field, marginBottom: spacing.lg, borderColor: name ? colors.brand : colors.borderStrong }}
       />
+
+      {/* Relationship — optional, tap to toggle. */}
+      <Text style={label}>صلة القرابة</Text>
+      <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
+        {([['father', 'أب'], ['mother', 'أم'], ['guardian', 'ولي أمر']] as const).map(([value, ar]) => {
+          const active = relationship === value;
+          return (
+            <TouchableOpacity
+              key={value}
+              onPress={() => setRelationship(active ? null : value)}
+              activeOpacity={0.85}
+              style={{
+                flex: 1, paddingVertical: spacing.md, alignItems: 'center', borderRadius: radius.lg, borderWidth: 1.5,
+                borderColor: active ? colors.brand : colors.borderStrong,
+                backgroundColor: active ? colors.brandTint : colors.surface,
+              }}
+            >
+              <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: active ? colors.brand : colors.textSecondary }}>{ar}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       <Text style={label}>{t('setup.phone')}</Text>
       <TextInput
@@ -116,9 +151,9 @@ export default function ParentSetupScreen() {
 
       <TouchableOpacity
         onPress={submit}
-        disabled={password.length < 6 || !termsAccepted || setupMutation.isPending}
+        disabled={password.length < 6 || !termsAccepted || !nameValid || setupMutation.isPending}
         activeOpacity={0.85}
-        style={{ borderRadius: radius.lg, overflow: 'hidden', opacity: password.length < 6 || !termsAccepted ? 0.5 : 1 }}
+        style={{ borderRadius: radius.lg, overflow: 'hidden', opacity: password.length < 6 || !termsAccepted || !nameValid ? 0.5 : 1 }}
       >
         <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
           style={{ minHeight: control.minHeight, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' }}>

@@ -139,8 +139,9 @@ export default function TeacherManage() {
             any weekly slot, then mark attendance + enter exam grades. Always on. */}
         <Row icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/exam-create' as Href)} />
 
-        {/* Revision engine (separate subsystem) — only when Revision Mode is on. */}
-        {reviseOn !== false ? (
+        {/* Revision engine — gated on the SUPER-ADMIN feature flag first (fails safe to
+            hidden until an admin enables it), then the teacher's own show/hide switch. */}
+        {flags?.revise_mode && reviseOn !== false ? (
           <Row icon="book" title={t('teacher.revision_mode_row')} sub={t('teacher.revision_mode_row_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/revisions' as Href)} />
         ) : null}
 
@@ -148,9 +149,6 @@ export default function TeacherManage() {
         <Row icon="book" title={t('teacher.courses_title')} sub={t('teacher.courses_manage_hint')} onPress={() => router.push('/(teacher)/courses' as Href)} />
         {!isAssistant ? (
           <Row icon="add" title={t('teacher.create_course')} sub={t('teacher.create_course_sub')} onPress={() => router.push('/(teacher)/courses/create' as Href)} />
-        ) : null}
-        {canStudents ? (
-          <Row icon="add" title="تسجيل سريع للطلاب" sub="أضِف الطلاب بالاسم ورقم ولي الأمر — يُفعّلون حساباتهم لاحقًا" tint={colors.brand} onPress={() => router.push('/(teacher)/record-student' as Href)} />
         ) : null}
         {canStudents ? (
           <Row icon="phone" title={t('invite_phone.title')} sub={t('invite_phone.manage_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/invite-phone' as Href)} />

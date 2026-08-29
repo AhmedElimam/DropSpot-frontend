@@ -17,6 +17,8 @@ export interface CourseSummary {
   phone_checkin_active: boolean;
   slot_count: number;
   upcoming_count: number;
+  /** Weekly schedule label — weekday + start time, e.g. «الأحد 9:00 AM، الثلاثاء 5:00 PM». */
+  schedule_label?: string;
 }
 
 export interface CourseSchedule {

@@ -19,9 +19,19 @@ import { ensureApiBaseHydrated, getApiBaseOverride } from '@/api/apiBase';
  * `php artisan serve --host 0.0.0.0 --port 8000` and keep the device on the same
  * Wi-Fi as the dev machine.
  */
+/** Production API — every released (non-dev) build talks to this. */
+const PRODUCTION_API_URL = 'https://drosspot.app/api/v1';
+
 function resolveApiUrl(): string {
+  // An explicit override always wins (staging, a custom backend, etc.).
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  // Any release build (store/TestFlight/APK) → production. The dev LAN/emulator
+  // auto-detection below only applies while running under Metro (__DEV__).
+  if (!__DEV__) {
+    return PRODUCTION_API_URL;
   }
 
   const hostUri =
@@ -99,12 +109,29 @@ client.interceptors.request.use(async (config) => {
 // the rotated token is used exactly once — no race, no spurious sign-out.
 let refreshPromise: Promise<string | null> | null = null;
 
+/**
+ * Thrown when the refresh itself couldn't complete for a NON-auth reason (network
+ * down, timeout, 5xx). The session is NOT over — we must not sign the user out;
+ * the next request simply retries. Distinct from a genuine auth failure (missing or
+ * server-rejected refresh token), which returns null and DOES end the session.
+ */
+class TransientRefreshError extends Error {}
+
 async function refreshAccessToken(): Promise<string | null> {
   const rt = await SecureStore.getItemAsync('refresh_token');
-  if (!rt) return null;
+  if (!rt) return null; // no refresh token → session genuinely over
   // Refresh against the SAME effective base as the request (override or bundled).
   const refreshBase = getApiBaseOverride() ?? BUNDLED_API_URL;
-  const { data } = await axios.post(`${refreshBase}/auth/refresh`, { refresh_token: rt });
+  let data: any;
+  try {
+    ({ data } = await axios.post(`${refreshBase}/auth/refresh`, { refresh_token: rt }, { timeout: 30000 }));
+  } catch (e: any) {
+    const status = e?.response?.status;
+    // The server explicitly rejected the refresh token → session over.
+    if (status === 401 || status === 403) return null;
+    // Network / timeout / 5xx → transient; keep the session and let a later request retry.
+    throw new TransientRefreshError();
+  }
   const attrs = data?.data?.attributes ?? {};
   const at = attrs.tokens?.access_token;
   if (!at) return null;
@@ -148,7 +175,13 @@ client.interceptors.response.use(
         original.headers.Authorization = `Bearer ${at}`;
         return client(original);
       } catch (e) {
-        // Refresh genuinely failed (no/expired refresh token) — session is over.
+        // A transient refresh failure (network/timeout/5xx) must NOT sign the user
+        // out — that was the spurious "token auto-expired" logout on flaky networks.
+        // Keep the session; the next request will retry the refresh.
+        if (e instanceof TransientRefreshError) {
+          return Promise.reject(error);
+        }
+        // Genuine auth failure (no refresh token, or the server rejected it) — over.
         await useAuthStore.getState().logout();
         return Promise.reject(error);
       }

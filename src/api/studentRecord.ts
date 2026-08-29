@@ -1,10 +1,19 @@
 import client from './client';
 
 /** Fast door-side recording — name + parent phone → dormant student (activates later). */
+export type ParentRelationship = 'father' | 'mother' | 'guardian';
+
 export interface RecordStudentPayload {
   student_name: string;
   parent_phone: string;
   student_phone?: string | null;
+  /** Optional — the parent can set/modify these at setup before first login. */
+  parent_name?: string;
+  relationship?: ParentRelationship;
+  /** Booking down-payment (دفعة): explicit amount (null = waive); omit for default. */
+  down_payment_amount?: number | null;
+  down_payment_paid?: number | null;
+  booking_secures?: 'session' | 'booklet' | 'flat';
   course_id: number;
   dedupe_decision?: 'new' | 'link';
   link_student_id?: number;
@@ -22,6 +31,23 @@ export interface RecordStudentResult {
 export interface DedupeMatch {
   id: number;
   name: string;
+}
+
+/**
+ * QR-style offer (server code EXISTING_STUDENT, HTTP 409): the entered STUDENT phone
+ * already belongs to a student. `is_own` = one of THIS teacher's students (safe to
+ * show their current group); false = another teacher's student (name/grade/code only,
+ * their group is never named). "Enroll here" links the student into the chosen course.
+ */
+export interface ExistingStudentOffer {
+  student_id: number;
+  name: string;
+  grade: string | null;
+  student_code: string | null;
+  is_own: boolean;
+  current_course_name: string | null;
+  target_course_name: string;
+  already_in_target: boolean;
 }
 
 export async function recordStudent(payload: RecordStudentPayload): Promise<RecordStudentResult> {

@@ -12,6 +12,7 @@ import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { SupportContact } from '@/components/SupportContact';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
 import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 // Minimal Settings tab. Real per-category notification toggles are deferred until
 // a push-delivery pipeline exists to gate (there is nothing to switch on/off yet);
@@ -23,6 +24,7 @@ export default function TeacherSettings() {
   const logout = useLogout();
   const isAssistant = user?.user_type_id === 6;
   const { data: reviseOn } = useReviseMode();
+  const { data: flags } = useFeatureFlags();
   const setRevise = useSetReviseMode();
 
   const row = (icon: IconName, label: string, sub: string, onPress: () => void) => (
@@ -79,8 +81,9 @@ export default function TeacherSettings() {
           {/* The teacher's own brand logo (shown to parents). Teacher-only. */}
           {!isAssistant ? <TeacherLogoRow /> : null}
 
-          {/* Revision / special-session switch — teacher & assistant; gates the
-              special/exam-session entry across the app. */}
+          {/* Revision / special-session switch — teacher & assistant. Shown only when
+              the super-admin has enabled the revise_mode feature flag. */}
+          {flags?.revise_mode ? (
           <View
             style={{
               flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,
@@ -103,6 +106,7 @@ export default function TeacherSettings() {
               thumbColor="#fff"
             />
           </View>
+          ) : null}
 
           {!isAssistant ? row('children', t('assistants.title'), t('assistants.subtitle'), () => router.push('/(teacher)/assistants' as Href)) : null}
           {row('bell', t('teacher.notifications'), t('teacher.notifications_hint'), () => Linking.openSettings())}

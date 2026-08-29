@@ -153,6 +153,25 @@ export default function TeacherHome() {
               <Icon name="back" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           ) : null}
+          {/* Fast student recording — name + parent phone, activate later. Same ability as enroll. */}
+          {can(ABILITY.MANAGE_STUDENTS) ? (
+            <TouchableOpacity
+              onPress={() => router.push('/(teacher)/record-student' as Href)}
+              activeOpacity={0.85}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                backgroundColor: colors.surface, borderRadius: radius.xl,
+                borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
+              }}
+            >
+              <Icon name="add" size={24} color={colors.brand} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تسجيل سريع للطلاب</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>أضِف الطلاب بالاسم ورقم ولي الأمر — يُفعّلون حساباتهم لاحقًا</Text>
+              </View>
+              <Icon name="back" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
           {/* Payment collection is financial — NEVER shown to an assistant on mobile. */}
           {!isAssistant ? (
             <TouchableOpacity

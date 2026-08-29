@@ -37,6 +37,12 @@ export default function TeacherCourses() {
       {item.grade_name ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{item.grade_name}</Text>
       ) : null}
+      {item.schedule_label ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+          <Icon name="calendar" size={13} color={colors.textTertiary} outline />
+          <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary }}>{item.schedule_label}</Text>
+        </View>
+      ) : null}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md, flexWrap: 'wrap' }}>
         <Meta icon="children" label={t('teacher.students_count', { count: item.students_count })} />

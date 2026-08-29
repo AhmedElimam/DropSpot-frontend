@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal,
-  KeyboardAvoidingView, Platform, Alert,
+  KeyboardAvoidingView, Platform, Alert, Switch,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,8 +12,14 @@ import { colors, spacing, radius, control, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { isArabicName, isEgyptPhone } from '@/utils/validators';
-import { getInvitationOptions, type InvitationCourseOption } from '@/api/invitation';
-import { recordStudent, orderCardsForNewlyAdded, type DedupeMatch, type RecordStudentPayload } from '@/api/studentRecord';
+import { getInvitationOptions, type InvitationCourseOption, type BookingSecures } from '@/api/invitation';
+import { recordStudent, orderCardsForNewlyAdded, type DedupeMatch, type RecordStudentPayload, type ParentRelationship, type ExistingStudentOffer } from '@/api/studentRecord';
+
+const SECURES: { key: BookingSecures; label: string }[] = [
+  { key: 'session', label: 'الحصص' },
+  { key: 'booklet', label: 'الملزمة' },
+  { key: 'flat', label: 'حجز مبدئي' },
+];
 
 const label = { fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.xs } as const;
 const field = {
@@ -34,12 +40,22 @@ export default function RecordStudent() {
 
   const [courseId, setCourseId] = useState<number | null>(null);
   const [name, setName] = useState('');
+  const [studentPhone, setStudentPhone] = useState('');
   const [parentPhone, setParentPhone] = useState('');
+  const [parentName, setParentName] = useState('');
+  const [relationship, setRelationship] = useState<ParentRelationship | null>(null);
+  // Booking down-payment (دفعة) — per-student, seeded from the teacher's default.
+  const [bookingOn, setBookingOn] = useState(false);
+  const [secures, setSecures] = useState<BookingSecures | null>(null);
+  const [downPayment, setDownPayment] = useState('');
+  const [downPaid, setDownPaid] = useState('');
   const [saving, setSaving] = useState(false);
   const [count, setCount] = useState(0);
   const [enrollmentIds, setEnrollmentIds] = useState<number[]>([]);
   const [flash, setFlash] = useState<string | null>(null);
   const [dedupe, setDedupe] = useState<{ matches: DedupeMatch[]; payload: RecordStudentPayload } | null>(null);
+  // QR-style popup: the entered student phone already exists in the system.
+  const [ownStudent, setOwnStudent] = useState<ExistingStudentOffer | null>(null);
   const [orderingCards, setOrderingCards] = useState(false);
 
   const eligible = useMemo(() => (options?.courses ?? []).filter((c) => c.has_schedule), [options]);
@@ -47,13 +63,30 @@ export default function RecordStudent() {
 
   const nameError = name.trim() !== '' && !isArabicName(name);
   const phoneError = parentPhone.trim() !== '' && !isEgyptPhone(parentPhone);
-  const canSubmit = courseId != null && isArabicName(name.trim()) && isEgyptPhone(parentPhone.trim()) && !saving;
+  // The student's own phone — required: they sign in with it when the app launches.
+  const studentPhoneError = studentPhone.trim() !== '' && !isEgyptPhone(studentPhone);
+  const sameAsParentError =
+    studentPhone.trim() !== '' && parentPhone.trim() !== '' && studentPhone.trim() === parentPhone.trim();
+  const canSubmit =
+    courseId != null &&
+    isArabicName(name.trim()) &&
+    isEgyptPhone(studentPhone.trim()) &&
+    isEgyptPhone(parentPhone.trim()) &&
+    !sameAsParentError &&
+    !saving;
 
   function afterCreated(enrollmentId: number | null) {
     setCount((c) => c + 1);
     if (enrollmentId) setEnrollmentIds((ids) => [...ids, enrollmentId]);
     setName('');
+    setStudentPhone('');
     setParentPhone('');
+    setParentName('');
+    setRelationship(null);
+    // Keep the booking toggle + secures across students of the same course; only the
+    // per-student amounts reset.
+    setDownPayment('');
+    setDownPaid('');
     setFlash(`تم إضافة ${count + 1} طالب`);
     setTimeout(() => setFlash(null), 1800);
     nameRef.current?.focus();
@@ -61,9 +94,22 @@ export default function RecordStudent() {
 
   async function submit(decision?: 'new' | 'link', linkStudentId?: number) {
     if (courseId == null) return;
+    // Down-payment: OFF → explicit waive (send null); ON with an amount → that amount;
+    // ON but blank → omit so the teacher's default applies.
+    const dpProvided = !bookingOn || downPayment.trim() !== '';
     const payload: RecordStudentPayload = {
       student_name: name.trim(),
+      student_phone: studentPhone.trim(),
       parent_phone: parentPhone.trim(),
+      ...(parentName.trim() ? { parent_name: parentName.trim() } : {}),
+      ...(relationship ? { relationship } : {}),
+      ...(dpProvided
+        ? {
+            down_payment_amount: !bookingOn || downPayment.trim() === '' ? null : Number(downPayment),
+            down_payment_paid: !bookingOn || downPaid.trim() === '' ? null : Number(downPaid),
+            booking_secures: secures ?? options?.default_secures,
+          }
+        : {}),
       course_id: courseId,
       ...(decision ? { dedupe_decision: decision } : {}),
       ...(linkStudentId ? { link_student_id: linkStudentId } : {}),
@@ -72,9 +118,14 @@ export default function RecordStudent() {
     try {
       const res = await recordStudent(payload);
       setDedupe(null);
+      setOwnStudent(null);
       afterCreated(res.enrollment_id);
     } catch (e) {
-      if (isAxiosError(e) && e.response?.status === 409 && e.response.data?.code === 'DEDUPE_REQUIRED') {
+      if (isAxiosError(e) && e.response?.status === 409 && e.response.data?.code === 'EXISTING_STUDENT') {
+        // The student phone already exists → show the QR-style profile popup;
+        // "enroll here" re-posts as a link into the chosen course.
+        setOwnStudent(e.response.data.errors?.offer ?? null);
+      } else if (isAxiosError(e) && e.response?.status === 409 && e.response.data?.code === 'DEDUPE_REQUIRED') {
         setDedupe({ matches: e.response.data.errors?.matches ?? [], payload });
       } else if (isAxiosError(e) && e.response?.status === 422) {
         Alert.alert('تعذّر التسجيل', e.response.data?.message ?? 'تحقّق من البيانات المُدخلة.');
@@ -128,9 +179,12 @@ export default function RecordStudent() {
             {eligible.map((c: InvitationCourseOption) => {
               const selected = c.id === courseId;
               return (
-                <TouchableOpacity key={c.id} onPress={() => setCourseId(c.id)} activeOpacity={0.85}
+                <TouchableOpacity key={c.id} onPress={() => { setCourseId(c.id); setBookingOn(!!options?.requires_down_payment); setSecures(options?.default_secures ?? null); }} activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: selected ? colors.brandTint : colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1.5, borderColor: selected ? colors.brand : 'transparent' }}>
-                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}</Text>
+                    {c.schedule_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{c.schedule_label}</Text> : null}
+                  </View>
                   {selected ? <Icon name="success" size={20} color={colors.brand} /> : null}
                 </TouchableOpacity>
               );
@@ -153,6 +207,23 @@ export default function RecordStudent() {
             />
             {nameError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>يرجى إدخال الاسم بالعربية</Text> : <View style={{ height: spacing.md }} />}
 
+            {/* Student's own phone — their login handle when the app launches */}
+            <Text style={label}>رقم هاتف الطالب</Text>
+            <TextInput
+              value={studentPhone}
+              onChangeText={setStudentPhone}
+              placeholder="01xxxxxxxxx"
+              placeholderTextColor={colors.textTertiary}
+              keyboardType="phone-pad"
+              style={{ ...field, marginBottom: spacing.xs, borderColor: (studentPhoneError || sameAsParentError) ? colors.danger : (studentPhone ? colors.brand : colors.borderStrong) }}
+              returnKeyType="next"
+            />
+            {sameAsParentError
+              ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>رقم الطالب لا يمكن أن يطابق رقم ولي الأمر</Text>
+              : studentPhoneError
+                ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>رقم هاتف غير صحيح</Text>
+                : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>يسجّل الطالب الدخول بهذا الرقم عند إطلاق التطبيق.</Text>}
+
             {/* Parent phone — the activation anchor */}
             <Text style={label}>رقم ولي الأمر</Text>
             <TextInput
@@ -165,6 +236,70 @@ export default function RecordStudent() {
               onSubmitEditing={() => canSubmit && submit()}
             />
             <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>سيُستخدم هذا الرقم لتنشيط حساب الطالب لاحقًا.</Text>
+
+            {/* Parent name — OPTIONAL (the parent can set/modify it at setup). */}
+            <Text style={label}>اسم ولي الأمر (اختياري)</Text>
+            <TextInput
+              value={parentName}
+              onChangeText={setParentName}
+              placeholder="الاسم الكامل"
+              placeholderTextColor={colors.textTertiary}
+              style={{ ...field, marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
+            />
+
+            {/* Relationship — OPTIONAL, tap to toggle. */}
+            <Text style={label}>صلة القرابة (اختياري)</Text>
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
+              {([['father', 'أب'], ['mother', 'أم'], ['guardian', 'ولي أمر']] as const).map(([value, ar]) => {
+                const active = relationship === value;
+                return (
+                  <TouchableOpacity
+                    key={value}
+                    onPress={() => setRelationship(active ? null : value)}
+                    activeOpacity={0.85}
+                    style={{
+                      flex: 1, paddingVertical: spacing.md, alignItems: 'center', borderRadius: radius.lg, borderWidth: 1.5,
+                      borderColor: active ? colors.brand : colors.borderStrong,
+                      backgroundColor: active ? colors.brandTint : colors.surface,
+                    }}
+                  >
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: active ? colors.brand : colors.textSecondary }}>{ar}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Booking down-payment (دفعة) — per-student, seeded from the teacher default. */}
+            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>دفعة الحجز</Text>
+                <Switch value={bookingOn} onValueChange={setBookingOn} trackColor={{ true: colors.brand, false: colors.border }} />
+              </View>
+              {bookingOn ? (
+                <View style={{ marginTop: spacing.md }}>
+                  <Text style={label}>يؤمّن الحجز</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
+                    {SECURES.map((s) => {
+                      const active = (secures ?? options?.default_secures) === s.key;
+                      return (
+                        <TouchableOpacity key={s.key} onPress={() => setSecures(s.key)} activeOpacity={0.8}
+                          style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: active ? colors.brand : colors.borderStrong, backgroundColor: active ? colors.brandTint : colors.surface }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.brand : colors.textSecondary }}>{s.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <Text style={label}>قيمة الدفعة</Text>
+                  <TextInput value={downPayment} onChangeText={(v) => setDownPayment(v.replace(/[^0-9.]/g, ''))} keyboardType="numeric"
+                    placeholder={course?.booking_price != null ? String(course.booking_price) : 'المبلغ'} placeholderTextColor={colors.textTertiary}
+                    style={{ ...field, marginBottom: spacing.xs }} />
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>اتركها فارغة لاستخدام السعر الافتراضي.</Text>
+                  <Text style={label}>المدفوع الآن (اختياري)</Text>
+                  <TextInput value={downPaid} onChangeText={(v) => setDownPaid(v.replace(/[^0-9.]/g, ''))} keyboardType="numeric"
+                    placeholder="0" placeholderTextColor={colors.textTertiary} style={{ ...field, marginBottom: spacing.xs }} />
+                </View>
+              ) : null}
+            </View>
 
             {/* Save */}
             <TouchableOpacity onPress={() => submit()} disabled={!canSubmit} activeOpacity={0.85}
@@ -212,6 +347,55 @@ export default function RecordStudent() {
             <TouchableOpacity onPress={() => setDedupe(null)} activeOpacity={0.7} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>إلغاء</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* QR-style popup — the entered phone is already one of THIS teacher's students.
+          Same shape the scanner shows on a "wrong group" card: profile + enroll-here. */}
+      <Modal visible={ownStudent !== null} transparent animationType="fade" onRequestClose={() => setOwnStudent(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: spacing.lg }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, alignItems: 'center' }}>
+            <Icon name="children" size={48} color={colors.brand} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.sm }}>{ownStudent?.name}</Text>
+            {/* Profile chips — grade + code (own student, safe to show) */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
+              {ownStudent?.grade ? (
+                <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{ownStudent.grade}</Text>
+                </View>
+              ) : null}
+              {ownStudent?.student_code ? (
+                <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{ownStudent.student_code}</Text>
+                </View>
+              ) : null}
+            </View>
+
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.sm }}>
+              {ownStudent?.already_in_target
+                ? `هذا الطالب مسجّل معك بالفعل في «${ownStudent?.target_course_name}».`
+                : ownStudent?.is_own
+                  ? `هذا الطالب مسجّل معك في «${ownStudent?.current_course_name ?? '—'}». هل تريد إضافته إلى «${ownStudent?.target_course_name}»؟`
+                  : `هذا الطالب مسجّل بالفعل في النظام. هل تريد إضافته إلى «${ownStudent?.target_course_name}»؟`}
+            </Text>
+
+            {saving ? (
+              <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.lg }} />
+            ) : ownStudent?.already_in_target ? (
+              <TouchableOpacity onPress={() => setOwnStudent(null)} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.xxl, alignItems: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>حسنًا</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity onPress={() => ownStudent && submit('link', ownStudent.student_id)} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', alignSelf: 'stretch' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>تسجيله في «{ownStudent?.target_course_name}»</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setOwnStudent(null)} activeOpacity={0.7} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>إلغاء</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       </Modal>
