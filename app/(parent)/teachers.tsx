@@ -12,6 +12,7 @@ import client from '@/api/client';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { DistinguishedBadge } from '@/components/DistinguishedBadge';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 
 /**
@@ -132,7 +133,12 @@ export default function TeacherManagement() {
                             <Icon name="teacher" size={20} color={colors.brand} />
                           </View>
                         )}
-                        <Text style={[textPresets.body, { flex: 1, fontFamily: fonts.medium }]}>{teacher.name}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[textPresets.body, { fontFamily: fonts.medium }]}>{teacher.name}</Text>
+                          {teacher.is_distinguished_member ? (
+                            <View style={{ marginTop: 4 }}><DistinguishedBadge size="sm" /></View>
+                          ) : null}
+                        </View>
                         {isRemoving ? (
                           <ActivityIndicator size="small" color={colors.danger} />
                         ) : (

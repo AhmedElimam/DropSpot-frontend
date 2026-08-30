@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import client from '@/api/client';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { DistinguishedBadge } from '@/components/DistinguishedBadge';
 import { Avatar } from '@/components/layout/Avatar';
 import { Button } from '@/components/ui/Button';
 import { getFriendlyErrorMessage } from '@/utils/errors';
@@ -120,9 +121,13 @@ export default function TeacherManagement() {
                       <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>
                         {teacher.name}
                       </Text>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, marginTop: 2 }}>
-                        {t('parent.teacher_subscribed')}
-                      </Text>
+                      {teacher.is_distinguished_member ? (
+                        <View style={{ marginTop: 4 }}><DistinguishedBadge size="sm" /></View>
+                      ) : (
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, marginTop: 2 }}>
+                          {t('parent.teacher_subscribed')}
+                        </Text>
+                      )}
                     </View>
                     {isRemoving ? (
                       <ActivityIndicator size="small" color={colors.danger} />

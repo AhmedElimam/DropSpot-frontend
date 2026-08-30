@@ -1,4 +1,13 @@
 ﻿import { ConfigContext, ExpoConfig } from 'expo/config';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
+
+// iOS Firebase config. Wire GoogleService-Info.plist ONLY when the file is actually present,
+// so builds (incl. the Android APK) don't break while iOS Firebase is still being set up.
+// Drop `GoogleService-Info.plist` at the project root (next to google-services.json) to activate.
+const iosGoogleServices = existsSync(resolve(__dirname, 'GoogleService-Info.plist'))
+  ? { googleServicesFile: './GoogleService-Info.plist' }
+  : {};
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -17,6 +26,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     config: {
       usesNonExemptEncryption: false,
     },
+    // Present only once GoogleService-Info.plist exists (see the const above).
+    ...iosGoogleServices,
   },
   android: {
     package: 'com.drosspot.app',

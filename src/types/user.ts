@@ -20,6 +20,8 @@ export interface User {
   needs_teacher_invitation?: boolean;
   /** First-cohort teacher — the app shows a «عضو مؤسس» (Founding Member) badge. */
   is_founding_teacher?: boolean;
+  /** The single flagship «عضو مميز» tier (violet-gold badge, lifetime subscription-exempt). */
+  is_distinguished_member?: boolean;
 }
 
 export interface AuthTokens {

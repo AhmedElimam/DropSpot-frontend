@@ -4,6 +4,7 @@ import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
+import { DistinguishedBadge } from '@/components/DistinguishedBadge';
 import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { useLogout } from '@/hooks/useAuth';
@@ -65,7 +66,11 @@ export default function TeacherSettings() {
             {isAssistant ? t('teacher.role_assistant') : t('teacher.role_teacher')}
             {user?.phone ? ` · ${user.phone}` : ''}
           </Text>
-          {user?.is_founding_teacher ? (
+          {user?.is_distinguished_member ? (
+            <View style={{ marginTop: spacing.md }}>
+              <DistinguishedBadge />
+            </View>
+          ) : user?.is_founding_teacher ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderColor: 'rgba(255,209,102,0.9)', paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999 }}>
               <Icon name="star" size={14} color="#FFD166" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#fff' }}>عضو مؤسس</Text>
