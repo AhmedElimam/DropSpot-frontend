@@ -62,6 +62,7 @@ const ICON_MAP = {
   help: 'help-circle',
   close: 'close',
   download: 'download',
+  'person-remove': 'person-remove',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;

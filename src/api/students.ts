@@ -141,6 +141,8 @@ export interface StudentDetail {
   parents: StudentParent[];
   parent_number_notice?: boolean;
   parent_number_notice_message?: string | null;
+  /** Teacher can remove this TERMINATED (dropped, still-visible) student from the roster now. */
+  can_remove_from_roster?: boolean;
   attendance_stats: { total: number; attended: number; absent: number; excused: number };
   attendance: StudentAttendanceRow[];
   billing: {
@@ -192,6 +194,15 @@ export async function reverseStudentPayment(
     kind,
     ...(chargeId != null ? { charge_id: chargeId } : {}),
   });
+}
+
+/**
+ * Remove a TERMINATED student from the roster now (before the 7-day grace elapses). Hides
+ * the dropped enrollment; the student's profile and any outstanding bill are untouched.
+ * Teacher OR an assistant with manage_students.
+ */
+export async function removeStudentFromRoster(studentId: string | number): Promise<void> {
+  await client.post(`/teacher/students/${studentId}/remove-from-roster`);
 }
 
 /**

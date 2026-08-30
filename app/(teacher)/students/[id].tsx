@@ -15,7 +15,7 @@ import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { terminateEnrollment, transferEnrollment } from '@/api/enrollments';
-import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, type EnrollableClass } from '@/api/students';
+import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, type EnrollableClass } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
 
@@ -143,6 +143,29 @@ export default function StudentDetailScreen() {
     );
   };
 
+  // Remove a TERMINATED student from the roster now (before the 7-day grace). The bill stays.
+  const confirmRemoveFromRoster = () => {
+    Alert.alert(
+      'إزالة من القائمة',
+      'إزالة هذا الطالب المُنهى من قائمتك الآن؟ تبقى مستحقاته دون تغيير.',
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: 'إزالة',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeStudentFromRoster(id);
+              router.back();
+            } catch {
+              Alert.alert(t('common.error'), 'تعذّرت الإزالة من القائمة');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const confirmTerminate = (courseName: string | null, enrollmentId?: number) => {
     if (!enrollmentId) return;
     Alert.alert(
@@ -213,6 +236,18 @@ export default function StudentDetailScreen() {
               {exporting ? t('teacher.performance_exporting') : t('teacher.performance_export')}
             </Text>
           </TouchableOpacity>
+
+          {/* Remove a terminated student from the roster now (before the 7-day grace) */}
+          {s.can_remove_from_roster ? (
+            <TouchableOpacity
+              onPress={confirmRemoveFromRoster}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: spacing.md }}
+            >
+              <Icon name="person-remove" size={18} color={colors.textSecondary} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>إزالة من القائمة</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {/* Attendance summary */}
           <Section title={t('teacher.attendance_summary')}>

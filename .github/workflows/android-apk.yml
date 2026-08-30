@@ -1,0 +1,70 @@
+name: Build Android APK
+
+# Free APK builds on GitHub's runners — no EAS, no Expo token, no paid plan.
+# The runner already ships the Android SDK/NDK; we regenerate the native project with
+# `expo prebuild` (android/ is gitignored) and assemble a debug-signed release APK, which
+# installs on any device for testing. The API base comes from the committed .env
+# (EXPO_PUBLIC_API_URL=https://drosspot.app/api/v1).
+#
+# Trigger it from the Actions tab (Run workflow), or push a version tag like v1.4.0 to also
+# attach the APK to a GitHub Release.
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write # needed for the tag → GitHub Release step
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Prebuild native Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease --no-daemon
+        working-directory: android
+
+      - name: Rename APK
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/release/*.apk "artifacts/drosspot-${GITHUB_SHA::7}.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drosspot-android-apk
+          path: artifacts/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach APK to GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.apk
