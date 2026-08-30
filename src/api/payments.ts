@@ -99,3 +99,28 @@ export async function waivePayment(kind: PayKind, cardCode: string): Promise<Wai
     throw e;
   }
 }
+
+export interface ReverseResult {
+  success: boolean;
+  message?: string;
+  code?: string;
+  student?: { name: string };
+  reversed?: string; // amount cancelled
+  count?: number;
+  what?: string;
+}
+
+/**
+ * Cancel (reverse) a payment just collected for one kind — restores the due. Teacher-only
+ * on the server (assistants get 403). No cancellation SMS. Audited.
+ */
+export async function reversePayment(kind: PayKind, cardCode: string): Promise<ReverseResult> {
+  try {
+    const { data } = await client.post('/payments/reverse', { card_code: cardCode, kind });
+    return data as ReverseResult;
+  } catch (e) {
+    const d = (e as any)?.response?.data;
+    if (d) return { success: false, message: d.message ?? '', code: d.code, student: d.student };
+    throw e;
+  }
+}

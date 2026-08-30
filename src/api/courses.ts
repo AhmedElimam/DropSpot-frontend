@@ -39,6 +39,7 @@ export interface CourseDetail {
   students_count: number;
   // Settings
   radius_horizontal_meters: number;
+  allow_session_swap: boolean;
   sheet_expected_by_default: boolean;
   sheet_max_mark: number | null;
   sessions_per_billing_cycle: number | null;
@@ -61,6 +62,7 @@ export interface CourseDetail {
 
 export interface CourseSettingsPayload {
   radius_horizontal_meters?: number;
+  allow_session_swap?: boolean;
   sheet_expected_by_default?: boolean;
   sheet_max_mark?: number | null;
   sessions_per_billing_cycle?: number;
@@ -97,6 +99,8 @@ export interface CreateCoursePayload {
   radius_horizontal_meters?: number;
   description?: string;
   slots?: { day_of_week: number; start_time: string; end_time: string }[];
+  // Per-course session-swap permission (default on).
+  allow_session_swap?: boolean;
   // Pricing at creation (empty = disabled/none) — mirrors the web create form.
   sessions_per_billing_cycle?: number;
   cycle_price?: number | null;

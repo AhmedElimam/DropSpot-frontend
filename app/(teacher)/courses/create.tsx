@@ -59,6 +59,7 @@ export default function CourseCreateScreen() {
   const [code, setCode] = useState('');
   const [capacity, setCapacity] = useState('');
   const [radius_, setRadius] = useState(20);
+  const [allowSwap, setAllowSwap] = useState(true);
   const [description, setDescription] = useState('');
   const [slots, setSlots] = useState<Slot[]>([]);
   // "When do you want to start" — now (mint this week's remaining days immediately) or
@@ -121,6 +122,7 @@ export default function CourseCreateScreen() {
         code: code.trim() || undefined,
         capacity: capacity.trim() ? Number(capacity.trim()) : undefined,
         radius_horizontal_meters: radius_,
+        allow_session_swap: allowSwap,
         starts_at: startMode === 'date' && startDate ? startDate : undefined,
         description: description.trim() || undefined,
         slots: slots.length ? slots : undefined,
@@ -293,6 +295,15 @@ export default function CourseCreateScreen() {
             {perSession ? (
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginTop: spacing.sm }}>{t('teacher.per_session_hint', { price: perSession })}</Text>
             ) : null}
+
+            {/* Session-swap permission */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md }}>
+              <View style={{ flex: 1, paddingEnd: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('teacher.allow_swap_label')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('teacher.allow_swap_hint')}</Text>
+              </View>
+              <Switch value={allowSwap} onValueChange={setAllowSwap} trackColor={{ true: colors.brand }} />
+            </View>
 
             <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm }}>
               <View style={{ flex: 1 }}>

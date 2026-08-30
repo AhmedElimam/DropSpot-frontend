@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
-import { collectPayment, waivePayment, type PayKind } from '@/api/payments';
+import { collectPayment, waivePayment, reversePayment, type PayKind } from '@/api/payments';
 import type { ScanPending } from '@/api/teacher';
 
 interface DueRow {
@@ -58,6 +58,8 @@ export function PayDuesModal({
 
   const [rows, setRows] = useState<DueRow[]>(initial);
   const [busy, setBusy] = useState<PayKind | null>(null);
+  // Just-collected kinds this session → an inline "cancel the payment" (undo) affordance.
+  const [collected, setCollected] = useState<{ kind: PayKind; label: string; amount: string; remaining: number }[]>([]);
   // Re-seed rows whenever a new student's dues arrive.
   const [seed, setSeed] = useState<ScanPending | null>(null);
   if (pending !== seed) {
@@ -80,16 +82,41 @@ export function PayDuesModal({
       if (res.success) {
         onCollected?.();
         const remaining = Number(res.remaining) || 0;
-        setRows((rs) => {
-          const next = remaining > 0
-            ? rs.map((r) => (r.kind === row.kind ? { ...r, remaining, paid: r.paid + Math.max(0, r.remaining - remaining), input: String(remaining) } : r))
-            : rs.filter((r) => r.kind !== row.kind);
-          if (next.length === 0) setTimeout(onClose, 250);
-          return next;
-        });
+        const wasRemaining = row.remaining;
+        setRows((rs) => (remaining > 0
+          ? rs.map((r) => (r.kind === row.kind ? { ...r, remaining, paid: r.paid + Math.max(0, r.remaining - remaining), input: String(remaining) } : r))
+          : rs.filter((r) => r.kind !== row.kind)));
+        // Offer an immediate "cancel the payment" (undo) — the modal stays open so the
+        // teacher can reverse a mistaken collection without leaving the flow.
+        setCollected((c) => [
+          ...c.filter((x) => x.kind !== row.kind),
+          { kind: row.kind, label: row.label, amount: res.amount ?? String(amt), remaining: wasRemaining },
+        ]);
       }
     } catch {
       Alert.alert(t('common.error'), t('teacher.pay_offline'));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Cancel a payment just collected — restores the due (teacher-only on the server).
+  const undo = async (item: { kind: PayKind; label: string; remaining: number }) => {
+    setBusy(item.kind);
+    try {
+      const res = await reversePayment(item.kind, card);
+      if (res.success) {
+        onCollected?.();
+        setCollected((c) => c.filter((x) => x.kind !== item.kind));
+        // Restore the due row so it can be re-collected if needed.
+        setRows((rs) => (rs.some((r) => r.kind === item.kind)
+          ? rs
+          : [...rs, { kind: item.kind, label: item.label, remaining: item.remaining, paid: 0, input: String(item.remaining) }]));
+      } else {
+        Alert.alert(t('common.error'), res.message || '');
+      }
+    } catch {
+      Alert.alert(t('common.error'), '');
     } finally {
       setBusy(null);
     }
@@ -200,6 +227,16 @@ export function PayDuesModal({
               );
             })}
           </ScrollView>
+
+          {/* Just-collected → cancel-the-payment (undo). */}
+          {collected.map((c) => (
+            <View key={`done-${c.kind}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm }}>
+              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.successText }}>{`تم تحصيل ${c.label} (${c.amount} ${t('insights.egp')})`}</Text>
+              <TouchableOpacity onPress={() => undo(c)} disabled={busy === c.kind} activeOpacity={0.8} style={{ paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.md, borderWidth: 1, borderColor: colors.danger }}>
+                {busy === c.kind ? <ActivityIndicator color={colors.danger} size="small" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>إلغاء الدفع</Text>}
+              </TouchableOpacity>
+            </View>
+          ))}
 
           <TouchableOpacity onPress={onClose} style={{ paddingVertical: spacing.sm, alignItems: 'center' }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.close')}</Text>

@@ -30,6 +30,7 @@ export default function CourseDetailScreen() {
 
   // Editable settings mirror the web edit form; seeded once the detail loads.
   const [radius_, setRadius] = useState(20);
+  const [allowSwap, setAllowSwap] = useState(true);
   const [sheetDefault, setSheetDefault] = useState(false);
   const [sheetMax, setSheetMax] = useState('');
   const [perCycle, setPerCycle] = useState<number | null>(null);
@@ -46,6 +47,7 @@ export default function CourseDetailScreen() {
   useEffect(() => {
     if (course && !seeded) {
       setRadius(course.radius_horizontal_meters ?? 20);
+      setAllowSwap(course.allow_session_swap ?? true);
       setSheetDefault(course.sheet_expected_by_default);
       setSheetMax(course.sheet_max_mark != null ? String(course.sheet_max_mark) : '');
       setPerCycle(course.sessions_per_billing_cycle);
@@ -62,6 +64,7 @@ export default function CourseDetailScreen() {
     saveSettings.mutate(
       {
         radius_horizontal_meters: radius_,
+        allow_session_swap: allowSwap,
         sheet_expected_by_default: sheetDefault,
         sheet_max_mark: sheetMax.trim() ? Number(sheetMax.trim()) : null,
         sessions_per_billing_cycle: perCycle ?? undefined,
@@ -219,6 +222,15 @@ export default function CourseDetailScreen() {
         {/* Radius stepper */}
         <FieldLabel>{t('teacher.radius_label')}</FieldLabel>
         <Stepper value={radius_} min={5} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
+
+        {/* Session-swap permission toggle */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg }}>
+          <View style={{ flex: 1, paddingEnd: spacing.md }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('teacher.allow_swap_label')}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('teacher.allow_swap_hint')}</Text>
+          </View>
+          <Switch value={allowSwap} onValueChange={setAllowSwap} trackColor={{ true: colors.brand }} />
+        </View>
 
         {/* Sheet default toggle */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg }}>
