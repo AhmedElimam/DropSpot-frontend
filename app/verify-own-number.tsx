@@ -32,8 +32,10 @@ const field = {
  * Deferred own-number verification WALL (hard block). Reached from app/index.tsx when
  * `user.needs_own_number_verification` is set. No back button: the rest of the app is
  * unreachable until one specific number is actually OTP-verified. Correcting a wrong
+ * Space phone number is possible, but the user must enter a new number and verify it. Each
  * number sends a FRESH code and keeps the wall up — it never clears by re-typing.
  */
+
 export default function VerifyOwnNumberScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
