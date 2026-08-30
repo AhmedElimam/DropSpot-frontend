@@ -12,6 +12,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { formatEGP } from '@/utils/currency';
 import { useAuthStore } from '@/stores/authStore';
 import { getPendingCollections, collectFromRoster, type RosterStudent, type CollectKind } from '@/api/pendingCollections';
+import { reverseStudentPayment } from '@/api/students';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 interface Target {
@@ -69,6 +70,20 @@ export default function TeacherPendingCollections() {
     }
   };
 
+  // Cancel a student's collected payment straight from a roster row (per-student, in-UI —
+  // no toast). Teacher-only screen; the reverse endpoint re-checks.
+  const cancelPayment = (studentId: number, name: string, kind: CollectKind, chargeId?: number) => {
+    Alert.alert('إلغاء الدفع', `إلغاء دفع «${name}»؟ ستعود مستحقّاته كما كانت.`, [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: 'إلغاء الدفع', style: 'destructive', onPress: async () => {
+          try { await reverseStudentPayment(studentId, kind, chargeId); await qc.invalidateQueries({ queryKey: ['pending-collections'] }); }
+          catch { Alert.alert(t('common.error'), 'تعذّر إلغاء الدفع'); }
+        },
+      },
+    ]);
+  };
+
   const Badge = ({ text, color }: { text: string; color: string }) => (
     <View style={{ backgroundColor: color + '1f', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 12, color }}>{text}</Text>
@@ -91,12 +106,20 @@ export default function TeacherPendingCollections() {
               <>
                 <Badge text={t('collections.fully_paid')} color={colors.success} />
                 <Badge text={`${t('collections.paid')} ${formatEGP(bill.paid)}`} color={colors.success} />
+                <TouchableOpacity onPress={() => cancelPayment(item.student_id, item.name, 'bill')} style={{ marginStart: 'auto', borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>إلغاء الدفع</Text>
+                </TouchableOpacity>
               </>
             ) : (
               <>
                 <Badge text={bill.overdue ? t('collections.overdue') : t('collections.due')} color={bill.overdue ? colors.danger : colors.warning} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('collections.remaining')} {formatEGP(bill.total)}</Text>
                 {bill.paid > 0 ? <Badge text={`${t('collections.paid')} ${formatEGP(bill.paid)}`} color={colors.success} /> : null}
+                {bill.paid > 0 ? (
+                  <TouchableOpacity onPress={() => cancelPayment(item.student_id, item.name, 'bill')} style={{ borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 4 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>إلغاء الدفع</Text>
+                  </TouchableOpacity>
+                ) : null}
                 <TouchableOpacity
                   onPress={() => openCollect({ studentId: item.student_id, name: item.name, kind: 'bill', label: t('collections.due_bill'), remaining: bill.total })}
                   style={{ marginStart: 'auto', backgroundColor: colors.success, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}
@@ -115,6 +138,11 @@ export default function TeacherPendingCollections() {
             {bk.course ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{bk.course}</Text> : null}
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('collections.remaining')} {formatEGP(bk.amount)}</Text>
             {bk.paid > 0 ? <Badge text={`${t('collections.paid')} ${formatEGP(bk.paid)}`} color={colors.success} /> : null}
+            {bk.paid > 0 ? (
+              <TouchableOpacity onPress={() => cancelPayment(item.student_id, item.name, 'booklet', bk.id)} style={{ borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 4 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>إلغاء الدفع</Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity
               onPress={() => openCollect({ studentId: item.student_id, name: item.name, kind: 'booklet', label: t('collections.due_booklet'), remaining: bk.amount })}
               style={{ marginStart: 'auto', backgroundColor: colors.success, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}
@@ -131,6 +159,11 @@ export default function TeacherPendingCollections() {
             {bk.course ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{bk.course}</Text> : null}
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('collections.remaining')} {formatEGP(bk.remaining)}</Text>
             {bk.paid > 0 ? <Badge text={`${t('collections.paid')} ${formatEGP(bk.paid)}`} color={colors.success} /> : null}
+            {bk.paid > 0 ? (
+              <TouchableOpacity onPress={() => cancelPayment(item.student_id, item.name, 'booking', bk.id)} style={{ borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 4 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>إلغاء الدفع</Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity
               onPress={() => openCollect({ studentId: item.student_id, name: item.name, kind: 'booking', label: t('collections.due_booking'), remaining: bk.remaining })}
               style={{ marginStart: 'auto', backgroundColor: colors.success, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}

@@ -186,9 +186,12 @@ export async function getStudentDetail(id: string | number): Promise<StudentDeta
 export async function reverseStudentPayment(
   studentId: string | number,
   kind: 'bill' | 'booklet' | 'booking',
-  chargeId: number,
+  chargeId?: number,
 ): Promise<void> {
-  await client.post(`/teacher/students/${studentId}/reverse-payment`, { kind, charge_id: chargeId });
+  await client.post(`/teacher/students/${studentId}/reverse-payment`, {
+    kind,
+    ...(chargeId != null ? { charge_id: chargeId } : {}),
+  });
 }
 
 /**
