@@ -15,7 +15,7 @@ import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { terminateEnrollment, transferEnrollment } from '@/api/enrollments';
-import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, type EnrollableClass } from '@/api/students';
+import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, type EnrollableClass } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
 
@@ -56,6 +56,22 @@ export default function StudentDetailScreen() {
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const allowanceBlock = useSetStudentAllowanceBlock(Number(id));
   const [exporting, setExporting] = useState(false);
+  // Cancel a specific collected payment (teacher-only; the server enforces + returns
+  // an empty `collected` list for assistants, so the UI is naturally hidden for them).
+  const [reversing, setReversing] = useState<number | null>(null);
+  const cancelPayment = (c: { kind: 'bill' | 'booklet' | 'booking'; id: number; label: string }) => {
+    Alert.alert('إلغاء الدفع', `إلغاء دفع «${c.label}»؟ ستعود المستحقّات على الطالب.`, [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: 'إلغاء الدفع', style: 'destructive', onPress: async () => {
+          setReversing(c.id);
+          try { await reverseStudentPayment(id, c.kind, c.id); await refetch(); }
+          catch { Alert.alert(t('common.error'), 'تعذّر إلغاء الدفع'); }
+          finally { setReversing(null); }
+        },
+      },
+    ]);
+  };
   const { can } = useActiveAbilities();
   const canManage = can(ABILITY.MANAGE_STUDENTS);
 
@@ -263,6 +279,25 @@ export default function StudentDetailScreen() {
               </View>
               {allowanceBlock.isPending ? <ActivityIndicator size="small" color={colors.brand} /> : null}
             </TouchableOpacity>
+
+            {/* Collected payments the teacher can CANCEL (per-charge). */}
+            {(s.billing.collected ?? []).length > 0 ? (
+              <View style={{ marginTop: spacing.md }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>مدفوعات محصّلة — يمكنك إلغاؤها</Text>
+                {(s.billing.collected ?? []).map((c) => (
+                  <View key={`${c.kind}-${c.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{c.label}</Text>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.success, marginTop: 2 }}>{`مدفوع ${c.paid} ${t('teacher.egp')}`}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => cancelPayment(c)} disabled={reversing === c.id} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingVertical: 6, paddingHorizontal: spacing.md }}>
+                      {reversing === c.id ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="close" size={14} color={colors.danger} />}
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>إلغاء الدفع</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </Section>
 
           {/* Courses — one row per enrollment with clearly LABELED actions (transfer to

@@ -156,6 +156,8 @@ export interface StudentDetail {
     pending_total?: string;
     has_pending?: boolean;
     pending?: { bill: string; booklet: string; booking: string };
+    /** Collected charges the teacher can CANCEL (per-charge). Empty for assistants. */
+    collected?: { kind: 'bill' | 'booklet' | 'booking'; id: number; label: string; paid: string }[];
   };
 }
 
@@ -175,6 +177,18 @@ export async function getTeacherCourses(): Promise<TeacherCourse[]> {
 export async function getStudentDetail(id: string | number): Promise<StudentDetail> {
   const { data } = await client.get(`/teacher/students/${id}`);
   return (data.data ?? data) as StudentDetail;
+}
+
+/**
+ * Cancel a specific collected payment for a student (restores the due). Teacher-only on
+ * the server (assistants get 403). Audited, no SMS.
+ */
+export async function reverseStudentPayment(
+  studentId: string | number,
+  kind: 'bill' | 'booklet' | 'booking',
+  chargeId: number,
+): Promise<void> {
+  await client.post(`/teacher/students/${studentId}/reverse-payment`, { kind, charge_id: chargeId });
 }
 
 /**
