@@ -91,6 +91,10 @@ export default function ParentTabLayout() {
 
   return (
     <Tabs
+      // Hardware back follows visit history, so pushed detail screens (reports,
+      // report-cards, child/[id], quiz/[quizId], …) pop back to the previous screen
+      // instead of jumping to the Home tab.
+      backBehavior="history"
       screenOptions={({ route }) => {
         // Inside an open ticket conversation ([id], the reply box) or the compose
         // form (create), the floating absolute tab bar overlaps the input + send

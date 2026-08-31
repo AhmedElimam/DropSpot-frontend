@@ -34,6 +34,10 @@ export default function StudentTabLayout() {
 
   return (
     <Tabs
+      // Hardware back follows visit history, so pushed detail screens (marks, swap,
+      // order-card, notifications) pop back to the previous screen instead of jumping
+      // to the Home tab.
+      backBehavior="history"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {

@@ -150,6 +150,11 @@ export default function TeacherTabLayout() {
     {/* Relocation prompt — teachers only (assistants never edit geofence anchors). */}
     {isAuthenticated && role === 'teacher' ? <RelocationPrompt enabled /> : null}
     <Tabs
+      // Hardware back follows the actual visit history, not the default "jump to the
+      // first tab" — so pushed detail screens (courses, insights, pending-collections,
+      // …, all registered here as href:null tab routes) pop back to where you came from
+      // instead of teleporting Home.
+      backBehavior="history"
       // Render NO bar on full-screen surfaces (invite scanner, open ticket) by not
       // mounting the bar component for them. Every real tab shows the bar.
       tabBar={(props) => {
