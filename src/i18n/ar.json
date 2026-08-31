@@ -1296,6 +1296,8 @@
     "save_settings": "حفظ الإعدادات",
     "course_saved": "تم حفظ إعدادات المقرر",
     "course_save_failed": "تعذّر حفظ الإعدادات",
+    "course_name_label": "اسم المقرر",
+    "course_name_required": "اسم المقرر مطلوب",
     "slots_section": "المواعيد الأسبوعية",
     "add_slot": "إضافة موعد",
     "no_slots": "لا توجد مواعيد بعد.",

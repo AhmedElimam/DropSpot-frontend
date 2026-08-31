@@ -29,6 +29,7 @@ export default function CourseDetailScreen() {
   const removeSlot = useRemoveSchedule(id);
 
   // Editable settings mirror the web edit form; seeded once the detail loads.
+  const [name, setName] = useState('');
   const [radius_, setRadius] = useState(20);
   const [allowSwap, setAllowSwap] = useState(true);
   const [sheetDefault, setSheetDefault] = useState(false);
@@ -46,6 +47,7 @@ export default function CourseDetailScreen() {
 
   useEffect(() => {
     if (course && !seeded) {
+      setName(course.name ?? '');
       setRadius(course.radius_horizontal_meters ?? 20);
       setAllowSwap(course.allow_session_swap ?? true);
       setSheetDefault(course.sheet_expected_by_default);
@@ -61,8 +63,13 @@ export default function CourseDetailScreen() {
   }, [course, seeded]);
 
   const onSaveSettings = () => {
+    if (!name.trim()) {
+      Alert.alert(t('common.error'), t('teacher.course_name_required'));
+      return;
+    }
     saveSettings.mutate(
       {
+        name: name.trim(),
         radius_horizontal_meters: radius_,
         allow_session_swap: allowSwap,
         sheet_expected_by_default: sheetDefault,
@@ -242,6 +249,17 @@ export default function CourseDetailScreen() {
 
         {/* Settings */}
         <Section icon="settings" title={t('teacher.settings_section')} />
+
+        {/* Course name (rename the schedule master). Grade stays fixed. */}
+        <FieldLabel>{t('teacher.course_name_label')}</FieldLabel>
+        <TextInput
+          value={name}
+          onChangeText={setName}
+          placeholder={t('teacher.course_name_label')}
+          placeholderTextColor={colors.textTertiary}
+          maxLength={255}
+          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}
+        />
 
         {/* Radius stepper */}
         <FieldLabel>{t('teacher.radius_label')}</FieldLabel>

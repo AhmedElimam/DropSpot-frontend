@@ -61,6 +61,8 @@ export interface CourseDetail {
 }
 
 export interface CourseSettingsPayload {
+  /** Rename the course (schedule master). Grade is not editable. */
+  name?: string;
   radius_horizontal_meters?: number;
   allow_session_swap?: boolean;
   sheet_expected_by_default?: boolean;
