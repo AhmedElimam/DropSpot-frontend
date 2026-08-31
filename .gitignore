@@ -41,3 +41,10 @@ example
 # generated native folders
 /ios
 /android
+
+# EAS local credentials — NEVER commit certs/keys/passwords
+credentials.json
+credentials/ios/*.p12
+credentials/ios/*.mobileprovision
+credentials/ios/*.p8
+credentials/ios/*.cer
