@@ -7,6 +7,7 @@ import {
   updateCourseSettings,
   updateCourseLocation,
   removeCourseSchedule,
+  deleteCourse,
   type CourseDetail,
   type CourseSettingsPayload,
   type CreateCoursePayload,
@@ -67,5 +68,14 @@ export function useRemoveSchedule(courseId: string) {
   return useMutation({
     mutationFn: (scheduleId: string) => removeCourseSchedule(courseId, scheduleId),
     onSuccess: sync,
+  });
+}
+
+/** Hard-delete the whole course; refresh the courses list on success. */
+export function useDeleteCourse(courseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => deleteCourse(courseId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['courses'] }),
   });
 }

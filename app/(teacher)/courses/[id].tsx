@@ -9,7 +9,7 @@ import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { formatTime12 } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
-import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule } from '@/hooks/useCourses';
+import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule, useDeleteCourse } from '@/hooks/useCourses';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import type { CourseSchedule } from '@/api/courses';
 
@@ -131,6 +131,30 @@ export default function CourseDetailScreen() {
     } finally {
       setCapturing(false);
     }
+  };
+
+  const deleteCourse = useDeleteCourse(id);
+
+  // Hard-delete the whole course (schedule master). Server blocks it while active students
+  // remain (422). Irreversible.
+  const confirmDeleteCourse = () => {
+    Alert.alert(
+      'حذف المقرر نهائيًا',
+      'سيُمحى المقرر وكل ما يخصه (المواعيد، الحصص، السجلات) نهائيًا. لا يمكن التراجع. غير متاح إن كان به طلاب نشطون.',
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: 'حذف نهائيًا',
+          style: 'destructive',
+          onPress: () =>
+            deleteCourse.mutate(undefined, {
+              onSuccess: () => router.back(),
+              onError: (e: any) =>
+                Alert.alert(t('common.error'), e?.response?.data?.message ?? 'تعذّر حذف المقرر'),
+            }),
+        },
+      ],
+    );
   };
 
   const retireSlot = (slot: CourseSchedule) => {
@@ -310,6 +334,21 @@ export default function CourseDetailScreen() {
             </View>
           ))
         )}
+
+        {/* Danger zone — hard-delete the whole course (schedule master). */}
+        <View style={{ marginTop: spacing.xl, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger, marginBottom: 4 }}>منطقة الخطر</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginBottom: spacing.sm }}>
+            حذف المقرر نهائيًا يزيل مواعيده وحصصه وسجلّاته. لا يمكن التراجع. غير متاح إن كان به طلاب نشطون.
+          </Text>
+          <TouchableOpacity
+            onPress={confirmDeleteCourse}
+            disabled={deleteCourse.isPending}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.lg, paddingVertical: spacing.md, opacity: deleteCourse.isPending ? 0.6 : 1 }}
+          >
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.danger }}>{deleteCourse.isPending ? '…جارٍ الحذف' : 'حذف المقرر نهائيًا'}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
