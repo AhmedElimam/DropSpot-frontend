@@ -55,8 +55,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         minSdkVersion: 24,
         ndkVersion: '30.0.14904198',
       },
+      // Static frameworks for the CocoaPods Firebase iOS SDK (SPM is disabled below via
+      // withRNFirebaseDisableSPM — v26's SPM path is incompatible with Expo's static linkage).
+      ios: {
+        useFrameworks: 'static',
+      },
     },
   ],
+  // Native Firebase — provides an FCM token on iOS (expo-notifications only yields an
+  // APNs token there, which our direct-FCM backend can't target). Reads GoogleService-Info.plist.
+  // withRNFirebaseDisableSPM MUST come before the RNFirebase plugins so the Podfile global is set.
+  './plugins/withRNFirebaseDisableSPM',
+  '@react-native-firebase/app',
+  '@react-native-firebase/messaging',
   'expo-router',
   'expo-sqlite',
   'expo-secure-store',

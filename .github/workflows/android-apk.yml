@@ -21,6 +21,9 @@ permissions:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+    # Fail fast — a real Android build finishes in ~20 min. Without this, a Gradle OOM
+    # loop hangs until GitHub's 6-hour hard limit, burning runner minutes for nothing.
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,9 +49,21 @@ jobs:
       - name: Prebuild native Android project
         run: npx expo prebuild --platform android --no-install
 
+      # RN 0.81 / new-architecture builds are Metaspace-heavy; Expo's default
+      # gradle.properties JVM args OOM on the runner. Override AFTER prebuild (which
+      # regenerates the file) — the last org.gradle.jvmargs line wins.
+      - name: Raise Gradle JVM memory
+        run: |
+          {
+            echo ""
+            echo "org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=2g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
+          } >> android/gradle.properties
+
       - name: Build release APK
         run: ./gradlew assembleRelease --no-daemon
         working-directory: android
+        env:
+          GRADLE_OPTS: -Dorg.gradle.workers.max=2 -Dkotlin.daemon.jvmargs=-XX:MaxMetaspaceSize=2g
 
       - name: Rename APK
         run: |

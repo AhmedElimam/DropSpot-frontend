@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import { getApp } from '@react-native-firebase/app';
+import { getMessaging, getToken, registerDeviceForRemoteMessages } from '@react-native-firebase/messaging';
 import { registerDeviceToken, unregisterDeviceToken } from '@/api/device-tokens';
 
 Notifications.setNotificationHandler({
@@ -43,14 +45,22 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   try {
-    // Native device push token — on Android this is the raw FCM registration
-    // token. The backend sends via Firebase Cloud Messaging directly (Kreait), so
-    // it needs the native FCM token, NOT an Expo push token.
-    // NOTE (iOS): this returns an APNs token, which direct-FCM can't target as-is —
-    // iOS push needs the FCM token via @react-native-firebase/messaging (or the
-    // Expo push service). Android is functional now; iOS is a follow-up.
-    const devicePushToken = await Notifications.getDevicePushTokenAsync();
-    const token = String(devicePushToken.data);
+    // The backend sends via Firebase Cloud Messaging directly (Kreait), so it needs a
+    // native FCM registration token, NOT an Expo push token.
+    let token: string;
+    if (Platform.OS === 'ios') {
+      // iOS: expo-notifications' getDevicePushTokenAsync returns an APNs token, which
+      // direct-FCM can't target. @react-native-firebase registers the device with APNs
+      // then hands back the real FCM token (Firebase forwards it to APNs via the uploaded
+      // key/cert). Requires the Push capability + GoogleService-Info.plist.
+      const msg = getMessaging(getApp());
+      await registerDeviceForRemoteMessages(msg);
+      token = await getToken(msg);
+    } else {
+      // Android: expo-notifications returns the raw FCM registration token directly.
+      const devicePushToken = await Notifications.getDevicePushTokenAsync();
+      token = String(devicePushToken.data);
+    }
 
     const platform = Platform.OS;
     const deviceName = Device.deviceName ?? undefined;
