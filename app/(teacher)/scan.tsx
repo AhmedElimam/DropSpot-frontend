@@ -6,6 +6,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
+import { formatMoney } from '@/utils/currency';
 import { colors, spacing, radius } from '@/theme/index';
 import { scanCard, grantDoorExemption, admitOnce, transferHere, getMyTeachers, type ScanResult, type ScanOffer } from '@/api/teacher';
 import { scanRevision, addRevisionGuest } from '@/api/revisions';
@@ -652,9 +653,9 @@ export default function TeacherScan() {
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginTop: spacing.sm }}>
             {`المطلوب تحصيله (${payWhatLabel})`}
           </Text>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 36, color: '#fff', marginTop: 2 }}>{payConfirm.owed.toFixed(2)} ج.م</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 36, color: '#fff', marginTop: 2 }}>{formatMoney(payConfirm.owed)} ج.م</Text>
           {payConfirm.paid > 0 ? (
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>مدفوع سابقًا: {payConfirm.paid.toFixed(2)} ج.م</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>مدفوع سابقًا: {formatMoney(payConfirm.paid)} ج.م</Text>
           ) : null}
 
           <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: spacing.lg, alignSelf: 'stretch', textAlign: 'center' }}>المبلغ المُحصَّل الآن</Text>
@@ -671,7 +672,7 @@ export default function TeacherScan() {
           </TouchableOpacity>
 
           <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.85)', marginTop: spacing.md }}>
-            المتبقي بعد الدفع: {Math.max(0, payConfirm.owed - (Number(payInput) || 0)).toFixed(2)} ج.م
+            المتبقي بعد الدفع: {formatMoney(Math.max(0, payConfirm.owed - (Number(payInput) || 0)))} ج.م
           </Text>
 
           {/* Amount > 0 → collect; amount 0/cleared → waive (write-off, teacher-only mode). */}

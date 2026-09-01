@@ -89,7 +89,7 @@ export function CardOrderForm({ preselectStudentId }: { preselectStudentId?: num
   return (
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background }}>
       <Header />
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.xxl }}>
+      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.xxl }}>
         {/* Perks */}
         <View style={cardStyle}>
           <PerkRow icon="attendance" text={t('card_order.perk_scan')} />

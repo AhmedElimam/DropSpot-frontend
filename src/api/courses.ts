@@ -153,8 +153,9 @@ export async function removeCourseSchedule(courseId: string | number, scheduleId
 
 /**
  * HARD-delete a whole course (schedule master) — schedules, sessions, history, everything.
- * Server blocks it (422 COURSE_HAS_STUDENTS) while the course still has active students;
- * transfer/terminate them first. Irreversible.
+ * Server blocks it (422 COURSE_NOT_DELETABLE) while the course still has active students
+ * OR carries collected money (paid invoice/booklet/booking) — transfer/terminate students
+ * first; a course with real payment history is kept for the financial record. Irreversible.
  */
 export async function deleteCourse(courseId: string | number): Promise<void> {
   await client.delete(`/teacher/courses/${courseId}`);

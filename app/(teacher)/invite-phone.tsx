@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
+import { formatMoney } from '@/utils/currency';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -89,7 +90,7 @@ export default function InvitePhone() {
   const dpHint = dpOverpaid
     ? t('invite_phone.paid_over')
     : dpTotalNum > 0 && dpPaidNum > 0
-      ? t('invite_phone.paid_remaining').replace('{amount}', (dpTotalNum - dpPaidNum).toFixed(2))
+      ? t('invite_phone.paid_remaining').replace('{amount}', formatMoney(dpTotalNum - dpPaidNum))
       : t('invite_phone.paid_hint');
 
   // Inline validation mirroring the server rules — a provided name must be Arabic and a

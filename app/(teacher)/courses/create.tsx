@@ -4,6 +4,7 @@ import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
+import { formatMoney } from '@/utils/currency';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
@@ -80,7 +81,7 @@ export default function CourseCreateScreen() {
   const perSession = (() => {
     const p = parseFloat(cyclePrice);
     const n = parseInt(cycleSessions, 10);
-    return p > 0 && n > 0 ? (p / n).toFixed(2) : null;
+    return p > 0 && n > 0 ? formatMoney(p / n) : null;
   })();
 
   useEffect(() => {
