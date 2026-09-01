@@ -23,6 +23,28 @@ function pushLog(...args: unknown[]): void {
   }
 }
 
+// Android 8+ binds a notification's sound to its CHANNEL (not the payload), and a
+// channel's sound is fixed at creation — so the custom tone lives on a fresh channel
+// id here, which the backend targets via `channel_id`. iOS instead reads the sound
+// straight off the APNs payload, so it needs no channel. notify_android.wav is bundled
+// by the expo-notifications `sounds` config in app.config.ts.
+export const ANDROID_CHANNEL_ID = 'drosspot-alerts';
+
+async function ensureAndroidChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  try {
+    await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+      name: 'تنبيهات درس سبوت',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'notify_android.wav', // bundled name → res/raw; custom Android tone
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#6D28D9',
+    });
+  } catch (e) {
+    pushLog('android channel setup failed', e);
+  }
+}
+
 export async function registerForPushNotifications(): Promise<string | null> {
   // Android emulators running a Google Play system image DO receive FCM, so only
   // the iOS Simulator is a hard stop here (no APNs).
@@ -43,6 +65,9 @@ export async function registerForPushNotifications(): Promise<string | null> {
     pushLog('aborted: notification permission not granted, status =', finalStatus);
     return null;
   }
+
+  // Create the custom-sound channel before any push can arrive (Android only).
+  await ensureAndroidChannel();
 
   try {
     // The backend sends via Firebase Cloud Messaging directly (Kreait), so it needs a

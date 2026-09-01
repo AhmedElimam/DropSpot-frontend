@@ -79,7 +79,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   'expo-router',
   'expo-sqlite',
   'expo-secure-store',
-  'expo-notifications',
+  // Bundle the custom notification tones into BOTH platforms (iOS app bundle +
+  // Android res/raw). iOS references notify_ios by filename in the APNs payload;
+  // Android plays notify_android via the 'drosspot-alerts' channel (push-notifications.ts).
+  [
+    'expo-notifications',
+    {
+      sounds: ['./assets/sounds/notify_ios.wav', './assets/sounds/notify_android.wav'],
+    },
+  ],
     [
       'expo-location',
       {
