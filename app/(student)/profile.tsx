@@ -1,6 +1,6 @@
-import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
@@ -88,7 +88,7 @@ export default function StudentProfile() {
               {t('profile.account')}
             </Text>
             <TouchableOpacity
-              onPress={() => Linking.openSettings()}
+              onPress={() => router.push('/notification-preferences' as Href)}
               accessibilityRole="button"
               style={{ flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: spacing.md }}
             >
@@ -96,6 +96,17 @@ export default function StudentProfile() {
                 <Icon name="bell" size={20} color={colors.primary} outline />
               </View>
               <Text style={[textPresets.body, { flex: 1 }]}>{t('profile.notifications')}</Text>
+              <Icon name="back" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/request-name-correction' as Href)}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                <Icon name="note" size={20} color={colors.primary} outline />
+              </View>
+              <Text style={[textPresets.body, { flex: 1 }]}>طلب تصحيح الاسم</Text>
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
             <TouchableOpacity

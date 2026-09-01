@@ -116,6 +116,7 @@ export interface StudentCourse {
 }
 
 export interface StudentParent {
+  id: number;
   name: string | null;
   phone: string | null;
   relationship: string | null;
@@ -235,6 +236,31 @@ export async function requestStudentEdit(
   await client.post(`/teacher/students/${studentId}/edit-request`, payload);
 }
 
+export type IncidentType = 'behavioral' | 'communication' | 'attendance_discipline' | 'other';
+export type SafetyCategory = 'weapon' | 'physical_violence' | 'other_immediate_danger';
+
+/**
+ * Submit an INCIDENT report about a student → super-admin review (teacher-only, tiered).
+ * A safety-critical report needs a `safety_category` and triggers expedited review.
+ */
+export async function reportStudentIncident(
+  studentId: string | number,
+  payload: { description: string; report_type?: IncidentType; severity?: 'standard' | 'safety_critical'; safety_category?: SafetyCategory },
+): Promise<void> {
+  await client.post(`/teacher/students/${studentId}/report`, payload);
+}
+
+/**
+ * Report a parent's phone as fake/misleading → super-admin review; once confirmed the
+ * warning shows to every teacher who shares the student. Teacher-only.
+ */
+export async function flagParentNumber(
+  studentId: string | number,
+  payload: { parent_id: number; reason?: string },
+): Promise<void> {
+  await client.post(`/teacher/students/${studentId}/flag-parent-number`, payload);
+}
+
 // ---------------------------------------------------------------------------
 // Card orders raised for an existing enrollment (roster "cards" segment).
 // ---------------------------------------------------------------------------
@@ -292,4 +318,19 @@ export async function orderCardForEnrollment(payload: OrderCardPayload): Promise
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return (data.data ?? data) as { id: number; status: string };
+}
+
+// ---------------------------------------------------------------------------
+// Tier B — family (student/parent) name-correction requests → teacher review.
+// ---------------------------------------------------------------------------
+
+export async function submitMyNameCorrection(payload: { first_name?: string; last_name?: string; reason: string }): Promise<void> {
+  await client.post('/me/student-edit-request', payload);
+}
+
+export async function submitChildNameCorrection(
+  studentId: string | number,
+  payload: { first_name?: string; last_name?: string; reason: string },
+): Promise<void> {
+  await client.post(`/parent/children/${studentId}/edit-request`, payload);
 }

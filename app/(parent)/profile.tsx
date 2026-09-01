@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,6 +15,7 @@ import { SupportContact } from '@/components/SupportContact';
 
 interface SettingItem {
   key: string;
+  title?: string; // raw label overriding the i18n key
   icon: IconName;
   color: string;
   onPress: () => void;
@@ -33,7 +34,7 @@ export default function ParentSettings() {
       key: 'profile.notifications',
       icon: 'bell',
       color: colors.primary,
-      onPress: () => Linking.openSettings(),
+      onPress: () => router.push('/notification-preferences' as Href),
     },
     {
       key: 'auth.change_password',
@@ -46,6 +47,23 @@ export default function ParentSettings() {
       icon: 'call',
       color: colors.primary,
       onPress: () => router.push('/(parent)/change-phone' as Href),
+    },
+    {
+      key: 'parent.request_name_correction',
+      title: 'طلب تصحيح اسم الطفل',
+      icon: 'note',
+      color: colors.primary,
+      onPress: () => {
+        const kids = children ?? [];
+        const go = (k: { student_id: number; name: string }) =>
+          router.push(`/request-name-correction?studentId=${k.student_id}&studentName=${encodeURIComponent(k.name)}` as Href);
+        if (kids.length === 0) { Alert.alert('', 'لا يوجد أطفال مرتبطون بحسابك'); return; }
+        if (kids.length === 1) { go(kids[0]); return; }
+        Alert.alert('اختر الطفل', 'لأي طفل تريد طلب تصحيح الاسم؟', [
+          ...kids.slice(0, 4).map((k) => ({ text: k.name, onPress: () => go(k) })),
+          { text: 'إلغاء', style: 'cancel' as const },
+        ]);
+      },
     },
     {
       key: 'profile.contact_support',
@@ -93,7 +111,7 @@ export default function ParentSettings() {
                 <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: item.color + '18', justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
                   <Icon name={item.icon} size={20} color={item.color} outline />
                 </View>
-                <Text style={[textPresets.body, { flex: 1 }]}>{t(item.key)}</Text>
+                <Text style={[textPresets.body, { flex: 1 }]}>{item.title ?? t(item.key)}</Text>
                 <Icon name="back" size={18} color={colors.textTertiary} />
               </TouchableOpacity>
             ))}

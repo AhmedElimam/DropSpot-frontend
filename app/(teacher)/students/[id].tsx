@@ -14,6 +14,8 @@ import { useStudentDetail } from '@/hooks/useStudents';
 import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
+import { useAuthStore } from '@/stores/authStore';
+import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory } from '@/api/students';
 import { terminateEnrollment, transferEnrollment } from '@/api/enrollments';
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, type EnrollableClass } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -74,6 +76,7 @@ export default function StudentDetailScreen() {
   };
   const { can } = useActiveAbilities();
   const canManage = can(ABILITY.MANAGE_STUDENTS);
+  const isTeacher = useAuthStore((s) => s.role) === 'teacher'; // reports are teacher-only
 
   // Transfer one course enrollment to another of the teacher's own courses.
   const [transferFor, setTransferFor] = useState<{ enrollmentId: number; courseId: number; courseName: string | null } | null>(null);
@@ -100,6 +103,52 @@ export default function StudentDetailScreen() {
       Alert.alert('تعذّر الإرسال', e?.response?.data?.message || 'حدث خطأ');
     } finally {
       setEditBusy(false);
+    }
+  };
+
+  // Incident report (teacher-only) → super-admin review.
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportDesc, setReportDesc] = useState('');
+  const [reportType, setReportType] = useState<IncidentType>('behavioral');
+  const [reportSafety, setReportSafety] = useState(false);
+  const [reportSafetyCat, setReportSafetyCat] = useState<SafetyCategory>('physical_violence');
+  const [reportBusy, setReportBusy] = useState(false);
+
+  const submitReport = async () => {
+    if (reportDesc.trim().length < 20) { Alert.alert('', 'يرجى كتابة وصف كافٍ للحادثة (20 حرفًا على الأقل)'); return; }
+    setReportBusy(true);
+    try {
+      await reportStudentIncident(id, {
+        description: reportDesc.trim(),
+        report_type: reportType,
+        severity: reportSafety ? 'safety_critical' : 'standard',
+        safety_category: reportSafety ? reportSafetyCat : undefined,
+      });
+      setReportOpen(false); setReportDesc(''); setReportSafety(false); setReportType('behavioral');
+      Alert.alert('تم الإرسال', 'تم إرسال البلاغ لمراجعة الإدارة. لن يظهر لأي معلم آخر إلا بعد اعتماده.');
+    } catch (e: any) {
+      Alert.alert('تعذّر الإرسال', e?.response?.data?.message || 'حدث خطأ');
+    } finally {
+      setReportBusy(false);
+    }
+  };
+
+  // Flag a parent's phone number as fake/misleading (teacher-only) → super-admin review.
+  const [flagFor, setFlagFor] = useState<{ id: number; name: string } | null>(null);
+  const [flagReason, setFlagReason] = useState('');
+  const [flagBusy, setFlagBusy] = useState(false);
+
+  const submitFlag = async () => {
+    if (!flagFor) return;
+    setFlagBusy(true);
+    try {
+      await flagParentNumber(id, { parent_id: flagFor.id, reason: flagReason.trim() || undefined });
+      setFlagFor(null); setFlagReason('');
+      Alert.alert('تم الإرسال', 'تم إرسال البلاغ لمراجعة الإدارة. بعد التأكيد سيظهر التنبيه لجميع المعلمين.');
+    } catch (e: any) {
+      Alert.alert('تعذّر الإرسال', e?.response?.data?.message || 'حدث خطأ');
+    } finally {
+      setFlagBusy(false);
     }
   };
   const { data: destinations = [], isLoading: loadingDests } = useQuery({
@@ -273,6 +322,18 @@ export default function StudentDetailScreen() {
             </TouchableOpacity>
           ) : null}
 
+          {/* Report an incident about the student → super-admin review (teacher-only) */}
+          {isTeacher ? (
+            <TouchableOpacity
+              onPress={() => setReportOpen(true)}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: spacing.md }}
+            >
+              <Icon name="warning" size={18} color={colors.danger} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.danger }}>الإبلاغ عن حادثة</Text>
+            </TouchableOpacity>
+          ) : null}
+
           {/* Remove a terminated student from the roster now (before the 7-day grace) */}
           {s.can_remove_from_roster ? (
             <TouchableOpacity
@@ -443,6 +504,13 @@ export default function StudentDetailScreen() {
                       <Icon name="call" size={20} color={colors.success} />
                     </TouchableOpacity>
                   ) : null}
+                  {/* Report this parent's number as fake/misleading → super-admin review */}
+                  {isTeacher && !p.number_flagged ? (
+                    <TouchableOpacity onPress={() => setFlagFor({ id: p.id, name: p.name ?? '—' })} accessibilityRole="button"
+                                      style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
+                      <Icon name="warning" size={18} color={colors.danger} />
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               ))}
             </Section>
@@ -573,6 +641,86 @@ export default function StudentDetailScreen() {
                 {editBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إرسال للمراجعة</Text>}
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Incident report → super-admin review (teacher-only) */}
+      <Modal visible={reportOpen} animationType="slide" transparent onRequestClose={() => !reportBusy && setReportOpen(false)}>
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '90%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>الإبلاغ عن حادثة</Text>
+              <TouchableOpacity onPress={() => !reportBusy && setReportOpen(false)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
+            </View>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>
+              يُراجع مدير النظام البلاغ ولا يظهر لأي معلم آخر إلا بعد اعتماده.
+            </Text>
+
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.md }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>نوع البلاغ</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
+                {([['behavioral', 'سلوكي'], ['communication', 'تواصل'], ['attendance_discipline', 'انضباط'], ['other', 'أخرى']] as [IncidentType, string][]).map(([val, label]) => (
+                  <TouchableOpacity key={val} onPress={() => setReportType(val)} activeOpacity={0.85}
+                    style={{ paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: reportType === val ? colors.brand : colors.border, backgroundColor: reportType === val ? colors.brandTint : colors.surface }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: reportType === val ? colors.brand : colors.textSecondary }}>{label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>وصف الحادثة *</Text>
+              <TextInput value={reportDesc} onChangeText={setReportDesc} multiline placeholder="اكتب وصفًا واضحًا (20 حرفًا على الأقل)" placeholderTextColor={colors.textTertiary}
+                style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md, minHeight: 96, textAlignVertical: 'top', fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.md }} />
+
+              <TouchableOpacity onPress={() => setReportSafety((v) => !v)} activeOpacity={0.85}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: reportSafety ? colors.dangerLight : colors.surface, borderWidth: 1.5, borderColor: reportSafety ? colors.danger : colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
+                <Icon name="warning" size={18} color={reportSafety ? colors.danger : colors.textTertiary} />
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: reportSafety ? colors.danger : colors.textSecondary }}>حادثة خطيرة (تتطلب مراجعة عاجلة)</Text>
+                <View style={{ width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: reportSafety ? colors.danger : colors.border, backgroundColor: reportSafety ? colors.danger : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                  {reportSafety ? <Icon name="success" size={12} color="#fff" /> : null}
+                </View>
+              </TouchableOpacity>
+
+              {reportSafety ? (
+                <View style={{ marginBottom: spacing.md }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>نوع الخطر *</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                    {([['weapon', 'سلاح'], ['physical_violence', 'عنف جسدي'], ['other_immediate_danger', 'خطر مباشر آخر']] as [SafetyCategory, string][]).map(([val, label]) => (
+                      <TouchableOpacity key={val} onPress={() => setReportSafetyCat(val)} activeOpacity={0.85}
+                        style={{ paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: reportSafetyCat === val ? colors.danger : colors.border, backgroundColor: reportSafetyCat === val ? colors.dangerLight : colors.surface }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: reportSafetyCat === val ? colors.danger : colors.textSecondary }}>{label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              <TouchableOpacity onPress={submitReport} disabled={reportBusy} activeOpacity={0.85}
+                style={{ backgroundColor: reportSafety ? colors.danger : colors.brand, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', opacity: reportBusy ? 0.6 : 1 }}>
+                {reportBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إرسال البلاغ</Text>}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Flag a parent's phone number → super-admin review (teacher-only) */}
+      <Modal visible={!!flagFor} animationType="slide" transparent onRequestClose={() => !flagBusy && setFlagFor(null)}>
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>الإبلاغ عن رقم غير صحيح</Text>
+              <TouchableOpacity onPress={() => !flagBusy && setFlagFor(null)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
+            </View>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>
+              الإبلاغ عن رقم ولي الأمر «{flagFor?.name}» كرقم غير صحيح/مضلِّل. بعد اعتماد الإدارة يظهر التنبيه لجميع المعلمين.
+            </Text>
+            <TextInput value={flagReason} onChangeText={setFlagReason} multiline placeholder="السبب (اختياري)" placeholderTextColor={colors.textTertiary}
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md, minHeight: 72, textAlignVertical: 'top', fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.md }} />
+            <TouchableOpacity onPress={submitFlag} disabled={flagBusy} activeOpacity={0.85}
+              style={{ backgroundColor: colors.danger, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', opacity: flagBusy ? 0.6 : 1 }}>
+              {flagBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إرسال البلاغ</Text>}
+            </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
       </Modal>

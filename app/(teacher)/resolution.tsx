@@ -12,7 +12,8 @@ import {
   getResolutionSummary, getPendingExcuses, getPendingSwaps,
   approveExcuse, rejectExcuse, approveSwap, rejectSwap,
   getTerminationCandidates, terminateEnrollment,
-  type ExcuseItem, type SwapItem, type TerminationCandidate,
+  getStudentEditRequests, approveStudentEditRequest, rejectStudentEditRequest,
+  type ExcuseItem, type SwapItem, type TerminationCandidate, type StudentEditReq,
 } from '@/api/resolution';
 import { createAdminTicket, getMyAdminTickets, type AdminTicket } from '@/api/adminTickets';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -38,6 +39,7 @@ export default function ResolutionCenter() {
   const excuses = useQuery({ queryKey: ['resolution-excuses'], queryFn: getPendingExcuses });
   const swaps = useQuery({ queryKey: ['resolution-swaps'], queryFn: getPendingSwaps });
   const candidates = useQuery({ queryKey: ['resolution-termination'], queryFn: getTerminationCandidates });
+  const editRequests = useQuery({ queryKey: ['resolution-edit-requests'], queryFn: getStudentEditRequests });
   const myTickets = useQuery({ queryKey: ['my-admin-tickets'], queryFn: getMyAdminTickets });
 
   const sendTicket = async () => {
@@ -63,6 +65,7 @@ export default function ResolutionCenter() {
     qc.invalidateQueries({ queryKey: ['resolution-excuses'] });
     qc.invalidateQueries({ queryKey: ['resolution-swaps'] });
     qc.invalidateQueries({ queryKey: ['resolution-termination'] });
+    qc.invalidateQueries({ queryKey: ['resolution-edit-requests'] });
   };
 
   const confirmTerminate = (c: TerminationCandidate) => {
@@ -90,7 +93,7 @@ export default function ResolutionCenter() {
 
   const loading = summary.isLoading || excuses.isLoading || swaps.isLoading || candidates.isLoading;
   const { refreshing, onRefresh } = usePullRefresh(
-    summary.refetch, excuses.refetch, swaps.refetch, candidates.refetch, myTickets.refetch,
+    summary.refetch, excuses.refetch, swaps.refetch, candidates.refetch, myTickets.refetch, editRequests.refetch,
   );
   const s = summary.data;
 
@@ -226,6 +229,24 @@ export default function ResolutionCenter() {
                   busy={busy === `sw-${sw.id}`}
                   onApprove={() => act(`sw-${sw.id}`, () => approveSwap(sw.id))}
                   onReject={() => act(`sw-${sw.id}`, () => rejectSwap(sw.id))}
+                  t={t}
+                />
+              ))}
+            </>
+          ) : null}
+
+          {/* Family name-correction requests (Tier B) — approve applies immediately */}
+          {editRequests.data && editRequests.data.length > 0 ? (
+            <>
+              <SectionTitle>طلبات تصحيح البيانات</SectionTitle>
+              {editRequests.data.map((r: StudentEditReq) => (
+                <ReviewCard
+                  key={`edit-${r.id}`}
+                  title={r.student_name}
+                  subtitle={[`${r.current_name} ← ${r.proposed_name}`, r.reason].filter(Boolean).join(' · ')}
+                  busy={busy === `edit-${r.id}`}
+                  onApprove={() => act(`edit-${r.id}`, () => approveStudentEditRequest(r.id))}
+                  onReject={() => act(`edit-${r.id}`, () => rejectStudentEditRequest(r.id))}
                   t={t}
                 />
               ))}

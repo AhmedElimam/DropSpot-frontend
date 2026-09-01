@@ -86,3 +86,27 @@ export async function getTerminationCandidates(): Promise<TerminationCandidate[]
 export async function terminateEnrollment(enrollmentId: number): Promise<void> {
   await client.post(`/teacher/enrollments/${enrollmentId}/terminate`);
 }
+
+// Tier B — family name-correction requests the teacher reviews.
+export interface StudentEditReq {
+  id: number;
+  student_name: string;
+  current_name: string;
+  proposed_name: string;
+  reason: string;
+  submitted_by: string;
+  created_at: string;
+}
+
+export async function getStudentEditRequests(): Promise<StudentEditReq[]> {
+  const { data } = await client.get('/teacher/student-edit-requests');
+  return (data.data ?? data ?? []) as StudentEditReq[];
+}
+
+export async function approveStudentEditRequest(id: number): Promise<void> {
+  await client.post(`/teacher/student-edit-requests/${id}/approve`);
+}
+
+export async function rejectStudentEditRequest(id: number, reason?: string): Promise<void> {
+  await client.post(`/teacher/student-edit-requests/${id}/reject`, { reason });
+}

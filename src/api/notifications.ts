@@ -31,3 +31,24 @@ export async function getUnreadCount(): Promise<number> {
   const { data } = await client.get('/notifications/unread-count');
   return data.data?.count ?? data.count ?? 0;
 }
+
+// ---------------------------------------------------------------------------
+// Self-service notification preferences (Tier A).
+// ---------------------------------------------------------------------------
+
+export interface NotificationPrefs {
+  push: boolean;   // all FCM pushes
+  digest: boolean; // the periodic digest specifically
+}
+
+export async function getNotificationPrefs(): Promise<NotificationPrefs> {
+  const { data } = await client.get('/me/notification-preferences');
+  const d = data.data ?? data;
+  return { push: !!d.push, digest: !!d.digest };
+}
+
+export async function updateNotificationPrefs(prefs: NotificationPrefs): Promise<NotificationPrefs> {
+  const { data } = await client.put('/me/notification-preferences', prefs);
+  const d = data.data ?? data;
+  return { push: !!d.push, digest: !!d.digest };
+}
