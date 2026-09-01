@@ -223,6 +223,18 @@ export async function reportParentUnreachable(studentId: string | number): Promi
   await client.post(`/teacher/students/${studentId}/parent-unreachable`);
 }
 
+/**
+ * REQUEST a name/phone correction for a student → super-admin review. There is no direct
+ * teacher edit (a student is a shared global identity and the phone is a login credential).
+ * Send only the field(s) to change; `reason` is required.
+ */
+export async function requestStudentEdit(
+  studentId: string | number,
+  payload: { first_name?: string; last_name?: string; phone?: string; reason: string },
+): Promise<void> {
+  await client.post(`/teacher/students/${studentId}/edit-request`, payload);
+}
+
 // ---------------------------------------------------------------------------
 // Card orders raised for an existing enrollment (roster "cards" segment).
 // ---------------------------------------------------------------------------

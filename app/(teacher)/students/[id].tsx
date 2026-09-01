@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, Alert, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView } from 'react-native';
 import { useState } from 'react';
 import { openRemotePdf } from '@/utils/openPdf';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -15,7 +15,7 @@ import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { terminateEnrollment, transferEnrollment } from '@/api/enrollments';
-import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, type EnrollableClass } from '@/api/students';
+import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, type EnrollableClass } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
 
@@ -78,6 +78,30 @@ export default function StudentDetailScreen() {
   // Transfer one course enrollment to another of the teacher's own courses.
   const [transferFor, setTransferFor] = useState<{ enrollmentId: number; courseId: number; courseName: string | null } | null>(null);
   const [transferBusy, setTransferBusy] = useState(false);
+
+  // Name/phone correction REQUEST (goes to super-admin review — no direct edit).
+  const [editOpen, setEditOpen] = useState(false);
+  const [editFirst, setEditFirst] = useState('');
+  const [editLast, setEditLast] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
+
+  const submitEdit = async () => {
+    const first = editFirst.trim(), last = editLast.trim(), phone = editPhone.trim(), reason = editReason.trim();
+    if (!first && !last && !phone) { Alert.alert('', 'حدّد الاسم أو الرقم الجديد على الأقل'); return; }
+    if (!reason) { Alert.alert('', 'يرجى توضيح سبب طلب التعديل'); return; }
+    setEditBusy(true);
+    try {
+      await requestStudentEdit(id, { first_name: first || undefined, last_name: last || undefined, phone: phone || undefined, reason });
+      setEditOpen(false); setEditFirst(''); setEditLast(''); setEditPhone(''); setEditReason('');
+      Alert.alert('تم الإرسال', 'تم إرسال طلب التعديل لمراجعة الإدارة.');
+    } catch (e: any) {
+      Alert.alert('تعذّر الإرسال', e?.response?.data?.message || 'حدث خطأ');
+    } finally {
+      setEditBusy(false);
+    }
+  };
   const { data: destinations = [], isLoading: loadingDests } = useQuery({
     queryKey: ['enrollable-classes'],
     queryFn: getEnrollableClasses,
@@ -236,6 +260,18 @@ export default function StudentDetailScreen() {
               {exporting ? t('teacher.performance_exporting') : t('teacher.performance_export')}
             </Text>
           </TouchableOpacity>
+
+          {/* Request a name/phone correction — goes to super-admin review (no direct edit) */}
+          {canManage ? (
+            <TouchableOpacity
+              onPress={() => setEditOpen(true)}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: spacing.md }}
+            >
+              <Icon name="note" size={18} color={colors.textSecondary} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>طلب تعديل الاسم/الرقم</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {/* Remove a terminated student from the roster now (before the 7-day grace) */}
           {s.can_remove_from_roster ? (
@@ -483,6 +519,62 @@ export default function StudentDetailScreen() {
             {transferBusy ? <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.sm }} /> : null}
           </View>
         </View>
+      </Modal>
+
+      {/* Name/phone correction request → super-admin review */}
+      <Modal visible={editOpen} animationType="slide" transparent onRequestClose={() => !editBusy && setEditOpen(false)}>
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '88%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>طلب تعديل بيانات الطالب</Text>
+              <TouchableOpacity onPress={() => !editBusy && setEditOpen(false)} hitSlop={10}>
+                <Icon name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>
+              يراجع مدير النظام الطلب قبل تطبيقه. اترك الحقل فارغًا إن لم ترغب بتغييره.
+            </Text>
+
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.md }}>
+              {[
+                { label: 'الاسم الأول', value: editFirst, set: setEditFirst, kb: 'default' as const },
+                { label: 'الاسم الأخير', value: editLast, set: setEditLast, kb: 'default' as const },
+                { label: 'رقم الهاتف', value: editPhone, set: setEditPhone, kb: 'phone-pad' as const },
+              ].map((f) => (
+                <View key={f.label} style={{ marginBottom: spacing.md }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>{f.label}</Text>
+                  <TextInput
+                    value={f.value}
+                    onChangeText={f.set}
+                    keyboardType={f.kb}
+                    placeholderTextColor={colors.textTertiary}
+                    style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}
+                  />
+                </View>
+              ))}
+              <View style={{ marginBottom: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>سبب التعديل *</Text>
+                <TextInput
+                  value={editReason}
+                  onChangeText={setEditReason}
+                  multiline
+                  placeholder="مثال: خطأ إملائي في الاسم / رقم قديم"
+                  placeholderTextColor={colors.textTertiary}
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md, minHeight: 76, textAlignVertical: 'top', fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}
+                />
+              </View>
+
+              <TouchableOpacity
+                onPress={submitEdit}
+                disabled={editBusy}
+                activeOpacity={0.85}
+                style={{ backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', opacity: editBusy ? 0.6 : 1 }}
+              >
+                {editBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إرسال للمراجعة</Text>}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
