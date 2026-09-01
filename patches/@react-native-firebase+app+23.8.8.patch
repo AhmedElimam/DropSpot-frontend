@@ -1,31 +1,37 @@
 diff --git a/node_modules/@react-native-firebase/app/ios/RNFBApp/RCTConvert+FIRApp.h b/node_modules/@react-native-firebase/app/ios/RNFBApp/RCTConvert+FIRApp.h
-index 73c0982..bca2b31 100644
+index 73c0982..eb6dd29 100644
 --- a/node_modules/@react-native-firebase/app/ios/RNFBApp/RCTConvert+FIRApp.h
 +++ b/node_modules/@react-native-firebase/app/ios/RNFBApp/RCTConvert+FIRApp.h
-@@ -15,6 +15,9 @@
+@@ -15,8 +15,11 @@
   *
   */
  
+-#import <FirebaseCore/FirebaseCore.h>
 +// react-native-firebase iOS static-frameworks fix: import React first so RCT_EXTERN /
 +// RCTPromiseRejectBlock / RCTResponseSenderBlock are in scope before any Firebase @import.
 +#import <React/RCTBridgeModule.h>
- #import <FirebaseCore/FirebaseCore.h>
  #import <React/RCTConvert.h>
++#import <FirebaseCore/FirebaseCore.h>
  
+ @interface RCTConvert (FIRApp)
+ + (FIRApp *)firAppFromString:(NSString *)appName;
 diff --git a/node_modules/@react-native-firebase/app/ios/RNFBApp/RCTConvert+FIROptions.h b/node_modules/@react-native-firebase/app/ios/RNFBApp/RCTConvert+FIROptions.h
-index 470ac35..3772bae 100644
+index 470ac35..84c7294 100644
 --- a/node_modules/@react-native-firebase/app/ios/RNFBApp/RCTConvert+FIROptions.h
 +++ b/node_modules/@react-native-firebase/app/ios/RNFBApp/RCTConvert+FIROptions.h
-@@ -15,6 +15,9 @@
+@@ -15,8 +15,11 @@
   *
   */
  
+-#import <FirebaseCore/FirebaseCore.h>
 +// react-native-firebase iOS static-frameworks fix: import React first so RCT_EXTERN /
 +// RCTPromiseRejectBlock / RCTResponseSenderBlock are in scope before any Firebase @import.
 +#import <React/RCTBridgeModule.h>
- #import <FirebaseCore/FirebaseCore.h>
  #import <React/RCTConvert.h>
++#import <FirebaseCore/FirebaseCore.h>
  
+ @interface RCTConvert (FIROptions)
+ + (FIROptions *)convertRawOptions:(NSDictionary *)rawOptions;
 diff --git a/node_modules/@react-native-firebase/app/ios/RNFBApp/RNFBAppModule.m b/node_modules/@react-native-firebase/app/ios/RNFBApp/RNFBAppModule.m
 index f679daa..f68081d 100644
 --- a/node_modules/@react-native-firebase/app/ios/RNFBApp/RNFBAppModule.m
