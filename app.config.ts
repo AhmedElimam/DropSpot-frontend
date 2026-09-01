@@ -20,7 +20,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'automatic',
   ios: {
     bundleIdentifier: 'com.drosspot.app',
-    supportsTablet: true,
+    // iPhone-only — we don't support iPad, so don't declare tablet support (otherwise
+    // App Store Connect demands iPad screenshots / capabilities).
+    supportsTablet: false,
     // App uses only standard/exempt encryption (HTTPS) — declaring this avoids
     // EAS prompting (and crashing) on ITSAppUsesNonExemptEncryption at build.
     config: {
