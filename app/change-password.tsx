@@ -51,9 +51,11 @@ export default function ChangePasswordScreen() {
     change.mutate(
       { current_password: current, password: next },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
           if (isForced && user && role) {
-            setSession({ ...user, must_set_password: false }, role);
+            // await: setSession commits to the store only after an async persist;
+            // navigating first makes the index gate re-read the stale flag and bounce back.
+            await setSession({ ...user, must_set_password: false }, role);
             // Route through the index gate (not straight to /(teacher)) so any
             // remaining first-open gate — e.g. Terms acceptance — is evaluated next.
             router.replace('/' as Href);

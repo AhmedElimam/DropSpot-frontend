@@ -80,8 +80,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     setSession: async (user, role) => {
       const { activeTeacherId, impersonation } = get();
-      await persist(user, role, activeTeacherId, impersonation);
+      // Update the in-memory store FIRST (synchronous) so a caller that navigates right
+      // after — even without awaiting — never re-reads a stale gate flag (e.g. the Terms
+      // gate bouncing back on first accept). Persist to disk after.
       set({ user, role, isAuthenticated: true });
+      await persist(user, role, activeTeacherId, impersonation);
     },
 
     setActiveTeacherId: async (id) => {

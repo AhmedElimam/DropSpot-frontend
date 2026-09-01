@@ -67,9 +67,10 @@ export default function VerifyOwnNumberScreen() {
 
   const verify = useMutation({
     mutationFn: () => verifyOwnNumber(code),
-    onSuccess: () => {
-      // Clear the flag locally and drop into the student app.
-      if (user && role) setSession({ ...user, needs_own_number_verification: false }, role);
+    onSuccess: async () => {
+      // Clear the flag locally and drop into the student app. await: the store commits
+      // only after an async persist, so navigating first can re-read the stale flag.
+      if (user && role) await setSession({ ...user, needs_own_number_verification: false }, role);
       router.replace('/(student)' as Href);
     },
   });

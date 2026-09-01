@@ -43,8 +43,12 @@ export default function AcceptTermsScreen() {
 
   const accept = useMutation({
     mutationFn: () => acceptTerms(),
-    onSuccess: () => {
-      if (user && role) setSession({ ...user, must_accept_terms: false }, role);
+    onSuccess: async () => {
+      // MUST await: setSession updates the in-memory store only AFTER an async
+      // SecureStore write. Navigating before it lands makes the index gate still
+      // read must_accept_terms=true and bounce straight back to this screen (the
+      // "accept once, it reloads; accept again, it passes" bug).
+      if (user && role) await setSession({ ...user, must_accept_terms: false }, role);
       router.replace('/' as Href);
     },
   });
