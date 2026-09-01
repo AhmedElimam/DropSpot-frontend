@@ -56,7 +56,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         ndkVersion: '30.0.14904198',
       },
       // Static frameworks for the CocoaPods Firebase iOS SDK (SPM is disabled below via
-      // withRNFirebaseDisableSPM — v26's SPM path is incompatible with Expo's static linkage).
+      // withRNFirebaseDisableSPM — RNFirebase's SPM path is incompatible with Expo's static linkage).
       ios: {
         useFrameworks: 'static',
       },
