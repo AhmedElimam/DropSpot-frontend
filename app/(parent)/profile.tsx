@@ -43,6 +43,13 @@ export default function ParentSettings() {
       onPress: () => router.push('/change-password'),
     },
     {
+      key: 'parent.edit_name',
+      title: 'تعديل الاسم',
+      icon: 'note',
+      color: colors.primary,
+      onPress: () => router.push('/(parent)/change-name' as Href),
+    },
+    {
       key: 'auth.change_phone',
       icon: 'call',
       color: colors.primary,
