@@ -115,6 +115,14 @@ export default function ParentSettings() {
                 <Icon name="back" size={18} color={colors.textTertiary} />
               </TouchableOpacity>
             ))}
+            {/* Tier C — a parent may request a child's name correction (above) but the code,
+                grade and the student's own login number are teacher-managed. Make that legible. */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+              <Icon name="lock" size={16} color={colors.textTertiary} outline />
+              <Text style={[textPresets.caption, { flex: 1, lineHeight: 18 }]}>
+                كود الطالب وصفّه ورقم هاتفه يديرها المعلّم. لتغيير أيٍّ منها، تواصل مع معلّم الطالب.
+              </Text>
+            </View>
           </View>
 
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>

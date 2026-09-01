@@ -120,6 +120,14 @@ export default function StudentProfile() {
               <Text style={[textPresets.body, { flex: 1 }]}>{t('auth.change_password')}</Text>
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
+            {/* Tier C — the identity fields a student can never self-edit. Shown as a plain
+                note (not a dead control) so the lock is legible and points to the teacher. */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+              <Icon name="lock" size={16} color={colors.textTertiary} outline />
+              <Text style={[textPresets.caption, { flex: 1, lineHeight: 18 }]}>
+                الكود والصف ورقم ولي الأمر يديرها معلّمك. لتغيير أيٍّ منها، تواصل مع معلّمك.
+              </Text>
+            </View>
           </View>
 
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
