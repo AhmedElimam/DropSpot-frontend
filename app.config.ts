@@ -59,6 +59,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // withRNFirebaseDisableSPM — RNFirebase's SPM path is incompatible with Expo's static linkage).
       ios: {
         useFrameworks: 'static',
+        // Force the RNFirebase BRIDGING pods to link as plain STATIC LIBRARIES rather than
+        // clang framework modules. As framework modules they compile ObjC categories on
+        // RCTConvert and use RCT_EXTERN/RCTPromiseRejectBlock from NON-modular React-Core
+        // headers, which fails under useFrameworks:'static' with "non-modular header inside
+        // framework module 'RNFBApp…'" and "'RCTConvert' must be imported from module before
+        // required". Linking them statically drops the module wrapper so React headers compile
+        // textually as normal. (Expo SDK 54+ prebuilt-core Podfile reads ios.forceStaticLinking.)
+        forceStaticLinking: ['RNFBApp', 'RNFBMessaging'],
       },
     },
   ],
