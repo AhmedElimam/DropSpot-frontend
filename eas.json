@@ -19,7 +19,12 @@
     "production": {
       "autoIncrement": true,
       "channel": "production",
-      "credentialsSource": "local"
+      "ios": {
+        "credentialsSource": "local"
+      },
+      "android": {
+        "credentialsSource": "remote"
+      }
     }
   },
   "submit": {
