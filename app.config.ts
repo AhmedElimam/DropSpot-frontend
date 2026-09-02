@@ -20,6 +20,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: 'automatic',
   ios: {
     bundleIdentifier: 'com.drosspot.app',
+    // App Store Connect rejects a re-used build number, so CI stamps a fresh one
+    // (the GitHub run number) via IOS_BUILD_NUMBER. Defaults to '1' locally.
+    buildNumber: process.env.IOS_BUILD_NUMBER || '1',
     // iPhone-only — we don't support iPad, so don't declare tablet support (otherwise
     // App Store Connect demands iPad screenshots / capabilities).
     supportsTablet: false,

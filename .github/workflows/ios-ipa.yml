@@ -1,0 +1,199 @@
+name: Build iOS IPA
+
+# Free App Store .ipa builds on GitHub's macOS runners — no EAS, no Expo token, no paid
+# plan. This repo is PUBLIC, so macOS minutes are free (private repos bill them at 10x).
+#
+# Signing uses the SAME two Apple files EAS used via credentials.json, but supplied as
+# repo secrets instead (they stay gitignored and are never printed):
+#   IOS_DIST_P12_BASE64            base64 of credentials/ios/DrosSpot_Distribution.p12
+#   IOS_DIST_P12_PASSWORD          that .p12's export password
+#   IOS_PROVISIONING_PROFILE_BASE64  base64 of the App Store .mobileprovision
+# See credentials/ios/README.md for the one-time `gh secret set` commands.
+#
+# ios/ is gitignored, so the native project is regenerated with `expo prebuild` — which
+# applies app.config.ts (useFrameworks:static, RNFB forceStaticLinking, disable-SPM plugin,
+# notification sounds) and patch-package, i.e. the exact config that builds locally.
+#
+# Trigger from the Actions tab (Run workflow), or push a tag like v1.4.0 to also attach
+# the .ipa to a GitHub Release. NOTE: on a public repo, artifacts and release assets are
+# publicly downloadable — an App Store-signed .ipa can only be installed via TestFlight,
+# but don't switch the export method to ad-hoc here without making the repo private.
+
+on:
+  workflow_dispatch:
+    inputs:
+      export_method:
+        description: 'Export method'
+        type: choice
+        default: app-store-connect
+        options:
+          - app-store-connect
+          - ad-hoc
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write # needed for the tag → GitHub Release step
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+    # A cold Expo/RN 0.81 iOS build (pods + full compile) runs ~30-45 min. Fail fast so a
+    # stuck build can't idle until GitHub's 6-hour hard limit.
+    timeout-minutes: 90
+    env:
+      TEAM_ID: 24M2V9YQYH
+      BUNDLE_ID: com.drosspot.app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      # postinstall runs patch-package (the RNFirebase React-first-import patches that
+      # clear the iOS getConstants / non-modular-header compile walls).
+      - name: Install dependencies
+        run: npm ci
+
+      # Import the distribution cert into a throwaway keychain and stage the profile.
+      # Nothing is echoed; the keychain password is random and dies with the runner.
+      - name: Install signing certificate and provisioning profile
+        env:
+          P12_BASE64: ${{ secrets.IOS_DIST_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$P12_BASE64" ] || [ -z "$PROFILE_BASE64" ]; then
+            echo "::error::Signing secrets are missing. Set IOS_DIST_P12_BASE64, IOS_DIST_P12_PASSWORD and IOS_PROVISIONING_PROFILE_BASE64 (see credentials/ios/README.md)."
+            exit 1
+          fi
+
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+
+          echo "$P12_BASE64" | base64 --decode > "$CERT_PATH"
+          echo "$PROFILE_BASE64" | base64 --decode > "$PROFILE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          # Let codesign use the key without an interactive prompt.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/build.mobileprovision"
+
+          # Read the profile's real name straight out of it, so renaming the profile in the
+          # Apple portal can never silently mismatch PROVISIONING_PROFILE_SPECIFIER.
+          security cms -D -i "$PROFILE_PATH" > "$RUNNER_TEMP/profile.plist"
+          PROFILE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")"
+          echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
+          echo "Using provisioning profile: $PROFILE_NAME"
+          echo "Expires: $(/usr/libexec/PlistBuddy -c 'Print :ExpirationDate' "$RUNNER_TEMP/profile.plist")"
+          rm -f "$CERT_PATH"
+
+      # Regenerates ios/ from app.config.ts. IOS_BUILD_NUMBER stamps a unique, increasing
+      # CFBundleVersion so App Store Connect never rejects the upload as a duplicate.
+      - name: Prebuild native iOS project
+        env:
+          IOS_BUILD_NUMBER: ${{ github.run_number }}
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods
+        run: pod install
+        working-directory: ios
+
+      # app.config.ts sets name: 'DrosSpot', but derive it anyway so a rename can't break CI.
+      - name: Resolve Xcode workspace and scheme
+        run: |
+          set -euo pipefail
+          WORKSPACE="$(ls -d ios/*.xcworkspace | head -1)"
+          SCHEME="$(basename "$WORKSPACE" .xcworkspace)"
+          echo "WORKSPACE=$WORKSPACE" >> "$GITHUB_ENV"
+          echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
+          echo "Workspace: $WORKSPACE / scheme: $SCHEME"
+
+      - name: Archive
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/DrosSpot.xcarchive" \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            CODE_SIGN_IDENTITY="Apple Distribution"
+
+      - name: Write ExportOptions.plist
+        env:
+          EXPORT_METHOD: ${{ github.event.inputs.export_method || 'app-store-connect' }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>${EXPORT_METHOD}</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>stripSwiftSymbols</key><true/>
+            <key>uploadSymbols</key><true/>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${BUNDLE_ID}</key><string>${PROFILE_NAME}</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+
+      - name: Export IPA
+        run: |
+          set -euo pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/DrosSpot.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+
+          mkdir -p artifacts
+          cp "$RUNNER_TEMP"/export/*.ipa "artifacts/drosspot-${GITHUB_SHA::7}-b${GITHUB_RUN_NUMBER}.ipa"
+          ls -lh artifacts
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drosspot-ios-ipa
+          path: artifacts/*.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach IPA to GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.ipa
+
+      # The keychain lives in RUNNER_TEMP and dies with the ephemeral runner, but remove the
+      # staged profile explicitly so nothing signing-related outlives a cancelled run.
+      - name: Clean up signing material
+        if: always()
+        run: rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/build.mobileprovision"

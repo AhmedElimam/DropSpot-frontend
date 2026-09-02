@@ -32,3 +32,31 @@ no Apple login needed for the build.
 NOTE: `eas submit` (uploading to TestFlight) still needs App Store Connect access —
 use an App Store Connect **API key** (`.p8`) there, or Transporter, once the Apple
 account is usable.
+
+---
+
+## Building the .ipa on GitHub Actions instead of EAS
+
+`.github/workflows/ios-ipa.yml` builds a signed App Store `.ipa` on GitHub's macOS
+runners (free — this repo is public) using these SAME two files, supplied as repo
+secrets. Run these ONCE from the project root; they pipe the files straight into
+`gh` so the key is never printed to a terminal, a log, or the shell history:
+
+```bash
+base64 -i credentials/ios/DrosSpot_Distribution.p12 | gh secret set IOS_DIST_P12_BASE64
+base64 -i credentials/ios/drosspot_Profile.mobileprovision | gh secret set IOS_PROVISIONING_PROFILE_BASE64
+gh secret set IOS_DIST_P12_PASSWORD   # paste the .p12 password when prompted
+```
+
+Then: **Actions → Build iOS IPA → Run workflow** (or push a `v*` tag to also attach
+the `.ipa` to a GitHub Release). Download the `drosspot-ios-ipa` artifact and upload
+it to App Store Connect with Transporter as usual.
+
+The workflow regenerates `ios/` with `expo prebuild`, so it picks up `app.config.ts`
+(static frameworks, RNFB `forceStaticLinking`, disable-SPM plugin) and the
+`patch-package` patches automatically — no native files need committing. Each run
+stamps `CFBundleVersion` with the GitHub run number, so App Store Connect never sees
+a duplicate build number.
+
+Renewal: the profile above expires **2027-08-31**. When it (or the certificate) is
+replaced, re-run the matching `gh secret set` line — nothing else changes.
