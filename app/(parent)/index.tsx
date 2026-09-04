@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,6 +15,7 @@ import { AttendanceRiskCard } from '@/components/attendance/AttendanceRiskCard';
 import { BillingOverdueCard } from '@/components/attendance/BillingOverdueCard';
 import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
 import { usePendingPrecardInvites, useAcceptPrecardInvite, useRejectPrecardInvite } from '@/hooks/usePrecardPhone';
+import { usePendingSiblingClaims, useConfirmSiblingClaim, useDenySiblingClaim } from '@/hooks/useSiblingClaims';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
@@ -103,6 +104,7 @@ export default function ParentHome() {
           ))}
 
           {/* §3 — pending phone pre-card invitations awaiting the family's consent */}
+          <PendingSiblingClaims t={t} />
           <PendingInvites t={t} />
 
           {/* Children */}
@@ -196,6 +198,92 @@ function ChildCard({ child, t }: { child: Child; t: (k: string) => string }) {
       </View>
       <Text style={{ fontSize: 28, color: colors.textTertiary }}>‹</Text>
     </TouchableOpacity>
+  );
+}
+
+/**
+ * The sibling gate. A child was attached to THIS parent's number as their guardian
+ * and the parent has to say whether that is really their child.
+ *
+ * Why it matters: a student's own number is unique, but a parent's number is shared
+ * between siblings on purpose — so a student can type a friend's parent's number and
+ * land inside a real family. Denying is what closes that: every teacher the student
+ * attends is told the guardian number reaches nobody in that child's family.
+ *
+ * Renders nothing when there is nothing to answer.
+ */
+function PendingSiblingClaims({ t }: { t: (k: string) => string }) {
+  const { data: claims } = usePendingSiblingClaims();
+  const confirm = useConfirmSiblingClaim();
+  const deny = useDenySiblingClaim();
+  const busy = confirm.isPending || deny.isPending;
+
+  if (!claims || claims.length === 0) return null;
+
+  // Denying carries real consequences for the student's teachers, so it is never a
+  // single tap — the parent is told exactly what will happen first.
+  function askDeny(id: number, name: string) {
+    Alert.alert(
+      t('sibling_claim.deny_title'),
+      `${name}\n\n${t('sibling_claim.deny_body')}`,
+      [
+        { text: t('sibling_claim.cancel'), style: 'cancel' },
+        {
+          text: t('sibling_claim.deny_confirm'),
+          style: 'destructive',
+          onPress: () => deny.mutate({ id }, {
+            onSuccess: () => Alert.alert(t('sibling_claim.denied_title'), t('sibling_claim.denied_body')),
+            onError: () => Alert.alert(t('sibling_claim.error')),
+          }),
+        },
+      ],
+    );
+  }
+
+  return (
+    <View style={{ gap: spacing.md }}>
+      <Text style={sectionLabel}>{t('sibling_claim.section')}</Text>
+      {claims.map((c) => (
+        <View key={c.id} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 4, borderStartColor: colors.warning }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.warningLight, justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name="profile" size={20} color={colors.warning} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{c.student_name}</Text>
+              {c.grade ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>{c.grade}</Text>
+              ) : null}
+            </View>
+          </View>
+
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: spacing.md, lineHeight: 22 }}>
+            {t('sibling_claim.explain')}
+          </Text>
+
+          <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg }}>
+            <TouchableOpacity
+              onPress={() => confirm.mutate(c.id, { onError: () => Alert.alert(t('sibling_claim.error')) })}
+              disabled={busy}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              style={{ flex: 1, minHeight: 46, borderRadius: radius.lg, backgroundColor: colors.success, justifyContent: 'center', alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+            >
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('sibling_claim.yes')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => askDeny(c.id, c.student_name)}
+              disabled={busy}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              style={{ flex: 1, minHeight: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.danger, justifyContent: 'center', alignItems: 'center', opacity: busy ? 0.5 : 1 }}
+            >
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger }}>{t('sibling_claim.no')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 

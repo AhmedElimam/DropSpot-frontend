@@ -55,7 +55,18 @@ export async function recordStudent(payload: RecordStudentPayload): Promise<Reco
   return (data.data ?? data) as RecordStudentResult;
 }
 
-export async function orderCardsForNewlyAdded(enrollmentIds: number[]): Promise<{ created: number; skipped: number }> {
+/**
+ * Files hand-to-teacher card orders for an explicit list of enrollments. NEVER called
+ * automatically after recording a student — the teacher presses the button (and
+ * confirms) — so fast recording alone never orders a card.
+ *
+ * `already_ordered` counts students skipped because a card order is already open for
+ * them, which includes one filed by ANOTHER teacher sharing the student (one card
+ * serves every teacher; the other teacher is never named).
+ */
+export async function orderCardsForNewlyAdded(
+  enrollmentIds: number[],
+): Promise<{ created: number; skipped: number; already_ordered?: number }> {
   const { data } = await client.post('/teacher/students/record/order-cards', { enrollment_ids: enrollmentIds });
-  return (data.data ?? data) as { created: number; skipped: number };
+  return (data.data ?? data) as { created: number; skipped: number; already_ordered?: number };
 }

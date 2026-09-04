@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore, resolveRole } from '@/stores/authStore';
 import { ensureApiBaseHydrated, getApiBaseOverride } from '@/api/apiBase';
+import { resolveAppId } from '@/utils/appIdentity';
 
 /**
  * Resolve the API base URL.
@@ -98,6 +99,13 @@ client.interceptors.request.use(async (config) => {
   // update screen is enforced client-side against the shipped binary version).
   const appVersion = Constants.expoConfig?.version;
   if (appVersion) config.headers['X-App-Version'] = appVersion;
+  // App IDENTITY (bundle id / package name) + platform. This is what lets the server
+  // retire ONE published app — the one on a developer account we share — while the
+  // successor app keeps working. Builds shipped before this header existed send
+  // nothing, and the server reads a missing header as the legacy identity.
+  const appId = resolveAppId();
+  if (appId) config.headers['X-App-Id'] = appId;
+  config.headers['X-App-Platform'] = Platform.OS;
   return config;
 });
 

@@ -59,7 +59,8 @@
       "router": {},
       "eas": {
         "projectId": "f537825e-3329-40d0-827a-aa708f228509"
-      }
+      },
+      "appId": "com.drosspot.app"
     }
   }
 }

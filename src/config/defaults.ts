@@ -26,6 +26,20 @@ export interface AppConfigContact {
 export interface AppConfigPayload {
   schema_version: number;
   min_supported_app_version: string;
+  /**
+   * Set by the server when THIS app identity has been retired (its store listing is
+   * no longer ours to publish to). Carries where the user should go instead. Older
+   * builds ignore this field entirely and are stopped by min_supported_app_version
+   * alone, with the migration wording delivered through the copy overlay.
+   */
+  app_retired?: boolean;
+  migration?: {
+    retired: boolean;
+    title: string;
+    body: string;
+    android_url: string | null;
+    ios_url: string | null;
+  } | null;
   // Optional remote override of the API base URL (empty/absent = keep the bundled URL).
   api_base_url?: string;
   feature_flags: Record<string, boolean>;
@@ -39,6 +53,8 @@ export interface AppConfigPayload {
 export const CONFIG_DEFAULTS: AppConfigPayload = {
   schema_version: 1,
   min_supported_app_version: '1.0.0',
+  app_retired: false,
+  migration: null,
   feature_flags: {},
   rules: {
     geofence_max_accuracy_m: 50,

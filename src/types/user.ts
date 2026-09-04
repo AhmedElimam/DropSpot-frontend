@@ -18,6 +18,12 @@ export interface User {
   must_accept_terms?: boolean;
   /** Self-registration wall (student): true until a subscribed teacher enrolls them. */
   needs_teacher_invitation?: boolean;
+  /**
+   * Parent only. Their name was DERIVED from a child's (a teacher recording at the
+   * door only had a phone number), so they are asked once, at first login, to confirm
+   * or correct it. Cleared by confirming or editing — never blocks the account.
+   */
+  should_confirm_name?: boolean;
   /** First-cohort teacher — the app shows a «عضو مؤسس» (Founding Member) badge. */
   is_founding_teacher?: boolean;
   /** The single flagship «عضو مميز» tier (violet-gold badge, lifetime subscription-exempt). */

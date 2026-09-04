@@ -22,6 +22,9 @@ export function notificationRoute(type: string, data?: Record<string, unknown> |
     case 'absence':
     case 'left_early':
     case 'grade':
+    // The sibling gate's confirm/deny card lives on the parent home screen.
+    case 'sibling_claim':
+      return '/(parent)';
     case 'student_linked':
       return studentId != null ? `/(parent)/child/${studentId}` : null;
     default:

@@ -34,6 +34,13 @@ export default function Index() {
     return <Redirect href={'/verify-own-number' as Href} />;
   }
 
+  // Parent first login: their name was derived from a child's rather than given, so
+  // ask them to confirm or fix it. Non-blocking by design — the screen offers "it's
+  // correct" as well as an edit, and either answer clears it for good.
+  if (role === 'parent' && user?.should_confirm_name) {
+    return <Redirect href={'/(parent)/change-name?first=1' as Href} />;
+  }
+
   // A super-admin / admin has no normal app — only the impersonation picker.
   if (role === 'admin') return <Redirect href={'/(admin)/impersonate' as Href} />;
   // Teachers and their assistants share the teacher app (assistant access is

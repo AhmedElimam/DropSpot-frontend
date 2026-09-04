@@ -137,12 +137,32 @@ export default function RecordStudent() {
     }
   }
 
-  async function bulkOrderCards() {
+  /**
+   * Card ordering is a SEPARATE, confirmed action — recording a student never orders a
+   * card on its own. The confirmation names the count so a tap can't quietly file a
+   * batch of print jobs.
+   */
+  function bulkOrderCards() {
     if (enrollmentIds.length === 0) return;
+    Alert.alert(
+      'طلب بطاقات',
+      `سيتم إنشاء طلب بطاقة لـ ${enrollmentIds.length} من الطلاب المُضافين. الطالب الذي لديه بطاقة أو طلب قائم سيُتخطّى.`,
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        { text: 'اطلب البطاقات', onPress: submitCardOrders },
+      ],
+    );
+  }
+
+  async function submitCardOrders() {
     setOrderingCards(true);
     try {
       const r = await orderCardsForNewlyAdded(enrollmentIds);
-      Alert.alert('تم', `تم إنشاء ${r.created} طلب بطاقة${r.skipped ? ` (تم تخطّي ${r.skipped})` : ''}.`);
+      const parts = [`تم إنشاء ${r.created} طلب بطاقة`];
+      // A student may already be covered by another teacher's order — one card serves
+      // every teacher, so we say it plainly without naming who ordered it.
+      if (r.already_ordered) parts.push(`${r.already_ordered} لديهم بطاقة أو طلب قائم بالفعل`);
+      Alert.alert('تم', parts.join('\n'));
       setEnrollmentIds([]);
     } catch {
       Alert.alert('خطأ', 'تعذّر طلب البطاقات.');

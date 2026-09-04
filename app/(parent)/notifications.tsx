@@ -19,6 +19,7 @@ const notifIcon: Record<string, IconName> = {
   session_swap: 'calendar', enrollment_transfer: 'calendar', schedule: 'calendar',
   student_report: 'note', monthly_report: 'reports', daily_digest: 'bell',
   student_linked: 'child',
+  sibling_claim: 'warning',
 };
 
 /**
