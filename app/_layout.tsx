@@ -13,6 +13,11 @@ import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
 import { AppConfigGate } from '@/components/AppConfigGate';
 import { colors } from '@/theme/index';
 
+// RTL is now set natively at build time by the expo-localization plugin (see
+// app.config.ts), so the first launch on a clean install is already right-to-left.
+// These calls stay for older installs that were built before that plugin existed —
+// on those the flag persists and applies from the next launch, as it always did.
+I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
 // Respect the OS accessibility font size, but cap it so fixed-height layouts
@@ -27,7 +32,8 @@ type TextWithDefaults = typeof Text & { defaultProps?: { maxFontSizeMultiplier?:
   maxFontSizeMultiplier: 1.3,
 };
 
-SplashScreen.preventAutoHideAsync();
+// Never let a rejected promise here become an unhandled rejection at startup.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -82,14 +88,33 @@ export default function RootLayout() {
     }
   }, [fontError]);
 
+  // Hide on fonts loaded OR on a font error — the old condition checked only
+  // `fontsLoaded`, so a font that failed to load left the splash on screen forever
+  // with a fully rendered, completely untouchable app underneath it.
   useEffect(() => {
-    if (fontsLoaded && !splashHidden) {
-      SplashScreen.hideAsync();
+    if ((fontsLoaded || fontError) && !splashHidden) {
+      SplashScreen.hideAsync().catch(() => {});
       setSplashHidden(true);
     }
-  }, [fontsLoaded, splashHidden]);
+  }, [fontsLoaded, fontError, splashHidden]);
 
-  if (!fontsLoaded && !fontError) {
+  // Last-resort release. Whatever goes wrong above, the splash comes down after five
+  // seconds: a visibly broken app can be reported, an invisible one just looks frozen.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashHidden((already) => {
+        if (!already) { SplashScreen.hideAsync().catch(() => {}); }
+        return true;
+      });
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Once the fallback timer has fired, render regardless — with system fonts if it
+  // comes to that. Returning null here after hiding the splash would leave a blank
+  // white screen, which is the same failure wearing a different colour.
+  if (!fontsLoaded && !fontError && !splashHidden) {
     return null;
   }
 

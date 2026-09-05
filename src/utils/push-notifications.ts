@@ -1,9 +1,24 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
-import { getApp } from '@react-native-firebase/app';
-import { getMessaging, getToken, registerDeviceForRemoteMessages } from '@react-native-firebase/messaging';
 import { registerDeviceToken, unregisterDeviceToken } from '@/api/device-tokens';
+
+// @react-native-firebase is loaded LAZILY, inside the iOS branch below, never at module
+// top. It is a native module: in Expo Go (or any build where it is missing/mis-linked)
+// a top-level import throws while the module is being evaluated — and because this file
+// is imported by the parent and teacher layouts, that single throw took down BOTH tab
+// trees ("Route is missing the required default export"). Push is optional; the app is
+// not. A missing native module now degrades to "no push", logged, and the app runs.
+//
+// Lazy was not enough on its own: the dynamic import still EVALUATED the module in Expo
+// Go and threw "Native module RNFBAppModule not found" twice on every launch — caught,
+// but printed as two red errors that look exactly like a real crash while debugging. Expo
+// Go ships no custom native modules and (since SDK 53) no remote push at all, so there is
+// nothing to gain by trying: the FCM path is skipped there before anything is imported.
+
+/** Expo Go — no custom native modules, and no remote push since SDK 53. */
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -46,6 +61,11 @@ async function ensureAndroidChannel(): Promise<void> {
 }
 
 export async function registerForPushNotifications(): Promise<string | null> {
+  if (IS_EXPO_GO) {
+    pushLog('skipped: Expo Go has no FCM native module — use a development build for push');
+    return null;
+  }
+
   // Android emulators running a Google Play system image DO receive FCM, so only
   // the iOS Simulator is a hard stop here (no APNs).
   if (!Device.isDevice && Platform.OS !== 'android') {
@@ -78,6 +98,10 @@ export async function registerForPushNotifications(): Promise<string | null> {
       // direct-FCM can't target. @react-native-firebase registers the device with APNs
       // then hands back the real FCM token (Firebase forwards it to APNs via the uploaded
       // key/cert). Requires the Push capability + GoogleService-Info.plist.
+      const [{ getApp }, { getMessaging, getToken, registerDeviceForRemoteMessages }] = await Promise.all([
+        import('@react-native-firebase/app'),
+        import('@react-native-firebase/messaging'),
+      ]);
       const msg = getMessaging(getApp());
       await registerDeviceForRemoteMessages(msg);
       token = await getToken(msg);

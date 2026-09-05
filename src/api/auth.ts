@@ -28,6 +28,15 @@ export async function register(payload: {
  * Request account deletion (Apple 5.1.1(v)). Server marks the account and blocks
  * future login/refresh; the client then clears the local session.
  */
+/**
+ * Revoke this device's tokens server-side. Signing out used to only clear the phone's
+ * SecureStore, which left the refresh token valid for its full lifetime (15 days with
+ * remember-me) — so a lost or sold phone still had a way back in.
+ */
+export async function logout(): Promise<void> {
+  await client.post('/auth/logout');
+}
+
 export async function deleteAccount(): Promise<void> {
   await client.post('/account/delete');
 }

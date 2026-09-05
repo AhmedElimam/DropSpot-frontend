@@ -1,0 +1,136 @@
+name: Build Android AAB (Play)
+
+# A SIGNED Android App Bundle for Google Play — the release counterpart to
+# android-apk.yml (which produces a debug-signed APK for hand testing and can never
+# be uploaded to Play).
+#
+# Version numbers come from app.json ONLY (`expo.version` + `expo.android.versionCode`);
+# `expo prebuild` regenerates android/ on every run, so editing build.gradle by hand is
+# pointless. Play rejects a versionCode it has seen before — bump it in app.json.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64   base64 of the .jks upload keystore
+#   ANDROID_KEYSTORE_PASSWORD store password
+#   ANDROID_KEY_ALIAS         key alias
+#   ANDROID_KEY_PASSWORD      key password
+# Reuse the SAME upload key as previous releases; a different key is rejected by Play.
+# First time only, create one with:
+#   keytool -genkeypair -v -keystore upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000
+#   base64 -i upload.jks | pbcopy      # paste into ANDROID_KEYSTORE_BASE64
+# Keep upload.jks backed up OFF this repo — losing it means losing the ability to update.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fail early if signing secrets are missing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=""
+          [ -n "$KEYSTORE_BASE64" ]   || missing="$missing ANDROID_KEYSTORE_BASE64"
+          [ -n "$KEYSTORE_PASSWORD" ] || missing="$missing ANDROID_KEYSTORE_PASSWORD"
+          [ -n "$KEY_ALIAS" ]         || missing="$missing ANDROID_KEY_ALIAS"
+          [ -n "$KEY_PASSWORD" ]      || missing="$missing ANDROID_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing signing secret(s):$missing — an unsigned bundle is useless to Play, so stopping here."
+            exit 1
+          fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Show the version being built
+        run: |
+          node -e "const e=require('./app.json').expo; console.log('versionName', e.version, '| versionCode', e.android.versionCode)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prebuild native Android project
+        run: npx expo prebuild --platform android --no-install
+
+      # RN 0.81 / new-architecture builds are Metaspace-heavy; Expo's default
+      # gradle.properties JVM args OOM on the runner. Override AFTER prebuild (which
+      # regenerates the file) — the last org.gradle.jvmargs line wins.
+      - name: Raise Gradle JVM memory
+        run: |
+          {
+            echo ""
+            echo "org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=2g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
+          } >> android/gradle.properties
+
+      # Write the upload keystore and point the generated `release` signingConfig at it.
+      # Expo's template signs `release` with the DEBUG key by default; overriding the
+      # properties here keeps the change inside CI (nothing secret is committed).
+      # Write the upload keystore and repoint the generated `release` signingConfig at it
+      # (Expo's template signs release with the DEBUG key). Nothing secret is committed.
+      - name: Install upload keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload.jks
+          {
+            echo ""
+            echo "DROS_UPLOAD_STORE_FILE=upload.jks"
+            echo "DROS_UPLOAD_STORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "DROS_UPLOAD_KEY_ALIAS=$KEY_ALIAS"
+            echo "DROS_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> android/gradle.properties
+          node scripts/android-signing.mjs
+
+      - name: Verify the release build is NOT debug-signed
+        run: |
+          grep -q "signingConfigs.release" android/app/build.gradle \
+            || { echo "::error::release buildType is still on the debug key — Play would reject it."; exit 1; }
+
+      - name: Build release bundle
+        run: ./gradlew bundleRelease --no-daemon
+        working-directory: android
+        env:
+          GRADLE_OPTS: -Dorg.gradle.workers.max=2 -Dkotlin.daemon.jvmargs=-XX:MaxMetaspaceSize=2g
+
+      - name: Collect AAB
+        run: |
+          mkdir -p artifacts
+          VERSION=$(node -p "require('./app.json').expo.version")
+          CODE=$(node -p "require('./app.json').expo.android.versionCode")
+          cp android/app/build/outputs/bundle/release/app-release.aab \
+             "artifacts/drosspot-${VERSION}-${CODE}.aab"
+          ls -lh artifacts
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drosspot-android-aab
+          path: artifacts/*.aab
+          if-no-files-found: error
+          retention-days: 30

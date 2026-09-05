@@ -18,6 +18,7 @@ import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
 import { PendingInvitations } from '@/components/teacher/PendingInvitations';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 // Home's "current" HIGHLIGHT window — a UI convenience only. A session lights up
 // 30 min before its start through its scheduled end. This is DELIBERATELY separate
@@ -43,11 +44,12 @@ export default function TeacherHome() {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const { data: unread } = useUnreadCount();
+  const { data: flags } = useFeatureFlags();
   const { data: sessions, isLoading, refetch } = useTeacherTodaySessions();
   const pending = useOfflineStore((s) => s.pending);
   const rejected = useOfflineStore((s) => s.rejected);
   const needsAttention = pending + rejected; // scans to sync OR to decide on (§2)
-  const { isAssistant, can } = useActiveAbilities();
+  const { can } = useActiveAbilities();
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const now = Date.now();
 
@@ -153,8 +155,10 @@ export default function TeacherHome() {
               <Icon name="back" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           ) : null}
-          {/* Fast student recording — name + parent phone, activate later. Same ability as enroll. */}
-          {can(ABILITY.MANAGE_STUDENTS) ? (
+          {/* Fast student recording — name + parent phone, activate later. Same ability as
+              enroll, and behind the super-admin's fast_register switch: off hides it here
+              and the API refuses it, so an old build cannot record either. */}
+          {can(ABILITY.MANAGE_STUDENTS) && flags?.fast_register ? (
             <TouchableOpacity
               onPress={() => router.push('/(teacher)/record-student' as Href)}
               activeOpacity={0.85}
@@ -172,25 +176,29 @@ export default function TeacherHome() {
               <Icon name="back" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           ) : null}
-          {/* Payment collection is financial — NEVER shown to an assistant on mobile. */}
-          {!isAssistant ? (
-            <TouchableOpacity
-              onPress={() => router.push('/(teacher)/collect' as Href)}
-              activeOpacity={0.85}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                backgroundColor: colors.surface, borderRadius: radius.xl,
-                borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
-              }}
-            >
-              <Icon name="money" size={24} color={colors.brand} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تحصيل الدفعات</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح البطاقة لتحصيل الفاتورة أو الملزمة</Text>
-              </View>
-              <Icon name="back" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ) : null}
+          {/* Collection is shown to an assistant exactly as to the teacher (founder
+              2026-09-05): it is usually the assistant standing at the door taking the
+              money. No client-side ability check — the API is the gate (it requires
+              scan_attendance), so this cannot be the thing that silently hides the
+              screen from someone who is allowed to use it. They can collect but never
+              waive or reverse, see only their own venues, and every collection they
+              make goes to the teacher's oversight list. */}
+          <TouchableOpacity
+            onPress={() => router.push('/(teacher)/collect' as Href)}
+            activeOpacity={0.85}
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+              backgroundColor: colors.surface, borderRadius: radius.xl,
+              borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
+            }}
+          >
+            <Icon name="money" size={24} color={colors.brand} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تحصيل الدفعات</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح البطاقة لتحصيل الفاتورة أو الملزمة</Text>
+            </View>
+            <Icon name="back" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('teacher.todays_sessions')}</Text>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />

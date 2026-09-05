@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { router, Redirect, type Href } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,7 +10,6 @@ import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { formatEGP } from '@/utils/currency';
-import { useAuthStore } from '@/stores/authStore';
 import { getPendingCollections, collectFromRoster, type RosterStudent, type CollectKind } from '@/api/pendingCollections';
 import { reverseStudentPayment } from '@/api/students';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -27,24 +26,16 @@ export default function TeacherPendingCollections() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
-  const role = useAuthStore((s) => s.role);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['pending-collections'],
     queryFn: getPendingCollections,
-    enabled: role !== 'assistant',
   });
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   const [target, setTarget] = useState<Target | null>(null);
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
-
-  // FINANCE — never available to an assistant on mobile, even via a direct link.
-  // (After all hooks so hook order stays stable.)
-  if (role === 'assistant') {
-    return <Redirect href={'/(teacher)' as Href} />;
-  }
 
   const openCollect = (tg: Target) => {
     setTarget(tg);

@@ -8,8 +8,12 @@ export interface User {
   created_at: string;
   student_id?: number | null;
   student_code?: string | null;
-  /** Opaque per-card credential to encode in the digital check-in QR (never the raw code). */
+  /** Always null — there is no in-app QR; the printed card is the only credential. */
   card_token?: string | null;
+  /** True once the physical card is in the student's hands. */
+  has_physical_card?: boolean;
+  /** none | preparing | in_hand — where this student's physical card stands. */
+  card_state?: 'none' | 'preparing' | 'in_hand';
   /** Teacher first-login gate: true until they set their own password (change-password stamps it). */
   must_set_password?: boolean;
   /** Student deferred gate: true until they OTP-verify their OWN number (raised by the daily sweep). */

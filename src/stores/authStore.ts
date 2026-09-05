@@ -109,6 +109,18 @@ export const useAuthStore = create<AuthState>((set, get) => {
     },
 
     logout: async () => {
+      // Tell the server first, while the token is still readable — but never let a
+      // failed/offline call trap the user in a signed-in state: the local clear below
+      // always runs.
+      try {
+        // Loaded here, not at the top: api/auth → api/client → this store is a require
+        // cycle when imported statically (Metro warned, and a cycle can hand back an
+        // uninitialised module). A dynamic import resolves at call time, after both sides exist.
+        const { logout: logoutRequest } = await import('@/api/auth');
+        await logoutRequest();
+      } catch {
+        // Offline or already-expired token: the local sign-out is what the user sees.
+      }
       await SecureStore.deleteItemAsync('access_token');
       await SecureStore.deleteItemAsync('refresh_token');
       await SecureStore.deleteItemAsync(SESSION_KEY);

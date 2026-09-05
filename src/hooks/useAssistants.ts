@@ -5,6 +5,7 @@ import {
   createAssistant,
   updateAssistantAbilities,
   toggleAssistant,
+  setAssistantVenueScope,
 } from '@/api/assistants';
 
 export function useAssistants() {
@@ -31,6 +32,15 @@ export function useUpdateAbilities() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, abilities }: { id: number; abilities: string[] }) => updateAssistantAbilities(id, abilities),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['assistants'] }),
+  });
+}
+
+export function useSetVenueScope() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, allVenues, venues }: { id: number; allVenues: boolean; venues?: number[] }) =>
+      setAssistantVenueScope(id, allVenues, venues ?? []),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['assistants'] }),
   });
 }

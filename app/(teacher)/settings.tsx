@@ -118,7 +118,7 @@ export default function TeacherSettings() {
           {row('lock', t('auth.change_password'), t('setup.password_hint'), () => router.push('/change-password'))}
 
           <View style={{ marginTop: spacing.md }}>
-            <SupportContact />
+            <SupportContact href={'/(teacher)/resolution' as Href} />
           </View>
 
           <TouchableOpacity

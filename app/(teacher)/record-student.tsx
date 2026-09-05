@@ -14,6 +14,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { isArabicName, isEgyptPhone } from '@/utils/validators';
 import { getInvitationOptions, type InvitationCourseOption, type BookingSecures } from '@/api/invitation';
 import { recordStudent, orderCardsForNewlyAdded, type DedupeMatch, type RecordStudentPayload, type ParentRelationship, type ExistingStudentOffer } from '@/api/studentRecord';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 const SECURES: { key: BookingSecures; label: string }[] = [
   { key: 'session', label: 'الحصص' },
@@ -31,6 +32,10 @@ const field = {
 
 export default function RecordStudent() {
   const insets = useSafeAreaInsets();
+  // The home entry is hidden when the switch is off, but the route can still be reached
+  // from history or a deep link — and the API would refuse anyway. Say so plainly rather
+  // than letting someone fill the form and lose the typing.
+  const { data: flags } = useFeatureFlags();
   const nameRef = useRef<TextInput>(null);
 
   const { data: options, isLoading, isError, refetch } = useQuery({
@@ -146,7 +151,7 @@ export default function RecordStudent() {
     if (enrollmentIds.length === 0) return;
     Alert.alert(
       'طلب بطاقات',
-      `سيتم إنشاء طلب بطاقة لـ ${enrollmentIds.length} من الطلاب المُضافين. الطالب الذي لديه بطاقة أو طلب قائم سيُتخطّى.`,
+      `سيتم تسجيل طلب بطاقة لـ ${enrollmentIds.length} من الطلاب المُضافين، وتراجعه الإدارة قبل الطباعة. الطالب الذي لديه بطاقة أو طلب قائم سيُتخطّى.`,
       [
         { text: 'إلغاء', style: 'cancel' },
         { text: 'اطلب البطاقات', onPress: submitCardOrders },
@@ -158,7 +163,10 @@ export default function RecordStudent() {
     setOrderingCards(true);
     try {
       const r = await orderCardsForNewlyAdded(enrollmentIds);
-      const parts = [`تم إنشاء ${r.created} طلب بطاقة`];
+      // The batch is filed, not printed: these families did not ask for a card, so the
+      // super-admin releases the batch first. Say so, or the teacher promises cards
+      // that may never be produced.
+      const parts = [`تم تسجيل ${r.created} طلب بطاقة — بانتظار موافقة الإدارة قبل الطباعة`];
       // A student may already be covered by another teacher's order — one card serves
       // every teacher, so we say it plainly without naming who ordered it.
       if (r.already_ordered) parts.push(`${r.already_ordered} لديهم بطاقة أو طلب قائم بالفعل`);
@@ -169,6 +177,24 @@ export default function RecordStudent() {
     } finally {
       setOrderingCards(false);
     }
+  }
+
+  if (flags?.fast_register === false) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+        <Icon name="info" size={40} color={colors.textSecondary} />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.md }}>
+          التسجيل السريع غير مُتاح حاليًا
+        </Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm }}>
+          أوقفت إدارة المنصة هذه الميزة مؤقتًا. يمكنك تسجيل الطلاب بالبطاقة أو بالدعوة برقم الهاتف.
+        </Text>
+        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85}
+          style={{ marginTop: spacing.xl, minHeight: 48, alignSelf: 'stretch', borderRadius: radius.lg, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>رجوع</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   if (isLoading) {

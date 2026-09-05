@@ -13,11 +13,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'DrosSpot',
   slug: 'DrosSpot',
-  version: '1.0.0',
+  version: '1.1.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'drosspot',
-  userInterfaceStyle: 'automatic',
+  // LIGHT-ONLY, deliberately. The app ships a single palette (src/theme) with no dark
+  // variants, so 'automatic' was a lie: it left AppCompat in MODE_NIGHT_FOLLOW_SYSTEM,
+  // and expo-system-ui then paints the ROOT VIEW Color.BLACK on a device in dark mode —
+  // which is the black seen behind the splash logo while JS boots. MODE_NIGHT_NO keeps
+  // it white. Revisit only when a real dark palette exists.
+  userInterfaceStyle: 'light',
+  // Explicit window/root background so it can never fall back to a night-mode default.
+  // Matches the splash background below (one continuous colour from launch to first paint).
+  backgroundColor: '#FBFBFB',
   ios: {
     bundleIdentifier: 'com.drosspot.app',
     // App Store Connect rejects a re-used build number, so CI stamps a fresh one
@@ -36,6 +44,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.drosspot.app',
+    // Google Play refuses a versionCode it has already accepted — bump on every upload.
+    versionCode: 2,
     googleServicesFile: './google-services.json',
     // Resize the screen when the keyboard opens so scroll/bottom-anchored content
     // is never hidden behind it (Modals additionally wrap in KeyboardAvoidingView).
@@ -53,6 +63,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/images/favicon.png',
   },
   plugins: [
+  // RTL must be set NATIVELY, before JS runs. `I18nManager.forceRTL(true)` in
+  // app/_layout.tsx only takes effect after a relaunch on iOS, so a FIRST launch on a
+  // clean install renders with a left-to-right native layout while every screen is
+  // written for right-to-left — which is what an App Store reviewer gets, and nobody
+  // here ever sees, because our devices have all been relaunched. This plugin writes
+  // ExpoLocalization_forcesRTL into Info.plist / strings.xml so the very first launch
+  // is already RTL. (App Store rejection 2026-09-04, iPad Air M3.)
+  [
+    'expo-localization',
+    {
+      supportsRTL: true,
+      forcesRTL: true,
+    },
+  ],
   [
     'expo-build-properties',
     {
@@ -135,9 +159,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         image: './assets/images/splash-icon.png',
         imageWidth: 160,
         backgroundColor: '#FBFBFB',
+        // The dark variant is declared for ANDROID ONLY, on purpose. A cross-platform
+        // `dark` block makes expo-splash-screen force iOS to UIUserInterfaceStyle
+        // "Automatic", which quietly cancels `userInterfaceStyle: 'light'` above — and a
+        // light-only app following a dark-mode iPad renders unstyled TextInputs as white
+        // text on our near-white ground. Android needs its variant to pin
+        // values-night/colors.xml against OEM forced-dark; iOS does not.
         android: {
           image: './assets/images/splash-icon.png',
           imageWidth: 160,
+          dark: {
+            image: './assets/images/splash-icon.png',
+            backgroundColor: '#FBFBFB',
+          },
         },
       },
     ],
@@ -146,6 +180,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     typedRoutes: true,
   },
   extra: {
+    // Dead-man switch identity (App\Support\AppRelease reads it as X-App-Id). This key
+    // lives in app.json too, but THIS file's `extra` replaces that object wholesale, so
+    // it has to be restated here or resolveAppId() loses its level-2 fallback.
+    appId: 'com.drosspot.app',
     apiUrl: process.env.API_URL || 'http://localhost:8000/api/v1',
     eas: {
       projectId: 'f537825e-3329-40d0-827a-aa708f228509',

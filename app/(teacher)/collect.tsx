@@ -1,23 +1,17 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { router, Redirect, type Href } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
-import { useAuthStore } from '@/stores/authStore';
 import { TeacherTip } from '@/components/TeacherTip';
 
 export default function TeacherCollect() {
   const insets = useSafeAreaInsets();
-  const role = useAuthStore((s) => s.role);
 
-  // Financial collection is never available to an assistant on mobile — hard block
-  // even if this route is reached directly (deep link / back-stack), regardless of
-  // any ability config.
-  if (role === 'assistant') {
-    return <Redirect href={'/(teacher)' as Href} />;
-  }
-
+  // Open to an assistant exactly as to the teacher (founder 2026-09-05). The API is the
+  // gate — it requires the scan_attendance ability and scopes an assistant to their own
+  // venues — so there is no client-side check to get out of sync with it.
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>

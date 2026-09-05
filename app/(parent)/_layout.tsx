@@ -172,7 +172,11 @@ export default function ParentTabLayout() {
       {/* Self-service name + phone change — pushed from the profile, not tabs. */}
       <Tabs.Screen name="change-phone" options={{ href: null }} />
       <Tabs.Screen name="change-name" options={{ href: null }} />
-      <Tabs.Screen name="order-card" options={{ href: null }} />
+      {/* The card-order form is a full-page flow with its own submit button — the
+          floating tab bar sits on top of it, so it is hidden here (same as student). */}
+      <Tabs.Screen name="order-card" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      {/* Support → the admin queue. Full-page compose, so the floating bar is hidden. */}
+      <Tabs.Screen name="support" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }

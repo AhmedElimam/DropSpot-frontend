@@ -1065,7 +1065,10 @@
     "ticket_too_short": "يرجى كتابة عنوان ورسالة كافية (20 حرفًا على الأقل)",
     "my_admin_tickets": "رسائلي للإدارة",
     "status_open": "مفتوحة",
-    "status_resolved": "مُعالَجة"
+    "status_resolved": "مُعالَجة",
+    "ticket_reason": "سبب المراسلة",
+    "ticket_reason_ph": "اختر السبب…",
+    "ticket_reason_required": "يرجى اختيار سبب المراسلة"
   },
   "teacher": {
     "scan_mode": "وضع المسح",
@@ -1478,6 +1481,8 @@
     "co_approved": "معتمد",
     "co_rejected": "مرفوض",
     "co_link": "رابط لم يُستخدم",
+    "co_held": "محجوز — بانتظار موافقة الإدارة",
+    "co_unknown": "حالة غير معروفة",
     "pay_full": "دفع بالكامل",
     "dues_title": "مستحقات الطالب",
     "collect_dues": "تحصيل المدفوعات",
@@ -1582,7 +1587,13 @@
     "per_course": "الحضور حسب المقرر",
     "top_at_risk": "الأكثر تعرضًا للخطر",
     "no_data": "لا توجد بيانات بعد",
-    "quiz_avg": "متوسط الاختبارات"
+    "quiz_avg": "متوسط الاختبارات",
+    "collected": "المحصّل",
+    "outstanding_now": "مستحقات قائمة حتى الآن",
+    "new_students_period": "طلاب جدد في الفترة",
+    "trend_days": "اتجاه الحضور ({{days}} يوم)",
+    "export_pdf": "PDF",
+    "export_failed": "تعذّر إنشاء ملف التقرير، حاول مرة أخرى"
   },
   "own_number": {
     "title": "تأكيد رقم هاتفك",

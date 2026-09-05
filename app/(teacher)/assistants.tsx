@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Switch, RefreshControl, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Switch, RefreshControl, KeyboardAvoidingView, Alert } from 'react-native';
 import { router, Redirect, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius } from '@/theme/index';
+import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
@@ -15,6 +15,7 @@ import {
   useInviteAssistant,
   useCreateAssistant,
   useUpdateAbilities,
+  useSetVenueScope,
   useToggleAssistant,
 } from '@/hooks/useAssistants';
 import type { ManagedAssistant, AbilityDef } from '@/api/assistants';
@@ -30,16 +31,39 @@ function apiMsg(e: any, fallback: string): string {
   return e?.response?.data?.message ?? fallback;
 }
 
-function AssistantCard({ a, catalog }: { a: ManagedAssistant; catalog: AbilityDef[] }) {
+function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; catalog: AbilityDef[]; takeaway: string[]; venues: { id: number; name: string }[] }) {
   const { t } = useTranslation();
   const updateAbilities = useUpdateAbilities();
+  const setScope = useSetVenueScope();
   const toggle = useToggleAssistant();
   const meta = STATUS_META[a.status] ?? STATUS_META.pending;
   const showInactive = a.status === 'accepted' && !a.is_active;
 
-  const toggleAbility = (key: string) => {
+  const sharedWith = a.shared_with ?? 0;
+
+  const grant = (key: string) => {
     const next = a.abilities.includes(key) ? a.abilities.filter((x) => x !== key) : [...a.abilities, key];
     updateAbilities.mutate({ id: a.id, abilities: next });
+  };
+
+  const toggleAbility = (key: string) => {
+    const turningOn = !a.abilities.includes(key);
+    // Granting a takeaway-file ability to a SHARED assistant takes one deliberate extra
+    // step: the PDF leaves the platform with a person who also works for other teachers,
+    // and revoking the ability later cannot reach a file already on their phone.
+    if (turningOn && takeaway.includes(key) && sharedWith > 0) {
+      Alert.alert(
+        'مساعد مشترك',
+        'هذا المساعد يعمل مع معلّمين آخرين. تقرير الطالب ملف كامل يخرج من المنصة ويبقى معه، ولا يمكن سحبه بعد ذلك حتى لو أوقفت الصلاحية.\n\nهل تريد منحه هذه الصلاحية؟',
+        [
+          { text: 'إلغاء', style: 'cancel' },
+          { text: 'امنح الصلاحية', style: 'destructive', onPress: () => grant(key) },
+        ],
+      );
+
+      return;
+    }
+    grant(key);
   };
 
   return (
@@ -62,6 +86,60 @@ function AssistantCard({ a, catalog }: { a: ManagedAssistant; catalog: AbilityDe
         ) : null}
       </View>
 
+      {sharedWith > 0 ? (
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.warningLight, borderWidth: 1, borderColor: colors.warning }}>
+          <Icon name="info" size={16} color={colors.warning} />
+          <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>
+            مساعد مشترك — يعمل أيضًا مع {sharedWith === 1 ? 'معلّم آخر' : `${sharedWith} معلّمين آخرين`}. ننصح بعدم منحه صلاحية إصدار تقارير PDF.
+          </Text>
+        </View>
+      ) : null}
+
+      {/* WHERE they work — separate from WHAT they may do. A teacher with two centres
+          gives the same abilities to two assistants and still keeps each to their own
+          place: outside their venues they see no students, no dues, and collect nothing.
+          Choosing NO venue is not a cage — an unpinned assistant works everywhere (founder). */}
+      {venues.length > 0 && a.status === 'accepted' ? (
+        <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginBottom: spacing.sm }}>أماكن العمل</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            <TouchableOpacity
+              onPress={() => setScope.mutate({ id: a.id, allVenues: true })}
+              disabled={setScope.isPending}
+              activeOpacity={0.8}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: a.all_venues ? colors.primaryLight : colors.surfaceSunken, borderWidth: 1, borderColor: a.all_venues ? colors.primary : colors.border }}
+            >
+              <Icon name={a.all_venues ? 'success' : 'add'} size={13} color={a.all_venues ? colors.primary : colors.textTertiary} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: a.all_venues ? colors.primary : colors.textSecondary }}>كل الأماكن</Text>
+            </TouchableOpacity>
+            {venues.map((v) => {
+              const on = !a.all_venues && (a.venue_ids ?? []).includes(v.id);
+              return (
+                <TouchableOpacity
+                  key={v.id}
+                  onPress={() => {
+                    const current = a.all_venues ? [] : (a.venue_ids ?? []);
+                    const next = on ? current.filter((x) => x !== v.id) : [...current, v.id];
+                    setScope.mutate({ id: a.id, allVenues: false, venues: next });
+                  }}
+                  disabled={setScope.isPending}
+                  activeOpacity={0.8}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? colors.primaryLight : colors.surfaceSunken, borderWidth: 1, borderColor: on ? colors.primary : colors.border }}
+                >
+                  <Icon name={on ? 'success' : 'add'} size={13} color={on ? colors.primary : colors.textTertiary} />
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.primary : colors.textSecondary }}>{v.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>
+            {a.all_venues
+              ? 'يعمل في كل الأماكن — وأي مكان تضيفه لاحقًا. اختر مكانًا لتقييده.'
+              : 'خارج أماكنه لا يرى الطالب ولا تحصيلاته. وإلغاء كل الأماكن يعيده للعمل في كل الأماكن.'}
+          </Text>
+        </View>
+      ) : null}
+
       {/* Ability chips — tap to grant/revoke (disabled while a pending invite). */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md }}>
         {catalog.map((ab) => {
@@ -76,6 +154,9 @@ function AssistantCard({ a, catalog }: { a: ManagedAssistant; catalog: AbilityDe
             >
               <Icon name={on ? 'success' : 'add'} size={13} color={on ? colors.primary : colors.textTertiary} />
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.primary : colors.textSecondary }}>{ab.label}</Text>
+              {takeaway.includes(ab.key) ? (
+                <Icon name="download" size={12} color={sharedWith > 0 ? colors.warning : colors.textTertiary} />
+              ) : null}
             </TouchableOpacity>
           );
         })}
@@ -104,6 +185,8 @@ export default function TeacherAssistants() {
   if (role === 'assistant') return <Redirect href={'/(teacher)' as Href} />;
 
   const catalog = data?.all_abilities ?? [];
+  const takeaway = data?.takeaway_abilities ?? [];
+  const venues = data?.venues ?? [];
 
   const submitInvite = () => {
     if (phone.trim().length < 6) return;
@@ -141,7 +224,9 @@ export default function TeacherAssistants() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.xxxl }}
+        // The tab bar floats over the content (position: absolute), so its height has to
+        // be part of the padding or the last assistant card sits underneath it.
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -180,7 +265,7 @@ export default function TeacherAssistants() {
         ) : !data?.assistants.length ? (
           <EmptyState icon="children" title="لا يوجد مساعدون" message="ادعُ مساعدًا قائمًا أو أنشئ حسابًا جديدًا." />
         ) : (
-          data.assistants.map((a) => <AssistantCard key={a.id} a={a} catalog={catalog} />)
+          data.assistants.map((a) => <AssistantCard key={a.id} a={a} catalog={catalog} takeaway={takeaway} venues={venues} />)
         )}
       </ScrollView>
     </KeyboardAvoidingView>

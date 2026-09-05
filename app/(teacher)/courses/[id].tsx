@@ -10,6 +10,8 @@ import { Icon } from '@/components/ui/Icon';
 import { formatTime12 } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
 import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule, useDeleteCourse } from '@/hooks/useCourses';
+import { useQuery } from '@tanstack/react-query';
+import { getCourseFormOptions } from '@/api/courses';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import type { CourseSchedule } from '@/api/courses';
 
@@ -44,6 +46,11 @@ export default function CourseDetailScreen() {
   const [hasBooking, setHasBooking] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [seeded, setSeeded] = useState(false);
+  // Optional venue. The list is the same one the create form uses; when the teacher has
+  // no venues the field is not offered at all.
+  const [venueId, setVenueId] = useState<string | null>(null);
+  const { data: formOptions } = useQuery({ queryKey: ['course-form-options'], queryFn: getCourseFormOptions, staleTime: 300_000 });
+  const venues = formOptions?.venues ?? [];
 
   useEffect(() => {
     if (course && !seeded) {
@@ -58,6 +65,7 @@ export default function CourseDetailScreen() {
       setBookingPrice(course.booking_price != null ? String(course.booking_price) : '');
       setHasBooklet(course.booklet_price != null);
       setHasBooking(course.booking_price != null);
+      setVenueId(course.teacher_location_id ?? null);
       setSeeded(true);
     }
   }, [course, seeded]);
@@ -70,6 +78,7 @@ export default function CourseDetailScreen() {
     saveSettings.mutate(
       {
         name: name.trim(),
+        teacher_location_id: venueId,
         radius_horizontal_meters: radius_,
         allow_session_swap: allowSwap,
         sheet_expected_by_default: sheetDefault,
@@ -261,6 +270,26 @@ export default function CourseDetailScreen() {
           style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}
         />
 
+        {/* Venue — optional, offered only when the teacher has venues. A label for
+            organising courses and assistants; the check-in anchor below is separate. */}
+        <FieldLabel>مكان التدريس (اختياري)</FieldLabel>
+        {venues.length > 0 ? (
+          <VenueSelect
+            value={venueId}
+            options={[{ id: '', name: 'بدون مكان محدد' }, ...venues.map((v) => ({ id: v.id, name: v.address ? `${v.name} — ${v.address}` : v.name }))]}
+            onSelect={(id) => setVenueId(id || null)}
+          />
+        ) : (
+          <TouchableOpacity
+            onPress={() => router.push('/(teacher)/venues' as Href)}
+            activeOpacity={0.8}
+            style={{ minHeight: 48, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm }}
+          >
+            <Icon name="add" size={16} color={colors.brand} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>أضِف أماكن التدريس أولًا</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Radius stepper */}
         <FieldLabel>{t('teacher.radius_label')}</FieldLabel>
         <Stepper value={radius_} min={5} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
@@ -416,3 +445,39 @@ function Stepper({ value, min, max, step, onChange, suffix }: { value: number; m
 
 const stepBtn = { width: 48, height: 48, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' } as const;
 const stepTxt = { fontFamily: fonts.bold, fontSize: 24, color: colors.brand } as const;
+
+/** A tap-to-open dropdown — the same shape the create form uses for grade/venue. */
+function VenueSelect({ value, options, onSelect }: { value: string | null; options: { id: string; name: string }[]; onSelect: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.id === (value ?? ''));
+
+  return (
+    <View>
+      <TouchableOpacity
+        onPress={() => setOpen((v) => !v)}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: open ? colors.brand : colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+      >
+        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: current && current.id ? colors.textPrimary : colors.textTertiary }} numberOfLines={1}>
+          {current?.name ?? 'بدون مكان محدد'}
+        </Text>
+        <Icon name="down" size={16} color={colors.textTertiary} style={open ? { transform: [{ rotate: '180deg' }] } : undefined} />
+      </TouchableOpacity>
+      {open && (
+        <View style={{ marginTop: spacing.xs, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, overflow: 'hidden' }}>
+          {options.map((o) => (
+            <TouchableOpacity
+              key={o.id || 'none'}
+              onPress={() => { onSelect(o.id); setOpen(false); }}
+              activeOpacity={0.8}
+              style={{ paddingHorizontal: spacing.md, minHeight: 46, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: colors.border }}
+            >
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14.5, color: o.id === (value ?? '') ? colors.brand : colors.textPrimary }}>{o.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}

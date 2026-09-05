@@ -33,7 +33,9 @@ export default function TeacherManage() {
   const ramadanOn = !!flags?.ramadan_schedule;
   // Insights are teacher-only (finance/analytics) — never fetched or shown to an
   // assistant (the API rejects them with 403 anyway).
-  const insights = useQuery({ queryKey: ['teacher-insights'], queryFn: getTeacherInsights, enabled: !isAssistant });
+  // The hub block always shows the current month; the full screen is where the period
+  // can be changed (its query key carries the range, so the two never collide in cache).
+  const insights = useQuery({ queryKey: ['teacher-insights', 'month'], queryFn: () => getTeacherInsights({ range: 'month' }), enabled: !isAssistant });
   const ins = insights.data;
   // Existing-student booking requests awaiting accept/reject (highlighted when any).
   const bookingReqs = useQuery({ queryKey: ['booking-requests'], queryFn: getBookingRequests, enabled: canStudents });
@@ -190,6 +192,9 @@ export default function TeacherManage() {
                 second scheduling surface next to Create/Edit Course. */}
             {canSessions ? (
               <Row icon="clock" title={t('teacher.pause_period')} sub={t('teacher.pause_sub')} tint={colors.warning} onPress={() => router.push('/(teacher)/pause' as Href)} />
+            ) : null}
+            {canCourses ? (
+              <Row icon="gps" title="أماكن التدريس" sub="أماكنك ومساعدو كل مكان — تُربط بالمقررات اختياريًا" onPress={() => router.push('/(teacher)/venues' as Href)} />
             ) : null}
             {canCourses ? (
               <Row icon="calendar" title={t('teacher.merge_title')} sub={t('teacher.merge_sub')} onPress={() => router.push('/(teacher)/schedule-merge' as Href)} />

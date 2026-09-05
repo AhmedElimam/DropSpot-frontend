@@ -38,6 +38,7 @@ const ICON_MAP = {
   back: 'chevron-back',
   forward: 'chevron-forward',
   down: 'chevron-down',
+  up: 'chevron-up',
   search: 'search',
   logout: 'log-out',
   warning: 'warning',

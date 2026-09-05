@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
+import { SupportContact } from '@/components/SupportContact';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients, control } from '@/theme/index';
@@ -11,7 +12,6 @@ import { formatDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
-import { SupportContact } from '@/components/SupportContact';
 
 interface SettingItem {
   key: string;
@@ -71,12 +71,6 @@ export default function ParentSettings() {
           { text: 'إلغاء', style: 'cancel' as const },
         ]);
       },
-    },
-    {
-      key: 'profile.contact_support',
-      icon: 'tickets',
-      color: colors.success,
-      onPress: () => router.push('/(parent)/tickets'),
     },
   ];
 
@@ -149,7 +143,7 @@ export default function ParentSettings() {
           </View>
 
           <View style={{ marginBottom: spacing.md }}>
-            <SupportContact />
+            <SupportContact href={'/(parent)/support' as Href} />
           </View>
 
           <TouchableOpacity onPress={() => logout.mutate()} activeOpacity={0.85} style={{ borderRadius: radius.lg, overflow: 'hidden' }}>

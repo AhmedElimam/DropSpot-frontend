@@ -15,7 +15,8 @@ import {
   getStudentEditRequests, approveStudentEditRequest, rejectStudentEditRequest,
   type ExcuseItem, type SwapItem, type TerminationCandidate, type StudentEditReq,
 } from '@/api/resolution';
-import { createAdminTicket, getMyAdminTickets, type AdminTicket } from '@/api/adminTickets';
+import { createAdminTicket, getMyAdminTickets, getSupportCategories, type AdminTicket } from '@/api/adminTickets';
+import { SelectField } from '@/components/ui/SelectField';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 /**
@@ -31,6 +32,9 @@ export default function ResolutionCenter() {
 
   // Admin-ticket compose ("مراسلة الإدارة") — a general teacher→super-admin channel.
   const [composeOpen, setComposeOpen] = useState(false);
+  // A reason routes the ticket in the /ops queue — same dropdown the family side uses,
+  // fed by the server so staff and families never see each other's wording.
+  const [category, setCategory] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -41,16 +45,21 @@ export default function ResolutionCenter() {
   const candidates = useQuery({ queryKey: ['resolution-termination'], queryFn: getTerminationCandidates });
   const editRequests = useQuery({ queryKey: ['resolution-edit-requests'], queryFn: getStudentEditRequests });
   const myTickets = useQuery({ queryKey: ['my-admin-tickets'], queryFn: getMyAdminTickets });
+  const ticketCategories = useQuery({ queryKey: ['support-categories'], queryFn: getSupportCategories });
 
   const sendTicket = async () => {
+    if (!category) {
+      Alert.alert('', t('resolution.ticket_reason_required'));
+      return;
+    }
     if (subject.trim().length < 3 || message.trim().length < 20) {
       Alert.alert('', t('resolution.ticket_too_short'));
       return;
     }
     setSending(true);
     try {
-      await createAdminTicket({ subject: subject.trim(), message: message.trim() });
-      setSubject(''); setMessage(''); setComposeOpen(false);
+      await createAdminTicket({ category, subject: subject.trim(), message: message.trim() });
+      setSubject(''); setMessage(''); setCategory(null); setComposeOpen(false);
       qc.invalidateQueries({ queryKey: ['my-admin-tickets'] });
       Alert.alert('', t('resolution.ticket_sent'));
     } catch {
@@ -275,6 +284,17 @@ export default function ResolutionCenter() {
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('resolution.contact_admin')}</Text>
+
+            <View style={{ marginBottom: spacing.md }}>
+              <SelectField
+                label={t('resolution.ticket_reason')}
+                placeholder={ticketCategories.isLoading ? '…' : t('resolution.ticket_reason_ph')}
+                value={category}
+                options={ticketCategories.data ?? []}
+                onChange={setCategory}
+                emptyHint="تعذّر تحميل قائمة الأسباب، أغلق النافذة وحاول مرة أخرى."
+              />
+            </View>
 
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.xs }}>{t('resolution.ticket_subject')}</Text>
             <TextInput value={subject} onChangeText={setSubject} placeholder={t('resolution.ticket_subject_ph')} placeholderTextColor={colors.textTertiary}

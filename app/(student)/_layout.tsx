@@ -90,6 +90,8 @@ export default function StudentTabLayout() {
       <Tabs.Screen name="swap" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="order-card" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      {/* Support → the admin queue. Full-page compose, so the floating bar is hidden. */}
+      <Tabs.Screen name="support" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="profile" />
     </Tabs>
   );

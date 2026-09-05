@@ -459,12 +459,6 @@ export default function TeacherScan() {
     }
   }, [revisionId, revisionInstanceId, gName, gPhone, gFee, gPaid, flash, t]);
 
-  // Financial (payment) scan mode is never available to an assistant — hard block
-  // even on a direct link, regardless of ability config.
-  if (payMode && useAuthStore.getState().role === 'assistant') {
-    return <Redirect href={'/(teacher)' as Href} />;
-  }
-
   if (!permission) {
     return <View style={{ flex: 1, backgroundColor: '#000' }} />;
   }
@@ -733,6 +727,18 @@ export default function TeacherScan() {
           <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: spacing.sm, textAlign: 'center' }}>
             {`${otherGroup.offer.current_course_name ?? '—'}  ←  ${otherGroup.offer.target_course_name ?? '—'}`}
           </Text>
+
+          {/* Wrong PLACE, not just wrong group. Flagged like the grade mismatch, because
+              a student whose group is at another centre may simply be in the wrong
+              building — worth a second's thought before admitting or transferring. */}
+          {otherGroup.offer.different_venue ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, paddingVertical: 8, paddingHorizontal: spacing.lg, borderRadius: radius.full, backgroundColor: 'rgba(201,162,39,0.18)', borderWidth: 1, borderColor: '#C9A227' }}>
+              <Icon name="gps" size={15} color="#F5C542" />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#F5C542', textAlign: 'center' }}>
+                {`مكان مختلف — مجموعته في ${otherGroup.offer.current_venue_name ?? 'مكان آخر'}`}
+              </Text>
+            </View>
+          ) : null}
 
           {otherBusy ? (
             <ActivityIndicator color="#fff" style={{ marginTop: spacing.xl }} />

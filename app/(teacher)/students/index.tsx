@@ -24,6 +24,9 @@ const CARD_STATUS: Record<string, { key: string; color: string }> = {
   approved: { key: 'teacher.co_approved', color: colors.success },
   rejected: { key: 'teacher.co_rejected', color: colors.danger },
   link_generated: { key: 'teacher.co_link', color: colors.textSecondary },
+  // Filed by the teacher for a family that never asked: parked until the office
+  // releases the batch. Saying "under review" here would be false.
+  held: { key: 'teacher.co_held', color: colors.textSecondary },
 };
 
 // Backend session status → an existing session.* i18n key + a chip variant.
@@ -260,7 +263,9 @@ export default function TeacherStudents() {
               contentContainerStyle={listPad}
               refreshControl={<RefreshControl refreshing={cardsRefresh.refreshing} onRefresh={cardsRefresh.onRefresh} />}
               renderItem={({ item }: { item: TeacherCardOrder }) => {
-                const st = CARD_STATUS[item.status] ?? { key: 'teacher.co_submitted', color: colors.textSecondary };
+                // Unknown status → say so. Defaulting to "under review" made every
+                // status the app had not learned yet look like a live request.
+                const st = CARD_STATUS[item.status] ?? { key: 'teacher.co_unknown', color: colors.textSecondary };
                 return (
                   <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.sm }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

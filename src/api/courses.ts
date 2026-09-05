@@ -58,6 +58,8 @@ export interface CourseDetail {
   location_source: string | null;
   location_low_confidence: boolean;
   schedules: CourseSchedule[];
+  teacher_location_id?: string | null;
+  venue_name?: string | null;
 }
 
 export interface CourseSettingsPayload {
@@ -71,6 +73,8 @@ export interface CourseSettingsPayload {
   cycle_price?: number | null;
   booklet_price?: number | null;
   booking_price?: number | null;
+  /** Optional venue. Send null to clear; omit to leave unchanged. */
+  teacher_location_id?: string | number | null;
 }
 
 export interface LocationPayload {
@@ -85,6 +89,8 @@ export interface LocationPayload {
 export interface CourseFormOptions {
   grades: { id: string; name: string }[];
   terms: { id: string; name: string; ended: boolean; is_current: boolean }[];
+  /** The teacher's venues. Empty = they have none, so the field is not offered. */
+  venues?: { id: string; name: string; address: string | null }[];
   current_term_id: string | null;
   default_radius: number;
   booklet_is_down_payment?: boolean;
@@ -98,6 +104,8 @@ export interface CreateCoursePayload {
   starts_at?: string | null;
   code?: string;
   capacity?: number | null;
+  /** Optional venue — a label for organising courses; never a check-in anchor. */
+  teacher_location_id?: string | number | null;
   radius_horizontal_meters?: number;
   description?: string;
   slots?: { day_of_week: number; start_time: string; end_time: string }[];

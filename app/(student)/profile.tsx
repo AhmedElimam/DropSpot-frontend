@@ -10,10 +10,14 @@ import { useCoverageStats } from '@/hooks/useAttendance';
 import { useQuizzes } from '@/hooks/useQuizzes';
 import { formatDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import QRCode from 'react-native-qrcode-svg';
 import { Icon } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { SupportContact } from '@/components/SupportContact';
+import { useQuery } from '@tanstack/react-query';
+import { getMyCardStatus } from '@/api/profile';
+
+/** The gold rule the printed card carries — the one mark this screen borrows. */
+const GOLD = '#C9A227';
 
 export default function StudentProfile() {
   const { t } = useTranslation();
@@ -22,6 +26,10 @@ export default function StudentProfile() {
   const logout = useLogout();
   const { data: coverage } = useCoverageStats();
   const { data: quizzes } = useQuizzes();
+  // Live, not the cached login payload — that can be weeks old on a device that has
+  // not signed in since, and the card's state changes without the student doing anything.
+  const { data: card } = useQuery({ queryKey: ['my-card'], queryFn: getMyCardStatus, staleTime: 60_000 });
+  const cardState = card?.card_state ?? user?.card_state ?? 'none';
 
   const sessionsAttended = coverage ? coverage.present + coverage.late : 0;
   const now = new Date();
@@ -47,40 +55,66 @@ export default function StudentProfile() {
             </View>
           </View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{user?.name}</Text>
-          {user?.student_code ? (
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.85)', marginTop: spacing.xs, letterSpacing: 1 }}>
-              {user.student_code}
-            </Text>
-          ) : null}
+          {/* The student code lives on the card below, where it belongs — it is card
+              data, not profile data, and printing it twice on one screen said nothing. */}
           <View style={{ marginTop: spacing.md, backgroundColor: 'rgba(255,255,255,0.18)', paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff' }}>{t('profile.role_student')}</Text>
           </View>
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
-          {/* Digital card — the student's QR for check-in when the physical card
-              is forgotten/lost. Encodes the opaque per-card credential (card_token)
-              the scanner resolves, NOT the raw student_code. Falls back to the code
-              only during the pre-cutover transition. */}
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm, alignItems: 'center' }}>
-            <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
-              {t('profile.my_card')}
-            </Text>
-            {user?.student_code ? (
-              <>
-                <View style={{ padding: spacing.md, backgroundColor: '#fff', borderRadius: radius.lg }}>
-                  <QRCode value={user.card_token ?? user.student_code} size={200} />
+          {/* The card block.
+              There is NO in-app QR (founder 2026-09-05). The printed card is the only
+              scannable credential — handing every student a free digital one undercut the
+              card the platform sells. So this screen states where their card stands and,
+              when they have none, offers the one action that changes that.
+
+              Light on purpose: the hero above is already a deep-ink gradient, and a second
+              dark slab under it read as one heavy mass. */}
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm, overflow: 'hidden' }}>
+            <View style={{ height: 3, backgroundColor: cardState === 'in_hand' ? colors.success : GOLD }} />
+            <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+              <View style={{ width: 60, height: 60, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+                backgroundColor: cardState === 'in_hand' ? colors.successLight
+                  : cardState === 'preparing' ? colors.warningLight : colors.brandTint }}>
+                <Icon
+                  name={cardState === 'in_hand' ? 'success' : cardState === 'preparing' ? 'clock' : 'invoices'}
+                  size={28}
+                  color={cardState === 'in_hand' ? colors.success : cardState === 'preparing' ? colors.warning : colors.brand}
+                />
+              </View>
+
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16.5, color: colors.textPrimary, marginTop: spacing.md, textAlign: 'center' }}>
+                {cardState === 'in_hand' ? 'بطاقتك معك'
+                  : cardState === 'preparing' ? 'بطاقتك قيد التجهيز'
+                  : 'لا توجد بطاقة بعد'}
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 22, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs }}>
+                {cardState === 'in_hand'
+                  ? 'استخدم بطاقتك لتسجيل الحضور. احملها معك في كل حصة، ولو فقدتها بلّغ معلّمك فورًا.'
+                  : cardState === 'preparing'
+                    ? 'تم اعتماد بطاقتك وهي قيد الطباعة. سجّل حضورك مع معلّمك حتى تستلمها.'
+                    : 'تسجيل الحضور يتم ببطاقة دروس سبوت. اطلب بطاقتك، وحتى تصلك سجّل حضورك مع معلّمك.'}
+              </Text>
+
+              {user?.student_code ? (
+                <View style={{ marginTop: spacing.lg, paddingVertical: 6, paddingHorizontal: spacing.lg, borderRadius: radius.full, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, letterSpacing: 3 }}>{user.student_code}</Text>
                 </View>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginTop: spacing.md, letterSpacing: 2 }}>
-                  {user.student_code}
-                </Text>
-                <Text style={[textPresets.caption, { textAlign: 'center', marginTop: spacing.xs }]}>
-                  {t('profile.show_to_teacher')}
-                </Text>
-              </>
-            ) : (
-              <Text style={[textPresets.bodySmall, { textAlign: 'center' }]}>{t('profile.no_code_yet')}</Text>
-            )}
+              ) : null}
+
+              {cardState === 'none' ? (
+                <TouchableOpacity
+                  onPress={() => router.push('/(student)/order-card' as Href)}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  style={{ marginTop: spacing.lg, alignSelf: 'stretch', minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}
+                >
+                  <Icon name="add" size={17} color="#fff" />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>اطلب بطاقتك</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
 
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
@@ -155,7 +189,7 @@ export default function StudentProfile() {
           </View>
 
           <View style={{ marginBottom: spacing.md }}>
-            <SupportContact />
+            <SupportContact href={'/(student)/support' as Href} />
           </View>
 
           <TouchableOpacity onPress={() => logout.mutate()} activeOpacity={0.85} style={{ borderRadius: radius.md, overflow: 'hidden' }}>

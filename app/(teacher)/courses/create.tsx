@@ -39,7 +39,7 @@ function upcomingDays(count: number): { iso: string; label: string }[] {
 
 /**
  * Create a course — full parity with the web /courses/create form: name, grade,
- * term, code, capacity, radius, description, and weekly slots. Teacher-only
+ * term, capacity, radius, description, and weekly slots. Teacher-only
  * (the API rejects assistants). On success, jumps to the new course's settings.
  */
 export default function CourseCreateScreen() {
@@ -56,8 +56,9 @@ export default function CourseCreateScreen() {
 
   const [name, setName] = useState('');
   const [gradeId, setGradeId] = useState<string | null>(null);
+  // Optional venue. Null = no venue, which is also the state when the teacher has none.
+  const [venueId, setVenueId] = useState<string | null>(null);
   const [termId, setTermId] = useState<string | null>(null);
-  const [code, setCode] = useState('');
   const [capacity, setCapacity] = useState('');
   const [radius_, setRadius] = useState(20);
   const [allowSwap, setAllowSwap] = useState(true);
@@ -120,8 +121,8 @@ export default function CourseCreateScreen() {
         name: name.trim(),
         grade_id: Number(gradeId),
         academic_session_id: Number(termId),
-        code: code.trim() || undefined,
         capacity: capacity.trim() ? Number(capacity.trim()) : undefined,
+        teacher_location_id: venueId,
         radius_horizontal_meters: radius_,
         allow_session_swap: allowSwap,
         starts_at: startMode === 'date' && startDate ? startDate : undefined,
@@ -189,6 +190,27 @@ export default function CourseCreateScreen() {
               onSelect={setGradeId}
             />
 
+            {/* Venue — optional. With none yet, show the way to add one rather than
+                nothing at all: hiding the field entirely is why this looked missing. */}
+            <FieldLabel>مكان التدريس (اختياري)</FieldLabel>
+            {(options.venues?.length ?? 0) > 0 ? (
+              <SelectField
+                value={venueId}
+                options={[{ id: '', name: 'بدون مكان محدد' }, ...(options.venues ?? []).map((v) => ({ id: v.id, name: v.address ? `${v.name} — ${v.address}` : v.name }))]}
+                placeholder="بدون مكان محدد"
+                onSelect={(id) => setVenueId(id || null)}
+              />
+            ) : (
+              <TouchableOpacity
+                onPress={() => router.push('/(teacher)/venues' as Href)}
+                activeOpacity={0.8}
+                style={{ minHeight: 48, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm }}
+              >
+                <Icon name="add" size={16} color={colors.brand} />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>أضِف أماكن التدريس أولًا</Text>
+              </TouchableOpacity>
+            )}
+
             <FieldLabel required>{t('teacher.term')}</FieldLabel>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               {options.terms.map((tm) => (
@@ -219,18 +241,12 @@ export default function CourseCreateScreen() {
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, textAlign: 'right', marginTop: spacing.sm }}>{t('teacher.start_hint')}</Text>
           </Section>
 
-          {/* ── Details: code, capacity, radius, description ── */}
+          {/* ── Details: capacity, radius, description ──
+              The course CODE is deliberately absent (founder 2026-09-05: "everyone is
+              confused because of it"). It still exists and is still generated for us. */}
           <Section icon="settings" title={t('teacher.section_details')}>
-            <View style={{ flexDirection: 'row', gap: spacing.md }}>
-              <View style={{ flex: 1 }}>
-                <FieldLabel first>{t('teacher.course_code')}</FieldLabel>
-                <TextInput value={code} onChangeText={setCode} placeholder={t('teacher.auto')} placeholderTextColor={colors.textTertiary} autoCapitalize="characters" style={input} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <FieldLabel first>{t('teacher.capacity')}</FieldLabel>
-                <TextInput value={capacity} onChangeText={setCapacity} placeholder={t('teacher.optional')} placeholderTextColor={colors.textTertiary} keyboardType="numeric" style={input} />
-              </View>
-            </View>
+            <FieldLabel first>{t('teacher.capacity')}</FieldLabel>
+            <TextInput value={capacity} onChangeText={setCapacity} placeholder={t('teacher.optional')} placeholderTextColor={colors.textTertiary} keyboardType="numeric" style={input} />
 
             <FieldLabel>{t('teacher.radius_label')}</FieldLabel>
             <Stepper value={radius_} min={5} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />

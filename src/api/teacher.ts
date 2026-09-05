@@ -63,6 +63,10 @@ export interface ScanOffer {
   target_course_name: string | null;
   from_enrollment_id: number;
   current_course_name: string | null;
+  /** Their own group is at a DIFFERENT venue — they may simply be at the wrong place. */
+  different_venue?: boolean;
+  target_venue_name?: string | null;
+  current_venue_name?: string | null;
 }
 
 export interface ScanResult {
