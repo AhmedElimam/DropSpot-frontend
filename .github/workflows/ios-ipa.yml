@@ -129,6 +129,16 @@ jobs:
           echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
           echo "Workspace: $WORKSPACE / scheme: $SCHEME"
 
+      # Archive UNSIGNED, then sign at export.
+      #
+      # Build settings passed on the xcodebuild command line apply to EVERY target in the
+      # workspace, and the ~60 CocoaPods targets are not signable:
+      #   "ExpoLocalization does not support provisioning profiles, but provisioning
+      #    profile drosspot Profile has been manually specified."
+      # There is no way to scope a command-line setting to the app target alone, so the
+      # signing identity does not belong here at all. `-exportArchive` below signs the app
+      # with the profile named in ExportOptions.plist, which is the step that is actually
+      # supposed to own signing.
       - name: Archive
         run: |
           set -euo pipefail
@@ -139,10 +149,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/DrosSpot.xcarchive" \
             ONLY_ACTIVE_ARCH=NO \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            CODE_SIGN_IDENTITY="Apple Distribution"
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Write ExportOptions.plist
         env:
