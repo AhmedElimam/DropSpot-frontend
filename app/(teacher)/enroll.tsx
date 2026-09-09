@@ -37,6 +37,15 @@ export default function TeacherEnroll() {
 
   // Enrollment is on the COURSE (schedule master) — pick the course, not a session.
   const [course, setCourse] = useState<EnrollableClass | null>(null);
+  /**
+   * Which session of the current cycle the students being scanned are on.
+   *
+   * A teacher who onboards a course that has been running for weeks would otherwise have
+   * every student start at session 1: the billing cycle would finish eight sessions late
+   * and the advance invoice would charge a whole cycle for the two sessions left. Set once
+   * per course and shown in the bar, so it is never silently applied.
+   */
+  const [joinsAt, setJoinsAt] = useState(1);
   const [review, setReview] = useState<Review>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
@@ -90,6 +99,7 @@ export default function TeacherEnroll() {
         course_id: course!.course_id,
         academic_session_id: course!.academic_session_id,
         accept_grade_mismatch: vars.acceptGradeMismatch,
+        joins_at_session: joinsAt,
       }),
   });
 
@@ -201,7 +211,7 @@ export default function TeacherEnroll() {
                 <TouchableOpacity
                   key={c.course_id}
                   activeOpacity={0.7}
-                  onPress={() => setCourse(c)}
+                  onPress={() => { setCourse(c); setJoinsAt(1); }}
                   style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}
                 >
                   <View style={{ flex: 1 }}>
@@ -242,6 +252,41 @@ export default function TeacherEnroll() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }} numberOfLines={1}>{course!.course_name}</Text>
         </View>
       </View>
+
+      {/* Where the course actually stands. Only worth showing before a scan, and only
+          when the cycle is long enough to have a middle. */}
+      {!review && !done && course!.sessions_per_cycle > 1 ? (
+        <View style={{ position: 'absolute', top: insets.top + 74, left: 0, right: 0, paddingHorizontal: spacing.lg }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 6 }}>
+            المقرر الآن على الحصة رقم — يبدأ حساب الدورة من هنا
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+            {Array.from({ length: course!.sessions_per_cycle }, (_, i) => i + 1).map((n) => {
+              const active = n === joinsAt;
+              return (
+                <TouchableOpacity
+                  key={n}
+                  onPress={() => setJoinsAt(n)}
+                  activeOpacity={0.8}
+                  style={{
+                    minWidth: 40, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: 999,
+                    alignItems: 'center',
+                    backgroundColor: active ? '#fff' : 'rgba(255,255,255,0.16)',
+                    borderWidth: 1, borderColor: active ? '#fff' : 'rgba(255,255,255,0.28)',
+                  }}
+                >
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: active ? colors.textPrimary : '#fff' }}>{n}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          {joinsAt > 1 ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 18, color: 'rgba(255,255,255,0.75)', marginTop: 6 }}>
+              يبدأ الطالب بـ {joinsAt - 1} {joinsAt - 1 === 1 ? 'حصة محسوبة' : 'حصص محسوبة'} — لا تُحسب فاتورة لهذه الدورة الناقصة، والدورة القادمة تُحسب كالمعتاد.
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
       {/* Scan frame */}
       {!review && !done ? (

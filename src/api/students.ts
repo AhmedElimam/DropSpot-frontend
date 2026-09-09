@@ -18,6 +18,8 @@ export interface EnrollableClass {
   price_session: number | null;
   price_booklet: number | null;
   price_flat: number | null;
+  /** Cycle length — how many sessions before the bill/report card come round. */
+  sessions_per_cycle: number;
 }
 
 export async function getEnrollableClasses(): Promise<EnrollableClass[]> {
@@ -33,6 +35,7 @@ export async function getEnrollableClasses(): Promise<EnrollableClass[]> {
       price_session: a.price_session ?? null,
       price_booklet: a.price_booklet ?? null,
       price_flat: a.price_flat ?? null,
+      sessions_per_cycle: a.sessions_per_cycle ?? 8,
     } as EnrollableClass;
   });
 }
@@ -83,6 +86,13 @@ export async function enrollByCard(payload: {
   session_schedule_id?: number;
   /** Confirm enrolling a student whose saved grade differs from the course's. */
   accept_grade_mismatch?: boolean;
+  /**
+   * Which session of the current cycle this student is on (1 = from the beginning).
+   * For a course that was already running before the teacher onboarded: the cycle then
+   * starts that far in, so it finishes when the teacher's own count says it should, and
+   * the part-finished cycle is not advance-billed.
+   */
+  joins_at_session?: number;
 }): Promise<EnrollResult> {
   const { data } = await client.post('/students/enroll-by-card', payload);
   return (data.data ?? data) as EnrollResult;
