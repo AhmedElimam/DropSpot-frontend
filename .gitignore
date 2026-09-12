@@ -48,3 +48,7 @@ credentials/ios/*.p12
 credentials/ios/*.mobileprovision
 credentials/ios/*.p8
 credentials/ios/*.cer
+
+# Downloaded CI artifacts (unzipped IPA folders) — never part of the source tree.
+drosspot-ios-ipa/
+*.ipa

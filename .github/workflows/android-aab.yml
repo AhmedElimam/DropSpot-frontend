@@ -70,9 +70,14 @@ jobs:
 
       - name: Show the version being built
         run: |
-          node -e "const e=require('./app.json').expo; console.log('versionName', e.version, '| versionCode', e.android.versionCode)" >> "$GITHUB_STEP_SUMMARY"
+          node -e "const e=require('./app.json').expo; console.log('versionName', e.version, '| versionCode', Math.max(${{ github.run_number }}, e.android.versionCode), '(run number, floor', e.android.versionCode + ')')" >> "$GITHUB_STEP_SUMMARY"
 
+      # ANDROID_VERSION_CODE stamps the run number as versionCode (see app.config.ts) —
+      # the same idea as IOS_BUILD_NUMBER in ios-ipa.yml, so neither store ever sees a
+      # repeated build number and nobody has to remember to bump one by hand.
       - name: Prebuild native Android project
+        env:
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
         run: npx expo prebuild --platform android --no-install
 
       # RN 0.81 / new-architecture builds are Metaspace-heavy; Expo's default
@@ -122,7 +127,7 @@ jobs:
         run: |
           mkdir -p artifacts
           VERSION=$(node -p "require('./app.json').expo.version")
-          CODE=$(node -p "require('./app.json').expo.android.versionCode")
+          CODE=$(node -p "Math.max(${{ github.run_number }}, require('./app.json').expo.android.versionCode)")
           cp android/app/build/outputs/bundle/release/app-release.aab \
              "artifacts/drosspot-${VERSION}-${CODE}.aab"
           ls -lh artifacts

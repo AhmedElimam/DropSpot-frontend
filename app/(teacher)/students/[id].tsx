@@ -16,8 +16,8 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useAuthStore } from '@/stores/authStore';
 import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory } from '@/api/students';
-import { terminateEnrollment, transferEnrollment } from '@/api/enrollments';
-import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, type EnrollableClass } from '@/api/students';
+import { terminateEnrollment, transferEnrollment, backfillAttendance } from '@/api/enrollments';
+import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBooklet, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
 
@@ -74,9 +74,64 @@ export default function StudentDetailScreen() {
       },
     ]);
   };
+  // «تم تحصيل الملزمة» straight from the profile. Same server path as the kiosk (paid_at,
+  // receipt, oversight, audit), so the insights are right the same second. Teacher or an
+  // assistant with scan_attendance — the server refuses anyone else.
+  const [collecting, setCollecting] = useState<number | null>(null);
+  const collectBooklet = (b: PendingBooklet) => {
+    Alert.alert(
+      'تحصيل الملزمة',
+      `تأكيد تحصيل ملزمة «${b.course ?? ''}» بقيمة ${b.remaining} ${t('teacher.egp')}؟\n\nسيُرسَل إيصال لولي الأمر ويُحتسب المبلغ في التقارير المالية.`,
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: 'تم التحصيل', onPress: async () => {
+            setCollecting(b.id);
+            try { await collectStudentCharge(id, 'booklet', b.id); await refetch(); }
+            catch (e: any) { Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر التحصيل'); }
+            finally { setCollecting(null); }
+          },
+        },
+      ],
+    );
+  };
   const { can } = useActiveAbilities();
   const canManage = can(ABILITY.MANAGE_STUDENTS);
-  const isTeacher = useAuthStore((s) => s.role) === 'teacher'; // reports are teacher-only
+  const canCollect = can(ABILITY.SCAN);
+  const canMarkManual = can(ABILITY.MARK_MANUAL);
+
+  // The paper register: tick the past days (last 90) this student attended before the
+  // app knew them. Presence only — an unticked day stays unrecorded, not absent.
+  const [backfillFor, setBackfillFor] = useState<{ enrollmentId: number; courseName: string | null; days: BackfillDay[] } | null>(null);
+  const [backfillPicked, setBackfillPicked] = useState<(number | string)[]>([]);
+  const [backfillBusy, setBackfillBusy] = useState(false);
+  const openBackfill = (c: { enrollment_id?: number; name: string | null; backfill_days?: BackfillDay[] }) => {
+    if (!c.enrollment_id) return;
+    setBackfillPicked([]);
+    setBackfillFor({ enrollmentId: c.enrollment_id, courseName: c.name, days: c.backfill_days ?? [] });
+  };
+  const submitBackfill = async () => {
+    if (!backfillFor || backfillPicked.length === 0) { Alert.alert('', 'اختر يومًا واحدًا على الأقل'); return; }
+    setBackfillBusy(true);
+    try {
+      const r = await backfillAttendance(backfillFor.enrollmentId, backfillPicked);
+      setBackfillFor(null);
+      await refetch();
+      const parts = [`تم تسجيل ${r.created} ${r.created === 1 ? 'يوم حضور' : 'أيام حضور'}.`];
+      if (r.moved && r.started_at) parts.push(`ضُبط بدء الطالب على الحصة ${r.started_at}.`);
+      if (r.repriced) parts.push(r.invoice_amount ? `أُعيد إصدار فاتورة الدورة بقيمة ${r.invoice_amount} ج.م.` : 'أُلغيت فاتورة الدورة.');
+      else if (r.kept_paid && r.moved) parts.push('الفاتورة المدفوعة لم تُمسّ.');
+      Alert.alert('تم', parts.join('\n'));
+    } catch (e: any) {
+      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر تسجيل الحضور السابق');
+    } finally {
+      setBackfillBusy(false);
+    }
+  };
+  const isTeacher = useAuthStore((s) => s.role) === 'teacher';
+  // Incident reports: the teacher, or an assistant granted report_incidents (the report
+  // still lands in the teacher's tenant; the assistant is recorded as who typed it).
+  const canReport = isTeacher || can(ABILITY.REPORT_INCIDENTS);
 
   // Transfer one course enrollment to another of the teacher's own courses.
   const [transferFor, setTransferFor] = useState<{ enrollmentId: number; courseId: number; courseName: string | null } | null>(null);
@@ -322,8 +377,8 @@ export default function StudentDetailScreen() {
             </TouchableOpacity>
           ) : null}
 
-          {/* Report an incident about the student → super-admin review (teacher-only) */}
-          {isTeacher ? (
+          {/* Report an incident about the student → super-admin review (teacher, or assistant with report_incidents) */}
+          {canReport ? (
             <TouchableOpacity
               onPress={() => setReportOpen(true)}
               accessibilityRole="button"
@@ -393,6 +448,34 @@ export default function StudentDetailScreen() {
               </View>
             </View>
 
+            {/* «تم تحصيل الملزمة» — one button per ملزمة still owed (teacher / assistant with scan). */}
+            {canCollect && (s.billing.booklets ?? []).length > 0 ? (
+              <View style={{ marginTop: spacing.md }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>ملازم مستحقّة</Text>
+                {(s.billing.booklets ?? []).map((b) => (
+                  <View key={`booklet-${b.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+                    <Icon name="book" size={18} color={colors.textSecondary} outline />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{`ملزمة ${b.course ?? ''}`}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                        {`${b.remaining} ${t('teacher.egp')}`}{b.partial ? ` · متبقٍّ من ${b.original}` : ''}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => collectBooklet(b)}
+                      disabled={collecting === b.id}
+                      accessibilityRole="button"
+                      activeOpacity={0.85}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: spacing.md, opacity: collecting === b.id ? 0.6 : 1 }}
+                    >
+                      {collecting === b.id ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="success" size={14} color="#fff" />}
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>تم تحصيل الملزمة</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
             {/* Per-student 15-day-allowance block */}
             <TouchableOpacity
               onPress={() => allowanceBlock.mutate(!(s.billing.allowance_blocked ?? false))}
@@ -441,7 +524,27 @@ export default function StudentDetailScreen() {
                 {s.courses.map((c) => (
                   <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
                     <Icon name="book" size={16} color={colors.brand} outline />
-                    <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>{c.name ?? '—'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>{c.name ?? '—'}</Text>
+                      {/* «حضر ٤ من ٦ · الحصة ٧ / ٨» — what the cycle counted vs. what the student
+                          was in the room for. Carried sessions (before the student was on the
+                          system) are left out of the denominator. */}
+                      {c.cycle?.has_cycle ? (
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 12, marginTop: 2, color: c.cycle.held > 0 && c.cycle.attended < c.cycle.held ? colors.warning : colors.textSecondary }}>
+                          {`حضر ${c.cycle.attended} من ${c.cycle.held}`}
+                          {c.cycle.absent > 0 ? ` · غاب ${c.cycle.absent}` : ''}
+                          {` · الحصة ${c.cycle.position} / ${c.cycle.threshold}`}
+                          {c.cycle.carried > 0 ? ` · انضم من الحصة ${c.cycle.carried + 1}` : ''}
+                        </Text>
+                      ) : null}
+                      {canMarkManual && c.enrollment_id && (c.backfill_days ?? []).some((d) => d.recorded == null) ? (
+                        <TouchableOpacity onPress={() => openBackfill(c)} accessibilityRole="button" activeOpacity={0.8} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brand }}>
+                            {`تسجيل حضور سابق (${(c.backfill_days ?? []).filter((d) => d.recorded == null).length} يوم بلا سجل)`}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
                     {c.enrollment_id && canManage ? (
                       <TouchableOpacity
                         onPress={() => setTransferFor({ enrollmentId: c.enrollment_id!, courseId: c.id, courseName: c.name })}
@@ -539,6 +642,57 @@ export default function StudentDetailScreen() {
       )}
 
       {/* Transfer picker: move this enrollment to another of the teacher's courses. */}
+      {/* The paper register — past days of one course, tick who came. */}
+      <Modal visible={!!backfillFor} animationType="slide" transparent onRequestClose={() => !backfillBusy && setBackfillFor(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>تسجيل حضور سابق من السجل الورقي</Text>
+              <TouchableOpacity onPress={() => !backfillBusy && setBackfillFor(null)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
+            </View>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>
+              {`حصص «${backfillFor?.courseName ?? ''}» خلال آخر ٩٠ يومًا. علّم الأيام التي حضرها الطالب حسب الدفتر — يُسجَّل الحضور فقط؛ اليوم غير المعلَّم يبقى بلا سجل.`}
+            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.sm }}>
+              سيُضبط بدء الطالب على أقدم يوم مختار وتُعاد تسعير فاتورة الدورة غير المدفوعة. الفواتير المدفوعة لا تتغيّر.
+            </Text>
+            <TouchableOpacity onPress={() => setBackfillPicked((backfillFor?.days ?? []).filter((d) => d.recorded == null).map((d) => d.id))} style={{ alignSelf: 'flex-start', marginBottom: spacing.xs }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brand }}>تحديد كل الأيام غير المسجّلة</Text>
+            </TouchableOpacity>
+            <ScrollView style={{ maxHeight: 360 }}>
+              {(backfillFor?.days ?? []).map((d) => {
+                const locked = d.recorded != null;
+                const on = locked ? (d.recorded === 'present' || d.recorded === 'late') : backfillPicked.includes(d.id);
+                const tag = locked ? ({ present: 'حاضر', late: 'متأخر', absent: 'غائب', excused: 'بعذر' } as Record<string, string>)[d.recorded!] ?? d.recorded : (d.virtual ? 'حسب الجدول' : (d.before_enrolment ? 'قبل التسجيل' : 'بلا سجل'));
+                return (
+                  <TouchableOpacity
+                    key={String(d.id)}
+                    disabled={locked}
+                    onPress={() => setBackfillPicked((p) => (p.includes(d.id) ? p.filter((x) => x !== d.id) : [...p, d.id]))}
+                    activeOpacity={0.8}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, opacity: locked ? 0.55 : 1 }}
+                  >
+                    <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                      {on ? <Icon name="success" size={14} color="#fff" /> : null}
+                    </View>
+                    <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>{`${d.label} · ${d.time}`}</Text>
+                    <Badge label={tag ?? ''} variant={locked ? 'default' : (d.before_enrolment ? 'warning' : 'default')} size="sm" />
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity
+              onPress={submitBackfill}
+              disabled={backfillBusy}
+              accessibilityRole="button"
+              style={{ marginTop: spacing.md, minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.brand, justifyContent: 'center', alignItems: 'center', opacity: backfillBusy ? 0.6 : 1 }}
+            >
+              {backfillBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{`تسجيل الحضور (${backfillPicked.length})`}</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={!!transferFor} animationType="slide" transparent onRequestClose={() => !transferBusy && setTransferFor(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '75%' }}>

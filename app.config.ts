@@ -13,7 +13,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'DrosSpot',
   slug: 'DrosSpot',
-  version: '1.1.0',
+  // ONE place to bump the version: app.json → expo.version. Both CI workflows read it
+  // from there too, so Android and iOS can never ship different version names.
+  version: config.version ?? '0.0.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'drosspot',
@@ -30,7 +32,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: 'com.drosspot.app',
     // App Store Connect rejects a re-used build number, so CI stamps a fresh one
     // (the GitHub run number) via IOS_BUILD_NUMBER. Defaults to '1' locally.
-    buildNumber: process.env.IOS_BUILD_NUMBER || '1',
+    buildNumber: process.env.IOS_BUILD_NUMBER || config.ios?.buildNumber || '1',
     // iPhone-only — we don't support iPad, so don't declare tablet support (otherwise
     // App Store Connect demands iPad screenshots / capabilities).
     supportsTablet: false,
@@ -44,8 +46,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.drosspot.app',
-    // Google Play refuses a versionCode it has already accepted — bump on every upload.
-    versionCode: 2,
+    // Google Play refuses a versionCode it has already accepted. CI stamps the run
+    // number (ANDROID_VERSION_CODE), exactly as iOS gets IOS_BUILD_NUMBER — never lower
+    // than the floor in app.json, so a local build can't go backwards either.
+    versionCode: Math.max(
+      parseInt(process.env.ANDROID_VERSION_CODE || '0', 10) || 0,
+      config.android?.versionCode ?? 1,
+    ),
     googleServicesFile: './google-services.json',
     // Resize the screen when the keyboard opens so scroll/bottom-anchored content
     // is never hidden behind it (Modals additionally wrap in KeyboardAvoidingView).

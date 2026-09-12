@@ -27,6 +27,21 @@ export async function transferEnrollment(
   });
 }
 
+/**
+ * The paper register: mark the student PRESENT on the given past sessions of this course
+ * (last 90 days). The server also moves the cycle's start back to the earliest known day
+ * and re-prices an unpaid invoice. Teacher or an assistant with mark_attendance_manual.
+ */
+export async function backfillAttendance(
+  enrollmentId: number,
+  sessionInstanceIds: (number | string)[],
+): Promise<{ created: number; skipped: number; started_at: number | null; moved: boolean; repriced: boolean; kept_paid: boolean; invoice_amount: string | null }> {
+  const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/backfill-attendance`, {
+    session_instance_ids: sessionInstanceIds,
+  });
+  return data.data ?? data;
+}
+
 function extract(item: any): Enrollment {
   const a = item.attributes ?? item;
   return {

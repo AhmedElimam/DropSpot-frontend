@@ -20,6 +20,8 @@ export const ABILITY = {
   MANAGE_COURSES: 'manage_courses',
   REVIEW_PAYMENT_PROOFS: 'review_payment_proofs',
   ISSUE_GUEST_PASSES: 'issue_guest_passes',
+  /** File a student incident report to the platform admins (teacher's tenant, assistant recorded). */
+  REPORT_INCIDENTS: 'report_incidents',
 } as const;
 
 export function useActiveAbilities() {

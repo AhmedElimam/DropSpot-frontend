@@ -20,6 +20,17 @@ export interface EnrollableClass {
   price_flat: number | null;
   /** Cycle length — how many sessions before the bill/report card come round. */
   sessions_per_cycle: number;
+  /**
+   * The current cycle on the calendar: which date each session number falls on, from
+   * the class's own delivered (is_past) and scheduled sessions. Lets the picker read
+   * «الحصة 6 — السبت 6 سبتمبر». `recent` is every session held in the last 90 days.
+   */
+  timeline?: {
+    cohort_position: number;
+    threshold: number;
+    positions: { n: number; date: string | null; label: string | null; is_past: boolean }[];
+    recent: { date: string; label: string; time: string; attendees: number }[];
+  };
 }
 
 export async function getEnrollableClasses(): Promise<EnrollableClass[]> {
@@ -36,6 +47,7 @@ export async function getEnrollableClasses(): Promise<EnrollableClass[]> {
       price_booklet: a.price_booklet ?? null,
       price_flat: a.price_flat ?? null,
       sessions_per_cycle: a.sessions_per_cycle ?? 8,
+      timeline: a.timeline ?? undefined,
     } as EnrollableClass;
   });
 }
@@ -119,10 +131,54 @@ export interface TeacherCourse {
   name: string;
 }
 
+/**
+ * Where the student stands in this course's billing cycle, and how much of it they were
+ * there for. `delivered` is what the cycle COUNTED (bills); `attended` is present/late
+ * records since the cycle opened; `held` is the denominator to show attendance against
+ * (delivered minus carried — carried sessions predate the student on the system and have
+ * no records). «حضر ٤ من ٦ · الحصة ٧ / ٨».
+ */
+export interface CycleProgress {
+  position: number;
+  threshold: number;
+  has_cycle: boolean;
+  delivered: number;
+  carried: number;
+  held: number;
+  attended: number;
+  absent: number;
+  excused: number;
+}
+
+/** One held session of the course in the last 90 days, and what this student's record says. */
+export interface BackfillDay {
+  /** An instance id, or "slot:{slot}:{YYYY-MM-DD}" for a schedule-implied day no instance records yet. */
+  id: number | string;
+  /** True when the schedule implies the day but nothing was ever recorded for the class. */
+  virtual?: boolean;
+  date: string;
+  label: string;
+  time: string;
+  /** present | late | absent | excused, or null when nothing is recorded (tickable). */
+  recorded: string | null;
+  before_enrolment: boolean;
+}
+
 export interface StudentCourse {
   id: number;
   name: string | null;
   enrollment_id?: number;
+  cycle?: CycleProgress;
+  backfill_days?: BackfillDay[];
+}
+
+/** One ملزمة still owed under this teacher — the unit «تم تحصيل الملزمة» acts on. */
+export interface PendingBooklet {
+  id: number;
+  course: string | null;
+  remaining: string;
+  original: string;
+  partial: boolean;
 }
 
 export interface StudentParent {
@@ -169,6 +225,8 @@ export interface StudentDetail {
     pending_total?: string;
     has_pending?: boolean;
     pending?: { bill: string; booklet: string; booking: string };
+    /** One entry per ملزمة still owed, so the profile can offer collection per charge. */
+    booklets?: PendingBooklet[];
     /** Collected charges the teacher can CANCEL (per-charge). Empty for assistants. */
     collected?: { kind: 'bill' | 'booklet' | 'booking'; id: number; label: string; paid: string }[];
   };
@@ -205,6 +263,26 @@ export async function reverseStudentPayment(
     kind,
     ...(chargeId != null ? { charge_id: chargeId } : {}),
   });
+}
+
+/**
+ * «تم تحصيل الملزمة» from the student's profile. With `chargeId` it settles that one
+ * ملزمة/دفعة; without it, every outstanding charge of the kind. Same server path as the
+ * kiosk and the collections list (paid_at, receipt, oversight, audit) — so the insights
+ * are right the same second. Teacher, or an assistant with scan_attendance (403 otherwise).
+ */
+export async function collectStudentCharge(
+  studentId: string | number,
+  kind: 'bill' | 'booklet' | 'booking',
+  chargeId?: number,
+  amount?: number,
+): Promise<{ collected: string; remaining: string; what: string }> {
+  const { data } = await client.post(`/teacher/students/${studentId}/collect`, {
+    kind,
+    ...(chargeId != null ? { charge_id: chargeId } : {}),
+    ...(amount != null ? { amount } : {}),
+  });
+  return (data.data ?? data) as { collected: string; remaining: string; what: string };
 }
 
 /**

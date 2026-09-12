@@ -258,11 +258,16 @@ export default function TeacherEnroll() {
       {!review && !done && course!.sessions_per_cycle > 1 ? (
         <View style={{ position: 'absolute', top: insets.top + 74, left: 0, right: 0, paddingHorizontal: spacing.lg }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 6 }}>
-            المقرر الآن على الحصة رقم — يبدأ حساب الدورة من هنا
+            الطالب يبدأ من الحصة رقم — ما قبلها لا يُحاسَب عليه
           </Text>
+          {/* Each number carries the DAY it fell on (from the class's own delivered and
+              scheduled sessions), so the teacher recognises «السبت 6 سبتمبر» instead of
+              counting back. Numbers past today's position read as upcoming. */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
             {Array.from({ length: course!.sessions_per_cycle }, (_, i) => i + 1).map((n) => {
               const active = n === joinsAt;
+              const pos = course!.timeline?.positions.find((p) => p.n === n);
+              const isNow = course!.timeline ? n === course!.timeline.cohort_position + 1 : false;
               return (
                 <TouchableOpacity
                   key={n}
@@ -272,17 +277,31 @@ export default function TeacherEnroll() {
                     minWidth: 40, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: 999,
                     alignItems: 'center',
                     backgroundColor: active ? '#fff' : 'rgba(255,255,255,0.16)',
-                    borderWidth: 1, borderColor: active ? '#fff' : 'rgba(255,255,255,0.28)',
+                    borderWidth: 1, borderColor: active || isNow ? '#fff' : 'rgba(255,255,255,0.28)',
                   }}
                 >
                   <Text style={{ fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: active ? colors.textPrimary : '#fff' }}>{n}</Text>
+                  {pos?.label ? (
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 10, lineHeight: 13, color: active ? colors.textSecondary : 'rgba(255,255,255,0.75)' }} numberOfLines={1}>
+                      {pos.label}{pos.is_past ? '' : ' · قادمة'}
+                    </Text>
+                  ) : null}
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
           {joinsAt > 1 ? (
             <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 18, color: 'rgba(255,255,255,0.75)', marginTop: 6 }}>
-              يبدأ الطالب بـ {joinsAt - 1} {joinsAt - 1 === 1 ? 'حصة محسوبة' : 'حصص محسوبة'} — لا تُحسب فاتورة لهذه الدورة الناقصة، والدورة القادمة تُحسب كالمعتاد.
+              {(() => {
+                const remaining = course!.sessions_per_cycle - (joinsAt - 1);
+                const per = course!.price_session;
+                const fee = per != null ? ` — فاتورة هذه الدورة ${Math.round(per * remaining)} ج.م` : '';
+                return `يُحاسَب الطالب على ${remaining} ${remaining === 1 ? 'حصة متبقية' : 'حصص متبقية'} من الدورة${fee}، والدورة القادمة تُحسب كاملة.`;
+              })()}
+            </Text>
+          ) : course!.timeline && course!.timeline.cohort_position > 0 ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 18, color: 'rgba(255,255,255,0.75)', marginTop: 6 }}>
+              {`المقرر الآن على الحصة ${course!.timeline.cohort_position + 1} — إن لم تختر، يُحاسَب الطالب من هنا تلقائيًا.`}
             </Text>
           ) : null}
         </View>

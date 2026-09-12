@@ -110,6 +110,10 @@ jobs:
 
       # Regenerates ios/ from app.config.ts. IOS_BUILD_NUMBER stamps a unique, increasing
       # CFBundleVersion so App Store Connect never rejects the upload as a duplicate.
+      - name: Show the version being built
+        run: |
+          node -e "const e=require('./app.json').expo; console.log('version', e.version, '| buildNumber', ${{ github.run_number }})" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Prebuild native iOS project
         env:
           IOS_BUILD_NUMBER: ${{ github.run_number }}
