@@ -22,7 +22,8 @@
       "supportsTablet": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "28"
     },
     "android": {
       "package": "com.drosspot.app",

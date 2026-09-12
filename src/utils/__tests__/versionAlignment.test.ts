@@ -26,4 +26,11 @@ describe('release version alignment', () => {
     expect(Number.isInteger(appJson.expo.android.versionCode)).toBe(true);
     expect(appJson.expo.android.versionCode).toBeGreaterThan(0);
   });
+
+  // The floor is what App Store Connect has already seen; CI's run counter is independent
+  // of it and resets if a workflow is renamed, so a build must never be stamped below it.
+  it('iOS has a numeric buildNumber floor', () => {
+    expect(appJson.expo.ios.buildNumber).toMatch(/^\d+$/);
+    expect(parseInt(appJson.expo.ios.buildNumber, 10)).toBeGreaterThan(0);
+  });
 });

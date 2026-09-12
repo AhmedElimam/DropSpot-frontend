@@ -30,9 +30,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   backgroundColor: '#FBFBFB',
   ios: {
     bundleIdentifier: 'com.drosspot.app',
-    // App Store Connect rejects a re-used build number, so CI stamps a fresh one
-    // (the GitHub run number) via IOS_BUILD_NUMBER. Defaults to '1' locally.
-    buildNumber: process.env.IOS_BUILD_NUMBER || config.ios?.buildNumber || '1',
+    // App Store Connect rejects a re-used build number. CI stamps the run number via
+    // IOS_BUILD_NUMBER, but never BELOW the floor in app.json — a workflow's run counter
+    // is independent of what App Store Connect has already seen (and resets if the file
+    // is renamed), so the floor is what guarantees the number only ever goes up.
+    buildNumber: String(Math.max(
+      parseInt(process.env.IOS_BUILD_NUMBER || '0', 10) || 0,
+      parseInt((config.ios?.buildNumber as string) || '1', 10) || 1,
+    )),
     // iPhone-only — we don't support iPad, so don't declare tablet support (otherwise
     // App Store Connect demands iPad screenshots / capabilities).
     supportsTablet: false,
