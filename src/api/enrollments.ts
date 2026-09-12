@@ -42,6 +42,21 @@ export async function backfillAttendance(
   return data.data ?? data;
 }
 
+/**
+ * «الطالب على الحصة N» — set where this enrolment stands in its billing cycle (1-based).
+ * The server re-prices an unpaid cycle invoice to match; paid ones are never touched.
+ * Teacher, or an assistant with manage_students.
+ */
+export async function setCyclePosition(
+  enrollmentId: number,
+  joinsAtSession: number,
+): Promise<{ position: number; threshold: number; repriced: boolean; kept_paid: boolean; invoice_amount: string | null }> {
+  const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/cycle-position`, {
+    joins_at_session: joinsAtSession,
+  });
+  return data.data ?? data;
+}
+
 function extract(item: any): Enrollment {
   const a = item.attributes ?? item;
   return {

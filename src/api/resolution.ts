@@ -12,7 +12,44 @@ export interface ResolutionSummary {
   swaps: number;
   tickets: number;
   termination_candidates: number;
+  /** Assistant-filed incident reports / parent-number flags awaiting the teacher's review. */
+  assistant_reports?: number;
   total: number;
+}
+
+/**
+ * An assistant's incident report ('report') or parent-number flag ('flag') waiting for the
+ * TEACHER before it reaches the admins. Approve forwards it as the teacher's own; reject
+ * closes it and tells the assistant.
+ */
+export interface AssistantReportItem {
+  kind: 'report' | 'flag';
+  id: number;
+  student_id: number;
+  student_name: string | null;
+  assistant_name: string | null;
+  submitted_at: string | null;
+  // report
+  type_label?: string;
+  severity?: 'standard' | 'safety_critical';
+  description?: string;
+  // flag
+  parent_name?: string | null;
+  old_number?: string | null;
+  reason?: string | null;
+}
+
+export async function getAssistantReports(): Promise<AssistantReportItem[]> {
+  const { data } = await client.get('/teacher/assistant-reports');
+  return (data.data ?? data) as AssistantReportItem[];
+}
+
+export async function approveAssistantReport(kind: 'report' | 'flag', id: number, note?: string): Promise<void> {
+  await client.post(`/teacher/assistant-reports/${kind}/${id}/approve`, note ? { note } : {});
+}
+
+export async function rejectAssistantReport(kind: 'report' | 'flag', id: number, note?: string): Promise<void> {
+  await client.post(`/teacher/assistant-reports/${kind}/${id}/reject`, note ? { note } : {});
 }
 
 export interface TerminationCandidate {

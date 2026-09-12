@@ -14,6 +14,7 @@ import {
   getTerminationCandidates, terminateEnrollment,
   getStudentEditRequests, approveStudentEditRequest, rejectStudentEditRequest,
   type ExcuseItem, type SwapItem, type TerminationCandidate, type StudentEditReq,
+  getAssistantReports, approveAssistantReport, rejectAssistantReport, type AssistantReportItem,
 } from '@/api/resolution';
 import { createAdminTicket, getMyAdminTickets, getSupportCategories, type AdminTicket } from '@/api/adminTickets';
 import { SelectField } from '@/components/ui/SelectField';
@@ -44,6 +45,8 @@ export default function ResolutionCenter() {
   const swaps = useQuery({ queryKey: ['resolution-swaps'], queryFn: getPendingSwaps });
   const candidates = useQuery({ queryKey: ['resolution-termination'], queryFn: getTerminationCandidates });
   const editRequests = useQuery({ queryKey: ['resolution-edit-requests'], queryFn: getStudentEditRequests });
+  // What the assistants filed — waits for the teacher before the admins see it.
+  const assistantReports = useQuery({ queryKey: ['resolution-assistant-reports'], queryFn: getAssistantReports });
   const myTickets = useQuery({ queryKey: ['my-admin-tickets'], queryFn: getMyAdminTickets });
   const ticketCategories = useQuery({ queryKey: ['support-categories'], queryFn: getSupportCategories });
 
@@ -238,6 +241,28 @@ export default function ResolutionCenter() {
                   busy={busy === `sw-${sw.id}`}
                   onApprove={() => act(`sw-${sw.id}`, () => approveSwap(sw.id))}
                   onReject={() => act(`sw-${sw.id}`, () => rejectSwap(sw.id))}
+                  t={t}
+                />
+              ))}
+            </>
+          ) : null}
+
+          {/* Assistant-filed incident reports / parent-number flags — the teacher forwards
+              (approve → the admin queue, as the teacher's own) or closes them. */}
+          {assistantReports.data && assistantReports.data.length > 0 ? (
+            <>
+              <SectionTitle>بلاغات المساعدين بانتظار مراجعتك</SectionTitle>
+              {assistantReports.data.map((r: AssistantReportItem) => (
+                <ReviewCard
+                  key={`ar-${r.kind}-${r.id}`}
+                  title={`${r.student_name ?? '—'} · ${r.kind === 'report' ? (r.severity === 'safety_critical' ? 'بلاغ خطير' : 'بلاغ حادثة') : 'رقم ولي أمر غير صحيح'}`}
+                  subtitle={[
+                    r.assistant_name ? `من ${r.assistant_name}` : null,
+                    r.kind === 'report' ? (r.description ?? '') : [r.parent_name, r.old_number, r.reason].filter(Boolean).join(' · '),
+                  ].filter(Boolean).join(' — ')}
+                  busy={busy === `ar-${r.kind}-${r.id}`}
+                  onApprove={() => act(`ar-${r.kind}-${r.id}`, async () => { await approveAssistantReport(r.kind, r.id); await assistantReports.refetch(); })}
+                  onReject={() => act(`ar-${r.kind}-${r.id}`, async () => { await rejectAssistantReport(r.kind, r.id); await assistantReports.refetch(); })}
                   t={t}
                 />
               ))}
