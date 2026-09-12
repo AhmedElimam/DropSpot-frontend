@@ -112,7 +112,7 @@ jobs:
       # CFBundleVersion so App Store Connect never rejects the upload as a duplicate.
       - name: Show the version being built
         run: |
-          node -e "const e=require('./app.json').expo; console.log('version', e.version, '| buildNumber', ${{ github.run_number }})" >> "$GITHUB_STEP_SUMMARY"
+          node -e "const e=require('./app.json').expo; const b=Math.max(${{ github.run_number }}, parseInt(e.ios.buildNumber||'1',10)); console.log('version', e.version, '| buildNumber', b, '(run number', ${{ github.run_number }}, ', floor', e.ios.buildNumber + ')')" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Prebuild native iOS project
         env:
@@ -186,7 +186,11 @@ jobs:
             -exportPath "$RUNNER_TEMP/export"
 
           mkdir -p artifacts
-          cp "$RUNNER_TEMP"/export/*.ipa "artifacts/drosspot-${GITHUB_SHA::7}-b${GITHUB_RUN_NUMBER}.ipa"
+          # Name it by the build number actually STAMPED (max of the run number and the
+          # app.json floor), not the raw run counter — the filename is what you read when
+          # deciding which build to upload, and a wrong one sends you to the wrong TestFlight.
+          BUILD=$(node -p "Math.max(${GITHUB_RUN_NUMBER}, parseInt(require('./app.json').expo.ios.buildNumber||'1',10))")
+          cp "$RUNNER_TEMP"/export/*.ipa "artifacts/drosspot-${GITHUB_SHA::7}-b${BUILD}.ipa"
           ls -lh artifacts
 
       - name: Upload IPA artifact
