@@ -8,7 +8,7 @@ import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useCourses } from '@/hooks/useCourses';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { useActiveAbilities } from '@/hooks/useActiveAbilities';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import type { CourseSummary } from '@/api/courses';
 
 /**
@@ -20,7 +20,7 @@ export default function TeacherCourses() {
   const insets = useSafeAreaInsets();
   const { data: courses, isLoading, refetch } = useCourses();
   const { refreshing, onRefresh } = usePullRefresh(refetch);
-  const { isAssistant } = useActiveAbilities();
+  const { can } = useActiveAbilities();
 
   const renderCourse = ({ item }: { item: CourseSummary }) => (
     <TouchableOpacity
@@ -69,8 +69,13 @@ export default function TeacherCourses() {
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('teacher.courses_title')}</Text>
-        {/* Course creation is teacher-only (the API rejects assistants). */}
-        {!isAssistant ? (
+        {/* Creation follows the ability the API already enforces (`manage_courses`),
+            not the role. The comment here used to say "teacher-only, the API rejects
+            assistants" — that stopped being true when creation became grantable, and the
+            screen went on hiding the button from assistants the backend would have let
+            through. A client-side gate that outlives its server rule is invisible: nobody
+            gets an error, the button simply is not there. */}
+        {can(ABILITY.MANAGE_COURSES) ? (
           <TouchableOpacity
             onPress={() => router.push('/(teacher)/courses/create' as Href)}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 40, borderRadius: radius.full, backgroundColor: colors.brand }}

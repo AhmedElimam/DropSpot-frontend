@@ -8,7 +8,10 @@
     },
     "updates": {
       "url": "https://u.expo.dev/f537825e-3329-40d0-827a-aa708f228509",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      }
     },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

@@ -149,7 +149,7 @@ export default function TeacherManage() {
 
         <SectionTitle>{t('teacher.courses_title')}</SectionTitle>
         <Row icon="book" title={t('teacher.courses_title')} sub={t('teacher.courses_manage_hint')} onPress={() => router.push('/(teacher)/courses' as Href)} />
-        {!isAssistant ? (
+        {canCourses ? (
           <Row icon="add" title={t('teacher.create_course')} sub={t('teacher.create_course_sub')} onPress={() => router.push('/(teacher)/courses/create' as Href)} />
         ) : null}
         {canStudents ? (
