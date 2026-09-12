@@ -370,6 +370,19 @@ export default function StudentDetailScreen() {
             </View>
           </View>
 
+          {/* The API this app is talking to predates the sections below (cycle progress,
+              booklet collection, the paper register): they render from fields it does not
+              send, so they would simply be absent with no explanation. Say so — in dev
+              only, so a store build never shows this to a teacher. */}
+          {__DEV__ && s.courses.length > 0 && s.courses[0].cycle === undefined ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.warningLight, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.md }}>
+              <Icon name="warning" size={18} color={colors.warning} />
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>
+                الخادم غير محدَّث: لا تصل بيانات عدّاد الحصص والملازم والسجل الورقي، لذلك لا تظهر هذه الأقسام. حدِّث الـ API ثم اسحب للتحديث.
+              </Text>
+            </View>
+          ) : null}
+
           {/* Export performance PDF */}
           <TouchableOpacity
             onPress={exportPerformance}
@@ -409,6 +422,17 @@ export default function StudentDetailScreen() {
               <Icon name="warning" size={18} color={colors.danger} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.danger }}>الإبلاغ عن حادثة</Text>
             </TouchableOpacity>
+          ) : null}
+
+          {/* An assistant who has not been granted report_incidents sees no report button —
+              which reads as a missing feature. Name the reason instead. */}
+          {!isTeacher && !canReport ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.sm }}>
+              <Icon name="lock" size={16} color={colors.textSecondary} />
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>
+                الإبلاغ عن الحوادث وأرقام أولياء الأمور غير مُفعَّل لحسابك — اطلب من المعلم تفعيله من صفحة المساعدين.
+              </Text>
+            </View>
           ) : null}
 
           {/* Remove a terminated student from the roster now (before the 7-day grace) */}
