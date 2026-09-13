@@ -1,20 +1,20 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius } from '@/theme/index';
+import { colors, spacing, radius, shadows } from '@/theme/index';
 import { chat } from '@/theme/chat';
 import { Icon } from '@/components/ui/Icon';
 import { VoiceRecorder, type VoiceClip } from '@/components/chat/VoiceRecorder';
 
 /**
- * The messenger composer: one rounded pill holding the text field, a paperclip and a camera,
- * with a single circular button beside it that is a MIC while the field is empty and a SEND
- * arrow the moment there is something to send. That swap is the gesture everyone already
- * knows, and it keeps one thumb-sized target in one place instead of three competing ones.
+ * The composer: a bordered surface field carrying the attach and camera actions, with one
+ * circular action beside it that is a MIC while the field is empty and a SEND arrow the
+ * moment there is something to send. Same tokens as every other input in the app — surface,
+ * `colors.border`, `radius.lg` — so it reads as this product's field, not a messenger's pill.
  *
- * While recording, the pill is replaced by the recorder's own running state — there is
- * nothing to type at that moment, and leaving a live text field under a held finger invites
- * half-sent messages.
+ * While recording, the field is replaced by the recorder's running state: there is nothing
+ * to type at that moment, and a live text field under a held finger invites half-sent
+ * messages.
  */
 export function ChatComposer({
   value, onChange, onSend, onAttach, onCamera, onVoiceClip, voiceMaxSeconds,
@@ -41,16 +41,16 @@ export function ChatComposer({
         flexDirection: 'row',
         alignItems: 'flex-end',
         gap: spacing.sm,
-        paddingHorizontal: spacing.sm,
-        paddingTop: spacing.sm,
-        paddingBottom: spacing.sm + bottomInset,
+        paddingHorizontal: spacing.md,
+        paddingTop: spacing.md,
+        paddingBottom: spacing.md + bottomInset,
         backgroundColor: chat.bar,
         borderTopWidth: 1,
         borderTopColor: chat.barBorder,
       }}
     >
       {recording ? (
-        <View style={{ flex: 1, minHeight: 48, justifyContent: 'center', paddingHorizontal: spacing.lg }}>
+        <View style={{ flex: 1, minHeight: 52, justifyContent: 'center', paddingHorizontal: spacing.lg }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>
             {t('chat.record_hint')}
           </Text>
@@ -61,13 +61,13 @@ export function ChatComposer({
             flex: 1,
             flexDirection: 'row',
             alignItems: 'flex-end',
-            backgroundColor: colors.surface,
-            borderRadius: radius.xxl,
+            backgroundColor: colors.surfaceSunken,
+            borderRadius: radius.lg,
             borderWidth: 1,
-            borderColor: chat.barBorder,
+            borderColor: colors.borderStrong,
             paddingStart: spacing.lg,
-            paddingEnd: spacing.sm,
-            minHeight: 48,
+            paddingEnd: spacing.xs,
+            minHeight: 52,
           }}
         >
           <TextInput
@@ -81,15 +81,15 @@ export function ChatComposer({
               flex: 1,
               fontFamily: fonts.regular,
               fontSize: 16,
-              lineHeight: 22,
+              lineHeight: 23,
               maxHeight: 120,
-              paddingTop: 12,
-              paddingBottom: 12,
+              paddingTop: 14,
+              paddingBottom: 14,
               color: colors.textPrimary,
               textAlign: 'right',
             }}
           />
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 7 }}>
             <TouchableOpacity
               onPress={onAttach}
               disabled={sending}
@@ -97,7 +97,7 @@ export function ChatComposer({
               accessibilityLabel={t('chat.attach')}
               style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Icon name="attach" size={22} color={colors.textSecondary} />
+              <Icon name="attach" size={21} color={colors.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={onCamera}
@@ -106,7 +106,7 @@ export function ChatComposer({
               accessibilityLabel={t('chat.attach_camera')}
               style={{ width: 34, height: 38, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Icon name="camera" size={21} color={colors.textSecondary} outline />
+              <Icon name="camera" size={20} color={colors.textSecondary} outline />
             </TouchableOpacity>
           </View>
         </View>
@@ -119,7 +119,7 @@ export function ChatComposer({
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel={t('chat.send')}
-          style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: 52, height: 52, borderRadius: radius.lg, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', ...shadows.sm }}
         >
           {sending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={20} color="#fff" />}
         </TouchableOpacity>

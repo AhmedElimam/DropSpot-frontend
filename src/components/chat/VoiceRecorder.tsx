@@ -106,7 +106,7 @@ export function VoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }: {
         accessibilityRole="button"
         accessibilityLabel={t('chat.voice_note')}
         accessibilityHint={t('chat.record_hint')}
-        style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: holding ? colors.danger : (disabled ? colors.border : colors.brand), alignItems: 'center', justifyContent: 'center', transform: [{ scale: holding ? 1.15 : 1 }] }}
+        style={{ width: 52, height: 52, borderRadius: radius.lg, backgroundColor: holding ? colors.danger : (disabled ? colors.border : colors.brand), alignItems: 'center', justifyContent: 'center', transform: [{ scale: holding ? 1.12 : 1 }] }}
       >
         <Icon name="mic" size={22} color={disabled && !holding ? colors.textTertiary : '#fff'} />
       </Pressable>

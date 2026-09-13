@@ -175,3 +175,54 @@ export async function unblockChatUser(userId: number): Promise<void> {
 export async function setChatNotify(courseId: number, notify: boolean): Promise<void> {
   await client.post(`/chat/courses/${courseId}/notifications`, { notify });
 }
+
+// ---------------------------------------------------------------------------
+// Moderation — the teacher's side of the room, and a granted assistant's.
+// Every one of these is refused server-side for anyone else; the client only
+// hides the buttons so nobody is offered an action they cannot take.
+// ---------------------------------------------------------------------------
+
+export type ChatReportAction = 'dismiss' | 'warn' | 'remove' | 'mute' | 'escalate';
+
+export interface ChatReport {
+  id: number;
+  reason: string;
+  reason_label: string;
+  note: string | null;
+  /** What the message said WHEN reported — survives the sender deleting it. */
+  captured_body: string | null;
+  message_id: number | null;
+  reported_user: { id: number; name: string } | null;
+  reporter: { id: number | null; name: string | null };
+  age_hours: number;
+  late: boolean;
+  created_at: string;
+}
+
+export interface ChatReportsResponse {
+  reports: ChatReport[];
+  actions: ChatReportAction[];
+  mute_max_hours: number;
+}
+
+export async function getChatReports(courseId: number): Promise<ChatReportsResponse> {
+  const { data } = await client.get(`/chat/courses/${courseId}/reports`);
+  return data as ChatReportsResponse;
+}
+
+export async function resolveChatReport(
+  reportId: number,
+  payload: { action: ChatReportAction; note?: string; hours?: number; reason?: string },
+): Promise<void> {
+  await client.post(`/chat/reports/${reportId}/resolve`, payload);
+}
+
+/** Time-limited, reason required, parent notified — the server enforces all three (§3). */
+export async function muteChatUser(courseId: number, userId: number, hours: number, reason: string): Promise<string> {
+  const { data } = await client.post(`/chat/courses/${courseId}/mutes`, { user_id: userId, hours, reason });
+  return String(data?.message ?? '');
+}
+
+export async function setChatSettings(courseId: number, settings: { is_locked?: boolean; announcements_only?: boolean }): Promise<void> {
+  await client.post(`/chat/courses/${courseId}/settings`, settings);
+}

@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import {
-  blockChatUser, deleteChatMessage, getChatChannels, getChatRoom, reportChatMessage,
-  sendChatMessage, setChatNotify, uploadChatAttachment, type ChatAttachmentKind, type ChatMessage, type ChatRoom,
+  blockChatUser, deleteChatMessage, getChatChannels, getChatReports, getChatRoom, muteChatUser,
+  reportChatMessage, resolveChatReport, sendChatMessage, setChatNotify, setChatSettings,
+  uploadChatAttachment,
+  type ChatAttachmentKind, type ChatMessage, type ChatReportAction, type ChatRoom,
 } from '@/api/chat';
 
 export const CHAT_FLAG = 'course_chat';
@@ -121,5 +123,53 @@ export function useSetChatNotify(courseId: number) {
   return useMutation({
     mutationFn: (notify: boolean) => setChatNotify(courseId, notify),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chat', 'channels'] }),
+  });
+}
+
+// ── Moderation (teacher / granted assistant) ─────────────────────────────────
+
+/** Open reports on one room. Only fetched when the viewer actually moderates it. */
+export function useChatReports(courseId: number, enabled: boolean) {
+  const on = useChatEnabled();
+  return useQuery({
+    queryKey: ['chat', 'reports', courseId],
+    queryFn: () => getChatReports(courseId),
+    enabled: on && enabled && courseId > 0,
+    staleTime: 10_000,
+    refetchInterval: enabled ? 30_000 : false,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function useResolveChatReport(courseId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ reportId, ...payload }: { reportId: number; action: ChatReportAction; note?: string; hours?: number; reason?: string }) =>
+      resolveChatReport(reportId, payload),
+    onSuccess: () => {
+      // A resolution can hide a message or mute someone — refetch both views.
+      qc.invalidateQueries({ queryKey: ['chat', 'reports', courseId] });
+      qc.invalidateQueries({ queryKey: ['chat', 'room', courseId] });
+    },
+  });
+}
+
+export function useMuteChatUser(courseId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, hours, reason }: { userId: number; hours: number; reason: string }) =>
+      muteChatUser(courseId, userId, hours, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['chat', 'room', courseId] }),
+  });
+}
+
+export function useSetChatSettings(courseId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (settings: { is_locked?: boolean; announcements_only?: boolean }) => setChatSettings(courseId, settings),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chat', 'room', courseId] });
+      qc.invalidateQueries({ queryKey: ['chat', 'channels'] });
+    },
   });
 }

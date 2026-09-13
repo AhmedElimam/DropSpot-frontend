@@ -16,6 +16,7 @@ import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
 
 /**
  * Teacher (and assistant) app — a 5-tab bar (home · camera · students · tickets ·
@@ -59,9 +60,12 @@ function shouldHideBar(state: { routes: { name: string; state?: unknown }[]; ind
   if (!tab) return false;
   if (FULLSCREEN_ROUTES.includes(tab.name)) return true;
   if (tab.name === 'tickets') {
+    // The tab holds two conversation surfaces. Both LISTS keep the bar; both open
+    // conversations (a ticket thread, a chat room) need the whole screen for the
+    // reply box + keyboard.
     const nested = tab.state as { routes?: { name: string }[]; index?: number } | undefined;
     const nestedName = nested?.routes?.[nested?.index ?? 0]?.name;
-    return nestedName === '[id]';
+    return nestedName === '[id]' || nestedName === 'chat/[courseId]';
   }
   return false;
 }
@@ -77,6 +81,11 @@ export default function TeacherTabLayout() {
   // Badge = everything still unfinished: scans waiting to sync AND scans the
   // server rejected that need a decision (addendum §2).
   const needsAttention = pending + rejected;
+  // Chat lives inside the Conversations tab; its unread count is what badges that tab.
+  // Inert while the feature is off — the hook makes no request.
+  const chatEnabled = useChatEnabled();
+  const { data: chatChannels } = useChatChannels(chatEnabled);
+  const chatUnread = (chatChannels ?? []).reduce((n, c) => n + (c.unread || 0), 0);
 
   // Ensure the offline buffer table exists, seed the pending count, and refresh
   // it whenever the app returns to the foreground (a chance to reconcile).
@@ -183,7 +192,11 @@ export default function TeacherTabLayout() {
           borderTopRightRadius: radius.xl,
         },
         tabBarLabel: ({ focused }) => {
-          const labelKey = labels[route.name];
+          // The tickets tab holds chat too once the feature is on, so it stops being
+          // "التذاكر" and becomes "المحادثات".
+          const labelKey = route.name === 'tickets' && chatEnabled
+            ? 'chat.conversations'
+            : labels[route.name];
           return labelKey ? (
             <Text
               style={{
@@ -217,7 +230,12 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="students" />
       {/* Management hub — courses, location, schedule tools. */}
       <Tabs.Screen name="manage" />
-      <Tabs.Screen name="tickets" />
+      {/* Conversations — parent tickets, plus the course chat rooms when the flag is on.
+          The badge is unread chat: a class room ages faster than a ticket does. */}
+      <Tabs.Screen
+        name="tickets"
+        options={{ tabBarBadge: chatUnread > 0 ? (chatUnread > 99 ? '99+' : chatUnread) : undefined }}
+      />
       <Tabs.Screen name="settings" />
       {/* Reconciliation is reached from the pending badge / Home, not a tab. */}
       <Tabs.Screen name="resolution" options={{ href: null }} />

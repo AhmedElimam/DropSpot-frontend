@@ -4,6 +4,7 @@ import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { View, Text, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { registerForPushNotifications, unregisterPushNotifications, setupNotificationResponseHandler } from '@/utils/push-notifications';
+import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
@@ -13,8 +14,17 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 const icons: Record<string, IconName> = {
   index: 'home',
   'check-in': 'attendance',
+  chat: 'chat',
   invoices: 'invoices',
   profile: 'profile',
+};
+
+const labels: Record<string, string> = {
+  index: 'nav.dashboard',
+  'check-in': 'nav.check_in',
+  chat: 'nav.chat',
+  invoices: 'nav.invoices',
+  profile: 'nav.profile',
 };
 
 /** Where a tapped push lands a student. Chat goes to the room; everything else to the feed. */
@@ -33,6 +43,11 @@ export default function StudentTabLayout() {
   const isLoading = useAuthStore((s) => s.isLoading);
   const pushTokenRef = useRef<string | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  // The tab and its badge only exist while the feature is on; the hook makes no request
+  // otherwise. Shares a query key with Home, so this is not a second poll.
+  const chatEnabled = useChatEnabled();
+  const { data: chatChannels } = useChatChannels(chatEnabled);
+  const chatUnread = (chatChannels ?? []).reduce((n, c) => n + (c.unread || 0), 0);
 
   // Push registration. The student side never registered a device token before, so
   // no push ever reached a student — chat is push-only (never SMS), so this is the
@@ -114,7 +129,7 @@ export default function StudentTabLayout() {
               marginTop: 2,
             }}
           >
-            {route.name === 'index' ? t('nav.dashboard') : route.name === 'check-in' ? t('nav.check_in') : route.name === 'invoices' ? t('nav.invoices') : t('nav.profile')}
+            {t(labels[route.name] ?? 'nav.profile')}
           </Text>
         ),
         tabBarIcon: ({ focused }) => (
@@ -144,8 +159,15 @@ export default function StudentTabLayout() {
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       {/* Support → the admin queue. Full-page compose, so the floating bar is hidden. */}
       <Tabs.Screen name="support" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      {/* Course chat — a stack (rooms list + one room), reached from Home. Feature-flagged. */}
-      <Tabs.Screen name="chat" options={{ href: null }} />
+      {/* Course chat — a stack (rooms list + one room). A real tab when the feature is on,
+          and absent entirely when it is off, so nothing advertises a room that cannot open. */}
+      <Tabs.Screen
+        name="chat"
+        options={{
+          href: chatEnabled ? undefined : null,
+          tabBarBadge: chatUnread > 0 ? (chatUnread > 99 ? '99+' : chatUnread) : undefined,
+        }}
+      />
       <Tabs.Screen name="profile" />
     </Tabs>
   );
