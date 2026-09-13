@@ -11,6 +11,7 @@ import { initOfflineScans } from '@/db/offlineScans';
 import { triggerAutoSync } from '@/db/autoSync';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 import { registerForPushNotifications } from '@/utils/push-notifications';
+import { sendDeviceHeartbeat } from '@/api/device';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
@@ -89,13 +90,14 @@ export default function TeacherTabLayout() {
     // teacher's schedule entry when online. Fire-and-forget — never blocks the UI,
     // and a failure just leaves the guard to fall back to manual reconciliation.
     syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-      .finally(() => { void triggerAutoSync(); });
+      .finally(() => { void triggerAutoSync().finally(() => sendDeviceHeartbeat(stampTeacherId(useAuthStore.getState()), true)); });
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') {
         useOfflineStore.getState().refresh();
-        // Refresh the cache first so auto-sync runs against fresh windows.
+        // Refresh the cache first so auto-sync runs against fresh windows; then tell the
+        // server what the buffer looks like (device heartbeat — counts only, never contents).
         syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-          .finally(() => { void triggerAutoSync(); });
+          .finally(() => { void triggerAutoSync().finally(() => sendDeviceHeartbeat(stampTeacherId(useAuthStore.getState()))); });
       }
     });
     return () => {

@@ -34,8 +34,13 @@ export default function AcceptTermsScreen() {
   const termsRole: TermsRole =
     role === 'student' ? 'student' : role === 'parent' ? 'parent' : role === 'assistant' ? 'assistant' : 'teacher';
 
+  // They consented to an earlier version and the agreement has since changed — say
+  // that, and lead with what changed, instead of handing them a first-time document.
+  const isUpdate = !!user?.terms_update;
+
   // Live (super-admin editable) content, falling back to the bundled copy.
-  const { contentFor } = useTermsContent();
+  const { contentFor, changesFor } = useTermsContent();
+  const changes = isUpdate ? changesFor(termsRole) : [];
   const live = contentFor(termsRole);
   const heading = live?.heading ?? t(`terms.heading_${termsRole}`);
   const intro = live?.intro ?? t(`terms.intro_${termsRole}`);
@@ -48,7 +53,7 @@ export default function AcceptTermsScreen() {
       // SecureStore write. Navigating before it lands makes the index gate still
       // read must_accept_terms=true and bounce straight back to this screen (the
       // "accept once, it reloads; accept again, it passes" bug).
-      if (user && role) await setSession({ ...user, must_accept_terms: false }, role);
+      if (user && role) await setSession({ ...user, must_accept_terms: false, terms_update: false }, role);
       router.replace('/' as Href);
     },
   });
@@ -61,11 +66,32 @@ export default function AcceptTermsScreen() {
         end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg }}
       >
+        {isUpdate && (
+          <View style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 3, marginBottom: spacing.xs }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('terms.update_badge')}</Text>
+          </View>
+        )}
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{heading}</Text>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
+          {isUpdate && (
+            <View style={{ backgroundColor: colors.brand + '10', borderWidth: 1, borderColor: colors.brand + '33', borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand, textAlign: 'right', marginBottom: changes.length ? spacing.sm : 0 }}>
+                {changes.length ? t('terms.update_whats_new') : t('terms.update_body')}
+              </Text>
+              {changes.map((line, i) => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.xs }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand, marginTop: 8 }} />
+                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 22, color: colors.textSecondary, textAlign: 'right' }}>
+                    {line}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
           <Text style={{ fontFamily: fonts.medium, fontSize: 15, lineHeight: 24, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.lg }}>
             {intro}
           </Text>

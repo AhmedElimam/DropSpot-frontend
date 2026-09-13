@@ -155,14 +155,26 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // so the Android camera prompt never appears and the scanner is dead. Give it
       // the SAME justified Arabic string as expo-camera so CAMERA stays declared and
       // the iOS usage string is consistent regardless of plugin order. The picker
-      // never records audio, so microphone stays removed.
+      // microphonePermission used to be `false` here, which — exactly like the camera
+      // case above — emits tools:node="remove" for RECORD_AUDIO and would strip the
+      // permission the chat voice recorder (expo-audio) needs. Same justified string.
       'expo-image-picker',
       {
         photosPermission:
-          'يستخدم التطبيق صورك لإرفاق إثبات الدفع أو صورة الكارت عند الطلب.',
+          'يستخدم التطبيق صورك لإرفاق إثبات الدفع أو صورة الكارت، أو لإرسال صورة في دردشة المقرر.',
         cameraPermission:
           'يستخدم التطبيق الكاميرا لمسح رمز الحضور أو التحقق من الكارت.',
-        microphonePermission: false,
+        microphonePermission:
+          'يستخدم التطبيق الميكروفون لتسجيل رسالة صوتية في دردشة المقرر.',
+      },
+    ],
+    [
+      // Course chat voice notes (recorder + player). The mic string is shown on the OS
+      // prompt and read by store review; the recorder is only reachable from a room.
+      'expo-audio',
+      {
+        microphonePermission:
+          'يستخدم التطبيق الميكروفون لتسجيل رسالة صوتية في دردشة المقرر.',
       },
     ],
     [

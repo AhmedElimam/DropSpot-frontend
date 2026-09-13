@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { SurveyModal } from '@/components/SurveyModal';
 import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
+import { TermsUpdateModal } from '@/components/auth/TermsUpdateModal';
 import { AppConfigGate } from '@/components/AppConfigGate';
 import { colors } from '@/theme/index';
 
@@ -135,6 +136,10 @@ export default function RootLayout() {
             <SurveyModal />
             {/* Teacher onboarding — Step 1 intro popup for a brand-new teacher. */}
             <TeacherOnboardingModal />
+            {/* "The agreement has been updated" — for anyone who consented to an
+                earlier version. Polls on open/foreground, because the flag otherwise
+                rides a 15-day access token. */}
+            <TermsUpdateModal />
           </View>
           </AppConfigGate>
         </HydrationGate>

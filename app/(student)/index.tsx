@@ -10,6 +10,7 @@ import { useCoverageStats, useStudentAttendanceRisk } from '@/hooks/useAttendanc
 import { useStudentBillingStatus } from '@/hooks/useInvoices';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useUnreadCount } from '@/hooks/useNotifications';
+import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { AttendanceRiskCard } from '@/components/attendance/AttendanceRiskCard';
 import { BillingOverdueCard } from '@/components/attendance/BillingOverdueCard';
 import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
@@ -35,8 +36,12 @@ export default function StudentDashboard() {
   const { data: risks, refetch: refetchRisks } = useStudentAttendanceRisk();
   const { data: billingAlerts, refetch: refetchBilling } = useStudentBillingStatus();
   const { data: unread } = useUnreadCount();
+  // Course chat is feature-flagged; the hook is inert (no request) while it is off.
+  const chatEnabled = useChatEnabled();
+  const { data: chatChannels, refetch: refetchChat } = useChatChannels();
+  const chatUnread = (chatChannels ?? []).reduce((n, c) => n + (c.unread || 0), 0);
 
-  const { refreshing, onRefresh } = usePullRefresh(refetchSessions, refetchStats, refetchRisks, refetchBilling);
+  const { refreshing, onRefresh } = usePullRefresh(refetchSessions, refetchStats, refetchRisks, refetchBilling, ...(chatEnabled ? [refetchChat] : []));
 
   const total = stats?.total ?? 0;
   const pct = total > 0 ? Math.round(((stats?.present ?? 0) + (stats?.late ?? 0)) / total * 100) : 0;
@@ -134,6 +139,23 @@ export default function StudentDashboard() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{t('nav.marks')}</Text>
               </TouchableOpacity>
             </View>
+
+            {chatEnabled ? (
+              <TouchableOpacity
+                onPress={() => router.navigate('/(student)/chat' as never)}
+                activeOpacity={0.7}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, borderRadius: radius.md, borderWidth: 1.5, borderColor: chatUnread > 0 ? colors.brand : colors.border, backgroundColor: chatUnread > 0 ? colors.primaryLight : colors.surfaceSunken }}
+              >
+                <Icon name="chat" size={18} color={colors.primary} outline={chatUnread === 0} />
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{t('chat.home_entry')}</Text>
+                {chatUnread > 0 ? (
+                  <View style={{ backgroundColor: colors.brand, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{chatUnread > 99 ? '99+' : chatUnread}</Text>
+                  </View>
+                ) : null}
+                <Icon name="back" size={16} color={colors.textTertiary} />
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>

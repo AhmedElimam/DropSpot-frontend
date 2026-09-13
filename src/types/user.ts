@@ -20,6 +20,12 @@ export interface User {
   needs_own_number_verification?: boolean;
   /** Terms gate: true until they accept the current Terms version (POST /terms/accept clears it). */
   must_accept_terms?: boolean;
+  /**
+   * The same gate, but they have consented before and the agreement has since
+   * changed — so the app says "الاتفاقية تم تحديثها" and shows what changed, rather
+   * than presenting a first-time document to someone who already agreed once.
+   */
+  terms_update?: boolean;
   /** Self-registration wall (student): true until a subscribed teacher enrolls them. */
   needs_teacher_invitation?: boolean;
   /**

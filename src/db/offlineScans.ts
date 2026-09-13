@@ -108,6 +108,14 @@ export async function countPendingScans(): Promise<number> {
 }
 
 /** Count of scans permanently rejected and awaiting a decision. */
+/** ISO timestamp of the oldest still-pending scan, or null — for the device heartbeat. */
+export async function oldestPendingScanAt(): Promise<string | null> {
+  const row = await db().getFirstAsync<{ t: string | null }>(
+    "SELECT MIN(scanned_at) as t FROM offline_scans WHERE status = 'pending'",
+  );
+  return row?.t ?? null;
+}
+
 export async function countRejectedScans(): Promise<number> {
   const row = await db().getFirstAsync<{ c: number }>(
     "SELECT COUNT(*) as c FROM offline_scans WHERE status = 'rejected'",
