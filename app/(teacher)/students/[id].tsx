@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, nav } from '@/theme/index';
+import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Avatar } from '@/components/layout/Avatar';
@@ -16,7 +16,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useAuthStore } from '@/stores/authStore';
 import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory } from '@/api/students';
-import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition } from '@/api/enrollments';
+import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount } from '@/api/enrollments';
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBooklet, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
@@ -110,6 +110,36 @@ export default function StudentDetailScreen() {
     setBackfillPicked([]);
     setBackfillFor({ enrollmentId: c.enrollment_id, courseName: c.name, days: c.backfill_days ?? [] });
   };
+  // Restating the FIGURE, when the position is already right but the price is not — the
+  // 400-that-should-be-100 the teacher could not fix from anywhere in the product. Teacher
+  // only (money), so it is hidden from an assistant rather than offered and then refused.
+  const [amountFor, setAmountFor] = useState<{ enrollmentId: number; courseName: string | null; current: number | null } | null>(null);
+  const [amountText, setAmountText] = useState('');
+  const [amountSessions, setAmountSessions] = useState('');
+  const [amountBusy, setAmountBusy] = useState(false);
+  const submitAmount = async () => {
+    if (!amountFor) return;
+    const value = Number(amountText.replace(/[^\d.]/g, ''));
+    if (!Number.isFinite(value) || value < 0) {
+      Alert.alert('', 'أدخل مبلغًا صحيحًا.');
+      return;
+    }
+    setAmountBusy(true);
+    try {
+      const sessions = amountSessions.trim() === '' ? null : Number(amountSessions.replace(/[^\d]/g, ''));
+      const r = await setCycleAmount(amountFor.enrollmentId, value, sessions && sessions > 0 ? sessions : null);
+      setAmountFor(null);
+      setAmountText('');
+      setAmountSessions('');
+      await refetch();
+      Alert.alert('تم', r.invoice ? `قيمة فاتورة الدورة الآن ${r.invoice.amount} ج.م.` : 'تم تصحيح قيمة الفاتورة.');
+    } catch (e: any) {
+      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر تصحيح المبلغ');
+    } finally {
+      setAmountBusy(false);
+    }
+  };
+
   // «الطالب على الحصة N» — the web picker, on the phone. Each number carries the day it
   // fell on; the server re-prices an unpaid invoice to match and says so.
   const [positionFor, setPositionFor] = useState<{ enrollmentId: number; courseName: string | null; position: number; threshold: number; positions: { n: number; label: string | null; is_past: boolean }[] } | null>(null);
@@ -494,6 +524,38 @@ export default function StudentDetailScreen() {
               </View>
             </View>
 
+            {/* «تصحيح قيمة فاتورة الدورة» — directly under the figure it corrects, and sized
+                like a real action rather than a chip: this is what a teacher reaches for with
+                a parent standing in front of them, after reading the amount above and finding
+                it wrong. Teacher only (money). One button per billable enrolment, named by
+                course, so a student in two courses is never ambiguous about which bill moves. */}
+            {isTeacher ? (s.courses ?? []).filter((c) => c.enrollment_id && c.cycle?.has_cycle).map((c) => (
+              <TouchableOpacity
+                key={`fixamt-${c.enrollment_id}`}
+                onPress={() => { setAmountText(''); setAmountSessions(''); setAmountFor({ enrollmentId: c.enrollment_id!, courseName: c.name, current: null }); }}
+                accessibilityRole="button"
+                activeOpacity={0.85}
+                style={{
+                  // Solid fill, not an outline: an outlined control next to a bordered card
+                  // reads as another panel. A filled brand button with a chevron is the one
+                  // shape nobody has to wonder about.
+                  marginTop: spacing.md, minHeight: 54, borderRadius: radius.lg,
+                  backgroundColor: colors.brand,
+                  flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+                  paddingHorizontal: spacing.lg,
+                  ...shadows.sm,
+                }}
+              >
+                <Icon name="money" size={20} color="#fff" />
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: '#fff' }} numberOfLines={1}>
+                  {(s.courses ?? []).filter((x) => x.enrollment_id && x.cycle?.has_cycle).length > 1
+                    ? `تصحيح قيمة الفاتورة — ${c.name ?? ''}`
+                    : 'تصحيح قيمة الفاتورة'}
+                </Text>
+                <Icon name="back" size={18} color="rgba(255,255,255,0.85)" />
+              </TouchableOpacity>
+            )) : null}
+
             {/* Price set on a course, but the teacher-wide booklets switch is off — say why there is no button. */}
             {s.billing.booklets_disabled_hint ? (
               <View style={{ marginTop: spacing.md, flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
@@ -710,6 +772,58 @@ export default function StudentDetailScreen() {
 
       {/* Transfer picker: move this enrollment to another of the teacher's courses. */}
       {/* «الطالب على الحصة N» — pick the number, see the day it fell on. */}
+      {/* Restate the cycle's bill. One number, stated plainly, with what happens to the old
+          invoice said out loud — a teacher correcting money should never have to guess
+          whether the previous figure survived. */}
+      <Modal visible={!!amountFor} animationType="slide" transparent onRequestClose={() => !amountBusy && setAmountFor(null)}>
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>
+                {`تصحيح قيمة الفاتورة — ${amountFor?.courseName ?? ''}`}
+              </Text>
+              <TouchableOpacity onPress={() => !amountBusy && setAmountFor(null)} hitSlop={10}>
+                <Icon name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginBottom: spacing.md }}>
+              تُلغى الفاتورة الحالية وتُصدر فاتورة جديدة بهذا المبلغ. تبقى القديمة في السجل للمراجعة،
+              ولا يمكن أن يقلّ المبلغ عمّا حصّلته من الطالب بالفعل. عدد الحصص يُكتب على الفاتورة نفسها،
+              فيوضّح التقرير لاحقًا مقابل ماذا كان المبلغ.
+            </Text>
+            <TextInput
+              value={amountText}
+              onChangeText={setAmountText}
+              keyboardType="numeric"
+              placeholder="المبلغ بالجنيه"
+              placeholderTextColor={colors.textTertiary}
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 48, fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary, textAlign: 'right' }}
+            />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: spacing.md, marginBottom: 4 }}>
+              عن كم حصة؟ (اختياري)
+            </Text>
+            <TextInput
+              value={amountSessions}
+              onChangeText={setAmountSessions}
+              keyboardType="number-pad"
+              placeholder="مثال: 2"
+              placeholderTextColor={colors.textTertiary}
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 48, fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary, textAlign: 'right' }}
+            />
+            <TouchableOpacity
+              onPress={submitAmount}
+              disabled={amountBusy || amountText.trim() === ''}
+              accessibilityRole="button"
+              style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: amountText.trim() === '' ? colors.border : colors.brand, justifyContent: 'center', alignItems: 'center' }}
+            >
+              {amountBusy ? <ActivityIndicator color="#fff" /> : (
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>حفظ المبلغ</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <Modal visible={!!positionFor} animationType="slide" transparent onRequestClose={() => !positionBusy && setPositionFor(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
