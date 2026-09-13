@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert, Modal, type NativeScrollEvent, type NativeSyntheticEvent,
+  ActivityIndicator, Alert, Modal, Keyboard, type NativeScrollEvent, type NativeSyntheticEvent,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
@@ -93,7 +93,13 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
 
   const scrollRef = useRef<ScrollView>(null);
   const atBottomRef = useRef(true);
-  const lastCountRef = useRef(0);
+  // Scroll bookkeeping. Content height is the trigger for every auto-scroll (see
+  // onContentSize) — a timer cannot know when an image finished laying out.
+  const firstPaintRef = useRef(false);
+  const contentHeightRef = useRef(0);
+  const offsetRef = useRef(0);
+  /** Content height captured just before an older page is prepended, or null. */
+  const prependFromRef = useRef<number | null>(null);
 
   const notify = channels.data?.find((c) => c.course_id === courseId)?.notify ?? true;
 
@@ -114,21 +120,59 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     return out;
   }, [older, room.data?.messages]);
 
-  // Follow new messages only when the reader is already at the bottom — never yank someone
-  // who scrolled up to read.
-  useEffect(() => {
-    if (messages.length > lastCountRef.current && (atBottomRef.current || lastCountRef.current === 0)) {
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: lastCountRef.current !== 0 }), 80);
+  /**
+   * Every auto-scroll hangs off CONTENT SIZE, not a timer. Content settles at different
+   * moments — a text bubble immediately, an image only once it has decoded and taken its
+   * 232px, a whole room on first paint after layout — and a fixed delay is a guess that is
+   * wrong on a slow device and wasteful on a fast one.
+   */
+  const onContentSize = (_w: number, h: number) => {
+    const previous = contentHeightRef.current;
+    contentHeightRef.current = h;
+
+    // Arriving in the room: land on the newest message, with no visible travel.
+    if (!firstPaintRef.current) {
+      firstPaintRef.current = true;
+      scrollRef.current?.scrollToEnd({ animated: false });
+      return;
     }
-    lastCountRef.current = messages.length;
-  }, [messages.length]);
+
+    // An older page was just prepended ABOVE the reader. Hold their place: without this
+    // the content they were reading jumps down by the height of the page that loaded.
+    if (prependFromRef.current !== null) {
+      const grew = h - prependFromRef.current;
+      prependFromRef.current = null;
+      if (grew > 0) scrollRef.current?.scrollTo({ y: offsetRef.current + grew, animated: false });
+      return;
+    }
+
+    // Grew while the reader was at the bottom — a new message, or an image that finished
+    // loading under one. Follow it. If they had scrolled up to read, never yank them.
+    if (atBottomRef.current && h > previous) {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }
+  };
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    offsetRef.current = contentOffset.y;
+    contentHeightRef.current = contentSize.height;
     const atBottom = contentSize.height - contentOffset.y - layoutMeasurement.height < 120;
     atBottomRef.current = atBottom;
     if (atBottom === showJump) setShowJump(!atBottom);
   };
+
+  // Opening the keyboard shrinks the viewport from the bottom, which is exactly where the
+  // newest message is. Follow it up, or the message just sent sits behind the keyboard.
+  useEffect(() => {
+    const evt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(evt, () => {
+      if (atBottomRef.current) {
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const loadOlder = async () => {
     const first = messages[0];
@@ -137,6 +181,8 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     try {
       const page = await getChatRoom(courseId, first.id);
       if (page.messages.length === 0) setNoMoreOlder(true);
+      // Remember where we were, so onContentSize can put the reader back.
+      prependFromRef.current = contentHeightRef.current;
       setOlder((prev) => [...page.messages, ...prev]);
     } catch {
       // Silent: the button stays, the reader can try again.
@@ -392,6 +438,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
             contentContainerStyle={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexGrow: 1, justifyContent: 'flex-end' }}
             showsVerticalScrollIndicator={false}
             onScroll={onScroll}
+            onContentSizeChange={onContentSize}
             scrollEventThrottle={100}
             keyboardShouldPersistTaps="handled"
           >
