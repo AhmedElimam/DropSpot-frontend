@@ -189,7 +189,7 @@ export default function SessionDetailScreen() {
         <FlatList
           data={filteredList}
           keyExtractor={(a) => String(a.student_id)}
-          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListHeaderComponent={
             <View style={{ marginBottom: spacing.md }}>

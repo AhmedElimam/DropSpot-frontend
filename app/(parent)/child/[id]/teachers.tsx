@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import {
   View,
   Text,
@@ -6,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -27,7 +29,8 @@ export default function TeacherManagement() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { data: children } = useChildren();
+  const { data: children, refetch: refetchChildren } = useChildren();
+  const { refreshing, onRefresh } = usePullRefresh(refetchChildren);
   const queryClient = useQueryClient();
   const [removingTeacherId, setRemovingTeacherId] = useState<number | null>(null);
 
@@ -72,7 +75,11 @@ export default function TeacherManagement() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}

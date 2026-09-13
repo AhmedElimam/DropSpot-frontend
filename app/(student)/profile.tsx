@@ -1,5 +1,6 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
@@ -24,11 +25,12 @@ export default function StudentProfile() {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
-  const { data: coverage } = useCoverageStats();
-  const { data: quizzes } = useQuizzes();
+  const { data: coverage, refetch: refetchCoverage } = useCoverageStats();
+  const { data: quizzes, refetch: refetchQuizzes } = useQuizzes();
   // Live, not the cached login payload — that can be weeks old on a device that has
   // not signed in since, and the card's state changes without the student doing anything.
-  const { data: card } = useQuery({ queryKey: ['my-card'], queryFn: getMyCardStatus, staleTime: 60_000 });
+  const { data: card, refetch: refetchCard } = useQuery({ queryKey: ['my-card'], queryFn: getMyCardStatus, staleTime: 60_000 });
+  const { refreshing, onRefresh } = usePullRefresh(refetchCoverage, refetchQuizzes, refetchCard);
   const cardState = card?.card_state ?? user?.card_state ?? 'none';
 
   const sessionsAttended = coverage ? coverage.present + coverage.late : 0;
@@ -42,7 +44,11 @@ export default function StudentProfile() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
@@ -121,6 +127,28 @@ export default function StudentProfile() {
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.account')}
             </Text>
+            {/* «تأكيد رقم هاتفي» — the way IN to verification now that nothing forces it.
+                The automatic wall is off (no SMS is spent on people who never asked), so
+                without a row like this the resend button would exist on a screen no one
+                could reach. Hidden once the number is proved. */}
+            {user?.own_number_verified === false ? (
+              <TouchableOpacity
+                onPress={() => router.push('/verify-own-number' as Href)}
+                accessibilityRole="button"
+                style={{ flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: spacing.md }}
+              >
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.warningLight, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
+                  <Icon name="call" size={20} color={colors.warningText} outline />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={textPresets.body}>{t('profile.verify_number')}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>
+                    {t('profile.verify_number_hint')}
+                  </Text>
+                </View>
+                <Icon name="back" size={18} color={colors.textTertiary} />
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity
               onPress={() => router.push('/notification-preferences' as Href)}
               accessibilityRole="button"

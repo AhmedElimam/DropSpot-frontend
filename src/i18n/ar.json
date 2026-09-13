@@ -751,6 +751,8 @@
     "personal_info": "المعلومات الشخصية",
     "account_settings": "إعدادات الحساب",
     "notifications": "الإشعارات",
+    "verify_number": "تأكيد رقم هاتفي",
+    "verify_number_hint": "أرسل رمزًا إلى رقمك لإثبات ملكيته",
     "language": "اللغة",
     "about": "حول التطبيق",
     "version": "الإصدار",

@@ -189,8 +189,12 @@ client.interceptors.response.use(
         if (e instanceof TransientRefreshError) {
           return Promise.reject(error);
         }
-        // Genuine auth failure (no refresh token, or the server rejected it) — over.
-        await useAuthStore.getState().logout();
+        // Genuine auth failure (no refresh token, or the server rejected it) — this
+        // session is over. If it was an impersonation session, the super-admin's own
+        // session is stashed and gets restored instead of a sign-out: an impersonation
+        // token is unrefreshable and expires after 15 minutes BY DESIGN, so reaching here
+        // is its ordinary end, not a reason to evict the admin too.
+        await useAuthStore.getState().endImpersonationOrLogout();
         return Promise.reject(error);
       }
     }

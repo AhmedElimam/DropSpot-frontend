@@ -43,7 +43,16 @@ const queryClient = new QueryClient({
       // dropped straight to the reload screen. Retry a little harder with a
       // capped exponential backoff so a transient first-request blip recovers on
       // its own instead of showing an error the user has to tap through.
-      retry: 3,
+      // ...but never retry an auth failure. A 401/403 will not become a 200 by asking
+      // again: the session is over (an impersonation token, for one, cannot be renewed at
+      // all). Retrying held the screen on a spinner through the full 2s/4s/8s backoff —
+      // per query, several at once — before the app finally admitted it was signed out.
+      retry: (failureCount, error) => {
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        if (status === 401 || status === 403) return false;
+
+        return failureCount < 3;
+      },
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
       staleTime: 30000,
     },

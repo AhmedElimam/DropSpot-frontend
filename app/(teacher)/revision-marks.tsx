@@ -67,7 +67,7 @@ export default function RevisionMarks() {
           data={q.data?.attendees ?? []}
           keyExtractor={(a) => String(a.id)}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           renderItem={({ item }) => {
             const val = drafts[item.student_id] ?? (item.mark !== null ? String(item.mark) : '');

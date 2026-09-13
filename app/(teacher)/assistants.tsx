@@ -226,7 +226,7 @@ export default function TeacherAssistants() {
       <ScrollView
         // The tab bar floats over the content (position: absolute), so its height has to
         // be part of the padding or the last assistant card sits underneath it.
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >

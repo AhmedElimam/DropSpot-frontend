@@ -46,6 +46,8 @@ interface AuthState {
   setActiveTeacherId: (id: number | null) => Promise<void>;
   setImpersonation: (imp: ImpersonationState | null) => Promise<void>;
   logout: () => Promise<void>;
+  /** An impersonation session ended by itself → return to the admin, not to the login screen. */
+  endImpersonationOrLogout: () => Promise<void>;
   hydrate: () => Promise<void>;
 }
 
@@ -106,6 +108,50 @@ export const useAuthStore = create<AuthState>((set, get) => {
     setTokens: async (access, refresh) => {
       await SecureStore.setItemAsync('access_token', access);
       await SecureStore.setItemAsync('refresh_token', refresh);
+    },
+
+    /**
+     * The session the app is holding has been refused and cannot be renewed.
+     *
+     * An IMPERSONATION token is deliberately unrefreshable and lives 15 minutes, so this
+     * is its NORMAL end, not an error — and the super-admin who started it still has their
+     * own session stashed under the imp_admin_* keys. Signing out here would delete that
+     * stash (logout clears the crumbs on purpose) and dump an admin who did nothing wrong
+     * on the login screen, which is what made this look like "impersonation logs me out at
+     * random". Hand them back their own session instead; `app/index.tsx` sees role=admin
+     * and lands them on the picker.
+     *
+     * With no stash — an ordinary expired session, or a QR hand-off that never had an
+     * admin here — this is a real sign-out and falls through to logout().
+     */
+    endImpersonationOrLogout: async () => {
+      const adminToken = await SecureStore.getItemAsync('imp_admin_token');
+      if (! adminToken) {
+        await get().logout();
+
+        return;
+      }
+
+      const adminRefresh = await SecureStore.getItemAsync('imp_admin_refresh');
+      const adminUserRaw = await SecureStore.getItemAsync('imp_admin_user');
+      await SecureStore.deleteItemAsync('imp_admin_token');
+      await SecureStore.deleteItemAsync('imp_admin_refresh');
+      await SecureStore.deleteItemAsync('imp_admin_user');
+      await SecureStore.setItemAsync('access_token', adminToken);
+      await SecureStore.setItemAsync('refresh_token', adminRefresh ?? '');
+
+      if (! adminUserRaw) {
+        // Tokens without the admin's own profile would leave the app authenticated as
+        // nobody. Restoring half a session is worse than asking for a login.
+        await get().logout();
+
+        return;
+      }
+
+      const adminUser = JSON.parse(adminUserRaw);
+      const role = resolveRole(adminUser);
+      set({ user: adminUser, role, activeTeacherId: null, impersonation: null, isAuthenticated: true });
+      await persist(adminUser, role, null, null);
     },
 
     logout: async () => {

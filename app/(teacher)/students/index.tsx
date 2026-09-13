@@ -94,7 +94,10 @@ export default function TeacherStudents() {
     );
   }, [students, search]);
 
-  const listPad = { paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom, paddingTop: spacing.sm };
+  // flexGrow keeps the list filling the screen even when it holds nothing, which is what
+  // lets a pull-to-refresh work on an EMPTY roster — the moment a teacher is most likely
+  // to pull, because an empty roster is usually a stale fetch rather than no students.
+  const listPad = { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom, paddingTop: spacing.sm };
 
   const renderSession = ({ item }: { item: SessionRow }) => {
     const st = SESSION_STATUS[item.status] ?? { key: 'session.scheduled', color: colors.textSecondary };
