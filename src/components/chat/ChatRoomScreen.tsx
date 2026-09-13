@@ -104,7 +104,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
   const notify = channels.data?.find((c) => c.course_id === courseId)?.notify ?? true;
 
   // Live frames merge into the same cache the poll fills; hidden ids drop out of it.
-  const { connected } = useChatSocket(courseId, room.data?.realtime, {
+  const { connected, status: socketStatus } = useChatSocket(courseId, room.data?.realtime, {
     onMessage: useCallback((m: ChatMessage) => mergeChatMessage(qc, courseId, m), [qc, courseId]),
     onHidden: useCallback((id: number) => { dropChatMessage(qc, courseId, id); setOlder((prev) => prev.filter((m) => m.id !== id)); }, [qc, courseId]),
   }, focused);
@@ -389,9 +389,11 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }} numberOfLines={1}>{data.course.name}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            {connected ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#8FE3A2' }} /> : null}
+            {/* The dot is the socket's word, not a guess: green only once the private channel is
+                subscribed; amber while it tries or after it failed (the poll carries the room then). */}
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: connected ? '#8FE3A2' : (socketStatus === 'off' ? 'rgba(255,255,255,0.35)' : '#F3C969') }} />
             <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)' }} numberOfLines={1}>
-              {t('chat.members_count', { count: data.course.members })}
+              {`${connected ? t('chat.live') : t('chat.polling')} · ${t('chat.members_count', { count: data.course.members })}`}
             </Text>
           </View>
         </View>

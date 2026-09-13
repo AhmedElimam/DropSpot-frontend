@@ -20,28 +20,43 @@ export function useChatSocket(
   realtime: ChatRealtime | null | undefined,
   handlers: { onMessage: (m: ChatMessage) => void; onHidden: (id: number) => void },
   enabled = true,
-): { connected: boolean } {
+): { connected: boolean; status: ChatSocketStatus } {
   const [connected, setConnected] = useState(false);
+  const [status, setStatus] = useState<ChatSocketStatus>('off');
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
 
   useEffect(() => {
     if (!enabled || !realtime?.key || courseId <= 0) {
       setConnected(false);
+      setStatus('off');
       return;
     }
     let alive = true;
     let pusher: any = null;
     let channel: any = null;
+    const fail = (why: string, detail?: unknown) => {
+      // A dead socket used to be indistinguishable from one that never tried: every error
+      // was swallowed and the header just never turned green. Name the reason — in dev
+      // loudly, in the UI as «تحديث دوري» — so "Pusher doesn't work" can be answered.
+      if (__DEV__) console.warn(`[chat socket] ${why}`, detail ?? '');
+      if (alive) { setConnected(false); setStatus('error'); }
+    };
 
     (async () => {
       try {
-        const [{ default: Pusher }, SecureStore] = await Promise.all([
+        setStatus('connecting');
+        const [mod, SecureStore] = await Promise.all([
           import('pusher-js/react-native'),
           import('expo-secure-store'),
         ]);
+        // The RN build is a CommonJS bundle; depending on the interop path the class is
+        // the module itself or its `default`. Take whichever is the constructor.
+        const Pusher: any = (mod as any).default ?? mod;
+        if (typeof Pusher !== 'function') { fail('pusher-js/react-native did not export a constructor', Object.keys(mod as any)); return; }
         const token = await SecureStore.getItemAsync('access_token');
-        if (!alive || !token) return;
+        if (!alive) return;
+        if (!token) { fail('no access_token in SecureStore — cannot authorise the private channel'); return; }
 
         const options: Record<string, unknown> = {
           forceTLS: realtime.tls,
@@ -62,18 +77,27 @@ export function useChatSocket(
 
         pusher = new Pusher(realtime.key, options as any);
         pusher.connection.bind('state_change', (s: { current: string }) => {
-          if (alive) setConnected(s.current === 'connected');
+          if (!alive) return;
+          if (s.current !== 'connected') setConnected(false);
+          if (s.current === 'connecting' || s.current === 'unavailable') setStatus('connecting');
         });
+        pusher.connection.bind('error', (e: unknown) => fail('connection error', e));
         channel = pusher.subscribe(`private-${realtime.channel_prefix}${courseId}`);
+        // «مباشر» means the private channel is actually SUBSCRIBED — a connected socket
+        // whose channel auth failed delivers nothing, and must not read as live.
+        channel.bind('pusher:subscription_succeeded', () => {
+          if (alive) { setConnected(true); setStatus('live'); }
+        });
+        channel.bind('pusher:subscription_error', (e: unknown) => fail(`channel auth failed at ${realtime.auth_endpoint}`, e));
         channel.bind('message.posted', (d: { message?: ChatMessage }) => {
           if (alive && d?.message) handlersRef.current.onMessage(d.message);
         });
         channel.bind('message.hidden', (d: { id?: number }) => {
           if (alive && d?.id) handlersRef.current.onHidden(d.id);
         });
-      } catch {
+      } catch (e) {
         // No socket → the poll is the transport, as before.
-        if (alive) setConnected(false);
+        fail('socket setup threw', e);
       }
     })();
 
@@ -90,8 +114,12 @@ export function useChatSocket(
       sub.remove();
       try { channel?.unbind_all?.(); pusher?.unsubscribe?.(`private-${realtime.channel_prefix}${courseId}`); pusher?.disconnect?.(); } catch { /* ignore */ }
       setConnected(false);
+      setStatus('off');
     };
   }, [courseId, enabled, realtime?.key, realtime?.driver, realtime?.cluster, realtime?.host, realtime?.port, realtime?.tls, realtime?.auth_endpoint, realtime?.channel_prefix]);
 
-  return { connected };
+  return { connected, status };
 }
+
+/** off = no broadcaster / not asked; connecting; live = subscribed; error = tried and failed (poll carries on). */
+export type ChatSocketStatus = 'off' | 'connecting' | 'live' | 'error';
