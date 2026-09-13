@@ -14,6 +14,8 @@ export interface ResolutionSummary {
   termination_candidates: number;
   /** Assistant-filed incident reports / parent-number flags awaiting the teacher's review. */
   assistant_reports?: number;
+  /** «أرقام تحتاج تأكيد» — unverified parent/student numbers on this roster (spec §5). */
+  phone_confirmations?: number;
   total: number;
 }
 

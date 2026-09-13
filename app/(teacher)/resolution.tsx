@@ -141,6 +141,25 @@ export default function ResolutionCenter() {
             <SummaryTile label={t('resolution.candidates')} value={s?.termination_candidates ?? 0} />
           </View>
 
+          {/* «أرقام تحتاج تأكيد» (§5) — the queue's permanent home. The home screen only
+              surfaces it while it is non-empty; here it stays put so a teacher who wants
+              to go looking always knows where it lives. */}
+          {(s?.phone_confirmations ?? 0) > 0 ? (
+            <TouchableOpacity onPress={() => router.push('/(teacher)/phone-confirmations' as Href)} activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.warning + '55', padding: spacing.lg, marginTop: spacing.md }}>
+              <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.warningLight, justifyContent: 'center', alignItems: 'center' }}>
+                <Icon name="phone" size={22} color={colors.warningText} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>أرقام تحتاج تأكيد</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                  {s?.phone_confirmations} رقم لم يُثبت صاحبه ملكيته بعد
+                </Text>
+              </View>
+              <Icon name="back" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
+
           {/* Contact the admin — a general teacher→super-admin message channel. */}
           <TouchableOpacity onPress={() => setComposeOpen(true)} activeOpacity={0.85}
             style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginTop: spacing.md }}>

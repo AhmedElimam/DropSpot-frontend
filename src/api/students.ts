@@ -344,11 +344,15 @@ export async function reportStudentIncident(
 
 /**
  * Report a parent's phone as fake/misleading → super-admin review; once confirmed the
- * warning shows to every teacher who shares the student. Teacher-only.
+ * warning shows to every teacher who shares the student. Teacher, or an assistant with
+ * report_incidents (whose flag waits for the teacher first).
+ *
+ * `proposed_number` attaches the number the teacher believes is correct — a proposal the
+ * super-admin verifies and applies, never a direct edit of a login credential.
  */
 export async function flagParentNumber(
   studentId: string | number,
-  payload: { parent_id: number; reason?: string },
+  payload: { parent_id: number; reason?: string; proposed_number?: string },
 ): Promise<void> {
   await client.post(`/teacher/students/${studentId}/flag-parent-number`, payload);
 }
