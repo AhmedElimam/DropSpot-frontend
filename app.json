@@ -13,7 +13,7 @@
         "expo-channel-name": "production"
       }
     },
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "drosspot",
     "userInterfaceStyle": "automatic",
@@ -34,7 +34,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 3
+      "versionCode": 3,
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "output": "static",
@@ -52,6 +53,15 @@
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 160
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ]
