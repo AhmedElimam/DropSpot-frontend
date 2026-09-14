@@ -62,6 +62,8 @@ export interface InvitationCourseOption {
   grade_name: string | null;
   academic_session_id: number | null;
   booking_price: number | null;
+  /** Per-session price — lets the register form price N sessions as the teacher types. */
+  per_session_price: number | null;
   has_schedule: boolean;
   schedule_label: string; // "الأحد 9:00 AM، الثلاثاء 5:00 PM"
 }

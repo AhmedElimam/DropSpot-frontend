@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView } from 'react-native';
 import { useState } from 'react';
 import { openRemotePdf } from '@/utils/openPdf';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
@@ -397,8 +397,49 @@ export default function StudentDetailScreen() {
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
                 {s.grade_name ?? t('teacher.no_grade')}{s.student_code ? ` · ${s.student_code}` : ''}
               </Text>
+              {/* The student's OWN number — their login credential, and who a teacher rings
+                  when the parent does not answer. Shown with who (if anyone) has proved it,
+                  because an unproved number here is the one that propagates to every other
+                  teacher this student studies with. */}
+              {s.phone ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4, flexWrap: 'wrap' }}>
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${s.phone}`)} accessibilityRole="button">
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand, writingDirection: 'ltr' }}>{s.phone}</Text>
+                  </TouchableOpacity>
+                  <Badge
+                    label={s.phone_verified ? t('teacher.number_verified') : s.phone_vouched ? t('teacher.number_vouched') : t('teacher.number_unproved')}
+                    variant={s.phone_verified ? 'success' : s.phone_vouched ? 'info' : 'warning'}
+                    size="sm"
+                  />
+                </View>
+              ) : null}
             </View>
           </View>
+
+          {/* A student who studies with another teacher too, whose number nobody has proved.
+              It sits at the top because it is not this teacher's problem alone: a student is
+              one global identity, so the digits typed at one door are the digits everyone
+              calls. Narrow by construction — the server sends a sentence and a boolean, never
+              which teacher, so this screen has nothing to leak even if it wanted to. */}
+          {s.shared_unproved_number ? (
+            <TouchableOpacity
+              onPress={() => router.push('/(teacher)/phone-confirmations' as Href)}
+              accessibilityRole="button"
+              activeOpacity={0.85}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+                backgroundColor: colors.warningLight, borderRadius: radius.lg,
+                borderWidth: 1, borderColor: colors.warning,
+                padding: spacing.md, marginTop: spacing.md,
+              }}
+            >
+              <Icon name="call" size={18} color={colors.warningText} />
+              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, color: colors.textPrimary }}>
+                {s.shared_unproved_message ?? 'هذا الطالب مسجَّل مع معلّم آخر أيضًا، ورقمه لم يُثبَت بعد.'}
+              </Text>
+              <Icon name="back" size={16} color={colors.warningText} />
+            </TouchableOpacity>
+          ) : null}
 
           {/* The API this app is talking to predates the sections below (cycle progress,
               booklet collection, the paper register): they render from fields it does not
@@ -721,11 +762,17 @@ export default function StudentDetailScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{p.name ?? '—'}</Text>
                       {p.is_primary ? <Badge label={t('teacher.primary_parent')} variant="success" size="sm" /> : null}
+                      {/* §7: an answered OTP, a teacher's word, or nothing — three different
+                          claims that must never share a badge. */}
                       {p.number_flagged ? (
                         <Badge label={t('teacher.number_fake')} variant="danger" size="sm" />
                       ) : p.phone_verified ? (
                         <Badge label={t('teacher.number_verified')} variant="success" size="sm" />
-                      ) : null}
+                      ) : p.number_vouched ? (
+                        <Badge label={t('teacher.number_vouched')} variant="info" size="sm" />
+                      ) : (
+                        <Badge label={t('teacher.number_unproved')} variant="warning" size="sm" />
+                      )}
                     </View>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
                       {p.relationship ?? ''}{p.phone ? ` · ${p.phone}` : ` · ${t('teacher.no_phone')}`}

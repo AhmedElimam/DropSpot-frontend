@@ -56,6 +56,31 @@ export async function acknowledgePhone(
   });
 }
 
+/**
+ * Door-side confirmation. The family is at the desk when the number is typed, so this is
+ * the one moment it can actually be PROVED rather than vouched for: send the code, ask for
+ * the six digits, confirm. Each send costs an SMS, so the UI keeps a cooldown on it.
+ */
+export async function sendPhoneConfirmationCode(
+  studentId: number,
+  scope: PhoneConfirmationScope,
+  subjectId: number,
+): Promise<void> {
+  await client.post(`/teacher/phone-confirmations/${studentId}/send-code`, { scope, subject_id: subjectId });
+}
+
+/** Type back the digits the family just received. A correct code stamps OTP-verified. */
+export async function confirmPhoneCode(
+  studentId: number,
+  scope: PhoneConfirmationScope,
+  subjectId: number,
+  code: string,
+): Promise<void> {
+  await client.post(`/teacher/phone-confirmations/${studentId}/confirm-code`, {
+    scope, subject_id: subjectId, code,
+  });
+}
+
 export async function revokePhoneAcknowledgement(
   studentId: number,
   scope: PhoneConfirmationScope,

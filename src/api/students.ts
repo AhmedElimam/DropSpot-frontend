@@ -190,6 +190,8 @@ export interface StudentParent {
   relationship: string | null;
   is_primary: boolean;
   phone_verified?: boolean;
+  /** A teacher vouched — weaker than an OTP (§7), so it must never wear the same badge. */
+  number_vouched?: boolean;
   number_flagged?: boolean;
 }
 
@@ -210,6 +212,16 @@ export interface StudentDetail {
   parents: StudentParent[];
   parent_number_notice?: boolean;
   parent_number_notice_message?: string | null;
+  /**
+   * This student studies with another teacher too and nobody has PROVED their number.
+   * Narrow by construction: a boolean and a fixed sentence — never which teacher.
+   */
+  shared_unproved_number?: boolean;
+  shared_unproved_message?: string | null;
+  /** The student's OWN number and who has answered for it (§7: OTP > a teacher's word > nobody). */
+  phone?: string | null;
+  phone_verified?: boolean;
+  phone_vouched?: boolean;
   /** Teacher can remove this TERMINATED (dropped, still-visible) student from the roster now. */
   can_remove_from_roster?: boolean;
   attendance_stats: { total: number; attended: number; absent: number; excused: number };

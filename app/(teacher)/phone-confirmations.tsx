@@ -14,7 +14,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePhoneConfirmations, PHONE_CONFIRMATIONS_KEY } from '@/hooks/usePhoneConfirmations';
-import { acknowledgePhone, type PhoneConfirmation } from '@/api/phoneConfirmations';
+import { acknowledgePhone, sendPhoneConfirmationCode, confirmPhoneCode, type PhoneConfirmation } from '@/api/phoneConfirmations';
 import { requestStudentEdit, flagParentNumber } from '@/api/students';
 
 /**
@@ -37,6 +37,7 @@ import { requestStudentEdit, flagParentNumber } from '@/api/students';
 
 type Sheet =
   | { kind: 'ack'; item: PhoneConfirmation }
+  | { kind: 'otp'; item: PhoneConfirmation }
   | { kind: 'edit'; item: PhoneConfirmation }
   | { kind: 'escalate'; item: PhoneConfirmation }
   | null;
@@ -52,6 +53,9 @@ export default function PhoneConfirmationsScreen() {
   const [note, setNote] = useState('');
   const [newNumber, setNewNumber] = useState('');
   const [busy, setBusy] = useState(false);
+  // Door-side confirmation: the code is sent, then read back off the family's handset.
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
 
   const items = data?.items ?? [];
 
@@ -67,7 +71,7 @@ export default function PhoneConfirmationsScreen() {
     return Array.from(by.entries());
   }, [items]);
 
-  const closeSheet = () => { setSheet(null); setNote(''); setNewNumber(''); };
+  const closeSheet = () => { setSheet(null); setNote(''); setNewNumber(''); setOtpCode(''); setOtpSent(false); };
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: PHONE_CONFIRMATIONS_KEY });
@@ -86,6 +90,33 @@ export default function PhoneConfirmationsScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  // Sending keeps the sheet OPEN — the next thing the teacher does is type the digits, and
+  // closing here would make them find the row again with the code already spent.
+  const sendCode = async (it: PhoneConfirmation) => {
+    setBusy(true);
+    try {
+      await sendPhoneConfirmationCode(it.student_id, it.scope, it.subject_id);
+      setOtpSent(true);
+      Alert.alert('', 'أُرسل الرمز إلى الرقم. اطلبه من الأسرة وأدخله هنا.');
+    } catch (e) {
+      Alert.alert('خطأ', getFriendlyErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitCode = (it: PhoneConfirmation) => {
+    const code = otpCode.trim();
+    if (code.length < 4) {
+      Alert.alert('', 'أدخل الرمز المكوَّن من ٦ أرقام.');
+      return;
+    }
+    return run(
+      () => confirmPhoneCode(it.student_id, it.scope, it.subject_id, code),
+      'تم تأكيد الرقم بالرمز — أثبتت الأسرة ملكيته.',
+    );
   };
 
   const submitAck = (it: PhoneConfirmation) =>
@@ -154,7 +185,21 @@ export default function PhoneConfirmationsScreen() {
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+        {/* Proof first. A code the family reads back is stronger than anyone's word (§7),
+            so it leads the row; vouching stays for the families who cannot receive SMS. */}
+        <TouchableOpacity
+          onPress={() => { setOtpCode(''); setOtpSent(false); setSheet({ kind: 'otp', item: it }); }}
+          activeOpacity={0.85}
+          style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+            backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: 12, marginTop: spacing.md,
+          }}
+        >
+          <Icon name="call" size={16} color="#fff" />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>تأكيد بالرمز</Text>
+        </TouchableOpacity>
+
+        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
           <TouchableOpacity
             onPress={() => { setNote(''); setSheet({ kind: 'ack', item: it }); }}
             activeOpacity={0.85}
@@ -202,8 +247,9 @@ export default function PhoneConfirmationsScreen() {
   };
 
   const sheetTitle = sheet?.kind === 'ack' ? 'تأكيد صحة الرقم'
-    : sheet?.kind === 'edit' ? 'تعديل الرقم'
-      : 'إبلاغ الإدارة';
+    : sheet?.kind === 'otp' ? 'تأكيد بالرمز'
+      : sheet?.kind === 'edit' ? 'تعديل الرقم'
+        : 'إبلاغ الإدارة';
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
@@ -283,6 +329,30 @@ export default function PhoneConfirmationsScreen() {
                 هاتفًا يستقبل الرسائل. سيُسجَّل التأكيد باسمك، ولن يظهر الرقم في القائمة مجددًا.
               </Text>
             ) : null}
+            {sheet?.kind === 'otp' ? (
+              <>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs, lineHeight: 20 }}>
+                  {otpSent
+                    ? 'اطلب من الأسرة الرمز الذي وصلها الآن وأدخله هنا. الرمز صالح لمدة أسبوع.'
+                    : 'يُرسَل رمز إلى هذا الرقم الآن. اطلبه من الأسرة وهي أمامك وأدخله — هذا إثبات لملكية الرقم، أقوى من تأكيدك الشخصي.'}
+                </Text>
+                {otpSent ? (
+                  <TextInput
+                    value={otpCode}
+                    onChangeText={setOtpCode}
+                    keyboardType="number-pad"
+                    maxLength={8}
+                    placeholder="٦ أرقام"
+                    placeholderTextColor={colors.textTertiary}
+                    style={{
+                      marginTop: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg,
+                      paddingHorizontal: spacing.md, minHeight: 48, fontFamily: fonts.bold, fontSize: 18,
+                      color: colors.textPrimary, textAlign: 'center', letterSpacing: 4,
+                    }}
+                  />
+                ) : null}
+              </>
+            ) : null}
             {sheet?.kind === 'edit' ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs, lineHeight: 20 }}>
                 {sheet.item.scope === 'student'
@@ -340,6 +410,7 @@ export default function PhoneConfirmationsScreen() {
                 onPress={() => {
                   if (!sheet) return;
                   if (sheet.kind === 'ack') submitAck(sheet.item);
+                  else if (sheet.kind === 'otp') { if (otpSent) submitCode(sheet.item); else void sendCode(sheet.item); }
                   else if (sheet.kind === 'edit') submitEdit(sheet.item);
                   else submitEscalate(sheet.item);
                 }}
@@ -353,7 +424,9 @@ export default function PhoneConfirmationsScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>
-                    {sheet?.kind === 'ack' ? 'تأكيد' : sheet?.kind === 'edit' ? 'إرسال' : 'إبلاغ'}
+                    {sheet?.kind === 'ack' ? 'تأكيد'
+                      : sheet?.kind === 'otp' ? (otpSent ? 'تأكيد الرمز' : 'إرسال الرمز')
+                        : sheet?.kind === 'edit' ? 'إرسال' : 'إبلاغ'}
                   </Text>
                 )}
               </TouchableOpacity>
