@@ -68,3 +68,34 @@ export async function collectFromRoster(
   });
   return (data.data ?? data) as CollectResult;
 }
+
+export interface CancelDueResult {
+  forgiven: string; // amount written off
+  count: number;
+  what: string;
+}
+
+/**
+ * «إلغاء المستحق» — forgive a due WITHOUT collecting it, by student id.
+ *
+ * The opposite of `reverseStudentPayment`: that undoes money that WAS taken and puts the
+ * debt back, this cancels a debt that was never paid. Previously only the web page could
+ * do it — the app's waive path (`POST /payments/waive`) requires a `card_code`, so a
+ * teacher could forgive a due only with the student's card in hand, which is backwards.
+ *
+ * Teacher-only, and gated server-side on the `cancel_pending_due` flag: the endpoint
+ * itself 404s when it is off, so a bundle that has not restarted since the super-admin
+ * withdrew it cannot keep using the button. Pass `chargeId` to forgive ONE booklet/booking.
+ */
+export async function cancelDueFromRoster(
+  studentId: number,
+  kind: CollectKind,
+  chargeId?: number,
+): Promise<CancelDueResult> {
+  const { data } = await client.post('/teacher/pending-collections/cancel-due', {
+    student_id: studentId,
+    kind,
+    ...(chargeId != null ? { charge_id: chargeId } : {}),
+  });
+  return (data.data ?? data) as CancelDueResult;
+}
