@@ -18,6 +18,8 @@ export interface User {
   must_set_password?: boolean;
   /** Student deferred gate: true until they OTP-verify their OWN number (raised by the daily sweep). */
   needs_own_number_verification?: boolean;
+  /** Is the student's own number PROVED? Independent of whether anything is forcing it. */
+  own_number_verified?: boolean;
   /** Terms gate: true until they accept the current Terms version (POST /terms/accept clears it). */
   must_accept_terms?: boolean;
   /**

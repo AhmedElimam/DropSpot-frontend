@@ -57,6 +57,25 @@ export async function setCyclePosition(
   return data.data ?? data;
 }
 
+/**
+ * Restate what this cycle costs. Use when the POSITION is already right but the figure is
+ * not — a part-session, a discount, a number agreed with the family. Teacher only; the
+ * previous invoice is cancelled beside the new one rather than edited.
+ */
+export async function setCycleAmount(
+  enrollmentId: number,
+  amount: number,
+  sessions?: number | null,
+): Promise<{ invoice: { id: number; amount: number; paid_amount: number; status: string } | null }> {
+  const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/cycle-amount`, {
+    amount,
+    // Written onto the invoice line so the figure says WHAT it buys. Optional — a
+    // correction is not always about sessions.
+    ...(sessions ? { sessions } : {}),
+  });
+  return data.data ?? data;
+}
+
 function extract(item: any): Enrollment {
   const a = item.attributes ?? item;
   return {

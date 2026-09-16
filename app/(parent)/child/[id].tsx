@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { View, Text, ScrollView, TouchableOpacity, Modal, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -44,43 +45,50 @@ export default function ChildDetailScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string }>();
-  const { data: children, isLoading: childrenLoading } = useChildren();
+  const { data: children, isLoading: childrenLoading, refetch: refetchChildren } = useChildren();
   const [activeTab, setActiveTab] = useState<TabKey>('attendance');
   const [showPicker, setShowPicker] = useState(false);
 
   const selectedIndex = Math.max(0, (children ?? []).findIndex((c) => c.id === params.id));
   const child = (children ?? [])[selectedIndex];
 
-  const { data: coverage, isLoading: coverageLoading } = useQuery({
+  const { data: coverage, isLoading: coverageLoading, refetch: refetchCoverage } = useQuery({
     queryKey: ['attendance', 'stats', child?.student_id],
     queryFn: () => getStudentCoverage(child!.student_id),
     enabled: !!child,
   });
 
-  const { data: grades, isLoading: gradesLoading } = useQuery({
+  const { data: grades, isLoading: gradesLoading, refetch: refetchGrades } = useQuery({
     queryKey: ['grades', child?.student_id],
     queryFn: () => getStudentGrades(child!.student_id),
     enabled: !!child,
   });
 
   // Physical exam results (نتيجة الامتحان) — repurposed from the retired in-app quizzes tab.
-  const { data: exams, isLoading: examsLoading } = useQuery({
+  const { data: exams, isLoading: examsLoading, refetch: refetchExams } = useQuery({
     queryKey: ['exam-results', child?.student_id],
     queryFn: () => getStudentExamResults(child!.student_id),
     enabled: !!child,
   });
 
-  const { data: records, isLoading: recordsLoading } = useQuery({
+  const { data: records, isLoading: recordsLoading, refetch: refetchRecords } = useQuery({
     queryKey: ['attendance', 'records', child?.student_id],
     queryFn: () => getAttendanceRecords(child!.student_id),
     enabled: !!child,
   });
 
-  const { data: upcoming } = useQuery({
+  const { data: upcoming, refetch: refetchUpcoming } = useQuery({
     queryKey: ['sessions', 'upcoming', child?.student_id],
     queryFn: () => getUpcomingStudentSessions(child!.student_id, 5),
     enabled: !!child,
   });
+
+  // A parent opens this screen to check on their child right now — the pull must refresh
+  // everything the page shows (attendance, marks, exams, payments, next sessions), not
+  // whichever query happened to go stale first.
+  const { refreshing, onRefresh } = usePullRefresh(
+    refetchChildren, refetchCoverage, refetchGrades, refetchExams, refetchRecords, refetchUpcoming,
+  );
 
   const present = coverage?.present ?? 0;
   const absent = coverage?.absent ?? 0;
@@ -121,7 +129,11 @@ export default function ChildDetailScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}

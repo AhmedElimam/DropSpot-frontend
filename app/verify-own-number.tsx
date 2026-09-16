@@ -29,11 +29,17 @@ const field = {
 };
 
 /**
- * Deferred own-number verification WALL (hard block). Reached from app/index.tsx when
- * `user.needs_own_number_verification` is set. No back button: the rest of the app is
- * unreachable until one specific number is actually OTP-verified. Correcting a wrong
- * Space phone number is possible, but the user must enter a new number and verify it. Each
- * number sends a FRESH code and keeps the wall up — it never clears by re-typing.
+ * Own-number verification. Two ways in, and they must not feel the same:
+ *
+ *  - AS A WALL — reached from app/index.tsx when `needs_own_number_verification` is set.
+ *    No way back: the rest of the app is unreachable until that number is OTP-verified.
+ *  - BY CHOICE — opened from the profile row when the number simply is not proved yet.
+ *    Then there IS a back button, because nothing is being withheld; the student asked.
+ *
+ * The difference is read from the flag itself rather than a route param, so a walled
+ * student can never reach the exit by arriving through the other door. Correcting a wrong
+ * number is possible either way: each new number sends a FRESH code, and re-typing never
+ * clears the wall on its own.
  */
 
 export default function VerifyOwnNumberScreen() {
@@ -44,6 +50,9 @@ export default function VerifyOwnNumberScreen() {
   const role = useAuthStore((s) => s.role);
   const setSession = useAuthStore((s) => s.setSession);
   const logout = useAuthStore((s) => s.logout);
+
+  // A hard block only when the server says so — never merely because this screen is open.
+  const walled = !!user?.needs_own_number_verification;
 
   const [code, setCode] = useState('');
   const [masked, setMasked] = useState('');
@@ -97,9 +106,19 @@ export default function VerifyOwnNumberScreen() {
         end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
       >
-        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="call" size={20} color="#fff" />
-        </View>
+        {walled ? (
+          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="call" size={20} color="#fff" />
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
+          >
+            <Icon name="forward" size={22} color="#fff" />
+          </TouchableOpacity>
+        )}
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{t('own_number.title')}</Text>
       </LinearGradient>
 

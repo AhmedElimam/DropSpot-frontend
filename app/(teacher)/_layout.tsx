@@ -239,6 +239,8 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="settings" />
       {/* Reconciliation is reached from the pending badge / Home, not a tab. */}
       <Tabs.Screen name="resolution" options={{ href: null }} />
+      {/* «أرقام تحتاج تأكيد» — pushed from the Home card and the Resolution Center. */}
+      <Tabs.Screen name="phone-confirmations" options={{ href: null }} />
       {/* Insights — pushed from the manage hub, not a tab. */}
       <Tabs.Screen name="insights" options={{ href: null }} />
       {/* Order a card for an existing enrollment — pushed from the roster cards segment. */}

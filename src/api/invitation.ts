@@ -62,6 +62,10 @@ export interface InvitationCourseOption {
   grade_name: string | null;
   academic_session_id: number | null;
   booking_price: number | null;
+  /** Per-session price — lets the register form price N sessions as the teacher types. */
+  per_session_price: number | null;
+  /** Priced booklet for this course, or null — the toggle is only offered where one exists. */
+  booklet_price: number | null;
   has_schedule: boolean;
   schedule_label: string; // "الأحد 9:00 AM، الثلاثاء 5:00 PM"
 }
@@ -70,6 +74,8 @@ export interface InvitationOptions {
   courses: InvitationCourseOption[];
   terms: { id: number; name: string; is_current: boolean }[];
   requires_down_payment: boolean;
+  /** Teacher-wide booklets switch — authoritative; with it off no toggle is offered. */
+  offers_booklets: boolean;
   default_secures: BookingSecures;
 }
 

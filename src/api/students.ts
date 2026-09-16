@@ -190,6 +190,8 @@ export interface StudentParent {
   relationship: string | null;
   is_primary: boolean;
   phone_verified?: boolean;
+  /** A teacher vouched — weaker than an OTP (§7), so it must never wear the same badge. */
+  number_vouched?: boolean;
   number_flagged?: boolean;
 }
 
@@ -210,6 +212,16 @@ export interface StudentDetail {
   parents: StudentParent[];
   parent_number_notice?: boolean;
   parent_number_notice_message?: string | null;
+  /**
+   * This student studies with another teacher too and nobody has PROVED their number.
+   * Narrow by construction: a boolean and a fixed sentence — never which teacher.
+   */
+  shared_unproved_number?: boolean;
+  shared_unproved_message?: string | null;
+  /** The student's OWN number and who has answered for it (§7: OTP > a teacher's word > nobody). */
+  phone?: string | null;
+  phone_verified?: boolean;
+  phone_vouched?: boolean;
   /** Teacher can remove this TERMINATED (dropped, still-visible) student from the roster now. */
   can_remove_from_roster?: boolean;
   attendance_stats: { total: number; attended: number; absent: number; excused: number };
@@ -344,11 +356,15 @@ export async function reportStudentIncident(
 
 /**
  * Report a parent's phone as fake/misleading → super-admin review; once confirmed the
- * warning shows to every teacher who shares the student. Teacher-only.
+ * warning shows to every teacher who shares the student. Teacher, or an assistant with
+ * report_incidents (whose flag waits for the teacher first).
+ *
+ * `proposed_number` attaches the number the teacher believes is correct — a proposal the
+ * super-admin verifies and applies, never a direct edit of a login credential.
  */
 export async function flagParentNumber(
   studentId: string | number,
-  payload: { parent_id: number; reason?: string },
+  payload: { parent_id: number; reason?: string; proposed_number?: string },
 ): Promise<void> {
   await client.post(`/teacher/students/${studentId}/flag-parent-number`, payload);
 }

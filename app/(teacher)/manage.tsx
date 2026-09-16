@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useReviseMode } from '@/hooks/useReviseMode';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getTeacherInsights } from '@/api/insights';
 import { getBookingRequests } from '@/api/bookingRequests';
 import { getAssistantActions } from '@/api/assistantActions';
@@ -42,6 +43,12 @@ export default function TeacherManage() {
   const pendingReqs = bookingReqs.data?.length ?? 0;
   // Assistant money-action oversight (teacher-only — reviewing the assistant's approvals/collections).
   const assistantActions = useQuery({ queryKey: ['assistant-actions'], queryFn: getAssistantActions, enabled: !isAssistant });
+
+  // Every figure on this hub is a cached count; a pull must refresh all of them, not
+  // whichever one happens to be stalest.
+  const { refreshing, onRefresh } = usePullRefresh(
+    insights.refetch, bookingReqs.refetch, assistantActions.refetch,
+  );
   const pendingActions = assistantActions.data?.length ?? 0;
   const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
 
@@ -72,7 +79,10 @@ export default function TeacherManage() {
         <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary }}>{t('teacher.tab_manage')}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         {/* Mini insights — teacher-only (hidden from assistants). */}
         {!isAssistant ? (
         <>

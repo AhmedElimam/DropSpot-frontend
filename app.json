@@ -2,7 +2,7 @@
   "expo": {
     "name": "دروس سبوت",
     "slug": "DrosSpot",
-    "version": "1.2.0",
+    "version": "1.2.2",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -13,7 +13,7 @@
         "expo-channel-name": "production"
       }
     },
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "drosspot",
     "userInterfaceStyle": "automatic",
@@ -23,7 +23,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "28"
+      "buildNumber": "30"
     },
     "android": {
       "package": "com.drosspot.app",
@@ -34,7 +34,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 2
+      "versionCode": 4,
+      "edgeToEdgeEnabled": true
     },
     "web": {
       "output": "static",
@@ -52,6 +53,15 @@
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 160
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ]

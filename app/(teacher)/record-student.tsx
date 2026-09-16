@@ -52,6 +52,14 @@ export default function RecordStudent() {
   // Booking down-payment (دفعة) — per-student, seeded from the teacher's default.
   const [bookingOn, setBookingOn] = useState(false);
   const [secures, setSecures] = useState<BookingSecures | null>(null);
+  // How many sessions a session-secured دفعة buys. Only meaningful for 'session' — a flat
+  // deposit or a booklet is not measured in sessions, so the server stores null for those.
+  const [bookingSessions, setBookingSessions] = useState('');
+  // Booklet (ملزمة) — offered only where the teacher offers booklets AND the course prices
+  // one. ONE switch: the booklet is raised either way (the teacher-wide sweep would raise it
+  // regardless), so the only real question is whether the family has already paid. Records
+  // money taken at the desk rather than collecting it now.
+  const [bookletPaid, setBookletPaid] = useState(false);
   const [downPayment, setDownPayment] = useState('');
   const [downPaid, setDownPaid] = useState('');
   const [saving, setSaving] = useState(false);
@@ -113,6 +121,11 @@ export default function RecordStudent() {
             down_payment_amount: !bookingOn || downPayment.trim() === '' ? null : Number(downPayment),
             down_payment_paid: !bookingOn || downPaid.trim() === '' ? null : Number(downPaid),
             booking_secures: secures ?? options?.default_secures,
+            booklet_paid: bookletPaid,
+            booking_sessions:
+              !bookingOn || (secures ?? options?.default_secures) !== 'session' || bookingSessions.trim() === ''
+                ? null
+                : Number(bookingSessions),
           }
         : {}),
       course_id: courseId,
@@ -335,6 +348,28 @@ export default function RecordStudent() {
                       );
                     })}
                   </View>
+                  {/* The mid-course case: a student joining mid-month pays for the sessions
+                      that are LEFT, so the count is part of the price, not a note on the
+                      receipt. Shown only for a session-secured دفعة — a flat deposit has no
+                      session count and offering one would invite a meaningless number. */}
+                  {(secures ?? options?.default_secures) === 'session' ? (
+                    <>
+                      <Text style={label}>عدد الحصص</Text>
+                      <TextInput
+                        value={bookingSessions}
+                        onChangeText={(v) => setBookingSessions(v.replace(/[^0-9]/g, ''))}
+                        keyboardType="number-pad"
+                        placeholder="مثال: 3"
+                        placeholderTextColor={colors.textTertiary}
+                        style={{ ...field, marginBottom: spacing.xs }}
+                      />
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>
+                        {course?.per_session_price != null && bookingSessions.trim() !== ''
+                          ? `${Number(course.per_session_price) * Number(bookingSessions)} ج.م بسعر الحصة ${course.per_session_price}`
+                          : 'كم حصة تغطّيها هذه الدفعة — للطالب المنضمّ في منتصف الشهر.'}
+                      </Text>
+                    </>
+                  ) : null}
                   <Text style={label}>قيمة الدفعة</Text>
                   <TextInput value={downPayment} onChangeText={(v) => setDownPayment(v.replace(/[^0-9.]/g, ''))} keyboardType="numeric"
                     placeholder={course?.booking_price != null ? String(course.booking_price) : 'المبلغ'} placeholderTextColor={colors.textTertiary}
@@ -346,6 +381,27 @@ export default function RecordStudent() {
                 </View>
               ) : null}
             </View>
+
+            {/* Booklet (ملزمة). Shown only when the teacher-wide switch is on AND this course
+                prices a booklet — an empty toggle is worse than no toggle. The second switch
+                records that the family already paid at the desk, so the booklet never appears
+                as a due the teacher then collects from themselves. */}
+            {options?.offers_booklets && (course?.booklet_price ?? 0) > 0 ? (
+              <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+                  <View style={{ flex: 1 }}>
+                    {/* The LABEL carries the answer, so the switch needs no second control. */}
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: bookletPaid ? colors.success : colors.textPrimary }}>
+                      {bookletPaid ? 'تم تحصيل الملزمة' : 'لم تُحصَّل الملزمة'}
+                    </Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: 2 }}>
+                      {`${course?.booklet_price} ج.م — تُسجَّل على الطالب في الحالتين`}
+                    </Text>
+                  </View>
+                  <Switch value={bookletPaid} onValueChange={setBookletPaid} trackColor={{ true: colors.success, false: colors.border }} />
+                </View>
+              </View>
+            ) : null}
 
             {/* Save */}
             <TouchableOpacity onPress={() => submit()} disabled={!canSubmit} activeOpacity={0.85}

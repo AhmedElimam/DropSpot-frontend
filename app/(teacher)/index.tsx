@@ -19,6 +19,7 @@ import { PendingInvitations } from '@/components/teacher/PendingInvitations';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { usePhoneConfirmations } from '@/hooks/usePhoneConfirmations';
 
 // Home's "current" HIGHLIGHT window — a UI convenience only. A session lights up
 // 30 min before its start through its scheduled end. This is DELIBERATELY separate
@@ -50,7 +51,11 @@ export default function TeacherHome() {
   const rejected = useOfflineStore((s) => s.rejected);
   const needsAttention = pending + rejected; // scans to sync OR to decide on (§2)
   const { can } = useActiveAbilities();
-  const { refreshing, onRefresh } = usePullRefresh(refetch);
+  // «أرقام تحتاج تأكيد» — no ability gate: the assistant who typed the number at the
+  // door is the one who can still ask the family, so both roles reach it by default.
+  const { data: phoneConfirmations, refetch: refetchNumbers } = usePhoneConfirmations();
+  const unconfirmedNumbers = phoneConfirmations?.count ?? 0;
+  const { refreshing, onRefresh } = usePullRefresh(refetch, refetchNumbers);
   const now = Date.now();
 
   const renderSession = (s: TeacherSession) => {
@@ -96,7 +101,7 @@ export default function TeacherHome() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -134,6 +139,38 @@ export default function TeacherHome() {
                 <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.warningText }}>{t('teacher.tap_to_reconcile')}</Text>
               </View>
               <Icon name="back" size={20} color={colors.warningText} />
+            </TouchableOpacity>
+          ) : null}
+          {/* «أرقام تحتاج تأكيد» (phone-verification spec §5). Sits directly under the
+              scans banner because it shares its nature: a small queue that only a human
+              standing near the family can close, and that goes stale fast if it is
+              buried. Shown to the teacher and to every assistant — no ability check,
+              matching the API, which gates on the TENANT instead. Hidden at zero rather
+              than kept as a permanent empty row: home shows what needs doing, and the
+              Resolution Center keeps the queue itself. */}
+          {unconfirmedNumbers > 0 ? (
+            <TouchableOpacity
+              onPress={() => router.push('/(teacher)/phone-confirmations' as Href)}
+              activeOpacity={0.85}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                backgroundColor: colors.surface, borderRadius: radius.xl,
+                borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
+                ...shadows.sm,
+              }}
+            >
+              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.warningLight, justifyContent: 'center', alignItems: 'center' }}>
+                <Icon name="phone" size={22} color={colors.warningText} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>أرقام تحتاج تأكيد</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>
+                  {unconfirmedNumbers} رقم لم يُثبت صاحبه ملكيته — راجِعها قبل أن تحتاج التواصل
+                </Text>
+              </View>
+              <View style={{ minWidth: 26, height: 26, borderRadius: 13, paddingHorizontal: 7, backgroundColor: colors.warning, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{unconfirmedNumbers}</Text>
+              </View>
             </TouchableOpacity>
           ) : null}
           {/* Enroll (invite student) — requires the manage_students ability. */}
