@@ -73,7 +73,10 @@ export interface ChatLimits {
   image_max_kb: number;
   file_max_kb: number;
   voice_max_seconds: number;
+  /** Safety-net cadence, for once the private channel is actually subscribed. */
   poll_ms: number;
+  /** Transport cadence until then, and whenever the socket drops. Absent on older servers. */
+  poll_ms_fallback?: number;
 }
 
 export interface ChatMute {

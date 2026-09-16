@@ -31,17 +31,23 @@ export function useChatChannels(enabled = true) {
 }
 
 /**
- * The latest page of a room, polled while the screen is focused (`active`). The interval
- * comes from the server: short when polling IS the transport, long when a socket carries
- * the messages and the poll is only the safety net.
+ * The latest page of a room, polled while the screen is focused (`active`). Two cadences come
+ * from the server and the SOCKET'S real state picks one: the fast one is the transport until
+ * the private channel is subscribed (`live`) — and again the moment it drops; the slow one is
+ * only a safety net behind a working socket. Picking by "is a broadcaster configured" left a
+ * phone that could not reach it on a 45-second poll with nothing to say why.
  */
-export function useChatRoom(courseId: number, active: boolean) {
+export function useChatRoom(courseId: number, active: boolean, live = false) {
   const on = useChatEnabled();
   return useQuery({
     queryKey: ['chat', 'room', courseId],
     queryFn: () => getChatRoom(courseId),
     enabled: on && courseId > 0,
-    refetchInterval: (query) => (active ? (query.state.data?.limits?.poll_ms || CHAT_POLL_MS) : false),
+    refetchInterval: (query) => {
+      if (!active) return false;
+      const limits = query.state.data?.limits;
+      return (live ? limits?.poll_ms : limits?.poll_ms_fallback) || CHAT_POLL_MS;
+    },
     refetchIntervalInBackground: false,
     staleTime: 0,
   });

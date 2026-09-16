@@ -62,7 +62,11 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
   const qc = useQueryClient();
   const me = useAuthStore((s) => s.user);
 
-  const room = useChatRoom(courseId, focused);
+  // The socket's real state sets the poll cadence (see useChatRoom). Mirrored into state
+  // because the socket hook needs the room's `realtime` settings, which the room query
+  // fetches — the two hooks meet through this one flag.
+  const [socketLive, setSocketLive] = useState(false);
+  const room = useChatRoom(courseId, focused, socketLive);
   const channels = useChatChannels(focused);
   const send = useSendChatMessage(courseId);
   const upload = useUploadChatAttachment(courseId);
@@ -108,6 +112,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     onMessage: useCallback((m: ChatMessage) => mergeChatMessage(qc, courseId, m), [qc, courseId]),
     onHidden: useCallback((id: number) => { dropChatMessage(qc, courseId, id); setOlder((prev) => prev.filter((m) => m.id !== id)); }, [qc, courseId]),
   }, focused);
+  useEffect(() => { setSocketLive(connected); }, [connected]);
 
   // Older pages are prepended; the polled page is the tail. Dedupe by id so a message that
   // crosses the page boundary is never shown twice.
