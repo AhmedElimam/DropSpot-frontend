@@ -22,7 +22,8 @@ export async function stopImpersonation(): Promise<void> {
   await client.post('/impersonation/stop');
 }
 
-/** Toggle write mode server-side (refused for student targets). */
+/** Toggle write mode server-side. Allowed for every impersonated role; a developer account
+ *  is refused, and the server is the authority either way. */
 export async function setImpersonationWrite(enable: boolean): Promise<void> {
   await client.post(enable ? '/impersonation/write' : '/impersonation/read');
 }

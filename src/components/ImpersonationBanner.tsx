@@ -11,12 +11,12 @@ import { stopImpersonation, setImpersonationWrite } from '@/api/impersonation';
 /**
  * Persistent, impossible-to-miss banner shown on every screen while a super-admin
  * impersonation session is active on this device. Renders nothing otherwise.
- * "Exit" ends the session (revokes the token) and returns to login; the write
- * toggle is hidden for student targets (read-only always).
+ * "Exit" ends the session (revokes the token) and returns to login; the write toggle is
+ * offered for every impersonated role — the server is the authority on whether it is
+ * honoured, so this never decides who may write.
  */
 export function ImpersonationBanner() {
   const impersonation = useAuthStore((s) => s.impersonation);
-  const role = useAuthStore((s) => s.role);
   const logout = useAuthStore((s) => s.logout);
   const setTokens = useAuthStore((s) => s.setTokens);
   const setSession = useAuthStore((s) => s.setSession);
@@ -99,17 +99,18 @@ export function ImpersonationBanner() {
         تتصفّح بحساب: {impersonation.name} · {impersonation.write ? 'كتابة' : 'قراءة فقط'}
       </Text>
 
-      {role !== 'student' && (
-        <TouchableOpacity
-          onPress={toggleWrite}
-          disabled={busy}
-          style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 6 }}
-        >
-          <Text style={{ color: '#fff', fontFamily: fonts.medium, fontSize: 12 }}>
-            {impersonation.write ? 'إيقاف الكتابة' : 'تفعيل الكتابة'}
-          </Text>
-        </TouchableOpacity>
-      )}
+      {/* Offered for EVERY impersonated role, students included (founder 2026-09-16). The
+          server decides whether the switch is honoured — it refuses a developer outright —
+          so hiding it here only ever hid a capability that existed. */}
+      <TouchableOpacity
+        onPress={toggleWrite}
+        disabled={busy}
+        style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 6 }}
+      >
+        <Text style={{ color: '#fff', fontFamily: fonts.medium, fontSize: 12 }}>
+          {impersonation.write ? 'إيقاف الكتابة' : 'تفعيل الكتابة'}
+        </Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         onPress={exit}
