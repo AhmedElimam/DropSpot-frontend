@@ -124,7 +124,7 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
           <ErrorState onRetry={() => refetch()} />
         ) : (
           <ScrollView
-            contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl }}
+            contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl }}
             keyboardShouldPersistTaps="handled"
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           >
