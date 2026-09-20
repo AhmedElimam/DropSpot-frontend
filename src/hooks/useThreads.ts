@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useRealtimeChannels } from '@/hooks/useRealtimeChannels';
+import type { ChatRealtime } from '@/api/chat';
 import {
   answerThread, commentOnThread, createThread, extendThread, getThread, getThreadReports, getThreadVideoAudience,
   getThreadsFeed, getThreadsUnread, hideThreadComment, lockThread, pickThreadComment, reportThreadComment,
@@ -16,17 +18,37 @@ export function useThreadsEnabled(): boolean {
   return !!flags?.[THREADS_FLAG];
 }
 
-/** The feed; shares its key with the tab badge so a pull-to-refresh refreshes both. */
-export function useThreadsFeed(enabled = true) {
+/**
+ * The feed; shares its key with the tab badge so a pull-to-refresh refreshes both. With a
+ * live channel (`live`) the poll is only a safety net — the socket frame is what refreshes
+ * it (founder, 2026-09-20: a student saw the teacher's post a minute late).
+ */
+export function useThreadsFeed(enabled = true, live = false) {
   const on = useThreadsEnabled();
   return useQuery({
     queryKey: ['threads', 'feed'],
     queryFn: () => getThreadsFeed(),
     enabled: on && enabled,
     staleTime: 15_000,
-    refetchInterval: 60_000,
+    refetchInterval: live ? 5 * 60_000 : 60_000,
     refetchIntervalInBackground: false,
   });
+}
+
+/**
+ * The grade channels' frames → the caches. A frame names WHICH thread changed and nothing
+ * else; the screens refetch over REST, which re-authorises the reader. Returns the socket's
+ * real state so the callers can slow their polls only once the channels are subscribed.
+ */
+export function useThreadsRealtime(realtime: ChatRealtime | null | undefined, channels: readonly string[], enabled = true) {
+  const qc = useQueryClient();
+  return useRealtimeChannels(realtime, channels, {
+    'thread.changed': (d: { thread_id?: number; change?: string }) => {
+      qc.invalidateQueries({ queryKey: ['threads', 'feed'] });
+      qc.invalidateQueries({ queryKey: ['threads', 'unread'] });
+      if (d?.thread_id) qc.invalidateQueries({ queryKey: ['threads', 'one', d.thread_id] });
+    },
+  }, enabled);
 }
 
 /** The badge, on its own light endpoint. */
@@ -42,14 +64,21 @@ export function useThreadsUnread(enabled = true) {
   });
 }
 
-/** One thread with its comments, polled while the screen is focused — the timer and the votes move. */
-export function useThread(id: number, active: boolean) {
+/**
+ * One thread with its comments, polled while the screen is focused — the timer and the votes
+ * move. Two cadences come from the server and the socket's real state picks one.
+ */
+export function useThread(id: number, active: boolean, live = false) {
   const on = useThreadsEnabled();
   return useQuery({
     queryKey: ['threads', 'one', id],
     queryFn: () => getThread(id),
     enabled: on && id > 0,
-    refetchInterval: (query) => (active ? (query.state.data?.limits?.poll_ms || DEFAULT_POLL_MS) : false),
+    refetchInterval: (query) => {
+      if (!active) return false;
+      const limits = query.state.data?.limits;
+      return live ? (limits?.poll_ms_socket || 60_000) : (limits?.poll_ms || DEFAULT_POLL_MS);
+    },
     refetchIntervalInBackground: false,
     staleTime: 0,
   });

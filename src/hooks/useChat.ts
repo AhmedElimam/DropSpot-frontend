@@ -4,8 +4,9 @@ import {
   blockChatUser, deleteChatMessage, getChatChannels, getChatReports, getChatRoom, muteChatUser,
   reportChatMessage, resolveChatReport, sendChatMessage, setChatNotify, setChatSettings,
   uploadChatAttachment,
-  type ChatAttachmentKind, type ChatMessage, type ChatReportAction, type ChatRoom,
+  type ChatAttachmentKind, type ChatMessage, type ChatReportAction, type ChatRoom, type ChatSender,
 } from '@/api/chat';
+import { useAuthStore } from '@/stores/authStore';
 
 export const CHAT_FLAG = 'course_chat';
 
@@ -70,24 +71,120 @@ export function dropChatMessage(qc: ReturnType<typeof useQueryClient>, courseId:
 
 export function useUploadChatAttachment(courseId: number) {
   const qc = useQueryClient();
+  const me = useAuthStore((s) => s.user);
+  const roomKey = ['chat', 'room', courseId] as const;
   return useMutation({
     mutationFn: (input: { kind: ChatAttachmentKind; uri: string; name: string; mime: string; duration?: number; body?: string }) =>
       uploadChatAttachment(courseId, input),
-    onSuccess: (message) => {
-      mergeChatMessage(qc, courseId, message);
+    // The local file IS the preview: the photo shows from disk while it uploads, the voice
+    // note is playable at once, the document shows its name — with a clock, like a text.
+    onMutate: (input) => {
+      const key = nextLocalKey();
+      const sender = localSender(me, qc.getQueryData<ChatRoom>(roomKey)?.role);
+      qc.setQueryData<ChatRoom>(roomKey, (room) => appendLocal(room, localChatMessage({
+        key, sender, body: input.body ?? null,
+        attachment: { kind: input.kind, name: input.name, mime: input.mime, size: null, duration: input.duration ?? null, expired: false, url: input.uri },
+      })));
+      return { key };
+    },
+    onSuccess: (message, _input, ctx) => {
+      qc.setQueryData<ChatRoom>(roomKey, (room) => resolveLocal(room, ctx?.key, message));
       qc.invalidateQueries({ queryKey: ['chat', 'channels'] });
+    },
+    onError: (_err, _input, ctx) => {
+      qc.setQueryData<ChatRoom>(roomKey, (room) => failLocal(room, ctx?.key));
     },
   });
 }
 
+// ── Optimistic send ──────────────────────────────────────────────────────────────
+// A message is on screen the instant you tap send, with a clock instead of the tick, and is
+// swapped for the server's copy when the reply lands. Before this the bubble waited for the
+// whole round trip — which includes the server's own ~300ms call to Pusher — and the room
+// felt a beat slower than any messenger the family already uses (founder, 2026-09-20). A
+// failed send STAYS on screen, marked, with a retry: nothing typed is ever silently lost.
+//
+// The four reducers below are pure functions over the room cache so they can be tested
+// without React Query, a network, or a device.
+
+let localSeq = 0;
+const nextLocalKey = () => `local-${Date.now()}-${++localSeq}`;
+
+/** The row for something just sent: a negative placeholder id, and `local.sending`. */
+export function localChatMessage(input: { key: string; body: string | null; sender: ChatSender; attachment?: ChatMessage['attachment'] }): ChatMessage {
+  return {
+    id: -(++localSeq),
+    parent_id: null,
+    kind: input.attachment?.kind ?? 'text',
+    body: input.body,
+    hidden: false,
+    attachment: input.attachment ?? null,
+    sender: input.sender,
+    created_at: new Date().toISOString(),
+    local: { status: 'sending', key: input.key },
+  };
+}
+
+export function appendLocal(room: ChatRoom | undefined, m: ChatMessage): ChatRoom | undefined {
+  return room ? { ...room, messages: [...room.messages, m] } : room;
+}
+
+/**
+ * The server answered: the optimistic row becomes the real one, IN PLACE. If the socket echo
+ * already delivered the real message (it often beats the HTTP reply), the row is simply
+ * dropped — the real one is never shown twice.
+ */
+export function resolveLocal(room: ChatRoom | undefined, key: string | undefined, real: ChatMessage): ChatRoom | undefined {
+  if (!room) return room;
+  const idx = room.messages.findIndex((m) => m.local?.key === key);
+  const without = room.messages.filter((m) => m.local?.key !== key);
+  if (without.some((m) => m.id === real.id)) return { ...room, messages: without };
+  if (idx < 0) return { ...room, messages: [...without, real] };
+  return { ...room, messages: [...without.slice(0, idx), real, ...without.slice(idx)] };
+}
+
+export function failLocal(room: ChatRoom | undefined, key: string | undefined): ChatRoom | undefined {
+  if (!room) return room;
+  return { ...room, messages: room.messages.map((m) => (m.local?.key === key ? { ...m, local: { status: 'failed' as const, key: m.local?.key ?? '' } } : m)) };
+}
+
+export function removeLocal(room: ChatRoom | undefined, key: string | undefined): ChatRoom | undefined {
+  return room ? { ...room, messages: room.messages.filter((m) => m.local?.key !== key) } : room;
+}
+
+/** Discard an optimistic row (before a retry, or because the sender gave up on it). */
+export function dropChatLocal(qc: ReturnType<typeof useQueryClient>, courseId: number, key: string): void {
+  qc.setQueryData<ChatRoom>(['chat', 'room', courseId], (room) => removeLocal(room, key));
+}
+
+/** How the sender appears on their own optimistic bubble — the same shape the server sends. */
+function localSender(user: { id: number; name: string } | null | undefined, role: ChatRoom['role'] | undefined): ChatSender {
+  return {
+    id: user?.id ?? -1,
+    name: user?.name ?? '',
+    is_staff: role === 'teacher' || role === 'assistant',
+    is_teacher: role === 'teacher',
+  };
+}
+
 export function useSendChatMessage(courseId: number) {
   const qc = useQueryClient();
+  const me = useAuthStore((s) => s.user);
+  const roomKey = ['chat', 'room', courseId] as const;
   return useMutation({
     mutationFn: (body: string) => sendChatMessage(courseId, body),
-    onSuccess: (message) => {
-      // Show it at once rather than waiting for the next poll or the socket echo.
-      mergeChatMessage(qc, courseId, message);
+    onMutate: (body) => {
+      const key = nextLocalKey();
+      const sender = localSender(me, qc.getQueryData<ChatRoom>(roomKey)?.role);
+      qc.setQueryData<ChatRoom>(roomKey, (room) => appendLocal(room, localChatMessage({ key, body, sender })));
+      return { key };
+    },
+    onSuccess: (message, _body, ctx) => {
+      qc.setQueryData<ChatRoom>(roomKey, (room) => resolveLocal(room, ctx?.key, message));
       qc.invalidateQueries({ queryKey: ['chat', 'channels'] });
+    },
+    onError: (_err, _body, ctx) => {
+      qc.setQueryData<ChatRoom>(roomKey, (room) => failLocal(room, ctx?.key));
     },
   });
 }

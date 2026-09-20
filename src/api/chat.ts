@@ -55,6 +55,14 @@ export interface ChatMessage {
   attachment: ChatAttachment | null;
   sender: ChatSender;
   created_at: string;
+  /**
+   * CLIENT-ONLY. Set on a message the app has shown before the server confirmed it — the
+   * bubble appears the instant you tap send, with a clock instead of the tick, and is
+   * swapped for the real one when the reply lands. `failed` keeps the bubble on screen with
+   * a retry, so nothing typed is ever silently lost to a bad network. The key is how the
+   * optimistic row is found again; the id is a negative placeholder until then.
+   */
+  local?: { status: 'sending' | 'failed'; key: string };
 }
 
 /** Socket settings from the server, or null → poll. Pusher and Reverb share the protocol. */
@@ -146,6 +154,11 @@ export async function getChatRoom(courseId: number, beforeId?: number): Promise<
     params: beforeId ? { before_id: beforeId } : undefined,
   });
   return data as ChatRoom;
+}
+
+/** «يكتب…» — fire and forget; the server answers 204 whether or not anyone is listening. */
+export async function postChatTyping(courseId: number): Promise<void> {
+  await client.post(`/chat/courses/${courseId}/typing`);
 }
 
 export async function sendChatMessage(courseId: number, body: string): Promise<ChatMessage> {

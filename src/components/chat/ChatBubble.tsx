@@ -25,7 +25,7 @@ import type { ChatMessage } from '@/api/chat';
  * ones let it fall to its own. No absolute positioning, so it cannot overlap a wrap.
  */
 export const ChatBubble = memo(function ChatBubble({
-  message, mine, showName, showTail, onLongPress,
+  message, mine, showName, showTail, onLongPress, onRetry,
 }: {
   message: ChatMessage;
   mine: boolean;
@@ -33,10 +33,16 @@ export const ChatBubble = memo(function ChatBubble({
   /** Last of a run from one sender — squares the outer corner. */
   showTail: boolean;
   onLongPress: (m: ChatMessage) => void;
+  /** A message that never reached the server — tapping it offers to try again. */
+  onRetry?: (m: ChatMessage) => void;
 }) {
   const { t } = useTranslation();
   const staff = message.sender.is_staff;
   const hasText = !!message.body && message.body.trim() !== '';
+  // Optimistic state: on screen before the server has answered (clock), or after it
+  // refused / the network dropped (failed — stays put with a retry, never silently lost).
+  const sending = message.local?.status === 'sending';
+  const failed = message.local?.status === 'failed';
 
   // A hidden message only ever reaches a MODERATOR with its text (§2) — students get it
   // filtered out entirely. So if it is on screen at all, show plainly that the room can no
@@ -52,10 +58,12 @@ export const ChatBubble = memo(function ChatBubble({
     <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%', marginTop: showName ? spacing.md : 3 }}>
       <TouchableOpacity
         onLongPress={() => onLongPress(message)}
+        onPress={failed && onRetry ? () => onRetry(message) : undefined}
         delayLongPress={350}
         activeOpacity={0.9}
-        accessibilityHint={t('chat.message_actions')}
+        accessibilityHint={failed ? t('chat.not_sent') : t('chat.message_actions')}
         style={{
+          opacity: sending ? 0.78 : 1,
           backgroundColor: bg,
           borderWidth: mine && !hidden ? 0 : 1,
           borderColor: border,
@@ -113,9 +121,20 @@ export const ChatBubble = memo(function ChatBubble({
             <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: metaInk }}>
               {formatTime(message.created_at)}
             </Text>
-            {mine && !hidden ? <Icon name="check" size={13} color={chat.tick} /> : null}
+            {mine && !hidden ? (
+              sending ? <Icon name="clock" size={12} color={chat.tick} outline />
+              : failed ? <Icon name="error" size={13} color={chat.failedInk} />
+              : <Icon name="check" size={13} color={chat.tick} />
+            ) : null}
           </View>
         </View>
+
+        {failed ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+            <Icon name="refresh" size={12} color={chat.failedInk} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: chat.failedInk }}>{t('chat.not_sent')}</Text>
+          </View>
+        ) : null}
       </TouchableOpacity>
     </View>
   );

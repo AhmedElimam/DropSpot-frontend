@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
@@ -11,7 +11,7 @@ import { Icon } from '@/components/ui/Icon';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import {
-  useCommentOnThread, useExtendThread, useHideThreadComment, useLockThread, usePickThreadComment, useReportThreadComment, useThread, useVoteThreadComment, useWithdrawThread,
+  useCommentOnThread, useExtendThread, useHideThreadComment, useLockThread, usePickThreadComment, useReportThreadComment, useThread, useThreadsRealtime, useVoteThreadComment, useWithdrawThread,
 } from '@/hooks/useThreads';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { timeAgo } from '@/utils/format';
@@ -30,7 +30,13 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
-  const { data, isLoading, isError, refetch } = useThread(threadId, focused);
+  // Live: a comment, a vote, the teacher's answer or lock lands the moment it happens; the
+  // poll then only backstops (see useThread).
+  const [live, setLive] = useState(false);
+  const { data, isLoading, isError, refetch } = useThread(threadId, focused, live);
+  const channels = useMemo(() => (data?.channel ? [data.channel] : []), [data?.channel]);
+  const { connected } = useThreadsRealtime(data?.realtime, channels, focused);
+  useEffect(() => { setLive(connected); }, [connected]);
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   const [player, setPlayer] = useState<ThreadVideo | null>(null);

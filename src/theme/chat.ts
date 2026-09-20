@@ -48,6 +48,10 @@ export const chat = {
 
   /** Sent tick. There is no second tick: this product has no read receipts, on purpose. */
   tick: 'rgba(255,255,255,0.62)',
+
+  /** A message that never reached the server, on the ink-indigo bubble: warm enough to be
+   *  seen, not a red alarm — the words are still right there, one tap from being sent. */
+  failedInk: '#FFD1CC',
 } as const;
 
 /**

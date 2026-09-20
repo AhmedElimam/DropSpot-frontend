@@ -1,11 +1,13 @@
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useIsFocused } from '@react-navigation/native';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
-import { useThreadsFeed } from '@/hooks/useThreads';
+import { useThreadsFeed, useThreadsRealtime } from '@/hooks/useThreads';
 import { ThreadCard } from './ThreadCard';
 
 /**
@@ -19,7 +21,14 @@ export function ThreadsFeed({ onOpen, onCompose, onSettings, onReports }: {
   onReports?: () => void;
 }) {
   const { t } = useTranslation();
-  const { data, isLoading, isError, refetch } = useThreadsFeed();
+  const focused = useIsFocused();
+  // The socket's real state slows the poll to a safety net (see useThreadsFeed); the two hooks
+  // meet through this flag because the socket needs the feed's own `realtime` settings.
+  const [live, setLive] = useState(false);
+  const { data, isLoading, isError, refetch } = useThreadsFeed(true, live);
+  const channels = useMemo(() => data?.channels ?? [], [data?.channels]);
+  const { connected } = useThreadsRealtime(data?.realtime, channels, focused);
+  useEffect(() => { setLive(connected); }, [connected]);
   const isTeacher = !!data?.settings;
   const isStaff = !!data?.settings || data?.open_reports !== undefined;
 

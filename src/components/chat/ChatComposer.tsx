@@ -50,11 +50,8 @@ export function ChatComposer({
       }}
     >
       {recording ? (
-        <View style={{ flex: 1, minHeight: 52, justifyContent: 'center', paddingHorizontal: spacing.lg }}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>
-            {t('chat.record_hint')}
-          </Text>
-        </View>
+        // The recorder draws its live bar (clock, level, cancel/lock hints) over this slot.
+        <View style={{ flex: 1, minHeight: 52 }} />
       ) : (
         <View
           style={{

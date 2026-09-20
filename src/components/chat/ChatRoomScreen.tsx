@@ -16,12 +16,12 @@ import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
 import { chat } from '@/theme/chat';
 import { useAuthStore } from '@/stores/authStore';
 import {
-  useChatRoom, useSendChatMessage, useDeleteChatMessage, useReportChatMessage, useBlockChatUser, useSetChatNotify,
+  dropChatLocal, useChatRoom, useSendChatMessage, useDeleteChatMessage, useReportChatMessage, useBlockChatUser, useSetChatNotify,
   useUploadChatAttachment, useChatChannels, useChatReports, useMuteChatUser, useSetChatSettings,
   mergeChatMessage, dropChatMessage,
 } from '@/hooks/useChat';
 import { useChatSocket } from '@/hooks/useChatSocket';
-import { getChatRoom, type ChatMessage } from '@/api/chat';
+import { getChatRoom, postChatTyping, type ChatMessage } from '@/api/chat';
 import { ChatReportsSheet } from '@/components/chat/ChatReportsSheet';
 import { MuteSheet } from '@/components/chat/MuteSheet';
 import { Icon } from '@/components/ui/Icon';
@@ -84,6 +84,35 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
   const openReports = reports.data?.reports?.length ?? 0;
 
   const [draft, setDraft] = useState('');
+  // «يكتب…» — who is typing right now, by user id, with the moment their last frame goes
+  // stale. A frame is a nicety: nothing here is stored, and a lost one costs nothing.
+  const [typers, setTypers] = useState<Record<number, { name: string; until: number }>>({});
+  const typingSentAt = useRef(0);
+  const onTyping = useCallback((tp: { user_id: number; name: string }) => {
+    if (me && tp.user_id === me.id) return; // my own frame comes back too
+    setTypers((prev) => ({ ...prev, [tp.user_id]: { name: tp.name || '…', until: Date.now() + 4000 } }));
+  }, [me]);
+  const forgetTyper = useCallback((userId: number) => {
+    setTypers((prev) => { if (!prev[userId]) return prev; const next = { ...prev }; delete next[userId]; return next; });
+  }, []);
+  useEffect(() => {
+    if (!Object.keys(typers).length) return;
+    const id = setInterval(() => {
+      const now = Date.now();
+      setTypers((prev) => {
+        const next: typeof prev = {};
+        let changed = false;
+        for (const k of Object.keys(prev)) { const e = prev[Number(k)]; if (e.until > now) next[Number(k)] = e; else changed = true; }
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [typers]);
+  const typingLabel = useMemo(() => {
+    const names = Object.values(typers).map((x) => x.name);
+    if (!names.length) return null;
+    return names.length === 1 ? t('chat.typing_one', { name: names[0] }) : t('chat.typing_many');
+  }, [typers, t]);
   const [older, setOlder] = useState<ChatMessage[]>([]);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [noMoreOlder, setNoMoreOlder] = useState(false);
@@ -109,10 +138,21 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
 
   // Live frames merge into the same cache the poll fills; hidden ids drop out of it.
   const { connected, status: socketStatus } = useChatSocket(courseId, room.data?.realtime, {
-    onMessage: useCallback((m: ChatMessage) => mergeChatMessage(qc, courseId, m), [qc, courseId]),
+    onMessage: useCallback((m: ChatMessage) => { mergeChatMessage(qc, courseId, m); forgetTyper(m.sender.id); }, [qc, courseId, forgetTyper]),
     onHidden: useCallback((id: number) => { dropChatMessage(qc, courseId, id); setOlder((prev) => prev.filter((m) => m.id !== id)); }, [qc, courseId]),
+    onTyping,
   }, focused);
   useEffect(() => { setSocketLive(connected); }, [connected]);
+  // One small frame every few seconds while typing — and only when a socket is there to
+  // carry it; without one nobody could see the indicator anyway.
+  const onDraftChange = (v: string) => {
+    setDraft(v);
+    const now = Date.now();
+    if (v && connected && now - typingSentAt.current > 3000) {
+      typingSentAt.current = now;
+      postChatTyping(courseId).catch(() => undefined);
+    }
+  };
 
   // Older pages are prepended; the polled page is the tail. Dedupe by id so a message that
   // crosses the page boundary is never shown twice.
@@ -196,21 +236,50 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     }
   };
 
+  // Optimistic: the bubble is already in the room (useSendChatMessage.onMutate), so the box
+  // clears and the list follows it NOW — not after the server answers. No isPending gate
+  // either: firing three short messages in a row is normal, and each gets its own bubble.
+  // A failure is shown IN the bubble with a retry, not as an alert over the conversation.
   const doSend = () => {
     const text = draft.trim();
-    if (!text || send.isPending) return;
-    send.mutate(text, {
-      onSuccess: () => { setDraft(''); atBottomRef.current = true; },
-      onError: (err) => Alert.alert(t('chat.failed'), getFriendlyErrorMessage(err)),
-    });
+    if (!text) return;
+    setDraft('');
+    atBottomRef.current = true;
+    send.mutate(text);
   };
 
   // ── Attachments (§8) — all through one upload door, caption = whatever is in the box ──
   const sendAttachment = (input: { kind: 'image' | 'file' | 'voice'; uri: string; name: string; mime: string; duration?: number }) => {
-    upload.mutate({ ...input, body: draft.trim() || undefined }, {
-      onSuccess: () => { setDraft(''); atBottomRef.current = true; },
-      onError: (err) => Alert.alert(t('chat.failed'), getFriendlyErrorMessage(err)),
-    });
+    const body = draft.trim() || undefined;
+    setDraft('');
+    atBottomRef.current = true;
+    upload.mutate({ ...input, body });
+  };
+
+  // A bubble that never reached the server. Tapping it asks: try again, or let it go.
+  const onRetry = (m: ChatMessage) => {
+    if (!m.local) return;
+    const key = m.local.key;
+    Alert.alert(t('chat.failed'), t('chat.not_sent'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('chat.discard'), style: 'destructive', onPress: () => dropChatLocal(qc, courseId, key) },
+      {
+        text: t('chat.retry'),
+        onPress: () => {
+          dropChatLocal(qc, courseId, key);
+          atBottomRef.current = true;
+          if (m.attachment?.url) {
+            upload.mutate({
+              kind: m.attachment.kind, uri: m.attachment.url, name: m.attachment.name ?? 'file',
+              mime: m.attachment.mime ?? 'application/octet-stream', duration: m.attachment.duration ?? undefined,
+              body: m.body ?? undefined,
+            });
+          } else {
+            send.mutate(m.body ?? '');
+          }
+        },
+      },
+    ]);
   };
 
   const tooBig = (size: number | undefined, maxKb: number | undefined) => {
@@ -368,7 +437,6 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
 
   const data = room.data;
   const reasons = Object.entries(data.report_reasons ?? {});
-  const busy = send.isPending || upload.isPending;
   const previewFor = (m: ChatMessage) => (m.body && m.body.trim() !== '' ? m.body : m.attachment ? (m.attachment.kind === 'image' ? t('chat.photo') : m.attachment.kind === 'voice' ? t('chat.voice_note') : (m.attachment.name ?? t('chat.file'))) : '');
 
   return (
@@ -398,7 +466,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
                 subscribed; amber while it tries or after it failed (the poll carries the room then). */}
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: connected ? '#8FE3A2' : (socketStatus === 'off' ? 'rgba(255,255,255,0.35)' : '#F3C969') }} />
             <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)' }} numberOfLines={1}>
-              {`${connected ? t('chat.live') : t('chat.polling')} · ${t('chat.members_count', { count: data.course.members })}`}
+              {typingLabel ?? `${connected ? t('chat.live') : t('chat.polling')} · ${t('chat.members_count', { count: data.course.members })}`}
             </Text>
           </View>
         </View>
@@ -487,18 +555,13 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
                       showName={!sameRun}
                       showTail={runEnds}
                       onLongPress={onMessageMenu}
+                      onRetry={onRetry}
                     />
                   </View>
                 );
               })
             )}
 
-            {upload.isPending ? (
-              <View style={{ alignSelf: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.lg, paddingVertical: 8, paddingHorizontal: spacing.md, marginTop: spacing.sm, opacity: 0.85 }}>
-                <ActivityIndicator size="small" color={colors.brand} />
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{t('chat.uploading')}</Text>
-              </View>
-            ) : null}
           </ScrollView>
 
           {showJump && messages.length > 0 ? (
@@ -528,13 +591,13 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
         ) : data.can_post ? (
           <ChatComposer
             value={draft}
-            onChange={setDraft}
+            onChange={onDraftChange}
             onSend={doSend}
             onAttach={attachMenu}
             onCamera={() => { void pickImage(true); }}
             onVoiceClip={onVoiceClip}
             voiceMaxSeconds={data.limits?.voice_max_seconds || 120}
-            sending={busy}
+            sending={upload.isPending}
             recording={recording}
             onRecordingChange={setRecording}
             bottomInset={insets.bottom}

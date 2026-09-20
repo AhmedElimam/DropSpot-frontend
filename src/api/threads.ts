@@ -9,6 +9,8 @@ import client from './client';
  * something is refused.
  */
 
+import type { ChatRealtime } from './chat';
+
 export type ThreadKind = 'question' | 'answer' | 'note';
 export type ThreadRole = 'teacher' | 'assistant' | 'student' | null;
 export type ClosedReason = 'answered' | 'locked' | 'timer' | null;
@@ -89,7 +91,10 @@ export interface ThreadLimits {
   close_max_minutes: number;
   video_max_seconds: number;
   video_max_kb: number;
+  /** Poll cadence with no socket (the transport) … */
   poll_ms: number;
+  /** … and behind a live channel (a safety net only). */
+  poll_ms_socket: number;
 }
 
 export interface ThreadSettings {
@@ -110,6 +115,10 @@ export interface ThreadsFeed {
   page_size: number;
   unread: number;
   limits: ThreadLimits;
+  /** Socket settings, or null → poll. The same broadcaster as the chat. */
+  realtime: ChatRealtime | null;
+  /** The private channels this reader may join — the (teacher, grade) feeds they read. */
+  channels: string[];
   /** Teacher only. */
   settings?: ThreadSettings;
   grades?: ThreadGrade[];
@@ -121,6 +130,9 @@ export interface ThreadDetail {
   comments: ThreadComment[];
   report_reasons: Record<string, string>;
   limits: ThreadLimits;
+  realtime: ChatRealtime | null;
+  /** The channel this thread's changes are announced on: `threads.{teacher}.{grade}`. */
+  channel: string;
 }
 
 export interface ThreadPlay {
