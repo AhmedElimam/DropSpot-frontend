@@ -159,16 +159,32 @@ async function refreshAccessToken(): Promise<string | null> {
   return at;
 }
 
+/**
+ * The three auth endpoints a 401 must NEVER be refreshed for.
+ *
+ *  - /auth/login    a 401 is the wrong password, not an expired session.
+ *  - /auth/refresh  refreshing the refresh call is the obvious infinite loop.
+ *  - /auth/logout   a 401 means the session is ALREADY gone, so there is nothing to refresh
+ *                   and nothing to sign out of. Without it the failure handler ran
+ *                   endImpersonationOrLogout() → logout() → POST /auth/logout → 401 →
+ *                   itself, hundreds of times a second (founder 2026-09-20). logout()'s own
+ *                   try/catch could not stop it: the recursion is in the INTERCEPTOR, one
+ *                   level above the call being caught.
+ */
+const NO_REFRESH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout'];
+
+/** Exported for the regression test — the rule, without the axios machinery around it. */
+export function shouldAttemptRefresh(status: number | undefined, url: string | undefined, alreadyRetried: boolean): boolean {
+  if (status !== 401 || alreadyRetried) return false;
+
+  return !NO_REFRESH_PATHS.some((p) => (url ?? '').includes(p));
+}
+
 client.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
-    if (
-      error.response?.status === 401 &&
-      !original._retry &&
-      !original.url?.includes('/auth/login') &&
-      !original.url?.includes('/auth/refresh')
-    ) {
+    if (shouldAttemptRefresh(error.response?.status, original?.url, !!original?._retry)) {
       original._retry = true;
       try {
         // Join the in-flight refresh if one is already running; otherwise start it.

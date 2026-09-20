@@ -72,9 +72,33 @@ export interface TeacherInsights {
   presets: { key: InsightsRangeKey; label: string }[];
 }
 
+/**
+ * A response that is not JSON arrives as a STRING, not an object — a dev server prepending a
+ * PHP notice to the body, an HTML error page from a proxy, a captive portal. `data.data` is
+ * then undefined, `?? data` hands the screen that string, and the screen dies on
+ * `d.attendance.rate` — "cannot read property 'rate' of undefined" (founder 2026-09-20),
+ * which reads like a data bug and is really a transport one.
+ *
+ * Both screens already handle "no insights": manage skips the block, the insights screen
+ * shows its own empty state. They only needed to be TOLD. So a payload that is not shaped
+ * like insights is a failed request, not a value to pass on.
+ */
+function assertInsights(payload: unknown): TeacherInsights {
+  const ok = !!payload
+    && typeof payload === 'object'
+    && typeof (payload as TeacherInsights).attendance === 'object'
+    && (payload as TeacherInsights).attendance !== null;
+
+  if (!ok) {
+    throw new Error('insights: unexpected response shape');
+  }
+
+  return payload as TeacherInsights;
+}
+
 export async function getTeacherInsights(params: InsightsRangeParams = {}): Promise<TeacherInsights> {
   const { data } = await client.get('/teacher/insights', { params });
-  return (data.data ?? data) as TeacherInsights;
+  return assertInsights(data?.data ?? data);
 }
 
 /**
@@ -84,5 +108,11 @@ export async function getTeacherInsights(params: InsightsRangeParams = {}): Prom
  */
 export async function getInsightsPdfUrl(params: InsightsRangeParams = {}): Promise<string> {
   const { data } = await client.get('/teacher/insights/pdf-url', { params });
-  return (data.data ?? data).url as string;
+  const url = (data?.data ?? data)?.url;
+  // Same reasoning as assertInsights: a non-JSON body would otherwise be opened as a URL.
+  if (typeof url !== 'string' || url === '') {
+    throw new Error('insights: no pdf url in response');
+  }
+
+  return url;
 }
