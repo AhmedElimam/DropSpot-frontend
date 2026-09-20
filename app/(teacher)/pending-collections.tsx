@@ -96,8 +96,10 @@ export default function TeacherPendingCollections() {
             try {
               await cancelDueFromRoster(studentId, kind, chargeId);
               await qc.invalidateQueries({ queryKey: ['pending-collections'] });
-            } catch {
-              Alert.alert(t('common.error'), 'تعذّر إلغاء المستحق');
+            } catch (e: any) {
+              // Show the server's own sentence when it sent one — it names the actual
+              // reason; the generic line is only for a dead network.
+              Alert.alert(t('common.error'), e?.message || 'تعذّر إلغاء المستحق — تحقّق من الاتصال');
             }
           },
         },

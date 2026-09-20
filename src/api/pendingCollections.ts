@@ -92,10 +92,26 @@ export async function cancelDueFromRoster(
   kind: CollectKind,
   chargeId?: number,
 ): Promise<CancelDueResult> {
-  const { data } = await client.post('/teacher/pending-collections/cancel-due', {
-    student_id: studentId,
-    kind,
-    ...(chargeId != null ? { charge_id: chargeId } : {}),
-  });
-  return (data.data ?? data) as CancelDueResult;
+  try {
+    const { data } = await client.post('/teacher/pending-collections/cancel-due', {
+      student_id: studentId,
+      kind,
+      ...(chargeId != null ? { charge_id: chargeId } : {}),
+    });
+    return (data.data ?? data) as CancelDueResult;
+  } catch (e) {
+    // The server already says exactly WHY it refused, in Arabic the teacher can act on —
+    // «لا يوجد مستحق لإلغائه», «إلغاء المستحق متاح للمعلّم فقط», «غير متاح حاليًا». Throwing the
+    // raw axios error threw all of that away and left one unhelpful «تعذّر إلغاء المستحق» for
+    // every cause, so a refusal the teacher could fix was indistinguishable from a bug.
+    const d = (e as any)?.response?.data;
+    const msg = typeof d?.message === 'string' ? d.message.trim() : '';
+    if (msg) {
+      const err = new Error(msg);
+      (err as any).code = d?.code;
+      (err as any).status = (e as any)?.response?.status;
+      throw err;
+    }
+    throw e;
+  }
 }
