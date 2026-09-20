@@ -10,8 +10,9 @@ import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { formatEGP } from '@/utils/currency';
-import { getPendingCollections, collectFromRoster, type RosterStudent, type CollectKind } from '@/api/pendingCollections';
+import { getPendingCollections, collectFromRoster, cancelDueFromRoster, type RosterStudent, type CollectKind } from '@/api/pendingCollections';
 import { reverseStudentPayment } from '@/api/students';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 interface Target {
@@ -26,6 +27,11 @@ export default function TeacherPendingCollections() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
+  // Server-owned switch. The button ships over the air rather than through a store review,
+  // so the super-admin can withdraw it without waiting for another release; the endpoint
+  // refuses the call too, which is what actually protects a phone still on the old bundle.
+  const { data: flags } = useFeatureFlags();
+  const canCancelDue = !!flags?.cancel_pending_due;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['pending-collections'],
@@ -75,6 +81,41 @@ export default function TeacherPendingCollections() {
     ]);
   };
 
+  // «إلغاء المستحق» — write a due off WITHOUT collecting it. The opposite of cancelPayment
+  // above: that puts a debt BACK after undoing a payment, this forgives one never paid. The
+  // confirm names the amount, because the teacher is giving up money and the roster row it
+  // is tapped from shows a remainder, not a total.
+  const cancelDue = (studentId: number, name: string, kind: CollectKind, remaining: number, chargeId?: number) => {
+    Alert.alert(
+      'إلغاء المستحق',
+      `إلغاء مستحق «${name}» بقيمة ${formatEGP(remaining)} دون تحصيل؟ لن يُطلب من الطالب دفعه.`,
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: 'إلغاء المستحق', style: 'destructive', onPress: async () => {
+            try {
+              await cancelDueFromRoster(studentId, kind, chargeId);
+              await qc.invalidateQueries({ queryKey: ['pending-collections'] });
+            } catch {
+              Alert.alert(t('common.error'), 'تعذّر إلغاء المستحق');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // Amber, not the red of «إلغاء الدفع» — two destructive buttons sit on the same row and
+  // must never be tapped for one another.
+  const CancelDueButton = ({ onPress }: { onPress: () => void }) => (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{ borderWidth: 1, borderColor: colors.warning, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 4 }}
+    >
+      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.warning }}>إلغاء المستحق</Text>
+    </TouchableOpacity>
+  );
+
   const Badge = ({ text, color }: { text: string; color: string }) => (
     <View style={{ backgroundColor: color + '1f', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 12, color }}>{text}</Text>
@@ -117,6 +158,9 @@ export default function TeacherPendingCollections() {
                 >
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('collections.collect')}</Text>
                 </TouchableOpacity>
+                {canCancelDue && bill.total > 0 ? (
+                  <CancelDueButton onPress={() => cancelDue(item.student_id, item.name, 'bill', bill.total)} />
+                ) : null}
               </>
             )}
           </View>
@@ -140,6 +184,9 @@ export default function TeacherPendingCollections() {
             >
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('collections.collect')}</Text>
             </TouchableOpacity>
+            {canCancelDue && bk.amount > 0 ? (
+              <CancelDueButton onPress={() => cancelDue(item.student_id, item.name, 'booklet', bk.amount, bk.id)} />
+            ) : null}
           </View>
         ))}
 
@@ -161,6 +208,9 @@ export default function TeacherPendingCollections() {
             >
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('collections.collect')}</Text>
             </TouchableOpacity>
+            {canCancelDue && bk.remaining > 0 ? (
+              <CancelDueButton onPress={() => cancelDue(item.student_id, item.name, 'booking', bk.remaining, bk.id)} />
+            ) : null}
           </View>
         ))}
       </View>
