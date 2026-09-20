@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, router, type Href } from 'expo-router';
 import { View, Text, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
 import { BottomTabBar } from '@react-navigation/bottom-tabs';
 import NetInfo from '@react-native-community/netinfo';
@@ -10,13 +10,30 @@ import { useOfflineStore } from '@/stores/offlineStore';
 import { initOfflineScans } from '@/db/offlineScans';
 import { triggerAutoSync } from '@/db/autoSync';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
-import { registerForPushNotifications } from '@/utils/push-notifications';
+import { registerForPushNotifications, setupNotificationResponseHandler } from '@/utils/push-notifications';
 import { sendDeviceHeartbeat } from '@/api/device';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
+import { useThreadsEnabled, useThreadsUnread } from '@/hooks/useThreads';
+
+/**
+ * Where a tapped push lands a teacher. Threads (a timer ran out, a report, a capture attempt,
+ * a new answer) open the thread; chat opens the room; anything else stays where it is.
+ */
+function teacherNotificationRoute(type: string, data: Record<string, unknown>): Href | null {
+  if (type.startsWith('thread_')) {
+    const threadId = data?.thread_id;
+    return threadId ? (`/(teacher)/tickets/threads/${threadId}` as Href) : ('/(teacher)/tickets' as Href);
+  }
+  if (type.startsWith('chat_')) {
+    const courseId = data?.course_id;
+    return courseId != null ? (`/(teacher)/tickets/chat/${courseId}` as Href) : ('/(teacher)/tickets' as Href);
+  }
+  return null;
+}
 
 /**
  * Teacher (and assistant) app — a 5-tab bar (home · camera · students · tickets ·
@@ -65,7 +82,7 @@ function shouldHideBar(state: { routes: { name: string; state?: unknown }[]; ind
     // reply box + keyboard.
     const nested = tab.state as { routes?: { name: string }[]; index?: number } | undefined;
     const nestedName = nested?.routes?.[nested?.index ?? 0]?.name;
-    return nestedName === '[id]' || nestedName === 'chat/[courseId]';
+    return nestedName === '[id]' || nestedName === 'chat/[courseId]' || nestedName === 'threads/[id]';
   }
   return false;
 }
@@ -84,8 +101,21 @@ export default function TeacherTabLayout() {
   // Chat lives inside the Conversations tab; its unread count is what badges that tab.
   // Inert while the feature is off — the hook makes no request.
   const chatEnabled = useChatEnabled();
+  const threadsEnabled = useThreadsEnabled();
   const { data: chatChannels } = useChatChannels(chatEnabled);
-  const chatUnread = (chatChannels ?? []).reduce((n, c) => n + (c.unread || 0), 0);
+  const { data: threadsUnread } = useThreadsUnread(threadsEnabled);
+  const chatUnread = (chatChannels ?? []).reduce((n, c) => n + (c.unread || 0), 0) + (threadsUnread ?? 0);
+  const conversations = chatEnabled || threadsEnabled;
+
+  // A tapped push lands on the thing it is about (thread, room). The teacher layout never
+  // had a response handler — a teacher's pushes opened the app and stopped there.
+  useEffect(() => {
+    const sub = setupNotificationResponseHandler((data) => {
+      const route = teacherNotificationRoute(String(data?.type ?? ''), data);
+      if (route) router.push(route);
+    });
+    return () => sub.remove();
+  }, []);
 
   // Ensure the offline buffer table exists, seed the pending count, and refresh
   // it whenever the app returns to the foreground (a chance to reconcile).
@@ -194,7 +224,7 @@ export default function TeacherTabLayout() {
         tabBarLabel: ({ focused }) => {
           // The tickets tab holds chat too once the feature is on, so it stops being
           // "التذاكر" and becomes "المحادثات".
-          const labelKey = route.name === 'tickets' && chatEnabled
+          const labelKey = route.name === 'tickets' && conversations
             ? 'chat.conversations'
             : labels[route.name];
           return labelKey ? (

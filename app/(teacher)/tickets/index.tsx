@@ -14,6 +14,11 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
 import { ChatRoomsList } from '@/components/chat/ChatRoomsList';
+import { useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
+import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
+import { ComposeThreadSheet } from '@/components/threads/ComposeThreadSheet';
+import { ReportsSheet, SettingsSheet } from '@/components/threads/ThreadSheets';
+import type { IconName } from '@/components/ui/Icon';
 
 // Left-edge accent per ticket state.
 const statusColors: Record<string, [string, string]> = {
@@ -44,15 +49,25 @@ export default function TeacherConversations() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const chatEnabled = useChatEnabled();
-  const [tab, setTab] = useState<'chat' | 'tickets'>(chatEnabled ? 'chat' : 'tickets');
+  const threadsEnabled = useThreadsEnabled();
+  const segmented = chatEnabled || threadsEnabled;
+  const [tab, setTab] = useState<'threads' | 'chat' | 'tickets'>(threadsEnabled ? 'threads' : chatEnabled ? 'chat' : 'tickets');
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
 
   const { data: tickets, isLoading, isError, refetch } = useTickets();
   const { data: channels, refetch: refetchChat } = useChatChannels(chatEnabled);
-  const { refreshing, onRefresh } = usePullRefresh(refetch, ...(chatEnabled ? [refetchChat] : []));
+  const { data: threadsFeed, refetch: refetchThreads } = useThreadsFeed(threadsEnabled);
+  const { data: threadsUnread, refetch: refetchThreadsUnread } = useThreadsUnread(threadsEnabled);
+  const { refreshing, onRefresh } = usePullRefresh(refetch, ...(chatEnabled ? [refetchChat] : []), ...(threadsEnabled ? [refetchThreads, refetchThreadsUnread] : []));
 
   const chatUnread = (channels ?? []).reduce((n, c) => n + (c.unread || 0), 0);
   const openTickets = (tickets ?? []).filter((x) => x.status === 'open' || x.status === 'in_progress').length;
   const showChat = chatEnabled && tab === 'chat';
+  const showThreads = threadsEnabled && tab === 'threads';
+  const threadsBadge = (threadsUnread ?? 0) + (threadsFeed?.open_reports ?? 0);
+  const openThread = (id: number) => router.push(`/(teacher)/tickets/threads/${id}` as Href);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -65,31 +80,53 @@ export default function TeacherConversations() {
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: chatEnabled ? spacing.xl : spacing.xl4 }}
+          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: segmented ? spacing.xl : spacing.xl4 }}
         >
           <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.white, letterSpacing: -0.5 }}>
-            {chatEnabled ? t('chat.conversations') : t('tickets.title')}
+            {segmented ? t('chat.conversations') : t('tickets.title')}
           </Text>
           <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
-            {showChat
-              ? t('chat.members_count', { count: (channels ?? []).length })
-              : t('tickets.count', { count: tickets?.length ?? 0 })}
+            {showThreads
+              ? t('threads.subtitle_teacher')
+              : showChat
+                ? t('chat.members_count', { count: (channels ?? []).length })
+                : t('tickets.count', { count: tickets?.length ?? 0 })}
           </Text>
         </LinearGradient>
 
-        {chatEnabled ? (
+        {segmented ? (
           <View style={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.md }}>
-            <Segment label={t('chat.tab_chat')} icon="chat" active={tab === 'chat'} badge={chatUnread} onPress={() => setTab('chat')} />
+            {threadsEnabled ? <Segment label={t('threads.tab')} icon="threads" active={tab === 'threads'} badge={threadsBadge} onPress={() => setTab('threads')} /> : null}
+            {chatEnabled ? <Segment label={t('chat.tab_chat')} icon="chat" active={tab === 'chat'} badge={chatUnread} onPress={() => setTab('chat')} /> : null}
             <Segment label={t('chat.tab_tickets')} icon="tickets" active={tab === 'tickets'} badge={openTickets} onPress={() => setTab('tickets')} />
           </View>
         ) : null}
 
-        {showChat ? (
+        {showThreads ? (
+          <View style={{ paddingHorizontal: spacing.lg }}>
+            <ThreadsFeed
+              onOpen={openThread}
+              onCompose={() => setComposeOpen(true)}
+              onSettings={() => setSettingsOpen(true)}
+              onReports={() => setReportsOpen(true)}
+            />
+            <ComposeThreadSheet
+              visible={composeOpen}
+              grades={threadsFeed?.grades ?? []}
+              settings={threadsFeed?.settings}
+              limits={threadsFeed?.limits}
+              onClose={() => setComposeOpen(false)}
+              onCreated={(id) => { setComposeOpen(false); openThread(id); }}
+            />
+            <SettingsSheet visible={settingsOpen} settings={threadsFeed?.settings} onClose={() => setSettingsOpen(false)} />
+            <ReportsSheet visible={reportsOpen} onClose={() => setReportsOpen(false)} onOpenThread={(id) => { setReportsOpen(false); openThread(id); }} />
+          </View>
+        ) : showChat ? (
           <View style={{ backgroundColor: colors.surface, marginHorizontal: spacing.lg, borderRadius: radius.xl, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <ChatRoomsList onOpen={(courseId) => router.push(`/(teacher)/tickets/chat/${courseId}` as Href)} />
           </View>
         ) : (
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: chatEnabled ? 0 : -spacing.lg, gap: spacing.md }}>
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: segmented ? 0 : -spacing.lg, gap: spacing.md }}>
             {isLoading ? (
               <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
             ) : isError ? (
@@ -156,7 +193,7 @@ export default function TeacherConversations() {
 
 function Segment({ label, icon, active, badge, onPress }: {
   label: string;
-  icon: 'chat' | 'tickets';
+  icon: IconName;
   active: boolean;
   badge: number;
   onPress: () => void;

@@ -1,4 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
+// Import the ONE family directly, never the '@expo/vector-icons' barrel: Metro does no
+// tree-shaking, so the barrel drags every family's font file (MaterialCommunityIcons alone
+// is 1.3 MB) into the APK as assets the app never draws.
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
@@ -76,6 +79,18 @@ const ICON_MAP = {
   close: 'close',
   download: 'download',
   'person-remove': 'person-remove',
+  // Threads («النقاشات»): question feed, votes, timer, the answer video and the recorder.
+  threads: 'chatbox-ellipses',
+  question: 'help-circle',
+  thumbUp: 'thumbs-up',
+  thumbDown: 'thumbs-down',
+  timer: 'timer',
+  video: 'videocam',
+  stop: 'stop-circle',
+  shield: 'shield-checkmark',
+  people: 'people',
+  flipCamera: 'camera-reverse',
+  lightbulb: 'bulb',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;
