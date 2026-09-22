@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
 
@@ -77,8 +78,12 @@ interface IconProps {
   style?: ComponentProps<typeof Ionicons>['style'];
 }
 
-export function Icon({ name, size = 22, color = '#0F172A', outline = false, style }: IconProps) {
+// memo: a pure leaf whose props are primitives, rendered in roughly 400 places —
+// several per list row. Without it every icon on screen re-rendered whenever its screen
+// did, which on a roster or a session list is hundreds of wasted renders per keystroke
+// or poll tick (Android slowness, 2026-09-22).
+export const Icon = memo(function Icon({ name, size = 22, color = '#0F172A', outline = false, style }: IconProps) {
   const base = ICON_MAP[name];
   const glyph = (outline ? `${base}-outline` : base) as IoniconName;
   return <Ionicons name={glyph} size={size} color={color} style={style} />;
-}
+});

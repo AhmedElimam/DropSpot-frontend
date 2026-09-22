@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { fonts } from './typography';
 export { fonts } from './typography';
 
@@ -94,28 +95,46 @@ export const radius = {
 /**
  * Elevation — neutral ink shadows, softer and calmer than the old indigo glow.
  * Keys are unchanged (sm/md/lg/glow) so existing consumers keep working.
+ *
+ * ANDROID GETS NO SHADOW, ON PURPOSE (2026-09-22).
+ * `shadowColor/Offset/Opacity/Radius` are iOS-only — Android ignores them and reads
+ * `elevation` alone. Every elevated view on Android is promoted to its OWN render layer
+ * whose shadow is rasterised each time it is drawn, and the cost is per view, not per
+ * pixel of shadow: `elevation: 1` on a list row is nearly as expensive as `elevation: 8`.
+ * These presets are spread into 81 places — cards, rows, headers, badges — so a roster
+ * or a session list was asking an entry-level GPU for dozens of extra layers on every
+ * frame it scrolled. That is GPU time and heat, and it is the largest single graphics
+ * cost in the app on the devices that complained (Redmi Note 11S and older, slow
+ * scrolling + heat).
+ *
+ * The trade is visual: on Android, cards are FLAT. They stay legible because `surface`
+ * is lighter than `background` and most cards already carry a 1px border. iOS is
+ * untouched. To put the shadows back, set ANDROID_ELEVATION to true.
  */
+const ANDROID_ELEVATION = false;
+const el = (n: number) => (Platform.OS === 'android' && !ANDROID_ELEVATION ? {} : { elevation: n });
+
 export const shadows = {
   sm: {
     shadowColor: '#1A2140',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 3,
-    elevation: 1,
+    ...el(1),
   },
   md: {
     shadowColor: '#1A2140',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
-    elevation: 3,
+    ...el(3),
   },
   lg: {
     shadowColor: '#1A2140',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.12,
     shadowRadius: 24,
-    elevation: 8,
+    ...el(8),
   },
   // Used by the bottom tab bar — a soft lift, no coloured glow
   glow: {
@@ -123,7 +142,7 @@ export const shadows = {
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
-    elevation: 8,
+    ...el(8),
   },
 } as const;
 

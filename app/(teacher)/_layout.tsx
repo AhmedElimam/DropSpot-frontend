@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import type { ComponentProps } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Redirect, Tabs } from 'expo-router';
 import { View, Text, ActivityIndicator, AppState, type AppStateStatus, StyleSheet } from 'react-native';
 import { BottomTabBar } from '@react-navigation/bottom-tabs';
@@ -145,23 +146,16 @@ export default function TeacherTabLayout() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  return (
-    <>
-    {/* Relocation prompt — teachers only (assistants never edit geofence anchors). */}
-    {isAuthenticated && role === 'teacher' ? <RelocationPrompt enabled /> : null}
-    <Tabs
-      // Hardware back follows the actual visit history, not the default "jump to the
-      // first tab" — so pushed detail screens (courses, insights, pending-collections,
-      // …, all registered here as href:null tab routes) pop back to where you came from
-      // instead of teleporting Home.
-      backBehavior="history"
-      // Render NO bar on full-screen surfaces (invite scanner, open ticket) by not
-      // mounting the bar component for them. Every real tab shows the bar.
-      tabBar={(props) => {
-        if (shouldHideBar(props.state)) return null;
-        return <BottomTabBar {...props} />;
-      }}
-      screenOptions={({ route }) => ({
+  // screenOptions is MEMOISED and its label/icon are module-level components.
+  //
+  // It used to be an inline arrow returning a fresh object — with fresh `tabBarLabel` and
+  // `tabBarIcon` closures — for EVERY ONE of the 36 registered screens. This layout
+  // re-renders whenever the offline badge changes (pending/rejected scans), so a single
+  // sync tick rebuilt 36 option objects and re-rendered the whole tab bar. On an
+  // entry-level device that is a visible stutter on a screen the teacher never left.
+  // Only `insets` and `t` actually affect the result, so that is all it depends on.
+  const screenOptions = useMemo<ComponentProps<typeof Tabs>['screenOptions']>(
+    () => ({ route }) => ({
         headerShown: false,
         freezeOnBlur: true,
         // Consistent scene background so a tab switch never flashes a white frame
@@ -213,7 +207,27 @@ export default function TeacherTabLayout() {
             />
           </View>
         ),
-      })}
+    }),
+    [insets.bottom, t],
+  );
+
+  return (
+    <>
+    {/* Relocation prompt — teachers only (assistants never edit geofence anchors). */}
+    {isAuthenticated && role === 'teacher' ? <RelocationPrompt enabled /> : null}
+    <Tabs
+      // Hardware back follows the actual visit history, not the default "jump to the
+      // first tab" — so pushed detail screens (courses, insights, pending-collections,
+      // …, all registered here as href:null tab routes) pop back to where you came from
+      // instead of teleporting Home.
+      backBehavior="history"
+      // Render NO bar on full-screen surfaces (invite scanner, open ticket) by not
+      // mounting the bar component for them. Every real tab shows the bar.
+      tabBar={(props) => {
+        if (shouldHideBar(props.state)) return null;
+        return <BottomTabBar {...props} />;
+      }}
+      screenOptions={screenOptions}
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen

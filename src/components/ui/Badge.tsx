@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Text } from 'react-native';
 import { fonts } from '@/theme/typography';
 import { colors } from '@/theme/index';
@@ -20,7 +21,8 @@ const badgeColors: Record<BadgeVariant, { bg: string; text: string }> = {
   info: { bg: colors.infoLight, text: colors.infoText },
 };
 
-export function Badge({ label, variant = 'default', size = 'md' }: BadgeProps) {
+// memo: a pure leaf, and it sits inside list rows (attendance, collections, proofs).
+export const Badge = memo(function Badge({ label, variant = 'default', size = 'md' }: BadgeProps) {
   const { bg, text } = badgeColors[variant];
   const isSm = size === 'sm';
 
@@ -45,4 +47,4 @@ export function Badge({ label, variant = 'default', size = 'md' }: BadgeProps) {
       </Text>
     </View>
   );
-}
+});

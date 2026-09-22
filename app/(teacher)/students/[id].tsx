@@ -50,7 +50,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// How many attendance rows the screen builds before the user asks for the rest.
+const ATTENDANCE_PREVIEW = 12;
+
 export default function StudentDetailScreen() {
+  const [showAllAttendance, setShowAllAttendance] = useState(false);
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -800,7 +804,14 @@ export default function StudentDetailScreen() {
             {s.attendance.length === 0 ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary }}>{t('teacher.no_attendance')}</Text>
             ) : (
-              s.attendance.map((r) => {
+              /* Only the most recent slice is built on mount. The server returns a
+                 student's ENTIRE attendance history unpaginated, and this is a plain
+                 ScrollView, so every row was constructed and laid out before the screen
+                 could appear — five views each, hundreds of them for a student enrolled a
+                 full term. That is the delay felt when opening a student (Android
+                 slowness reports, 2026-09-22). The rest is one tap away and almost never
+                 wanted: a teacher opens this screen for the recent picture. */
+              (showAllAttendance ? s.attendance : s.attendance.slice(0, ATTENDANCE_PREVIEW)).map((r) => {
                 const meta = STATUS_META[r.status] ?? STATUS_META.not_recorded;
                 return (
                   <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
@@ -813,6 +824,17 @@ export default function StudentDetailScreen() {
                 );
               })
             )}
+            {!showAllAttendance && s.attendance.length > ATTENDANCE_PREVIEW ? (
+              <TouchableOpacity
+                onPress={() => setShowAllAttendance(true)}
+                style={{ paddingVertical: spacing.md, alignItems: 'center' }}
+                accessibilityRole="button"
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>
+                  {`عرض السجل كامل (${s.attendance.length})`}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </Section>
         </ScrollView>
       )}
