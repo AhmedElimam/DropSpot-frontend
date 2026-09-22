@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import type { User } from '@/types/user';
+import { setCachedAccessToken } from '@/api/tokenCache';
 
 export type UserRole = 'student' | 'parent' | 'teacher' | 'assistant' | 'admin';
 
@@ -107,6 +108,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     setTokens: async (access, refresh) => {
       await SecureStore.setItemAsync('access_token', access);
+      setCachedAccessToken(access);
       await SecureStore.setItemAsync('refresh_token', refresh);
     },
 
@@ -138,6 +140,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       await SecureStore.deleteItemAsync('imp_admin_refresh');
       await SecureStore.deleteItemAsync('imp_admin_user');
       await SecureStore.setItemAsync('access_token', adminToken);
+      setCachedAccessToken(adminToken);
       await SecureStore.setItemAsync('refresh_token', adminRefresh ?? '');
 
       if (! adminUserRaw) {
@@ -168,6 +171,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
         // Offline or already-expired token: the local sign-out is what the user sees.
       }
       await SecureStore.deleteItemAsync('access_token');
+      setCachedAccessToken(null);
       await SecureStore.deleteItemAsync('refresh_token');
       await SecureStore.deleteItemAsync(SESSION_KEY);
       // Never leave impersonation-restore crumbs behind after a full sign-out

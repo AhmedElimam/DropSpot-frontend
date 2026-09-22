@@ -106,7 +106,8 @@ export default function StudentTabLayout() {
 
         return {
         headerShown: false,
-        tabBarStyle: hideBar ? { display: 'none' } : {
+        freezeOnBlur: true,
+        tabBarStyle: {
           backgroundColor: 'rgba(255,255,255,0.92)',
           borderTopWidth: 0,
           paddingTop: 8,

@@ -105,6 +105,7 @@ export default function ParentTabLayout() {
 
         return {
         headerShown: false,
+          freezeOnBlur: true,
         tabBarStyle: hideBar
           ? { display: 'none' }
           : {

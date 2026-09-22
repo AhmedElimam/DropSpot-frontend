@@ -95,6 +95,22 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       android: {
         minSdkVersion: 24,
         ndkVersion: '30.0.14904198',
+        // R8 in release builds: shrink, optimise and OBFUSCATE the Java/Kotlin side.
+        // Google Play flagged release 1.2.2 ("DEX code optimisation below threshold —
+        // Obfuscation 1%"), which can limit the listing's visibility. The switch had been
+        // set in app.json, but THIS file replaces `plugins` wholesale (see the note above
+        // `extra`), so it never reached a build; and app.json used the SDK-53 key name,
+        // which the SDK-54 Gradle template no longer reads. This is the only place that
+        // counts. R8 also drops the unreferenced native code every linked library carries
+        // (the release-stub dev launcher included), which is a smaller DEX to load on the
+        // low-end Android devices the app has felt heavy on (assistants + Play Console,
+        // 2026-09-22: slow, hot, memory).
+        // Every native dependency ships its own consumer keep rules; RN's own rules keep
+        // the @ReactProp/@ReactMethod/@DoNotStrip members it reaches by reflection, so no
+        // project rules are needed. Add `extraProguardRules` here only for a REPRODUCED
+        // release-build failure — each blanket -keep lowers the obfuscation score.
+        enableMinifyInReleaseBuilds: true,
+        enableShrinkResourcesInReleaseBuilds: true,
       },
       // Static frameworks for the CocoaPods Firebase iOS SDK (SPM is disabled below via
       // withRNFirebaseDisableSPM — RNFirebase's SPM path is incompatible with Expo's static linkage).

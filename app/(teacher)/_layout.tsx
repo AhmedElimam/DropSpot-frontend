@@ -174,6 +174,7 @@ export default function TeacherTabLayout() {
       }}
       screenOptions={({ route }) => ({
         headerShown: false,
+        freezeOnBlur: true,
         // Consistent scene background so a tab switch never flashes a white frame
         // between two screens (e.g. the black scanner and a cream screen).
         sceneStyle: { backgroundColor: colors.background },
@@ -225,7 +226,9 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen
         name="scan"
-        options={{ tabBarBadge: needsAttention > 0 ? needsAttention : undefined }}
+        // NOT frozen: the camera unmounts through a re-render on blur, and a frozen screen
+        // skips exactly that render — the sensor would keep running behind another tab.
+        options={{ tabBarBadge: needsAttention > 0 ? needsAttention : undefined, freezeOnBlur: false }}
       />
       <Tabs.Screen name="students" />
       {/* Management hub — courses, location, schedule tools. */}
@@ -251,7 +254,7 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="venues" options={{ href: null }} />
       <Tabs.Screen name="reconcile" options={{ href: null }} />
       {/* Enroll-by-card (invite student) — pushed from Home; full screen, no bar. */}
-      <Tabs.Screen name="enroll" options={{ href: null }} />
+      <Tabs.Screen name="enroll" options={{ href: null, freezeOnBlur: false }} />{/* camera screen — see scan */}
       {/* Fast student recording (name + parent phone) — pushed from Home, not a tab. */}
       <Tabs.Screen name="record-student" options={{ href: null }} />
       <Tabs.Screen name="revision-create" options={{ href: null }} />

@@ -43,8 +43,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # v4, not v3: v3's default package list was "tools platform-tools", and Google has
+      # REMOVED the obsolete `tools` package from the SDK repository, so every v3 run now
+      # dies with "Failed to find package 'tools'" before the build even starts (seen
+      # 2026-09-22). v4 defaults to platform-tools alone. The runner image already ships
+      # the SDK; this step only accepts licences and exports ANDROID_HOME.
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Prebuild native Android project
         run: npx expo prebuild --platform android --no-install
