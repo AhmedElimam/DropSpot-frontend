@@ -27,7 +27,7 @@ NetInfo.configure({
   reachabilityShortTimeout: 60 * 1000,
   reachabilityRequestTimeout: 10 * 1000,
 });
-import { QueryClient, QueryClientProvider, focusManager, onlineManager } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
@@ -70,15 +70,13 @@ AppState.addEventListener('change', (status: AppStateStatus) => {
   focusManager.setFocused(status === 'active');
 });
 
-// Likewise, React Query had no idea when the device was offline, so a query whose request
-// failed retried on a timer into a dead connection — the exact situation (weak signal)
-// where the radio costs the most power. Now it simply waits for connectivity and fires
-// once, instead of hammering.
-onlineManager.setEventListener((setOnline) =>
-  NetInfo.addEventListener((state) => {
-    setOnline(state.isConnected !== false);
-  }),
-);
+// NOT wired on purpose: `onlineManager`. Telling React Query when the device is offline
+// would make it PAUSE queries and mutations instead of letting them run and fail — and
+// this app has 141 mutations plus a door-scanning flow whose whole offline design is
+// built on a request failing (the scanner buffers from its own `useOfflineStore` flag,
+// and screens surface an error the user can act on). Pausing them would turn a clear
+// failure into a spinner that never resolves, in exactly the patchy-signal venues where
+// the app is used. The radio saving is already taken by NetInfo.configure above.
 
 const queryClient = new QueryClient({
   defaultOptions: {
