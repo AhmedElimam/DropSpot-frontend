@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore, resolveRole } from '@/stores/authStore';
 import { ensureApiBaseHydrated, getApiBaseOverride } from '@/api/apiBase';
+import { getCachedAccessToken, setCachedAccessToken } from '@/api/tokenCache';
 import { resolveAppId } from '@/utils/appIdentity';
 
 /**
@@ -88,11 +89,15 @@ client.interceptors.request.use(async (config) => {
   // right after a cold boot) must not reject the whole request — fall through
   // unauthenticated and let the 401 refresh path handle it, rather than surfacing
   // a network error / reload screen.
-  let token: string | null = null;
-  try {
-    token = await SecureStore.getItemAsync('access_token');
-  } catch {
-    token = null;
+  // Read the keystore ONCE per process; every later request takes the in-memory copy.
+  let token: string | null | undefined = getCachedAccessToken();
+  if (token === undefined) {
+    try {
+      token = await SecureStore.getItemAsync('access_token');
+    } catch {
+      token = null;
+    }
+    if (token !== null) setCachedAccessToken(token);
   }
   if (token) config.headers.Authorization = `Bearer ${token}`;
   // App version for server-side observability (never a hard gate — the blocking
@@ -144,6 +149,7 @@ async function refreshAccessToken(): Promise<string | null> {
   const at = attrs.tokens?.access_token;
   if (!at) return null;
   await SecureStore.setItemAsync('access_token', at);
+  setCachedAccessToken(at);
   // The server ROTATES the refresh token on every refresh (it revokes the one we just
   // sent). We MUST persist the new one it returns, or the next refresh would replay a
   // revoked token and force a logout.

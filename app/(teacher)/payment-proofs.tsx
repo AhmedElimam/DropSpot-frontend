@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Image, Modal, TextInput, KeyboardAvoidingView, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, KeyboardAvoidingView, Alert } from 'react-native';
+// expo-image decodes to the rendered size. The old Image decoded every proof screenshot at
+// full resolution (a 12 MP shot is ~48 MB as a bitmap) for a 64 px thumbnail — twenty proofs
+// in the list was the memory pressure Play Console reported.
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,7 +69,7 @@ export default function PaymentProofsScreen() {
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <TouchableOpacity onPress={() => setPreview(p.image_url)} activeOpacity={0.85}>
-          <Image source={{ uri: p.image_url }} style={{ width: 64, height: 64, borderRadius: radius.md, backgroundColor: colors.surfaceSunken }} resizeMode="cover" />
+          <Image source={{ uri: p.image_url }} style={{ width: 64, height: 64, borderRadius: radius.md, backgroundColor: colors.surfaceSunken }} contentFit="cover" recyclingKey={String(p.id)} />
           <View style={{ position: 'absolute', bottom: 2, insetInlineEnd: 2, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, padding: 2 }}>
             <Icon name="eye" size={12} color="#fff" />
           </View>
@@ -157,7 +161,7 @@ export default function PaymentProofsScreen() {
       {/* Screenshot lightbox */}
       <Modal visible={!!preview} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
         <TouchableOpacity activeOpacity={1} onPress={() => setPreview(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: spacing.lg }}>
-          {preview ? <Image source={{ uri: preview }} style={{ width: '100%', height: '80%' }} resizeMode="contain" /> : null}
+          {preview ? <Image source={{ uri: preview }} style={{ width: '100%', height: '80%' }} contentFit="contain" /> : null}
           <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: spacing.md }}>{t('common.close')}</Text>
         </TouchableOpacity>
       </Modal>

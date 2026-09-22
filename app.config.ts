@@ -103,7 +103,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         // which the SDK-54 Gradle template no longer reads. This is the only place that
         // counts. R8 also drops the unreferenced native code every linked library carries
         // (the release-stub dev launcher included), which is a smaller DEX to load on the
-        // low-end Android devices the app has felt heavy on.
+        // low-end Android devices the app has felt heavy on (assistants + Play Console,
+        // 2026-09-22: slow, hot, memory).
         // Every native dependency ships its own consumer keep rules; RN's own rules keep
         // the @ReactProp/@ReactMethod/@DoNotStrip members it reaches by reflection, so no
         // project rules are needed. Add `extraProguardRules` here only for a REPRODUCED
