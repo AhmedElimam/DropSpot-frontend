@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, Image, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, spacing, radius, fonts } from '@/theme/index';
@@ -122,7 +123,7 @@ export function PaymentProofButton({ invoice }: { invoice: Invoice }) {
               >
                 {imageUri ? (
                   <>
-                    <Image source={{ uri: imageUri }} style={{ width: '100%', height: 200, borderRadius: radius.sm, resizeMode: 'contain' }} />
+                    <Image source={{ uri: imageUri }} style={{ width: '100%', height: 200, borderRadius: radius.sm }} contentFit="contain" />
                     <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.success, marginTop: spacing.sm }}>
                       {t('invoices.screenshot_selected')}
                     </Text>

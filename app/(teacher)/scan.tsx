@@ -127,6 +127,13 @@ export default function TeacherScan() {
   // stray codes. Tap the lock to engage, HOLD it to release (so a stray tap can't
   // undo it). No code — deliberately simple.
   const [locked, setLocked] = useState(false);
+  // Idle: no card for IDLE_MS → the SENSOR is paused (`active={false}`), not just the
+  // analyser. The camera preview alone kept a Redmi Note 11S hot through a whole session
+  // (assistants, 2026-09-22): a door phone sits on a desk for most of an hour, and the
+  // lock below deliberately kept "the camera preview" running. A tap brings it back.
+  const [idle, setIdle] = useState(false);
+  const lastActivityRef = useRef(Date.now());
+  const IDLE_MS = 3 * 60 * 1000;
   const [feedback, setFeedback] = useState<ScanResult | null>(null);
   const [busy, setBusy] = useState(false);
   // Off-roster guest prompt (revision mode) + the add-by-phone form.
@@ -169,11 +176,28 @@ export default function TeacherScan() {
   }, []);
 
   // `locked` pauses scanning too — while the scanner is locked no card is read.
-  const paused = locked || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup;
+  const paused = locked || idle || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup;
+  // The sensor itself runs only when there is something to read for. Locked or idle,
+  // the preview goes dark and the phone stops heating; the screen stays mounted so the
+  // teacher's session context is untouched.
+  const cameraActive = isFocused && !locked && !idle;
+
+  const touch = useCallback(() => { lastActivityRef.current = Date.now(); if (idle) setIdle(false); }, [idle]);
+  useEffect(() => {
+    if (!isFocused) return;
+    touch();
+    const id = setInterval(() => {
+      if (!locked && Date.now() - lastActivityRef.current > IDLE_MS) setIdle(true);
+    }, 15_000);
+    return () => clearInterval(id);
+    // `touch` changes identity with `idle`; the interval only needs the ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFocused, locked, IDLE_MS]);
 
   const handleScan = useCallback(
     async ({ data, bounds, cornerPoints }: { data: string; bounds?: { origin?: Pt; size?: { width: number; height: number } }; cornerPoints?: Pt[] }) => {
       const now = Date.now();
+      lastActivityRef.current = now;
       if (paused) return;
       // Focus gate: only accept a code whose centre is inside the aiming frame, so a
       // card must be lined up in the box — not read from anywhere in the view. When
@@ -497,6 +521,7 @@ export default function TeacherScan() {
       {isFocused ? (
         <CameraView
           style={{ flex: 1 }}
+          active={cameraActive}
           facing="back"
           enableTorch={torch}
           // Dros Spot cards carry ONLY a QR (back) + a Code128 barcode (front), both
@@ -575,13 +600,32 @@ export default function TeacherScan() {
         </View>
       )}
 
+      {/* Idle overlay — the camera is off to spare the battery; any tap wakes it. */}
+      {idle && !locked ? (
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={touch}
+          accessibilityRole="button"
+          accessibilityLabel="الكاميرا متوقفة — اضغط للاستئناف"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}
+        >
+          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="scan" size={44} color="#fff" />
+          </View>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: spacing.lg }}>الكاميرا في وضع الراحة</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginTop: spacing.sm, textAlign: 'center' }}>
+            لا بطاقات منذ دقائق، فأُطفئت الكاميرا لتوفير البطارية. اضغط في أي مكان للاستئناف.
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+
       {/* Locked overlay — scanning is paused. The overlay ITSELF is the unlock target:
           hold anywhere to resume (it covers the header, so the header lock button can't
           receive the long-press). Tap does nothing so a stray tap can't unlock. */}
       {locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup ? (
         <TouchableOpacity
           activeOpacity={1}
-          onLongPress={() => { setLocked(false); Vibration.vibrate(30); }}
+          onLongPress={() => { setLocked(false); touch(); Vibration.vibrate(30); }}
           delayLongPress={700}
           accessibilityRole="button"
           accessibilityLabel="إلغاء وضع القفل — اضغط مطولاً"

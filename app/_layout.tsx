@@ -4,6 +4,15 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
+import { enableFreeze } from 'react-native-screens';
+
+// Hidden tab screens stop rendering. Every role's detail screens are registered as
+// `href: null` TAB routes (30 of them for a teacher), so each one visited in a session
+// stays mounted and kept re-rendering on every data change while invisible — CPU, heat
+// and memory that grew with the session (Play Console 2026-09-22: memory + performance;
+// founder: "slow routing"). With freeze on, an unfocused screen keeps its state but
+// renders nothing until it is shown again. `freezeOnBlur` is set per navigator.
+enableFreeze(true);
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';

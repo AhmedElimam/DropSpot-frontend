@@ -40,6 +40,7 @@ export default function StudentTabLayout() {
       backBehavior="history"
       screenOptions={({ route }) => ({
         headerShown: false,
+        freezeOnBlur: true,
         tabBarStyle: {
           backgroundColor: 'rgba(255,255,255,0.92)',
           borderTopWidth: 0,
