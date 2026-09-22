@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { Redirect, Tabs, router } from 'expo-router';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
-import { View, Text, ActivityIndicator, AppState, AppStateStatus } from 'react-native';
+import { View, Text, ActivityIndicator, AppState, AppStateStatus, StyleSheet } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { fonts } from '@/theme/typography';
-import { colors, radius, shadows } from '@/theme/index';
+import { colors, radius } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { registerForPushNotifications, unregisterPushNotifications, setupNotificationResponseHandler } from '@/utils/push-notifications';
@@ -109,8 +109,15 @@ export default function ParentTabLayout() {
         tabBarStyle: hideBar
           ? { display: 'none' }
           : {
-          backgroundColor: 'rgba(255,255,255,0.92)',
-          borderTopWidth: 0,
+          // OPAQUE on purpose. A translucent bar (this was rgba(...,0.92)) is a floating,
+          // absolutely-positioned overlay, so every frame Android had to re-composite the
+          // scene BEHIND it — on every screen, in every role. Together with elevation 8 and
+          // two rounded corners that is continuous GPU work and a measurable heat source on
+          // mid-range chips (Redmi Note 11S / Helio G96, 2026-09-22). Opaque + a hairline
+          // rule keeps the same lifted look for free.
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
           paddingTop: 8,
           paddingBottom: 10 + insets.bottom,
           height: 64 + insets.bottom,
@@ -118,7 +125,7 @@ export default function ParentTabLayout() {
           bottom: 0,
           left: 0,
           right: 0,
-          ...shadows.glow,
+          elevation: 0,
           borderTopLeftRadius: radius.xl,
           borderTopRightRadius: radius.xl,
         },

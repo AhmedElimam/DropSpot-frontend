@@ -1,10 +1,11 @@
 import '../src/i18n';
-import { I18nManager, View, ActivityIndicator, Text, TextInput } from 'react-native';
+import { I18nManager, View, ActivityIndicator, Text, TextInput, AppState, type AppStateStatus } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { enableFreeze } from 'react-native-screens';
+import NetInfo from '@react-native-community/netinfo';
 
 // Hidden tab screens stop rendering. Every role's detail screens are registered as
 // `href: null` TAB routes (30 of them for a teacher), so each one visited in a session
@@ -13,7 +14,20 @@ import { enableFreeze } from 'react-native-screens';
 // founder: "slow routing"). With freeze on, an unfocused screen keeps its state but
 // renders nothing until it is shown again. `freezeOnBlur` is set per navigator.
 enableFreeze(true);
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// NetInfo's reachability probe runs an HTTP request to a Google endpoint on a timer:
+// with the library's DEFAULTS that is every 60s while online and every **5 SECONDS**
+// while offline, forever. On a weak Egyptian cellular link the phone therefore spends
+// its time waking the radio to a high-power state and failing, which is battery and
+// heat with no user-visible benefit (Redmi Note 11S reports, 2026-09-22). Nothing in
+// the app needs sub-minute reachability: the offline banner and the scan buffer both
+// tolerate a slower signal, and a real request failing is what actually drives them.
+NetInfo.configure({
+  reachabilityLongTimeout: 5 * 60 * 1000,
+  reachabilityShortTimeout: 60 * 1000,
+  reachabilityRequestTimeout: 10 * 1000,
+});
+import { QueryClient, QueryClientProvider, focusManager, onlineManager } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
@@ -43,6 +57,28 @@ type TextWithDefaults = typeof Text & { defaultProps?: { maxFontSizeMultiplier?:
 
 // Never let a rejected promise here become an unhandled rejection at startup.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// React Query had NO app-state integration, and that is a battery and heat bug, not a
+// tuning preference. Its "is the app in the foreground?" check is a browser concept; with
+// nothing wired, `focusManager` answers TRUE FOREVER on a phone. So every `refetchInterval`
+// in the app — the unread badge every 30s, sessions and the today feed every 60s — kept
+// firing while the app sat in the user's POCKET, waking the cellular radio around the
+// clock. `refetchIntervalInBackground` defaults to false and was doing nothing, because
+// the app never reported itself backgrounded. Wiring AppState makes that default work:
+// polling stops on background and resumes on foreground.
+AppState.addEventListener('change', (status: AppStateStatus) => {
+  focusManager.setFocused(status === 'active');
+});
+
+// Likewise, React Query had no idea when the device was offline, so a query whose request
+// failed retried on a timer into a dead connection — the exact situation (weak signal)
+// where the radio costs the most power. Now it simply waits for connectivity and fires
+// once, instead of hammering.
+onlineManager.setEventListener((setOnline) =>
+  NetInfo.addEventListener((state) => {
+    setOnline(state.isConnected !== false);
+  }),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {

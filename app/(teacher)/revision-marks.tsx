@@ -64,6 +64,11 @@ export default function RevisionMarks() {
       ) : (
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <FlatList
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          updateCellsBatchingPeriod={50}
+          windowSize={7}
           data={q.data?.attendees ?? []}
           keyExtractor={(a) => String(a.id)}
           keyboardShouldPersistTaps="handled"

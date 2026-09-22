@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import { useMyTeachers } from '@/hooks/useMyTeachers';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -24,16 +25,24 @@ export const ABILITY = {
   REPORT_INCIDENTS: 'report_incidents',
 } as const;
 
+// The returned object and its `can` function are memoised. They used to be rebuilt on
+// every render, and because this hook is consumed by the busiest teacher screens (home,
+// scanner, roster, manage) that fresh identity propagated into their children and
+// defeated every downstream memo — a re-render of the whole subtree on any state change.
+// `abilities` is also stabilised: `?? []` allocated a new empty array each time.
+const NO_ABILITIES: readonly string[] = [];
+
 export function useActiveAbilities() {
   const role = useAuthStore((s) => s.role);
   const { data } = useMyTeachers();
   const isAssistant = role === 'assistant';
   const active = data?.teachers.find((x) => x.is_active_context);
-  const abilities = active?.abilities ?? [];
+  const abilities = active?.abilities ?? NO_ABILITIES;
 
-  return {
-    isAssistant,
-    abilities,
-    can: (ability: string) => !isAssistant || abilities.includes(ability),
-  };
+  const can = useCallback(
+    (ability: string) => !isAssistant || abilities.includes(ability),
+    [isAssistant, abilities],
+  );
+
+  return useMemo(() => ({ isAssistant, abilities, can }), [isAssistant, abilities, can]);
 }

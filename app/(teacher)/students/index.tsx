@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -97,6 +97,25 @@ export default function TeacherStudents() {
   // flexGrow keeps the list filling the screen even when it holds nothing, which is what
   // lets a pull-to-refresh work on an EMPTY roster — the moment a teacher is most likely
   // to pull, because an empty roster is usually a stale fetch rather than no students.
+  // Both of these are memoised on purpose. `StudentRow` is wrapped in React.memo, and a
+  // memo only pays off if its props keep their identity: an inline `renderItem` arrow and
+  // an inline `onPress` closure are NEW on every render, so every mounted row re-rendered
+  // on each keystroke in the search box (filtering is client-side over the whole roster).
+  const openStudent = useCallback((id: string) => {
+    router.push(`/(teacher)/students/${id}` as Href);
+  }, []);
+
+  const renderStudentRow = useCallback(({ item }: { item: (typeof filteredStudents)[number] }) => (
+    <StudentRow
+      id={item.id}
+      name={item.name ?? '—'}
+      studentCode={item.student_code ?? ''}
+      grade={item.grade_name ?? undefined}
+      attendanceRate={item.attendance_rate ?? undefined}
+      onPress={openStudent}
+    />
+  ), [openStudent]);
+
   const listPad = { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom, paddingTop: spacing.sm };
 
   const renderSession = ({ item }: { item: SessionRow }) => {
@@ -179,20 +198,16 @@ export default function TeacherStudents() {
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : (
             <FlatList
+              removeClippedSubviews
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              updateCellsBatchingPeriod={50}
+              windowSize={7}
               data={filteredStudents}
               keyExtractor={(s) => s.id}
               contentContainerStyle={listPad}
               refreshControl={<RefreshControl refreshing={studentsRefresh.refreshing} onRefresh={studentsRefresh.onRefresh} />}
-              renderItem={({ item }) => (
-                <StudentRow
-                  id={item.id}
-                  name={item.name ?? '—'}
-                  studentCode={item.student_code ?? ''}
-                  grade={item.grade_name ?? undefined}
-                  attendanceRate={item.attendance_rate ?? undefined}
-                  onPress={(id) => router.push(`/(teacher)/students/${id}` as Href)}
-                />
-              )}
+              renderItem={renderStudentRow}
               ListEmptyComponent={<EmptyState icon="children" title={t('teacher.no_students')} message={t('teacher.no_students_hint')} />}
             />
           )}
@@ -234,6 +249,11 @@ export default function TeacherStudents() {
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : (
             <FlatList
+              removeClippedSubviews
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              updateCellsBatchingPeriod={50}
+              windowSize={7}
               data={sessions?.items ?? []}
               keyExtractor={(s) => s.id}
               contentContainerStyle={listPad}
@@ -261,6 +281,11 @@ export default function TeacherStudents() {
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : (
             <FlatList
+              removeClippedSubviews
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              updateCellsBatchingPeriod={50}
+              windowSize={7}
               data={cardOrders.data ?? []}
               keyExtractor={(o: TeacherCardOrder) => String(o.id)}
               contentContainerStyle={listPad}

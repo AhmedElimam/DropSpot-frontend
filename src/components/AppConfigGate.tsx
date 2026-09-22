@@ -18,6 +18,9 @@ import { checkForOtaUpdate } from '@/updates/otaUpdates';
  * The gate is client-side only — a bad server value can hide UI but never bricks
  * the app, because the comparison runs against the shipped binary version.
  */
+const OTA_CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
+let lastOtaCheck = 0;
+
 export function AppConfigGate({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const cfg = useAppConfig();
@@ -27,8 +30,18 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     useAppConfigStore.getState().hydrate().finally(() => { void syncAppConfig(); });
     void checkForOtaUpdate();
+    lastOtaCheck = Date.now();
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
-      if (s === 'active') { void syncAppConfig(); void checkForOtaUpdate(); }
+      if (s !== 'active') return;
+      void syncAppConfig();
+      // An OTA check is a manifest fetch and, when one is waiting, a full bundle
+      // download. Firing it on EVERY resume meant a teacher who switches apps twenty
+      // times during a session paid for twenty of them. A release is not published
+      // twenty times an hour, so once every six hours finds it just as fast at a
+      // fraction of the radio time (Android heat/battery reports, 2026-09-22).
+      if (Date.now() - lastOtaCheck < OTA_CHECK_EVERY_MS) return;
+      lastOtaCheck = Date.now();
+      void checkForOtaUpdate();
     });
     return () => sub.remove();
   }, []);

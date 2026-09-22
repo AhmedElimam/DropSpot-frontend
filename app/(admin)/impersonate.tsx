@@ -169,6 +169,11 @@ export default function ImpersonatePicker() {
             <ActivityIndicator style={{ marginTop: spacing.xl }} color={colors.brand} />
           ) : (
             <FlatList
+              removeClippedSubviews
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              updateCellsBatchingPeriod={50}
+              windowSize={7}
               data={users}
               keyExtractor={(u) => String(u.id)}
               contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}

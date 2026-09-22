@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Redirect, Tabs } from 'expo-router';
-import { View, Text, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
+import { View, Text, ActivityIndicator, AppState, type AppStateStatus, StyleSheet } from 'react-native';
 import { BottomTabBar } from '@react-navigation/bottom-tabs';
 import NetInfo from '@react-native-community/netinfo';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +13,7 @@ import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 import { registerForPushNotifications } from '@/utils/push-notifications';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { fonts } from '@/theme/typography';
-import { colors, radius, shadows } from '@/theme/index';
+import { colors, radius } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 
 /**
@@ -168,8 +168,15 @@ export default function TeacherTabLayout() {
         // between two screens (e.g. the black scanner and a cream screen).
         sceneStyle: { backgroundColor: colors.background },
         tabBarStyle: {
-          backgroundColor: 'rgba(255,255,255,0.92)',
-          borderTopWidth: 0,
+          // OPAQUE on purpose. A translucent bar (this was rgba(...,0.92)) is a floating,
+          // absolutely-positioned overlay, so every frame Android had to re-composite the
+          // scene BEHIND it — on every screen, in every role. Together with elevation 8 and
+          // two rounded corners that is continuous GPU work and a measurable heat source on
+          // mid-range chips (Redmi Note 11S / Helio G96, 2026-09-22). Opaque + a hairline
+          // rule keeps the same lifted look for free.
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
           paddingTop: 8,
           paddingBottom: 10 + insets.bottom,
           height: 64 + insets.bottom,
@@ -177,7 +184,7 @@ export default function TeacherTabLayout() {
           bottom: 0,
           left: 0,
           right: 0,
-          ...shadows.glow,
+          elevation: 0,
           borderTopLeftRadius: radius.xl,
           borderTopRightRadius: radius.xl,
         },

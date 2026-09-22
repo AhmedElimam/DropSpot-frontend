@@ -92,6 +92,11 @@ export default function TeacherCourses() {
         <EmptyState icon="book" title={t('teacher.courses_empty_title')} message={t('teacher.courses_empty_hint')} />
       ) : (
         <FlatList
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          updateCellsBatchingPeriod={50}
+          windowSize={7}
           data={courses}
           keyExtractor={(c) => c.id}
           renderItem={renderCourse}

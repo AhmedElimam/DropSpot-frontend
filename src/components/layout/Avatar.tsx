@@ -1,4 +1,6 @@
-import { View, Text, Image } from 'react-native';
+import { View, Text } from 'react-native';
+import { memo } from 'react';
+import { Image } from 'expo-image';
 import { fonts } from '@/theme/typography';
 import { colors } from '@/theme/index';
 
@@ -29,12 +31,23 @@ function getColorForName(name: string): string {
   return avatarColors[Math.abs(hash) % avatarColors.length];
 }
 
-export function Avatar({ name, size = 40, imageUrl }: AvatarProps) {
+// expo-image, not RN Image, and memoised: an avatar sits in EVERY roster row, so this is
+// one of the most-mounted components in the app. RN's Image decodes the full-resolution
+// remote file into memory and re-fetches it whenever a row is recycled; expo-image
+// decodes to the displayed size and keeps a disk cache across scrolls and screens, which
+// is exactly the pattern that showed up as memory growth (Play Console, 2026-09-22).
+// `recyclingKey` tells it the view is being reused for a different person, so a stale
+// face never flashes in a recycled row.
+export const Avatar = memo(function Avatar({ name, size = 40, imageUrl }: AvatarProps) {
   if (imageUrl) {
     return (
       <Image
         source={{ uri: imageUrl }}
         style={{ width: size, height: size, borderRadius: size / 2 }}
+        contentFit="cover"
+        recyclingKey={imageUrl}
+        cachePolicy="memory-disk"
+        transition={0}
         accessibilityRole="image"
         accessibilityLabel={name}
       />
@@ -66,4 +79,4 @@ export function Avatar({ name, size = 40, imageUrl }: AvatarProps) {
       </Text>
     </View>
   );
-}
+});

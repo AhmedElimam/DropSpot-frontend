@@ -11,40 +11,79 @@ function opts(base: Intl.DateTimeFormatOptions, extra?: Intl.DateTimeFormatOptio
   return { timeZone: TZ, ...base, ...extra };
 }
 
+// Every `d.toLocaleDateString(locale, options)` call BUILDS A NEW FORMATTER inside the
+// engine: on Hermes/Android that means crossing into the platform's ICU and loading
+// Arabic locale data, and it is one of the most expensive operations available to us.
+// These helpers are called per ROW, per RENDER (a session list, an attendance history,
+// a notification feed), so the cost scaled with list length and re-render count and
+// showed up as scroll jank and heat on mid-range chips (Redmi Note 11S, 2026-09-22).
+// A formatter is immutable and reusable, so we build each shape once and keep it.
+// Same output, same timezone pinning — only the construction is amortised.
+const dtfCache = new Map<string, Intl.DateTimeFormat>();
+function dtf(o: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = JSON.stringify(o);
+  let f = dtfCache.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(LOCALE, o);
+    dtfCache.set(key, f);
+  }
+  return f;
+}
+
+const nfCache = new Map<string, Intl.NumberFormat>();
+function nf(o?: Intl.NumberFormatOptions): Intl.NumberFormat {
+  const key = o ? JSON.stringify(o) : '';
+  let f = nfCache.get(key);
+  if (!f) {
+    f = new Intl.NumberFormat(LOCALE, o);
+    nfCache.set(key, f);
+  }
+  return f;
+}
+
+const toDate = (date: string | Date): Date => (typeof date === 'string' ? new Date(date) : date);
+
+const TIME_OPTS = opts({ hour: '2-digit', minute: '2-digit', hour12: true });
 export function formatTime(date: string | Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleTimeString(LOCALE, opts({ hour: '2-digit', minute: '2-digit', hour12: true }));
+  const d = toDate(date);
+  if (Number.isNaN(d.getTime())) return '';
+  return dtf(TIME_OPTS).format(d);
 }
 
+const DATE_OPTS = opts({ weekday: 'long', day: 'numeric', month: 'long' });
 export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString(LOCALE, opts({ weekday: 'long', day: 'numeric', month: 'long' }, options));
+  const d = toDate(date);
+  if (Number.isNaN(d.getTime())) return '';
+  return dtf(options ? opts({ weekday: 'long', day: 'numeric', month: 'long' }, options) : DATE_OPTS).format(d);
 }
 
+const SHORT_DATE_OPTS = opts({ weekday: 'short', day: 'numeric', month: 'short' });
 export function formatShortDate(date: string | Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString(LOCALE, opts({ weekday: 'short', day: 'numeric', month: 'short' }));
+  const d = toDate(date);
+  if (Number.isNaN(d.getTime())) return '';
+  return dtf(SHORT_DATE_OPTS).format(d);
 }
 
 // Combined date + 12h time, e.g. "١٢ أغسطس ٤:٣٠ م". For rows that need both
 // (payment proofs, oversight, booking requests). Options override the date part.
+const DATETIME_OPTS = opts({ day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
 export function formatDateTime(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = toDate(date);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString(LOCALE, opts({ day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }, options));
+  return dtf(options ? opts({ day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }, options) : DATETIME_OPTS).format(d);
 }
 
 /** Arabic-Indic number formatting — the ONE place numerals are localised. */
 export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
-  return value.toLocaleString(LOCALE, options);
+  return nf(options).format(value);
 }
 
 // Full day + date, e.g. "الاثنين ١٢ أغسطس". Used wherever a session/attendance
 // row needs its calendar day spelled out.
 export function formatDayDate(date: string | Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
+  const d = toDate(date);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString(LOCALE, opts({ weekday: 'long', day: 'numeric', month: 'long' }));
+  return dtf(DATE_OPTS).format(d);
 }
 
 // A relative day word (اليوم / أمس / غدًا) when the date is within ±1 day of now,
@@ -98,6 +137,7 @@ export function formatPercent(value: number): string {
   return `${Math.round(value)}%`;
 }
 
+const TIMEAGO_FALLBACK_OPTS = opts({ day: 'numeric', month: 'short' });
 export function timeAgo(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const diff = Date.now() - d.getTime();
@@ -114,7 +154,7 @@ export function timeAgo(date: string | Date): string {
   if (days === 1) return 'أمس';
   if (days < 7) return `منذ ${days} أيام`;
   if (days < 30) return `منذ ${Math.floor(days / 7)} أسبوع`;
-  return d.toLocaleDateString(LOCALE, opts({ day: 'numeric', month: 'short' }));
+  return dtf(TIMEAGO_FALLBACK_OPTS).format(d);
 }
 
 export type TimeFilter = 'all' | 'today' | 'week' | 'month';

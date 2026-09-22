@@ -187,6 +187,11 @@ export default function SessionDetailScreen() {
         <EmptyState icon="calendar" title={t('teacher.session_not_found')} />
       ) : (
         <FlatList
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          updateCellsBatchingPeriod={50}
+          windowSize={7}
           data={filteredList}
           keyExtractor={(a) => String(a.student_id)}
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}

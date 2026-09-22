@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { router, type Href } from 'expo-router';
@@ -22,6 +23,33 @@ interface Target {
   label: string;
   remaining: number;
 }
+
+// Both of these were declared INSIDE the screen, and both are rendered from
+// `renderStudent` — the FlatList's renderItem. A component created in a render body is a
+// new type every render, so React threw away and rebuilt each row's eight badges and its
+// buttons instead of updating them, once per row per render. At module level they are a
+// stable type and can memoise. (Android slowness/heat, 2026-09-22.)
+//
+// Amber, not the red of «إلغاء الدفع» — two destructive buttons sit on the same row and
+// must never be tapped for one another.
+const CancelDueButton = memo(function CancelDueButton({ onPress }: { onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{ borderWidth: 1, borderColor: colors.warning, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 4 }}
+    >
+      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.warning }}>إلغاء المستحق</Text>
+    </TouchableOpacity>
+  );
+});
+
+const Badge = memo(function Badge({ text, color }: { text: string; color: string }) {
+  return (
+    <View style={{ backgroundColor: color + '1f', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color }}>{text}</Text>
+    </View>
+  );
+});
 
 export default function TeacherPendingCollections() {
   const { t } = useTranslation();
@@ -106,23 +134,6 @@ export default function TeacherPendingCollections() {
       ],
     );
   };
-
-  // Amber, not the red of «إلغاء الدفع» — two destructive buttons sit on the same row and
-  // must never be tapped for one another.
-  const CancelDueButton = ({ onPress }: { onPress: () => void }) => (
-    <TouchableOpacity
-      onPress={onPress}
-      style={{ borderWidth: 1, borderColor: colors.warning, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 4 }}
-    >
-      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.warning }}>إلغاء المستحق</Text>
-    </TouchableOpacity>
-  );
-
-  const Badge = ({ text, color }: { text: string; color: string }) => (
-    <View style={{ backgroundColor: color + '1f', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2 }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color }}>{text}</Text>
-    </View>
-  );
 
   const renderStudent = ({ item }: { item: RosterStudent }) => {
     const bill = item.bill;
@@ -234,6 +245,11 @@ export default function TeacherPendingCollections() {
         <ErrorState onRetry={() => refetch()} />
       ) : (
         <FlatList
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          updateCellsBatchingPeriod={50}
+          windowSize={7}
           data={data ?? []}
           keyExtractor={(s) => String(s.student_id)}
           renderItem={renderStudent}

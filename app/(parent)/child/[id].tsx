@@ -483,6 +483,11 @@ export default function ChildDetailScreen() {
               <Text style={[textPresets.h3, { textAlign: 'center' }]}>{t('child_settings.switch_child')}</Text>
             </View>
             <FlatList
+              removeClippedSubviews
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              updateCellsBatchingPeriod={50}
+              windowSize={7}
               data={children ?? []}
               keyExtractor={(item) => item.id}
               renderItem={({ item, index }) => (

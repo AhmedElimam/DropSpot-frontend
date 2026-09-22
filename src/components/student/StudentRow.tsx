@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from 'react-native';
+import { memo, useCallback } from 'react';
 import { fonts } from '@/theme/typography';
 import { colors, radius, spacing, shadows } from '@/theme/index';
 import { Avatar } from '@/components/layout/Avatar';
@@ -15,8 +16,17 @@ interface StudentRowProps {
   onPress?: (id: string) => void;
 }
 
-export function StudentRow({ id, name, studentCode, grade, status, attendanceRate, onPress }: StudentRowProps) {
+// memo: this is a FlatList row. Without it every mounted row re-rendered whenever the
+// parent did — which on the roster screen is on EVERY KEYSTROKE of the search box,
+// because filtering happens client-side over the whole (unpaginated) roster. With a few
+// hundred students that was hundreds of full row re-renders per character typed, and it
+// is a large part of why typing and scrolling felt slow and ran the phone hot on a
+// mid-range chip (Redmi Note 11S, 2026-09-22). The props are all primitives, so the
+// default shallow compare is exactly right — provided `onPress` is stable, which is why
+// the handler below is wrapped rather than recreated inline.
+export const StudentRow = memo(function StudentRow({ id, name, studentCode, grade, status, attendanceRate, onPress }: StudentRowProps) {
   const { t } = useTranslation();
+  const handlePress = useCallback(() => onPress?.(id), [onPress, id]);
 
   const statusConfig = status
     ? {
@@ -28,7 +38,7 @@ export function StudentRow({ id, name, studentCode, grade, status, attendanceRat
 
   return (
     <TouchableOpacity
-      onPress={() => onPress?.(id)}
+      onPress={handlePress}
       activeOpacity={0.7}
       style={{
         flexDirection: 'row',
@@ -77,4 +87,4 @@ export function StudentRow({ id, name, studentCode, grade, status, attendanceRat
       )}
     </TouchableOpacity>
   );
-}
+});

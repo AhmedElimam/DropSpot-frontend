@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +21,37 @@ import { getAssistantActions } from '@/api/assistantActions';
  * parity surface). Course CREATION stays on the web; here the teacher manages
  * existing courses (settings, GPS location, slots) and runs schedule tools.
  */
+// Row and SectionTitle live at MODULE level, not inside the screen. Declared in the
+// render body they were a brand-new component *type* on every render, so React could not
+// reconcile them: it unmounted and rebuilt all 15 rows and their native views each time
+// this screen re-rendered — and this is a TAB, so it stays mounted and re-renders on
+// every poll tick and cache update behind the user's back. (Android slowness/heat,
+// 2026-09-22.)
+const Row = memo(function Row({ icon, title, sub, onPress, tint }: { icon: IconName; title: string; sub: string; onPress: () => void; tint?: string }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.8}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.sm }}
+    >
+      <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: (tint ?? colors.brand) + '18', justifyContent: 'center', alignItems: 'center' }}>
+        <Icon name={icon} size={22} color={tint ?? colors.brand} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{title}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{sub}</Text>
+      </View>
+      <Icon name="back" size={18} color={colors.textTertiary} />
+    </TouchableOpacity>
+  );
+});
+
+const SectionTitle = memo(function SectionTitle({ children }: { children: string }) {
+  return (
+    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginTop: spacing.lg, marginBottom: spacing.sm }}>{children}</Text>
+  );
+});
+
 export default function TeacherManage() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -51,27 +83,6 @@ export default function TeacherManage() {
   );
   const pendingActions = assistantActions.data?.length ?? 0;
   const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
-
-  const Row = ({ icon, title, sub, onPress, tint }: { icon: IconName; title: string; sub: string; onPress: () => void; tint?: string }) => (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.8}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.sm }}
-    >
-      <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: (tint ?? colors.brand) + '18', justifyContent: 'center', alignItems: 'center' }}>
-        <Icon name={icon} size={22} color={tint ?? colors.brand} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{title}</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{sub}</Text>
-      </View>
-      <Icon name="back" size={18} color={colors.textTertiary} />
-    </TouchableOpacity>
-  );
-
-  const SectionTitle = ({ children }: { children: string }) => (
-    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginTop: spacing.lg, marginBottom: spacing.sm }}>{children}</Text>
-  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
