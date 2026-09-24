@@ -1,4 +1,4 @@
-import * as Notifications from 'expo-notifications';
+import type * as NotificationsTypes from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
@@ -20,7 +20,38 @@ import { registerDeviceToken, unregisterDeviceToken } from '@/api/device-tokens'
 /** Expo Go — no custom native modules, and no remote push since SDK 53. */
 const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-Notifications.setNotificationHandler({
+/** Push failures are otherwise invisible — every bail-out below returns null. */
+function pushLog(...args: unknown[]): void {
+  if (__DEV__) {
+    // eslint-disable-next-line no-console
+    console.log('[push]', ...args);
+  }
+}
+
+// expo-notifications itself is loaded LAZILY too, and never in Expo Go. Merely importing
+// it runs its device-token auto-registration (DevicePushTokenAutoRegistration.fx), which in
+// Expo Go on Android prints a red "remote notifications were removed from Expo Go" error on
+// every launch — before any of our code decides to skip push. Nothing in the app schedules
+// local notifications, so in Expo Go the module has no job at all and is not required.
+type NotificationsModule = typeof NotificationsTypes;
+let notificationsModule: NotificationsModule | null | undefined;
+
+function notifications(): NotificationsModule | null {
+  if (IS_EXPO_GO) return null;
+  if (notificationsModule === undefined) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      notificationsModule = require('expo-notifications') as NotificationsModule;
+    } catch (e) {
+      pushLog('expo-notifications unavailable in this build — push disabled', e);
+      notificationsModule = null;
+    }
+  }
+  return notificationsModule;
+}
+
+// Foreground presentation, installed once at load in every build that has the module.
+notifications()?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
@@ -30,14 +61,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-/** Push failures are otherwise invisible — every bail-out below returns null. */
-function pushLog(...args: unknown[]): void {
-  if (__DEV__) {
-    // eslint-disable-next-line no-console
-    console.log('[push]', ...args);
-  }
-}
-
 // Android 8+ binds a notification's sound to its CHANNEL (not the payload), and a
 // channel's sound is fixed at creation — so the custom tone lives on a fresh channel
 // id here, which the backend targets via `channel_id`. iOS instead reads the sound
@@ -45,12 +68,12 @@ function pushLog(...args: unknown[]): void {
 // by the expo-notifications `sounds` config in app.config.ts.
 export const ANDROID_CHANNEL_ID = 'drosspot-alerts';
 
-async function ensureAndroidChannel(): Promise<void> {
+async function ensureAndroidChannel(N: NotificationsModule): Promise<void> {
   if (Platform.OS !== 'android') return;
   try {
-    await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+    await N.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
       name: 'تنبيهات درس سبوت',
-      importance: Notifications.AndroidImportance.MAX,
+      importance: N.AndroidImportance.MAX,
       sound: 'notify_android.wav', // bundled name → res/raw; custom Android tone
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#6D28D9',
@@ -66,6 +89,9 @@ export async function registerForPushNotifications(): Promise<string | null> {
     return null;
   }
 
+  const N = notifications();
+  if (!N) return null;
+
   // Android emulators running a Google Play system image DO receive FCM, so only
   // the iOS Simulator is a hard stop here (no APNs).
   if (!Device.isDevice && Platform.OS !== 'android') {
@@ -73,11 +99,11 @@ export async function registerForPushNotifications(): Promise<string | null> {
     return null;
   }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  const { status: existingStatus } = await N.getPermissionsAsync();
   let finalStatus = existingStatus;
 
   if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
+    const { status } = await N.requestPermissionsAsync();
     finalStatus = status;
   }
 
@@ -87,7 +113,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   // Create the custom-sound channel before any push can arrive (Android only).
-  await ensureAndroidChannel();
+  await ensureAndroidChannel(N);
 
   try {
     // The backend sends via Firebase Cloud Messaging directly (Kreait), so it needs a
@@ -107,7 +133,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
       token = await getToken(msg);
     } else {
       // Android: expo-notifications returns the raw FCM registration token directly.
-      const devicePushToken = await Notifications.getDevicePushTokenAsync();
+      const devicePushToken = await N.getDevicePushTokenAsync();
       token = String(devicePushToken.data);
     }
 
@@ -148,10 +174,14 @@ export async function unregisterPushNotifications(token: string | null): Promise
 
 export function setupNotificationResponseHandler(
   onNotificationResponse: (data: Record<string, unknown>) => void
-): Notifications.EventSubscription {
-  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+): NotificationsTypes.EventSubscription {
+  const N = notifications();
+  if (!N) {
+    // Expo Go, or a build without the module: nothing can arrive, so nothing to listen for.
+    return { remove: () => {} };
+  }
+  return N.addNotificationResponseReceivedListener((response) => {
     const data = response.notification.request.content.data ?? {};
     onNotificationResponse(data as Record<string, unknown>);
   });
-  return subscription;
 }
