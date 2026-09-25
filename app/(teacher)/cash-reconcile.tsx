@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
+import type { CollectionEvent, KindTotals, RegistryNow } from '@/api/cash';
 import { formatShortDate, formatDateTime, formatNumber } from '@/utils/format';
 import { colors, spacing, radius, nav, shadows, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -100,7 +101,12 @@ function Arithmetic({ d }: { d: Drawer }) {
       {(d.rejected_expenses ?? 0) > 0 ? <Figure label={t('review.rejected')} value={money(d.rejected_expenses ?? 0)} tint={colors.danger} dim /> : null}
       {d.handovers > 0 ? <Figure label={t('cash.handovers')} value={`− ${money(d.handovers)} ${egp}`} /> : null}
       <Rule />
-      <Figure label={t('cash.expected')} value={d.expected !== null ? `${money(d.expected)} ${egp}` : t('cash.cannot_compute')} strong tint={d.expected !== null ? colors.brand : colors.warningDark} />
+      {d.expected !== null ? (
+        <Figure label={t('cash.expected')} value={`${money(d.expected)} ${egp}`} strong tint={colors.brand} />
+      ) : (
+        <Figure label={t('cash.net_movement')} value={`${(d.net_movement ?? 0) > 0 ? '+' : ''}${money(d.net_movement ?? 0)} ${egp}`} strong tint={colors.warningDark} />
+      )}
+      {d.collected_by_kind ? <KindChips k={d.collected_by_kind} /> : null}
       {d.registry !== null ? <Figure label={t('cash.actual')} value={`${money(d.actual ?? d.registry)} ${egp}`} strong /> : null}
       {d.registry !== null && d.difference !== null && d.result ? (
         <>
@@ -271,7 +277,9 @@ function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDraw
         <ResultPill d={d} />
       </View>
       <BigPair
-        left={{ label: t('cash.expected'), value: d.expected !== null ? money(d.expected) : '—', tint: d.expected !== null ? colors.brand : colors.warningDark }}
+        left={d.expected !== null
+          ? { label: t('cash.expected'), value: money(d.expected), tint: colors.brand }
+          : { label: t('cash.net_movement'), value: `${(d.net_movement ?? 0) > 0 ? '+' : ''}${money(d.net_movement ?? 0)}`, tint: colors.warningDark }}
         right={{ label: t('cash.actual'), value: answered ? money(d.actual ?? d.registry ?? 0) : '—', tint: answered && d.result && d.result !== 'unknown' ? RESULT_TINT[d.result] : undefined }}
       />
       <SurplusNotice d={d} />
@@ -288,6 +296,83 @@ function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDraw
         <TouchableOpacity onPress={openReview} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
           <Icon name="eye" size={15} color={colors.brand} />
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('review.title')}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
+// ───────────────────────── the collections behind the figures ─────────────────────────
+
+const KIND_ORDER: (keyof KindTotals)[] = ['bill', 'booklet', 'booking', 'guest_pass'];
+
+/** Collected, by what it paid for — bills / booklets / bookings / guest passes. */
+function KindChips({ k }: { k: KindTotals }) {
+  const { t } = useTranslation();
+  const shown = KIND_ORDER.filter((key) => (k[key] ?? 0) !== 0);
+  if (shown.length === 0) return null;
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+      {shown.map((key) => (
+        <View key={key} style={{ borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSunken, paddingHorizontal: 10, paddingVertical: 3 }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary }}>{t(`cash.kind_${key}`)} {money(k[key])}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** «What should be in the registries now» — by default, before anyone counts. */
+function RegistryNowCard({ r, byKind }: { r: RegistryNow; byKind?: KindTotals }) {
+  const { t } = useTranslation();
+  const egp = t('insights.egp');
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('cash.registry_now')}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.brand, marginTop: 2 }}>{money(r.total_known)} {egp}</Text>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+        {t('cash.registry_split', { drawers: money(r.drawers_known), hand: money(r.teacher_hand) })}
+      </Text>
+      {r.drawers_unknown_count > 0 ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginTop: 4 }}>
+          {t('cash.registry_unknown', { count: r.drawers_unknown_count, net: money(r.drawers_net) })}
+        </Text>
+      ) : null}
+      {byKind ? <KindChips k={byKind} /> : null}
+    </View>
+  );
+}
+
+/** The collection events themselves, newest first — every figure above is a sum of these. */
+function CollectionsList({ events, byKind, own }: { events: CollectionEvent[]; byKind?: KindTotals; own: boolean }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const shown = open ? events : events.slice(0, 5);
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{own ? t('cash.collections_mine') : t('cash.collections_title')}</Text>
+      {byKind ? <KindChips k={byKind} /> : null}
+      {events.length === 0 ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 6 }}>{t('cash.collections_empty')}</Text>
+      ) : (
+        shown.map((e) => (
+          <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, marginTop: 6 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>
+                {e.student?.name || (e.kind === 'guest_pass' ? t('cash.kind_guest_pass') : '—')}
+                <Text style={{ fontFamily: fonts.regular, color: colors.textSecondary }}> · {e.kind_label}{e.method === 'digital' ? ` · ${t('cash.method_digital')}` : ''}</Text>
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }} numberOfLines={1}>
+                {formatDateTime(e.collected_at)}{!own && e.collector ? ` · ${e.collector.is_me ? t('cash.me') : e.collector.name}` : ''}{e.venue ? ` · ${e.venue}` : ''}
+              </Text>
+            </View>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: e.is_reversal ? colors.danger : colors.textPrimary }}>{e.is_reversal ? '' : '+'}{money(e.amount)}</Text>
+          </View>
+        ))
+      )}
+      {events.length > 5 ? (
+        <TouchableOpacity onPress={() => setOpen((o) => !o)} style={{ alignSelf: 'center', paddingVertical: 6 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{open ? t('cash.show_less') : t('cash.show_all', { count: events.length })}</Text>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -686,6 +771,7 @@ function WeekSegment({ data, onChanged, onOpenHandover }: { data: CashView; onCh
       <View>
         {shown.length === 0 && v.unanswered.length === 0 ? <EmptyState icon="success" title={t('cash.no_prompt')} message={t('cash.no_prompt_hint')} /> : null}
         {shown.map((d) => <DrawerCard key={d.id} d={d} isTeacher={false} onChanged={onChanged} />)}
+        {v.collections ? <CollectionsList events={v.collections} byKind={v.collected_by_kind} own /> : null}
         {handoverButton}
         {v.handovers.map((h) => <HandoverRow key={h.id} h={h} />)}
       </View>
@@ -717,12 +803,15 @@ function WeekSegment({ data, onChanged, onOpenHandover }: { data: CashView; onCh
           {v.collected_breakdown.unattributed > 0 ? ` · ${t('cash.collected_unattributed', { amount: money(v.collected_breakdown.unattributed) })}` : ''}
         </Text>
       ) : null}
+      {v.registry_now ? <RegistryNowCard r={v.registry_now} byKind={v.collected_breakdown?.by_kind} /> : null}
 
       {v.drawers.length === 0 ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.lg, textAlign: 'center' }}>{t('cash.no_assistants')}</Text>
       ) : (
         v.drawers.map((d) => <DrawerCard key={d.id} d={d} name={d.name} isTeacher onChanged={onChanged} />)
       )}
+
+      {v.collections ? <CollectionsList events={v.collections} byKind={v.collected_breakdown?.by_kind} own={false} /> : null}
 
       {handoverButton}
       {v.week_handovers.map((h) => <HandoverRow key={h.id} h={h} />)}

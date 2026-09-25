@@ -173,6 +173,9 @@ export interface Drawer {
   presented_expenses?: number;
   difference_before_review?: number | null;
   closed_at?: string | null;
+  /** collected − expenses − held − handovers: what the week ADDED, computable even when the opening is unknown. */
+  net_movement?: number;
+  collected_by_kind?: KindTotals;
   review_pending?: number;
 }
 
@@ -194,6 +197,33 @@ export interface Handover {
   assistant_name?: string;
 }
 
+/** Collected amounts by what they paid for. */
+export interface KindTotals { bill: number; booklet: number; booking: number; guest_pass: number }
+
+/** One collection event from the cash ledger — what every figure is made of. */
+export interface CollectionEvent {
+  id: number;
+  kind: 'bill' | 'booklet' | 'booking' | 'guest_pass';
+  kind_label: string;
+  amount: number; // negative = a reversal
+  is_reversal: boolean;
+  method: 'cash' | 'digital';
+  student: { id: number; name: string } | null;
+  collector: { id: number; name: string; is_me: boolean } | null;
+  venue: string | null;
+  collected_at: string;
+}
+
+/** What should be in the registries right now, before anyone counts. */
+export interface RegistryNow {
+  drawers_known: number;
+  drawers_known_count: number;
+  drawers_unknown_count: number;
+  drawers_net: number;
+  teacher_hand: number;
+  total_known: number;
+}
+
 export interface AssistantCashView {
   role: 'assistant';
   week: { start: string; end: string };
@@ -202,6 +232,8 @@ export interface AssistantCashView {
   drawers: Drawer[]; // this week, own only
   unanswered: Drawer[]; // this week or earlier, still waiting on them
   handovers: Handover[]; // own only
+  collections?: CollectionEvent[]; // own only
+  collected_by_kind?: KindTotals;
 }
 
 export interface RunningTotal {
@@ -229,8 +261,11 @@ export interface TeacherCashView {
     cash_by_teacher: number;
     unattributed: number;
     by_collector: { user_id: number; name: string; amount: number }[];
+    by_kind?: KindTotals;
     events: number;
   };
+  registry_now?: RegistryNow;
+  collections?: CollectionEvent[];
   expenses: number;
   expenses_by_assistants: number;
   expenses_by_teacher: number;
