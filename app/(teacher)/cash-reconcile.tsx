@@ -83,6 +83,8 @@ function Arithmetic({ d }: { d: Drawer }) {
       <Figure label={t('cash.opening')} value={known ? `${money(d.opening_balance as number)} ${egp}` : t('cash.opening_unknown')} tint={known ? undefined : colors.warningDark} />
       <Figure label={t('cash.collected')} value={`+ ${money(d.collected)} ${egp}`} />
       {d.expenses > 0 ? <Figure label={t('cash.expenses')} value={`− ${money(d.expenses)} ${egp}`} /> : null}
+      {(d.held ?? 0) > 0 ? <Figure label={t('review.held')} value={`− ${money(d.held ?? 0)} ${egp}`} tint={colors.warningDark} /> : null}
+      {(d.rejected_expenses ?? 0) > 0 ? <Figure label={t('review.rejected')} value={money(d.rejected_expenses ?? 0)} tint={colors.danger} dim /> : null}
       {d.handovers > 0 ? <Figure label={t('cash.handovers')} value={`− ${money(d.handovers)} ${egp}`} /> : null}
       <Rule />
       <Figure label={t('cash.expected')} value={d.expected !== null ? `${money(d.expected)} ${egp}` : t('cash.cannot_compute')} strong tint={d.expected !== null ? colors.brand : colors.warningDark} />
@@ -325,6 +327,10 @@ function AssistantView({ v, onDone, onHandover }: { v: AssistantCashView; onDone
           <SurplusNotice d={d} />
           {d.reason ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 6 }}>{t('cash.reason_label', { reason: d.reason })}</Text> : null}
           {d.responded_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 4 }}>{t('cash.answered_at', { when: formatDateTime(d.responded_at) })}</Text> : null}
+          <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(d.id) } } as Href)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
+            <Icon name="eye" size={15} color={colors.brand} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('review.title')}</Text>
+          </TouchableOpacity>
         </View>
       ))}
 
@@ -401,7 +407,7 @@ function OpeningEntry({ d, onSaved }: { d: TeacherDrawer; onSaved: () => void })
 
 function TeacherDrawerCard({ d, onResolve, onChanged }: { d: TeacherDrawer; onResolve: (d: TeacherDrawer) => void; onChanged: () => void }) {
   const { t } = useTranslation();
-  const openGap = d.status === 'discrepancy' && !d.resolved_at;
+  const openGap = d.status === 'discrepancy' && !d.resolved_at && !d.closed_at;
   const border = d.result && d.result !== 'unknown' && d.registry !== null ? RESULT_TINT[d.result] : colors.border;
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: border, padding: spacing.lg, marginBottom: spacing.md }}>
@@ -412,13 +418,15 @@ function TeacherDrawerCard({ d, onResolve, onChanged }: { d: TeacherDrawer; onRe
       {d.reason ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 6 }}>{t('cash.reason_label', { reason: d.reason })}</Text> : null}
       {d.responded_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 4 }}>{t('cash.answered_at', { when: formatDateTime(d.responded_at) })}</Text> : null}
       {d.resolved_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{t('cash.resolved_at', { when: formatDateTime(d.resolved_at) })}</Text> : null}
-      {openGap ? (
-        <TouchableOpacity onPress={() => onResolve(d)} activeOpacity={0.85}
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand, marginTop: spacing.sm }}>
-          <Icon name="success" size={16} color={colors.brand} />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('cash.resolve')}</Text>
-        </TouchableOpacity>
-      ) : null}
+      {/* The teacher reconciles in the weekly review: decide each expense, then close the
+          week (closing acknowledges any remaining gap). */}
+      <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(d.id) } } as Href)} activeOpacity={0.85}
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: radius.md, borderWidth: 1.5, borderColor: openGap || (d.review_pending ?? 0) > 0 ? colors.warning : colors.brand, backgroundColor: (d.review_pending ?? 0) > 0 ? colors.warning + '14' : undefined, marginTop: spacing.sm }}>
+        <Icon name={d.closed_at ? 'lock' : 'eye'} size={16} color={colors.brand} />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>
+          {d.closed_at ? t('review.closed') : (d.review_pending ?? 0) > 0 ? `${t('review.open')} · ${t('review.waiting', { count: money(d.review_pending ?? 0) })}` : t('review.open')}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -426,6 +434,7 @@ function TeacherDrawerCard({ d, onResolve, onChanged }: { d: TeacherDrawer; onRe
 function SettingsCard({ v, onChanged }: { v: TeacherCashView; onChanged: () => void }) {
   const { t } = useTranslation();
   const [tol, setTol] = useState(String(v.settings.tolerance));
+  const [bulkMax, setBulkMax] = useState(String(v.settings.review_bulk_max ?? 500));
   const save = useMutation({
     mutationFn: (patch: Parameters<typeof updateCashSettings>[0]) => updateCashSettings(patch),
     onSuccess: onChanged,
@@ -480,6 +489,14 @@ function SettingsCard({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
           </View>
         </View>
       ) : null}
+      <View style={rowStyle}>
+        <View style={{ flex: 1, paddingEnd: spacing.md }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('review.setting_bulk_max')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('review.setting_bulk_max_hint')}</Text>
+        </View>
+        <TextInput value={bulkMax} onChangeText={(x) => setBulkMax(x.replace(/[^0-9.]/g, ''))} onBlur={() => { const n = Number(bulkMax); if (Number.isFinite(n) && n !== (v.settings.review_bulk_max ?? 500)) save.mutate({ review_bulk_max: n }); }}
+          keyboardType="decimal-pad" style={{ width: 90, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 6, textAlign: 'center' }} />
+      </View>
       <View style={rowStyle}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.setting_tolerance')}</Text>
         <TextInput value={tol} onChangeText={(x) => setTol(x.replace(/[^0-9.]/g, ''))} onBlur={() => { const n = Number(tol); if (Number.isFinite(n) && n !== v.settings.tolerance) save.mutate({ cash_tolerance: n }); }}

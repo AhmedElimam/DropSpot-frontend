@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, KeyboardAvoidingView } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -26,6 +26,7 @@ import { getExpenses, addExpense, deleteExpense, assignExpenseVenue, suggestCate
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const REVIEW_TINT: Record<string, string> = { pending: colors.textTertiary, accepted: colors.success, questioned: colors.warning, rejected: colors.danger };
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
 
@@ -55,6 +56,21 @@ const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, perVenue
               : formatShortDate(e.expense_date)}
             {showLogger && !e.logged_by.is_me ? ` · ${t('expenses.logged_by', { name: e.logged_by.name })}` : ''}
           </Text>
+          {/* Weekly review state — the assistant sees their own; the teacher reviews from «مراجعة الأسبوع». */}
+          {e.review_status && e.review_status !== 'accepted' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+              <View style={{ backgroundColor: REVIEW_TINT[e.review_status] + '22', borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: REVIEW_TINT[e.review_status] }}>{t(`review.state_${e.review_status}`)}</Text>
+              </View>
+              {e.review_status === 'rejected' && e.reject_reason_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger }}>{e.reject_reason_label}{e.reject_note ? ` — ${e.reject_note}` : ''}</Text> : null}
+            </View>
+          ) : null}
+          {e.messages_count > 0 || e.review_status === 'questioned' ? (
+            <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/expense-thread', params: { id: String(e.id) } } as Href)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, alignSelf: 'flex-start' }}>
+              <Icon name="tickets" size={13} color={colors.brand} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('review.thread', { count: e.messages_count })}</Text>
+            </TouchableOpacity>
+          ) : null}
           {venueLabel ? (
             <TouchableOpacity disabled={!canAssign} onPress={() => onAssign(e)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, alignSelf: 'flex-start' }}>
               <Icon name="location" size={13} color={e.venue_kind === 'unassigned' ? colors.warningDark : colors.textTertiary} />
@@ -359,7 +375,7 @@ export default function ExpensesScreen() {
           <EmptyState icon="money" title={t('expenses.none')} message={t('expenses.none_hint')} />
         ) : (
           items.map((e) => (
-            <ExpenseRow key={e.id} e={e} showLogger={!isAssistant} canDelete={!isAssistant || e.logged_by.is_me} perVenue={perVenue} canAssign={!isAssistant} onDelete={confirmDelete} onAssign={pickVenue} />
+            <ExpenseRow key={e.id} e={e} showLogger={!isAssistant} canDelete={e.logged_by.is_me && !e.locked && (!isAssistant || e.review_status === 'pending')} perVenue={perVenue} canAssign={!isAssistant} onDelete={confirmDelete} onAssign={pickVenue} />
           ))
         )}
       </ScrollView>

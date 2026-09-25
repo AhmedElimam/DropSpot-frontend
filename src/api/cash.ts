@@ -9,6 +9,9 @@ import client from './client';
  * rows. The `role` field on the reconciliation payload says which shape came back.
  */
 
+/** Weekly review (spec 2026-09-25 §1): questioned is a real middle state — held, not counted, not rejected. */
+export type ReviewStatus = 'pending' | 'accepted' | 'questioned' | 'rejected';
+
 export type ExpenseCategory = 'coffee' | 'breakfast' | 'bills' | 'transport' | 'supplies' | 'printing' | 'rent' | 'other';
 export type VenueRef = { id: number; name: string | null };
 export type VenueKind = 'venue' | 'general' | 'unassigned';
@@ -22,6 +25,15 @@ export interface Expense {
   expense_date: string; // YYYY-MM-DD — the day it belongs to
   is_late: boolean; // logged after that week (Fri→Thu) had closed
   is_teacher_expense: boolean | null;
+  review_status: ReviewStatus;
+  reject_reason: string | null;
+  reject_reason_label: string | null;
+  reject_note: string | null;
+  reviewed_at: string | null;
+  adjusts_week: string | null; // a late entry for this closed week, reviewed here
+  messages_count: number;
+  has_receipt: boolean;
+  locked: boolean;
   venue: VenueRef | null;
   venue_kind: VenueKind; // unassigned = logged before per-venue was on; never guessed
   logged_at: string | null; // ISO — when it was actually entered
@@ -38,6 +50,7 @@ export interface CashSettings extends CashSettingsLite {
   expense_reminder_enabled?: boolean;
   insights_enabled?: boolean;
   insight_pushes_per_day?: number;
+  review_bulk_max?: number;
 }
 
 /** A مدام روز suggestion the person confirms with a tap (v2 §5). Nothing is logged by her. */
@@ -153,6 +166,14 @@ export interface Drawer {
   reason: string | null;
   responded_at: string | null;
   resolved_at: string | null;
+  teacher_count?: number | null;
+  actual?: number | null;
+  held?: number;
+  rejected_expenses?: number;
+  presented_expenses?: number;
+  difference_before_review?: number | null;
+  closed_at?: string | null;
+  review_pending?: number;
 }
 
 export interface TeacherDrawer extends Drawer {
@@ -246,7 +267,96 @@ export async function reviewHandover(id: number, decision: 'confirm' | 'reject')
   await client.post(`/teacher/cash/handovers/${id}/${decision}`);
 }
 
-export async function updateCashSettings(patch: Partial<{ expenses_enabled: boolean; expenses_per_venue: boolean; cash_tolerance: number; expense_reminder_enabled: boolean; insights_enabled: boolean; insight_pushes_per_day: number }>): Promise<CashSettings> {
+export async function updateCashSettings(patch: Partial<{ expenses_enabled: boolean; expenses_per_venue: boolean; cash_tolerance: number; expense_reminder_enabled: boolean; insights_enabled: boolean; insight_pushes_per_day: number; review_bulk_max: number }>): Promise<CashSettings> {
   const { data } = await client.post('/teacher/cash/settings', patch);
   return data.data as CashSettings;
+}
+
+// ───────────────────────── weekly review ─────────────────────────
+
+export type ReviewBlocker = 'closed' | 'not_counted' | 'opening_unknown' | 'pending_items' | 'questioned_items' | 'pending_handovers';
+
+export interface WeeklyReview {
+  reconciliation: TeacherDrawer;
+  items: Expense[];
+  counts: { pending: number; questioned: number; accepted: number; rejected: number };
+  closed: boolean;
+  // Teacher-only (absent for the drawer's own assistant):
+  blocking?: ReviewBlocker[];
+  can_close?: boolean;
+  bulk_max?: number;
+  reasons?: { key: string; label: string }[];
+  flags?: { id: number; kind: 'count' | 'collection'; amount: number | null; note: string | null; created_at: string | null }[];
+  corrections?: { id: number; amount: number; note: string; booked_week_start: string; created_at: string | null }[];
+  pending_handovers?: number;
+}
+
+export async function getWeeklyReview(reconciliationId: number): Promise<WeeklyReview> {
+  const { data } = await client.get(`/teacher/cash/reconciliation/${reconciliationId}/review`);
+  return data.data as WeeklyReview;
+}
+
+/** One decision. The server returns the drawer's difference before and after it. */
+export async function decideExpense(
+  expenseId: number,
+  payload: { action: 'accept' } | { action: 'question'; note: string } | { action: 'reject'; reason: string; note?: string },
+): Promise<{ expense: Expense; before: number | null; after: number | null; reconciliation: Drawer | null }> {
+  const { data } = await client.post(`/teacher/expenses/${expenseId}/review`, payload);
+  return data.data;
+}
+
+/** Accepts only the pending items the teacher was shown, never above the bulk threshold. */
+export async function bulkAccept(reconciliationId: number, seenIds: number[]): Promise<{ accepted: number; excluded_large: number; before: number | null; after: number | null }> {
+  const { data } = await client.post(`/teacher/cash/reconciliation/${reconciliationId}/bulk-accept`, { seen_ids: seenIds });
+  return data.data;
+}
+
+export async function flagReview(reconciliationId: number, payload: { kind: 'count'; amount: number; note?: string } | { kind: 'collection'; note: string; amount?: number }): Promise<WeeklyReview> {
+  const { data } = await client.post(`/teacher/cash/reconciliation/${reconciliationId}/flags`, payload);
+  return data.data as WeeklyReview;
+}
+
+export async function closeWeek(reconciliationId: number): Promise<WeeklyReview> {
+  const { data } = await client.post(`/teacher/cash/reconciliation/${reconciliationId}/close`);
+  return data.data as WeeklyReview;
+}
+
+export async function addCorrection(reconciliationId: number, amount: number, note: string): Promise<void> {
+  await client.post(`/teacher/cash/reconciliation/${reconciliationId}/corrections`, { amount, note });
+}
+
+export interface ThreadMessage {
+  id: number;
+  body: string | null;
+  author: string;
+  is_me: boolean;
+  is_teacher: boolean;
+  attachment_url: string | null;
+  created_at: string | null;
+}
+
+export interface ExpenseThread {
+  expense: Expense;
+  messages: ThreadMessage[];
+  can_reply: boolean;
+}
+
+export async function getExpenseThread(expenseId: number): Promise<ExpenseThread> {
+  const { data } = await client.get(`/teacher/expenses/${expenseId}/thread`);
+  return data.data as ExpenseThread;
+}
+
+export async function replyToThread(expenseId: number, body: string, imageUri?: string | null): Promise<ExpenseThread> {
+  if (!imageUri) {
+    const { data } = await client.post(`/teacher/expenses/${expenseId}/thread`, { body });
+    return data.data as ExpenseThread;
+  }
+  const form = new FormData();
+  const name = imageUri.split('/').pop() || 'receipt.jpg';
+  const ext = (name.split('.').pop() || 'jpg').toLowerCase();
+  const MIME: Record<string, string> = { png: 'image/png', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
+  if (body) form.append('body', body);
+  form.append('attachment', { uri: imageUri, name, type: MIME[ext] ?? 'image/jpeg' } as any);
+  const { data } = await client.post(`/teacher/expenses/${expenseId}/thread`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  return data.data as ExpenseThread;
 }

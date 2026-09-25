@@ -263,6 +263,9 @@ export default function TeacherTabLayout() {
           manage hub, not a tab. */}
       <Tabs.Screen name="cash-reconcile" options={{ href: null }} />
       <Tabs.Screen name="expenses" options={{ href: null }} />
+      {/* Weekly review (the teacher reconciles) + the question thread on one expense. */}
+      <Tabs.Screen name="cash-review" options={{ href: null }} />
+      <Tabs.Screen name="expense-thread" options={{ href: null }} />
       {/* Revision-session picker → scan tab in revision mode. Not a tab. */}
       <Tabs.Screen name="revisions" options={{ href: null }} />
       {/* Merged-exam mark entry — pushed from the revisions list, not a tab. */}
