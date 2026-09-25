@@ -1,6 +1,6 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, KeyboardAvoidingView } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { getExpenses, addExpense, deleteExpense, assignExpenseVenue, type Expense, type VenueRef } from '@/api/cash';
+import { getExpenses, addExpense, deleteExpense, assignExpenseVenue, suggestCategory, type Expense, type VenueRef, type ExpenseTrace, type RecurringSuggestion } from '@/api/cash';
 
 /**
  * The expense ledger (spec 2026-09-25 §6, minimum §11.1). Fastest path from "I just bought
@@ -83,7 +83,11 @@ export default function ExpensesScreen() {
   const weekKey = ymd(weekDay);
   const isCurrentWeek = useMemo(() => sameCashWeek(new Date(), weekDay), [weekDay]);
 
-  const { data, isLoading, refetch } = useQuery({ queryKey: ['expenses', weekKey], queryFn: () => getExpenses(weekKey) });
+  // An observation's trace (v2 §6): arrive with ?from&to[&category][&venue] and list exactly
+  // the entries behind the remark until the person goes back to the week view.
+  const params = useLocalSearchParams<{ from?: string; to?: string; category?: string; venue?: string }>();
+  const [trace, setTrace] = useState<ExpenseTrace | null>(() => (params.from && params.to ? { from: params.from, to: params.to, category: params.category, venue: params.venue } : null));
+  const { data, isLoading, refetch } = useQuery({ queryKey: ['expenses', weekKey, trace], queryFn: () => getExpenses(weekKey, undefined, trace) });
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   const [amount, setAmount] = useState('');
@@ -111,6 +115,38 @@ export default function ExpensesScreen() {
     // A past week: the entry belongs to that week's last day and will be marked late.
     return data.week.end;
   }, [data, isCurrentWeek, dayChoice]);
+
+  // Category from the note (v2 §5): she suggests, one tap changes it. A category the person
+  // picked by hand is never overridden.
+  const categoryTouched = useRef(false);
+  const [suggested, setSuggested] = useState<string | null>(null);
+  useEffect(() => {
+    const note0 = note.trim();
+    if (note0.length < 2) { setSuggested(null); return; }
+    const h = setTimeout(() => {
+      suggestCategory(note0).then((r) => {
+        setSuggested(r.category);
+        if (r.category && !categoryTouched.current) setCategory(r.category);
+      }).catch(() => {});
+    }, 350);
+    return () => clearTimeout(h);
+  }, [note]);
+
+  const logRecurring = useMutation({
+    mutationFn: (r: RecurringSuggestion) => addExpense({
+      amount: r.prefill.amount, category: r.prefill.category, note: r.prefill.note ?? undefined,
+      ...(perVenue ? (venueChoice === 'general' || venueChoice === null ? { is_general: true } : { teacher_location_id: venueChoice }) : {}),
+    }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['expenses'] }); qc.invalidateQueries({ queryKey: ['cash-reconciliation'] }); qc.invalidateQueries({ queryKey: ['cash-insights'] }); },
+    onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+  });
+  // She asks; the person confirms. The tap is the decision (v2 Part A §1).
+  const confirmRecurring = (r: RecurringSuggestion) => {
+    Alert.alert(t('expenses.recurring_confirm_title'), t('expenses.recurring_confirm_hint', { amount: money(r.prefill.amount), category: data?.categories.find((c) => c.key === r.prefill.category)?.label ?? r.prefill.category }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('expenses.recurring_log'), onPress: () => logRecurring.mutate(r) },
+    ]);
+  };
 
   const add = useMutation({
     mutationFn: () => addExpense({
@@ -175,7 +211,19 @@ export default function ExpensesScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {trace ? (
+          <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('expenses.trace_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{formatShortDate(trace.from)} – {formatShortDate(trace.to)}{trace.category ? ` · ${data?.categories.find((c) => c.key === trace.category)?.label ?? ''}` : ''}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setTrace(null)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.full, borderWidth: 1, borderColor: colors.brand }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('expenses.trace_clear')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {/* Week switcher: Friday → Thursday. */}
+        {!trace ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
           <TouchableOpacity onPress={() => setWeekDay((d) => new Date(d.getTime() - 7 * DAY_MS))} hitSlop={8} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="forward" size={20} color={colors.textSecondary} />
@@ -187,6 +235,7 @@ export default function ExpensesScreen() {
             <Icon name="back" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
+        ) : null}
 
         {!enabled ? (
           <View style={{ backgroundColor: colors.warning + '14', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.warning, padding: spacing.lg, marginBottom: spacing.lg }}>
@@ -199,6 +248,20 @@ export default function ExpensesScreen() {
         {enabled ? (
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('expenses.add_title')}</Text>
+          {(data?.quick_add.length ?? 0) > 0 ? (
+            <>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{t('expenses.quick_add_title')}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
+                {(data?.quick_add ?? []).map((q) => (
+                  <TouchableOpacity key={`${q.category}:${q.amount}`} activeOpacity={0.8}
+                    onPress={() => { setAmount(String(q.amount)); categoryTouched.current = true; setCategory(q.category); setNote(q.note ?? ''); }}
+                    style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: colors.success, backgroundColor: colors.success + '14' }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.successDark }}>{q.note ?? q.label} · {money(q.amount)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          ) : null}
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('expenses.amount')}</Text>
           <TextInput
             value={amount}
@@ -213,9 +276,9 @@ export default function ExpensesScreen() {
             {(data?.categories ?? []).map((c) => {
               const on = c.key === category;
               return (
-                <TouchableOpacity key={c.key} onPress={() => setCategory(c.key)} activeOpacity={0.8}
+                <TouchableOpacity key={c.key} onPress={() => { categoryTouched.current = true; setCategory(c.key); }} activeOpacity={0.8}
                   style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface }}>
-                  <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{c.label}</Text>
+                  <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{c.label}{suggested === c.key && on && !categoryTouched.current ? ` · ${t('expenses.category_suggested')}` : ''}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -265,13 +328,27 @@ export default function ExpensesScreen() {
         </View>
         ) : null}
 
+        {(data?.recurring.length ?? 0) > 0 && enabled ? (
+          <View style={{ backgroundColor: colors.brand + '10', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand + '44', padding: spacing.lg, marginBottom: spacing.lg }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('expenses.recurring_title')}</Text>
+            {(data?.recurring ?? []).map((r) => (
+              <View key={r.key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, lineHeight: 22 }}>{r.text}</Text>
+                <TouchableOpacity onPress={() => confirmRecurring(r)} disabled={logRecurring.isPending} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.full, backgroundColor: colors.brand }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('expenses.recurring_log')}</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {perVenue && (data?.unassigned_count ?? 0) > 0 ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.sm }}>{t('expenses.unassigned_hint', { count: data?.unassigned_count })}</Text>
         ) : null}
 
         {/* The week's entries. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary }}>{t('expenses.week_total')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary }}>{trace ? t('expenses.trace_title') : t('expenses.week_total')}</Text>
           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{money(data?.total ?? 0)} {t('insights.egp')}</Text>
         </View>
         {data?.own_only ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('expenses.own_only_hint')}</Text> : null}

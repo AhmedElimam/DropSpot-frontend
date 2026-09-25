@@ -1662,7 +1662,15 @@
     "assign_venue_title": "مكان المصروف",
     "venue_required": "اختر مكان المصروف أو «عام»",
     "filter_all": "الكل",
-    "late_marker": "مسجّل متأخر · بتاريخ {{date}}"
+    "late_marker": "مسجّل متأخر · بتاريخ {{date}}",
+    "trace_title": "التفاصيل وراء الملاحظة",
+    "trace_clear": "رجوع لهذا الأسبوع",
+    "recurring_title": "مدام روز فاكرة",
+    "recurring_log": "أسجّله",
+    "recurring_confirm_title": "تسجيل المصروف",
+    "recurring_confirm_hint": "هيتسجّل {{amount}} ج.م ({{category}}) بتاريخ اليوم. تمام؟",
+    "quick_add_title": "تسجيل سريع",
+    "category_suggested": "اقتراح مدام روز"
   },
   "cash": {
     "title": "جرد الخزنة",
@@ -1773,6 +1781,12 @@
     "surplus_plain": "يوجد مبلغ زائد {{amount}} ج.م في الخزنة",
     "handover_question": "{{name}} سجّل تسليم {{amount}} ج.م لك — هل استلمتها؟",
     "setting_reminder": "تذكير المصاريف اليومي",
-    "setting_reminder_hint": "مدام روز بتسأل «عندك مصاريف النهارده؟» في أيام الحصص والتحصيل فقط."
+    "setting_reminder_hint": "مدام روز بتسأل «عندك مصاريف النهارده؟» في أيام الحصص والتحصيل فقط.",
+    "observations_title": "مدام روز لاحظت",
+    "observation_open": "شوف التفاصيل",
+    "setting_insights": "ملاحظات مدام روز",
+    "setting_insights_hint": "ملاحظات عن التصنيفات والأماكن والاتجاهات. إيقافها لا يوقف الجرد.",
+    "setting_insight_pushes": "إشعارات الملاحظات في اليوم",
+    "prefilled_hint": "المتوقع في الخزنة {{amount}} ج.م — ده اللي موجود؟"
   }
 }

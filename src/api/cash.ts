@@ -36,6 +36,50 @@ export interface CashSettingsLite {
 export interface CashSettings extends CashSettingsLite {
   tolerance: number;
   expense_reminder_enabled?: boolean;
+  insights_enabled?: boolean;
+  insight_pushes_per_day?: number;
+}
+
+/** A مدام روز suggestion the person confirms with a tap (v2 §5). Nothing is logged by her. */
+export interface RecurringSuggestion {
+  key: string;
+  text: string;
+  prefill: { category: string; amount: number; note: string | null };
+}
+
+export interface QuickAdd {
+  category: string;
+  label: string;
+  amount: number;
+  note: string | null;
+  times: number;
+}
+
+/** An observation (v2 §6): a computed fact with the filter that lists the entries behind it. */
+export interface Observation {
+  key: string;
+  type: string;
+  text: string;
+  amount: number;
+  trace: { from: string; to: string; category?: string; venue?: number };
+  prefill?: RecurringSuggestion['prefill'];
+}
+
+export interface CashInsights {
+  role: 'teacher' | 'assistant';
+  enabled: boolean;
+  context: { name: string; greeting: string; season: string | null };
+  observations: Observation[];
+}
+
+export async function getCashInsights(): Promise<CashInsights> {
+  const { data } = await client.get('/teacher/cash/insights');
+  return data.data as CashInsights;
+}
+
+export async function suggestCategory(note: string): Promise<{ category: string | null; label: string | null }> {
+  const { data } = await client.get('/teacher/expenses/suggest', { params: { note } });
+  return data.data;
 }
 
 export interface ExpensesWeek {
@@ -48,12 +92,22 @@ export interface ExpensesWeek {
   venues: VenueRef[]; // only when per_venue
   default_venue_id: number | null; // today's most recent session venue — a default, always editable
   unassigned_count: number;
+  quick_add: QuickAdd[];
+  recurring: RecurringSuggestion[];
 }
 
-export async function getExpenses(weekDay?: string, venue?: string): Promise<ExpensesWeek> {
+export interface ExpenseTrace { from: string; to: string; category?: string; venue?: number | string }
+
+export async function getExpenses(weekDay?: string, venue?: string, trace?: ExpenseTrace | null): Promise<ExpensesWeek> {
   const params: Record<string, string> = {};
   if (weekDay) params.week = weekDay;
   if (venue) params.venue = venue;
+  if (trace) {
+    params.from = trace.from;
+    params.to = trace.to;
+    if (trace.category) params.category = trace.category;
+    if (trace.venue !== undefined) params.venue = String(trace.venue);
+  }
   const { data } = await client.get('/teacher/expenses', { params });
   return data.data as ExpensesWeek;
 }
@@ -192,7 +246,7 @@ export async function reviewHandover(id: number, decision: 'confirm' | 'reject')
   await client.post(`/teacher/cash/handovers/${id}/${decision}`);
 }
 
-export async function updateCashSettings(patch: Partial<{ expenses_enabled: boolean; expenses_per_venue: boolean; cash_tolerance: number; expense_reminder_enabled: boolean }>): Promise<CashSettings> {
+export async function updateCashSettings(patch: Partial<{ expenses_enabled: boolean; expenses_per_venue: boolean; cash_tolerance: number; expense_reminder_enabled: boolean; insights_enabled: boolean; insight_pushes_per_day: number }>): Promise<CashSettings> {
   const { data } = await client.post('/teacher/cash/settings', patch);
   return data.data as CashSettings;
 }

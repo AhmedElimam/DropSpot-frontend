@@ -14,8 +14,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
-  getCashReconciliation, respondReconciliation, resolveReconciliation, setOpeningBalance, recordHandover, reviewHandover, updateCashSettings,
-  type AssistantCashView, type TeacherCashView, type Drawer, type TeacherDrawer, type Handover, type ReconciliationResult, type ReconciliationStatus, type VenueRef,
+  getCashReconciliation, respondReconciliation, resolveReconciliation, setOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights,
+  type AssistantCashView, type TeacherCashView, type Drawer, type TeacherDrawer, type Handover, type ReconciliationResult, type ReconciliationStatus, type VenueRef, type Observation,
 } from '@/api/cash';
 
 /**
@@ -137,7 +137,8 @@ function DrawerTitle({ d, name }: { d: Drawer; name?: string }) {
 function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void }) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<'ask' | 'diff'>(row.expected === null ? 'diff' : 'ask');
-  const [registry, setRegistry] = useState('');
+  // Pre-filled count (v2 §5): the expected figure is in the box already; the person edits or confirms.
+  const [registry, setRegistry] = useState(row.expected !== null ? String(row.expected) : '');
   const [reason, setReason] = useState('');
 
   const registryNum = Number(registry);
@@ -170,6 +171,7 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
       ) : (
         <View style={{ marginTop: spacing.md }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('cash.registry')}</Text>
+          {row.expected !== null ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.brand, marginBottom: 4 }}>{t('cash.prefilled_hint', { amount: money(row.expected) })}</Text> : null}
           <TextInput
             value={registry}
             onChangeText={(v) => setRegistry(v.replace(/[^0-9.]/g, ''))}
@@ -353,6 +355,28 @@ function AssistantView({ v, onDone, onHandover }: { v: AssistantCashView; onDone
   );
 }
 
+/** What she has noticed (v2 §6). Each line opens the entries behind it — a remark you cannot verify is worth nothing. */
+function Observations({ items }: { items: Observation[] }) {
+  const { t } = useTranslation();
+  if (items.length === 0) return null;
+  const open = (o: Observation) => router.push({ pathname: '/(teacher)/expenses', params: { from: o.trace.from, to: o.trace.to, ...(o.trace.category ? { category: o.trace.category } : {}), ...(o.trace.venue !== undefined ? { venue: String(o.trace.venue) } : {}) } } as Href);
+  return (
+    <View style={{ marginBottom: spacing.lg }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.observations_title')}</Text>
+      {items.map((o) => (
+        <TouchableOpacity key={o.key} onPress={() => open(o)} activeOpacity={0.85}
+          style={{ backgroundColor: o.type === 'streak' ? colors.success + '14' : colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: o.type === 'streak' ? colors.success : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, lineHeight: 22 }}>{o.text}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+            <Icon name="search" size={13} color={colors.brand} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('cash.observation_open')}</Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
 function OpeningEntry({ d, onSaved }: { d: TeacherDrawer; onSaved: () => void }) {
   const { t } = useTranslation();
   const [amount, setAmount] = useState('');
@@ -432,6 +456,28 @@ function SettingsCard({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('cash.setting_reminder_hint')}</Text>
           </View>
           <Switch value={v.settings.expense_reminder_enabled !== false} onValueChange={(on) => save.mutate({ expense_reminder_enabled: on })} disabled={save.isPending} />
+        </View>
+      ) : null}
+      <View style={rowStyle}>
+        <View style={{ flex: 1, paddingEnd: spacing.md }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.setting_insights')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('cash.setting_insights_hint')}</Text>
+        </View>
+        <Switch value={v.settings.insights_enabled !== false} onValueChange={(on) => save.mutate({ insights_enabled: on })} disabled={save.isPending} />
+      </View>
+      {v.settings.insights_enabled !== false ? (
+        <View style={rowStyle}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.setting_insight_pushes')}</Text>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {[0, 1, 2, 3].map((n) => {
+              const on = (v.settings.insight_pushes_per_day ?? 1) === n;
+              return (
+                <TouchableOpacity key={n} onPress={() => save.mutate({ insight_pushes_per_day: n })} style={{ width: 34, height: 30, borderRadius: radius.md, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{money(n)}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
       ) : null}
       <View style={rowStyle}>
@@ -522,7 +568,9 @@ export default function CashReconcileScreen() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const { data, isLoading, refetch } = useQuery({ queryKey: ['cash-reconciliation'], queryFn: () => getCashReconciliation() });
-  const { refreshing, onRefresh } = usePullRefresh(refetch);
+  const insightsQ = useQuery({ queryKey: ['cash-insights'], queryFn: getCashInsights });
+  const { refreshing, onRefresh } = usePullRefresh(refetch, insightsQ.refetch);
+  const ins = insightsQ.data;
   // First open: مدام روز introduces herself once (persona spec §5), then steps aside.
   const [introSeen, setIntroSeen] = useState<boolean | null>(null);
   useEffect(() => {
@@ -532,6 +580,7 @@ export default function CashReconcileScreen() {
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['cash-reconciliation'] });
+    qc.invalidateQueries({ queryKey: ['cash-insights'] });
     qc.invalidateQueries({ queryKey: ['expenses'] });
     qc.invalidateQueries({ queryKey: ['teacher-insights'] });
   };
@@ -588,6 +637,12 @@ export default function CashReconcileScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {ins?.context?.greeting ? (
+            <View style={{ marginBottom: spacing.md }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{ins.context.greeting}</Text>
+              {ins.context.season ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{ins.context.season}</Text> : null}
+            </View>
+          ) : null}
           {introSeen === false ? (
             <View style={{ backgroundColor: colors.brand + '12', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand + '44', padding: spacing.lg, marginBottom: spacing.lg }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.intro_line1')}</Text>
@@ -597,6 +652,7 @@ export default function CashReconcileScreen() {
               </TouchableOpacity>
             </View>
           ) : null}
+          {ins?.enabled ? <Observations items={ins.observations} /> : null}
           {data.role === 'assistant'
             ? <AssistantView v={data} onDone={onDone} onHandover={onHandover} />
             : <TeacherView v={data} onResolve={confirmResolve} onChanged={invalidate} onReview={(h, d) => review.mutate({ id: h.id, d })} onHandover={onHandover} />}
