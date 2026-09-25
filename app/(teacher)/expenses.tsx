@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { getExpenses, addExpense, deleteExpense, type Expense } from '@/api/cash';
+import { getExpenses, addExpense, deleteExpense, assignExpenseVenue, type Expense, type VenueRef } from '@/api/cash';
 
 /**
  * The expense ledger (spec 2026-09-25 §6, minimum §11.1). Fastest path from "I just bought
@@ -29,8 +29,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
 
-const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, onDelete }: { e: Expense; showLogger: boolean; canDelete: boolean; onDelete: (e: Expense) => void }) {
+const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, perVenue, canAssign, onDelete, onAssign }: { e: Expense; showLogger: boolean; canDelete: boolean; perVenue: boolean; canAssign: boolean; onDelete: (e: Expense) => void; onAssign: (e: Expense) => void }) {
   const { t } = useTranslation();
+  const venueLabel = !perVenue ? null : e.venue_kind === 'venue' ? e.venue?.name : e.venue_kind === 'general' ? t('expenses.general') : t('expenses.unassigned');
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: e.is_late ? colors.warning : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -54,6 +55,12 @@ const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, onDelete
               : formatShortDate(e.expense_date)}
             {showLogger && !e.logged_by.is_me ? ` · ${t('expenses.logged_by', { name: e.logged_by.name })}` : ''}
           </Text>
+          {venueLabel ? (
+            <TouchableOpacity disabled={!canAssign} onPress={() => onAssign(e)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, alignSelf: 'flex-start' }}>
+              <Icon name="location" size={13} color={e.venue_kind === 'unassigned' ? colors.warningDark : colors.textTertiary} />
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: e.venue_kind === 'unassigned' ? colors.warningDark : colors.textTertiary }}>{venueLabel}{canAssign ? ` · ${t('expenses.assign_venue')}` : ''}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
         {canDelete ? (
           <TouchableOpacity onPress={() => onDelete(e)} hitSlop={8} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
@@ -83,6 +90,16 @@ export default function ExpensesScreen() {
   const [category, setCategory] = useState<string>('coffee');
   const [note, setNote] = useState('');
   const [dayChoice, setDayChoice] = useState<'today' | 'yesterday'>('today');
+  // Per-venue: a venue id, 'general', or null (not chosen yet). Seeded from the server's
+  // default (today's most recent session venue) once the week loads — still editable.
+  const [venueChoice, setVenueChoice] = useState<number | 'general' | null>(null);
+  const [venueSeeded, setVenueSeeded] = useState(false);
+  if (data && !venueSeeded) {
+    setVenueSeeded(true);
+    if (data.settings.per_venue) setVenueChoice(data.default_venue_id ?? null);
+  }
+  const perVenue = !!data?.settings.per_venue;
+  const enabled = data?.settings.expenses_enabled !== false;
 
   const expenseDate = useMemo(() => {
     if (!data) return undefined;
@@ -96,7 +113,10 @@ export default function ExpensesScreen() {
   }, [data, isCurrentWeek, dayChoice]);
 
   const add = useMutation({
-    mutationFn: () => addExpense({ amount: Number(amount), category, note: note.trim() || undefined, expense_date: expenseDate }),
+    mutationFn: () => addExpense({
+      amount: Number(amount), category, note: note.trim() || undefined, expense_date: expenseDate,
+      ...(perVenue ? (venueChoice === 'general' ? { is_general: true } : { teacher_location_id: venueChoice as number | null }) : {}),
+    }),
     onSuccess: () => {
       setAmount(''); setNote('');
       qc.invalidateQueries({ queryKey: ['expenses'] });
@@ -114,6 +134,21 @@ export default function ExpensesScreen() {
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
 
+  const assign = useMutation({
+    mutationFn: ({ id, venue }: { id: number; venue: number | 'general' | null }) =>
+      assignExpenseVenue(id, venue === 'general' ? { teacher_location_id: null, is_general: true } : { teacher_location_id: venue, is_general: false }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['expenses'] }); qc.invalidateQueries({ queryKey: ['cash-reconciliation'] }); },
+    onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+  });
+  const venues: VenueRef[] = data?.venues ?? [];
+  const pickVenue = useCallback((e: Expense) => {
+    Alert.alert(t('expenses.assign_venue_title'), `${money(e.amount)} ${t('insights.egp')} · ${e.category_label}`, [
+      ...venues.map((v) => ({ text: v.name ?? '', onPress: () => assign.mutate({ id: e.id, venue: v.id }) })),
+      { text: t('expenses.general'), onPress: () => assign.mutate({ id: e.id, venue: 'general' }) },
+      { text: t('common.cancel'), style: 'cancel' as const },
+    ]);
+  }, [t, venues, assign]);
+
   const confirmDelete = useCallback((e: Expense) => {
     Alert.alert(t('expenses.delete_confirm_title'), t('expenses.delete_confirm_hint', { amount: money(e.amount), category: e.category_label }), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -122,7 +157,7 @@ export default function ExpensesScreen() {
   }, [t, remove]);
 
   const amountNum = Number(amount);
-  const canAdd = !!data && Number.isFinite(amountNum) && amountNum > 0 && !add.isPending;
+  const canAdd = !!data && enabled && Number.isFinite(amountNum) && amountNum > 0 && !add.isPending && (!perVenue || venueChoice !== null);
   const items = data?.items ?? [];
 
   return (
@@ -153,7 +188,15 @@ export default function ExpensesScreen() {
           </TouchableOpacity>
         </View>
 
+        {!enabled ? (
+          <View style={{ backgroundColor: colors.warning + '14', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.warning, padding: spacing.lg, marginBottom: spacing.lg }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('expenses.disabled_title')}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('expenses.disabled_hint')}</Text>
+          </View>
+        ) : null}
+
         {/* Quick add. */}
+        {enabled ? (
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('expenses.add_title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('expenses.amount')}</Text>
@@ -177,6 +220,23 @@ export default function ExpensesScreen() {
               );
             })}
           </View>
+          {perVenue ? (
+            <>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{t('expenses.venue')}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
+                {[...venues.map((v) => ({ key: v.id as number | 'general', label: v.name ?? '' })), { key: 'general' as const, label: t('expenses.general') }].map((c) => {
+                  const on = venueChoice === c.key;
+                  return (
+                    <TouchableOpacity key={String(c.key)} onPress={() => setVenueChoice(c.key)} activeOpacity={0.8}
+                      style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface }}>
+                      <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{c.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {venueChoice === null ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.sm }}>{t('expenses.venue_required')}</Text> : null}
+            </>
+          ) : null}
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('expenses.note')}</Text>
           <TextInput
             value={note}
@@ -203,6 +263,11 @@ export default function ExpensesScreen() {
           ) : null}
           <Button title={t('expenses.add')} onPress={() => add.mutate()} disabled={!canAdd} loading={add.isPending} />
         </View>
+        ) : null}
+
+        {perVenue && (data?.unassigned_count ?? 0) > 0 ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.sm }}>{t('expenses.unassigned_hint', { count: data?.unassigned_count })}</Text>
+        ) : null}
 
         {/* The week's entries. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
@@ -217,7 +282,7 @@ export default function ExpensesScreen() {
           <EmptyState icon="money" title={t('expenses.none')} message={t('expenses.none_hint')} />
         ) : (
           items.map((e) => (
-            <ExpenseRow key={e.id} e={e} showLogger={!isAssistant} canDelete={!isAssistant || e.logged_by.is_me} onDelete={confirmDelete} />
+            <ExpenseRow key={e.id} e={e} showLogger={!isAssistant} canDelete={!isAssistant || e.logged_by.is_me} perVenue={perVenue} canAssign={!isAssistant} onDelete={confirmDelete} onAssign={pickVenue} />
           ))
         )}
       </ScrollView>

@@ -83,7 +83,8 @@ export default function TeacherManage() {
   const cash = useQuery({ queryKey: ['cash-reconciliation'], queryFn: () => getCashReconciliation(), enabled: canCash });
   const cashView = cash.data;
   const cashPending = cashView?.role === 'assistant' ? cashView.unanswered[0] ?? null : null;
-  const cashOpenGaps = cashView?.role === 'teacher' ? cashView.open_gaps.length : 0;
+  const cashOpenGaps = cashView?.role === 'teacher' ? cashView.open_gaps.length + cashView.pending_handovers.length : 0;
+  const expensesOn = cashView?.settings.expenses_enabled !== false;
 
   // Every figure on this hub is a cached count; a pull must refresh all of them, not
   // whichever one happens to be stalest.
@@ -207,7 +208,9 @@ export default function TeacherManage() {
                 )}
               </TouchableOpacity>
             )}
-            <Row icon="note" title={t('expenses.title')} sub={t('expenses.manage_sub')} tint={colors.success} onPress={() => router.push('/(teacher)/expenses' as Href)} />
+            {expensesOn ? (
+              <Row icon="note" title={t('expenses.title')} sub={t('expenses.manage_sub')} tint={colors.success} onPress={() => router.push('/(teacher)/expenses' as Href)} />
+            ) : null}
           </>
         ) : null}
 

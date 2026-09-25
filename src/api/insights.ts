@@ -34,9 +34,26 @@ export interface InsightsRangeParams {
   range?: InsightsRangeKey;
   from?: string;
   to?: string;
+  /** Venue filter (venues addendum §4): a venue id, 'general', or omitted for all. */
+  venue?: number | 'general';
+}
+
+/**
+ * Collected (per the system) vs actually in the registry. "Actual" exists ONLY for weeks
+ * whose every drawer was reconciled; other weeks are reported apart with actual = null —
+ * never zero, never "equal to collected". The two groups are never summed together.
+ */
+export interface InsightsCash {
+  reconciled: { weeks: number; collected: number; actual: number; expenses: number; difference: number };
+  unreconciled: { weeks: number; collected: number; expenses: number; actual: null };
+  expenses_enabled: boolean;
 }
 
 export interface TeacherInsights {
+  cash?: InsightsCash | null;
+  venues?: { id: number; name: string | null }[];
+  venue?: number | 'general' | null;
+  cash_settings?: { expenses_enabled: boolean; per_venue: boolean; tolerance: number };
   attendance: {
     rate: number;
     on_time_rate: number;

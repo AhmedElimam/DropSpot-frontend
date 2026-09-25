@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +18,17 @@ import { openRemotePdf } from '@/utils/openPdf';
  * The server sends its own list with the bundle and that one wins once it lands — this
  * is a placeholder, not a second source of truth.
  */
+const VENUE_KEY = 'insights_venue_filter';
+
+function CashLine({ label, value, tint }: { label: string; value: string; tint?: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 3 }}>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: tint ?? colors.textPrimary }}>{value}</Text>
+    </View>
+  );
+}
+
 const FALLBACK_PRESETS: { key: InsightsRangeKey; label: string }[] = [
   { key: 'month', label: 'هذا الشهر' },
   { key: 'last_month', label: 'الشهر الماضي' },
@@ -36,10 +48,24 @@ export default function InsightsScreen() {
   // The chosen period drives the query key, so switching it refetches rather than
   // re-labelling stale numbers.
   const [range, setRange] = useState<InsightsRangeKey>('month');
+  // Venue filter (venues addendum §4): 'all', a venue id, or 'general'. Persisted between
+  // visits — a teacher who manages one centre closely will look at it most.
+  const [venue, setVenueState] = useState<'all' | 'general' | number>('all');
+  useEffect(() => {
+    SecureStore.getItemAsync(VENUE_KEY).then((v) => {
+      if (!v) return;
+      setVenueState(v === 'general' ? 'general' : v === 'all' ? 'all' : Number(v) || 'all');
+    }).catch(() => {});
+  }, []);
+  const setVenue = (v: 'all' | 'general' | number) => {
+    setVenueState(v);
+    SecureStore.setItemAsync(VENUE_KEY, String(v)).catch(() => {});
+  };
+  const venueParam = venue === 'all' ? undefined : venue;
   const [exporting, setExporting] = useState(false);
   const q = useQuery({
-    queryKey: ['teacher-insights', range],
-    queryFn: () => getTeacherInsights({ range }),
+    queryKey: ['teacher-insights', range, venue],
+    queryFn: () => getTeacherInsights({ range, venue: venueParam }),
     // Keep the previous period on screen while the new one loads, so switching periods
     // reads as the numbers changing rather than the page emptying.
     placeholderData: keepPreviousData,
@@ -57,7 +83,7 @@ export default function InsightsScreen() {
     if (exporting) return;
     setExporting(true);
     try {
-      const url = await getInsightsPdfUrl({ range });
+      const url = await getInsightsPdfUrl({ range, venue: venueParam });
       if (!url) throw new Error('no url');
       await openRemotePdf(url, `تحليلات-${rangeLabel || range}`);
     } catch {
@@ -126,6 +152,25 @@ export default function InsightsScreen() {
         })}
       </ScrollView>
 
+      {/* Venue filter — every figure below follows it, including the cash block. */}
+      {(d?.venues?.length ?? 0) > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.sm, alignItems: 'center' }} style={{ flexGrow: 0 }}>
+          {[
+            { key: 'all' as const, label: t('insights.venue_all') },
+            ...(d?.venues ?? []).map((v) => ({ key: v.id, label: v.name ?? '' })),
+            ...(d?.cash_settings?.per_venue ? [{ key: 'general' as const, label: t('insights.venue_general') }] : []),
+          ].map((c) => {
+            const active = c.key === venue;
+            return (
+              <TouchableOpacity key={String(c.key)} onPress={() => setVenue(c.key)}
+                style={{ flexShrink: 0, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: active ? colors.accent : colors.border, backgroundColor: active ? colors.accent + '22' : colors.surface }}>
+                <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 12, lineHeight: 18, color: active ? colors.accent : colors.textSecondary }}>{c.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
       {q.isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : !d ? (
@@ -183,6 +228,34 @@ export default function InsightsScreen() {
             <StatsCard label={t('insights.overdue')} value={money(d.financial.overdue)} color={colors.danger} bgColor={colors.danger + '18'} />
             <StatsCard label={t('insights.new_students_period')} value={d.growth.new_students} color={colors.brand} bgColor={colors.brand + '18'} />
           </Row>
+
+          {/* Collected vs actual (addendum §5). "Actual" only for reconciled weeks; unreconciled
+              weeks are listed apart with the actual UNKNOWN — never zero, never = collected. */}
+          {d.cash ? (
+            <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('insights.cash_title')}</Text>
+              {d.cash.reconciled.weeks === 0 && d.cash.unreconciled.weeks === 0 ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{t('insights.cash_none')}</Text>
+              ) : null}
+              {d.cash.reconciled.weeks > 0 ? (
+                <View style={{ marginBottom: spacing.sm }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.success }}>{t('insights.cash_reconciled_weeks', { count: d.cash.reconciled.weeks })}</Text>
+                  <CashLine label={t('insights.cash_collected')} value={money(d.cash.reconciled.collected)} />
+                  <CashLine label={t('insights.cash_actual')} value={money(d.cash.reconciled.actual)} />
+                  {d.cash.expenses_enabled ? <CashLine label={t('insights.cash_expenses')} value={money(d.cash.reconciled.expenses)} /> : null}
+                  <CashLine label={t('insights.cash_difference')} value={`${d.cash.reconciled.difference > 0 ? '+' : ''}${money(d.cash.reconciled.difference)}`} tint={d.cash.reconciled.difference === 0 ? colors.success : d.cash.reconciled.difference < 0 ? colors.danger : colors.warningDark} />
+                </View>
+              ) : null}
+              {d.cash.unreconciled.weeks > 0 ? (
+                <View>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.warningDark }}>{t('insights.cash_unreconciled_weeks', { count: d.cash.unreconciled.weeks })}</Text>
+                  <CashLine label={t('insights.cash_collected')} value={money(d.cash.unreconciled.collected)} />
+                  <CashLine label={t('insights.cash_actual')} value={t('insights.cash_unknown')} tint={colors.warningDark} />
+                  {d.cash.expenses_enabled ? <CashLine label={t('insights.cash_expenses')} value={money(d.cash.unreconciled.expenses)} /> : null}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </ScrollView>
       )}
     </View>
