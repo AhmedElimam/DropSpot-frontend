@@ -220,6 +220,17 @@ export interface TeacherCashView {
   venues: VenueRef[];
   assistants: { user_id: number; name: string }[];
   collected: number;
+  /** The base of the equation, from the collection ledger: where this week's money sits. */
+  collected_breakdown?: {
+    total: number;
+    cash: number;
+    digital: number;
+    cash_by_assistants: number;
+    cash_by_teacher: number;
+    unattributed: number;
+    by_collector: { user_id: number; name: string; amount: number }[];
+    events: number;
+  };
   expenses: number;
   expenses_by_assistants: number;
   expenses_by_teacher: number;

@@ -699,7 +699,7 @@ function WeekSegment({ data, onChanged, onOpenHandover }: { data: CashView; onCh
       {/* The week in three numbers. */}
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md }}>
         {[
-          { label: t('cash.collected_teacher'), value: money(v.collected), tint: colors.textPrimary },
+          { label: t('cash.collected_teacher'), value: money(v.collected_breakdown ? v.collected_breakdown.total : v.collected), tint: colors.textPrimary },
           ...(v.settings.expenses_enabled ? [{ label: t('cash.expenses'), value: money(v.expenses), tint: colors.textPrimary }] : []),
           { label: t('cash.handovers'), value: money(v.handovers_confirmed), tint: colors.textPrimary },
         ].map((c) => (
@@ -709,6 +709,14 @@ function WeekSegment({ data, onChanged, onOpenHandover }: { data: CashView; onCh
           </View>
         ))}
       </View>
+      {/* Where the week's money sits — the base of every drawer's equation, from the collection ledger. */}
+      {v.collected_breakdown ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: -spacing.xs, marginBottom: spacing.md }}>
+          {t('cash.collected_split', { assistants: money(v.collected_breakdown.cash_by_assistants), teacher: money(v.collected_breakdown.cash_by_teacher) })}
+          {v.collected_breakdown.digital > 0 ? ` · ${t('cash.collected_digital', { amount: money(v.collected_breakdown.digital) })}` : ''}
+          {v.collected_breakdown.unattributed > 0 ? ` · ${t('cash.collected_unattributed', { amount: money(v.collected_breakdown.unattributed) })}` : ''}
+        </Text>
+      ) : null}
 
       {v.drawers.length === 0 ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.lg, textAlign: 'center' }}>{t('cash.no_assistants')}</Text>
