@@ -15,7 +15,6 @@ import { registerForPushNotifications } from '@/utils/push-notifications';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { fonts } from '@/theme/typography';
 import { colors, radius } from '@/theme/index';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { Icon, type IconName } from '@/components/ui/Icon';
 
 /**
@@ -30,22 +29,18 @@ import { Icon, type IconName } from '@/components/ui/Icon';
  */
 const labels: Record<string, string> = {
   index: 'teacher.tab_home',
-  scan: 'teacher.tab_camera',
   students: 'teacher.tab_students',
   manage: 'teacher.tab_manage',
   tickets: 'teacher.tab_tickets',
   settings: 'teacher.tab_settings',
-  'cash-reconcile': 'teacher.tab_cash',
 };
 
 const icons: Record<string, IconName> = {
   index: 'home',
-  scan: 'scan',
   students: 'children',
   manage: 'book',
   tickets: 'tickets',
   settings: 'settings',
-  'cash-reconcile': 'money',
 };
 
 // Top-level routes that must never show the tab bar. Any live CAMERA screen is
@@ -71,17 +66,10 @@ function shouldHideBar(state: { routes: { name: string; state?: unknown }[]; ind
 
 export default function TeacherTabLayout() {
   const { t } = useTranslation();
-  const { can: canAbility } = useActiveAbilities();
-  const canCash = canAbility(ABILITY.SCAN);
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const role = useAuthStore((s) => s.role);
-  const pending = useOfflineStore((s) => s.pending);
-  const rejected = useOfflineStore((s) => s.rejected);
-  // Badge = everything still unfinished: scans waiting to sync AND scans the
-  // server rejected that need a decision (addendum §2).
-  const needsAttention = pending + rejected;
 
   // Ensure the offline buffer table exists, seed the pending count, and refresh
   // it whenever the app returns to the foreground (a chance to reconcile).
@@ -235,11 +223,13 @@ export default function TeacherTabLayout() {
       screenOptions={screenOptions}
     >
       <Tabs.Screen name="index" />
+      {/* The scanner is no longer a tab: it opens from the QR button beside the bell on
+          Home (and from each session card). Its pending-scans badge moved there too. */}
       <Tabs.Screen
         name="scan"
         // NOT frozen: the camera unmounts through a re-render on blur, and a frozen screen
         // skips exactly that render — the sensor would keep running behind another tab.
-        options={{ tabBarBadge: needsAttention > 0 ? needsAttention : undefined, freezeOnBlur: false }}
+        options={{ href: null, freezeOnBlur: false }}
       />
       <Tabs.Screen name="students" />
       {/* Management hub — courses, location, schedule tools. */}
@@ -269,10 +259,9 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="invite-link" options={{ href: null }} />
       <Tabs.Screen name="booking-requests" options={{ href: null }} />
       <Tabs.Screen name="assistant-actions" options={{ href: null }} />
-      {/* «الحسابات» — مدام روز's tab (persona spec §1): the weekly count, handovers and the
-          ledger. A real tab for the teacher and for an assistant who handles cash; hidden
-          for anyone else (the API refuses them anyway). */}
-      <Tabs.Screen name="cash-reconcile" options={{ href: canCash ? undefined : null }} />
+      {/* مدام روز — مديرة الحسابات: opened from the payments card on Home and from the
+          manage hub, not a tab. */}
+      <Tabs.Screen name="cash-reconcile" options={{ href: null }} />
       <Tabs.Screen name="expenses" options={{ href: null }} />
       {/* Revision-session picker → scan tab in revision mode. Not a tab. */}
       <Tabs.Screen name="revisions" options={{ href: null }} />

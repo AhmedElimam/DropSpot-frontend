@@ -18,6 +18,9 @@ import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
 import { PendingInvitations } from '@/components/teacher/PendingInvitations';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { useQuery } from '@tanstack/react-query';
+import { getCashReconciliation } from '@/api/cash';
+import { formatNumber } from '@/utils/format';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePhoneConfirmations } from '@/hooks/usePhoneConfirmations';
 
@@ -50,12 +53,21 @@ export default function TeacherHome() {
   const pending = useOfflineStore((s) => s.pending);
   const rejected = useOfflineStore((s) => s.rejected);
   const needsAttention = pending + rejected; // scans to sync OR to decide on (§2)
-  const { can } = useActiveAbilities();
+  const { can, isAssistant } = useActiveAbilities();
+  // مدام روز lives in the payments card for whoever handles cash (same gate as collecting).
+  // For an assistant the count she is waiting for; for the teacher open gaps + handovers to confirm.
+  const canCash = can(ABILITY.SCAN);
+  const cashQ = useQuery({ queryKey: ['cash-reconciliation'], queryFn: () => getCashReconciliation(), enabled: canCash });
+  const cashView = cashQ.data;
+  const cashPending = cashView?.role === 'assistant' ? cashView.unanswered[0] ?? null : null;
+  const cashAttention = cashView?.role === 'assistant'
+    ? cashView.unanswered.length
+    : cashView?.role === 'teacher' ? cashView.open_gaps.length + cashView.pending_handovers.length : 0;
   // «أرقام تحتاج تأكيد» — no ability gate: the assistant who typed the number at the
   // door is the one who can still ask the family, so both roles reach it by default.
   const { data: phoneConfirmations, refetch: refetchNumbers } = usePhoneConfirmations();
   const unconfirmedNumbers = phoneConfirmations?.count ?? 0;
-  const { refreshing, onRefresh } = usePullRefresh(refetch, refetchNumbers);
+  const { refreshing, onRefresh } = usePullRefresh(refetch, refetchNumbers, cashQ.refetch);
   const now = Date.now();
 
   const renderSession = (s: TeacherSession) => {
@@ -111,7 +123,12 @@ export default function TeacherHome() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.xl, paddingBottom: spacing.xl }}
         >
-          <HeaderBrandBar onBell={() => router.push('/(teacher)/notifications' as Href)} unread={unread} />
+          <HeaderBrandBar
+            onBell={() => router.push('/(teacher)/notifications' as Href)}
+            unread={unread}
+            onScan={() => router.push('/(teacher)/scan' as Href)}
+            scanBadge={needsAttention}
+          />
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{t('teacher.today')}</Text>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 2 }}>{user?.name ?? ''}</Text>
           {/* Active-teacher chip — only shows for multi-relationship assistants. */}
@@ -220,22 +237,46 @@ export default function TeacherHome() {
               screen from someone who is allowed to use it. They can collect but never
               waive or reverse, see only their own venues, and every collection they
               make goes to the teacher's oversight list. */}
-          <TouchableOpacity
-            onPress={() => router.push('/(teacher)/collect' as Href)}
-            activeOpacity={0.85}
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-              backgroundColor: colors.surface, borderRadius: radius.xl,
-              borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
-            }}
-          >
-            <Icon name="money" size={24} color={colors.brand} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تحصيل الدفعات</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح البطاقة لتحصيل الفاتورة أو الملزمة</Text>
-            </View>
-            <Icon name="back" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
+          {/* Payments card: collecting, and — for whoever handles cash — مدام روز, the
+              accounts manager (weekly count, handovers, expenses). She used to be a tab. */}
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: cashAttention ? colors.warning : colors.border, marginBottom: spacing.lg, overflow: 'hidden' }}>
+            <TouchableOpacity
+              onPress={() => router.push('/(teacher)/collect' as Href)}
+              activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg }}
+            >
+              <Icon name="money" size={24} color={colors.brand} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تحصيل الدفعات</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح البطاقة لتحصيل الفاتورة أو الملزمة</Text>
+              </View>
+              <Icon name="back" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            {canCash ? (
+              <TouchableOpacity
+                onPress={() => router.push('/(teacher)/cash-reconcile' as Href)}
+                activeOpacity={0.85}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.borderLight, backgroundColor: cashAttention ? '#FEF3E2' : undefined }}
+              >
+                <Icon name="note" size={24} color={cashAttention ? colors.warning : colors.success} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.title')}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>
+                    {cashPending
+                      ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) })
+                      : isAssistant ? t('cash.manage_sub_assistant') : t('cash.manage_sub')}
+                  </Text>
+                </View>
+                {cashAttention ? (
+                  <View style={{ minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{formatNumber(cashAttention)}</Text>
+                  </View>
+                ) : (
+                  <Icon name="back" size={20} color={colors.textSecondary} />
+                )}
+              </TouchableOpacity>
+            ) : null}
+          </View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('teacher.todays_sessions')}</Text>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
