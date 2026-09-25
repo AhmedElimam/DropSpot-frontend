@@ -313,11 +313,15 @@ export default function CashReviewScreen() {
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{t('review.flag_collection_hint')}</Text>
                 <TextInput value={collectionFlag} onChangeText={setCollectionFlag} maxLength={500} placeholderTextColor={colors.textTertiary}
                   style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 8, textAlign: 'right', marginBottom: spacing.sm }} />
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  <View style={{ flex: 1 }}><Button title={t('review.flag_save')} onPress={() => flag.mutate({ kind: 'collection', note: collectionFlag.trim() })} disabled={collectionFlag.trim() === ''} loading={flag.isPending} /></View>
-                  <View style={{ flex: 1 }}><Button title={t('cash.surplus_record')} variant="outline" onPress={() => router.push('/(teacher)/pending-collections' as Href)} /></View>
-                </View>
+                <Button title={t('review.flag_save')} onPress={() => flag.mutate({ kind: 'collection', note: collectionFlag.trim() })} disabled={collectionFlag.trim() === ''} loading={flag.isPending} />
               </View>
+              {/* The real fix for a missing collection is to record it — a quiet dashed row, same shape as the handover button on the hub. */}
+              <TouchableOpacity onPress={() => router.push('/(teacher)/pending-collections' as Href)} activeOpacity={0.85}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, borderStyle: 'dashed', marginBottom: spacing.sm }}>
+                <Icon name="money" size={18} color={colors.brand} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('cash.surplus_record')}</Text>
+                <Icon name="back" size={16} color={colors.brand} />
+              </TouchableOpacity>
               {(data.flags ?? []).map((f) => (
                 <Text key={f.id} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 2 }}>
                   • {f.kind === 'count' ? t('review.flag_count') : t('review.flag_collection')}{f.amount !== null ? ` ${money(f.amount)} ${egp}` : ''}{f.note ? ` — ${f.note}` : ''}
