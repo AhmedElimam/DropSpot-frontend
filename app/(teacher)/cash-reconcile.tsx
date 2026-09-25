@@ -1,41 +1,42 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, KeyboardAvoidingView, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, KeyboardAvoidingView, Switch, Modal } from 'react-native';
 import { router, type Href } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as SecureStore from 'expo-secure-store';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { formatShortDate, formatDateTime, formatNumber } from '@/utils/format';
-import { colors, spacing, radius, nav, shadows } from '@/theme/index';
+import { colors, spacing, radius, nav, shadows, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ExpensesPanel } from '@/components/cash/ExpensesPanel';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
-  getCashReconciliation, respondReconciliation, resolveReconciliation, setOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights,
-  type AssistantCashView, type TeacherCashView, type Drawer, type TeacherDrawer, type Handover, type ReconciliationResult, type ReconciliationStatus, type VenueRef, type Observation,
+  getCashReconciliation, respondReconciliation, setOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights,
+  type AssistantCashView, type TeacherCashView, type Drawer, type TeacherDrawer, type Handover, type ReconciliationResult, type ReconciliationStatus, type VenueRef, type Observation, type CashView,
 } from '@/api/cash';
 
 /**
- * Weekly cash reconciliation (spec 2026-09-25 + addenda). One screen, two shapes decided
- * by the SERVER's `role`:
+ * مدام روز — مديرة الحسابات. ONE screen, no hopping:
  *
- *  · assistant — one card per DRAWER (one, or one per venue) with every line of the
- *    arithmetic: opening + collected − expenses − handovers = expected. Then «هل هذا
- *    المبلغ في الخزنة؟». "No" asks what IS there and why. Their own figures only.
- *    Plus their handovers to the teacher (a transfer, not an expense).
- *  · teacher — settings, every drawer with the full arithmetic and its result, handovers
- *    to confirm, the opening-balance entry when it is unknown, open gaps, and running
- *    deficit/surplus per assistant kept SEPARATE.
+ *   hero      her greeting, the week, a gear for settings
+ *   now       the single thing that needs this person right now — the assistant's count
+ *             (answered right here), or the teacher's confirmations and reviews
+ *   segments  الأسبوع · المصاريف · ملاحظاتها — everything else, in place
+ *   sheets    handover and settings slide up over the screen instead of leaving it
  *
- * Colours are the spec's: deficit red, balanced green, surplus AMBER — a surplus is a
- * warning that something was not recorded, never good news.
+ * The maths, the voice rules and who-sees-what are unchanged: the server decides the
+ * shape (`role`), figures are computed there, and an assistant's payload carries only
+ * their own drawers. This file is only how it looks and how few taps it takes.
  */
 
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
 const INTRO_KEY = 'cash_intro_seen_v1';
+type Segment = 'week' | 'expenses' | 'notes';
 
 const RESULT_TINT: Record<ReconciliationResult, string> = {
   deficit: colors.danger, balanced: colors.success, surplus: colors.warning, unknown: colors.textTertiary,
@@ -43,6 +44,9 @@ const RESULT_TINT: Record<ReconciliationResult, string> = {
 const STATUS_TINT: Record<ReconciliationStatus, string> = {
   confirmed: colors.success, discrepancy: colors.danger, pending: colors.warning, not_reconciled: colors.warning, awaiting_opening: colors.textTertiary,
 };
+const SHEET_BACKDROP = 'rgba(23,28,59,0.45)';
+
+// ───────────────────────── small pieces ─────────────────────────
 
 const Figure = memo(function Figure({ label, value, strong, tint, dim }: { label: string; value: string; strong?: boolean; tint?: string; dim?: boolean }) {
   return (
@@ -55,25 +59,34 @@ const Figure = memo(function Figure({ label, value, strong, tint, dim }: { label
 
 const Rule = () => <View style={{ height: 1, backgroundColor: colors.borderLight, marginVertical: 4 }} />;
 
-function ResultPill({ d }: { d: Drawer }) {
-  const { t } = useTranslation();
-  if (d.result && d.result !== 'unknown') {
-    const tint = RESULT_TINT[d.result];
-    return (
-      <View style={{ backgroundColor: tint + '22', borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: tint }}>{t(`cash.${d.result}`)}{d.difference !== null && d.result !== 'balanced' ? ` ${money(Math.abs(d.difference))}` : ''}</Text>
-      </View>
-    );
-  }
-  const tint = STATUS_TINT[d.status];
+function Pill({ text, tint }: { text: string; tint: string }) {
   return (
     <View style={{ backgroundColor: tint + '22', borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: tint }}>{t(`cash.${d.status}`)}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: tint }}>{text}</Text>
     </View>
   );
 }
 
-/** The §5 arithmetic, every line visible. */
+function ResultPill({ d }: { d: Drawer }) {
+  const { t } = useTranslation();
+  if (d.result && d.result !== 'unknown' && d.registry !== null) {
+    return <Pill tint={RESULT_TINT[d.result]} text={`${t(`cash.${d.result}`)}${d.difference !== null && d.result !== 'balanced' ? ` ${money(Math.abs(d.difference))}` : ''}`} />;
+  }
+  return <Pill tint={STATUS_TINT[d.status]} text={t(`cash.${d.status}`)} />;
+}
+
+/** Two big figures side by side — what the eye needs first. */
+function BigPair({ left, right }: { left: { label: string; value: string; tint?: string }; right: { label: string; value: string; tint?: string } }) {
+  const cell = (c: { label: string; value: string; tint?: string }) => (
+    <View style={{ flex: 1, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, alignItems: 'center' }}>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{c.label}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: c.tint ?? colors.textPrimary, marginTop: 2 }}>{c.value}</Text>
+    </View>
+  );
+  return <View style={{ flexDirection: 'row', gap: spacing.sm, marginVertical: spacing.sm }}>{cell(left)}{cell(right)}</View>;
+}
+
+/** The §5 arithmetic, every line visible — behind a "details" toggle so the card stays light. */
 function Arithmetic({ d }: { d: Drawer }) {
   const { t } = useTranslation();
   const egp = t('insights.egp');
@@ -88,7 +101,7 @@ function Arithmetic({ d }: { d: Drawer }) {
       {d.handovers > 0 ? <Figure label={t('cash.handovers')} value={`− ${money(d.handovers)} ${egp}`} /> : null}
       <Rule />
       <Figure label={t('cash.expected')} value={d.expected !== null ? `${money(d.expected)} ${egp}` : t('cash.cannot_compute')} strong tint={d.expected !== null ? colors.brand : colors.warningDark} />
-      {d.registry !== null ? <Figure label={t('cash.actual')} value={`${money(d.registry)} ${egp}`} strong /> : null}
+      {d.registry !== null ? <Figure label={t('cash.actual')} value={`${money(d.actual ?? d.registry)} ${egp}`} strong /> : null}
       {d.registry !== null && d.difference !== null && d.result ? (
         <>
           <Rule />
@@ -104,7 +117,6 @@ function Arithmetic({ d }: { d: Drawer }) {
   );
 }
 
-/** Amber, with the one question that matters and a direct path to record the missed collection. */
 function SurplusNotice({ d }: { d: Drawer }) {
   const { t } = useTranslation();
   if (d.result !== 'surplus') return null;
@@ -121,25 +133,33 @@ function SurplusNotice({ d }: { d: Drawer }) {
   );
 }
 
-function DrawerTitle({ d, name }: { d: Drawer; name?: string }) {
+function Details({ d, extra }: { d: Drawer; extra?: React.ReactNode }) {
   const { t } = useTranslation();
-  const title = [name, d.venue?.name ?? (name ? undefined : t('cash.week_of', { start: formatShortDate(d.week_start), end: formatShortDate(d.week_end) }))].filter(Boolean).join(' · ');
+  const [open, setOpen] = useState(false);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{title}</Text>
-        {name ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('cash.week_of', { start: formatShortDate(d.week_start), end: formatShortDate(d.week_end) })}</Text> : null}
-      </View>
-      <ResultPill d={d} />
+    <View>
+      <TouchableOpacity onPress={() => setOpen((o) => !o)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingVertical: 4 }}>
+        <Icon name={open ? 'up' : 'down'} size={14} color={colors.brand} />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('cash.details')}</Text>
+      </TouchableOpacity>
+      {open ? (
+        <View style={{ marginTop: 4 }}>
+          <Arithmetic d={d} />
+          {extra}
+          {d.reason ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 6 }}>{t('cash.reason_label', { reason: d.reason })}</Text> : null}
+          {d.responded_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 4 }}>{t('cash.answered_at', { when: formatDateTime(d.responded_at) })}</Text> : null}
+        </View>
+      ) : null}
     </View>
   );
 }
 
-/** The assistant's prompt card for ONE drawer — the two-button question, then the difference form. */
+// ───────────────────────── the assistant's count, answered in place ─────────────────────────
+
 function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void }) {
   const { t } = useTranslation();
+  const egp = t('insights.egp');
   const [mode, setMode] = useState<'ask' | 'diff'>(row.expected === null ? 'diff' : 'ask');
-  // Pre-filled count (v2 §5): the expected figure is in the box already; the person edits or confirms.
   const [registry, setRegistry] = useState(row.expected !== null ? String(row.expected) : '');
   const [reason, setReason] = useState('');
 
@@ -154,57 +174,50 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
   });
 
   return (
-    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1.5, borderColor: colors.warning, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
-      <DrawerTitle d={row} />
-      <Arithmetic d={row} />
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, ...shadows.md }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="money" size={18} color={colors.accent} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.banner_pending')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('cash.week_of', { start: formatShortDate(row.week_start), end: formatShortDate(row.week_end) })}{row.venue?.name ? ` · ${row.venue.name}` : ''}</Text>
+        </View>
+      </View>
+
+      <BigPair
+        left={{ label: t('cash.collected'), value: money(row.collected) }}
+        right={{ label: t('cash.expected'), value: row.expected !== null ? money(row.expected) : '—', tint: row.expected !== null ? colors.brand : colors.warningDark }}
+      />
+      {row.expected === null ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.sm }}>
+          {row.opening_reason === 'previous_unreconciled' ? t('cash.opening_prev_unreconciled') : t('cash.opening_first_week')}
+        </Text>
+      ) : null}
 
       {mode === 'ask' ? (
         <>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, textAlign: 'center', marginVertical: spacing.md }}>{t('cash.question')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, textAlign: 'center', marginVertical: spacing.sm }}>{t('cash.question')}</Text>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <View style={{ flex: 1 }}>
-              <Button title={t('cash.yes_full')} variant="success" onPress={() => respond.mutate({ full: true })} loading={respond.isPending} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Button title={t('cash.no_diff')} variant="outline" onPress={() => setMode('diff')} disabled={respond.isPending} />
-            </View>
+            <View style={{ flex: 1 }}><Button title={t('cash.yes_full')} variant="success" onPress={() => respond.mutate({ full: true })} loading={respond.isPending} /></View>
+            <View style={{ flex: 1 }}><Button title={t('cash.no_diff')} variant="outline" onPress={() => setMode('diff')} disabled={respond.isPending} /></View>
           </View>
         </>
       ) : (
-        <View style={{ marginTop: spacing.md }}>
+        <View>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('cash.registry')}</Text>
-          {row.expected !== null ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.brand, marginBottom: 4 }}>{t('cash.prefilled_hint', { amount: money(row.expected) })}</Text> : null}
-          <TextInput
-            value={registry}
-            onChangeText={(v) => setRegistry(v.replace(/[^0-9.]/g, ''))}
-            keyboardType="decimal-pad"
-            placeholder={t('cash.actual_placeholder')}
-            placeholderTextColor={colors.textTertiary}
-            style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', marginBottom: spacing.sm }}
-          />
+          <TextInput value={registry} onChangeText={(v) => setRegistry(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder={t('cash.actual_placeholder')} placeholderTextColor={colors.textTertiary}
+            style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'center', marginBottom: spacing.sm, backgroundColor: colors.surfaceSunken }} />
           {diff !== null ? (
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: Math.abs(diff) <= row.tolerance ? colors.success : diff < 0 ? colors.danger : colors.warningDark, marginBottom: spacing.sm }}>
-              {Math.abs(diff) <= row.tolerance ? t('cash.no_gap_preview') : `${t(diff < 0 ? 'cash.deficit' : 'cash.surplus')}: ${money(Math.abs(diff))} ${t('insights.egp')}`}
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, textAlign: 'center', color: Math.abs(diff) <= row.tolerance ? colors.success : diff < 0 ? colors.danger : colors.warningDark, marginBottom: spacing.sm }}>
+              {Math.abs(diff) <= row.tolerance ? t('cash.no_gap_preview') : `${t(diff < 0 ? 'cash.deficit' : 'cash.surplus')}: ${money(Math.abs(diff))} ${egp}`}
             </Text>
           ) : null}
-          {row.tolerance > 0 && row.expected !== null ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.tolerance_note', { amount: money(row.tolerance) })}</Text> : null}
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('cash.reason')}</Text>
-          <TextInput
-            value={reason}
-            onChangeText={setReason}
-            placeholder={t('cash.reason_placeholder')}
-            placeholderTextColor={colors.textTertiary}
-            maxLength={500}
-            multiline
-            style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', minHeight: 64, marginBottom: spacing.sm }}
-          />
+          <TextInput value={reason} onChangeText={setReason} placeholder={t('cash.reason_placeholder')} placeholderTextColor={colors.textTertiary} maxLength={500} multiline
+            style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', minHeight: 56, marginBottom: spacing.sm }} />
           {needsReason ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger, marginBottom: spacing.sm }}>{t('cash.reason_required')}</Text> : null}
-          <Button
-            title={t('cash.submit')}
-            onPress={() => respond.mutate({ full: false, registry: registryNum, reason: reason.trim() || undefined })}
-            disabled={registry === '' || !Number.isFinite(registryNum) || needsReason}
-            loading={respond.isPending}
-          />
+          <Button title={t('cash.submit')} onPress={() => respond.mutate({ full: false, registry: registryNum, reason: reason.trim() || undefined })}
+            disabled={registry === '' || !Number.isFinite(registryNum) || needsReason} loading={respond.isPending} />
           {row.expected !== null ? (
             <TouchableOpacity onPress={() => setMode('ask')} style={{ alignItems: 'center', paddingVertical: spacing.sm }}>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{t('common.cancel')}</Text>
@@ -216,174 +229,9 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
   );
 }
 
-const HandoverRow = memo(function HandoverRow({ h, onReview }: { h: Handover; onReview?: (h: Handover, d: 'confirm' | 'reject') => void }) {
-  const { t } = useTranslation();
-  const tint = h.status === 'confirmed' ? colors.success : h.status === 'rejected' ? colors.danger : colors.warning;
-  return (
-    <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: onReview ? colors.warning : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{money(h.amount)} {t('insights.egp')}{h.assistant_name ? ` · ${h.assistant_name}` : ''}</Text>
-        <View style={{ backgroundColor: tint + '22', borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: tint }}>{t(`cash.handover_${h.status}`)}</Text>
-        </View>
-      </View>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
-        {formatShortDate(h.handover_date)}{h.venue?.name ? ` · ${h.venue.name}` : ''}{h.note ? ` · ${h.note}` : ''}
-      </Text>
-      {onReview ? (
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
-          <View style={{ flex: 1 }}><Button title={t('cash.handover_confirm')} variant="success" onPress={() => onReview(h, 'confirm')} /></View>
-          <View style={{ flex: 1 }}><Button title={t('cash.handover_reject')} variant="outline" onPress={() => onReview(h, 'reject')} /></View>
-        </View>
-      ) : null}
-    </View>
-  );
-});
+// ───────────────────────── drawers ─────────────────────────
 
-/** Amount + optional venue + note → a handover. The teacher also picks WHICH assistant. */
-function HandoverForm({ venues, perVenue, assistants, onSaved }: { venues: VenueRef[]; perVenue: boolean; assistants?: { user_id: number; name: string }[]; onSaved: (status: Handover['status']) => void }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
-  const [venueId, setVenueId] = useState<number | null>(null);
-  const [assistantId, setAssistantId] = useState<number | null>(assistants?.[0]?.user_id ?? null);
-  const amountNum = Number(amount);
-
-  const save = useMutation({
-    mutationFn: () => recordHandover({ amount: amountNum, note: note.trim() || undefined, assistant_user_id: assistantId ?? undefined, teacher_location_id: perVenue ? venueId : undefined }),
-    onSuccess: (r) => { setAmount(''); setNote(''); setOpen(false); onSaved(r.status); },
-    onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
-  });
-
-  if (!open) {
-    return (
-      <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.85}
-        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand, marginBottom: spacing.md }}>
-        <Icon name="transfer" size={18} color={colors.brand} />
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{assistants ? t('cash.handover_received') : t('cash.handover_add')}</Text>
-      </TouchableOpacity>
-    );
-  }
-
-  const chip = (on: boolean, label: string, onPress: () => void, key: string | number) => (
-    <TouchableOpacity key={key} onPress={onPress} activeOpacity={0.8}
-      style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface }}>
-      <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{label}</Text>
-    </TouchableOpacity>
-  );
-
-  return (
-    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: 2 }}>{assistants ? t('cash.handover_received') : t('cash.handover_add')}</Text>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('cash.handover_not_expense')}</Text>
-      {assistants ? (
-        <>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('cash.pick_assistant')}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.sm }}>
-            {assistants.map((a) => chip(assistantId === a.user_id, a.name, () => setAssistantId(a.user_id), a.user_id))}
-          </View>
-        </>
-      ) : null}
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('cash.handover_amount')}</Text>
-      <TextInput value={amount} onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.textTertiary}
-        style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', marginBottom: spacing.sm }} />
-      {perVenue && venues.length > 0 ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.sm }}>
-          {chip(venueId === null, t('cash.drawer_general'), () => setVenueId(null), 'g')}
-          {venues.map((v) => chip(venueId === v.id, v.name ?? '', () => setVenueId(v.id), v.id))}
-        </View>
-      ) : null}
-      <TextInput value={note} onChangeText={setNote} placeholder={t('cash.handover_note')} placeholderTextColor={colors.textTertiary} maxLength={300}
-        style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', marginBottom: spacing.sm }} />
-      <Button title={t('cash.handover_submit')} onPress={() => save.mutate()} disabled={!(amountNum > 0) || (!!assistants && !assistantId)} loading={save.isPending} />
-      <TouchableOpacity onPress={() => setOpen(false)} style={{ alignItems: 'center', paddingVertical: spacing.sm }}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{t('common.cancel')}</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function AssistantView({ v, onDone, onHandover }: { v: AssistantCashView; onDone: (d: Drawer) => void; onHandover: (s: Handover['status']) => void }) {
-  const { t } = useTranslation();
-  const answered = v.drawers.filter((d) => d.registry !== null);
-
-  return (
-    <>
-      {v.unanswered.map((row, i) => (
-        <View key={row.id}>
-          {i === 0 && row.week_start !== v.week.start ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.sm }}>{t('cash.late_answer_hint')}</Text>
-          ) : null}
-          <PromptCard row={row} onDone={onDone} />
-        </View>
-      ))}
-
-      {answered.map((d) => (
-        <View key={d.id} style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: d.result && d.result !== 'unknown' ? RESULT_TINT[d.result] : colors.border, padding: spacing.lg, marginBottom: spacing.lg }}>
-          <DrawerTitle d={d} />
-          <Arithmetic d={d} />
-          {d.status === 'awaiting_opening' ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>{t('cash.answered_registry_hint', { amount: money(d.registry ?? 0) })}</Text> : null}
-          <SurplusNotice d={d} />
-          {d.reason ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 6 }}>{t('cash.reason_label', { reason: d.reason })}</Text> : null}
-          {d.responded_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 4 }}>{t('cash.answered_at', { when: formatDateTime(d.responded_at) })}</Text> : null}
-          <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(d.id) } } as Href)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
-            <Icon name="eye" size={15} color={colors.brand} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('review.title')}</Text>
-          </TouchableOpacity>
-        </View>
-      ))}
-
-      {v.unanswered.length === 0 && answered.length === 0 ? (
-        v.drawers.length > 0 ? (
-          v.drawers.map((d) => (
-            <View key={d.id} style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg }}>
-              <DrawerTitle d={d} />
-              <Arithmetic d={d} />
-            </View>
-          ))
-        ) : (
-          <EmptyState icon="success" title={t('cash.no_prompt')} message={t('cash.no_prompt_hint')} />
-        )
-      ) : null}
-
-      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginTop: spacing.md, marginBottom: spacing.sm }}>{t('cash.handovers')}</Text>
-      <HandoverForm venues={v.venues} perVenue={v.settings.per_venue} onSaved={onHandover} />
-      {v.handovers.map((h) => <HandoverRow key={h.id} h={h} />)}
-
-      {v.settings.expenses_enabled ? (
-        <TouchableOpacity onPress={() => router.push('/(teacher)/expenses' as Href)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md }}>
-          <Icon name="note" size={16} color={colors.brand} />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('expenses.title')}</Text>
-        </TouchableOpacity>
-      ) : null}
-    </>
-  );
-}
-
-/** What she has noticed (v2 §6). Each line opens the entries behind it — a remark you cannot verify is worth nothing. */
-function Observations({ items }: { items: Observation[] }) {
-  const { t } = useTranslation();
-  if (items.length === 0) return null;
-  const open = (o: Observation) => router.push({ pathname: '/(teacher)/expenses', params: { from: o.trace.from, to: o.trace.to, ...(o.trace.category ? { category: o.trace.category } : {}), ...(o.trace.venue !== undefined ? { venue: String(o.trace.venue) } : {}) } } as Href);
-  return (
-    <View style={{ marginBottom: spacing.lg }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.observations_title')}</Text>
-      {items.map((o) => (
-        <TouchableOpacity key={o.key} onPress={() => open(o)} activeOpacity={0.85}
-          style={{ backgroundColor: o.type === 'streak' ? colors.success + '14' : colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: o.type === 'streak' ? colors.success : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, lineHeight: 22 }}>{o.text}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-            <Icon name="search" size={13} color={colors.brand} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('cash.observation_open')}</Text>
-          </View>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-}
-
-function OpeningEntry({ d, onSaved }: { d: TeacherDrawer; onSaved: () => void }) {
+function OpeningEntry({ d, onSaved }: { d: Drawer; onSaved: () => void }) {
   const { t } = useTranslation();
   const [amount, setAmount] = useState('');
   const n = Number(amount);
@@ -405,33 +253,138 @@ function OpeningEntry({ d, onSaved }: { d: TeacherDrawer; onSaved: () => void })
   );
 }
 
-function TeacherDrawerCard({ d, onResolve, onChanged }: { d: TeacherDrawer; onResolve: (d: TeacherDrawer) => void; onChanged: () => void }) {
+/** One drawer, light: who · where, the two figures, the verdict, one button. */
+function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDrawer; name?: string; isTeacher: boolean; onChanged: () => void }) {
   const { t } = useTranslation();
-  const openGap = d.status === 'discrepancy' && !d.resolved_at && !d.closed_at;
-  const border = d.result && d.result !== 'unknown' && d.registry !== null ? RESULT_TINT[d.result] : colors.border;
+  const answered = d.registry !== null;
+  const tint = d.result && d.result !== 'unknown' && answered ? RESULT_TINT[d.result] : colors.border;
+  const reviewWaiting = d.review_pending ?? 0;
+  const openReview = () => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(d.id) } } as Href);
+
   return (
-    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: border, padding: spacing.lg, marginBottom: spacing.md }}>
-      <DrawerTitle d={d} name={d.name} />
-      <Arithmetic d={d} />
-      {d.opening_balance === null && !d.resolved_at ? <OpeningEntry d={d} onSaved={onChanged} /> : null}
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: tint, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{[name, d.venue?.name].filter(Boolean).join(' · ') || t('cash.week_of', { start: formatShortDate(d.week_start), end: formatShortDate(d.week_end) })}</Text>
+          {name ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('cash.week_of', { start: formatShortDate(d.week_start), end: formatShortDate(d.week_end) })}</Text> : null}
+        </View>
+        <ResultPill d={d} />
+      </View>
+      <BigPair
+        left={{ label: t('cash.expected'), value: d.expected !== null ? money(d.expected) : '—', tint: d.expected !== null ? colors.brand : colors.warningDark }}
+        right={{ label: t('cash.actual'), value: answered ? money(d.actual ?? d.registry ?? 0) : '—', tint: answered && d.result && d.result !== 'unknown' ? RESULT_TINT[d.result] : undefined }}
+      />
       <SurplusNotice d={d} />
-      {d.reason ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 6 }}>{t('cash.reason_label', { reason: d.reason })}</Text> : null}
-      {d.responded_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 4 }}>{t('cash.answered_at', { when: formatDateTime(d.responded_at) })}</Text> : null}
-      {d.resolved_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{t('cash.resolved_at', { when: formatDateTime(d.resolved_at) })}</Text> : null}
-      {/* The teacher reconciles in the weekly review: decide each expense, then close the
-          week (closing acknowledges any remaining gap). */}
-      <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(d.id) } } as Href)} activeOpacity={0.85}
-        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: radius.md, borderWidth: 1.5, borderColor: openGap || (d.review_pending ?? 0) > 0 ? colors.warning : colors.brand, backgroundColor: (d.review_pending ?? 0) > 0 ? colors.warning + '14' : undefined, marginTop: spacing.sm }}>
-        <Icon name={d.closed_at ? 'lock' : 'eye'} size={16} color={colors.brand} />
-        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>
-          {d.closed_at ? t('review.closed') : (d.review_pending ?? 0) > 0 ? `${t('review.open')} · ${t('review.waiting', { count: money(d.review_pending ?? 0) })}` : t('review.open')}
-        </Text>
-      </TouchableOpacity>
+      <Details d={d} extra={isTeacher && d.opening_balance === null && !d.closed_at ? <OpeningEntry d={d} onSaved={onChanged} /> : null} />
+      {isTeacher ? (
+        <TouchableOpacity onPress={openReview} activeOpacity={0.85}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, marginTop: spacing.sm, backgroundColor: reviewWaiting > 0 ? colors.brand : colors.surfaceSunken }}>
+          <Icon name={d.closed_at ? 'lock' : 'eye'} size={16} color={reviewWaiting > 0 ? '#fff' : colors.brand} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: reviewWaiting > 0 ? '#fff' : colors.brand }}>
+            {d.closed_at ? t('review.closed') : reviewWaiting > 0 ? t('review.waiting', { count: money(reviewWaiting) }) : t('review.open')}
+          </Text>
+        </TouchableOpacity>
+      ) : answered ? (
+        <TouchableOpacity onPress={openReview} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
+          <Icon name="eye" size={15} color={colors.brand} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('review.title')}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
 
-function SettingsCard({ v, onChanged }: { v: TeacherCashView; onChanged: () => void }) {
+// ───────────────────────── handovers ─────────────────────────
+
+const HandoverRow = memo(function HandoverRow({ h, onReview }: { h: Handover; onReview?: (h: Handover, d: 'confirm' | 'reject') => void }) {
+  const { t } = useTranslation();
+  const tint = h.status === 'confirmed' ? colors.success : h.status === 'rejected' ? colors.danger : colors.warning;
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: onReview ? colors.warning : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{money(h.amount)} {t('insights.egp')}{h.assistant_name ? ` · ${h.assistant_name}` : ''}</Text>
+        <Pill tint={tint} text={t(`cash.handover_${h.status}`)} />
+      </View>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
+        {formatShortDate(h.handover_date)}{h.venue?.name ? ` · ${h.venue.name}` : ''}{h.note ? ` · ${h.note}` : ''}
+      </Text>
+      {onReview ? (
+        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
+          <View style={{ flex: 1 }}><Button title={t('cash.handover_confirm')} variant="success" onPress={() => onReview(h, 'confirm')} /></View>
+          <View style={{ flex: 1 }}><Button title={t('cash.handover_reject')} variant="outline" onPress={() => onReview(h, 'reject')} /></View>
+        </View>
+      ) : null}
+    </View>
+  );
+});
+
+function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8}
+      style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface }}>
+      <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** Slides up over the screen; the person never leaves the hub. */
+function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: SHEET_BACKDROP, justifyContent: 'flex-end' }}>
+        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
+        <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom, maxHeight: '88%' }}>
+          <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{title}</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}><Icon name="close" size={22} color={colors.textTertiary} /></TouchableOpacity>
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{children}</ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+function HandoverSheetBody({ venues, perVenue, assistants, onSaved }: { venues: VenueRef[]; perVenue: boolean; assistants?: { user_id: number; name: string }[]; onSaved: (s: Handover['status']) => void }) {
+  const { t } = useTranslation();
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [venueId, setVenueId] = useState<number | null>(null);
+  const [assistantId, setAssistantId] = useState<number | null>(assistants?.[0]?.user_id ?? null);
+  const amountNum = Number(amount);
+  const save = useMutation({
+    mutationFn: () => recordHandover({ amount: amountNum, note: note.trim() || undefined, assistant_user_id: assistantId ?? undefined, teacher_location_id: perVenue ? venueId : undefined }),
+    onSuccess: (r) => onSaved(r.status),
+    onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+  });
+  return (
+    <View>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.md }}>{t('cash.handover_not_expense')}</Text>
+      {assistants ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
+          {assistants.map((a) => <Chip key={a.user_id} on={assistantId === a.user_id} label={a.name} onPress={() => setAssistantId(a.user_id)} />)}
+        </View>
+      ) : null}
+      <TextInput value={amount} onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.textTertiary} autoFocus
+        style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md, textAlign: 'center', marginBottom: spacing.md, backgroundColor: colors.surfaceSunken }} />
+      {perVenue && venues.length > 0 ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
+          <Chip on={venueId === null} label={t('cash.drawer_general')} onPress={() => setVenueId(null)} />
+          {venues.map((v) => <Chip key={v.id} on={venueId === v.id} label={v.name ?? ''} onPress={() => setVenueId(v.id)} />)}
+        </View>
+      ) : null}
+      <TextInput value={note} onChangeText={setNote} placeholder={t('cash.handover_note')} placeholderTextColor={colors.textTertiary} maxLength={300}
+        style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', marginBottom: spacing.md }} />
+      <Button title={t('cash.handover_submit')} onPress={() => save.mutate()} disabled={!(amountNum > 0) || (!!assistants && !assistantId)} loading={save.isPending} />
+    </View>
+  );
+}
+
+// ───────────────────────── settings & notes ─────────────────────────
+
+function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => void }) {
   const { t } = useTranslation();
   const [tol, setTol] = useState(String(v.settings.tolerance));
   const [bulkMax, setBulkMax] = useState(String(v.settings.review_bulk_max ?? 500));
@@ -440,43 +393,27 @@ function SettingsCard({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
     onSuccess: onChanged,
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
-  const rowStyle = { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingVertical: 8 };
+  const row = { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight };
+  const label = (title: string, hint?: string) => (
+    <View style={{ flex: 1, paddingEnd: spacing.md }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{title}</Text>
+      {hint ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{hint}</Text> : null}
+    </View>
+  );
+  const numeric = (value: string, set: (v: string) => void, commit: () => void) => (
+    <TextInput value={value} onChangeText={(x) => set(x.replace(/[^0-9.]/g, ''))} onBlur={commit} keyboardType="decimal-pad"
+      style={{ width: 90, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 6, textAlign: 'center' }} />
+  );
   return (
-    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: 4 }}>{t('cash.settings_title')}</Text>
-      <View style={rowStyle}>
-        <View style={{ flex: 1, paddingEnd: spacing.md }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.setting_expenses')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('cash.setting_expenses_hint')}</Text>
-        </View>
-        <Switch value={v.settings.expenses_enabled} onValueChange={(on) => save.mutate({ expenses_enabled: on })} disabled={save.isPending} />
-      </View>
-      <View style={rowStyle}>
-        <View style={{ flex: 1, paddingEnd: spacing.md }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.setting_per_venue')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('cash.setting_per_venue_hint')}</Text>
-        </View>
-        <Switch value={v.settings.per_venue} onValueChange={(on) => save.mutate({ expenses_per_venue: on })} disabled={save.isPending || v.venues.length === 0} />
-      </View>
+    <View>
+      <View style={row}>{label(t('cash.setting_expenses'), t('cash.setting_expenses_hint'))}<Switch value={v.settings.expenses_enabled} onValueChange={(on) => save.mutate({ expenses_enabled: on })} disabled={save.isPending} /></View>
+      <View style={row}>{label(t('cash.setting_per_venue'), t('cash.setting_per_venue_hint'))}<Switch value={v.settings.per_venue} onValueChange={(on) => save.mutate({ expenses_per_venue: on })} disabled={save.isPending || v.venues.length === 0} /></View>
       {v.settings.expenses_enabled ? (
-        <View style={rowStyle}>
-          <View style={{ flex: 1, paddingEnd: spacing.md }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.setting_reminder')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('cash.setting_reminder_hint')}</Text>
-          </View>
-          <Switch value={v.settings.expense_reminder_enabled !== false} onValueChange={(on) => save.mutate({ expense_reminder_enabled: on })} disabled={save.isPending} />
-        </View>
+        <View style={row}>{label(t('cash.setting_reminder'), t('cash.setting_reminder_hint'))}<Switch value={v.settings.expense_reminder_enabled !== false} onValueChange={(on) => save.mutate({ expense_reminder_enabled: on })} disabled={save.isPending} /></View>
       ) : null}
-      <View style={rowStyle}>
-        <View style={{ flex: 1, paddingEnd: spacing.md }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.setting_insights')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('cash.setting_insights_hint')}</Text>
-        </View>
-        <Switch value={v.settings.insights_enabled !== false} onValueChange={(on) => save.mutate({ insights_enabled: on })} disabled={save.isPending} />
-      </View>
+      <View style={row}>{label(t('cash.setting_insights'), t('cash.setting_insights_hint'))}<Switch value={v.settings.insights_enabled !== false} onValueChange={(on) => save.mutate({ insights_enabled: on })} disabled={save.isPending} /></View>
       {v.settings.insights_enabled !== false ? (
-        <View style={rowStyle}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.setting_insight_pushes')}</Text>
+        <View style={row}>{label(t('cash.setting_insight_pushes'))}
           <View style={{ flexDirection: 'row', gap: 6 }}>
             {[0, 1, 2, 3].map((n) => {
               const on = (v.settings.insight_pushes_per_day ?? 1) === n;
@@ -489,94 +426,87 @@ function SettingsCard({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
           </View>
         </View>
       ) : null}
-      <View style={rowStyle}>
-        <View style={{ flex: 1, paddingEnd: spacing.md }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('review.setting_bulk_max')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('review.setting_bulk_max_hint')}</Text>
-        </View>
-        <TextInput value={bulkMax} onChangeText={(x) => setBulkMax(x.replace(/[^0-9.]/g, ''))} onBlur={() => { const n = Number(bulkMax); if (Number.isFinite(n) && n !== (v.settings.review_bulk_max ?? 500)) save.mutate({ review_bulk_max: n }); }}
-          keyboardType="decimal-pad" style={{ width: 90, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 6, textAlign: 'center' }} />
-      </View>
-      <View style={rowStyle}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.setting_tolerance')}</Text>
-        <TextInput value={tol} onChangeText={(x) => setTol(x.replace(/[^0-9.]/g, ''))} onBlur={() => { const n = Number(tol); if (Number.isFinite(n) && n !== v.settings.tolerance) save.mutate({ cash_tolerance: n }); }}
-          keyboardType="decimal-pad" style={{ width: 90, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 6, textAlign: 'center' }} />
-      </View>
+      <View style={row}>{label(t('review.setting_bulk_max'), t('review.setting_bulk_max_hint'))}{numeric(bulkMax, setBulkMax, () => { const n = Number(bulkMax); if (Number.isFinite(n) && n !== (v.settings.review_bulk_max ?? 500)) save.mutate({ review_bulk_max: n }); })}</View>
+      <View style={[row, { borderBottomWidth: 0 }]}>{label(t('cash.setting_tolerance'))}{numeric(tol, setTol, () => { const n = Number(tol); if (Number.isFinite(n) && n !== v.settings.tolerance) save.mutate({ cash_tolerance: n }); })}</View>
     </View>
   );
 }
 
-function TeacherView({ v, onResolve, onChanged, onReview, onHandover }: { v: TeacherCashView; onResolve: (id: number, amount: number) => void; onChanged: () => void; onReview: (h: Handover, d: 'confirm' | 'reject') => void; onHandover: (s: Handover['status']) => void }) {
+function Observations({ items }: { items: Observation[] }) {
   const { t } = useTranslation();
-  const egp = t('insights.egp');
-  const olderGaps = useMemo(() => v.open_gaps.filter((g) => g.week_start !== v.week.start), [v]);
-
+  const open = (o: Observation) => router.push({ pathname: '/(teacher)/expenses', params: { from: o.trace.from, to: o.trace.to, ...(o.trace.category ? { category: o.trace.category } : {}), ...(o.trace.venue !== undefined ? { venue: String(o.trace.venue) } : {}) } } as Href);
+  if (items.length === 0) return <EmptyState icon="info" title={t('cash.notes_none')} message={t('cash.notes_none_hint')} />;
   return (
-    <>
-      <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: 4 }}>{t('cash.week_of', { start: formatShortDate(v.week.start), end: formatShortDate(v.week.end) })}</Text>
-        <Figure label={t('cash.collected_teacher')} value={`${money(v.collected)} ${egp}`} strong />
-        {v.settings.expenses_enabled ? (
-          <>
-            <Figure label={t('cash.expenses')} value={`${money(v.expenses)} ${egp}`} strong />
-            {v.expenses_by_assistants > 0 ? <Figure label={`  ${t('cash.expenses_assistants')}`} value={`${money(v.expenses_by_assistants)} ${egp}`} /> : null}
-            {v.expenses_by_teacher > 0 ? <Figure label={`  ${t('cash.expenses_teacher')}`} value={`${money(v.expenses_by_teacher)} ${egp}`} /> : null}
-            {v.unassigned_expenses > 0 ? <Figure label={`  ${t('cash.unassigned_expenses')}`} value={`${money(v.unassigned_expenses)} ${egp}`} dim /> : null}
-          </>
-        ) : null}
-        {v.handovers_confirmed > 0 ? <Figure label={t('cash.handovers')} value={`${money(v.handovers_confirmed)} ${egp}`} /> : null}
-        {v.settings.expenses_enabled ? (
-          <TouchableOpacity onPress={() => router.push('/(teacher)/expenses' as Href)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
-            <Icon name="note" size={16} color={colors.brand} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('expenses.title')}</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
+    <View>
+      {items.map((o) => (
+        <TouchableOpacity key={o.key} onPress={() => open(o)} activeOpacity={0.85}
+          style={{ backgroundColor: o.type === 'streak' ? colors.success + '14' : colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: o.type === 'streak' ? colors.success : colors.border, padding: spacing.lg, marginBottom: spacing.sm, ...shadows.sm }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, lineHeight: 24 }}>{o.text}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+            <Icon name="search" size={13} color={colors.brand} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('cash.observation_open')}</Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
 
-      {v.pending_handovers.length > 0 ? (
-        <>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: 2 }}>{t('cash.handover_pending_title')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('cash.handover_pending_hint')}</Text>
-          {v.pending_handovers.map((h) => <HandoverRow key={h.id} h={h} onReview={onReview} />)}
-        </>
-      ) : null}
+// ───────────────────────── the screen ─────────────────────────
 
-      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.assistants_title')}</Text>
-      {v.drawers.length === 0 ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.lg }}>{t('cash.no_assistants')}</Text>
-      ) : (
-        v.drawers.map((d) => <TeacherDrawerCard key={d.id} d={d} onResolve={(x) => onResolve(x.id, Math.abs(x.difference ?? 0))} onChanged={onChanged} />)
-      )}
-
-      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginTop: spacing.md, marginBottom: spacing.sm }}>{t('cash.handovers')}</Text>
-      {v.assistants.length > 0 ? <HandoverForm venues={v.venues} perVenue={v.settings.per_venue} assistants={v.assistants} onSaved={onHandover} /> : null}
-      {v.week_handovers.map((h) => <HandoverRow key={h.id} h={h} />)}
-
-      {olderGaps.length > 0 ? (
-        <>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginTop: spacing.lg, marginBottom: spacing.sm }}>{t('cash.open_gaps_title')}</Text>
-          {olderGaps.map((g) => <TeacherDrawerCard key={g.id} d={g} onResolve={(x) => onResolve(x.id, Math.abs(x.difference ?? 0))} onChanged={onChanged} />)}
-        </>
-      ) : null}
-
-      {v.running_totals.length > 0 ? (
-        <View style={{ backgroundColor: colors.warning + '14', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.warning, padding: spacing.lg, marginTop: spacing.lg }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: 2 }}>{t('cash.running_title')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('cash.running_hint')}</Text>
-          {v.running_totals.map((r) => (
-            <View key={r.user_id} style={{ paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.warning + '33' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{r.name}</Text>
-              {r.deficit_weeks > 0 ? <Figure label={`${t('cash.running_deficits')} · ${t('cash.running_weeks', { count: r.deficit_weeks })}`} value={`− ${money(r.deficit_total)} ${egp}`} tint={colors.danger} /> : null}
-              {r.surplus_weeks > 0 ? <Figure label={`${t('cash.running_surpluses')} · ${t('cash.running_weeks', { count: r.surplus_weeks })}`} value={`+ ${money(r.surplus_total)} ${egp}`} tint={colors.warningDark} /> : null}
-            </View>
-          ))}
+/** The single thing that needs this person right now. */
+function NowCard({ data, onDone, onOpenHandovers }: { data: CashView; onDone: (d: Drawer) => void; onOpenHandovers: () => void }) {
+  const { t } = useTranslation();
+  if (data.role === 'assistant') {
+    const row = data.unanswered[0];
+    if (row) {
+      return (
+        <View>
+          {row.week_start !== data.week.start ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#fff', opacity: 0.85, marginBottom: spacing.sm }}>{t('cash.late_answer_hint')}</Text> : null}
+          <PromptCard row={row} onDone={onDone} />
         </View>
+      );
+    }
+    return <Calm text={t('cash.calm_assistant')} />;
+  }
+  const handovers = data.pending_handovers.length;
+  const waiting = data.drawers.filter((d) => (d.review_pending ?? 0) > 0 || (!d.closed_at && d.registry !== null));
+  const first = waiting[0];
+  if (handovers === 0 && !first) return <Calm text={t('cash.calm_teacher')} />;
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, ...shadows.md }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.now_title')}</Text>
+      {handovers > 0 ? (
+        <TouchableOpacity onPress={onOpenHandovers} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm }}>
+          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.warning + '22', alignItems: 'center', justifyContent: 'center' }}><Icon name="transfer" size={20} color={colors.warning} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.now_handovers', { count: money(handovers) })}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('cash.handover_pending_hint')}</Text>
+          </View>
+          <Icon name="back" size={18} color={colors.textTertiary} />
+        </TouchableOpacity>
       ) : null}
+      {first ? (
+        <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(first.id) } } as Href)} activeOpacity={0.85}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: handovers > 0 ? 1 : 0, borderTopColor: colors.borderLight }}>
+          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brand + '18', alignItems: 'center', justifyContent: 'center' }}><Icon name="eye" size={20} color={colors.brand} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.now_review', { name: first.name, count: money(waiting.length) })}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{(first.review_pending ?? 0) > 0 ? t('review.waiting', { count: money(first.review_pending ?? 0) }) : t('cash.now_review_hint')}</Text>
+          </View>
+          <Icon name="back" size={18} color={colors.textTertiary} />
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
 
-      <View style={{ marginTop: spacing.lg }}>
-        <SettingsCard v={v} onChanged={onChanged} />
-      </View>
-    </>
+function Calm({ text }: { text: string }) {
+  return (
+    <View style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+      <Icon name="success" size={22} color="#fff" />
+      <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{text}</Text>
+    </View>
   );
 }
 
@@ -588,7 +518,9 @@ export default function CashReconcileScreen() {
   const insightsQ = useQuery({ queryKey: ['cash-insights'], queryFn: getCashInsights });
   const { refreshing, onRefresh } = usePullRefresh(refetch, insightsQ.refetch);
   const ins = insightsQ.data;
-  // First open: مدام روز introduces herself once (persona spec §5), then steps aside.
+  const [segment, setSegment] = useState<Segment>('week');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [handoverOpen, setHandoverOpen] = useState(false);
   const [introSeen, setIntroSeen] = useState<boolean | null>(null);
   useEffect(() => {
     SecureStore.getItemAsync(INTRO_KEY).then((v) => setIntroSeen(!!v)).catch(() => setIntroSeen(true));
@@ -601,26 +533,11 @@ export default function CashReconcileScreen() {
     qc.invalidateQueries({ queryKey: ['expenses'] });
     qc.invalidateQueries({ queryKey: ['teacher-insights'] });
   };
-
-  const resolve = useMutation({
-    mutationFn: (id: number) => resolveReconciliation(id),
-    onSuccess: () => { invalidate(); Alert.alert(t('cash.resolved')); },
-    onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
-  });
   const review = useMutation({
     mutationFn: ({ id, d }: { id: number; d: 'confirm' | 'reject' }) => reviewHandover(id, d),
     onSuccess: invalidate,
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
-
-  const confirmResolve = (id: number, amount: number) => {
-    Alert.alert(t('cash.resolve_confirm_title'), t('cash.resolve_confirm_hint', { amount: money(amount) }), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('cash.resolve'), onPress: () => resolve.mutate(id) },
-    ]);
-  };
-
-  // Persona for the good news, PLAIN for a deficit or surplus (spec §4).
   const onDone = (d: Drawer) => {
     invalidate();
     if (d.status === 'confirmed') Alert.alert(t('cash.balanced_persona'));
@@ -629,52 +546,199 @@ export default function CashReconcileScreen() {
     else Alert.alert(t('cash.deficit_plain', { amount: money(Math.abs(d.difference ?? 0)) }));
   };
   const onHandover = (s: Handover['status']) => {
-    invalidate();
+    setHandoverOpen(false); invalidate();
     Alert.alert(s === 'confirmed' ? t('cash.handover_saved_confirmed') : t('cash.handover_saved_pending'));
   };
 
+  const expensesOn = data?.settings.expenses_enabled !== false;
+  const segments = useMemo(() => ([
+    { key: 'week' as Segment, label: t('cash.seg_week'), icon: 'money' as const },
+    ...(expensesOn ? [{ key: 'expenses' as Segment, label: t('expenses.title'), icon: 'note' as const }] : []),
+    { key: 'notes' as Segment, label: t('cash.seg_notes'), icon: 'star' as const, badge: ins?.enabled ? ins.observations.length : 0 },
+  ]), [t, expensesOn, ins]);
+
+  const teacherHandovers = data?.role === 'teacher' ? data.pending_handovers : [];
+
   return (
-    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="forward" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('cash.screen_title')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: -2 }}>{t('cash.persona_name')}</Text>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[1]}
+      >
+        {/* Hero: her greeting, the week, the gear. */}
+        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.md, paddingBottom: spacing.xl }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="forward" size={22} color="#fff" />
+            </TouchableOpacity>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: '#fff' }}>{t('cash.persona_name')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{t('cash.screen_title')}</Text>
+            </View>
+            {data?.role === 'teacher' ? (
+              <TouchableOpacity onPress={() => setSettingsOpen(true)} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="settings" size={20} color="#fff" outline />
+              </TouchableOpacity>
+            ) : <View style={{ width: 40 }} />}
+          </View>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{ins?.context?.greeting ?? ''}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2, marginBottom: spacing.lg }}>
+            {ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
+          </Text>
+          {data ? <NowCard data={data} onDone={onDone} onOpenHandovers={() => setHandoverOpen(true)} /> : <ActivityIndicator color="#fff" />}
+        </LinearGradient>
+
+        {/* Segments — sticky, so switching never means scrolling back up. */}
+        <View style={{ backgroundColor: colors.background, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
+          <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.full, padding: 4 }}>
+            {segments.map((s) => {
+              const on = segment === s.key;
+              return (
+                <TouchableOpacity key={s.key} onPress={() => setSegment(s.key)} activeOpacity={0.9}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, borderRadius: radius.full, backgroundColor: on ? colors.surface : 'transparent', ...(on ? shadows.sm : {}) }}>
+                  <Icon name={s.icon} size={16} color={on ? colors.brand : colors.textTertiary} outline={!on} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary }}>{s.label}</Text>
+                  {s.badge ? (
+                    <View style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{money(s.badge)}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
+
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
+          {isLoading || !data ? (
+            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
+          ) : segment === 'week' ? (
+            <WeekSegment data={data} onChanged={invalidate} onOpenHandover={() => setHandoverOpen(true)} />
+          ) : segment === 'expenses' ? (
+            <ExpensesPanel embedded />
+          ) : (
+            <View>
+              {introSeen === false ? (
+                <View style={{ backgroundColor: colors.accentLight, borderRadius: radius.xl, padding: spacing.lg, marginBottom: spacing.md }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.intro_line1')}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4, lineHeight: 22 }}>{t('cash.intro_line2')}</Text>
+                  <TouchableOpacity onPress={dismissIntro} style={{ alignSelf: 'flex-start', marginTop: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.full, backgroundColor: colors.accent }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('cash.intro_dismiss')}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              <Observations items={ins?.enabled ? ins.observations : []} />
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Handovers: the assistant records one; the teacher confirms the pending ones or records a receipt. */}
+      <Sheet open={handoverOpen} onClose={() => setHandoverOpen(false)} title={t('cash.handovers')}>
+        {data?.role === 'teacher' ? (
+          <View>
+            {teacherHandovers.length > 0 ? (
+              <View style={{ marginBottom: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.handover_pending_title')}</Text>
+                {teacherHandovers.map((h) => <HandoverRow key={h.id} h={h} onReview={(x, d) => review.mutate({ id: x.id, d })} />)}
+              </View>
+            ) : null}
+            {data.assistants.length > 0 ? (
+              <View>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.handover_received')}</Text>
+                <HandoverSheetBody venues={data.venues} perVenue={data.settings.per_venue} assistants={data.assistants} onSaved={onHandover} />
+              </View>
+            ) : null}
+          </View>
+        ) : data ? (
+          <HandoverSheetBody venues={data.venues} perVenue={data.settings.per_venue} onSaved={onHandover} />
+        ) : null}
+      </Sheet>
+
+      <Sheet open={settingsOpen} onClose={() => setSettingsOpen(false)} title={t('cash.settings_title')}>
+        {data?.role === 'teacher' ? <SettingsBody v={data} onChanged={invalidate} /> : null}
+      </Sheet>
+    </View>
+  );
+}
+
+/** الأسبوع: the drawers, then handovers, then (teacher) the running totals. */
+function WeekSegment({ data, onChanged, onOpenHandover }: { data: CashView; onChanged: () => void; onOpenHandover: () => void }) {
+  const { t } = useTranslation();
+  const egp = t('insights.egp');
+  const isTeacher = data.role === 'teacher';
+
+  const handoverButton = (
+    <TouchableOpacity onPress={onOpenHandover} activeOpacity={0.85}
+      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, borderStyle: 'dashed', marginBottom: spacing.md }}>
+      <Icon name="transfer" size={18} color={colors.brand} />
+      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{isTeacher ? t('cash.handover_received') : t('cash.handover_add')}</Text>
+    </TouchableOpacity>
+  );
+
+  if (data.role === 'assistant') {
+    const v: AssistantCashView = data;
+    const shown = v.drawers.filter((d) => !v.unanswered.some((u) => u.id === d.id));
+    return (
+      <View>
+        {shown.length === 0 && v.unanswered.length === 0 ? <EmptyState icon="success" title={t('cash.no_prompt')} message={t('cash.no_prompt_hint')} /> : null}
+        {shown.map((d) => <DrawerCard key={d.id} d={d} isTeacher={false} onChanged={onChanged} />)}
+        {handoverButton}
+        {v.handovers.map((h) => <HandoverRow key={h.id} h={h} />)}
+      </View>
+    );
+  }
+
+  const v: TeacherCashView = data;
+  const olderGaps = v.open_gaps.filter((g) => g.week_start !== v.week.start);
+  return (
+    <View>
+      {/* The week in three numbers. */}
+      <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md }}>
+        {[
+          { label: t('cash.collected_teacher'), value: money(v.collected), tint: colors.textPrimary },
+          ...(v.settings.expenses_enabled ? [{ label: t('cash.expenses'), value: money(v.expenses), tint: colors.textPrimary }] : []),
+          { label: t('cash.handovers'), value: money(v.handovers_confirmed), tint: colors.textPrimary },
+        ].map((c) => (
+          <View key={c.label} style={{ flex: 1, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, alignItems: 'center' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: c.tint }}>{c.value}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{c.label}</Text>
+          </View>
+        ))}
       </View>
 
-      {isLoading || !data ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
+      {v.drawers.length === 0 ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.lg, textAlign: 'center' }}>{t('cash.no_assistants')}</Text>
       ) : (
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {ins?.context?.greeting ? (
-            <View style={{ marginBottom: spacing.md }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{ins.context.greeting}</Text>
-              {ins.context.season ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{ins.context.season}</Text> : null}
-            </View>
-          ) : null}
-          {introSeen === false ? (
-            <View style={{ backgroundColor: colors.brand + '12', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand + '44', padding: spacing.lg, marginBottom: spacing.lg }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.intro_line1')}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4, lineHeight: 22 }}>{t('cash.intro_line2')}</Text>
-              <TouchableOpacity onPress={dismissIntro} style={{ alignSelf: 'flex-start', marginTop: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.full, backgroundColor: colors.brand }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('cash.intro_dismiss')}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-          {ins?.enabled ? <Observations items={ins.observations} /> : null}
-          {data.role === 'assistant'
-            ? <AssistantView v={data} onDone={onDone} onHandover={onHandover} />
-            : <TeacherView v={data} onResolve={confirmResolve} onChanged={invalidate} onReview={(h, d) => review.mutate({ id: h.id, d })} onHandover={onHandover} />}
-        </ScrollView>
+        v.drawers.map((d) => <DrawerCard key={d.id} d={d} name={d.name} isTeacher onChanged={onChanged} />)
       )}
-    </KeyboardAvoidingView>
+
+      {handoverButton}
+      {v.week_handovers.map((h) => <HandoverRow key={h.id} h={h} />)}
+
+      {olderGaps.length > 0 ? (
+        <View style={{ marginTop: spacing.md }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.open_gaps_title')}</Text>
+          {olderGaps.map((g) => <DrawerCard key={g.id} d={g} name={g.name} isTeacher onChanged={onChanged} />)}
+        </View>
+      ) : null}
+
+      {v.running_totals.length > 0 ? (
+        <View style={{ backgroundColor: colors.warning + '14', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.warning, padding: spacing.lg, marginTop: spacing.md }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: 2 }}>{t('cash.running_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('cash.running_hint')}</Text>
+          {v.running_totals.map((r) => (
+            <View key={r.user_id} style={{ paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.warning + '33' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{r.name}</Text>
+              {r.deficit_weeks > 0 ? <Figure label={`${t('cash.running_deficits')} · ${t('cash.running_weeks', { count: r.deficit_weeks })}`} value={`− ${money(r.deficit_total)} ${egp}`} tint={colors.danger} /> : null}
+              {r.surplus_weeks > 0 ? <Figure label={`${t('cash.running_surpluses')} · ${t('cash.running_weeks', { count: r.surplus_weeks })}`} value={`+ ${money(r.surplus_total)} ${egp}`} tint={colors.warningDark} /> : null}
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
