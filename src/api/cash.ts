@@ -409,3 +409,50 @@ export async function replyToThread(expenseId: number, body: string, imageUri?: 
   const { data } = await client.post(`/teacher/expenses/${expenseId}/thread`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
   return data.data as ExpenseThread;
 }
+
+// ───────────────────────── past periods + the Markdown report ─────────────────────────
+
+export interface CashMonthWeek {
+  week_start: string;
+  week_end: string;
+  collected: number;
+  expenses: number;
+  drawers: number;
+  counted: number;
+  deficit: number;
+  surplus: number;
+  closed: boolean;
+}
+
+export interface CashMonth {
+  role: 'teacher' | 'assistant';
+  period: { kind: 'month'; start: string; end: string; label: string };
+  totals: {
+    collected: number;
+    by_kind: KindTotals;
+    expenses: number;
+    handovers: number;
+    deficit: number;
+    surplus: number;
+    expenses_by_category: { key: string; label: string; amount: number }[];
+    // teacher only
+    cash?: number;
+    digital?: number;
+    cash_by_assistants?: number;
+    cash_by_teacher?: number;
+    uncounted?: number;
+  };
+  weeks: CashMonthWeek[];
+}
+
+/** month = 'YYYY-MM' */
+export async function getCashMonth(month: string): Promise<CashMonth> {
+  const { data } = await client.get('/teacher/cash/month', { params: { month } });
+  return data.data as CashMonth;
+}
+
+/** The period as Markdown (مدام روز «.md»), in the viewer's scope. */
+export async function getCashReport(p: { period: 'week'; week: string } | { period: 'month'; month: string }): Promise<{ filename: string; markdown: string }> {
+  const { data } = await client.get('/teacher/cash/report', { params: p });
+  return data.data as { filename: string; markdown: string };
+}

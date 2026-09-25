@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
-import type { CollectionEvent, KindTotals, RegistryNow } from '@/api/cash';
+import { getCashMonth, getCashReport, type CollectionEvent, type KindTotals, type RegistryNow, type CashMonth } from '@/api/cash';
+import { shareTextFile } from '@/utils/shareText';
 import { formatShortDate, formatDateTime, formatNumber } from '@/utils/format';
 import { colors, spacing, radius, nav, shadows, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -209,10 +210,19 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
 
       {mode === 'ask' ? (
         <>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, textAlign: 'center', marginVertical: spacing.sm }}>{t('cash.question')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'center', marginVertical: spacing.sm }}>{t('cash.question')}</Text>
+          {/* Compact pair sized to the card: the full-size Button wrapped its label at half width. */}
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <View style={{ flex: 1 }}><Button title={t('cash.yes_full')} variant="success" onPress={() => respond.mutate({ full: true })} loading={respond.isPending} /></View>
-            <View style={{ flex: 1 }}><Button title={t('cash.no_diff')} variant="outline" onPress={() => setMode('diff')} disabled={respond.isPending} /></View>
+            <TouchableOpacity onPress={() => respond.mutate({ full: true })} disabled={respond.isPending} activeOpacity={0.85}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, backgroundColor: colors.success, opacity: respond.isPending ? 0.6 : 1 }}>
+              {respond.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="success" size={16} color="#fff" />}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }} numberOfLines={1}>{t('cash.yes_full')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setMode('diff')} disabled={respond.isPending} activeOpacity={0.85}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand }}>
+              <Icon name="note" size={16} color={colors.brand} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }} numberOfLines={1}>{t('cash.no_diff')}</Text>
+            </TouchableOpacity>
           </View>
         </>
       ) : (
@@ -546,7 +556,7 @@ function Observations({ items }: { items: Observation[] }) {
 // ───────────────────────── the screen ─────────────────────────
 
 /** The single thing that needs this person right now. */
-function NowCard({ data, onDone, onOpenHandovers }: { data: CashView; onDone: (d: Drawer) => void; onOpenHandovers: () => void }) {
+function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView; onDone: (d: Drawer) => void; onOpenHandovers: () => void; onCountOwn: () => void }) {
   const { t } = useTranslation();
   if (data.role === 'assistant') {
     const row = data.unanswered[0];
@@ -561,9 +571,43 @@ function NowCard({ data, onDone, onOpenHandovers }: { data: CashView; onDone: (d
     return <Calm text={t('cash.calm_assistant')} />;
   }
   const handovers = data.pending_handovers.length;
-  const waiting = data.drawers.filter((d) => (d.review_pending ?? 0) > 0 || (!d.closed_at && d.registry !== null));
+  // Everything that is still open — «كله تمام» only when ALL of these are empty. It used to look at
+  // handovers and reviews only, so an uncounted drawer or an old open gap still read as «all fine».
+  const assistantDrawers = data.drawers.filter((d) => !d.is_teacher_drawer);
+  const waiting = assistantDrawers.filter((d) => (d.review_pending ?? 0) > 0 || (!d.closed_at && d.registry !== null));
   const first = waiting[0];
-  if (handovers === 0 && !first) return <Calm text={t('cash.calm_teacher')} />;
+  const uncounted = assistantDrawers.filter((d) => d.registry === null && !d.closed_at);
+  const ownToCount = data.drawers.find((d) => d.is_teacher_drawer && d.registry === null && !d.closed_at);
+  const olderGaps = data.open_gaps.filter((g) => g.week_start !== data.week.start);
+  if (handovers === 0 && !first && uncounted.length === 0 && !ownToCount && olderGaps.length === 0) {
+    const rn = data.registry_now;
+    return <Calm text={t('cash.calm_teacher')} sub={rn && rn.total_known > 0 ? t('cash.calm_registry', { amount: money(rn.total_known) }) : undefined} />;
+  }
+  const row = (key: string, icon: 'transfer' | 'eye' | 'money' | 'warning', tint: string, title: string, sub: string, onPress?: () => void, divider = true) => (
+    <TouchableOpacity key={key} onPress={onPress} disabled={!onPress} activeOpacity={0.85}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: divider ? 1 : 0, borderTopColor: colors.borderLight }}>
+      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: tint + '1F', alignItems: 'center', justifyContent: 'center' }}><Icon name={icon} size={20} color={tint} /></View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{title}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{sub}</Text>
+      </View>
+      {onPress ? <Icon name="back" size={18} color={colors.textTertiary} /> : null}
+    </TouchableOpacity>
+  );
+  const items: React.ReactNode[] = [];
+  if (ownToCount) items.push(row('own', 'money', colors.accent, t('cash.now_own_count'), t('cash.now_own_count_hint'), onCountOwn, items.length > 0));
+  if (olderGaps.length > 0) items.push(row('gaps', 'warning', colors.danger, t('cash.now_old_gaps', { count: money(olderGaps.length) }), t('cash.now_old_gaps_hint'),
+    () => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(olderGaps[0].id) } } as Href), items.length > 0));
+  if (uncounted.length > 0) items.push(row('uncounted', 'money', colors.warningDark, t('cash.now_uncounted', { count: money(uncounted.length) }),
+    uncounted.map((d) => d.name).join('، '), undefined, items.length > 0));
+  if (handovers === 0 && !first) {
+    return (
+      <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, ...shadows.md }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.now_title')}</Text>
+        {items}
+      </View>
+    );
+  }
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, ...shadows.md }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.now_title')}</Text>
@@ -588,15 +632,120 @@ function NowCard({ data, onDone, onOpenHandovers }: { data: CashView; onDone: (d
           <Icon name="back" size={18} color={colors.textTertiary} />
         </TouchableOpacity>
       ) : null}
+      {items.length > 0 ? <View style={{ borderTopWidth: 1, borderTopColor: colors.borderLight }}>{items}</View> : null}
     </View>
   );
 }
 
-function Calm({ text }: { text: string }) {
+function Calm({ text, sub }: { text: string; sub?: string }) {
   return (
     <View style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
       <Icon name="success" size={22} color="#fff" />
-      <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{text}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{text}</Text>
+        {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>{sub}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+// ───────────────────────── past periods ─────────────────────────
+
+const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Week / month switch, previous / next, and the «.md» report of what is on screen. */
+function PeriodBar({ period, label, canNext, onPeriod, onPrev, onNext, onShare, sharing }: {
+  period: 'week' | 'month'; label: string; canNext: boolean; onPeriod: (p: 'week' | 'month') => void;
+  onPrev: () => void; onNext: () => void; onShare: () => void; sharing: boolean;
+}) {
+  const { t } = useTranslation();
+  const arrow = (icon: 'forward' | 'back', onPress: () => void, disabled = false) => (
+    <TouchableOpacity onPress={onPress} disabled={disabled} hitSlop={6}
+      style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.35 : 1 }}>
+      <Icon name={icon} size={18} color={colors.brand} />
+    </TouchableOpacity>
+  );
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.sm, marginBottom: spacing.md }}>
+      <View style={{ flexDirection: 'row', gap: 6, marginBottom: spacing.sm }}>
+        {(['week', 'month'] as const).map((p) => (
+          <TouchableOpacity key={p} onPress={() => onPeriod(p)} activeOpacity={0.85}
+            style={{ flex: 1, height: 34, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: period === p ? colors.brand : colors.surfaceSunken }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: period === p ? '#fff' : colors.textSecondary }}>{t(p === 'week' ? 'cash.period_week' : 'cash.period_month')}</Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity onPress={onShare} disabled={sharing} activeOpacity={0.85}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 34, paddingHorizontal: 12, borderRadius: radius.full, borderWidth: 1, borderColor: colors.brand }}>
+          {sharing ? <ActivityIndicator size="small" color={colors.brand} /> : <Icon name="download" size={14} color={colors.brand} />}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('cash.report_md')}</Text>
+        </TouchableOpacity>
+      </View>
+      {/* RTL: «forward» (›) points to the previous period on the right, «back» (‹) to the next one. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        {arrow('forward', onPrev)}
+        <Text style={{ flex: 1, textAlign: 'center', fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{label}</Text>
+        {arrow('back', onNext, !canNext)}
+      </View>
+    </View>
+  );
+}
+
+/** A month at a glance: totals by where and what, then its weeks (tap one to open it). */
+function MonthView({ m, onOpenWeek }: { m: CashMonth; onOpenWeek: (weekStart: string) => void }) {
+  const { t } = useTranslation();
+  const egp = t('insights.egp');
+  const tt = m.totals;
+  return (
+    <View>
+      <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('cash.month_collected')}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.brand, marginTop: 2 }}>{money(tt.collected)} {egp}</Text>
+        {m.role === 'teacher' ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+            {t('cash.collected_split', { assistants: money(tt.cash_by_assistants ?? 0), teacher: money(tt.cash_by_teacher ?? 0) })}
+            {(tt.digital ?? 0) > 0 ? ` · ${t('cash.collected_digital', { amount: money(tt.digital ?? 0) })}` : ''}
+          </Text>
+        ) : null}
+        <KindChips k={tt.by_kind} />
+        <View style={{ marginTop: spacing.sm }}>
+          <Figure label={t('cash.expenses')} value={`${money(tt.expenses)} ${egp}`} />
+          <Figure label={t('cash.handovers')} value={`${money(tt.handovers)} ${egp}`} />
+          {tt.deficit > 0 ? <Figure label={t('cash.deficit')} value={`− ${money(tt.deficit)} ${egp}`} tint={colors.danger} /> : null}
+          {tt.surplus > 0 ? <Figure label={t('cash.surplus')} value={`+ ${money(tt.surplus)} ${egp}`} tint={colors.warningDark} /> : null}
+          {(tt.uncounted ?? 0) > 0 ? <Figure label={t('cash.month_uncounted')} value={money(tt.uncounted ?? 0)} tint={colors.warningDark} /> : null}
+        </View>
+        {tt.expenses_by_category.length > 0 ? (
+          <View style={{ marginTop: spacing.sm }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textTertiary, marginBottom: 2 }}>{t('cash.month_expense_cats')}</Text>
+            {tt.expenses_by_category.map((c) => <Figure key={c.key} label={c.label} value={`${money(c.amount)} ${egp}`} dim />)}
+          </View>
+        ) : null}
+      </View>
+
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.month_weeks')}</Text>
+      {m.weeks.length === 0 ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, textAlign: 'center', marginVertical: spacing.lg }}>{t('cash.month_no_weeks')}</Text>
+      ) : m.weeks.map((w) => (
+        <TouchableOpacity key={w.week_start} onPress={() => onOpenWeek(w.week_start)} activeOpacity={0.85}
+          style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
+              {t('cash.week_of', { start: formatShortDate(w.week_start), end: formatShortDate(w.week_end) })}{w.closed ? ' 🔒' : ''}
+            </Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+              {t('cash.month_week_line', { collected: money(w.collected), expenses: money(w.expenses), counted: money(w.counted), drawers: money(w.drawers) })}
+            </Text>
+            {w.deficit > 0 || w.surplus > 0 ? (
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: w.deficit > 0 ? colors.danger : colors.warningDark, marginTop: 2 }}>
+                {[w.deficit > 0 ? `${t('cash.deficit')} ${money(w.deficit)}` : '', w.surplus > 0 ? `${t('cash.surplus')} ${money(w.surplus)}` : ''].filter(Boolean).join(' · ')}
+              </Text>
+            ) : null}
+          </View>
+          <Icon name="back" size={18} color={colors.textTertiary} />
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }
@@ -605,9 +754,29 @@ export default function CashReconcileScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
-  const { data, isLoading, refetch } = useQuery({ queryKey: ['cash-reconciliation'], queryFn: () => getCashReconciliation() });
+  // Period filter (founder 2026-09-25): this week by default; step back through past weeks or months.
+  const [period, setPeriod] = useState<'week' | 'month'>('week');
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
+  const weekDay = useMemo(() => isoDay(addDays(new Date(), -7 * weekOffset)), [weekOffset]);
+  const monthKey = useMemo(() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - monthOffset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }, [monthOffset]);
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['cash-reconciliation', weekOffset === 0 ? 'now' : weekDay], queryFn: () => getCashReconciliation(weekOffset === 0 ? undefined : weekDay) });
+  const monthQ = useQuery({ queryKey: ['cash-month', monthKey], queryFn: () => getCashMonth(monthKey), enabled: period === 'month' });
+  const isPast = period === 'month' || weekOffset > 0;
+  const [sharing, setSharing] = useState(false);
+  const shareReport = async () => {
+    setSharing(true);
+    try {
+      const r = await getCashReport(period === 'month' ? { period: 'month', month: monthKey } : { period: 'week', week: data?.week.start ?? weekDay });
+      await shareTextFile(r.filename, r.markdown);
+    } catch (e) {
+      Alert.alert(t('common.error'), getFriendlyErrorMessage(e));
+    } finally {
+      setSharing(false);
+    }
+  };
   const insightsQ = useQuery({ queryKey: ['cash-insights'], queryFn: getCashInsights });
-  const { refreshing, onRefresh } = usePullRefresh(refetch, insightsQ.refetch);
+  const { refreshing, onRefresh } = usePullRefresh(refetch, insightsQ.refetch, monthQ.refetch);
   const ins = insightsQ.data;
   const [segment, setSegment] = useState<Segment>('week');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -620,6 +789,7 @@ export default function CashReconcileScreen() {
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['cash-reconciliation'] });
+    qc.invalidateQueries({ queryKey: ['cash-month'] });
     qc.invalidateQueries({ queryKey: ['cash-insights'] });
     qc.invalidateQueries({ queryKey: ['expenses'] });
     qc.invalidateQueries({ queryKey: ['teacher-insights'] });
@@ -679,7 +849,24 @@ export default function CashReconcileScreen() {
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2, marginBottom: spacing.lg }}>
             {ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
           </Text>
-          {data ? <NowCard data={data} onDone={onDone} onOpenHandovers={() => setHandoverOpen(true)} /> : <ActivityIndicator color="#fff" />}
+          {isPast ? (
+            <TouchableOpacity onPress={() => { setPeriod('week'); setWeekOffset(0); setSegment('week'); }} activeOpacity={0.85}
+              style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <Icon name="calendar" size={22} color="#fff" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('cash.viewing_past')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>{t('cash.back_to_now')}</Text>
+              </View>
+              <Icon name="back" size={18} color="#fff" />
+            </TouchableOpacity>
+          ) : data ? (
+            <NowCard data={data} onDone={onDone} onOpenHandovers={() => setHandoverOpen(true)} onCountOwn={() => setSegment('week')} />
+          ) : isError ? (
+            <TouchableOpacity onPress={() => refetch()} style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.xl, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <Icon name="refresh" size={20} color="#fff" />
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('cash.load_failed')}</Text>
+            </TouchableOpacity>
+          ) : <ActivityIndicator color="#fff" />}
         </LinearGradient>
 
         {/* Segments — sticky, so switching never means scrolling back up. */}
@@ -707,7 +894,30 @@ export default function CashReconcileScreen() {
           {isLoading || !data ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : segment === 'week' ? (
-            <WeekSegment data={data} onChanged={invalidate} onOpenHandover={() => setHandoverOpen(true)} />
+            <View>
+              <PeriodBar
+                period={period}
+                label={period === 'month'
+                  ? (monthQ.data?.period.label ?? monthKey)
+                  : t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) })}
+                canNext={period === 'month' ? monthOffset > 0 : weekOffset > 0}
+                onPeriod={(p) => { setPeriod(p); }}
+                onPrev={() => (period === 'month' ? setMonthOffset((o) => o + 1) : setWeekOffset((o) => o + 1))}
+                onNext={() => (period === 'month' ? setMonthOffset((o) => Math.max(0, o - 1)) : setWeekOffset((o) => Math.max(0, o - 1)))}
+                onShare={shareReport}
+                sharing={sharing}
+              />
+              {period === 'month' ? (
+                monthQ.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
+                  : monthQ.data ? <MonthView m={monthQ.data} onOpenWeek={(w) => {
+                    const diff = Math.round((startOfDay(new Date()).getTime() - startOfDay(new Date(w)).getTime()) / (7 * 86400000));
+                    setWeekOffset(Math.max(0, diff)); setPeriod('week');
+                  }} />
+                  : null
+              ) : (
+                <WeekSegment data={data} onChanged={invalidate} onOpenHandover={() => setHandoverOpen(true)} />
+              )}
+            </View>
           ) : segment === 'expenses' ? (
             <ExpensesPanel embedded />
           ) : (
