@@ -179,6 +179,10 @@ export interface Drawer {
   collected_by_kind?: KindTotals;
   /** The teacher's own hand: same equation, handovers flow IN (the handovers figure is negative). */
   is_teacher_drawer?: boolean;
+  /** Counted by the assistant OR by the teacher's own count flag. */
+  is_answered?: boolean;
+  /** A deficit or surplus the teacher has not resolved yet. */
+  is_open_gap?: boolean;
   review_pending?: number;
 }
 

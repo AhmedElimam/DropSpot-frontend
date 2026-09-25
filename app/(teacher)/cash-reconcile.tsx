@@ -567,18 +567,44 @@ function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView
         </View>
       );
     }
+    // An open gap on their own drawer (counted by them, or by the teacher's own count) is
+    // never «كله تمام» — it used to be, because only unanswered prompts were checked.
+    const gap = data.drawers.find((d) => (d.is_open_gap ?? (d.status === 'discrepancy' && !d.resolved_at)) && !d.closed_at);
+    if (gap && gap.difference !== null) {
+      const deficit = gap.difference < 0;
+      return (
+        <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 2, borderColor: deficit ? colors.danger : colors.warning, ...shadows.md }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: (deficit ? colors.danger : colors.warning) + '1F', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="warning" size={20} color={deficit ? colors.danger : colors.warningDark} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>
+                {t(deficit ? 'cash.gap_own_deficit' : 'cash.gap_own_surplus', { amount: money(Math.abs(gap.difference)) })}
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                {gap.registry === null ? t('cash.gap_own_teacher_counted') : t('cash.gap_own_hint')}
+              </Text>
+            </View>
+          </View>
+        </View>
+      );
+    }
     return <Calm text={t('cash.calm_assistant')} />;
   }
   const handovers = data.pending_handovers.length;
   // Everything that is still open — «كله تمام» only when ALL of these are empty. It used to look at
   // handovers and reviews only, so an uncounted drawer or an old open gap still read as «all fine».
   const assistantDrawers = data.drawers.filter((d) => !d.is_teacher_drawer);
-  const waiting = assistantDrawers.filter((d) => (d.review_pending ?? 0) > 0 || (!d.closed_at && d.registry !== null));
+  // «answered» means counted by the assistant OR by the teacher's own count flag.
+  const answered = (d: Drawer) => d.is_answered ?? (d.registry !== null || (d.teacher_count ?? null) !== null);
+  const waiting = assistantDrawers.filter((d) => (d.review_pending ?? 0) > 0 || (!d.closed_at && answered(d)));
   const first = waiting[0];
-  const uncounted = assistantDrawers.filter((d) => d.registry === null && !d.closed_at);
-  const ownToCount = data.drawers.find((d) => d.is_teacher_drawer && d.registry === null && !d.closed_at);
+  const uncounted = assistantDrawers.filter((d) => !answered(d) && !d.closed_at);
+  const ownToCount = data.drawers.find((d) => d.is_teacher_drawer && !answered(d) && !d.closed_at);
+  const ownGap = data.drawers.find((d) => d.is_teacher_drawer && (d.is_open_gap ?? (d.status === 'discrepancy' && !d.resolved_at)) && !d.closed_at);
   const olderGaps = data.open_gaps.filter((g) => g.week_start !== data.week.start);
-  if (handovers === 0 && !first && uncounted.length === 0 && !ownToCount && olderGaps.length === 0) {
+  if (handovers === 0 && !first && uncounted.length === 0 && !ownToCount && !ownGap && olderGaps.length === 0) {
     const rn = data.registry_now;
     return <Calm text={t('cash.calm_teacher')} sub={rn && rn.total_known > 0 ? t('cash.calm_registry', { amount: money(rn.total_known) }) : undefined} />;
   }
@@ -594,6 +620,9 @@ function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView
     </TouchableOpacity>
   );
   const items: React.ReactNode[] = [];
+  if (ownGap && ownGap.difference !== null) items.push(row('owngap', 'warning', ownGap.difference < 0 ? colors.danger : colors.warningDark,
+    t(ownGap.difference < 0 ? 'cash.gap_own_deficit' : 'cash.gap_own_surplus', { amount: money(Math.abs(ownGap.difference)) }), t('cash.now_own_gap_hint'),
+    () => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(ownGap.id) } } as Href), items.length > 0));
   if (ownToCount) items.push(row('own', 'money', colors.accent, t('cash.now_own_count'), t('cash.now_own_count_hint'), onCountOwn, items.length > 0));
   if (olderGaps.length > 0) items.push(row('gaps', 'warning', colors.danger, t('cash.now_old_gaps', { count: money(olderGaps.length) }), t('cash.now_old_gaps_hint'),
     () => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(olderGaps[0].id) } } as Href), items.length > 0));
