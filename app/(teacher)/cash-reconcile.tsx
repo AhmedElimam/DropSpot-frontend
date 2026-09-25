@@ -7,8 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
-import { getCashMonth, getCashReport, type CollectionEvent, type KindTotals, type RegistryNow, type CashMonth } from '@/api/cash';
-import { shareTextFile } from '@/utils/shareText';
+import { getCashMonth, type CollectionEvent, type KindTotals, type RegistryNow, type CashMonth } from '@/api/cash';
 import { formatShortDate, formatDateTime, formatNumber } from '@/utils/format';
 import { colors, spacing, radius, nav, shadows, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -655,10 +654,10 @@ const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.get
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-/** Week / month switch, previous / next, and the «.md» report of what is on screen. */
-function PeriodBar({ period, label, canNext, onPeriod, onPrev, onNext, onShare, sharing }: {
+/** Week / month switch, previous / next. */
+function PeriodBar({ period, label, canNext, onPeriod, onPrev, onNext }: {
   period: 'week' | 'month'; label: string; canNext: boolean; onPeriod: (p: 'week' | 'month') => void;
-  onPrev: () => void; onNext: () => void; onShare: () => void; sharing: boolean;
+  onPrev: () => void; onNext: () => void;
 }) {
   const { t } = useTranslation();
   const arrow = (icon: 'forward' | 'back', onPress: () => void, disabled = false) => (
@@ -676,11 +675,6 @@ function PeriodBar({ period, label, canNext, onPeriod, onPrev, onNext, onShare, 
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: period === p ? '#fff' : colors.textSecondary }}>{t(p === 'week' ? 'cash.period_week' : 'cash.period_month')}</Text>
           </TouchableOpacity>
         ))}
-        <TouchableOpacity onPress={onShare} disabled={sharing} activeOpacity={0.85}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 34, paddingHorizontal: 12, borderRadius: radius.full, borderWidth: 1, borderColor: colors.brand }}>
-          {sharing ? <ActivityIndicator size="small" color={colors.brand} /> : <Icon name="download" size={14} color={colors.brand} />}
-          <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('cash.report_md')}</Text>
-        </TouchableOpacity>
       </View>
       {/* RTL: «forward» (›) points to the previous period on the right, «back» (‹) to the next one. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -763,18 +757,6 @@ export default function CashReconcileScreen() {
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['cash-reconciliation', weekOffset === 0 ? 'now' : weekDay], queryFn: () => getCashReconciliation(weekOffset === 0 ? undefined : weekDay) });
   const monthQ = useQuery({ queryKey: ['cash-month', monthKey], queryFn: () => getCashMonth(monthKey), enabled: period === 'month' });
   const isPast = period === 'month' || weekOffset > 0;
-  const [sharing, setSharing] = useState(false);
-  const shareReport = async () => {
-    setSharing(true);
-    try {
-      const r = await getCashReport(period === 'month' ? { period: 'month', month: monthKey } : { period: 'week', week: data?.week.start ?? weekDay });
-      await shareTextFile(r.filename, r.markdown);
-    } catch (e) {
-      Alert.alert(t('common.error'), getFriendlyErrorMessage(e));
-    } finally {
-      setSharing(false);
-    }
-  };
   const insightsQ = useQuery({ queryKey: ['cash-insights'], queryFn: getCashInsights });
   const { refreshing, onRefresh } = usePullRefresh(refetch, insightsQ.refetch, monthQ.refetch);
   const ins = insightsQ.data;
@@ -904,8 +886,6 @@ export default function CashReconcileScreen() {
                 onPeriod={(p) => { setPeriod(p); }}
                 onPrev={() => (period === 'month' ? setMonthOffset((o) => o + 1) : setWeekOffset((o) => o + 1))}
                 onNext={() => (period === 'month' ? setMonthOffset((o) => Math.max(0, o - 1)) : setWeekOffset((o) => Math.max(0, o - 1)))}
-                onShare={shareReport}
-                sharing={sharing}
               />
               {period === 'month' ? (
                 monthQ.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />

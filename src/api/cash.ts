@@ -410,7 +410,7 @@ export async function replyToThread(expenseId: number, body: string, imageUri?: 
   return data.data as ExpenseThread;
 }
 
-// ───────────────────────── past periods + the Markdown report ─────────────────────────
+// ───────────────────────── past periods ─────────────────────────
 
 export interface CashMonthWeek {
   week_start: string;
@@ -449,10 +449,4 @@ export interface CashMonth {
 export async function getCashMonth(month: string): Promise<CashMonth> {
   const { data } = await client.get('/teacher/cash/month', { params: { month } });
   return data.data as CashMonth;
-}
-
-/** The period as Markdown (مدام روز «.md»), in the viewer's scope. */
-export async function getCashReport(p: { period: 'week'; week: string } | { period: 'month'; month: string }): Promise<{ filename: string; markdown: string }> {
-  const { data } = await client.get('/teacher/cash/report', { params: p });
-  return data.data as { filename: string; markdown: string };
 }
