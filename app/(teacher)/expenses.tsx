@@ -1,0 +1,237 @@
+import { memo, useCallback, useMemo, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, KeyboardAvoidingView } from 'react-native';
+import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fonts } from '@/theme/typography';
+import { formatShortDate, formatDateTime, formatNumber } from '@/utils/format';
+import { colors, spacing, radius, nav, shadows } from '@/theme/index';
+import { Icon } from '@/components/ui/Icon';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { useActiveAbilities } from '@/hooks/useActiveAbilities';
+import { getFriendlyErrorMessage } from '@/utils/errors';
+import { getExpenses, addExpense, deleteExpense, type Expense } from '@/api/cash';
+
+/**
+ * The expense ledger (spec 2026-09-25 §6, minimum §11.1). Fastest path from "I just bought
+ * coffee" to logged: amount, one tap on a category, done. Every entry is attributed to
+ * whoever typed it and stamped with when — the server marks an entry LATE when its week
+ * (Friday→Thursday) had already closed, and shows both dates.
+ *
+ * An assistant sees only what they logged themselves (server-enforced); the teacher sees
+ * everything, each row naming who logged it.
+ */
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
+
+const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, onDelete }: { e: Expense; showLogger: boolean; canDelete: boolean; onDelete: (e: Expense) => void }) {
+  const { t } = useTranslation();
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: e.is_late ? colors.warning : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brand + '18', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="money" size={20} color={colors.brand} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{money(e.amount)} {t('insights.egp')}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>· {e.category_label}</Text>
+            {e.is_late ? (
+              <View style={{ backgroundColor: colors.warning + '22', borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.warningDark }}>{t('expenses.late')}</Text>
+              </View>
+            ) : null}
+          </View>
+          {e.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }} numberOfLines={2}>{e.note}</Text> : null}
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
+            {e.is_late && e.logged_at
+              ? t('expenses.late_hint', { logged: formatDateTime(e.logged_at), date: formatShortDate(e.expense_date) })
+              : formatShortDate(e.expense_date)}
+            {showLogger && !e.logged_by.is_me ? ` · ${t('expenses.logged_by', { name: e.logged_by.name })}` : ''}
+          </Text>
+        </View>
+        {canDelete ? (
+          <TouchableOpacity onPress={() => onDelete(e)} hitSlop={8} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="trash" size={18} color={colors.textTertiary} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </View>
+  );
+});
+
+export default function ExpensesScreen() {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const qc = useQueryClient();
+  const { isAssistant } = useActiveAbilities();
+
+  // Which week is on screen: any day inside it. Today = the current week.
+  const [weekDay, setWeekDay] = useState<Date>(() => new Date());
+  const weekKey = ymd(weekDay);
+  const isCurrentWeek = useMemo(() => sameCashWeek(new Date(), weekDay), [weekDay]);
+
+  const { data, isLoading, refetch } = useQuery({ queryKey: ['expenses', weekKey], queryFn: () => getExpenses(weekKey) });
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
+
+  const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState<string>('coffee');
+  const [note, setNote] = useState('');
+  const [dayChoice, setDayChoice] = useState<'today' | 'yesterday'>('today');
+
+  const expenseDate = useMemo(() => {
+    if (!data) return undefined;
+    if (isCurrentWeek) {
+      const d = new Date();
+      if (dayChoice === 'yesterday') d.setTime(d.getTime() - DAY_MS);
+      return ymd(d);
+    }
+    // A past week: the entry belongs to that week's last day and will be marked late.
+    return data.week.end;
+  }, [data, isCurrentWeek, dayChoice]);
+
+  const add = useMutation({
+    mutationFn: () => addExpense({ amount: Number(amount), category, note: note.trim() || undefined, expense_date: expenseDate }),
+    onSuccess: () => {
+      setAmount(''); setNote('');
+      qc.invalidateQueries({ queryKey: ['expenses'] });
+      qc.invalidateQueries({ queryKey: ['cash-reconciliation'] });
+    },
+    onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: number) => deleteExpense(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses'] });
+      qc.invalidateQueries({ queryKey: ['cash-reconciliation'] });
+    },
+    onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+  });
+
+  const confirmDelete = useCallback((e: Expense) => {
+    Alert.alert(t('expenses.delete_confirm_title'), t('expenses.delete_confirm_hint', { amount: money(e.amount), category: e.category_label }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('expenses.delete'), style: 'destructive', onPress: () => remove.mutate(e.id) },
+    ]);
+  }, [t, remove]);
+
+  const amountNum = Number(amount);
+  const canAdd = !!data && Number.isFinite(amountNum) && amountNum > 0 && !add.isPending;
+  const items = data?.items ?? [];
+
+  return (
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name="forward" size={22} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('expenses.title')}</Text>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Week switcher: Friday → Thursday. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+          <TouchableOpacity onPress={() => setWeekDay((d) => new Date(d.getTime() - 7 * DAY_MS))} hitSlop={8} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
+            {isCurrentWeek ? t('expenses.this_week') : data ? t('expenses.week_label', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : ''}
+          </Text>
+          <TouchableOpacity disabled={isCurrentWeek} onPress={() => setWeekDay((d) => new Date(d.getTime() + 7 * DAY_MS))} hitSlop={8} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', opacity: isCurrentWeek ? 0.3 : 1 }}>
+            <Icon name="back" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick add. */}
+        <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('expenses.add_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('expenses.amount')}</Text>
+          <TextInput
+            value={amount}
+            onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))}
+            keyboardType="decimal-pad"
+            placeholder="0"
+            placeholderTextColor={colors.textTertiary}
+            style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', marginBottom: spacing.md }}
+          />
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{t('expenses.category')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
+            {(data?.categories ?? []).map((c) => {
+              const on = c.key === category;
+              return (
+                <TouchableOpacity key={c.key} onPress={() => setCategory(c.key)} activeOpacity={0.8}
+                  style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface }}>
+                  <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{c.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('expenses.note')}</Text>
+          <TextInput
+            value={note}
+            onChangeText={setNote}
+            placeholder={t('expenses.note_placeholder')}
+            placeholderTextColor={colors.textTertiary}
+            maxLength={500}
+            style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', marginBottom: spacing.md }}
+          />
+          {isCurrentWeek ? (
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: spacing.md }}>
+              {(['today', 'yesterday'] as const).map((k) => {
+                const on = dayChoice === k;
+                return (
+                  <TouchableOpacity key={k} onPress={() => setDayChoice(k)} activeOpacity={0.8}
+                    style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface }}>
+                    <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{t(`expenses.${k}`)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : data ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.md }}>{t('expenses.past_week_date', { date: formatShortDate(data.week.end) })}</Text>
+          ) : null}
+          <Button title={t('expenses.add')} onPress={() => add.mutate()} disabled={!canAdd} loading={add.isPending} />
+        </View>
+
+        {/* The week's entries. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary }}>{t('expenses.week_total')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{money(data?.total ?? 0)} {t('insights.egp')}</Text>
+        </View>
+        {data?.own_only ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('expenses.own_only_hint')}</Text> : null}
+
+        {isLoading ? (
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
+        ) : items.length === 0 ? (
+          <EmptyState icon="money" title={t('expenses.none')} message={t('expenses.none_hint')} />
+        ) : (
+          items.map((e) => (
+            <ExpenseRow key={e.id} e={e} showLogger={!isAssistant} canDelete={!isAssistant || e.logged_by.is_me} onDelete={confirmDelete} />
+          ))
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+/** Same Friday→Thursday week? (Local time; the server is the authority — this only drives the "this week" label.) */
+function sameCashWeek(a: Date, b: Date): boolean {
+  const start = (d: Date) => {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const back = (x.getDay() - 5 + 7) % 7; // days since Friday
+    x.setDate(x.getDate() - back);
+    return x.getTime();
+  };
+  return start(a) === start(b);
+}

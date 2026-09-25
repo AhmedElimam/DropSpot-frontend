@@ -15,6 +15,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getTeacherInsights } from '@/api/insights';
 import { getBookingRequests } from '@/api/bookingRequests';
 import { getAssistantActions } from '@/api/assistantActions';
+import { getCashReconciliation } from '@/api/cash';
 
 /**
  * "الإدارة" tab — the hub for course & schedule management (the web-dashboard
@@ -75,11 +76,19 @@ export default function TeacherManage() {
   const pendingReqs = bookingReqs.data?.length ?? 0;
   // Assistant money-action oversight (teacher-only — reviewing the assistant's approvals/collections).
   const assistantActions = useQuery({ queryKey: ['assistant-actions'], queryFn: getAssistantActions, enabled: !isAssistant });
+  // Weekly cash count (spec 2026-09-25). For an assistant this is the prompt they must
+  // answer on Thursday evening — surfaced as a banner here because a push tap does not
+  // deep-link on this layout. Their own figures only; the server decides the shape.
+  const canCash = can(ABILITY.SCAN);
+  const cash = useQuery({ queryKey: ['cash-reconciliation'], queryFn: () => getCashReconciliation(), enabled: canCash });
+  const cashView = cash.data;
+  const cashPending = cashView?.role === 'assistant' ? cashView.unanswered[0] ?? null : null;
+  const cashOpenGaps = cashView?.role === 'teacher' ? cashView.open_gaps.length : 0;
 
   // Every figure on this hub is a cached count; a pull must refresh all of them, not
   // whichever one happens to be stalest.
   const { refreshing, onRefresh } = usePullRefresh(
-    insights.refetch, bookingReqs.refetch, assistantActions.refetch,
+    insights.refetch, bookingReqs.refetch, assistantActions.refetch, cash.refetch,
   );
   const pendingActions = assistantActions.data?.length ?? 0;
   const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
@@ -152,6 +161,53 @@ export default function TeacherManage() {
                 )}
               </TouchableOpacity>
             ) : null}
+          </>
+        ) : null}
+
+        {/* Cash reconciliation + expenses — teacher, or an assistant who handles cash
+            (same gate as collecting). An unanswered Thursday count is the loudest thing
+            on this hub for an assistant; open gaps are for the teacher. */}
+        {canCash ? (
+          <>
+            <SectionTitle>{t('teacher.cash_section_title')}</SectionTitle>
+            {cashPending ? (
+              <TouchableOpacity
+                onPress={() => router.push('/(teacher)/cash-reconcile' as Href)}
+                activeOpacity={0.8}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: '#FEF3E2', borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.warning, padding: spacing.lg, marginBottom: spacing.sm }}
+              >
+                <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.warning + '18', justifyContent: 'center', alignItems: 'center' }}>
+                  <Icon name="money" size={22} color={colors.warning} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.banner_pending')}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('cash.banner_pending_sub', { amount: Math.round(cashPending.collected).toLocaleString('en-US') })}</Text>
+                </View>
+                <Icon name="back" size={18} color={colors.textTertiary} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={() => router.push('/(teacher)/cash-reconcile' as Href)}
+                activeOpacity={0.8}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: cashOpenGaps > 0 ? '#FEF3E2' : colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: cashOpenGaps > 0 ? colors.warning : colors.border, padding: spacing.lg, marginBottom: spacing.sm }}
+              >
+                <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.success + '18', justifyContent: 'center', alignItems: 'center' }}>
+                  <Icon name="money" size={22} color={colors.success} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.title')}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{isAssistant ? t('cash.manage_sub_assistant') : t('cash.manage_sub')}</Text>
+                </View>
+                {cashOpenGaps > 0 ? (
+                  <View style={{ minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{cashOpenGaps}</Text>
+                  </View>
+                ) : (
+                  <Icon name="back" size={18} color={colors.textTertiary} />
+                )}
+              </TouchableOpacity>
+            )}
+            <Row icon="note" title={t('expenses.title')} sub={t('expenses.manage_sub')} tint={colors.success} onPress={() => router.push('/(teacher)/expenses' as Href)} />
           </>
         ) : null}
 
