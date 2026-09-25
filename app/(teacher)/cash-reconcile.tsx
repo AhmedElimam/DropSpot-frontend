@@ -99,7 +99,8 @@ function Arithmetic({ d }: { d: Drawer }) {
       {d.expenses > 0 ? <Figure label={t('cash.expenses')} value={`− ${money(d.expenses)} ${egp}`} /> : null}
       {(d.held ?? 0) > 0 ? <Figure label={t('review.held')} value={`− ${money(d.held ?? 0)} ${egp}`} tint={colors.warningDark} /> : null}
       {(d.rejected_expenses ?? 0) > 0 ? <Figure label={t('review.rejected')} value={money(d.rejected_expenses ?? 0)} tint={colors.danger} dim /> : null}
-      {d.handovers > 0 ? <Figure label={t('cash.handovers')} value={`− ${money(d.handovers)} ${egp}`} /> : null}
+      {d.is_teacher_drawer && d.handovers < 0 ? <Figure label={t('cash.handovers_received')} value={`+ ${money(-d.handovers)} ${egp}`} tint={colors.success} /> : null}
+      {!d.is_teacher_drawer && d.handovers > 0 ? <Figure label={t('cash.handovers')} value={`− ${money(d.handovers)} ${egp}`} /> : null}
       <Rule />
       {d.expected !== null ? (
         <Figure label={t('cash.expected')} value={`${money(d.expected)} ${egp}`} strong tint={colors.brand} />
@@ -117,6 +118,11 @@ function Arithmetic({ d }: { d: Drawer }) {
       {!known ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginTop: 4 }}>
           {d.opening_reason === 'previous_unreconciled' ? t('cash.opening_prev_unreconciled') : t('cash.opening_first_week')}
+        </Text>
+      ) : d.opening_source === 'assumed_zero' || d.opening_source === 'carried_expected' ? (
+        // The opening is automatic; say where it came from so nobody wonders who typed it.
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: d.opening_source === 'carried_expected' ? colors.warningDark : colors.textTertiary, marginTop: 4 }}>
+          {d.opening_source === 'assumed_zero' ? t('cash.opening_assumed_zero') : t('cash.opening_carried_expected')}
         </Text>
       ) : null}
     </View>
@@ -283,7 +289,7 @@ function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDraw
         right={{ label: t('cash.actual'), value: answered ? money(d.actual ?? d.registry ?? 0) : '—', tint: answered && d.result && d.result !== 'unknown' ? RESULT_TINT[d.result] : undefined }}
       />
       <SurplusNotice d={d} />
-      <Details d={d} extra={isTeacher && d.opening_balance === null && !d.closed_at ? <OpeningEntry d={d} onSaved={onChanged} /> : null} />
+      <Details d={d} extra={isTeacher && d.opening_source !== 'teacher' && !d.closed_at ? <OpeningEntry d={d} onSaved={onChanged} /> : null} />
       {isTeacher ? (
         <TouchableOpacity onPress={openReview} activeOpacity={0.85}
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, marginTop: spacing.sm, backgroundColor: reviewWaiting > 0 ? colors.brand : colors.surfaceSunken }}>
@@ -808,7 +814,10 @@ function WeekSegment({ data, onChanged, onOpenHandover }: { data: CashView; onCh
       {v.drawers.length === 0 ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.lg, textAlign: 'center' }}>{t('cash.no_assistants')}</Text>
       ) : (
-        v.drawers.map((d) => <DrawerCard key={d.id} d={d} name={d.name} isTeacher onChanged={onChanged} />)
+        v.drawers.map((d) => d.is_teacher_drawer && d.registry === null && !d.closed_at
+          // The teacher counts their OWN drawer in place — the same card an assistant answers.
+          ? <PromptCard key={d.id} row={d} onDone={() => onChanged()} />
+          : <DrawerCard key={d.id} d={d} name={d.name} isTeacher onChanged={onChanged} />)
       )}
 
       {v.collections ? <CollectionsList events={v.collections} byKind={v.collected_breakdown?.by_kind} own={false} /> : null}

@@ -154,7 +154,8 @@ export interface Drawer {
   status: ReconciliationStatus;
   result: ReconciliationResult | null;
   opening_balance: number | null; // null = unknown — never guessed
-  opening_source: 'carried' | 'teacher' | null;
+  /** Automatic: last week's counted closing ('carried'), its expected when it was never counted ('carried_expected'), zero on the first week ('assumed_zero'); 'teacher' = overwritten by hand. */
+  opening_source: 'carried' | 'carried_expected' | 'assumed_zero' | 'teacher' | null;
   opening_reason: 'first_week' | 'previous_unreconciled' | null;
   collected: number;
   expenses: number;
@@ -176,6 +177,8 @@ export interface Drawer {
   /** collected − expenses − held − handovers: what the week ADDED, computable even when the opening is unknown. */
   net_movement?: number;
   collected_by_kind?: KindTotals;
+  /** The teacher's own hand: same equation, handovers flow IN (the handovers figure is negative). */
+  is_teacher_drawer?: boolean;
   review_pending?: number;
 }
 
