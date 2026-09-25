@@ -35,6 +35,7 @@ export interface CashSettingsLite {
 
 export interface CashSettings extends CashSettingsLite {
   tolerance: number;
+  expense_reminder_enabled?: boolean;
 }
 
 export interface ExpensesWeek {
@@ -191,7 +192,7 @@ export async function reviewHandover(id: number, decision: 'confirm' | 'reject')
   await client.post(`/teacher/cash/handovers/${id}/${decision}`);
 }
 
-export async function updateCashSettings(patch: Partial<{ expenses_enabled: boolean; expenses_per_venue: boolean; cash_tolerance: number }>): Promise<CashSettings> {
+export async function updateCashSettings(patch: Partial<{ expenses_enabled: boolean; expenses_per_venue: boolean; cash_tolerance: number; expense_reminder_enabled: boolean }>): Promise<CashSettings> {
   const { data } = await client.post('/teacher/cash/settings', patch);
   return data.data as CashSettings;
 }

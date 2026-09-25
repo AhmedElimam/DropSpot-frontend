@@ -1548,7 +1548,8 @@
     "parent_answered_no": "لا، لم يرد",
     "parent_call_reported_title": "تم إشعار الطالب",
     "parent_call_reported_body": "سيصل الطالب إشعارًا لإبلاغ ولي أمره بالتواصل معك بشكل عاجل.",
-    "parent_call_report_failed": "تعذّر إرسال الإشعار. حاول مرة أخرى."
+    "parent_call_report_failed": "تعذّر إرسال الإشعار. حاول مرة أخرى.",
+    "tab_cash": "الحسابات"
   },
   "assistants": {
     "title": "المساعدون",
@@ -1641,8 +1642,8 @@
     "added": "تم تسجيل المصروف",
     "week_total": "إجمالي الأسبوع",
     "own_only_hint": "تظهر هنا المصاريف التي سجّلتها أنت فقط.",
-    "none": "لا توجد مصاريف هذا الأسبوع",
-    "none_hint": "سجّل أول مصروف من الأعلى.",
+    "none": "مفيش مصاريف متسجّلة لسه.",
+    "none_hint": "أول ما تصرف حاجة، سجّلها ومدام روز هتحفظها.",
     "late": "متأخر",
     "late_hint": "سُجّل {{logged}} عن يوم {{date}}",
     "logged_by": "سجّله {{name}}",
@@ -1660,7 +1661,8 @@
     "assign_venue": "تعيين المكان",
     "assign_venue_title": "مكان المصروف",
     "venue_required": "اختر مكان المصروف أو «عام»",
-    "filter_all": "الكل"
+    "filter_all": "الكل",
+    "late_marker": "مسجّل متأخر · بتاريخ {{date}}"
   },
   "cash": {
     "title": "جرد الخزنة",
@@ -1729,7 +1731,7 @@
     "handover_pending": "بانتظار تأكيد المعلم",
     "handover_confirmed": "مؤكَّد",
     "handover_rejected": "لم يُؤكَّد",
-    "handover_confirm": "تأكيد الاستلام",
+    "handover_confirm": "استلمت",
     "handover_reject": "لم أستلم",
     "handover_pending_title": "تسليمات بانتظار تأكيدك",
     "handover_pending_hint": "لا يُحتسب التسليم في الجرد إلا بعد تأكيدك أنك استلمته.",
@@ -1760,6 +1762,17 @@
     "settings_saved": "تم حفظ الإعدادات",
     "drawer_general": "عام",
     "unassigned_expenses": "مصاريف بلا مكان",
-    "answered_registry_hint": "سجّلت: {{amount}} ج.م في الخزنة"
+    "answered_registry_hint": "سجّلت: {{amount}} ج.م في الخزنة",
+    "screen_title": "مديرة الحسابات",
+    "persona_name": "مدام روز",
+    "intro_line1": "دي مدام روز، مديرة الحسابات.",
+    "intro_line2": "بتسجّل المصاريف، وبتستنى جرد الخزنة كل خميس قبل الساعة ١٠ — ومش بتنسى.",
+    "intro_dismiss": "تمام",
+    "balanced_persona": "الجرد مظبوط — مدام روز راضية عنك",
+    "deficit_plain": "يوجد عجز {{amount}} ج.م في جرد هذا الأسبوع",
+    "surplus_plain": "يوجد مبلغ زائد {{amount}} ج.م في الخزنة",
+    "handover_question": "{{name}} سجّل تسليم {{amount}} ج.م لك — هل استلمتها؟",
+    "setting_reminder": "تذكير المصاريف اليومي",
+    "setting_reminder_hint": "مدام روز بتسأل «عندك مصاريف النهارده؟» في أيام الحصص والتحصيل فقط."
   }
 }

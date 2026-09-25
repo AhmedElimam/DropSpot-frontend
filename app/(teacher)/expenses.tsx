@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
-import { formatShortDate, formatDateTime, formatNumber } from '@/utils/format';
+import { formatShortDate, formatDate, formatDateTime, formatNumber } from '@/utils/format';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
@@ -50,8 +50,8 @@ const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, perVenue
           </View>
           {e.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }} numberOfLines={2}>{e.note}</Text> : null}
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
-            {e.is_late && e.logged_at
-              ? t('expenses.late_hint', { logged: formatDateTime(e.logged_at), date: formatShortDate(e.expense_date) })
+            {e.is_late
+              ? `${t('expenses.late_marker', { date: formatDate(e.expense_date, { day: 'numeric', month: 'long' }) })}${e.logged_at ? ` · ${formatDateTime(e.logged_at)}` : ''}`
               : formatShortDate(e.expense_date)}
             {showLogger && !e.logged_by.is_me ? ` · ${t('expenses.logged_by', { name: e.logged_by.name })}` : ''}
           </Text>

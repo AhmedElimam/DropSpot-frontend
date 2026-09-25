@@ -15,6 +15,7 @@ import { registerForPushNotifications } from '@/utils/push-notifications';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { fonts } from '@/theme/typography';
 import { colors, radius } from '@/theme/index';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { Icon, type IconName } from '@/components/ui/Icon';
 
 /**
@@ -34,6 +35,7 @@ const labels: Record<string, string> = {
   manage: 'teacher.tab_manage',
   tickets: 'teacher.tab_tickets',
   settings: 'teacher.tab_settings',
+  'cash-reconcile': 'teacher.tab_cash',
 };
 
 const icons: Record<string, IconName> = {
@@ -43,6 +45,7 @@ const icons: Record<string, IconName> = {
   manage: 'book',
   tickets: 'tickets',
   settings: 'settings',
+  'cash-reconcile': 'money',
 };
 
 // Top-level routes that must never show the tab bar. Any live CAMERA screen is
@@ -68,6 +71,8 @@ function shouldHideBar(state: { routes: { name: string; state?: unknown }[]; ind
 
 export default function TeacherTabLayout() {
   const { t } = useTranslation();
+  const { can: canAbility } = useActiveAbilities();
+  const canCash = canAbility(ABILITY.SCAN);
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
@@ -264,8 +269,10 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="invite-link" options={{ href: null }} />
       <Tabs.Screen name="booking-requests" options={{ href: null }} />
       <Tabs.Screen name="assistant-actions" options={{ href: null }} />
-      {/* Cash reconciliation (weekly registry count) + the expense ledger — from the manage hub. */}
-      <Tabs.Screen name="cash-reconcile" options={{ href: null }} />
+      {/* «الحسابات» — مدام روز's tab (persona spec §1): the weekly count, handovers and the
+          ledger. A real tab for the teacher and for an assistant who handles cash; hidden
+          for anyone else (the API refuses them anyway). */}
+      <Tabs.Screen name="cash-reconcile" options={{ href: canCash ? undefined : null }} />
       <Tabs.Screen name="expenses" options={{ href: null }} />
       {/* Revision-session picker → scan tab in revision mode. Not a tab. */}
       <Tabs.Screen name="revisions" options={{ href: null }} />

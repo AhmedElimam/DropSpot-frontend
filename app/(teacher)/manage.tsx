@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
+import { formatNumber } from '@/utils/format';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { StatsCard } from '@/components/layout/StatsCard';
@@ -182,7 +183,7 @@ export default function TeacherManage() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.banner_pending')}</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('cash.banner_pending_sub', { amount: Math.round(cashPending.collected).toLocaleString('en-US') })}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) })}</Text>
                 </View>
                 <Icon name="back" size={18} color={colors.textTertiary} />
               </TouchableOpacity>

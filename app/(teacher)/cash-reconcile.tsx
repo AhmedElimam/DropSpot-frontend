@@ -1,4 +1,5 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, KeyboardAvoidingView, Switch } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +35,7 @@ import {
  */
 
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
+const INTRO_KEY = 'cash_intro_seen_v1';
 
 const RESULT_TINT: Record<ReconciliationResult, string> = {
   deficit: colors.danger, balanced: colors.success, surplus: colors.warning, unknown: colors.textTertiary,
@@ -423,6 +425,15 @@ function SettingsCard({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
         </View>
         <Switch value={v.settings.per_venue} onValueChange={(on) => save.mutate({ expenses_per_venue: on })} disabled={save.isPending || v.venues.length === 0} />
       </View>
+      {v.settings.expenses_enabled ? (
+        <View style={rowStyle}>
+          <View style={{ flex: 1, paddingEnd: spacing.md }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.setting_reminder')}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('cash.setting_reminder_hint')}</Text>
+          </View>
+          <Switch value={v.settings.expense_reminder_enabled !== false} onValueChange={(on) => save.mutate({ expense_reminder_enabled: on })} disabled={save.isPending} />
+        </View>
+      ) : null}
       <View style={rowStyle}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.setting_tolerance')}</Text>
         <TextInput value={tol} onChangeText={(x) => setTol(x.replace(/[^0-9.]/g, ''))} onBlur={() => { const n = Number(tol); if (Number.isFinite(n) && n !== v.settings.tolerance) save.mutate({ cash_tolerance: n }); }}
@@ -512,6 +523,12 @@ export default function CashReconcileScreen() {
   const qc = useQueryClient();
   const { data, isLoading, refetch } = useQuery({ queryKey: ['cash-reconciliation'], queryFn: () => getCashReconciliation() });
   const { refreshing, onRefresh } = usePullRefresh(refetch);
+  // First open: مدام روز introduces herself once (persona spec §5), then steps aside.
+  const [introSeen, setIntroSeen] = useState<boolean | null>(null);
+  useEffect(() => {
+    SecureStore.getItemAsync(INTRO_KEY).then((v) => setIntroSeen(!!v)).catch(() => setIntroSeen(true));
+  }, []);
+  const dismissIntro = () => { setIntroSeen(true); SecureStore.setItemAsync(INTRO_KEY, '1').catch(() => {}); };
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['cash-reconciliation'] });
@@ -537,9 +554,13 @@ export default function CashReconcileScreen() {
     ]);
   };
 
+  // Persona for the good news, PLAIN for a deficit or surplus (spec §4).
   const onDone = (d: Drawer) => {
     invalidate();
-    Alert.alert(d.status === 'confirmed' ? t('cash.confirmed_done') : d.status === 'awaiting_opening' ? t('cash.awaiting_opening') : t('cash.sent_diff'));
+    if (d.status === 'confirmed') Alert.alert(t('cash.balanced_persona'));
+    else if (d.status === 'awaiting_opening') Alert.alert(t('cash.awaiting_opening'));
+    else if (d.result === 'surplus') Alert.alert(t('cash.surplus_plain', { amount: money(Math.abs(d.difference ?? 0)) }), t('cash.surplus_question'));
+    else Alert.alert(t('cash.deficit_plain', { amount: money(Math.abs(d.difference ?? 0)) }));
   };
   const onHandover = (s: Handover['status']) => {
     invalidate();
@@ -552,7 +573,10 @@ export default function CashReconcileScreen() {
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('cash.title')}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('cash.screen_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: -2 }}>{t('cash.persona_name')}</Text>
+        </View>
       </View>
 
       {isLoading || !data ? (
@@ -564,6 +588,15 @@ export default function CashReconcileScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {introSeen === false ? (
+            <View style={{ backgroundColor: colors.brand + '12', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand + '44', padding: spacing.lg, marginBottom: spacing.lg }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.intro_line1')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4, lineHeight: 22 }}>{t('cash.intro_line2')}</Text>
+              <TouchableOpacity onPress={dismissIntro} style={{ alignSelf: 'flex-start', marginTop: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.full, backgroundColor: colors.brand }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('cash.intro_dismiss')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           {data.role === 'assistant'
             ? <AssistantView v={data} onDone={onDone} onHandover={onHandover} />
             : <TeacherView v={data} onResolve={confirmResolve} onChanged={invalidate} onReview={(h, d) => review.mutate({ id: h.id, d })} onHandover={onHandover} />}
