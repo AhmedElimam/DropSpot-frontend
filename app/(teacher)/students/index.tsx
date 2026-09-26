@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
 import { router, type Href, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import { StudentRow } from '@/components/student/StudentRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useTeacherStudents, useTeacherCourses } from '@/hooks/useStudents';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
+import { FilterChips } from '@/components/ui/FilterChips';
 import { useTeacherSessionHistory } from '@/hooks/useTeacherSessionHistory';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import type { SessionRow } from '@/api/teacherSessions';
@@ -38,32 +39,6 @@ const SESSION_STATUS: Record<string, { key: string; color: string }> = {
   cancelled: { key: 'session.cancelled', color: colors.danger },
 };
 
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.8}
-      style={{
-        paddingHorizontal: spacing.lg,
-        minHeight: 40,
-        justifyContent: 'center',
-        borderRadius: radius.full,
-        backgroundColor: active ? colors.brand : colors.surface,
-        borderWidth: 1,
-        borderColor: active ? colors.brand : colors.border,
-        marginEnd: spacing.sm,
-      }}
-    >
-      <Text
-        numberOfLines={1}
-        style={{ fontFamily: fonts.medium, fontSize: 14, lineHeight: 22, color: active ? '#fff' : colors.textSecondary }}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
 export default function TeacherStudents() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -76,10 +51,29 @@ export default function TeacherStudents() {
 
   const { can } = useActiveAbilities();
   const { data: courses } = useTeacherCourses();
-  const { data: students, isLoading: studentsLoading, refetch: refetchStudents } =
+  const { data: students, isLoading: studentsLoading, refetch: refetchStudents, isPlaceholderData: studentsSwitching } =
     useTeacherStudents({ course_id: courseId ?? undefined });
-  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions } =
+  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions, isPlaceholderData: sessionsSwitching } =
     useTeacherSessionHistory(status ?? undefined);
+
+  // A course that no longer exists (deleted, or another teacher's context after a switch)
+  // must not leave the roster filtered by a chip nobody can see.
+  useEffect(() => {
+    if (courseId !== null && courses && !courses.some((c) => c.id === courseId)) setCourseId(null);
+  }, [courses, courseId]);
+  // Same for the cards segment when the ability that shows it is gone (or still loading).
+  const canCards = can(ABILITY.MANAGE_STUDENTS);
+  useEffect(() => {
+    if (segment === 'cards' && !canCards) setSegment('students');
+  }, [segment, canCards]);
+  const courseOptions = useMemo(
+    () => [{ key: 0, label: t('teacher.all_courses') }, ...(courses ?? []).map((c) => ({ key: c.id, label: c.name }))],
+    [courses, t],
+  );
+  const statusOptions = useMemo(
+    () => [{ key: 'all', label: t('teacher.status_all') }, ...(['scheduled', 'completed', 'cancelled'] as const).map((k) => ({ key: k as string, label: t(`session.${k}`) }))],
+    [t],
+  );
   const cardOrders = useQuery({ queryKey: ['teacher-card-orders'], queryFn: getTeacherCardOrders, enabled: segment === 'cards' });
 
   // Each segment has its own list + RefreshControl, so keep the pull-refresh per segment.
@@ -161,7 +155,7 @@ export default function TeacherStudents() {
       {/* Segmented: students / sessions / cards */}
       <View style={{ flexDirection: 'row', marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4, marginBottom: spacing.sm }}>
         {/* Card orders need manage_students; without it the segment is not offered. */}
-        {((can(ABILITY.MANAGE_STUDENTS) ? ['students', 'sessions', 'cards'] : ['students', 'sessions']) as Segment[]).map((seg) => (
+        {((canCards ? ['students', 'sessions', 'cards'] : ['students', 'sessions']) as Segment[]).map((seg) => (
           <TouchableOpacity
             key={seg}
             onPress={() => setSegment(seg)}
@@ -190,12 +184,7 @@ export default function TeacherStudents() {
           </View>
 
           {/* Course filter chips — the teacher scopes by "which of my classes". */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.sm, alignItems: 'center' }} style={{ flexGrow: 0 }}>
-            <Chip label={t('teacher.all_courses')} active={courseId === null} onPress={() => setCourseId(null)} />
-            {(courses ?? []).map((c) => (
-              <Chip key={c.id} label={c.name} active={courseId === c.id} onPress={() => setCourseId(c.id)} />
-            ))}
-          </ScrollView>
+          <FilterChips options={courseOptions} value={courseId ?? 0} onChange={(k) => setCourseId(k === 0 ? null : k)} />
 
           {studentsLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
@@ -207,6 +196,8 @@ export default function TeacherStudents() {
               updateCellsBatchingPeriod={50}
               windowSize={7}
               data={filteredStudents}
+              // The previous course's list stays up, dimmed, while the new one loads.
+              style={{ opacity: studentsSwitching ? 0.45 : 1 }}
               keyExtractor={(s) => s.id}
               contentContainerStyle={listPad}
               refreshControl={<RefreshControl refreshing={studentsRefresh.refreshing} onRefresh={studentsRefresh.onRefresh} />}
@@ -241,12 +232,7 @@ export default function TeacherStudents() {
           )}
 
           {/* Session status chips */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.sm, alignItems: 'center' }} style={{ flexGrow: 0 }}>
-            <Chip label={t('teacher.status_all')} active={status === null} onPress={() => setStatus(null)} />
-            {(['scheduled', 'completed', 'cancelled'] as const).map((s) => (
-              <Chip key={s} label={t(`session.${s}`)} active={status === s} onPress={() => setStatus(s)} />
-            ))}
-          </ScrollView>
+          <FilterChips options={statusOptions} value={status ?? 'all'} onChange={(k) => setStatus(k === 'all' ? null : k)} />
 
           {sessionsLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
@@ -258,6 +244,7 @@ export default function TeacherStudents() {
               updateCellsBatchingPeriod={50}
               windowSize={7}
               data={sessions?.items ?? []}
+              style={{ opacity: sessionsSwitching ? 0.45 : 1 }}
               keyExtractor={(s) => s.id}
               contentContainerStyle={listPad}
               refreshControl={<RefreshControl refreshing={sessionsRefresh.refreshing} onRefresh={sessionsRefresh.onRefresh} />}

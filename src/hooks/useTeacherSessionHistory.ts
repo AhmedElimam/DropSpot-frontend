@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
   getTeacherSessions,
   getSessionDetail,
@@ -20,6 +20,7 @@ export function useTeacherSessionHistory(status?: string) {
     queryKey: ['teacher-session-history', status ?? 'all'],
     queryFn: () => getTeacherSessions({ status: status || undefined }),
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 }
 

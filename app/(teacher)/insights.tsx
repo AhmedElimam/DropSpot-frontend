@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { router } from 'expo-router';
@@ -8,16 +8,12 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { FilterChips } from '@/components/ui/FilterChips';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { getTeacherInsights, getInsightsPdfUrl, type TeacherInsights, type TrendDay, type InsightsRangeKey } from '@/api/insights';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { openRemotePdf } from '@/utils/openPdf';
 
-/**
- * Shown before the first response arrives, so the period bar is never a blank strip.
- * The server sends its own list with the bundle and that one wins once it lands — this
- * is a placeholder, not a second source of truth.
- */
 const VENUE_KEY = 'insights_venue_filter';
 
 function CashLine({ label, value, tint }: { label: string; value: string; tint?: string }) {
@@ -29,6 +25,11 @@ function CashLine({ label, value, tint }: { label: string; value: string; tint?:
   );
 }
 
+/**
+ * Shown before the first response arrives, so the period bar is never a blank strip.
+ * The server sends its own list with the bundle and that one wins once it lands — this
+ * is a placeholder, not a second source of truth.
+ */
 const FALLBACK_PRESETS: { key: InsightsRangeKey; label: string }[] = [
   { key: 'month', label: 'هذا الشهر' },
   { key: 'last_month', label: 'الشهر الماضي' },
@@ -50,14 +51,22 @@ export default function InsightsScreen() {
   const [range, setRange] = useState<InsightsRangeKey>('month');
   // Venue filter (venues addendum §4): 'all', a venue id, or 'general'. Persisted between
   // visits — a teacher who manages one centre closely will look at it most.
+  //
+  // The saved venue is read BEFORE the first fetch (`venueReady`). It used to arrive a beat
+  // after the screen opened: the page fetched "all", then refetched the saved venue — and
+  // if the teacher had already tapped a chip in between, the late read overwrote the tap.
   const [venue, setVenueState] = useState<'all' | 'general' | number>('all');
+  const [venueReady, setVenueReady] = useState(false);
+  const touchedRef = useRef(false);
   useEffect(() => {
     SecureStore.getItemAsync(VENUE_KEY).then((v) => {
-      if (!v) return;
+      if (!v || touchedRef.current) return;
       setVenueState(v === 'general' ? 'general' : v === 'all' ? 'all' : Number(v) || 'all');
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => setVenueReady(true));
   }, []);
   const setVenue = (v: 'all' | 'general' | number) => {
+    touchedRef.current = true;
+    setVenueReady(true);
     setVenueState(v);
     SecureStore.setItemAsync(VENUE_KEY, String(v)).catch(() => {});
   };
@@ -66,12 +75,40 @@ export default function InsightsScreen() {
   const q = useQuery({
     queryKey: ['teacher-insights', range, venue],
     queryFn: () => getTeacherInsights({ range, venue: venueParam }),
+    enabled: venueReady,
     // Keep the previous period on screen while the new one loads, so switching periods
-    // reads as the numbers changing rather than the page emptying.
+    // reads as the numbers changing rather than the page emptying. It is dimmed and a
+    // spinner sits by the title meanwhile, so old figures never pass for new ones.
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
   const d = q.data;
+  const switching = q.isPlaceholderData && q.isFetching;
   const { refreshing, onRefresh } = usePullRefresh(q.refetch);
+
+  // The venue chips outlive a failed fetch: they used to come only from the latest
+  // response, so one error emptied the page AND took away the chips needed to step back.
+  const venuesRef = useRef<{ id: number; name: string | null }[]>([]);
+  const perVenueRef = useRef(false);
+  if (d?.venues) venuesRef.current = d.venues;
+  if (d?.cash_settings) perVenueRef.current = !!d.cash_settings.per_venue;
+  const venueList = venuesRef.current;
+
+  // A saved venue that no longer exists (deleted, or another teacher's) falls back to
+  // "all" instead of silently filtering by a chip that isn't there.
+  useEffect(() => {
+    if (!d?.venues) return;
+    if (typeof venue === 'number' && !d.venues.some((v) => v.id === venue)) setVenue('all');
+    if (venue === 'general' && !d.cash_settings?.per_venue) setVenue('all');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d?.venues, d?.cash_settings?.per_venue, venue]);
+
+  const venueOptions = useMemo(() => [
+    { key: 'all' as const, label: t('insights.venue_all') },
+    ...venueList.map((v) => ({ key: v.id as 'all' | 'general' | number, label: v.name ?? '' })),
+    ...(perVenueRef.current ? [{ key: 'general' as const, label: t('insights.venue_general') }] : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [venueList, perVenueRef.current, t]);
 
   const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
   const presets = d?.presets?.length ? d.presets : FALLBACK_PRESETS;
@@ -99,14 +136,17 @@ export default function InsightsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('insights.title')}</Text>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('insights.title')}</Text>
+          {switching ? <ActivityIndicator size="small" color={colors.brand} /> : null}
+        </View>
         <TouchableOpacity
           onPress={exportPdf}
-          disabled={exporting || !d}
+          disabled={exporting || !d || switching}
           style={{
             flexDirection: 'row', alignItems: 'center', gap: 6,
             paddingHorizontal: spacing.md, height: 40, borderRadius: 12,
-            backgroundColor: colors.brand + '18', opacity: exporting || !d ? 0.5 : 1,
+            backgroundColor: colors.brand + '18', opacity: exporting || !d || switching ? 0.5 : 1,
           }}
         >
           {exporting ? (
@@ -119,67 +159,30 @@ export default function InsightsScreen() {
       </View>
 
       {/* Period bar — every number below answers the question this row is asking. */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        // alignItems 'center' + a non-shrinking chip: without them RTL measures the
-        // Arabic label narrow, wraps it, and the second line is clipped by the chip.
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.sm, alignItems: 'center' }}
-        style={{ flexGrow: 0 }}
-      >
-        {presets.map((p) => {
-          const active = p.key === range;
-          return (
-            <TouchableOpacity
-              key={p.key}
-              onPress={() => setRange(p.key)}
-              style={{
-                flexShrink: 0,
-                paddingHorizontal: spacing.md, paddingVertical: 8, borderRadius: 999,
-                borderWidth: 1,
-                borderColor: active ? colors.brand : colors.border,
-                backgroundColor: active ? colors.brand : colors.surface,
-              }}
-            >
-              <Text
-                numberOfLines={1}
-                style={{ fontFamily: fonts.bold, fontSize: 13, lineHeight: 20, color: active ? '#FFFFFF' : colors.textSecondary }}
-              >
-                {p.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <FilterChips options={presets} value={range} onChange={setRange} />
 
       {/* Venue filter — every figure below follows it, including the cash block. */}
-      {(d?.venues?.length ?? 0) > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.sm, alignItems: 'center' }} style={{ flexGrow: 0 }}>
-          {[
-            { key: 'all' as const, label: t('insights.venue_all') },
-            ...(d?.venues ?? []).map((v) => ({ key: v.id, label: v.name ?? '' })),
-            ...(d?.cash_settings?.per_venue ? [{ key: 'general' as const, label: t('insights.venue_general') }] : []),
-          ].map((c) => {
-            const active = c.key === venue;
-            return (
-              <TouchableOpacity key={String(c.key)} onPress={() => setVenue(c.key)}
-                style={{ flexShrink: 0, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: active ? colors.accent : colors.border, backgroundColor: active ? colors.accent + '22' : colors.surface }}>
-                <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 12, lineHeight: 18, color: active ? colors.accent : colors.textSecondary }}>{c.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+      {venueList.length > 0 ? (
+        <FilterChips options={venueOptions} value={venue} onChange={setVenue} tone="soft" icon="gps" />
       ) : null}
 
-      {q.isLoading ? (
+      {q.isLoading || !venueReady ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : !d ? (
-        <View style={{ alignItems: 'center', marginTop: spacing.xxl }}>
+        <View style={{ alignItems: 'center', marginTop: spacing.xxl, paddingHorizontal: spacing.lg }}>
           <Icon name="reports" size={40} color={colors.textTertiary} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginTop: spacing.md }}>{t('insights.no_data')}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginTop: spacing.md, textAlign: 'center' }}>
+            {q.isError ? t('insights.load_failed') : t('insights.no_data')}
+          </Text>
+          {q.isError ? (
+            <TouchableOpacity onPress={() => q.refetch()} style={{ marginTop: spacing.md, paddingHorizontal: spacing.lg, height: 40, borderRadius: radius.full, backgroundColor: colors.brandTint, justifyContent: 'center' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('common.retry')}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       ) : (
         <ScrollView
+          style={{ opacity: switching ? 0.45 : 1 }}
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >

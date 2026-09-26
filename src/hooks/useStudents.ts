@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getTeacherStudents, getTeacherCourses, getStudentDetail } from '@/api/students';
 
 export function useTeacherStudents(params?: { course_id?: number; q?: string }) {
@@ -6,6 +6,9 @@ export function useTeacherStudents(params?: { course_id?: number; q?: string }) 
     queryKey: ['teacher-students', params?.course_id ?? null, params?.q ?? ''],
     queryFn: () => getTeacherStudents(params),
     staleTime: 30_000,
+    // Switching the course chip keeps the current list on screen (dimmed) until the new
+    // one lands, instead of blanking to a spinner on every tap.
+    placeholderData: keepPreviousData,
   });
 }
 
