@@ -81,14 +81,16 @@ export default function TeacherSettings() {
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
           {/* Courses & schedule management now live in the "الإدارة" tab. */}
           {/* Assistant management is teacher-only. */}
-          {row('help', t('onboarding.getting_started_row'), t('onboarding.getting_started_row_sub'), () => router.push('/(teacher)/getting-started' as Href))}
+          {/* The setup guide is the teacher's: every step in it is theirs to take. */}
+          {!isAssistant ? row('help', t('onboarding.getting_started_row'), t('onboarding.getting_started_row_sub'), () => router.push('/(teacher)/getting-started' as Href)) : null}
 
           {/* The teacher's own brand logo (shown to parents). Teacher-only. */}
           {!isAssistant ? <TeacherLogoRow /> : null}
 
-          {/* Revision / special-session switch — teacher & assistant. Shown only when
-              the super-admin has enabled the revise_mode feature flag. */}
-          {flags?.revise_mode ? (
+          {/* Revision / special-session switch — teacher only: the revision engine it
+              opens is teacher-only on the server. Shown only when the super-admin has
+              enabled the revise_mode feature flag. */}
+          {!isAssistant && flags?.revise_mode ? (
           <View
             style={{
               flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface,

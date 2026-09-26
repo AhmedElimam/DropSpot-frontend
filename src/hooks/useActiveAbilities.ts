@@ -23,6 +23,8 @@ export const ABILITY = {
   ISSUE_GUEST_PASSES: 'issue_guest_passes',
   /** File a student incident report to the platform admins (teacher's tenant, assistant recorded). */
   REPORT_INCIDENTS: 'report_incidents',
+  /** Student performance PDF — a takeaway file, off by default. */
+  EXPORT_REPORTS: 'export_reports',
 } as const;
 
 // The returned object and its `can` function are memoised. They used to be rebuilt on

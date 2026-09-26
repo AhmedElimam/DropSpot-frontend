@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Switch, Alert, KeyboardAvoidingView } from 'react-native';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +22,12 @@ const PREFERRED_ACCURACY = 20;
 export default function CourseDetailScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  // An assistant sees only what they can change (founder 2026-09-26): settings and slot
+  // removal need manage_courses, a new slot manage_sessions; the check-in anchor and
+  // deleting the course are the teacher's alone.
+  const { can, isAssistant } = useActiveAbilities();
+  const canCourses = can(ABILITY.MANAGE_COURSES);
+  const canSessions = can(ABILITY.MANAGE_SESSIONS);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: course, isLoading } = useCourseDetail(id);
   // Teacher's down-payment IS the booklet → a separate booking price doesn't apply.
@@ -246,16 +253,20 @@ export default function CourseDetailScreen() {
               {t('teacher.location_low_confidence')}
             </Text>
           ) : null}
-          <View style={{ marginTop: spacing.md }}>
-            <Button
-              title={located ? t('teacher.recapture_location') : t('teacher.capture_location')}
-              onPress={captureLocation}
-              loading={capturing || saveLocation.isPending}
-              variant={located ? 'outline' : 'primary'}
-            />
-          </View>
+          {!isAssistant ? (
+            <View style={{ marginTop: spacing.md }}>
+              <Button
+                title={located ? t('teacher.recapture_location') : t('teacher.capture_location')}
+                onPress={captureLocation}
+                loading={capturing || saveLocation.isPending}
+                variant={located ? 'outline' : 'primary'}
+              />
+            </View>
+          ) : null}
         </View>
 
+        {canCourses ? (
+        <>
         {/* Settings */}
         <Section icon="settings" title={t('teacher.settings_section')} />
 
@@ -279,7 +290,7 @@ export default function CourseDetailScreen() {
             options={[{ id: '', name: 'بدون مكان محدد' }, ...venues.map((v) => ({ id: v.id, name: v.address ? `${v.name} — ${v.address}` : v.name }))]}
             onSelect={(id) => setVenueId(id || null)}
           />
-        ) : (
+        ) : !isAssistant ? (
           <TouchableOpacity
             onPress={() => router.push('/(teacher)/venues' as Href)}
             activeOpacity={0.8}
@@ -288,7 +299,7 @@ export default function CourseDetailScreen() {
             <Icon name="add" size={16} color={colors.brand} />
             <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>أضِف أماكن التدريس أولًا</Text>
           </TouchableOpacity>
-        )}
+        ) : null}
 
         {/* Radius stepper */}
         <FieldLabel>{t('teacher.radius_label')}</FieldLabel>
@@ -350,17 +361,21 @@ export default function CourseDetailScreen() {
         <View style={{ marginTop: spacing.xl }}>
           <Button title={t('teacher.save_settings')} onPress={onSaveSettings} loading={saveSettings.isPending} variant="primary" />
         </View>
+        </>
+        ) : null}
 
         {/* Weekly slots */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xxl, marginBottom: spacing.sm }}>
           <Section icon="calendar" title={t('teacher.slots_section')} inline />
-          <TouchableOpacity
-            onPress={() => router.push('/(teacher)/schedule-new' as Href)}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 36, borderRadius: radius.full, backgroundColor: colors.brandTint }}
-          >
-            <Icon name="add" size={16} color={colors.brand} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.add_slot')}</Text>
-          </TouchableOpacity>
+          {canSessions ? (
+            <TouchableOpacity
+              onPress={() => router.push('/(teacher)/schedule-new' as Href)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 36, borderRadius: radius.full, backgroundColor: colors.brandTint }}
+            >
+              <Icon name="add" size={16} color={colors.brand} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.add_slot')}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {course.schedules.length === 0 ? (
@@ -375,14 +390,17 @@ export default function CourseDetailScreen() {
                   {slot.capacity != null ? ` / ${slot.capacity}` : ''} · {t('teacher.upcoming_count', { count: slot.upcoming_count })}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => retireSlot(slot)} disabled={removeSlot.isPending} style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
-                <Icon name="trash" size={18} color={colors.danger} />
-              </TouchableOpacity>
+              {canCourses ? (
+                <TouchableOpacity onPress={() => retireSlot(slot)} disabled={removeSlot.isPending} style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
+                  <Icon name="trash" size={18} color={colors.danger} />
+                </TouchableOpacity>
+              ) : null}
             </View>
           ))
         )}
 
-        {/* Danger zone — hard-delete the whole course (schedule master). */}
+        {/* Danger zone — hard-delete the whole course (schedule master). Teacher only. */}
+        {!isAssistant ? (
         <View style={{ marginTop: spacing.xl, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger, marginBottom: 4 }}>منطقة الخطر</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginBottom: spacing.sm }}>
@@ -396,6 +414,7 @@ export default function CourseDetailScreen() {
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.danger }}>{deleteCourse.isPending ? '…جارٍ الحذف' : 'حذف المقرر نهائيًا'}</Text>
           </TouchableOpacity>
         </View>
+        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -22,7 +22,7 @@ interface DueRow {
  * oldest-first per kind). Rows drop as they clear; the modal closes when nothing is left.
  */
 export function PayDuesModal({
-  visible, card, name, pending, online = true, canWaive = false, onClose, onCollected,
+  visible, card, name, pending, online = true, canWaive = false, canReverse = false, onClose, onCollected,
 }: {
   visible: boolean;
   card: string;
@@ -32,6 +32,9 @@ export function PayDuesModal({
   // Teacher-only: when true, clearing a row's amount to 0 lets the teacher WAIVE
   // (write off) that due instead of collecting. Assistants never see it.
   canWaive?: boolean;
+  // Teacher-only: undo a just-made collection. The server refuses every assistant, so
+  // they never see the button.
+  canReverse?: boolean;
   onClose: () => void;
   onCollected?: () => void;
 }) {
@@ -232,9 +235,11 @@ export function PayDuesModal({
           {collected.map((c) => (
             <View key={`done-${c.kind}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.successText }}>{`تم تحصيل ${c.label} (${c.amount} ${t('insights.egp')})`}</Text>
-              <TouchableOpacity onPress={() => undo(c)} disabled={busy === c.kind} activeOpacity={0.8} style={{ paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.md, borderWidth: 1, borderColor: colors.danger }}>
-                {busy === c.kind ? <ActivityIndicator color={colors.danger} size="small" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>إلغاء الدفع</Text>}
-              </TouchableOpacity>
+              {canReverse ? (
+                <TouchableOpacity onPress={() => undo(c)} disabled={busy === c.kind} activeOpacity={0.8} style={{ paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.md, borderWidth: 1, borderColor: colors.danger }}>
+                  {busy === c.kind ? <ActivityIndicator color={colors.danger} size="small" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>إلغاء الدفع</Text>}
+                </TouchableOpacity>
+              ) : null}
             </View>
           ))}
 

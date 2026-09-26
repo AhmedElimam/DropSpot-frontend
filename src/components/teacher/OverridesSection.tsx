@@ -102,12 +102,7 @@ export function OverridesSection() {
             <Icon name="add" size={16} color={colors.primary} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>{t('teacher.grant_override')}</Text>
           </TouchableOpacity>
-        ) : (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Icon name="lock" size={14} color={colors.textTertiary} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{t('teacher.teacher_only')}</Text>
-          </View>
-        )}
+        ) : null}
       </View>
 
       {isAssistant ? (

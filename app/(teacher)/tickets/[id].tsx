@@ -115,7 +115,8 @@ export default function TeacherTicketDetail() {
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t(`tickets.status_${ticket.status}`)}</Text>
             </View>
 
-            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+            {/* Changing status is part of reply_tickets («الرد على التذاكر وتغيير حالتها»). */}
+            {can(ABILITY.REPLY_TICKETS) && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
               <TouchableOpacity
                 onPress={() => handleStatusChange('resolved')}
                 activeOpacity={0.75}
@@ -125,7 +126,7 @@ export default function TeacherTicketDetail() {
               </TouchableOpacity>
             )}
 
-            {ticket.status === 'resolved' && (
+            {can(ABILITY.REPLY_TICKETS) && ticket.status === 'resolved' && (
               <TouchableOpacity
                 onPress={() => handleStatusChange('closed')}
                 activeOpacity={0.75}
@@ -184,11 +185,9 @@ export default function TeacherTicketDetail() {
           )}
         </ScrollView>
 
+        {/* Without reply_tickets there is no reply box and no "locked" notice — just the thread. */}
         {ticket.status !== 'closed' && !can(ABILITY.REPLY_TICKETS) ? (
-          <View style={{ padding: spacing.lg, paddingBottom: spacing.lg + insets.bottom, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <Icon name="lock" size={16} color={colors.textTertiary} />
-            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary }}>{t('teacher.no_reply_permission')}</Text>
-          </View>
+          <View style={{ height: insets.bottom }} />
         ) : ticket.status !== 'closed' ? (
           <View
             style={{

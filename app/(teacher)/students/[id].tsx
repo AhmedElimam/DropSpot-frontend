@@ -103,6 +103,7 @@ export default function StudentDetailScreen() {
   const canManage = can(ABILITY.MANAGE_STUDENTS);
   const canCollect = can(ABILITY.SCAN);
   const canMarkManual = can(ABILITY.MARK_MANUAL);
+  const canExport = can(ABILITY.EXPORT_REPORTS);
 
   // The paper register: tick the past days (last 90) this student attended before the
   // app knew them. Presence only — an unticked day stays unrecorded, not absent.
@@ -458,7 +459,8 @@ export default function StudentDetailScreen() {
             </View>
           ) : null}
 
-          {/* Export performance PDF */}
+          {/* Export performance PDF — needs export_reports (a takeaway file). */}
+          {canExport ? (
           <TouchableOpacity
             onPress={exportPerformance}
             disabled={exporting}
@@ -474,6 +476,7 @@ export default function StudentDetailScreen() {
               {exporting ? t('teacher.performance_exporting') : t('teacher.performance_export')}
             </Text>
           </TouchableOpacity>
+          ) : null}
 
           {/* Request a name/phone correction — goes to super-admin review (no direct edit) */}
           {canManage ? (
@@ -499,19 +502,9 @@ export default function StudentDetailScreen() {
             </TouchableOpacity>
           ) : null}
 
-          {/* An assistant who has not been granted report_incidents sees no report button —
-              which reads as a missing feature. Name the reason instead. */}
-          {!isTeacher && !canReport ? (
-            <View style={{ flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.sm }}>
-              <Icon name="lock" size={16} color={colors.textSecondary} />
-              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>
-                الإبلاغ عن الحوادث وأرقام أولياء الأمور غير مُفعَّل لحسابك — اطلب من المعلم تفعيله من صفحة المساعدين.
-              </Text>
-            </View>
-          ) : null}
 
           {/* Remove a terminated student from the roster now (before the 7-day grace) */}
-          {s.can_remove_from_roster ? (
+          {canManage && s.can_remove_from_roster ? (
             <TouchableOpacity
               onPress={confirmRemoveFromRoster}
               accessibilityRole="button"
@@ -639,7 +632,8 @@ export default function StudentDetailScreen() {
               </View>
             ) : null}
 
-            {/* Per-student 15-day-allowance block */}
+            {/* Per-student 15-day-allowance block — scan_attendance, like the API. */}
+            {canCollect ? (
             <TouchableOpacity
               onPress={() => allowanceBlock.mutate(!(s.billing.allowance_blocked ?? false))}
               disabled={allowanceBlock.isPending}
@@ -657,6 +651,7 @@ export default function StudentDetailScreen() {
               </View>
               {allowanceBlock.isPending ? <ActivityIndicator size="small" color={colors.brand} /> : null}
             </TouchableOpacity>
+            ) : null}
 
             {/* Collected payments the teacher can CANCEL (per-charge). */}
             {(s.billing.collected ?? []).length > 0 ? (

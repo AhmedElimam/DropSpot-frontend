@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
@@ -32,6 +33,7 @@ type Review =
 export default function TeacherEnroll() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { isAssistant } = useActiveAbilities();
   const [permission, requestPermission] = useCameraPermissions();
   const { data: classes, isLoading } = useQuery({ queryKey: ['enrollable-classes'], queryFn: getEnrollableClasses });
 
@@ -63,19 +65,24 @@ export default function TeacherEnroll() {
       try {
         // 1. Is this a parent-generated pre-card invitation token? (structurally
         //    distinct from a card code — server reserves it and returns the student.)
-        try {
-          const pre = await scanPreCard(data);
-          Vibration.vibrate(50);
-          setReview({ kind: 'precard', invitationId: pre.invitation_id, student: pre.student });
-          return;
-        } catch (e: any) {
-          const code = e?.response?.data?.code;
-          // A real pre-card conflict must surface, not be retried as a card.
-          if (code === 'RESERVED_ELSEWHERE' || code === 'TEACHER_ONLY') {
-            Alert.alert('', e?.response?.data?.message || 'تعذّر استخدام هذا الرمز');
+        //    Teacher-only on the server: an assistant skips straight to the card lookup.
+        //    Asking first used to answer every assistant scan with TEACHER_ONLY and stop,
+        //    so an assistant granted manage_students could never enroll a card at all.
+        if (!isAssistant) {
+          try {
+            const pre = await scanPreCard(data);
+            Vibration.vibrate(50);
+            setReview({ kind: 'precard', invitationId: pre.invitation_id, student: pre.student });
             return;
+          } catch (e: any) {
+            const code = e?.response?.data?.code;
+            // A real pre-card conflict must surface, not be retried as a card.
+            if (code === 'RESERVED_ELSEWHERE' || code === 'TEACHER_ONLY') {
+              Alert.alert('', e?.response?.data?.message || 'تعذّر استخدام هذا الرمز');
+              return;
+            }
+            // INVALID_TOKEN / anything else → fall through to a normal card scan.
           }
-          // INVALID_TOKEN / anything else → fall through to a normal card scan.
         }
 
         // 2. Otherwise treat it as a physical card (QR/serial).
@@ -88,7 +95,7 @@ export default function TeacherEnroll() {
         setBusy(false);
       }
     },
-    [busy, review, done, course],
+    [busy, review, done, course, isAssistant],
   );
 
   const enroll = useMutation({

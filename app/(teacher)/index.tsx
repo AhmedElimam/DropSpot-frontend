@@ -75,7 +75,8 @@ export default function TeacherHome() {
     return (
       <TouchableOpacity
         key={s.id}
-        onPress={() => goToScan(s)}
+        // Without scan_attendance an assistant opens the session sheet instead of the scanner.
+        onPress={() => (canCash ? goToScan(s) : router.push(`/(teacher)/students/session/${s.id}` as Href))}
         activeOpacity={0.8}
         style={{
           backgroundColor: highlighted ? colors.successLight : colors.surface,
@@ -126,7 +127,7 @@ export default function TeacherHome() {
           <HeaderBrandBar
             onBell={() => router.push('/(teacher)/notifications' as Href)}
             unread={unread}
-            onScan={() => router.push('/(teacher)/scan' as Href)}
+            onScan={canCash ? () => router.push('/(teacher)/scan' as Href) : undefined}
             scanBadge={needsAttention}
           />
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{t('teacher.today')}</Text>
@@ -231,14 +232,14 @@ export default function TeacherHome() {
             </TouchableOpacity>
           ) : null}
           {/* Collection is shown to an assistant exactly as to the teacher (founder
-              2026-09-05): it is usually the assistant standing at the door taking the
-              money. No client-side ability check — the API is the gate (it requires
-              scan_attendance), so this cannot be the thing that silently hides the
-              screen from someone who is allowed to use it. They can collect but never
-              waive or reverse, see only their own venues, and every collection they
-              make goes to the teacher's oversight list. */}
+              2026-09-05) — it is usually the assistant at the door taking the money — but
+              only with scan_attendance, the ability the collection APIs require: an
+              assistant never sees what they can't use (founder 2026-09-26). They collect
+              but never waive or reverse, see only their own venues, and every collection
+              they make goes to the teacher's oversight list. */}
           {/* Payments card: collecting, and — for whoever handles cash — مدام روز, the
               accounts manager (weekly count, handovers, expenses). She used to be a tab. */}
+          {canCash ? (
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: cashAttention ? colors.warning : colors.border, marginBottom: spacing.lg, overflow: 'hidden' }}>
             <TouchableOpacity
               onPress={() => router.push('/(teacher)/collect' as Href)}
@@ -277,6 +278,7 @@ export default function TeacherHome() {
               </TouchableOpacity>
             ) : null}
           </View>
+          ) : null}
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('teacher.todays_sessions')}</Text>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />

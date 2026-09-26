@@ -13,6 +13,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { formatEGP } from '@/utils/currency';
 import { getPendingCollections, collectFromRoster, cancelDueFromRoster, type RosterStudent, type CollectKind } from '@/api/pendingCollections';
 import { reverseStudentPayment } from '@/api/students';
+import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 
@@ -59,7 +60,11 @@ export default function TeacherPendingCollections() {
   // so the super-admin can withdraw it without waiting for another release; the endpoint
   // refuses the call too, which is what actually protects a phone still on the old bundle.
   const { data: flags } = useFeatureFlags();
-  const canCancelDue = !!flags?.cancel_pending_due;
+  // Undoing a payment and cancelling a due are the teacher's; the server refuses every
+  // assistant, so they never see those buttons (founder 2026-09-26).
+  const { isAssistant } = useActiveAbilities();
+  const canCancelDue = !!flags?.cancel_pending_due && !isAssistant;
+  const canReverse = !isAssistant;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['pending-collections'],
@@ -96,7 +101,7 @@ export default function TeacherPendingCollections() {
   };
 
   // Cancel a student's collected payment straight from a roster row (per-student, in-UI —
-  // no toast). Teacher-only screen; the reverse endpoint re-checks.
+  // no toast). Shown to the teacher only; the reverse endpoint re-checks.
   const cancelPayment = (studentId: number, name: string, kind: CollectKind, chargeId?: number) => {
     Alert.alert('إلغاء الدفع', `إلغاء دفع «${name}»؟ ستعود مستحقّاته كما كانت.`, [
       { text: t('common.cancel'), style: 'cancel' },
@@ -151,16 +156,18 @@ export default function TeacherPendingCollections() {
               <>
                 <Badge text={t('collections.fully_paid')} color={colors.success} />
                 <Badge text={`${t('collections.paid')} ${formatEGP(bill.paid)}`} color={colors.success} />
-                <TouchableOpacity onPress={() => cancelPayment(item.student_id, item.name, 'bill')} style={{ marginStart: 'auto', borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>إلغاء الدفع</Text>
-                </TouchableOpacity>
+                {canReverse ? (
+                  <TouchableOpacity onPress={() => cancelPayment(item.student_id, item.name, 'bill')} style={{ marginStart: 'auto', borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>إلغاء الدفع</Text>
+                  </TouchableOpacity>
+                ) : null}
               </>
             ) : (
               <>
                 <Badge text={bill.overdue ? t('collections.overdue') : t('collections.due')} color={bill.overdue ? colors.danger : colors.warning} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('collections.remaining')} {formatEGP(bill.total)}</Text>
                 {bill.paid > 0 ? <Badge text={`${t('collections.paid')} ${formatEGP(bill.paid)}`} color={colors.success} /> : null}
-                {bill.paid > 0 ? (
+                {canReverse && bill.paid > 0 ? (
                   <TouchableOpacity onPress={() => cancelPayment(item.student_id, item.name, 'bill')} style={{ borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 4 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>إلغاء الدفع</Text>
                   </TouchableOpacity>
@@ -186,7 +193,7 @@ export default function TeacherPendingCollections() {
             {bk.course ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{bk.course}</Text> : null}
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('collections.remaining')} {formatEGP(bk.amount)}</Text>
             {bk.paid > 0 ? <Badge text={`${t('collections.paid')} ${formatEGP(bk.paid)}`} color={colors.success} /> : null}
-            {bk.paid > 0 ? (
+            {canReverse && bk.paid > 0 ? (
               <TouchableOpacity onPress={() => cancelPayment(item.student_id, item.name, 'booklet', bk.id)} style={{ borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 4 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>إلغاء الدفع</Text>
               </TouchableOpacity>
@@ -210,7 +217,7 @@ export default function TeacherPendingCollections() {
             {bk.course ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{bk.course}</Text> : null}
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('collections.remaining')} {formatEGP(bk.remaining)}</Text>
             {bk.paid > 0 ? <Badge text={`${t('collections.paid')} ${formatEGP(bk.paid)}`} color={colors.success} /> : null}
-            {bk.paid > 0 ? (
+            {canReverse && bk.paid > 0 ? (
               <TouchableOpacity onPress={() => cancelPayment(item.student_id, item.name, 'booking', bk.id)} style={{ borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 4 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>إلغاء الدفع</Text>
               </TouchableOpacity>

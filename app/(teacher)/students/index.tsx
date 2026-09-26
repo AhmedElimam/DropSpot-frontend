@@ -158,7 +158,8 @@ export default function TeacherStudents() {
 
       {/* Segmented: students / sessions / cards */}
       <View style={{ flexDirection: 'row', marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4, marginBottom: spacing.sm }}>
-        {(['students', 'sessions', 'cards'] as Segment[]).map((seg) => (
+        {/* Card orders need manage_students; without it the segment is not offered. */}
+        {((can(ABILITY.MANAGE_STUDENTS) ? ['students', 'sessions', 'cards'] : ['students', 'sessions']) as Segment[]).map((seg) => (
           <TouchableOpacity
             key={seg}
             onPress={() => setSegment(seg)}

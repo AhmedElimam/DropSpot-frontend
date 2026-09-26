@@ -220,11 +220,13 @@ export default function TeacherManage() {
 
         {/* Special / exam sessions — NORMAL mode: create a one-off exam session on
             any weekly slot, then mark attendance + enter exam grades. Always on. */}
-        <Row icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/exam-create' as Href)} />
+        {canSessions ? (
+          <Row icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/exam-create' as Href)} />
+        ) : null}
 
         {/* Revision engine — gated on the SUPER-ADMIN feature flag first (fails safe to
             hidden until an admin enables it), then the teacher's own show/hide switch. */}
-        {flags?.revise_mode && reviseOn !== false ? (
+        {!isAssistant && flags?.revise_mode && reviseOn !== false ? (
           <Row icon="book" title={t('teacher.revision_mode_row')} sub={t('teacher.revision_mode_row_sub')} tint={colors.brand} onPress={() => router.push('/(teacher)/revisions' as Href)} />
         ) : null}
 
@@ -274,7 +276,9 @@ export default function TeacherManage() {
             {canSessions ? (
               <Row icon="clock" title={t('teacher.pause_period')} sub={t('teacher.pause_sub')} tint={colors.warning} onPress={() => router.push('/(teacher)/pause' as Href)} />
             ) : null}
-            {canCourses ? (
+            {/* Venue writes are the teacher's alone on the API — an assistant would reach
+                a screen where every button fails. */}
+            {!isAssistant ? (
               <Row icon="gps" title="أماكن التدريس" sub="أماكنك ومساعدو كل مكان — تُربط بالمقررات اختياريًا" onPress={() => router.push('/(teacher)/venues' as Href)} />
             ) : null}
             {canCourses ? (

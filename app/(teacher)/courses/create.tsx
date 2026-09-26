@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch, KeyboardAvoidingView, Modal } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -45,6 +46,8 @@ function upcomingDays(count: number): { iso: string; label: string }[] {
 export default function CourseCreateScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  // Venue writes are the teacher's alone — an assistant is not sent to a screen that refuses them.
+  const { isAssistant } = useActiveAbilities();
   const { data: options, isLoading } = useCourseFormOptions();
   // Teacher's down-payment IS the booklet → a separate booking price doesn't apply.
   const bookletIsDownPayment = options?.booklet_is_down_payment ?? false;
@@ -200,7 +203,7 @@ export default function CourseCreateScreen() {
                 placeholder="بدون مكان محدد"
                 onSelect={(id) => setVenueId(id || null)}
               />
-            ) : (
+            ) : !isAssistant ? (
               <TouchableOpacity
                 onPress={() => router.push('/(teacher)/venues' as Href)}
                 activeOpacity={0.8}
@@ -209,7 +212,7 @@ export default function CourseCreateScreen() {
                 <Icon name="add" size={16} color={colors.brand} />
                 <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>أضِف أماكن التدريس أولًا</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
 
             <FieldLabel required>{t('teacher.term')}</FieldLabel>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>

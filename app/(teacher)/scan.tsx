@@ -89,8 +89,10 @@ export default function TeacherScan() {
   // Forgiving a debt (waive) is a teacher-only decision; assistants can collect only.
   const canWaive = role === 'teacher';
   // Issuing a guest pass: teacher, or an assistant granted `issue_guest_passes`.
-  const { can } = useActiveAbilities();
+  const { can, isAssistant } = useActiveAbilities();
   const canIssuePass = can(ABILITY.ISSUE_GUEST_PASSES);
+  // Exemptions and one-off admits ride on scan_attendance, like the scan itself.
+  const canScan = can(ABILITY.SCAN);
 
   // ---- Revision mode (from the picker) — scan into a specific revision session.
   // Online-only: no offline buffering (guest creation / SMS / spread split can't
@@ -644,7 +646,7 @@ export default function TeacherScan() {
       {/* Bottom action: enter the special/exam session picker (when the revision
           switch is on) OR issue a guest pass (already inside a special session, and
           only when the operator may issue one). */}
-      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && !otherGroup && (revisionMode ? canIssuePass : reviseOn !== false) ? (
+      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && !otherGroup && (revisionMode ? canIssuePass : reviseOn !== false && !isAssistant) ? (
         <TouchableOpacity
           onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
@@ -714,7 +716,7 @@ export default function TeacherScan() {
           </Text>
 
           {/* Amount > 0 → collect; amount 0/cleared → waive (write-off, teacher-only mode). */}
-          <TouchableOpacity onPress={confirmPay} disabled={Number.isNaN(Number(payInput))} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
+          <TouchableOpacity onPress={confirmPay} disabled={Number.isNaN(Number(payInput)) || (!canWaive && !(Number(payInput) > 0))} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: Number(payInput) > 0 ? '#0b3b34' : '#92400E' }}>{Number(payInput) > 0 ? 'تأكيد التحصيل' : t('teacher.waive_button')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setPayConfirm(null)} activeOpacity={0.85} style={{ marginTop: spacing.md }}>
@@ -749,9 +751,11 @@ export default function TeacherScan() {
             </TouchableOpacity>
           ) : null}
           {/* Secondary: waive with a 15-day exemption + check in. */}
-          <TouchableOpacity onPress={confirmExemption} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textDecorationLine: 'underline' }}>منح إعفاء 15 يومًا وتسجيل الحضور</Text>
-          </TouchableOpacity>
+          {canScan ? (
+            <TouchableOpacity onPress={confirmExemption} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textDecorationLine: 'underline' }}>منح إعفاء 15 يومًا وتسجيل الحضور</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity onPress={() => { setOverdueBlock(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>إلغاء</Text>
           </TouchableOpacity>
@@ -789,13 +793,15 @@ export default function TeacherScan() {
           ) : (
             <>
               {/* Primary: admit for THIS session only (billing stays with their group). */}
-              <TouchableOpacity
-                onPress={() => runOtherGroup('once')}
-                activeOpacity={0.85}
-                style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}
-              >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.brand }}>{t('teacher.other_group_once')}</Text>
-              </TouchableOpacity>
+              {canScan ? (
+                <TouchableOpacity
+                  onPress={() => runOtherGroup('once')}
+                  activeOpacity={0.85}
+                  style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}
+                >
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.brand }}>{t('teacher.other_group_once')}</Text>
+                </TouchableOpacity>
+              ) : null}
 
               {/* Secondary: permanently move them into this group (roster change). */}
               {canManageStudents ? (
@@ -899,6 +905,7 @@ export default function TeacherScan() {
         pending={duesFor?.pending ?? null}
         online={online}
         canWaive={canWaive}
+        canReverse={canWaive}
         onClose={() => { setDuesFor(null); setBusy(false); }}
       />
     </View>
