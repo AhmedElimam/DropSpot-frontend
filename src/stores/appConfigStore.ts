@@ -33,6 +33,12 @@ export function mergeConfig(server: Partial<AppConfigPayload>): AppConfigPayload
     copy: { ...(server.copy ?? {}) },
     pricing: { ...CONFIG_DEFAULTS.pricing, ...(server.pricing ?? {}) },
     contact: { ...CONFIG_DEFAULTS.contact, ...(server.contact ?? {}) },
+    // A null side from the server keeps the bundled link: a blocked user must always
+    // have somewhere to go.
+    store: {
+      ios_url: server.store?.ios_url || CONFIG_DEFAULTS.store.ios_url,
+      android_url: server.store?.android_url || CONFIG_DEFAULTS.store.android_url,
+    },
   };
 }
 

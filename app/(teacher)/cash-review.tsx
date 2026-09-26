@@ -21,8 +21,8 @@ import {
  * Weekly review — the teacher reconciles (spec 2026-09-25). The assistant submitted; here
  * the teacher accepts, QUESTIONS (held, the gap does not move) or rejects (with a reason —
  * the amount moves into the gap) each expense, sees what every decision does to the week
- * before confirming it, and closes the week. The drawer's own assistant opens the same
- * screen read-only, with their own items only (the server decides the shape).
+ * before confirming it, and closes the week. Teacher-only (founder 2026-09-26): the server
+ * refuses an assistant, and no assistant screen links here any more.
  *
  * Nothing here decides automatically. Bulk accept only covers what was shown above it.
  */

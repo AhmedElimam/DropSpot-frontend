@@ -299,6 +299,8 @@ function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDraw
       />
       <SurplusNotice d={d} />
       <Details d={d} extra={isTeacher && d.opening_source !== 'teacher' && !d.closed_at ? <OpeningEntry d={d} onSaved={onChanged} /> : null} />
+      {/* The weekly review is the teacher's screen only (founder 2026-09-26); an assistant
+          follows their expenses, and answers questions, from the expenses list. */}
       {isTeacher ? (
         <TouchableOpacity onPress={openReview} activeOpacity={0.85}
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, marginTop: spacing.sm, backgroundColor: reviewWaiting > 0 ? colors.brand : colors.surfaceSunken }}>
@@ -306,11 +308,6 @@ function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDraw
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: reviewWaiting > 0 ? '#fff' : colors.brand }}>
             {d.closed_at ? t('review.closed') : reviewWaiting > 0 ? t('review.waiting', { count: money(reviewWaiting) }) : t('review.open')}
           </Text>
-        </TouchableOpacity>
-      ) : answered ? (
-        <TouchableOpacity onPress={openReview} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
-          <Icon name="eye" size={15} color={colors.brand} />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('review.title')}</Text>
         </TouchableOpacity>
       ) : null}
     </View>

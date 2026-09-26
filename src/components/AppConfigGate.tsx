@@ -10,6 +10,7 @@ import { syncAppConfig } from '@/stores/appConfigSync';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { isVersionBelow } from '@/utils/semver';
 import { checkForOtaUpdate } from '@/updates/otaUpdates';
+import { storeLinksFor } from '@/utils/storeLinks';
 
 /**
  * Owns backend-driven config on the client: hydrate the last-good cache, fetch
@@ -20,6 +21,18 @@ import { checkForOtaUpdate } from '@/updates/otaUpdates';
  */
 const OTA_CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
 let lastOtaCheck = 0;
+
+/** Open the first link the device accepts: the store app, else the web listing. */
+async function openFirst(urls: string[]): Promise<void> {
+  for (const url of urls) {
+    try {
+      await Linking.openURL(url);
+      return;
+    } catch {
+      // This one was refused (no store app, scheme blocked) — try the next.
+    }
+  }
+}
 
 export function AppConfigGate({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
@@ -75,15 +88,33 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // The binary's version (app.json expo.version). With runtimeVersion policy "appVersion"
+  // an OTA update only ever reaches the binary it was built for, so an update can never
+  // report a version the installed store build doesn't have. The floor arrives per
+  // platform (the server resolves it from X-App-Platform), so raising iOS never blocks
+  // Android. Re-checked on every foreground: lower the floor and the screen lifts.
   const current = Constants.expoConfig?.version ?? '0.0.0';
   if (isVersionBelow(current, min)) {
+    const links = storeLinksFor(Platform.OS, cfg.store, Constants.expoConfig?.android?.package ?? 'com.drosspot.app');
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
         <View style={{ width: 88, height: 88, borderRadius: 28, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.xl }}>
-          <Icon name="reports" size={44} color={colors.brand} />
+          <Icon name="download" size={44} color={colors.brand} />
         </View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary, textAlign: 'center' }}>{t('update.required_title')}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.md }}>{t('update.required_body')}</Text>
+        {links.length > 0 ? (
+          <TouchableOpacity
+            onPress={() => { void openFirst(links); }}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            style={{ marginTop: spacing.xl, minHeight: 50, alignSelf: 'stretch', flexDirection: 'row', gap: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.brand, justifyContent: 'center', alignItems: 'center' }}
+          >
+            <Icon name="download" size={18} color="#fff" />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t(Platform.OS === 'ios' ? 'update.open_app_store' : 'update.open_play_store')}</Text>
+          </TouchableOpacity>
+        ) : null}
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, textAlign: 'center', marginTop: spacing.md }}>{t('update.current_version', { version: current })}</Text>
       </View>
     );
   }

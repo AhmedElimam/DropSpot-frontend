@@ -76,7 +76,10 @@
   "update": {
     "required_title": "يلزم تحديث التطبيق",
     "required_body": "هذا الإصدار لم يعد مدعومًا. يُرجى تحديث التطبيق من المتجر للمتابعة.",
-    "open_new_app": "فتح التطبيق الجديد"
+    "open_new_app": "فتح التطبيق الجديد",
+    "open_play_store": "التحديث من Google Play",
+    "open_app_store": "التحديث من App Store",
+    "current_version": "الإصدار الحالي على جهازك: {{version}}"
   },
   "common": {
     "close": "إغلاق",
@@ -1557,7 +1560,14 @@
     "status_active": "نشط",
     "status_pending": "بانتظار القبول",
     "status_rejected": "مرفوضة",
-    "status_inactive": "معطّل"
+    "status_inactive": "معطّل",
+    "remove": "إزالة المساعد",
+    "remove_title": "إزالة المساعد؟",
+    "remove_body": "لن يرى {{name}} أي بيانات لديك بعد الآن. تبقى سجلاته السابقة كما هي، ولإعادته أرسل له دعوة جديدة.",
+    "cancel_invite": "إلغاء الدعوة",
+    "cancel_invite_title": "إلغاء الدعوة؟",
+    "cancel_invite_body": "ستُلغى الدعوة ولن يتمكن من قبولها.",
+    "remove_failed": "تعذّرت الإزالة"
   },
   "dues": {
     "section_title": "مستحقات أخرى",

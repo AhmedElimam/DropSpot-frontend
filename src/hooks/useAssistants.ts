@@ -6,6 +6,7 @@ import {
   updateAssistantAbilities,
   toggleAssistant,
   setAssistantVenueScope,
+  removeAssistant,
 } from '@/api/assistants';
 
 export function useAssistants() {
@@ -49,6 +50,14 @@ export function useToggleAssistant() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => toggleAssistant(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['assistants'] }),
+  });
+}
+
+export function useRemoveAssistant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => removeAssistant(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['assistants'] }),
   });
 }

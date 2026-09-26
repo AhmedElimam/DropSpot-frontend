@@ -48,6 +48,17 @@ export interface AppConfigPayload {
   pricing: { tiers: unknown[] };
   // Super-admin-editable contact + card-order payment (server AppConfig 'contact').
   contact: AppConfigContact;
+  /**
+   * Store listings for the blocking update screen's button (server App\Support\StoreLinks,
+   * editable at /admin/config). A null side = the server knows no listing there; the app
+   * then falls back to the bundled link below.
+   */
+  store: AppConfigStore;
+}
+
+export interface AppConfigStore {
+  ios_url: string | null;
+  android_url: string | null;
 }
 
 export const CONFIG_DEFAULTS: AppConfigPayload = {
@@ -75,5 +86,10 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
     card_instapay_number: '01208020372',
     card_instapay_name: 'Ahmed Mohamed Imam',
     card_vodafone_number: '',
+  },
+  // Mirrors AppConfig::META_DEFAULTS store_ios_url / store_android_url.
+  store: {
+    ios_url: 'https://apps.apple.com/eg/app/dros-spot/id6806775859',
+    android_url: 'https://play.google.com/store/apps/details?id=com.drosspot.app',
   },
 };
