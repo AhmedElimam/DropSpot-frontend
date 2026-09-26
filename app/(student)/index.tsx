@@ -10,6 +10,7 @@ import { useCoverageStats, useStudentAttendanceRisk } from '@/hooks/useAttendanc
 import { useStudentBillingStatus } from '@/hooks/useInvoices';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useUnreadCount } from '@/hooks/useNotifications';
+import { WhatsNewCard } from '@/components/WhatsNewCard';
 import { AttendanceRiskCard } from '@/components/attendance/AttendanceRiskCard';
 import { BillingOverdueCard } from '@/components/attendance/BillingOverdueCard';
 import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
@@ -82,6 +83,7 @@ export default function StudentDashboard() {
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           <CardOrderBanner scope="student" />
+          <WhatsNewCard />
           {(billingAlerts ?? []).map((alert, i) => (
             <BillingOverdueCard key={`bill-${alert.student_id}-${i}`} alert={alert} />
           ))}

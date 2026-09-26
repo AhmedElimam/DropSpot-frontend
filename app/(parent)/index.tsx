@@ -9,6 +9,7 @@ import { useChildren } from '@/hooks/useChildren';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import type { Child } from '@/api/children';
 import { useNotifications, useUnreadCount } from '@/hooks/useNotifications';
+import { WhatsNewCard } from '@/components/WhatsNewCard';
 import { useParentAttendanceRisk } from '@/hooks/useAttendance';
 import { useParentBillingStatus } from '@/hooks/useInvoices';
 import { AttendanceRiskCard } from '@/components/attendance/AttendanceRiskCard';
@@ -94,6 +95,7 @@ export default function ParentHome() {
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg }}>
 
           <CardOrderBanner scope="parent" />
+          <WhatsNewCard />
 
           {/* Overdue billing (may block check-in) then auto-termination risk */}
           {(billingAlerts ?? []).map((alert, i) => (

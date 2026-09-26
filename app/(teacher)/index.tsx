@@ -7,6 +7,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
 import { useUnreadCount } from '@/hooks/useNotifications';
+import { WhatsNewCard } from '@/components/WhatsNewCard';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import type { TeacherSession } from '@/api/teacher';
 import { useOfflineStore } from '@/stores/offlineStore';
@@ -279,6 +280,8 @@ export default function TeacherHome() {
             ) : null}
           </View>
           ) : null}
+          {/* «ما الجديد» for this installed version, once (written at /admin/release-notes). */}
+          <View style={{ marginBottom: spacing.lg }}><WhatsNewCard /></View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('teacher.todays_sessions')}</Text>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />

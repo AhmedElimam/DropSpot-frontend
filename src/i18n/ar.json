@@ -647,6 +647,14 @@
     "no_children": "لا يوجد أبناء مسجلين",
     "remove_error": "تعذر إزالة المعلم. حاول مرة أخرى."
   },
+  "whats_new": {
+    "title": "ما الجديد",
+    "version": "الإصدار {{version}}",
+    "all": "كل التحديثات",
+    "installed": "على جهازك",
+    "empty": "لا توجد ملاحظات بعد",
+    "empty_hint": "هنا هتلاقي الجديد في كل إصدار."
+  },
   "notifications": {
     "title": "الإشعارات",
     "no_notifications": "لا توجد إشعارات",

@@ -81,6 +81,7 @@ export default function TeacherSettings() {
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
           {/* Courses & schedule management now live in the "الإدارة" tab. */}
           {/* Assistant management is teacher-only. */}
+          {row('star', t('whats_new.title'), t('whats_new.all'), () => router.push('/whats-new' as Href))}
           {/* The setup guide is the teacher's: every step in it is theirs to take. */}
           {!isAssistant ? row('help', t('onboarding.getting_started_row'), t('onboarding.getting_started_row_sub'), () => router.push('/(teacher)/getting-started' as Href)) : null}
 
