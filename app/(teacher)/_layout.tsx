@@ -12,6 +12,8 @@ import { initOfflineScans } from '@/db/offlineScans';
 import { triggerAutoSync } from '@/db/autoSync';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 import { registerForPushNotifications } from '@/utils/push-notifications';
+import { useNotificationTaps } from '@/hooks/useNotificationTaps';
+import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { fonts } from '@/theme/typography';
 import { colors, radius } from '@/theme/index';
@@ -97,6 +99,11 @@ export default function TeacherTabLayout() {
       sub.remove();
     };
   }, [isAuthenticated]);
+
+  // A tapped push opens the screen it is about (running or launched by the tap); an
+  // assistant is never sent where the server would refuse them.
+  const { can } = useActiveAbilities();
+  useNotificationTaps(can);
 
   // Register this device's push token so teacher notifications (daily financial
   // report, admin-ticket replies, etc.) can be delivered via FCM. Previously this

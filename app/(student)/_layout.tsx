@@ -1,5 +1,8 @@
+import { useEffect } from 'react';
 import { Redirect, Tabs } from 'expo-router';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, AppState, type AppStateStatus } from 'react-native';
+import { registerForPushNotifications } from '@/utils/push-notifications';
+import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { useAuthStore } from '@/stores/authStore';
 import { fonts } from '@/theme/typography';
 import { colors, radius } from '@/theme/index';
@@ -19,6 +22,19 @@ export default function StudentTabLayout() {
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+
+  // The student's phone never registered for push, so grades, invoices, card status and
+  // the parent-unreachable nudge only ever reached the in-app inbox. Same wiring as the
+  // teacher layout; a tapped push then opens the screen it is about.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    registerForPushNotifications();
+    const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
+      if (s === 'active') registerForPushNotifications();
+    });
+    return () => sub.remove();
+  }, [isAuthenticated]);
+  useNotificationTaps();
 
   if (isLoading) {
     return (

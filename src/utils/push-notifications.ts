@@ -185,3 +185,21 @@ export function setupNotificationResponseHandler(
     onNotificationResponse(data as Record<string, unknown>);
   });
 }
+
+/**
+ * The push the user tapped to LAUNCH the app, if any. A tap on a closed app never reaches
+ * the response listener above — it fires only for taps while the app is alive — so a
+ * cold start has to ask for it once. Null in Expo Go, on a build without the module, or
+ * when the app was opened from the icon.
+ */
+export async function getInitialNotificationResponse(): Promise<Record<string, unknown> | null> {
+  const N = notifications();
+  if (!N) return null;
+  try {
+    const response = await N.getLastNotificationResponseAsync();
+    const data = response?.notification.request.content.data;
+    return data ? (data as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}

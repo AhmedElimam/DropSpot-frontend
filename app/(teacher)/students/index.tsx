@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
-import { router, type Href } from 'expo-router';
+import { router, type Href, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -67,7 +67,9 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 export default function TeacherStudents() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [segment, setSegment] = useState<Segment>('students');
+  // A notification about a card order lands on the cards segment directly.
+  const { segment: askedSegment } = useLocalSearchParams<{ segment?: string }>();
+  const [segment, setSegment] = useState<Segment>(askedSegment === 'cards' || askedSegment === 'sessions' ? askedSegment : 'students');
   const [courseId, setCourseId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string | null>(null);

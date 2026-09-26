@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Redirect, Tabs, router } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { View, Text, ActivityIndicator, AppState, AppStateStatus, StyleSheet } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
@@ -7,8 +7,8 @@ import { fonts } from '@/theme/typography';
 import { colors, radius } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { registerForPushNotifications, unregisterPushNotifications, setupNotificationResponseHandler } from '@/utils/push-notifications';
-import { notificationRoute } from '@/utils/notification-routing';
+import { registerForPushNotifications, unregisterPushNotifications } from '@/utils/push-notifications';
+import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { Icon, type IconName } from '@/components/ui/Icon';
 
 // Five large, always-labelled tabs. Teacher Management was added as its own tab
@@ -66,16 +66,9 @@ export default function ParentTabLayout() {
     };
   }, [isAuthenticated]);
 
-  // Deep-link a tapped notification to the right screen (report cards, invoices,
-  // the child, or the notifications feed) — the response handler existed but was
-  // never registered, so taps went nowhere.
-  useEffect(() => {
-    const sub = setupNotificationResponseHandler((data) => {
-      const route = notificationRoute(String(data?.type ?? ''), data);
-      if (route) router.push(route as never);
-    });
-    return () => sub.remove();
-  }, []);
+  // A tapped push opens the screen it is about — while running, and when the tap is
+  // what launched the app (that case never reached the old listener).
+  useNotificationTaps();
 
   if (isLoading) {
     return (
