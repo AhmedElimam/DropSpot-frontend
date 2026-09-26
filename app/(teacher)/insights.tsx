@@ -158,13 +158,16 @@ export default function InsightsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Period bar — every number below answers the question this row is asking. */}
-      <FilterChips options={presets} value={range} onChange={setRange} />
+      {/* The two filter rows, spaced so a thumb can't land on the wrong one. */}
+      <View style={{ gap: spacing.sm, paddingBottom: spacing.sm }}>
+        {/* Period bar — every number below answers the question this row is asking. */}
+        <FilterChips options={presets} value={range} onChange={setRange} />
 
-      {/* Venue filter — every figure below follows it, including the cash block. */}
-      {venueList.length > 0 ? (
-        <FilterChips options={venueOptions} value={venue} onChange={setVenue} tone="soft" icon="gps" />
-      ) : null}
+        {/* Venue filter — every figure below follows it, including the cash block. */}
+        {venueList.length > 0 ? (
+          <FilterChips options={venueOptions} value={venue} onChange={setVenue} tone="soft" icon="gps" />
+        ) : null}
+      </View>
 
       {q.isLoading || !venueReady ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />

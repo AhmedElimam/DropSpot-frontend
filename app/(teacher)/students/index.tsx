@@ -184,7 +184,9 @@ export default function TeacherStudents() {
           </View>
 
           {/* Course filter chips — the teacher scopes by "which of my classes". */}
-          <FilterChips options={courseOptions} value={courseId ?? 0} onChange={(k) => setCourseId(k === 0 ? null : k)} />
+          <View style={{ paddingBottom: spacing.sm }}>
+            <FilterChips options={courseOptions} value={courseId ?? 0} onChange={(k) => setCourseId(k === 0 ? null : k)} />
+          </View>
 
           {studentsLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
@@ -232,7 +234,9 @@ export default function TeacherStudents() {
           )}
 
           {/* Session status chips */}
-          <FilterChips options={statusOptions} value={status ?? 'all'} onChange={(k) => setStatus(k === 'all' ? null : k)} />
+          <View style={{ paddingBottom: spacing.sm }}>
+            <FilterChips options={statusOptions} value={status ?? 'all'} onChange={(k) => setStatus(k === 'all' ? null : k)} />
+          </View>
 
           {sessionsLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />

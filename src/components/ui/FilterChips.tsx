@@ -6,6 +6,8 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 
 export type ChipOption<K extends string | number> = { key: K; label: string };
 
+const CHIP_HEIGHT = 40;
+
 /**
  * One row of filter chips — the same look on every screen that filters a list.
  *
@@ -16,6 +18,10 @@ export type ChipOption<K extends string | number> = { key: K; label: string };
  *   refetch or reset what's on screen.
  * - `solid` (the default) fills the selected chip; `soft` tints it, for a second row that
  *   narrows the first (the venue under the period on insights).
+ * - 40px tall (a comfortable touch target) with a 24px line for 13px Cairo: its Arabic
+ *   ascenders and marks sit above a tight line box, and an 18px line cut the tops off
+ *   every label. Android's extra font padding is turned off so the text centres truly.
+ * - The row pads itself top and bottom, so two rows stacked never touch.
  */
 function FilterChipsInner<K extends string | number>({
   options, value, onChange, tone = 'solid', icon, disabled,
@@ -34,10 +40,10 @@ function FilterChipsInner<K extends string | number>({
       showsHorizontalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       style={{ flexGrow: 0 }}
-      contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm, alignItems: 'center' }}
+      contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.xs, gap: spacing.sm, alignItems: 'center' }}
     >
       {icon ? (
-        <View style={{ width: 28, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 28, height: CHIP_HEIGHT, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name={icon} size={16} color={colors.textTertiary} />
         </View>
       ) : null}
@@ -54,7 +60,7 @@ function FilterChipsInner<K extends string | number>({
             accessibilityState={{ selected: on, disabled }}
             style={{
               flexShrink: 0,
-              height: 36,
+              height: CHIP_HEIGHT,
               maxWidth: 220,
               paddingHorizontal: spacing.md,
               justifyContent: 'center',
@@ -67,7 +73,11 @@ function FilterChipsInner<K extends string | number>({
             <Text
               numberOfLines={1}
               ellipsizeMode="tail"
-              style={{ fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: on ? (solid ? '#FFFFFF' : colors.brand) : colors.textSecondary }}
+              style={{
+                fontFamily: fonts.bold, fontSize: 13, lineHeight: 24,
+                includeFontPadding: false, textAlignVertical: 'center',
+                color: on ? (solid ? '#FFFFFF' : colors.brand) : colors.textSecondary,
+              }}
             >
               {o.label}
             </Text>
