@@ -13,8 +13,8 @@ import { useWhatsNew } from '@/hooks/useReleaseNotes';
  */
 export function WhatsNewCard() {
   const { t } = useTranslation();
-  const { note, dismiss } = useWhatsNew();
-  if (!note || note.lines.length === 0) return null;
+  const { note, showCard, dismissCard } = useWhatsNew();
+  if (!note || !showCard) return null;
 
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand + '44', padding: spacing.lg, ...shadows.sm }}>
@@ -26,7 +26,7 @@ export function WhatsNewCard() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{note.title || t('whats_new.title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('whats_new.version', { version: note.version })}</Text>
         </View>
-        <TouchableOpacity onPress={dismiss} accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={10}
+        <TouchableOpacity onPress={dismissCard} accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={10}
           style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="close" size={16} color={colors.textSecondary} />
         </TouchableOpacity>

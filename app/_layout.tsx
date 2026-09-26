@@ -34,6 +34,7 @@ import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { SurveyModal } from '@/components/SurveyModal';
 import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
 import { AppConfigGate } from '@/components/AppConfigGate';
+import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { colors } from '@/theme/index';
 
 // RTL is now set natively at build time by the expo-localization plugin (see
@@ -187,6 +188,8 @@ export default function RootLayout() {
             <SurveyModal />
             {/* Teacher onboarding — Step 1 intro popup for a brand-new teacher. */}
             <TeacherOnboardingModal />
+            {/* «ما الجديد» — once per installed version, after the two above. */}
+            <WhatsNewModal />
           </View>
           </AppConfigGate>
         </HydrationGate>
