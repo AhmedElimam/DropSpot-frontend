@@ -9,6 +9,13 @@ import { colors, radius } from '@/theme/index';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { boundedSceneLayout } from '@/navigation/boundedScenes';
+
+// Visible tabs stay mounted; detail screens (href: null) are released once they are not one
+// of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
+// tabs are frozen on blur: a frozen screen defers its own release.
+const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","check-in","invoices","profile"]);
+const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
 
 const icons: Record<string, IconName> = {
   index: 'home',
@@ -54,9 +61,10 @@ export default function StudentTabLayout() {
       // order-card, notifications) pop back to the previous screen instead of jumping
       // to the Home tab.
       backBehavior="history"
+      screenLayout={sceneLayout}
       screenOptions={({ route }) => ({
         headerShown: false,
-        freezeOnBlur: true,
+        freezeOnBlur: VISIBLE_TABS.has(route.name),
         tabBarStyle: {
           // OPAQUE on purpose. A translucent bar (this was rgba(...,0.92)) is a floating,
           // absolutely-positioned overlay, so every frame Android had to re-composite the

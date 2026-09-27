@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -167,7 +168,7 @@ export function CardOrderForm({ preselectStudentId }: { preselectStudentId?: num
                     </View>
                   ) : null}
                   <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('card_order.upload_proof')}</Text>
-                  {imageUri ? <Image source={{ uri: imageUri }} style={{ width: '100%', height: 160, borderRadius: radius.md, marginBottom: spacing.sm, resizeMode: 'contain' }} /> : null}
+                  {imageUri ? <Image source={{ uri: imageUri }} style={{ width: '100%', height: 160, borderRadius: radius.md, marginBottom: spacing.sm }} contentFit="contain" /> : null}
                   <TouchableOpacity onPress={pickImage} activeOpacity={0.85} style={{ paddingVertical: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, alignItems: 'center' }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('card_order.pick_image')}</Text>
                   </TouchableOpacity>

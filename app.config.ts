@@ -127,6 +127,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     },
   ],
+  // R8 in OPTIMISING mode + optimised resource shrinking for release builds. Must be a
+  // plugin: CI regenerates android/ on every build (see the plugin for the risk + test plan).
+  './plugins/withAndroidR8Optimize',
   // Native Firebase — provides an FCM token on iOS (expo-notifications only yields an
   // APNs token there, which our direct-FCM backend can't target). Reads GoogleService-Info.plist.
   // withRNFirebaseDisableSPM MUST come before the RNFirebase plugins so the Podfile global is set.

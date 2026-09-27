@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image, Alert, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Alert, KeyboardAvoidingView } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -143,7 +144,7 @@ export default function CardOrderNew() {
                 style={{ borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed', borderRadius: radius.md, padding: spacing.lg, alignItems: 'center', marginTop: spacing.sm }}>
                 {imageUri ? (
                   <>
-                    <Image source={{ uri: imageUri }} style={{ width: '100%', height: 160, borderRadius: radius.sm, resizeMode: 'contain' }} />
+                    <Image source={{ uri: imageUri }} style={{ width: '100%', height: 160, borderRadius: radius.sm }} contentFit="contain" />
                     <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.success, marginTop: spacing.sm }}>{t('teacher.co_proof_selected')}</Text>
                   </>
                 ) : (

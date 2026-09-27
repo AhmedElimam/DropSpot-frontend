@@ -35,6 +35,7 @@ import { SurveyModal } from '@/components/SurveyModal';
 import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
 import { AppConfigGate } from '@/components/AppConfigGate';
 import { colors } from '@/theme/index';
+import { shouldRefetchOnFocus } from '@/api/queryFocus';
 
 // RTL is now set natively at build time by the expo-localization plugin (see
 // app.config.ts), so the first launch on a clean install is already right-to-left.
@@ -98,6 +99,9 @@ const queryClient = new QueryClient({
       },
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
       staleTime: 30000,
+      // Returning to the app refreshes only data older than 2 minutes, not every stale query
+      // of every mounted screen at once (src/api/queryFocus.ts).
+      refetchOnWindowFocus: (query) => shouldRefetchOnFocus(query.state.dataUpdatedAt),
     },
   },
 });
