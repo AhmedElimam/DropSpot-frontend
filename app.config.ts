@@ -127,9 +127,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     },
   ],
-  // R8 in OPTIMISING mode + optimised resource shrinking for release builds. Must be a
-  // plugin: CI regenerates android/ on every build (see the plugin for the risk + test plan).
-  './plugins/withAndroidR8Optimize',
+  // NO R8 optimising mode (proguard-android-optimize.txt). 1.2.5 shipped it to clear Play's
+  // "optimisation isn't enabled" note, and LOGIN BROKE on every Android phone: the server
+  // answered 200, then a native call on the success path failed silently and the screen
+  // showed the generic error (reproduced on an API 36 emulator 2026-09-28; 1.2.4 on the same
+  // emulator logged in). R8 does not touch the JS, and no dependency changed between the two
+  // builds, so the optimiser is the cause. The Play note is advisory; a login that works is
+  // not. Re-enable only with the broken class identified and a keep rule for it, and only
+  // after the release APK has logged in on a real device.
   // Native Firebase — provides an FCM token on iOS (expo-notifications only yields an
   // APNs token there, which our direct-FCM backend can't target). Reads GoogleService-Info.plist.
   // withRNFirebaseDisableSPM MUST come before the RNFirebase plugins so the Podfile global is set.

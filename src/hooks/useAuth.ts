@@ -10,6 +10,7 @@ import {
   changePassword as changePasswordApi,
 } from '@/api/auth';
 import { acceptStudentInvite } from '@/api/invitation';
+import { withTimeout, LOGIN_TIMEOUT_MS } from '@/api/withTimeout';
 
 export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
@@ -17,8 +18,10 @@ export function useLogin() {
   const qc = useQueryClient();
 
   return useMutation({
+    // Bounded: on a dead resolver the transport's timeout never fires and the button spun
+    // for minutes (src/api/withTimeout.ts). 25 s then the existing "took too long" message.
     mutationFn: (payload: { phone_number: string; password: string }) =>
-      loginApi(payload.phone_number, payload.password),
+      withTimeout(loginApi(payload.phone_number, payload.password), LOGIN_TIMEOUT_MS, 'login'),
     onSuccess: async (data) => {
       // A new auth context must not inherit the previous session's cached data
       // (e.g. the admin impersonation user-list, keyed on a process-global client).
