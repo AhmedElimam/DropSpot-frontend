@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -126,7 +127,7 @@ export default function TeacherManagement() {
                           <Image
                             source={{ uri: teacher.logo_url }}
                             style={{ width: 40, height: 40, borderRadius: 12, marginEnd: spacing.md, backgroundColor: colors.surfaceSunken }}
-                            resizeMode="cover"
+                            contentFit="cover"
                           />
                         ) : (
                           <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>

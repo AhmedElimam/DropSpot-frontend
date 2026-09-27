@@ -1,5 +1,6 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getNotifications, getUnreadCount, markRead, markAllRead } from '@/api/notifications';
+import { UNREAD_POLL_MS } from '@/api/queryFocus';
 
 export function useNotifications() {
   return useQuery({
@@ -28,7 +29,9 @@ export function useUnreadCount() {
   return useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: getUnreadCount,
-    refetchInterval: 30000,
+    // Every 2 minutes, not 30 s: a push already announces anything new, the badge is a
+    // backstop. Each poll wakes the radio and re-renders the home tab (src/api/queryFocus.ts).
+    refetchInterval: UNREAD_POLL_MS,
   });
 }
 

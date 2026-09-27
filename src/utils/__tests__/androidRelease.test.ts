@@ -56,3 +56,57 @@ describe('Android release optimisation (Google Play DEX check)', () => {
     }
   });
 });
+
+/**
+ * R8 in OPTIMISING mode (plugins/withAndroidR8Optimize.js). Play flagged 1.2.3 with
+ * "Optimisation isn't enabled / optimised resource shrinking isn't enabled": the Expo template
+ * hands R8 `proguard-android.txt`, which carries -dontoptimize. The plugin runs on every
+ * prebuild (android/ is regenerated in CI), so this runs its two edits against the template.
+ */
+describe('Android release R8 optimisation (plugins/withAndroidR8Optimize)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const withAndroidR8Optimize = require('../../../plugins/withAndroidR8Optimize');
+  const TEMPLATE_LINE = '            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"';
+
+  const runMod = async (modName: 'appBuildGradle' | 'gradleProperties', modResults: any) => {
+    const cfg = withAndroidR8Optimize({ name: 't', slug: 't' });
+    const mod = cfg.mods.android[modName];
+    const out = await mod({
+      ...cfg,
+      modResults,
+      modRequest: { platform: 'android', modName, projectRoot: '/x', platformProjectRoot: '/x/android', introspect: false, nextMod: async (c: any) => c },
+    });
+    return out.modResults;
+  };
+
+  it('is registered in the RESOLVED plugin list', () => {
+    const names = plugins.map((p) => (Array.isArray(p) ? p[0] : p));
+    expect(names).toContain('./plugins/withAndroidR8Optimize');
+  });
+
+  it('switches the release rules to proguard-android-optimize.txt, idempotently', async () => {
+    const once = await runMod('appBuildGradle', { contents: `release {\n${TEMPLATE_LINE}\n}`, language: 'groovy' });
+    expect(once.contents).toContain('getDefaultProguardFile("proguard-android-optimize.txt")');
+    expect(once.contents).not.toContain('getDefaultProguardFile("proguard-android.txt")');
+    const twice = await runMod('appBuildGradle', { ...once });
+    expect(twice.contents).toBe(once.contents);
+  });
+
+  it('turns on optimised resource shrinking exactly once', async () => {
+    const props = await runMod('gradleProperties', [
+      { type: 'property', key: 'hermesEnabled', value: 'true' },
+      { type: 'property', key: 'android.r8.optimizedResourceShrinking', value: 'false' },
+    ]);
+    const hits = props.filter((p: any) => p.key === 'android.r8.optimizedResourceShrinking');
+    expect(hits).toEqual([{ type: 'property', key: 'android.r8.optimizedResourceShrinking', value: 'true' }]);
+    expect(props.find((p: any) => p.key === 'hermesEnabled')?.value).toBe('true');
+  });
+
+  it('leaves a changed template alone instead of breaking the build', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const odd = await runMod('appBuildGradle', { contents: 'release { minifyEnabled true }', language: 'groovy' });
+    expect(odd.contents).toBe('release { minifyEnabled true }');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('R8 optimisation was NOT enabled'));
+    warn.mockRestore();
+  });
+});

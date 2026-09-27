@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Share, Alert, KeyboardAvoidingView, Switch, Image, ImageBackground } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Share, Alert, KeyboardAvoidingView, Switch, ImageBackground } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -266,7 +267,7 @@ export default function InviteLink() {
                       const innerCard = (
                         <View style={{ backgroundColor: '#fff', borderRadius: radius.lg, padding: spacing.md }}>
                           {tpl.booking_logo_url ? (
-                            <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 120, height: 54, resizeMode: 'contain', alignSelf: 'center', marginBottom: spacing.sm }} />
+                            <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 120, height: 54, alignSelf: 'center', marginBottom: spacing.sm }} contentFit="contain" />
                           ) : null}
                           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: brand, textAlign: 'center' }}>{(tpl.booking_title || '').trim() || 'حجز مكان'}</Text>
                           {(tpl.booking_intro || '').trim() ? (
@@ -292,7 +293,7 @@ export default function InviteLink() {
 
                     {/* Logo */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-                      {tpl.booking_logo_url ? <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 40, height: 40, borderRadius: 8, resizeMode: 'contain' }} /> : null}
+                      {tpl.booking_logo_url ? <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 40, height: 40, borderRadius: 8 }} contentFit="contain" /> : null}
                       <TouchableOpacity onPress={pickLogo} disabled={uploading} activeOpacity={0.85} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
                         <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{t('invite_link.upload_logo')}</Text>
                       </TouchableOpacity>
@@ -326,7 +327,7 @@ export default function InviteLink() {
                     {/* Background image (modern blurred) */}
                     <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('invite_link.bg_image')}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
-                      {tpl.booking_bg_image_url ? <Image source={{ uri: tpl.booking_bg_image_url }} style={{ width: 44, height: 44, borderRadius: 8, resizeMode: 'cover' }} /> : null}
+                      {tpl.booking_bg_image_url ? <Image source={{ uri: tpl.booking_bg_image_url }} style={{ width: 44, height: 44, borderRadius: 8 }} contentFit="cover" /> : null}
                       <TouchableOpacity onPress={pickBg} disabled={uploading} activeOpacity={0.85} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
                         <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{t('invite_link.upload_bg')}</Text>
                       </TouchableOpacity>

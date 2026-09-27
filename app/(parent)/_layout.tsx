@@ -10,6 +10,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { registerForPushNotifications, unregisterPushNotifications } from '@/utils/push-notifications';
 import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { boundedSceneLayout } from '@/navigation/boundedScenes';
+
+// Visible tabs stay mounted; detail screens (href: null) are released once they are not one
+// of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
+// tabs are frozen on blur: a frozen screen defers its own release.
+const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","children","teachers","invoices","tickets","profile"]);
+const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
 
 // Five large, always-labelled tabs. Teacher Management was added as its own tab
 // per an explicit founder decision (reversing the earlier 4-tab minimum); the
@@ -88,6 +95,7 @@ export default function ParentTabLayout() {
       // report-cards, child/[id], quiz/[quizId], …) pop back to the previous screen
       // instead of jumping to the Home tab.
       backBehavior="history"
+      screenLayout={sceneLayout}
       screenOptions={({ route }) => {
         // Inside an open ticket conversation ([id], the reply box) or the compose
         // form (create), the floating absolute tab bar overlaps the input + send
@@ -98,7 +106,7 @@ export default function ParentTabLayout() {
 
         return {
         headerShown: false,
-          freezeOnBlur: true,
+          freezeOnBlur: VISIBLE_TABS.has(route.name),
         tabBarStyle: hideBar
           ? { display: 'none' }
           : {

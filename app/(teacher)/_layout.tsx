@@ -18,6 +18,13 @@ import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { fonts } from '@/theme/typography';
 import { colors, radius } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { boundedSceneLayout } from '@/navigation/boundedScenes';
+
+// Visible tabs stay mounted; detail screens (href: null) are released once they are not one
+// of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
+// tabs are frozen on blur: a frozen screen defers its own release.
+const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","students","manage","tickets","settings"]);
+const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
 
 /**
  * Teacher (and assistant) app — a 5-tab bar (home · camera · students · tickets ·
@@ -157,7 +164,7 @@ export default function TeacherTabLayout() {
   const screenOptions = useMemo<ComponentProps<typeof Tabs>['screenOptions']>(
     () => ({ route }) => ({
         headerShown: false,
-        freezeOnBlur: true,
+        freezeOnBlur: VISIBLE_TABS.has(route.name),
         // Consistent scene background so a tab switch never flashes a white frame
         // between two screens (e.g. the black scanner and a cream screen).
         sceneStyle: { backgroundColor: colors.background },
@@ -228,6 +235,7 @@ export default function TeacherTabLayout() {
         return <BottomTabBar {...props} />;
       }}
       screenOptions={screenOptions}
+      screenLayout={sceneLayout}
     >
       <Tabs.Screen name="index" />
       {/* The scanner is no longer a tab: it opens from the QR button beside the bell on
