@@ -37,7 +37,11 @@ export function WhatsNewModal() {
   const pathname = usePathname() ?? '';
   const blocked = BLOCKING_PREFIXES.some((p) => pathname.startsWith(p));
 
-  const visible = showPopup && !!note && !survey && !onboardingDue && !blocked;
+  // Not on a super-admin's phone during impersonation: it isn't the user's first read, and
+  // closing it would mark the note seen on the wrong device.
+  const impersonating = useAuthStore((s) => !!s.impersonation?.active);
+
+  const visible = showPopup && !!note && !survey && !onboardingDue && !blocked && !impersonating;
   if (!note) return null;
 
   return (

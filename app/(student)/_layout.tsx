@@ -33,14 +33,16 @@ export default function StudentTabLayout() {
   // The student's phone never registered for push, so grades, invoices, card status and
   // the parent-unreachable nudge only ever reached the in-app inbox. Same wiring as the
   // teacher layout; a tapped push then opens the screen it is about.
+  // Never while impersonating — the phone is the super-admin's.
+  const impersonating = useAuthStore((s) => !!s.impersonation?.active);
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || impersonating) return;
     registerForPushNotifications();
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') registerForPushNotifications();
     });
     return () => sub.remove();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, impersonating]);
   useNotificationTaps();
 
   if (isLoading) {

@@ -34,6 +34,7 @@ import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { SurveyModal } from '@/components/SurveyModal';
 import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
 import { AppConfigGate } from '@/components/AppConfigGate';
+import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { colors } from '@/theme/index';
 import { shouldRefetchOnFocus } from '@/api/queryFocus';
@@ -119,6 +120,10 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
     }
   }, [hydrate, hydrationStarted]);
 
+  // While a session is being swapped (entering/leaving impersonation), cover the app: the
+  // screens underneath would otherwise render one person's UI with the other's session.
+  const switching = useAuthStore((s) => s.switching);
+
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
@@ -127,7 +132,17 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <SessionSwitchWatcher />
+      {switching ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : null}
+    </>
+  );
 }
 
 export default function RootLayout() {

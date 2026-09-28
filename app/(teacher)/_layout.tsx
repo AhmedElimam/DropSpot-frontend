@@ -117,14 +117,17 @@ export default function TeacherTabLayout() {
   // was wired only in the parent layout, so teachers had no tokens. Fire-and-forget;
   // a permission denial or iOS APNs limitation just yields no token (in-app inbox
   // still works). Re-run on foreground so a later permission grant is picked up.
+  // Never while impersonating: the phone is the super-admin's, and registering it would
+  // hand the teacher's pushes to the admin (the server refuses it too).
+  const impersonating = useAuthStore((s) => !!s.impersonation?.active);
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || impersonating) return;
     registerForPushNotifications();
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') registerForPushNotifications();
     });
     return () => sub.remove();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, impersonating]);
 
   // Connectivity: drive the offline/online indicator AND kick a window-bounded
   // auto-sync pass when connectivity is restored (the unambiguous scans upload

@@ -49,8 +49,12 @@ export default function ParentTabLayout() {
   const pushTokenRef = useRef<string | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
+  // Never while impersonating: the phone is the super-admin's. Registering would hand the
+  // parent's pushes to the admin, and the unmount clean-up below would then UNregister the
+  // admin's own device once their session was restored.
+  const impersonating = useAuthStore((s) => !!s.impersonation?.active);
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || impersonating) return;
 
     registerForPushNotifications().then((token) => {
       pushTokenRef.current = token;
@@ -69,9 +73,10 @@ export default function ParentTabLayout() {
       subscription.remove();
       if (pushTokenRef.current) {
         unregisterPushNotifications(pushTokenRef.current);
+        pushTokenRef.current = null;
       }
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, impersonating]);
 
   // A tapped push opens the screen it is about — while running, and when the tap is
   // what launched the app (that case never reached the old listener).

@@ -123,10 +123,20 @@ export function useRegister() {
 
 export function useLogout() {
   const logout = useAuthStore((s) => s.logout);
+  const leaveImpersonation = useAuthStore((s) => s.leaveImpersonation);
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
+      // «تسجيل الخروج» inside an impersonation session means leaving it — back to the
+      // super-admin's picker — not signing the admin out of their own account. It used to
+      // sign out with the impersonation token (refused in read-only mode) and wipe the
+      // admin's stash mid-render. The root watcher routes and clears the cache.
+      if (useAuthStore.getState().impersonation?.active) {
+        await leaveImpersonation();
+
+        return;
+      }
       await logout();
       // Drop every cached query so the next session starts clean (prevents a stale
       // admin-scoped list, e.g. impersonation users, surviving into re-login).

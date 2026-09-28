@@ -9,7 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 import { colors, spacing, radius } from '@/theme/index';
 import { fonts } from '@/theme/typography';
 import { Icon } from '@/components/ui/Icon';
-import { useAuthStore, resolveRole } from '@/stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import {
   listImpersonatableUsers, startImpersonationForUser, type ImpersonatableRole, type ImpersonatableUser,
 } from '@/api/impersonation';
@@ -24,9 +24,7 @@ const ROLES: { key: ImpersonatableRole; label: string }[] = [
 export default function ImpersonatePicker() {
   const insets = useSafeAreaInsets();
   const admin = useAuthStore((s) => s.user);
-  const setTokens = useAuthStore((s) => s.setTokens);
-  const setSession = useAuthStore((s) => s.setSession);
-  const setImpersonation = useAuthStore((s) => s.setImpersonation);
+  const beginImpersonation = useAuthStore((s) => s.beginImpersonation);
   const logout = useAuthStore((s) => s.logout);
   const qc = useQueryClient();
 
@@ -71,13 +69,21 @@ export default function ImpersonatePicker() {
               await SecureStore.setItemAsync('imp_admin_user', JSON.stringify(admin));
 
               const res = await startImpersonationForUser(u.id, canWrite);
-              await setTokens(res.tokens.access_token, res.tokens.refresh_token ?? '');
-              await setSession(res.user, resolveRole(res.user));
-              await setImpersonation({ active: true, name: res.impersonation.name, write: res.impersonation.write });
-              qc.clear();
               setOpen(false);
-              router.replace('/');
+              // One step: tokens, target and the flag together. The root watcher routes
+              // into their app and wipes the cache (SessionSwitchWatcher) — this screen
+              // no longer navigates or clears on its own.
+              await beginImpersonation(
+                { access: res.tokens.access_token, refresh: res.tokens.refresh_token ?? '' },
+                res.user,
+                { active: true, name: res.impersonation.name, write: res.impersonation.write },
+              );
             } catch {
+              // Never leave a stash behind for a session that never started: the next
+              // ordinary 401 would take it for an impersonation ending.
+              await SecureStore.deleteItemAsync('imp_admin_token').catch(() => {});
+              await SecureStore.deleteItemAsync('imp_admin_refresh').catch(() => {});
+              await SecureStore.deleteItemAsync('imp_admin_user').catch(() => {});
               Alert.alert('تعذّر بدء التصفّح');
             } finally {
               setStarting(false);

@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
 import { colors, spacing, radius } from '@/theme/index';
 import { fonts } from '@/theme/typography';
-import { useAuthStore, resolveRole } from '@/stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
 import { exchangeImpersonation } from '@/api/impersonation';
 import { AuthScaffold } from '@/components/auth/AuthScaffold';
 
@@ -15,10 +14,7 @@ import { AuthScaffold } from '@/components/auth/AuthScaffold';
  */
 export default function ImpersonateScreen() {
   const { ticket } = useLocalSearchParams<{ ticket: string }>();
-  const setTokens = useAuthStore((s) => s.setTokens);
-  const setSession = useAuthStore((s) => s.setSession);
-  const setImpersonation = useAuthStore((s) => s.setImpersonation);
-  const qc = useQueryClient();
+  const beginImpersonation = useAuthStore((s) => s.beginImpersonation);
   const [error, setError] = useState(false);
   const ran = useRef(false);
 
@@ -29,18 +25,18 @@ export default function ImpersonateScreen() {
     (async () => {
       try {
         const res = await exchangeImpersonation(ticket as string);
-        // Order matters: tokens first, then session + impersonation flag, then a
-        // full cache wipe so none of the super-admin's prior data leaks through.
-        await setTokens(res.tokens.access_token, res.tokens.refresh_token ?? '');
-        await setSession(res.user, resolveRole(res.user));
-        await setImpersonation({ active: true, name: res.impersonation.name, write: res.impersonation.write });
-        qc.clear();
-        router.replace('/');
+        // One step: tokens, target and the impersonation flag together. The root watcher
+        // then routes into their app and wipes the cache (SessionSwitchWatcher).
+        await beginImpersonation(
+          { access: res.tokens.access_token, refresh: res.tokens.refresh_token ?? '' },
+          res.user,
+          { active: true, name: res.impersonation.name, write: res.impersonation.write },
+        );
       } catch {
         setError(true);
       }
     })();
-  }, [ticket, setTokens, setSession, setImpersonation, qc]);
+  }, [ticket, beginImpersonation]);
 
   if (error) {
     return (
