@@ -45,7 +45,9 @@ describe('Android 60 Hz window cap', () => {
     expect(once.indexOf('super.onCreate(null)')).toBeLessThan(once.indexOf(MARKER));
     expect(once).toContain('val cap = 60.0f');
     expect(once).toContain('preferredDisplayModeId');
-    expect(once).toContain('preferredMaxDisplayRefreshRate');
+    expect(once).toContain('preferredRefreshRate = best.refreshRate');
+    // Hidden framework field, not in the public SDK: it broke the CI compile (2026-10-01).
+    expect(once).not.toContain('preferredMaxDisplayRefreshRate');
     // Still inside onCreate: the next method follows the inserted block.
     expect(once.indexOf(MARKER)).toBeLessThan(once.indexOf('getMainComponentName'));
   });

@@ -9,10 +9,13 @@ const { withMainActivity } = require('expo/config-plugins');
  * 120 fps on a Helio G81 is sustained CPU + GPU work for no benefit the eye notices in an
  * attendance app. Games do the same thing through this exact API.
  *
- * Two mechanisms, because OEM skins honour them differently:
+ * Two public hints, because OEM skins honour them differently:
  *  - `preferredDisplayModeId` (API 23+): the display mode with the window's own resolution
  *    whose refresh rate is the highest at or below the cap. MIUI respects it.
- *  - `preferredMaxDisplayRefreshRate` (API 31+): the newer, resolution-independent form.
+ *  - `preferredRefreshRate` (API 21+): the same rate as a plain number, for skins that read
+ *    that instead.
+ * (NOT `preferredMaxDisplayRefreshRate`: it is a hidden framework field, absent from the
+ * public SDK — the 2026-10-01 CI build failed on it with "Unresolved reference".)
  * A phone whose only mode is 60 Hz, or that ignores both, is simply unchanged. The user's
  * own "Force peak refresh rate" developer option overrides the app, as it should.
  *
@@ -35,10 +38,12 @@ function kotlinSnippet(maxHz) {
           if (m.refreshRate > cap + 0.5f) continue
           if (best == null || m.refreshRate > best.refreshRate) best = m
         }
-        val params = window.attributes
-        if (best != null) params.preferredDisplayModeId = best.modeId
-        if (android.os.Build.VERSION.SDK_INT >= 31) params.preferredMaxDisplayRefreshRate = cap
-        window.attributes = params
+        if (best != null) {
+          val params = window.attributes
+          params.preferredDisplayModeId = best.modeId
+          params.preferredRefreshRate = best.refreshRate
+          window.attributes = params
+        }
       }
     } catch (e: Throwable) {
       // Never let a display quirk stop the app from starting.
