@@ -2,7 +2,9 @@ import type * as NotificationsTypes from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerDeviceToken, unregisterDeviceToken } from '@/api/device-tokens';
+import { useAuthStore } from '@/stores/authStore';
 
 // @react-native-firebase is loaded LAZILY, inside the iOS branch below, never at module
 // top. It is a native module: in Expo Go (or any build where it is missing/mis-linked)
@@ -19,6 +21,48 @@ import { registerDeviceToken, unregisterDeviceToken } from '@/api/device-tokens'
 
 /** Expo Go — no custom native modules, and no remote push since SDK 53. */
 const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+/**
+ * The registration the backend already holds, so it is not re-sent on every foreground.
+ *
+ * Every role layout calls registerForPushNotifications() on mount AND on every AppState
+ * «active» — a student who opens the app ten times a day sent ten identical POSTs, each
+ * one a radio wake-up on a phone that is mostly idle. The token hardly ever changes (FCM
+ * rotates it on reinstall or data clear), so the server is told again only when the token
+ * or the signed-in user differs, or once a day as a backstop. Persisted, so a cold start
+ * skips it too. Cleared on unregister and when the registration ever fails.
+ */
+const REGISTRATION_KEY = 'push_registration';
+const REGISTRATION_TTL_MS = 24 * 60 * 60 * 1000;
+let lastRegistration: { stamp: string; at: number } | null | undefined; // undefined = not read yet
+
+async function alreadyRegistered(stamp: string): Promise<boolean> {
+  if (lastRegistration === undefined) {
+    try {
+      const raw = await AsyncStorage.getItem(REGISTRATION_KEY);
+      lastRegistration = raw ? (JSON.parse(raw) as { stamp: string; at: number }) : null;
+    } catch {
+      lastRegistration = null;
+    }
+  }
+
+  return lastRegistration?.stamp === stamp && Date.now() - lastRegistration.at < REGISTRATION_TTL_MS;
+}
+
+async function rememberRegistration(stamp: string | null): Promise<void> {
+  lastRegistration = stamp ? { stamp, at: Date.now() } : null;
+  try {
+    if (stamp) await AsyncStorage.setItem(REGISTRATION_KEY, JSON.stringify(lastRegistration));
+    else await AsyncStorage.removeItem(REGISTRATION_KEY);
+  } catch {
+    // Memory alone still dedupes for this process.
+  }
+}
+
+/** Test seam: forget what was registered (a fresh process). */
+export function _resetRegistrationMemo(): void {
+  lastRegistration = undefined;
+}
 
 /** Push failures are otherwise invisible — every bail-out below returns null. */
 function pushLog(...args: unknown[]): void {
@@ -140,8 +184,19 @@ export async function registerForPushNotifications(): Promise<string | null> {
     const platform = Platform.OS;
     const deviceName = Device.deviceName ?? undefined;
 
+    const stamp = `${useAuthStore.getState().user?.id ?? 0}:${token}`;
+    if (await alreadyRegistered(stamp)) {
+      pushLog('token unchanged since last registration — skipped');
+      return token;
+    }
     pushLog('got FCM token', `${token.slice(0, 12)}…`, '- registering with backend');
-    await registerDeviceToken(token, platform, deviceName);
+    try {
+      await registerDeviceToken(token, platform, deviceName);
+    } catch (e) {
+      await rememberRegistration(null);
+      throw e;
+    }
+    await rememberRegistration(stamp);
     pushLog('registered OK');
 
     return token;
@@ -165,6 +220,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
 export async function unregisterPushNotifications(token: string | null): Promise<void> {
   if (!token) return;
+  await rememberRegistration(null);
   try {
     await unregisterDeviceToken(token);
   } catch {
