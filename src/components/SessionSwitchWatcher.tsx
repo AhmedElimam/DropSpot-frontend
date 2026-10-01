@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { router, type Href } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
+import { clearForSessionSwitch } from '@/utils/sessionCache';
 
 /**
  * The ONE place that reacts to entering or leaving an impersonation session.
@@ -12,7 +13,13 @@ import { useAuthStore } from '@/stores/authStore';
  * screen refetched with the revoked token, each 401 ran the client's own "session over"
  * path in parallel, and the app navigated twice while the session flipped under a render
  * (the crash on exit/logout, 2026-09-29). Now the store only changes the session, once,
- * and this watcher navigates once and clears the cache after the old screens are gone.
+ * and this watcher clears the cache once and navigates once.
+ *
+ * Order matters: clear FIRST, then navigate. The first version cleared a tick after
+ * navigating, which caught the new screens' first requests in flight and left them on a
+ * spinner for good (a mounted useQuery only re-attaches to a fresh query when it next
+ * renders — see src/utils/sessionCache.ts). Teacher home «حصص اليوم» after entering an
+ * impersonation session, founder 2026-10-01.
  *
  * Ordinary sign-in and sign-out are left alone: their screens and the role layouts
  * already route them.
@@ -33,13 +40,16 @@ export function SessionSwitchWatcher() {
     // Only an impersonation boundary is ours to route.
     if (!(was?.endsWith(':imp') || key?.endsWith(':imp'))) return;
 
+    // None of one person's cached data may survive into the other's. Now, while the only
+    // mounted observers are the OLD screens (about to unmount); the sweeps catch any of
+    // them that re-fetched under the new session on its way out.
+    // Fire-and-forget: a second switch inside the sweep window must not cancel the first
+    // one's sweeps — an unobserved polluted query is exactly what they exist to remove.
+    clearForSessionSwitch(qc);
     if (key !== null) {
       // Into the target's app, or back to the admin's picker: `/` routes by role.
       router.replace('/' as Href);
     }
-    // After the old screens have unmounted, so none of them refetches under the new
-    // session. None of one person's cached data may survive into the other's.
-    setTimeout(() => qc.clear(), 0);
   }, [isAuthenticated, userId, impersonating, qc]);
 
   return null;
