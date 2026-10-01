@@ -83,7 +83,10 @@ describe('each role layout lists exactly its visible tabs', () => {
 
       expect([...listed].sort()).toEqual([...shown].sort());
       expect(src).toContain('screenLayout={sceneLayout}');
-      expect(src).toContain('freezeOnBlur: VISIBLE_TABS.has(route.name)');
+      // Detail screens are never frozen (a frozen screen could not release itself); the
+      // visible tabs freeze only behind the super-admin flag (off by default, 2026-10-01).
+      expect(src).toContain('freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name)');
+      expect(src).toContain("useFeatureFlags().data?.freeze_hidden_tabs === true");
     });
   }
 });

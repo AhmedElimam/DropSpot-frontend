@@ -19,6 +19,7 @@ import { fonts } from '@/theme/typography';
 import { colors, radius } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 // Visible tabs stay mounted; detail screens (href: null) are released once they are not one
 // of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
@@ -164,10 +165,17 @@ export default function TeacherTabLayout() {
   // sync tick rebuilt 36 option objects and re-rendered the whole tab bar. On an
   // entry-level device that is a visible stutter on a screen the teacher never left.
   // Only `insets` and `t` actually affect the result, so that is all it depends on.
+  // Freezing the hidden tabs (react-freeze) is a FLAG, off by default (2026-10-01). With 5+
+  // tabs it is the documented cause of memory growing and the JS thread getting slower with
+  // every tab switch (react-native-screens #2971) — the teacher-side complaint word for
+  // word. Older detail screens are released by BoundedScene regardless. Super-admin flag
+  // «تجميد التبويبات المخفية», read from /app-config at launch, so the two can be compared
+  // on one phone without a rebuild.
+  const freezeTabs = useFeatureFlags().data?.freeze_hidden_tabs === true;
   const screenOptions = useMemo<ComponentProps<typeof Tabs>['screenOptions']>(
     () => ({ route }) => ({
         headerShown: false,
-        freezeOnBlur: VISIBLE_TABS.has(route.name),
+        freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),
         // Consistent scene background so a tab switch never flashes a white frame
         // between two screens (e.g. the black scanner and a cream screen).
         sceneStyle: { backgroundColor: colors.background },
@@ -218,7 +226,7 @@ export default function TeacherTabLayout() {
           </View>
         ),
     }),
-    [insets.bottom, t],
+    [insets.bottom, t, freezeTabs],
   );
 
   return (

@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 // Visible tabs stay mounted; detail screens (href: null) are released once they are not one
 // of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
@@ -45,6 +46,13 @@ export default function StudentTabLayout() {
   }, [isAuthenticated, impersonating]);
   useNotificationTaps();
 
+  // Freezing the hidden tabs (react-freeze) is a FLAG, off by default (2026-10-01). With 5+
+  // tabs it is the documented cause of memory growing and the JS thread getting slower with
+  // every tab switch (react-native-screens #2971) — the teacher-side complaint word for
+  // word. Older detail screens are released by BoundedScene regardless. Super-admin flag
+  // «تجميد التبويبات المخفية», read from /app-config at launch, so the two can be compared
+  // on one phone without a rebuild.
+  const freezeTabs = useFeatureFlags().data?.freeze_hidden_tabs === true;
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
@@ -66,7 +74,7 @@ export default function StudentTabLayout() {
       screenLayout={sceneLayout}
       screenOptions={({ route }) => ({
         headerShown: false,
-        freezeOnBlur: VISIBLE_TABS.has(route.name),
+        freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),
         tabBarStyle: {
           // OPAQUE on purpose. A translucent bar (this was rgba(...,0.92)) is a floating,
           // absolutely-positioned overlay, so every frame Android had to re-composite the
