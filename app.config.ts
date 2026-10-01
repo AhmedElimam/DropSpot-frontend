@@ -137,6 +137,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // after the release APK has logged in on a real device.
   // Native Firebase — provides an FCM token on iOS (expo-notifications only yields an
   // APNs token there, which our direct-FCM backend can't target). Reads GoogleService-Info.plist.
+  // Android: hold the window at 60 Hz. 120 Hz budget panels (Redmi 14C) drew every frame
+  // twice as often on a chip no faster than a 60 Hz phone's — sustained heat for nothing an
+  // attendance app needs. Build-time (MainActivity), so it ships only in a native build.
+  ['./plugins/withAndroidRefreshRateCap', { maxHz: 60 }],
   // withRNFirebaseDisableSPM MUST come before the RNFirebase plugins so the Podfile global is set.
   './plugins/withRNFirebaseDisableSPM',
   '@react-native-firebase/app',
