@@ -846,7 +846,27 @@
     "support_sub": "افتح تذكرة وسنردّ عليك",
     "invoices_title": "الفواتير والمدفوعات",
     "no_updates": "لا توجد تحديثات بعد",
-    "welcome": "أهلاً بك"
+    "welcome": "أهلاً بك",
+    "next_session": "الحصة القادمة",
+    "all_sessions": "كل الحصص",
+    "needs_you": "يحتاج انتباهك",
+    "quick": "اختصارات",
+    "collect": "تحصيل",
+    "phones_title": "أرقام تحتاج تأكيد",
+    "phones_sub": "{{count}} رقم لم يُثبت صاحبه ملكيته — راجِعها قبل أن تحتاج التواصل",
+    "cash_attention_sub": "فروق مفتوحة أو تسليمات بانتظار تأكيدك",
+    "tickets_title": "تذاكر أولياء الأمور",
+    "tickets_sub": "رسائل مفتوحة بانتظار ردّك",
+    "good_morning": "صباح الخير",
+    "good_evening": "مساء الخير",
+    "stat_sessions": "حصص اليوم",
+    "stat_present": "حضروا اليوم",
+    "stat_attention": "يحتاج انتباهك",
+    "starts_in": "تبدأ بعد {{n}} دقيقة",
+    "day_done": "انتهت حصص اليوم",
+    "see_week": "اعرض جدول الأسبوع في تبويب الحصص",
+    "rest_of_day": "بقية اليوم",
+    "insights_short": "الرؤى"
   },
   "swap": {
     "title": "طلب موعد بديل",
@@ -1595,7 +1615,8 @@
     "parent_call_reported_title": "تم إشعار الطالب",
     "parent_call_reported_body": "سيصل الطالب إشعارًا لإبلاغ ولي أمره بالتواصل معك بشكل عاجل.",
     "parent_call_report_failed": "تعذّر إرسال الإشعار. حاول مرة أخرى.",
-    "tab_cash": "الحسابات"
+    "tab_cash": "الحسابات",
+    "guest": "ضيف"
   },
   "assistants": {
     "title": "المساعدون",
@@ -1665,7 +1686,8 @@
     "cash_expenses": "المصاريف",
     "cash_difference": "فرق غير مفسَّر",
     "cash_unknown": "غير معروف — لم يتم الجرد",
-    "cash_none": "لا توجد أسابيع في هذه الفترة"
+    "cash_none": "لا توجد أسابيع في هذه الفترة",
+    "load_failed": "تعذّر تحميل الرؤى، اسحب للأسفل لإعادة المحاولة"
   },
   "own_number": {
     "title": "تأكيد رقم هاتفك",
@@ -1965,18 +1987,6 @@
     "setting_bulk_max": "حد القبول الجماعي (ج.م)",
     "setting_bulk_max_hint": "المصاريف الأعلى من هذا المبلغ تحتاج مراجعة فردية."
   },
-  "home": {
-    "next_session": "الحصة القادمة",
-    "all_sessions": "كل الحصص",
-    "needs_you": "يحتاج انتباهك",
-    "quick": "اختصارات",
-    "collect": "تحصيل",
-    "phones_title": "أرقام تحتاج تأكيد",
-    "phones_sub": "{{count}} رقم لم يُثبت صاحبه ملكيته — راجِعها قبل أن تحتاج التواصل",
-    "cash_attention_sub": "فروق مفتوحة أو تسليمات بانتظار تأكيدك",
-    "tickets_title": "تذاكر أولياء الأمور",
-    "tickets_sub": "رسائل مفتوحة بانتظار ردّك"
-  },
   "sessions_tab": {
     "scan": "مسح الحضور",
     "sheet": "كشف الحضور",
@@ -2011,5 +2021,25 @@
     "tickets_sub": "محادثات أولياء الأمور معك",
     "notifications_title": "الإشعارات",
     "notifications_sub": "كل ما وصلك من إشعارات"
+  },
+  "session_ui": {
+    "upcoming": "قادمة",
+    "minutes": "{{n}} دقيقة",
+    "present_of": "حضر {{n}} من {{of}}",
+    "absent_n": "غاب {{n}}",
+    "prev_week": "الأسبوع السابق",
+    "next_week": "الأسبوع التالي",
+    "day_summary": "{{n}} حصص",
+    "no_sessions_day": "لا حصص في هذا اليوم",
+    "pick_another_day": "اختر يومًا آخر من الشريط بالأعلى",
+    "settings": "إعدادات الحصة",
+    "stat_present": "حضور",
+    "stat_absent": "غياب",
+    "stat_awaiting": "لم يُسجَّل",
+    "clear_filter": "عرض الكل",
+    "rest_absent": "تسجيل الباقين ({{n}}) غياب",
+    "rest_absent_title": "تسجيل الباقين غياب؟",
+    "rest_absent_body": "سيُسجَّل {{n}} طالب لم يُسجَّل حضورهم بعد كغائبين. يمكنك تغيير أي طالب بعدها.",
+    "rest_absent_confirm": "تسجيلهم غياب"
   }
 }
