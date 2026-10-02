@@ -65,6 +65,8 @@ export interface SessionDetail {
   is_cancelled: boolean;
   is_completed: boolean;
   is_past: boolean;
+  /** Session length; with scheduled_at it says live / upcoming / ended. Older servers omit it (60). */
+  duration_minutes?: number | null;
   sheet_expected: boolean;
   sheet_excluded: boolean;
   sheet_max_mark: number | null;

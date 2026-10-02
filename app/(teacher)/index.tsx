@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
@@ -30,16 +30,7 @@ import { usePhoneConfirmations } from '@/hooks/usePhoneConfirmations';
 import { useTickets } from '@/hooks/useTickets';
 import { formatNumber, formatDayDate } from '@/utils/format';
 import { pickCurrentSession, goToScan } from '@/utils/sessionNav';
-
-/** Re-render once a minute so «تبدأ بعد ١٢ دقيقة» and the live highlight stay true. */
-function useMinuteClock(): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
+import { useMinuteClock } from '@/hooks/useMinuteClock';
 
 function greetingKey(now: number): string {
   const h = new Date(now).getHours();

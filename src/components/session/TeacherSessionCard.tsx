@@ -7,7 +7,9 @@ import { Icon } from '@/components/ui/Icon';
 import { AttendanceBar } from './AttendanceVisuals';
 import { formatNumber } from '@/utils/format';
 
-export type SessionPhase = 'live' | 'upcoming' | 'done' | 'cancelled';
+import { sessionPhase, type SessionPhase } from '@/utils/sessionPhase';
+
+export { sessionPhase, type SessionPhase };
 
 export interface SessionCardData {
   id: string;
@@ -29,17 +31,6 @@ const PHASE: Record<SessionPhase, { stripe: string; chipBg: string; chipText: st
   done: { stripe: colors.borderStrong, chipBg: colors.surfaceSunken, chipText: colors.textSecondary, key: 'session.completed' },
   cancelled: { stripe: colors.danger, chipBg: colors.dangerLight, chipText: colors.dangerText, key: 'session.cancelled' },
 };
-
-/** Where a session stands now, from its status and its own clock (30 min early = live). */
-export function sessionPhase(s: Pick<SessionCardData, 'status' | 'scheduled_at' | 'duration_minutes'>, now: number): SessionPhase {
-  if (s.status === 'cancelled') return 'cancelled';
-  if (s.status === 'completed') return 'done';
-  if (!s.scheduled_at) return 'upcoming';
-  const start = new Date(s.scheduled_at).getTime();
-  const end = start + (s.duration_minutes ?? 60) * 60_000;
-  if (now >= start - 30 * 60_000 && now <= end) return 'live';
-  return now > end ? 'done' : 'upcoming';
-}
 
 /**
  * The ONE session card (Home timeline, Sessions tab): a coloured stripe on the start edge

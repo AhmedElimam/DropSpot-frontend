@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/layout/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AttendanceRing } from '@/components/session/AttendanceVisuals';
+import { sessionPhase } from '@/utils/sessionPhase';
+import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
@@ -104,8 +106,12 @@ export default function SessionDetailScreen() {
   const mark = (studentId: number, status: Status) =>
     controls.mark.mutate({ studentId, status }, { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('common.error')) });
 
-  const started = s?.scheduled_at ? Date.now() >= new Date(s.scheduled_at).getTime() : false;
-  const live = !!s && !s.is_cancelled && !s.is_completed;
+  // One rule with the cards: live from 30 min before start until start + length; after that
+  // the session has ended even if nobody closed it, so it never reads «جارية الآن» again.
+  const now = useMinuteClock();
+  const phase = s ? sessionPhase({ status: s.is_cancelled ? 'cancelled' : s.is_completed ? 'completed' : s.status, scheduled_at: s.scheduled_at, duration_minutes: s.duration_minutes }, now) : 'upcoming';
+  const started = s?.scheduled_at ? now >= new Date(s.scheduled_at).getTime() : false;
+  const live = phase === 'live';
   const awaitingRows = baseList.filter((a) => bucketOf(a.status) === 'awaiting');
 
   const markRestAbsent = () => {
@@ -212,7 +218,10 @@ export default function SessionDetailScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md }}>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  {s.is_cancelled ? <Chip label={t('session.cancelled')} bg={colors.danger} /> : s.is_completed ? <Chip label={t('session.completed')} bg="rgba(255,255,255,0.2)" /> : started ? <Chip label={t('teacher.live_now')} bg={colors.success} /> : null}
+                  {phase === 'cancelled' ? <Chip label={t('session.cancelled')} bg={colors.danger} />
+                    : phase === 'done' ? <Chip label={t('session.completed')} bg="rgba(255,255,255,0.2)" />
+                    : phase === 'live' ? <Chip label={t('teacher.live_now')} bg={colors.success} />
+                    : <Chip label={t('session_ui.upcoming')} bg="rgba(255,255,255,0.2)" />}
                   {s.is_exam ? <Chip label={t('teacher.type_quiz_exam')} bg={colors.accent} dark /> : null}
                 </View>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 6 }} numberOfLines={2}>{s.course_name ?? t('session.session_details')}</Text>

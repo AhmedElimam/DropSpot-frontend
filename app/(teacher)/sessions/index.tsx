@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useTeacherSessionsWindow } from '@/hooks/useTeacherSessionHistory';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -52,8 +53,7 @@ export default function TeacherSessions() {
   const to = key(days[6]);
   const q = useTeacherSessionsWindow(from, to);
   const { refreshing, onRefresh } = usePullRefresh(q.refetch);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(id); }, []);
+  const now = useMinuteClock();
 
   const byDay = useMemo(() => {
     const m = new Map<string, SessionCardData[]>();
