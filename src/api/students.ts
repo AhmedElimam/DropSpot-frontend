@@ -207,6 +207,26 @@ export interface StudentAttendanceRow {
   method: string | null;
 }
 
+/** One row of the profile's «تسجيل سريع»: a recent session and this student's record in it. */
+export interface QuickSession {
+  id: string;
+  course_name: string | null;
+  scheduled_at: string | null;
+  date: string | null;
+  time: string | null;
+  duration_minutes: number | null;
+  status: string;
+  is_exam: boolean;
+  sheet_expected: boolean;
+  sheet_max_mark: number | null;
+  attendance: {
+    status: 'present' | 'late' | 'absent' | 'excused' | 'not_recorded';
+    checked_in_at: string | null;
+    mark: number | null;
+    sheet_marked: boolean;
+  };
+}
+
 export interface StudentDetail {
   id: string;
   name: string | null;
@@ -214,6 +234,8 @@ export interface StudentDetail {
   grade_name: string | null;
   courses: StudentCourse[];
   parents: StudentParent[];
+  /** Today + the last 14 days of this student's sessions (older servers omit it). */
+  quick_sessions?: QuickSession[];
   parent_number_notice?: boolean;
   parent_number_notice_message?: string | null;
   /**

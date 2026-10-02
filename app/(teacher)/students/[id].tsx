@@ -10,6 +10,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Avatar } from '@/components/layout/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { QuickRecordCard } from '@/components/student/QuickRecordCard';
 import { useStudentDetail } from '@/hooks/useStudents';
 import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -449,6 +450,11 @@ export default function StudentDetailScreen() {
               ) : null}
             </View>
           </View>
+
+          {/* «تسجيل سريع» — presence + sheet / exam mark for a recent session, one tap each. */}
+          {s.quick_sessions && s.quick_sessions.length > 0 ? (
+            <QuickRecordCard studentId={Number(s.id)} sessions={s.quick_sessions} canMark={canMarkManual} onChanged={() => { void refetch(); }} />
+          ) : null}
 
           {/* A student who studies with another teacher too, whose number nobody has proved.
               It sits at the top because it is not this teacher's problem alone: a student is

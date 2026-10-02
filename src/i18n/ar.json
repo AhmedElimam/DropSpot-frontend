@@ -2077,5 +2077,17 @@
     "no_sessions_yet": "لا حصص بعد",
     "no_grade": "بدون صف",
     "showing": "يظهر {{n}}"
+  },
+  "quick_record": {
+    "title": "تسجيل سريع",
+    "checked_in_at": "دخل {{time}}",
+    "status_now": "الحالة: {{status}}",
+    "sheet_mark": "درجة الشيت",
+    "exam_mark": "درجة الامتحان",
+    "mark_needs_attendance": "سجّل حضوره أولًا لرصد الدرجة.",
+    "mark_after_sync": "تُرصد الدرجة بعد مزامنة الحضور.",
+    "mark_saved": "الدرجة المرصودة: {{mark}}",
+    "bad_mark": "اكتب الدرجة رقمًا.",
+    "over_max": "الدرجة أكبر من الدرجة العظمى ({{max}})."
   }
 }
