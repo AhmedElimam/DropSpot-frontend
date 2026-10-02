@@ -12,14 +12,9 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { isArabicName, isEgyptPhone } from '@/utils/validators';
 import {
   getInvitationOptions, createInvitation,
-  type BookingSecures, type CreateInvitationPayload, type DedupeMatch,
+  type CreateInvitationPayload, type DedupeMatch,
 } from '@/api/invitation';
-
-const SECURES: { key: BookingSecures; label: string }[] = [
-  { key: 'session', label: 'الحصص' },
-  { key: 'booklet', label: 'الملزمة' },
-  { key: 'flat', label: 'حجز مبدئي' },
-];
+import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
 
 /**
  * Phone invitation — full parity with the web /invitations page: pick a course
@@ -41,15 +36,9 @@ export default function InvitePhone() {
   const [name, setName] = useState('');
   const [studentPhone, setStudentPhone] = useState('');
   const [parentPhone, setParentPhone] = useState('');
-  const [secures, setSecures] = useState<BookingSecures | null>(null);
-  const [downPayment, setDownPayment] = useState('');
-  const [downPaid, setDownPaid] = useState('');
-  // Per-student booking-down-payment switch (matches the web invite form). A plain
-  // boolean the Switch fully owns — seeded from the teacher's requires_down_payment
-  // default when a course is picked. (Was a null-then-derive value, which as a
-  // CONTROLLED Switch value on Android could fail to reveal the amount/paid inputs
-  // on toggle.)
-  const [bookingOn, setBookingOn] = useState(false);
+  // The enrolment terms (position in the month, دفعة, booklet) — the one sheet every door
+  // shows; seeded from the teacher's defaults for the chosen course.
+  const terms = useEnrollmentTerms(courseId);
   const [busy, setBusy] = useState(false);
   const [matches, setMatches] = useState<DedupeMatch[] | null>(null);
 
@@ -71,27 +60,7 @@ export default function InvitePhone() {
     setCourseId(id);
     const c = options?.courses.find((x) => x.id === id);
     setTermId(c?.academic_session_id ?? termId);
-    // Seed the booking switch + secures from the teacher's default when a course is
-    // first picked; the teacher can still flip it per student below.
-    setBookingOn(!!options?.requires_down_payment);
-    if (options?.requires_down_payment && !secures) setSecures(options.default_secures);
   };
-
-  // The switch defaults to the teacher's setting (seeded on course-select) but can be
-  // flipped either way per student — a teacher who normally takes a دفعة can waive it
-  // for one family, and one who normally doesn't can charge a single student.
-  const dpEnabled = bookingOn;
-  const showDpSection = courseId != null;
-
-  // Live remainder, so the teacher sees the exact figure the family's app will show.
-  const dpTotalNum = Number(downPayment) || 0;
-  const dpPaidNum = Number(downPaid) || 0;
-  const dpOverpaid = dpPaidNum > dpTotalNum && dpTotalNum > 0;
-  const dpHint = dpOverpaid
-    ? t('invite_phone.paid_over')
-    : dpTotalNum > 0 && dpPaidNum > 0
-      ? t('invite_phone.paid_remaining').replace('{amount}', formatMoney(dpTotalNum - dpPaidNum))
-      : t('invite_phone.paid_hint');
 
   // Inline validation mirroring the server rules — a provided name must be Arabic and a
   // provided phone must be a full Egyptian mobile (01xxxxxxxxx).
@@ -102,7 +71,7 @@ export default function InvitePhone() {
     || (parentPhone.trim() !== '' && isEgyptPhone(parentPhone));
 
   const canSubmit = courseId != null && termId != null && hasValidPhone
-    && !nameError && !studentPhoneError && !parentPhoneError && !dpOverpaid && !busy;
+    && !nameError && !studentPhoneError && !parentPhoneError && !terms.overpaid && !busy;
 
   const buildPayload = (extra?: Partial<CreateInvitationPayload>): CreateInvitationPayload => ({
     course_id: courseId!,
@@ -111,16 +80,9 @@ export default function InvitePhone() {
     invited_student_name: name.trim() || undefined,
     student_phone: studentPhone.trim() || undefined,
     parent_phone: parentPhone.trim() || undefined,
-    // Toggle OFF still sends the key with a null amount — the API reads that as an
-    // explicit "no دفعة for this student" and skips the charge, rather than falling
-    // back to the teacher/course default (which omitting the key would do).
-    ...(showDpSection
-      ? {
-          down_payment_amount: !dpEnabled || downPayment.trim() === '' ? null : Number(downPayment),
-          down_payment_paid: !dpEnabled || downPaid.trim() === '' ? null : Number(downPaid),
-          booking_secures: secures ?? options?.default_secures,
-        }
-      : {}),
+    // The shared enrolment terms: position, دفعة (OFF = a present null = no دفعة for this
+    // student; ON + blank = the default), booklet.
+    ...terms.payload(),
     ...extra,
   });
 
@@ -250,63 +212,8 @@ export default function InvitePhone() {
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>{t('invite_phone.phone_hint')}</Text>
             </View>
 
-            {/* Booking down-payment — an explicit per-student switch (parity with the
-                web invite form), defaulting to the teacher's requires_down_payment. */}
-            {showDpSection ? (
-              <View style={card}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
-                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
-                    {t('invite_phone.booking_toggle')}
-                  </Text>
-                  <Switch
-                    value={dpEnabled}
-                    onValueChange={setBookingOn}
-                    trackColor={{ true: colors.brand, false: colors.border }}
-                  />
-                </View>
-
-                {dpEnabled ? (
-                  <View style={{ marginTop: spacing.md }}>
-                    <Lbl>{t('invite_phone.down_payment')}</Lbl>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
-                      {SECURES.map((s) => {
-                        const active = (secures ?? options?.default_secures) === s.key;
-                        return (
-                          <TouchableOpacity key={s.key} onPress={() => setSecures(s.key)} activeOpacity={0.8}
-                            style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: active ? colors.brand : colors.border, backgroundColor: active ? colors.brand + '18' : colors.surface }}>
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.brand : colors.textSecondary }}>{s.label}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                    <TextInput
-                      value={downPayment}
-                      onChangeText={(v) => setDownPayment(v.replace(/[^0-9.]/g, ''))}
-                      keyboardType="numeric"
-                      placeholder={course?.booking_price != null ? String(course.booking_price) : t('invite_phone.amount_ph')}
-                      placeholderTextColor={colors.textTertiary}
-                      style={input}
-                    />
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>{t('invite_phone.amount_hint')}</Text>
-
-                    <View style={{ marginTop: spacing.md }}>
-                      <Lbl>{t('invite_phone.paid_now')}</Lbl>
-                      <TextInput
-                        value={downPaid}
-                        onChangeText={(v) => setDownPaid(v.replace(/[^0-9.]/g, ''))}
-                        keyboardType="numeric"
-                        placeholder={t('invite_phone.paid_ph')}
-                        placeholderTextColor={colors.textTertiary}
-                        style={input}
-                      />
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: dpOverpaid ? colors.warning : colors.textTertiary, marginTop: spacing.sm }}>
-                        {dpHint}
-                      </Text>
-                    </View>
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
+            {/* شروط التسجيل — the same sheet every door shows. */}
+            {courseId != null ? <EnrollmentTermsSheet terms={terms} /> : null}
 
             <TouchableOpacity onPress={() => send()} disabled={!canSubmit} activeOpacity={0.85}
               style={{ minHeight: 52, borderRadius: radius.lg, backgroundColor: canSubmit ? colors.brand : colors.border, justifyContent: 'center', alignItems: 'center' }}>

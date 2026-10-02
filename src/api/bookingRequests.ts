@@ -6,6 +6,7 @@ import client from './client';
  */
 export interface BookingRequest {
   id: number;
+  course_id: number | null;
   student_name: string;
   student_code: string | null;
   grade_name: string | null;
@@ -19,8 +20,9 @@ export async function getBookingRequests(): Promise<BookingRequest[]> {
   return rows.map((r) => (r.attributes ?? r) as BookingRequest);
 }
 
-export async function acceptBookingRequest(id: number): Promise<void> {
-  await client.post(`/teacher/booking-requests/${id}/accept`);
+/** Accept, optionally stating the enrolment terms (position, دفعة, booklet) like every other door. */
+export async function acceptBookingRequest(id: number, terms: import('./enrollmentTerms').EnrollmentTermsInput = {}): Promise<void> {
+  await client.post(`/teacher/booking-requests/${id}/accept`, terms);
 }
 
 export async function rejectBookingRequest(id: number): Promise<void> {

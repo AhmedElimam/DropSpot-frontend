@@ -96,7 +96,17 @@ export default function TeacherHome() {
           <Icon name="scan" size={24} color={highlighted ? '#fff' : colors.brand} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{s.course_name ?? '—'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{s.course_name ?? '—'}</Text>
+            {/* Where this session sits in the course's billing month («الحصة ٣ من ٨»). */}
+            {s.cycle_position ? (
+              <View style={{ backgroundColor: highlighted ? colors.successLight : colors.brandTint, borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 8 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: highlighted ? colors.successText : colors.brand }}>
+                  {t('teacher.position_of', { n: s.cycle_position.n, of: s.cycle_position.of })}
+                </Text>
+              </View>
+            ) : null}
+          </View>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>
             {s.time ?? ''}{s.location ? ` · ${s.location}` : ''}
           </Text>

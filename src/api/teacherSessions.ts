@@ -13,6 +13,8 @@ export interface SessionRow {
   location: string | null;
   status: string;
   checked_in_count: number;
+  /** «الحصة N من M» in the course's billing month; null when unknown. */
+  cycle_position?: { n: number; of: number } | null;
 }
 
 export interface SessionsPage {

@@ -23,6 +23,7 @@ import {
   type PreCardScanStudent,
 } from '@/api/preCardInvitation';
 import { TeacherTip } from '@/components/TeacherTip';
+import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
 
 type Review =
   | { kind: 'match'; student: LookupStudent; value: string }
@@ -48,6 +49,9 @@ export default function TeacherEnroll() {
    * per course and shown in the bar, so it is never silently applied.
    */
   const [joinsAt, setJoinsAt] = useState(1);
+  // The rest of the enrolment terms (دفعة, booklet) — the same sheet every door shows; the
+  // position is driven by the chip row above the camera and mirrored into it.
+  const terms = useEnrollmentTerms(course?.course_id ?? null);
   const [review, setReview] = useState<Review>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
@@ -106,6 +110,7 @@ export default function TeacherEnroll() {
         course_id: course!.course_id,
         academic_session_id: course!.academic_session_id,
         accept_grade_mismatch: vars.acceptGradeMismatch,
+        ...terms.payload(),
         joins_at_session: joinsAt,
       }),
   });
@@ -380,11 +385,15 @@ export default function TeacherEnroll() {
                   {review.student.report_notice_message}
                 </Text>
               ) : null}
+              {/* دفعة / booklet for this student (the position is the chip row above the camera). */}
+              <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <EnrollmentTermsSheet terms={terms} compact hidePosition />
+              </ScrollView>
               <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
                 <TouchableOpacity onPress={dismiss} activeOpacity={0.85} style={{ flex: 1, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger }}>رفض</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={accept} disabled={enroll.isPending} activeOpacity={0.85} style={{ flex: 2, backgroundColor: colors.success, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
+                <TouchableOpacity onPress={accept} disabled={enroll.isPending || terms.overpaid} activeOpacity={0.85} style={{ flex: 2, backgroundColor: colors.success, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
                   {enroll.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>قبول وتسجيل</Text>}
                 </TouchableOpacity>
               </View>

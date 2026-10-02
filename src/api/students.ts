@@ -90,7 +90,7 @@ export interface EnrollResult {
 // Enroll an existing student into the course (schedule master) from their scanned
 // card. Enrollment is course-level; the home slot is auto-bound server-side when
 // the course has a single weekly slot.
-export async function enrollByCard(payload: {
+export async function enrollByCard(payload: import('./enrollmentTerms').EnrollmentTermsInput & {
   method: 'qr' | 'code';
   value: string;
   course_id: number;

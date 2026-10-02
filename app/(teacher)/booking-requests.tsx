@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal, KeyboardAvoidingView } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +12,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { getBookingRequests, acceptBookingRequest, rejectBookingRequest, type BookingRequest } from '@/api/bookingRequests';
+import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '';
@@ -31,9 +33,13 @@ export default function BookingRequestsScreen() {
     qc.invalidateQueries({ queryKey: ['teacher-students'] });
   };
 
+  // Accepting states the enrolment terms like every other door (position in the month,
+  // دفعة, booklet) — a family that paid at the desk is recorded here, not re-billed.
+  const [accepting, setAccepting] = useState<BookingRequest | null>(null);
+  const terms = useEnrollmentTerms(accepting?.course_id ?? null);
   const accept = useMutation({
-    mutationFn: (id: number) => acceptBookingRequest(id),
-    onSuccess: () => { invalidate(); Alert.alert(t('booking_requests.accepted')); },
+    mutationFn: (r: BookingRequest) => acceptBookingRequest(r.id, terms.payload()),
+    onSuccess: () => { setAccepting(null); invalidate(); Alert.alert(t('booking_requests.accepted')); },
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
   const reject = useMutation({
@@ -42,12 +48,7 @@ export default function BookingRequestsScreen() {
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
 
-  const confirmAccept = (r: BookingRequest) => {
-    Alert.alert(t('booking_requests.accept_confirm_title'), t('booking_requests.accept_confirm_hint', { name: r.student_name, course: r.course_name ?? '' }), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('booking_requests.accept'), onPress: () => accept.mutate(r.id) },
-    ]);
-  };
+  const confirmAccept = (r: BookingRequest) => setAccepting(r);
   const confirmReject = (r: BookingRequest) => {
     Alert.alert(t('booking_requests.reject_confirm_title'), t('booking_requests.reject_confirm_hint', { name: r.student_name }), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -111,6 +112,31 @@ export default function BookingRequestsScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* Accept sheet: the student, then the same «شروط التسجيل» every door shows. */}
+      <Modal visible={!!accepting} transparent animationType="slide" onRequestClose={() => setAccepting(null)}>
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: '90%', paddingBottom: insets.bottom + spacing.lg }}>
+            <ScrollView contentContainerStyle={{ padding: spacing.xl }} keyboardShouldPersistTaps="handled">
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('booking_requests.accept_confirm_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.lg }}>
+                {accepting ? t('booking_requests.accept_confirm_hint', { name: accepting.student_name, course: accepting.course_name ?? '' }) : ''}
+              </Text>
+              <EnrollmentTermsSheet terms={terms} />
+              <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
+                <TouchableOpacity onPress={() => setAccepting(null)} disabled={accept.isPending} activeOpacity={0.85}
+                  style={{ flex: 1, height: 50, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>{t('common.cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => accepting && accept.mutate(accepting)} disabled={accept.isPending || terms.overpaid || terms.isLoading} activeOpacity={0.85}
+                  style={{ flex: 2, height: 50, borderRadius: radius.lg, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', opacity: terms.overpaid ? 0.5 : 1 }}>
+                  {accept.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('booking_requests.accept')}</Text>}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }

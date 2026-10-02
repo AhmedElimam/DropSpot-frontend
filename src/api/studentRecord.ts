@@ -3,17 +3,16 @@ import client from './client';
 /** Fast door-side recording — name + parent phone → dormant student (activates later). */
 export type ParentRelationship = 'father' | 'mother' | 'guardian';
 
-export interface RecordStudentPayload {
+import type { EnrollmentTermsInput } from './enrollmentTerms';
+
+/** The shared enrolment terms (position, دفعة, booklet) ride along — see src/api/enrollmentTerms.ts. */
+export interface RecordStudentPayload extends EnrollmentTermsInput {
   student_name: string;
   parent_phone: string;
   student_phone?: string | null;
   /** Optional — the parent can set/modify these at setup before first login. */
   parent_name?: string;
   relationship?: ParentRelationship;
-  /** Booking down-payment (دفعة): explicit amount (null = waive); omit for default. */
-  down_payment_amount?: number | null;
-  down_payment_paid?: number | null;
-  booking_secures?: 'session' | 'booklet' | 'flat';
   course_id: number;
   dedupe_decision?: 'new' | 'link';
   link_student_id?: number;

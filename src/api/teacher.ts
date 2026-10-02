@@ -37,6 +37,8 @@ export interface TeacherSession {
   location: string | null;
   status: string;
   is_current: boolean;
+  /** «الحصة N من M» in the course's billing month; null when the timeline has no date for it. */
+  cycle_position?: { n: number; of: number } | null;
 }
 
 export async function getTeacherTodaySessions(): Promise<TeacherSession[]> {

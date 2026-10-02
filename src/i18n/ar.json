@@ -1115,6 +1115,7 @@
   "teacher": {
     "scan_mode": "وضع المسح",
     "live_now": "جارية الآن",
+    "position_of": "الحصة {{n}} من {{of}}",
     "pick_current_session": "اختر الحصة الجارية",
     "no_live_session": "لا توجد حصة جارية الآن — اختر حصة",
     "pick_any_hint": "اختر أي حصة من اليوم للبدء بالمسح",
