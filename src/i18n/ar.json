@@ -699,7 +699,20 @@
     "new_grade_desc": "{{name}} حصل على {{score}}% في اختبار {{quiz}}",
     "invoice_reminder_desc": "موعد استحقاق الفاتورة {{amount}} ريال",
     "schedule_change_desc": "تم تغيير موعد حصة {{course}} لـ {{name}}",
-    "empty": "لا توجد إشعارات جديدة"
+    "empty": "لا توجد إشعارات جديدة",
+    "swipe_read": "مقروء",
+    "swipe_unread": "غير مقروء",
+    "swipe_hide": "إخفاء",
+    "swipe_a11y": "اسحب لتعليمه مقروءًا أو لإخفائه",
+    "swipe_hint": "اسحب الإشعار لليسار لتعليمه مقروءًا أو غير مقروء، ولليمين لإخفائه.",
+    "unread_summary": "{{n}} غير مقروء",
+    "all_read_summary": "قرأت كل شيء",
+    "cat_attendance": "الحضور",
+    "cat_money": "المال",
+    "cat_students": "الطلاب",
+    "cat_followup": "المتابعة",
+    "hidden_toast": "أُخفي الإشعار",
+    "undo": "تراجع"
   },
   "today": {
     "title": "متابعة اليوم",
@@ -2020,7 +2033,13 @@
     "pending_collections_sub": "كل ما هو مستحق على الطلاب — فواتير وملازم ودفعات",
     "tickets_sub": "محادثات أولياء الأمور معك",
     "notifications_title": "الإشعارات",
-    "notifications_sub": "كل ما وصلك من إشعارات"
+    "notifications_sub": "كل ما وصلك من إشعارات",
+    "waiting_summary": "{{n}} بانتظارك",
+    "all_clear": "لا شيء ينتظرك الآن",
+    "group_students_sub": "الإضافة، الحجوزات، الكروت",
+    "group_schedule_sub": "المقررات، الأماكن، الحصص الخاصة",
+    "group_money_sub": "التحصيل، الخزنة، المصاريف",
+    "group_followup_sub": "الطلبات، التذاكر، الإشعارات"
   },
   "session_ui": {
     "upcoming": "قادمة",
@@ -2041,5 +2060,17 @@
     "rest_absent_title": "تسجيل الباقين غياب؟",
     "rest_absent_body": "سيُسجَّل {{n}} طالب لم يُسجَّل حضورهم بعد كغائبين. يمكنك تغيير أي طالب بعدها.",
     "rest_absent_confirm": "تسجيلهم غياب"
+  },
+  "students_ui": {
+    "summary": "{{n}} طالب · {{c}} مقرر",
+    "add": "إضافة",
+    "tile_all": "كل الطلاب",
+    "tile_low": "حضور ضعيف",
+    "tile_overdue": "متأخر في الدفع",
+    "overdue": "متأخر في الدفع",
+    "attended_of": "{{n}} من {{of}}",
+    "no_sessions_yet": "لا حصص بعد",
+    "no_grade": "بدون صف",
+    "showing": "يظهر {{n}}"
   }
 }
