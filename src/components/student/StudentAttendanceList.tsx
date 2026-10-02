@@ -12,6 +12,7 @@ import { sessionPhase } from '@/utils/sessionPhase';
 import { dayLabel, formatNumber } from '@/utils/format';
 import type { QuickSession, StudentAttendanceRow } from '@/api/students';
 import type { SessionDetail } from '@/api/teacherSessions';
+import { SessionKindToggle, toLatinNumber, type SessionKind } from '@/components/session/SessionMarks';
 
 type Status = 'present' | 'late' | 'absent' | 'excused';
 type Record_ = QuickSession['attendance'] & { pending?: boolean };
@@ -32,10 +33,6 @@ const MARK_OPTIONS: { status: Status; color: string; icon: IconName }[] = [
 const DAY_FMT = new Intl.DateTimeFormat('ar-EG', { weekday: 'short' });
 
 const PREVIEW = 12;
-
-function toLatinNumber(raw: string): string {
-  return raw.trim().replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace('٫', '.');
-}
 
 /** The date tile at the row's start — where the session sheet has the avatar. */
 function DateTile({ iso, live }: { iso: string | null; live: boolean }) {
@@ -155,6 +152,13 @@ function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded
   useEffect(() => { setDraft(rec.mark != null ? String(rec.mark) : ''); }, [rec.mark]);
   const attended = rec.status === 'present' || rec.status === 'late';
   const changed = draft.trim() !== (rec.mark != null ? String(rec.mark) : '');
+  // Sheet or big exam — the session's type, so it applies to every student in it.
+  const [kind, setKind] = useState<SessionKind>(session.is_exam ? 'quiz_exam' : 'normal_sheet');
+  useEffect(() => { setKind(session.is_exam ? 'quiz_exam' : 'normal_sheet'); }, [session.is_exam]);
+  const changeKind = (k: SessionKind) => controls.setType.mutate(k, {
+    onSuccess: () => { setKind(k); onRecorded(session.id, {}); },
+    onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.session_type_failed')),
+  });
 
   const save = () => {
     const raw = toLatinNumber(draft);
@@ -182,7 +186,7 @@ function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }} numberOfLines={1}>{session.course_name ?? '—'}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>
-                {dayLabel(session.scheduled_at)}{session.time ? ` · ${session.time}` : ''}{session.is_exam ? ` · ${t('teacher.type_quiz_exam')}` : ''}
+                {dayLabel(session.scheduled_at)}{session.time ? ` · ${session.time}` : ''}{kind === 'quiz_exam' ? ` · ${t('teacher.type_quiz_exam')}` : ''}
               </Text>
             </View>
             <TouchableOpacity onPress={() => { onClose(); router.push(`/(teacher)/sessions/${session.id}` as Href); }} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
@@ -216,8 +220,11 @@ function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded
           ) : null}
 
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
+            <View style={{ marginBottom: spacing.md }}>
+              <SessionKindToggle value={kind} busy={controls.setType.isPending} onChange={changeKind} compact />
+            </View>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.sm }}>
-              {t(session.is_exam ? 'quick_record.exam_mark' : 'quick_record.sheet_mark')}
+              {t(kind === 'quiz_exam' ? 'quick_record.exam_mark' : 'quick_record.sheet_mark')}
             </Text>
             {attended && !rec.pending ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>

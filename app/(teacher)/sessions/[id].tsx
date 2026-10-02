@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Switch, Alert, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/layout/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AttendanceRing } from '@/components/session/AttendanceVisuals';
+import { MarkRow, MarksHeader, type SessionKind } from '@/components/session/SessionMarks';
 import { sessionPhase } from '@/utils/sessionPhase';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
@@ -73,6 +74,8 @@ export default function SessionDetailScreen() {
   const [search, setSearch] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  // «الحضور» = mark who came; «الدرجات» = type every attended student's sheet / exam mark in a row.
+  const [mode, setMode] = useState<'attendance' | 'marks'>('attendance');
 
   const swapIns = s?.swap_ins ?? [];
   const hasSwaps = swapIns.length > 0;
@@ -93,6 +96,30 @@ export default function SessionDetailScreen() {
       .slice()
       .sort((a, b) => ORDER[bucketOf(a.status)] - ORDER[bucketOf(b.status)]);
   }, [baseList, filter, search]);
+
+  // Marks tab: attended students still without a mark first, then the marked, then the rest.
+  const marksList = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const rank = (a: SessionAttendee | SwapInAttendee) => {
+      const came = a.status === 'present' || a.status === 'late';
+      return !came ? 2 : a.mark == null ? 0 : 1;
+    };
+    return baseList
+      .filter((a) => (!q ? true : (a.name ?? '').toLowerCase().includes(q) || (a.student_code ?? '').toLowerCase().includes(q)))
+      .slice()
+      .sort((a, b) => rank(a) - rank(b));
+  }, [baseList, search]);
+  const attendedCount = baseList.filter((a) => a.status === 'present' || a.status === 'late').length;
+  const markedCount = baseList.filter((a) => (a.status === 'present' || a.status === 'late') && a.mark != null).length;
+  const saveMark = useCallback(async (studentId: number, value: number | null) => {
+    try {
+      await controls.grade.mutateAsync({ studentId, mark: value });
+    } catch (e: any) {
+      Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.grade_failed'));
+      throw e;
+    }
+  }, [controls.grade, t]);
+  const setKind = (k: SessionKind) => controls.setType.mutate(k, { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.session_type_failed')) });
 
   const current = selected
     ? s?.attendees.find((a) => a.student_id === selected.student_id) ?? s?.swap_ins?.find((a) => a.student_id === selected.student_id) ?? selected
@@ -256,16 +283,38 @@ export default function SessionDetailScreen() {
       ) : !s ? (
         <EmptyState icon="calendar" title={t('teacher.session_not_found')} />
       ) : (
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <FlatList
-          data={list}
+          data={mode === 'marks' ? marksList : list}
           keyExtractor={(a) => String(a.student_id)}
-          renderItem={renderAttendee}
-          removeClippedSubviews initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7}
+          renderItem={mode === 'marks'
+            ? ({ item }) => <MarkRow a={item} max={s.sheet_max_mark} onSave={saveMark} />
+            : renderAttendee}
+          // Clipping detaches off-screen rows, which drops a focused mark field's keyboard on Android.
+          removeClippedSubviews={mode !== 'marks'} initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7}
           contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + 72 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <View style={{ marginBottom: spacing.sm, gap: spacing.sm }}>
+              {/* Two tabs on one session: who came, and their marks. */}
+              <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4, borderWidth: 1, borderColor: colors.border }}>
+                {([['attendance', 'attendance', t('marks_ui.tab_attendance'), null], ['marks', 'grades', t('marks_ui.tab_marks'), attendedCount > 0 ? `${formatNumber(markedCount)}/${formatNumber(attendedCount)}` : null]] as const).map(([k, icon, label, badge]) => {
+                  const on = mode === k;
+                  return (
+                    <TouchableOpacity key={k} onPress={() => setMode(k)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                      style={{ flex: 1, minHeight: 40, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.brand : 'transparent' }}>
+                      <Icon name={icon} size={16} color={on ? '#fff' : colors.textSecondary} />
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: on ? '#fff' : colors.textSecondary }}>{label}</Text>
+                      {badge ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? 'rgba(255,255,255,0.8)' : colors.textTertiary }}>{badge}</Text> : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {mode === 'marks' ? (
+                <MarksHeader kind={(s.type ?? 'normal_sheet') as SessionKind} kindBusy={controls.setType.isPending} onKind={setKind}
+                  max={s.sheet_max_mark} onMax={(v) => controls.sheetMax.mutate(v)} done={markedCount} of={attendedCount} />
+              ) : null}
               {s.offline ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.warningLight, borderRadius: radius.lg, padding: spacing.md }}>
                   <Icon name="offline" size={18} color={colors.warningText} />
@@ -296,7 +345,7 @@ export default function SessionDetailScreen() {
                 </View>
               ) : null}
 
-              {canMark && started && !s.is_cancelled && awaitingRows.length > 0 ? (
+              {mode === 'attendance' && canMark && started && !s.is_cancelled && awaitingRows.length > 0 ? (
                 <TouchableOpacity onPress={markRestAbsent} disabled={bulkBusy} activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md }}>
                   {bulkBusy ? <ActivityIndicator color={colors.danger} /> : <Icon name="absent" size={20} color={colors.danger} />}
@@ -304,7 +353,7 @@ export default function SessionDetailScreen() {
                 </TouchableOpacity>
               ) : null}
 
-              {filter ? (
+              {filter && mode === 'attendance' ? (
                 <TouchableOpacity onPress={() => setFilter(null)} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 }}>
                   <Icon name="close" size={14} color={colors.brand} />
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('session_ui.clear_filter')}</Text>
@@ -313,11 +362,13 @@ export default function SessionDetailScreen() {
             </View>
           }
           ListEmptyComponent={<EmptyState icon="children" title={baseList.length ? t('teacher.no_students_in_filter') : t('teacher.no_students')} />}
+          keyboardDismissMode="on-drag"
         />
+        </KeyboardAvoidingView>
       )}
 
       {/* Scan straight into this session. */}
-      {s && canScan && live ? (
+      {s && canScan && live && mode === 'attendance' ? (
         <TouchableOpacity onPress={() => goToScan({ id: s.id, course_name: s.course_name } as TeacherSession)} activeOpacity={0.9} accessibilityRole="button"
           style={{ position: 'absolute', bottom: nav.bottomHeight + insets.bottom + spacing.sm, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8, height: 54, paddingHorizontal: spacing.xl, borderRadius: 27, backgroundColor: colors.success, ...shadows.md }}>
           <Icon name="scan" size={22} color="#fff" />
