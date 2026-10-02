@@ -151,18 +151,6 @@ export default function TeacherTabLayout() {
     return () => unsub();
   }, [isAuthenticated]);
 
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)/login" />;
-  }
-
   // screenOptions is MEMOISED and its label/icon are module-level components.
   //
   // It used to be an inline arrow returning a fresh object — with fresh `tabBarLabel` and
@@ -234,6 +222,28 @@ export default function TeacherTabLayout() {
     }),
     [insets.bottom, t, freezeTabs],
   );
+
+  // Every hook above runs on EVERY render — the early returns live here, after them. They
+  // sat above `useFeatureFlags` and the memo, so signing out rendered two hooks fewer and
+  // React threw «Rendered fewer hooks than expected» (blamed on the root's SurveyModal).
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  // Not this role's app (a super-admin whose impersonation just ended, a role that changed
+  // under the screen): `/` routes by role. Without this the teacher tabs kept rendering for
+  // the admin until something else navigated.
+  if (role && role !== 'teacher' && role !== 'assistant') {
+    return <Redirect href="/" />;
+  }
 
   return (
     <>

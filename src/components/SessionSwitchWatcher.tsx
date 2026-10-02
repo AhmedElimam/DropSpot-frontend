@@ -46,10 +46,11 @@ export function SessionSwitchWatcher() {
     // Fire-and-forget: a second switch inside the sweep window must not cancel the first
     // one's sweeps — an unobserved polluted query is exactly what they exist to remove.
     clearForSessionSwitch(qc);
-    if (key !== null) {
-      // Into the target's app, or back to the admin's picker: `/` routes by role.
-      router.replace('/' as Href);
-    }
+    // Into the target's app, or back to the admin's picker: `/` routes by role. An
+    // impersonation that ended in a sign-out (no admin session to restore) goes straight to
+    // login — it used to rely on the teacher layout's redirect, which is where the
+    // «Rendered fewer hooks» crash sat, so the teacher screen stayed up instead.
+    router.replace((key !== null ? '/' : '/(auth)/login') as Href);
   }, [isAuthenticated, userId, impersonating, qc]);
 
   return null;

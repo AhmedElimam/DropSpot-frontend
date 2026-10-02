@@ -30,6 +30,7 @@ export default function StudentTabLayout() {
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const role = useAuthStore((s) => s.role);
 
   // The student's phone never registered for push, so grades, invoices, card status and
   // the parent-unreachable nudge only ever reached the in-app inbox. Same wiring as the
@@ -63,6 +64,11 @@ export default function StudentTabLayout() {
 
   if (!isAuthenticated) {
     return <Redirect href="/(auth)/login" />;
+  }
+
+  // Not this role's app (e.g. a super-admin whose impersonation just ended): `/` routes by role.
+  if (role && role !== 'student') {
+    return <Redirect href="/" />;
   }
 
   return (

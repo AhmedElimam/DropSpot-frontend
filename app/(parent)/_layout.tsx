@@ -47,6 +47,7 @@ export default function ParentTabLayout() {
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const role = useAuthStore((s) => s.role);
   const pushTokenRef = useRef<string | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
@@ -100,6 +101,11 @@ export default function ParentTabLayout() {
 
   if (!isAuthenticated) {
     return <Redirect href="/(auth)/login" />;
+  }
+
+  // Not this role's app (e.g. a super-admin whose impersonation just ended): `/` routes by role.
+  if (role && role !== 'parent') {
+    return <Redirect href="/" />;
   }
 
   return (

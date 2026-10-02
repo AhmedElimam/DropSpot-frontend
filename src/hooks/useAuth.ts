@@ -128,14 +128,14 @@ export function useLogout() {
 
   return useMutation({
     mutationFn: async () => {
-      // «تسجيل الخروج» inside an impersonation session means leaving it — back to the
-      // super-admin's picker — not signing the admin out of their own account. It used to
-      // sign out with the impersonation token (refused in read-only mode) and wipe the
-      // admin's stash mid-render. The root watcher routes and clears the cache.
+      // «تسجيل الخروج» means signed out — to the login page — impersonating or not (founder
+      // 2026-10-02). Inside an impersonation session leave it FIRST: that revokes the
+      // impersonation token while it is still the bearer and restores the admin's own
+      // session, so the sign-out below revokes the ADMIN's token (the impersonation token
+      // is refused for it in read-only mode). The banner's «خروج» is the way back to the
+      // picker without signing out.
       if (useAuthStore.getState().impersonation?.active) {
         await leaveImpersonation();
-
-        return;
       }
       await logout();
       // Drop every cached query so the next session starts clean (prevents a stale
