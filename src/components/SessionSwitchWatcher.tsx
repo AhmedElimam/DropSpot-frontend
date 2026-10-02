@@ -3,6 +3,7 @@ import { router, type Href } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { clearForSessionSwitch } from '@/utils/sessionCache';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 /**
  * The ONE place that reacts to entering or leaving an impersonation session.
@@ -51,7 +52,7 @@ export function SessionSwitchWatcher() {
     // login — it used to rely on the teacher layout's redirect, which is where the
     // «Rendered fewer hooks» crash sat, so the teacher screen stayed up instead.
     if (__DEV__) console.log('[route] session switch', was, '→', key);
-    router.replace((key !== null ? '/' : '/(auth)/login') as Href);
+    router.replace(key !== null ? ROUTE_BY_ROLE : ('/(auth)/login' as Href));
   }, [isAuthenticated, userId, impersonating, qc]);
 
   return null;

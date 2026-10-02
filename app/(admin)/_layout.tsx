@@ -1,5 +1,6 @@
 import { Redirect, Stack } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 /**
  * The super-admin's area (the impersonation picker). Signed out → login; any other role
@@ -14,8 +15,8 @@ export default function AdminLayout() {
   if (isLoading) return null;
   if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
   if (role && role !== 'admin') {
-    if (__DEV__) console.log('[route] (admin) → / for role', role);
-    return <Redirect href="/" />;
+    if (__DEV__) console.log('[route] (admin) → resolve for role', role);
+    return <Redirect href={ROUTE_BY_ROLE} />;
   }
 
   return <Stack screenOptions={{ headerShown: false }} />;

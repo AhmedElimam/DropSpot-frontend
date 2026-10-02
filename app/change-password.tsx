@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 import { PasswordInput } from '@/components/ui/PasswordInput';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 const label = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm };
 const field = {
@@ -58,7 +59,7 @@ export default function ChangePasswordScreen() {
             await setSession({ ...user, must_set_password: false }, role);
             // Route through the index gate (not straight to /(teacher)) so any
             // remaining first-open gate — e.g. Terms acceptance — is evaluated next.
-            router.replace('/' as Href);
+            router.replace(ROUTE_BY_ROLE);
           } else {
             router.back();
           }

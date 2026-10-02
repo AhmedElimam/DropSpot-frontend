@@ -34,8 +34,9 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
   // The eye is a plain row item, not an absolutely-positioned overlay (PasswordInput's
   // approach). Inside this flex row the overlay's wrapper had no width of its own, so the
   // eye landed on top of the typed text (founder 2026-10-02: "show password icon is
-  // ruined on login"). As the row's last child it sits at the trailing edge in RTL and
-  // the input simply ends before it — no padding guesswork.
+  // ruined on login"). It sits right after the lock, on the field's leading edge (founder,
+  // same day: «on the other side, beside the lock»); the typed text ends before it — no
+  // padding guesswork.
   const [revealed, setRevealed] = useState(false);
   const tone = error ? colors.danger : focused ? colors.brand : valid ? colors.success : colors.borderStrong;
 
@@ -62,6 +63,17 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
         }}
       >
         {icon ? <Icon name={icon} size={20} color={focused || error || valid ? tone : colors.textTertiary} outline style={{ marginEnd: spacing.sm }} /> : null}
+        {secure ? (
+          <TouchableOpacity
+            onPress={() => setRevealed((v) => !v)}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={revealed ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+            style={{ marginEnd: spacing.sm, paddingVertical: 4, paddingHorizontal: 2 }}
+          >
+            <Icon name={revealed ? 'eyeOff' : 'eye'} size={22} color={focused ? colors.brand : colors.textTertiary} outline />
+          </TouchableOpacity>
+        ) : null}
         <TextInput
           ref={ref}
           {...input}
@@ -82,17 +94,6 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
             style,
           ]}
         />
-        {secure ? (
-          <TouchableOpacity
-            onPress={() => setRevealed((v) => !v)}
-            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel={revealed ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-            style={{ marginStart: spacing.sm, paddingVertical: 4, paddingHorizontal: 2 }}
-          >
-            <Icon name={revealed ? 'eyeOff' : 'eye'} size={22} color={focused ? colors.brand : colors.textTertiary} outline />
-          </TouchableOpacity>
-        ) : null}
         {valid && !error && !secure ? <Icon name="success" size={20} color={colors.success} style={{ marginStart: spacing.sm }} /> : null}
       </View>
       {error ? (

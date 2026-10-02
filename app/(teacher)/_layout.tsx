@@ -22,6 +22,7 @@ import { colors, radius } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 // Visible tabs stay mounted; detail screens (href: null) are released once they are not one
 // of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
@@ -242,8 +243,8 @@ export default function TeacherTabLayout() {
   // under the screen): `/` routes by role. Without this the teacher tabs kept rendering for
   // the admin until something else navigated.
   if (role && role !== 'teacher' && role !== 'assistant') {
-    if (__DEV__) console.log('[route] (teacher) → / for role', role);
-    return <Redirect href="/" />;
+    if (__DEV__) console.log('[route] (teacher) → resolve for role', role);
+    return <Redirect href={ROUTE_BY_ROLE} />;
   }
 
   return (

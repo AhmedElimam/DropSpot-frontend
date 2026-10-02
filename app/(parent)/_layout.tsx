@@ -12,6 +12,7 @@ import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 // Visible tabs stay mounted; detail screens (href: null) are released once they are not one
 // of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
@@ -105,7 +106,7 @@ export default function ParentTabLayout() {
 
   // Not this role's app (e.g. a super-admin whose impersonation just ended): `/` routes by role.
   if (role && role !== 'parent') {
-    return <Redirect href="/" />;
+    return <Redirect href={ROUTE_BY_ROLE} />;
   }
 
   return (

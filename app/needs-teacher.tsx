@@ -11,6 +11,7 @@ import { colors, spacing, radius, gradients, control, shadows } from '@/theme/in
 import { useAuthStore, resolveRole } from '@/stores/authStore';
 import { refreshToken as refreshTokenApi } from '@/api/auth';
 import { Icon } from '@/components/ui/Icon';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 /**
  * Self-registration wall. A student who signed up on their own lands here until a
@@ -39,7 +40,7 @@ export default function NeedsTeacherScreen() {
       if (data.user?.needs_teacher_invitation) {
         setStillWaiting(true); // teacher hasn't added them yet
       } else {
-        router.replace('/' as Href);
+        router.replace(ROUTE_BY_ROLE);
       }
     },
   });
