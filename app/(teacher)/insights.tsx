@@ -234,6 +234,12 @@ export default function InsightsScreen() {
             <StatsCard label={t('insights.overdue')} value={money(d.financial.overdue)} color={colors.danger} bgColor={colors.danger + '18'} />
             <StatsCard label={t('insights.new_students_period')} value={d.growth.new_students} color={colors.brand} bgColor={colors.brand + '18'} />
           </Row>
+          {/* Paid before the teacher joined the system — beside collected, never inside it. */}
+          {(d.financial.settled_before_joining ?? 0) > 0 ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, marginTop: spacing.xs, marginHorizontal: spacing.lg }}>
+              {t('insights.settled_before_joining', { amount: money(d.financial.settled_before_joining ?? 0) })}
+            </Text>
+          ) : null}
 
           {/* Collected vs actual (addendum §5). "Actual" only for reconciled weeks; unreconciled
               weeks are listed apart with the actual UNKNOWN — never zero, never = collected. */}

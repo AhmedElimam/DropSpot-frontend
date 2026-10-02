@@ -169,6 +169,8 @@ export interface StudentCourse {
   name: string | null;
   enrollment_id?: number;
   cycle?: CycleProgress;
+  /** This cycle's bill as it stands (strings with 2 decimals). `prior_paid` = settled before the teacher joined. */
+  cycle_invoice?: { id: number; amount: string; paid: string; prior_paid: string; remaining: string; status: string } | null;
   backfill_days?: BackfillDay[];
   /** Which day each session number of the current cycle fell / falls on — for the position picker. */
   timeline_positions?: { n: number; date: string | null; label: string | null; is_past: boolean }[];

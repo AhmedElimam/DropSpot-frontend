@@ -16,7 +16,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useAuthStore } from '@/stores/authStore';
 import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory } from '@/api/students';
-import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount } from '@/api/enrollments';
+import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining } from '@/api/enrollments';
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBooklet, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
@@ -142,6 +142,35 @@ export default function StudentDetailScreen() {
       Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر تصحيح المبلغ');
     } finally {
       setAmountBusy(false);
+    }
+  };
+
+  // «سُدِّدت قبل الانضمام» — the month this family paid before the teacher was on the
+  // system. For the students a newly joined teacher enrolled before the terms sheet could
+  // say so. Settled as prior money, never a collection; an assistant's word is reviewable.
+  const [priorFor, setPriorFor] = useState<{ enrollmentId: number; courseName: string | null; remaining: number } | null>(null);
+  const [priorAmount, setPriorAmount] = useState('');
+  const [priorBusy, setPriorBusy] = useState(false);
+  const submitPrior = async () => {
+    if (!priorFor) return;
+    const typed = priorAmount.trim() === '' ? null : Number(priorAmount.replace(/[^\d.]/g, ''));
+    if (typed != null && (!Number.isFinite(typed) || typed <= 0 || typed > priorFor.remaining + 0.001)) {
+      Alert.alert('', `أدخل مبلغًا بين 1 و ${priorFor.remaining} ج.م، أو اتركه فارغًا لكامل المتبقي.`);
+      return;
+    }
+    setPriorBusy(true);
+    try {
+      const r = await settleCycleBeforeJoining(priorFor.enrollmentId, typed);
+      setPriorFor(null);
+      setPriorAmount('');
+      await refetch();
+      Alert.alert('تم', r.invoice && r.invoice.remaining > 0
+        ? `سُجِّل ${Math.round(r.applied)} ج.م كمسدَّد قبل الانضمام؛ المتبقي ${Math.round(r.invoice.remaining)} ج.م يُحصَّل عند المسح.`
+        : 'سُجِّلت فاتورة الدورة كمسدَّدة قبل الانضمام للنظام.');
+    } catch (e: any) {
+      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر التسجيل');
+    } finally {
+      setPriorBusy(false);
     }
   };
 
@@ -594,6 +623,31 @@ export default function StudentDetailScreen() {
               </TouchableOpacity>
             )) : null}
 
+            {/* «سُدِّدت قبل الانضمام» — one per course bill with money still due. Teacher, or an
+                assistant with manage_students (their word lands in the teacher's review bucket).
+                Quieter than the correction above: this does not change the figure, it says
+                the family already paid it before the system existed. */}
+            {canManage ? (s.courses ?? []).filter((c) => c.enrollment_id && c.cycle_invoice && Number(c.cycle_invoice.remaining) > 0).map((c) => (
+              <TouchableOpacity
+                key={`prior-${c.enrollment_id}`}
+                onPress={() => { setPriorAmount(''); setPriorFor({ enrollmentId: c.enrollment_id!, courseName: c.name, remaining: Number(c.cycle_invoice!.remaining) }); }}
+                accessibilityRole="button"
+                activeOpacity={0.85}
+                style={{ marginTop: spacing.md, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.brand + '55', flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg }}
+              >
+                <Icon name="success" size={20} color={colors.brand} outline />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }} numberOfLines={1}>
+                    {(s.courses ?? []).filter((x) => x.cycle_invoice && Number(x.cycle_invoice.remaining) > 0).length > 1 ? `سُدِّدت قبل الانضمام — ${c.name ?? ''}` : 'سُدِّدت قبل الانضمام للنظام'}
+                  </Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>
+                    {`فاتورة الدورة ${Math.round(Number(c.cycle_invoice!.amount))} ج.م · المتبقي ${Math.round(Number(c.cycle_invoice!.remaining))} ج.م`}
+                  </Text>
+                </View>
+                <Icon name="back" size={18} color={colors.brand} />
+              </TouchableOpacity>
+            )) : null}
+
             {/* Price set on a course, but the teacher-wide booklets switch is off — say why there is no button. */}
             {s.billing.booklets_disabled_hint ? (
               <View style={{ marginTop: spacing.md, flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
@@ -882,6 +936,47 @@ export default function StudentDetailScreen() {
             >
               {amountBusy ? <ActivityIndicator color="#fff" /> : (
                 <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>حفظ المبلغ</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* «سُدِّدت قبل الانضمام»: say plainly what it does and does not do, then one optional
+          number. Blank = the whole remaining bill. */}
+      <Modal visible={!!priorFor} animationType="slide" transparent onRequestClose={() => !priorBusy && setPriorFor(null)}>
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>
+                {`سُدِّدت قبل الانضمام — ${priorFor?.courseName ?? ''}`}
+              </Text>
+              <TouchableOpacity onPress={() => !priorBusy && setPriorFor(null)} hitSlop={10}>
+                <Icon name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginBottom: spacing.md }}>
+              {`الأسرة دفعت رسوم هذا الشهر قبل انضمامك للنظام. تُسجَّل الفاتورة كمسدَّدة دون أن تُحسب ضمن المحصَّل أو درج النقدية، وتُصدر فاتورة الشهر القادم كالمعتاد. المتبقي على الفاتورة الآن ${Math.round(priorFor?.remaining ?? 0)} ج.م.`}
+            </Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: 4 }}>
+              المبلغ المدفوع مسبقًا (اختياري — فارغ = كامل المتبقي)
+            </Text>
+            <TextInput
+              value={priorAmount}
+              onChangeText={setPriorAmount}
+              keyboardType="numeric"
+              placeholder={`${Math.round(priorFor?.remaining ?? 0)}`}
+              placeholderTextColor={colors.textTertiary}
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 48, fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary, textAlign: 'right' }}
+            />
+            <TouchableOpacity
+              onPress={submitPrior}
+              disabled={priorBusy}
+              accessibilityRole="button"
+              style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.success, justifyContent: 'center', alignItems: 'center' }}
+            >
+              {priorBusy ? <ActivityIndicator color="#fff" /> : (
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>تسجيلها كمسدَّدة مسبقًا</Text>
               )}
             </TouchableOpacity>
           </View>

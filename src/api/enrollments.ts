@@ -76,6 +76,20 @@ export async function setCycleAmount(
   return data.data ?? data;
 }
 
+/**
+ * «سُدِّدت قبل الانضمام» — this cycle's bill was paid before the teacher was on the system.
+ * The server marks it settled (whole, or `amount` of it) as prior money: no drawer, no
+ * «collected», the next cycle bills normally. Teacher, or an assistant with manage_students
+ * (an assistant's word lands in the teacher's review bucket).
+ */
+export async function settleCycleBeforeJoining(
+  enrollmentId: number,
+  amount?: number | null,
+): Promise<{ applied: number; invoice: { id: number; amount: number; paid_amount: number; prior_paid_amount: number; remaining: number; status: string } | null }> {
+  const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/settled-before-joining`, amount ? { amount } : {});
+  return data.data ?? data;
+}
+
 function extract(item: any): Enrollment {
   const a = item.attributes ?? item;
   return {

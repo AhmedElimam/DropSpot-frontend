@@ -47,4 +47,8 @@ export interface EnrollmentTermsInput {
   down_payment_paid?: number | null;
   booking_secures?: BookingSecures;
   booklet_paid?: boolean;
+  /** This month's fee was already paid before the teacher joined the system (settled as prior money, not a collection). */
+  cycle_paid?: boolean;
+  /** Optional part of it; absent = whatever the advance invoice comes to. */
+  cycle_paid_amount?: number;
 }

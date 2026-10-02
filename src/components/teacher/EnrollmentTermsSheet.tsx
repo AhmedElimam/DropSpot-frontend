@@ -26,9 +26,13 @@ export interface TermsState {
   /** For a session-secured دفعة: how many sessions it buys. */
   sessions: string;
   bookletPaid: boolean;
+  /** This month's fee was already paid before the teacher joined the system. */
+  cyclePaid: boolean;
+  /** Optional part of it (blank = the whole advance invoice). */
+  cyclePaidAmount: string;
 }
 
-const EMPTY: TermsState = { joinsAt: null, bookingOn: null, secures: null, amount: '', paid: '', sessions: '', bookletPaid: false };
+const EMPTY: TermsState = { joinsAt: null, bookingOn: null, secures: null, amount: '', paid: '', sessions: '', bookletPaid: false, cyclePaid: false, cyclePaidAmount: '' };
 
 export interface EnrollmentTermsHandle {
   courseId: number | null;
@@ -86,10 +90,14 @@ export function useEnrollmentTerms(courseId: number | null): EnrollmentTermsHand
       if (securesEffective === 'session' && state.sessions.trim() !== '') out.sessions_remaining = Number(state.sessions);
     }
     if (q.data?.booklet.offered) out.booklet_paid = state.bookletPaid;
+    if (state.cyclePaid) {
+      out.cycle_paid = true;
+      if (state.cyclePaidAmount.trim() !== '' && Number(state.cyclePaidAmount) > 0) out.cycle_paid_amount = Number(state.cyclePaidAmount);
+    }
     return out;
   }, [state, securesEffective, q.data]);
 
-  const resetPerStudent = useCallback(() => setState((s) => ({ ...s, amount: '', paid: '', sessions: '', bookletPaid: false })), []);
+  const resetPerStudent = useCallback(() => setState((s) => ({ ...s, amount: '', paid: '', sessions: '', bookletPaid: false, cyclePaid: false, cyclePaidAmount: '' })), []);
 
   return { courseId, data: q.data, isLoading: q.isLoading, state, set, payload, resetPerStudent, securesEffective, overpaid };
 }
@@ -122,6 +130,7 @@ export function summarizeTerms(h: EnrollmentTermsHandle): string {
     parts.push(amt != null ? `دفعة ${money(amt)}${h.state.paid.trim() !== '' ? ` (مدفوع ${money(Number(h.state.paid))})` : ''}` : 'دفعة افتراضية');
   }
   if (d.booklet.offered) parts.push(h.state.bookletPaid ? 'ملزمة مدفوعة' : 'ملزمة غير مدفوعة');
+  if (h.state.cyclePaid) parts.push(h.state.cyclePaidAmount.trim() !== '' ? `رسوم الشهر مدفوعة مسبقًا (${money(Number(h.state.cyclePaidAmount))})` : 'رسوم الشهر مدفوعة مسبقًا');
   return parts.join(' · ');
 }
 
@@ -150,6 +159,18 @@ export function EnrollmentTermsSheet({ terms }: Props) {
       default: return null;
     }
   }, [d, terms.securesEffective, s.sessions, remainingFor]);
+
+  // What the advance invoice will come to: the remaining sessions, minus a session/flat
+  // دفعة (typed, else its default) — the same arithmetic the server does, as a preview.
+  const monthBill = useMemo(() => {
+    if (remainingCost == null) return null;
+    let credit = 0;
+    if (s.bookingOn && terms.securesEffective !== 'booklet') {
+      const typed = s.amount.trim() !== '' ? Number(s.amount) : null;
+      credit = typed ?? suggested ?? 0;
+    }
+    return Math.max(0, Math.round((remainingCost - Math.min(credit, remainingCost)) * 100) / 100);
+  }, [remainingCost, s.bookingOn, s.amount, terms.securesEffective, suggested]);
 
   if (terms.courseId == null) return null;
   if (terms.isLoading || !d) {
@@ -258,6 +279,40 @@ export function EnrollmentTermsSheet({ terms }: Props) {
             </View>
             <Switch value={s.bookletPaid} onValueChange={(v) => terms.set({ bookletPaid: v })} trackColor={{ true: colors.success, false: colors.border }} />
           </View>
+        </View>
+      ) : null}
+
+      {/* 4. This month's fee — the one thing a newly joined teacher could not say before:
+          «the family already paid this month, before I was on the system». The invoice is
+          still issued (the month is owed and the report must say so) and settled at once
+          as prior money: no drawer, not «collected», the next cycle bills normally. */}
+      {d.cycle.cycle_price != null && monthBill != null ? (
+        <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: s.cyclePaid ? colors.success : colors.textPrimary }}>
+                {s.cyclePaid ? 'رسوم هذا الشهر مدفوعة مسبقًا' : `رسوم هذا الشهر: ${money(monthBill)}`}
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textTertiary, marginTop: 2 }}>
+                {s.cyclePaid
+                  ? 'دفعتها الأسرة قبل الانضمام للنظام — تُسجَّل كمسدَّدة دون أن تُحسب ضمن المحصَّل أو درج النقدية.'
+                  : 'تُصدر فاتورة بهذا المبلغ وتُحصَّل عند المسح. فعِّل الخيار إن كانت الأسرة دفعت الشهر بالفعل قبل انضمامك للنظام.'}
+              </Text>
+            </View>
+            <Switch value={s.cyclePaid} onValueChange={(v) => terms.set({ cyclePaid: v, cyclePaidAmount: v ? s.cyclePaidAmount : '' })} trackColor={{ true: colors.success, false: colors.border }} />
+          </View>
+          {s.cyclePaid ? (
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={label}>المبلغ المدفوع مسبقًا (اختياري)</Text>
+              <TextInput value={s.cyclePaidAmount} onChangeText={(v) => terms.set({ cyclePaidAmount: v.replace(/[^0-9.]/g, '') })} keyboardType="numeric"
+                placeholder={`${monthBill} (كامل الفاتورة)`} placeholderTextColor={colors.textTertiary} style={field} />
+              {s.cyclePaidAmount.trim() !== '' && Number(s.cyclePaidAmount) < monthBill ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.xs }}>
+                  {`يبقى على الأسرة ${money(monthBill - Number(s.cyclePaidAmount))} تُحصَّل عند المسح.`}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>

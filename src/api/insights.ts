@@ -76,6 +76,8 @@ export interface TeacherInsights {
     /** Collected DURING the chosen period (outstanding/overdue are always "as of now"). */
     collected: number;
     collected_this_month: number;
+    /** Paid before the teacher joined the system — reported beside collected, never inside it. */
+    settled_before_joining?: number;
     outstanding: number;
     overdue: number;
     overdue_count: number;
