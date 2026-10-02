@@ -242,6 +242,7 @@ export default function TeacherTabLayout() {
   // under the screen): `/` routes by role. Without this the teacher tabs kept rendering for
   // the admin until something else navigated.
   if (role && role !== 'teacher' && role !== 'assistant') {
+    if (__DEV__) console.log('[route] (teacher) → / for role', role);
     return <Redirect href="/" />;
   }
 

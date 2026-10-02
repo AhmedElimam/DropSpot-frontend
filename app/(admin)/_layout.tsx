@@ -13,7 +13,10 @@ export default function AdminLayout() {
 
   if (isLoading) return null;
   if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
-  if (role && role !== 'admin') return <Redirect href="/" />;
+  if (role && role !== 'admin') {
+    if (__DEV__) console.log('[route] (admin) → / for role', role);
+    return <Redirect href="/" />;
+  }
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }

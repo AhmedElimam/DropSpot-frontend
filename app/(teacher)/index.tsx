@@ -31,6 +31,7 @@ import { useTickets } from '@/hooks/useTickets';
 import { formatNumber, formatDayDate } from '@/utils/format';
 import { pickCurrentSession, goToScan } from '@/utils/sessionNav';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
+import { useRose } from '@/hooks/useRose';
 
 function greetingKey(now: number): string {
   const h = new Date(now).getHours();
@@ -52,6 +53,7 @@ export default function TeacherHome() {
   const canCash = can(ABILITY.SCAN);
   const canStudents = can(ABILITY.MANAGE_STUDENTS);
   const now = useMinuteClock();
+  const rose = useRose();
 
   const sessionsQ = useTeacherTodaySessions();
   const pending = useOfflineStore((s) => s.pending);
@@ -84,7 +86,7 @@ export default function TeacherHome() {
     offlineAttention > 0 && { key: 'sync', icon: 'warning' as IconName, title: pending > 0 ? t('teacher.pending_scans', { count: pending }) : t('teacher.rejected_title', { count: rejected }), sub: t('teacher.tap_to_reconcile'), badge: offlineAttention, href: '/(teacher)/reconcile' },
     (phonesQ.data?.count ?? 0) > 0 && { key: 'phones', icon: 'phone' as IconName, title: t('home.phones_title'), sub: t('home.phones_sub', { count: phonesQ.data?.count ?? 0 }), badge: phonesQ.data?.count ?? 0, href: '/(teacher)/phone-confirmations' },
     (bookingQ.data?.length ?? 0) > 0 && { key: 'booking', icon: 'bell' as IconName, title: t('booking_requests.title'), sub: t('booking_requests.manage_sub'), badge: bookingQ.data?.length ?? 0, href: '/(teacher)/booking-requests' },
-    cashAttention > 0 && { key: 'cash', icon: 'money' as IconName, title: cashPending ? t('cash.banner_pending') : t('cash.title'), sub: cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : t('home.cash_attention_sub'), badge: cashAttention, href: '/(teacher)/cash-reconcile' },
+    cashAttention > 0 && { key: 'cash', icon: 'money' as IconName, title: cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title, sub: cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : t('home.cash_attention_sub'), badge: cashAttention, href: '/(teacher)/cash-reconcile' },
     (actionsQ.data?.length ?? 0) > 0 && { key: 'actions', icon: 'eye' as IconName, title: t('assistant_actions.title'), sub: t('assistant_actions.manage_sub'), badge: actionsQ.data?.length ?? 0, href: '/(teacher)/assistant-actions' },
     openTickets > 0 && { key: 'tickets', icon: 'tickets' as IconName, title: t('home.tickets_title'), sub: t('home.tickets_sub'), badge: openTickets, href: '/(teacher)/tickets' },
   ].filter(Boolean) as { key: string; icon: IconName; title: string; sub: string; badge: number; href: string }[];
@@ -93,7 +95,7 @@ export default function TeacherHome() {
   const shortcuts: { key: string; icon: IconName; label: string; color: string; tint: string; badge?: number; onPress: () => void }[] = [
     canStudents && { key: 'add', icon: 'add' as IconName, label: t('add_student.title'), color: colors.brand, tint: colors.brandTint, onPress: () => setAddOpen(true) },
     canCash && { key: 'collect', icon: 'money' as IconName, label: t('home.collect'), color: colors.success, tint: colors.successLight, onPress: () => router.push('/(teacher)/collect' as Href) },
-    canCash && { key: 'rose', icon: 'note' as IconName, label: t('cash.title_short'), color: colors.accent, tint: colors.accentLight, badge: cashAttention, onPress: () => router.push('/(teacher)/cash-reconcile' as Href) },
+    canCash && { key: 'rose', icon: 'note' as IconName, label: rose.name, color: colors.accent, tint: colors.accentLight, badge: cashAttention, onPress: () => router.push('/(teacher)/cash-reconcile' as Href) },
     !isAssistant
       ? { key: 'insights', icon: 'reports' as IconName, label: t('home.insights_short'), color: colors.info, tint: colors.infoLight, onPress: () => router.push('/(teacher)/insights' as Href) }
       : { key: 'students', icon: 'children' as IconName, label: t('teacher.tab_students'), color: colors.info, tint: colors.infoLight, onPress: () => router.push('/(teacher)/students' as Href) },

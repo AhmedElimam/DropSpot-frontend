@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
+import { useRose } from '@/hooks/useRose';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { getExpenses, addExpense, deleteExpense, assignExpenseVenue, suggestCategory, type Expense, type VenueRef, type ExpenseTrace, type RecurringSuggestion } from '@/api/cash';
 
@@ -95,6 +96,7 @@ const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, perVenue
  */
 export function ExpensesPanel({ embedded = false, initialTrace = null }: { embedded?: boolean; initialTrace?: ExpenseTrace | null }) {
   const { t } = useTranslation();
+  const rose = useRose();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const { isAssistant } = useActiveAbilities();
@@ -285,7 +287,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
               return (
                 <TouchableOpacity key={c.key} onPress={() => { categoryTouched.current = true; setCategory(c.key); }} activeOpacity={0.8}
                   style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface }}>
-                  <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{c.label}{suggested === c.key && on && !categoryTouched.current ? ` · ${t('expenses.category_suggested')}` : ''}</Text>
+                  <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{c.label}{suggested === c.key && on && !categoryTouched.current ? ` · ${t('expenses.category_suggested', { rose: rose.name })}` : ''}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -337,7 +339,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
 
         {(data?.recurring.length ?? 0) > 0 && enabled ? (
           <View style={{ backgroundColor: colors.brand + '10', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand + '44', padding: spacing.lg, marginBottom: spacing.lg }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('expenses.recurring_title')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('expenses.recurring_title', { rose: rose.name })}</Text>
             {(data?.recurring ?? []).map((r) => (
               <View key={r.key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
                 <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, lineHeight: 22 }}>{r.text}</Text>
@@ -363,7 +365,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : items.length === 0 ? (
-          <EmptyState icon="money" title={t('expenses.none')} message={t('expenses.none_hint')} />
+          <EmptyState icon="money" title={t('expenses.none')} message={t('expenses.none_hint', { rose: rose.name })} />
         ) : (
           items.map((e) => (
             <ExpenseRow key={e.id} e={e} showLogger={!isAssistant} canDelete={e.logged_by.is_me && !e.locked && (!isAssistant || e.review_status === 'pending')} perVenue={perVenue} canAssign={!isAssistant} onDelete={confirmDelete} onAssign={pickVenue} />

@@ -39,7 +39,7 @@ jest.mock('@/stores/authStore', () => ({
   useAuthStore: { getState: () => ({ user: { id: mockUserId } }) },
 }));
 
-import { registerForPushNotifications, unregisterPushNotifications, _resetRegistrationMemo } from '../push-notifications';
+import { registerForPushNotifications, unregisterPushNotifications, _resetRegistrationMemo, _resetThrottle } from '../push-notifications';
 
 beforeEach(() => {
   for (const k of Object.keys(storage)) delete storage[k];
@@ -67,10 +67,12 @@ describe('push registration is sent once, not on every foreground', () => {
   it('re-registers when the token rotates, the user changes, or a day has passed', async () => {
     await registerForPushNotifications();
     mockToken = 'fcm-token-2';
+    _resetThrottle(); // a rotation lands on a later foreground, never within the same quarter minute
     await registerForPushNotifications();
     expect(mockRegister).toHaveBeenCalledTimes(2);
 
     mockUserId = 8; // another account signed in on the same phone
+    _resetThrottle();
     await registerForPushNotifications();
     expect(mockRegister).toHaveBeenCalledTimes(3);
 
@@ -84,12 +86,21 @@ describe('push registration is sent once, not on every foreground', () => {
   it('forgets a registration that failed or was withdrawn', async () => {
     mockRegister.mockRejectedValueOnce(new Error('500'));
     expect(await registerForPushNotifications()).toBeNull();
+    _resetThrottle();
     await registerForPushNotifications();
     expect(mockRegister).toHaveBeenCalledTimes(2);
 
     await unregisterPushNotifications('fcm-token-1');
     expect(mockUnregister).toHaveBeenCalledWith('fcm-token-1');
+    _resetThrottle();
     await registerForPushNotifications();
     expect(mockRegister).toHaveBeenCalledTimes(3);
+  });
+
+  it('a layout mounting in a loop gets one registration, not one per mount', async () => {
+    const results = await Promise.all([registerForPushNotifications(), registerForPushNotifications(), registerForPushNotifications()]);
+    expect(results).toEqual(['fcm-token-1', 'fcm-token-1', 'fcm-token-1']);
+    for (let i = 0; i < 50; i++) await registerForPushNotifications();
+    expect(mockRegister).toHaveBeenCalledTimes(1);
   });
 });

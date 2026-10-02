@@ -5,6 +5,8 @@ export default function Index() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.role);
   const user = useAuthStore((s) => s.user);
+  // A redirect loop shows up here first: every pass through `/` logs where it went.
+  if (__DEV__) console.log('[route] / →', !isAuthenticated ? 'login' : `${role} ${user?.must_accept_terms ? 'terms' : ''}`);
 
   if (!isAuthenticated) {
     return <Redirect href="/(auth)/login" />;

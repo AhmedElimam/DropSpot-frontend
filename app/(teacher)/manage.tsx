@@ -5,6 +5,7 @@ import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import { useRose } from '@/hooks/useRose';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fonts } from '@/theme/typography';
 import { formatNumber } from '@/utils/format';
@@ -45,6 +46,7 @@ export default function TeacherManage() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { can, isAssistant } = useActiveAbilities();
+  const rose = useRose();
   const { data: flags } = useFeatureFlags();
   const { data: reviseOn } = useReviseMode();
 
@@ -196,7 +198,7 @@ export default function TeacherManage() {
               <HubRow tint={tint} icon="reports" title={t('teacher.insights_title')} sub={t('teacher.insights_sub')} onPress={() => router.push('/(teacher)/insights' as Href)} />
             ) : null}
             {canCash ? (
-              <HubRow tint={tint} icon="note" title={cashPending ? t('cash.banner_pending') : t('cash.title')}
+              <HubRow tint={tint} icon="note" title={cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title}
                 sub={cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : isAssistant ? t('cash.manage_sub_assistant') : t('cash.manage_sub')}
                 badge={cashAttention} loud={!!cashPending} onPress={() => router.push('/(teacher)/cash-reconcile' as Href)} />
             ) : null}

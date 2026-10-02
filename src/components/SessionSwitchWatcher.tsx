@@ -50,6 +50,7 @@ export function SessionSwitchWatcher() {
     // impersonation that ended in a sign-out (no admin session to restore) goes straight to
     // login — it used to rely on the teacher layout's redirect, which is where the
     // «Rendered fewer hooks» crash sat, so the teacher screen stayed up instead.
+    if (__DEV__) console.log('[route] session switch', was, '→', key);
     router.replace((key !== null ? '/' : '/(auth)/login') as Href);
   }, [isAuthenticated, userId, impersonating, qc]);
 

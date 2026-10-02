@@ -59,10 +59,33 @@ async function rememberRegistration(stamp: string | null): Promise<void> {
   }
 }
 
+/** Test seam: the window has passed (a later foreground, a re-login). */
+export function _resetThrottle(): void {
+  lastRunAt = 0;
+  lastResult = null;
+}
+
 /** Test seam: forget what was registered (a fresh process). */
 export function _resetRegistrationMemo(): void {
   lastRegistration = undefined;
+  inFlight = null;
+  lastRunAt = 0;
+  lastResult = null;
+  expoGoNoted = false;
 }
+
+/**
+ * One registration at a time, and not more often than this. Three role layouts call this
+ * on mount and on every foreground; a navigation hiccup that remounts a layout in a loop
+ * (the exit from impersonation, founder 2026-10-02 — hundreds of «[push] skipped» lines)
+ * must not turn into hundreds of permission prompts or token POSTs. Within the window the
+ * previous answer is returned.
+ */
+const MIN_INTERVAL_MS = 15_000;
+let inFlight: Promise<string | null> | null = null;
+let lastRunAt = 0;
+let lastResult: string | null = null;
+let expoGoNoted = false;
 
 /** Push failures are otherwise invisible — every bail-out below returns null. */
 function pushLog(...args: unknown[]): void {
@@ -129,10 +152,24 @@ async function ensureAndroidChannel(N: NotificationsModule): Promise<void> {
 
 export async function registerForPushNotifications(): Promise<string | null> {
   if (IS_EXPO_GO) {
-    pushLog('skipped: Expo Go has no FCM native module — use a development build for push');
+    if (!expoGoNoted) {
+      expoGoNoted = true;
+      pushLog('skipped: Expo Go has no FCM native module — use a development build for push');
+    }
     return null;
   }
+  if (inFlight) return inFlight;
+  if (Date.now() - lastRunAt < MIN_INTERVAL_MS) return lastResult;
+  lastRunAt = Date.now();
+  inFlight = registerNow().then(
+    (token) => { lastResult = token; return token; },
+    () => null,
+  ).finally(() => { inFlight = null; });
 
+  return inFlight;
+}
+
+async function registerNow(): Promise<string | null> {
   const N = notifications();
   if (!N) return null;
 

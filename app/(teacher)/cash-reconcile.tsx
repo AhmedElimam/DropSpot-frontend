@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ExpensesPanel } from '@/components/cash/ExpensesPanel';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { useRose } from '@/hooks/useRose';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
   getCashReconciliation, respondReconciliation, setOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights,
@@ -170,6 +171,7 @@ function Details({ d, extra }: { d: Drawer; extra?: React.ReactNode }) {
 
 function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void }) {
   const { t } = useTranslation();
+  const rose = useRose();
   const egp = t('insights.egp');
   const [mode, setMode] = useState<'ask' | 'diff'>(row.expected === null ? 'diff' : 'ask');
   const [registry, setRegistry] = useState(row.expected !== null ? String(row.expected) : '');
@@ -192,7 +194,7 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
           <Icon name="money" size={18} color={colors.accent} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.banner_pending')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.banner_pending', { rose: rose.name })}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('cash.week_of', { start: formatShortDate(row.week_start), end: formatShortDate(row.week_end) })}{row.venue?.name ? ` · ${row.venue.name}` : ''}</Text>
         </View>
       </View>
@@ -483,6 +485,7 @@ function HandoverSheetBody({ venues, perVenue, assistants, onSaved }: { venues: 
 
 function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => void }) {
   const { t } = useTranslation();
+  const rose = useRose();
   const [tol, setTol] = useState(String(v.settings.tolerance));
   const [bulkMax, setBulkMax] = useState(String(v.settings.review_bulk_max ?? 500));
   const save = useMutation({
@@ -506,9 +509,10 @@ function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
       <View style={row}>{label(t('cash.setting_expenses'), t('cash.setting_expenses_hint'))}<Switch value={v.settings.expenses_enabled} onValueChange={(on) => save.mutate({ expenses_enabled: on })} disabled={save.isPending} /></View>
       <View style={row}>{label(t('cash.setting_per_venue'), t('cash.setting_per_venue_hint'))}<Switch value={v.settings.per_venue} onValueChange={(on) => save.mutate({ expenses_per_venue: on })} disabled={save.isPending || v.venues.length === 0} /></View>
       {v.settings.expenses_enabled ? (
-        <View style={row}>{label(t('cash.setting_reminder'), t('cash.setting_reminder_hint'))}<Switch value={v.settings.expense_reminder_enabled !== false} onValueChange={(on) => save.mutate({ expense_reminder_enabled: on })} disabled={save.isPending} /></View>
+        <View style={row}>{label(t('cash.setting_reminder'), t('cash.setting_reminder_hint', { rose: rose.name }))}<Switch value={v.settings.expense_reminder_enabled !== false} onValueChange={(on) => save.mutate({ expense_reminder_enabled: on })} disabled={save.isPending} /></View>
       ) : null}
-      <View style={row}>{label(t('cash.setting_insights'), t('cash.setting_insights_hint'))}<Switch value={v.settings.insights_enabled !== false} onValueChange={(on) => save.mutate({ insights_enabled: on })} disabled={save.isPending} /></View>
+      <View style={row}>{label(t('cash.setting_insights', { rose: rose.name }), t('cash.setting_insights_hint'))}<Switch value={v.settings.insights_enabled !== false} onValueChange={(on) => save.mutate({ insights_enabled: on })} disabled={save.isPending} /></View>
+      <View style={row}>{label(t('cash.setting_rose_name'), t('cash.setting_rose_name_hint'))}<Switch value={v.settings.rose_named !== false} onValueChange={(on) => save.mutate({ rose_named: on })} disabled={save.isPending} /></View>
       {v.settings.insights_enabled !== false ? (
         <View style={row}>{label(t('cash.setting_insight_pushes'))}
           <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -531,8 +535,9 @@ function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
 
 function Observations({ items }: { items: Observation[] }) {
   const { t } = useTranslation();
+  const rose = useRose();
   const open = (o: Observation) => router.push({ pathname: '/(teacher)/expenses', params: { from: o.trace.from, to: o.trace.to, ...(o.trace.category ? { category: o.trace.category } : {}), ...(o.trace.venue !== undefined ? { venue: String(o.trace.venue) } : {}) } } as Href);
-  if (items.length === 0) return <EmptyState icon="info" title={t('cash.notes_none')} message={t('cash.notes_none_hint')} />;
+  if (items.length === 0) return <EmptyState icon="info" title={t('cash.notes_none')} message={t('cash.notes_none_hint', { rose: rose.name })} />;
   return (
     <View>
       {items.map((o) => (
@@ -772,6 +777,7 @@ function MonthView({ m, onOpenWeek }: { m: CashMonth; onOpenWeek: (weekStart: st
 
 export default function CashReconcileScreen() {
   const { t } = useTranslation();
+  const rose = useRose();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   // Period filter (founder 2026-09-25): this week by default; step back through past weeks or months.
@@ -844,7 +850,7 @@ export default function CashReconcileScreen() {
               <Icon name="forward" size={22} color="#fff" />
             </TouchableOpacity>
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: '#fff' }}>{t('cash.persona_name')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: '#fff' }}>{rose.name}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{t('cash.screen_title')}</Text>
             </View>
             {data?.role === 'teacher' ? (
@@ -930,7 +936,7 @@ export default function CashReconcileScreen() {
             <View>
               {introSeen === false ? (
                 <View style={{ backgroundColor: colors.accentLight, borderRadius: radius.xl, padding: spacing.lg, marginBottom: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.intro_line1')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.intro_line1', { rose: rose.name })}</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4, lineHeight: 22 }}>{t('cash.intro_line2')}</Text>
                   <TouchableOpacity onPress={dismissIntro} style={{ alignSelf: 'flex-start', marginTop: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.full, backgroundColor: colors.accent }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('cash.intro_dismiss')}</Text>
