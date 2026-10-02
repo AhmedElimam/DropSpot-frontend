@@ -14,30 +14,20 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { SessionCard, type SessionCardData } from '@/components/session/TeacherSessionCard';
 import { formatNumber, formatDayDate } from '@/utils/format';
 import { goToScan } from '@/utils/sessionNav';
+import { DAY_SHORT, dayKey as key, addDays, weekStart, phasesByDay } from '@/utils/sessionDays';
+import { DayMarker } from '@/components/session/DayMarker';
+import { SessionMonthPicker } from '@/components/session/SessionMonthPicker';
 import type { TeacherSession } from '@/api/teacher';
 
-const DAY_SHORT = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
 const MONTH_FMT = new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' });
-
-function key(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function addDays(d: Date, n: number): Date {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
-}
-/** The Egyptian week starts on Saturday. */
-function weekStart(d: Date): Date {
-  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  return addDays(x, -((x.getDay() + 1) % 7));
-}
 
 /**
  * «الحصص» (founder 2026-10-02, second pass). A week strip in the ink header — Saturday to
  * Friday, a dot for each session that day, today ringed in apricot — and the chosen day's
  * sessions underneath as the same cards Home uses. Move a week at a time with the arrows;
  * «اليوم» jumps back. Everything a teacher used to scroll an endless list for is a tap.
+ * Third pass: the month name opens a month calendar to jump to ANY date, and every day
+ * marker is coloured by where its sessions stand (live · upcoming · ended · cancelled).
  */
 export default function TeacherSessions() {
   const { t } = useTranslation();
@@ -54,6 +44,8 @@ export default function TeacherSessions() {
   const q = useTeacherSessionsWindow(from, to);
   const { refreshing, onRefresh } = usePullRefresh(q.refetch);
   const now = useMinuteClock();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const phases = useMemo(() => phasesByDay(q.data?.items ?? [], now), [q.data, now]);
 
   const byDay = useMemo(() => {
     const m = new Map<string, SessionCardData[]>();
@@ -77,7 +69,13 @@ export default function TeacherSessions() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{t('teacher.tab_sessions')}</Text>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>{MONTH_FMT.format(selected)}</Text>
+            {/* Date filter — any day, from a month calendar. */}
+            <TouchableOpacity onPress={() => setPickerOpen(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('session_ui.pick_date')}
+              style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' }}>
+              <Icon name="calendar" size={14} color="#fff" />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{MONTH_FMT.format(selected)}</Text>
+              <Icon name="down" size={14} color="rgba(255,255,255,0.8)" />
+            </TouchableOpacity>
           </View>
           {!isThisWeek || dayKey !== key(today) ? (
             <TouchableOpacity onPress={() => setSelected(today)} activeOpacity={0.85} style={{ paddingHorizontal: spacing.md, height: 36, borderRadius: radius.full, backgroundColor: colors.accent, justifyContent: 'center' }}>
@@ -102,17 +100,12 @@ export default function TeacherSessions() {
               const k = key(d);
               const on = k === dayKey;
               const isToday = k === key(today);
-              const count = byDay.get(k)?.length ?? 0;
               return (
                 <TouchableOpacity key={k} onPress={() => setSelected(d)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
                   style={{ width: 42, paddingVertical: 8, borderRadius: 14, alignItems: 'center', backgroundColor: on ? '#fff' : 'transparent', borderWidth: isToday && !on ? 1.5 : 0, borderColor: colors.accent }}>
                   <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: on ? colors.textSecondary : 'rgba(255,255,255,0.65)' }}>{DAY_SHORT[d.getDay()]}</Text>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 22, color: on ? colors.textPrimary : '#fff' }}>{formatNumber(d.getDate())}</Text>
-                  <View style={{ flexDirection: 'row', gap: 2, height: 5, marginTop: 2 }}>
-                    {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
-                      <View key={i} style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: on ? colors.brand : colors.accent }} />
-                    ))}
-                  </View>
+                  <DayMarker phases={phases.get(k)} tone="dark" selected={on} />
                 </TouchableOpacity>
               );
             })}
@@ -155,6 +148,8 @@ export default function TeacherSessions() {
           )
         }
       />
+
+      <SessionMonthPicker visible={pickerOpen} value={selected} now={now} onPick={setSelected} onClose={() => setPickerOpen(false)} />
     </View>
   );
 }

@@ -23,6 +23,7 @@ const ICON_MAP = {
   call: 'call',
   location: 'location',
   calendar: 'calendar',
+  sessions: 'calendar-number',
   clock: 'time',
   quiz: 'document-text',
   grades: 'ribbon',

@@ -51,7 +51,7 @@ const labels: Record<string, string> = {
 
 const icons: Record<string, IconName> = {
   index: 'home',
-  sessions: 'attendance',
+  sessions: 'sessions',
   students: 'children',
   manage: 'book',
   settings: 'settings',

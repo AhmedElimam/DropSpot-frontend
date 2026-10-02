@@ -2059,7 +2059,12 @@
     "rest_absent": "تسجيل الباقين ({{n}}) غياب",
     "rest_absent_title": "تسجيل الباقين غياب؟",
     "rest_absent_body": "سيُسجَّل {{n}} طالب لم يُسجَّل حضورهم بعد كغائبين. يمكنك تغيير أي طالب بعدها.",
-    "rest_absent_confirm": "تسجيلهم غياب"
+    "rest_absent_confirm": "تسجيلهم غياب",
+    "pick_date": "اختر يومًا",
+    "prev_month": "الشهر السابق",
+    "next_month": "الشهر التالي",
+    "month_total": "{{n}} حصة في الشهر",
+    "go_today": "اذهب إلى اليوم"
   },
   "students_ui": {
     "summary": "{{n}} طالب · {{c}} مقرر",
