@@ -1,114 +1,110 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { isAxiosError } from 'axios';
-import { getFriendlyErrorMessage } from '@/utils/errors';
 import { useTranslation } from 'react-i18next';
-import { LinearGradient } from 'expo-linear-gradient';
-import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, gradients, control } from '@/theme/index';
-import { useLogin } from '@/hooks/useAuth';
 import { router } from 'expo-router';
-import { Icon } from '@/components/ui/Icon';
-import { PasswordInput } from '@/components/ui/PasswordInput';
-import { AuthScaffold } from '@/components/auth/AuthScaffold';
+import { fonts } from '@/theme/typography';
+import { colors, spacing } from '@/theme/index';
+import { useLogin } from '@/hooks/useAuth';
+import { getFriendlyErrorMessage } from '@/utils/errors';
+import { isEgyptPhone } from '@/utils/validators';
+import { Button } from '@/components/ui/Button';
+import { AuthScaffold, AuthBanner } from '@/components/auth/AuthScaffold';
+import { AuthField } from '@/components/auth/AuthField';
 
-const label = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm };
-const field = {
-  fontFamily: fonts.regular,
-  fontSize: 17,
-  minHeight: control.minHeight,
-  backgroundColor: colors.surfaceSunken,
-  borderRadius: radius.lg,
-  paddingHorizontal: spacing.lg,
-  paddingVertical: 14,
-  color: colors.textPrimary,
-  textAlign: 'right' as const,
-  borderWidth: 1.5,
-};
+const digits = (v: string) => v.replace(/[^0-9]/g, '').slice(0, 11);
 
 export default function LoginScreen() {
   const { t } = useTranslation();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const passwordRef = useRef<TextInput>(null);
   const loginMutation = useLogin();
 
+  // A full Egyptian number is 11 digits; say so only once the user has typed that many
+  // (or left the field) — never while they are still typing.
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const phoneFull = isEgyptPhone(phone) && phone.length === 11;
+  const phoneError = phone && (phoneTouched || phone.length === 11) && !phoneFull ? t('auth.phone_invalid') : null;
+  const canSubmit = phoneFull && password.length > 0 && !loginMutation.isPending;
+
   const handleLogin = () => {
-    if (!phone || !password) return;
+    if (!canSubmit) return;
     loginMutation.mutate({ phone_number: phone, password });
   };
 
   return (
     <AuthScaffold
-      icon="book"
-      title={t('common.app_name')}
-      subtitle={t('common.tagline')}
+      hero="brand"
+      eyebrow={t('auth.welcome_back')}
+      title={t('auth.login')}
+      subtitle={t('auth.login_subtitle')}
       footer={
-        <>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary }}>
-            {t('auth.no_account')}
-          </Text>
-          <TouchableOpacity style={{ marginTop: spacing.sm, minHeight: 44, justifyContent: 'center' }} onPress={() => router.push('/(auth)/register')}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.brand }}>{t('auth.register')}</Text>
-          </TouchableOpacity>
-        </>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textTertiary, textAlign: 'center' }}>
+          {t('common.tagline')}
+        </Text>
       }
     >
-      {loginMutation.isError && (
-        <View style={{ backgroundColor: colors.dangerLight, padding: spacing.md, borderRadius: radius.md, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.danger }}>
-          <Icon name="warning" size={18} color={colors.danger} style={{ marginEnd: spacing.sm }} />
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.dangerText, flex: 1 }}>
-            {isAxiosError(loginMutation.error) && loginMutation.error.response?.status === 401
-              ? t('auth.invalid_credentials')
-              : getFriendlyErrorMessage(loginMutation.error)}
-          </Text>
-        </View>
-      )}
+      {loginMutation.isError ? (
+        <AuthBanner
+          tone="danger"
+          text={isAxiosError(loginMutation.error) && loginMutation.error.response?.status === 401
+            ? t('auth.invalid_credentials')
+            : getFriendlyErrorMessage(loginMutation.error)}
+        />
+      ) : null}
 
-      <Text style={label}>{t('auth.phone')}</Text>
-      <TextInput
+      <AuthField
+        label={t('auth.phone')}
+        icon="call"
         value={phone}
-        onChangeText={setPhone}
+        onChangeText={(v) => setPhone(digits(v))}
+        onBlur={() => setPhoneTouched(true)}
         keyboardType="phone-pad"
-        autoCapitalize="none"
+        autoComplete="tel"
+        textContentType="telephoneNumber"
         autoCorrect={false}
-        placeholder="01000000000"
-        placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.lg, borderColor: phone ? colors.brand : colors.borderStrong }}
+        maxLength={11}
+        placeholder="01xxxxxxxxx"
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
+        blurOnSubmit={false}
+        error={phoneError}
+        valid={phoneFull}
       />
 
-      <Text style={label}>{t('auth.password')}</Text>
-      <PasswordInput
+      <AuthField
+        ref={passwordRef}
+        secure
+        label={t('auth.password')}
+        icon="lock"
         value={password}
         onChangeText={setPassword}
+        autoComplete="password"
+        textContentType="password"
         placeholder="••••••••"
-        placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.md, borderColor: password ? colors.brand : colors.borderStrong }}
+        returnKeyType="go"
+        onSubmitEditing={handleLogin}
+        containerStyle={{ marginBottom: spacing.sm }}
       />
 
       <TouchableOpacity
         onPress={() => router.push('/(auth)/forgot-password')}
+        hitSlop={{ top: 8, bottom: 8 }}
         style={{ alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center', marginBottom: spacing.lg }}
       >
         <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('auth.forgot_password')}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={handleLogin}
-        disabled={!phone || !password || loginMutation.isPending}
-        activeOpacity={0.85}
-        style={{ borderRadius: radius.lg, overflow: 'hidden', opacity: !phone || !password ? 0.5 : 1 }}
-      >
-        <LinearGradient
-          colors={gradients.primary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{ minHeight: control.minHeight, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textInverse, letterSpacing: 1 }}>
-            {loginMutation.isPending ? t('auth.logging_in') : t('auth.login_button')}
-          </Text>
-        </LinearGradient>
-      </TouchableOpacity>
+      <Button title={t('auth.login_button')} onPress={handleLogin} disabled={!canSubmit} loading={loginMutation.isPending} />
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.xl }}>
+        <View style={{ flex: 1, height: 1, backgroundColor: colors.borderLight }} />
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary }}>{t('auth.no_account')}</Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: colors.borderLight }} />
+      </View>
+
+      <Button title={t('auth.create_account')} variant="outline" onPress={() => router.push('/(auth)/register')} />
     </AuthScaffold>
   );
 }
