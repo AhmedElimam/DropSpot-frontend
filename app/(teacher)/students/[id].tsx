@@ -7,10 +7,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
-import { Badge, type BadgeVariant } from '@/components/ui/Badge';
+import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/layout/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { QuickRecordCard } from '@/components/student/QuickRecordCard';
+import { StudentAttendanceList } from '@/components/student/StudentAttendanceList';
 import { useStudentDetail } from '@/hooks/useStudents';
 import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -21,17 +21,6 @@ import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePo
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBooklet, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
-
-// Attendance status → an i18n key + Badge variant. 'not_recorded' is the neutral
-// "no record for this session" state (only appears in session detail, kept here
-// for completeness).
-const STATUS_META: Record<string, { key: string; variant: BadgeVariant }> = {
-  present: { key: 'attendance.present', variant: 'success' },
-  late: { key: 'attendance.late', variant: 'warning' },
-  absent: { key: 'attendance.absent', variant: 'danger' },
-  excused: { key: 'attendance.excused', variant: 'info' },
-  not_recorded: { key: 'teacher.not_recorded', variant: 'default' },
-};
 
 function StatTile({ label, value, color }: { label: string; value: number; color: string }) {
   return (
@@ -51,11 +40,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-// How many attendance rows the screen builds before the user asks for the rest.
-const ATTENDANCE_PREVIEW = 12;
-
 export default function StudentDetailScreen() {
-  const [showAllAttendance, setShowAllAttendance] = useState(false);
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -450,11 +435,6 @@ export default function StudentDetailScreen() {
               ) : null}
             </View>
           </View>
-
-          {/* «تسجيل سريع» — presence + sheet / exam mark for a recent session, one tap each. */}
-          {s.quick_sessions && s.quick_sessions.length > 0 ? (
-            <QuickRecordCard studentId={Number(s.id)} sessions={s.quick_sessions} canMark={canMarkManual} onChanged={() => { void refetch(); }} />
-          ) : null}
 
           {/* A student who studies with another teacher too, whose number nobody has proved.
               It sits at the top because it is not this teacher's problem alone: a student is
@@ -855,41 +835,11 @@ export default function StudentDetailScreen() {
           ) : null}
 
           {/* Attendance history */}
+          {/* Recent sessions recordable in place (✓ / ✗, a tap for the rest and the mark),
+              then the older records — the session sheet's rows, for one student. */}
           <Section title={t('teacher.attendance_history')}>
-            {s.attendance.length === 0 ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary }}>{t('teacher.no_attendance')}</Text>
-            ) : (
-              /* Only the most recent slice is built on mount. The server returns a
-                 student's ENTIRE attendance history unpaginated, and this is a plain
-                 ScrollView, so every row was constructed and laid out before the screen
-                 could appear — five views each, hundreds of them for a student enrolled a
-                 full term. That is the delay felt when opening a student (Android
-                 slowness reports, 2026-09-22). The rest is one tap away and almost never
-                 wanted: a teacher opens this screen for the recent picture. */
-              (showAllAttendance ? s.attendance : s.attendance.slice(0, ATTENDANCE_PREVIEW)).map((r) => {
-                const meta = STATUS_META[r.status] ?? STATUS_META.not_recorded;
-                return (
-                  <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{r.course_name ?? '—'}</Text>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{dayLabel(r.date)}</Text>
-                    </View>
-                    <Badge label={t(meta.key)} variant={meta.variant} size="sm" />
-                  </View>
-                );
-              })
-            )}
-            {!showAllAttendance && s.attendance.length > ATTENDANCE_PREVIEW ? (
-              <TouchableOpacity
-                onPress={() => setShowAllAttendance(true)}
-                style={{ paddingVertical: spacing.md, alignItems: 'center' }}
-                accessibilityRole="button"
-              >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>
-                  {`عرض السجل كامل (${s.attendance.length})`}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
+            <StudentAttendanceList studentId={Number(s.id)} sessions={s.quick_sessions ?? []} history={s.attendance}
+              canMark={canMarkManual} onChanged={() => { void refetch(); }} />
           </Section>
         </ScrollView>
       )}

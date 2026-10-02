@@ -201,13 +201,15 @@ export interface StudentParent {
 
 export interface StudentAttendanceRow {
   id: number;
+  /** The session this record belongs to (older servers omit it). */
+  session_id?: string | null;
   course_name: string | null;
   date: string | null;
   status: string;
   method: string | null;
 }
 
-/** One row of the profile's «تسجيل سريع»: a recent session and this student's record in it. */
+/** A recent session the profile can record against, with this student's record in it. */
 export interface QuickSession {
   id: string;
   course_name: string | null;
@@ -234,7 +236,7 @@ export interface StudentDetail {
   grade_name: string | null;
   courses: StudentCourse[];
   parents: StudentParent[];
-  /** Today + the last 14 days of this student's sessions (older servers omit it). */
+  /** Today + the last 14 days of this student's sessions, recordable from the profile (older servers omit it). */
   quick_sessions?: QuickSession[];
   parent_number_notice?: boolean;
   parent_number_notice_message?: string | null;
