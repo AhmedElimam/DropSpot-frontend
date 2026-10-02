@@ -1,4 +1,5 @@
 import '../src/i18n';
+import { setQueryClient } from '@/lib/queryClientRef';
 import { I18nManager, View, ActivityIndicator, Text, TextInput, AppState, type AppStateStatus } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
@@ -107,6 +108,7 @@ const queryClient = new QueryClient({
     },
   },
 });
+setQueryClient(queryClient);
 
 function HydrationGate({ children }: { children: React.ReactNode }) {
   const isLoading = useAuthStore((s) => s.isLoading);

@@ -127,11 +127,12 @@ export default function SessionDetailScreen() {
             </View>
           ) : null}
           {/* Sheet + note signals */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: item.mark != null || item.note || item.sheet_awaited || item.number_flagged ? 4 : 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: item.mark != null || item.note || item.sheet_awaited || item.number_flagged || item.pending_sync ? 4 : 0 }}>
             {item.mark != null ? (
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{t('teacher.mark_short', { mark: item.mark })}</Text>
             ) : null}
             {item.sheet_awaited ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.warning }}>{t('teacher.sheet_awaited')}</Text> : null}
+            {item.pending_sync ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textTertiary }}>{t('teacher.mark_pending_sync')}</Text> : null}
             {item.note ? <Icon name="note" size={13} color={colors.textTertiary} /> : null}
             {item.number_flagged ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.danger }}>{t('teacher.number_fake')}</Text> : null}
           </View>
@@ -198,6 +199,13 @@ export default function SessionDetailScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListHeaderComponent={
             <View style={{ marginBottom: spacing.md }}>
+              {/* No signal: the sheet is the phone's last-known copy; marks queue and sync later. */}
+              {s.offline ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.warning + '22', borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
+                  <Icon name="offline" size={18} color={colors.warning} />
+                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.textPrimary }}>{t('teacher.roster_offline_hint')}</Text>
+                </View>
+              ) : null}
               {/* Summary card */}
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -335,8 +343,8 @@ export default function SessionDetailScreen() {
                     <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{current.name ?? '—'}</Text>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{current.student_code ?? (current.card_less ? t('teacher.card_less') : '')}</Text>
                   </View>
-                  <TouchableOpacity onPress={() => setSelected(null)} style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-                    <Icon name="back" size={18} color={colors.textPrimary} />
+                  <TouchableOpacity onPress={() => setSelected(null)} accessibilityLabel={t('common.close')} style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
+                    <Icon name="close" size={18} color={colors.textPrimary} />
                   </TouchableOpacity>
                 </View>
 

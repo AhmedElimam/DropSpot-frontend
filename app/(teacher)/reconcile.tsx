@@ -11,6 +11,7 @@ import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import type { TeacherSession } from '@/api/teacher';
 import { syncOfflineBatch } from '@/api/teacher';
 import { getPendingScans, getRejectedScans, deleteScan, requeueScan, type OfflineScan } from '@/db/offlineScans';
+import { getRejectedMarks, deleteMarks, requeueMark, type OfflineMark } from '@/db/offlineMarks';
 import { computeBuckets, type ScanBucket } from '@/db/buckets';
 import { suggestSessionId, applyBatchResults } from '@/db/reconcile';
 import { getFreshScheduleEntries, getFreshScheduleEntry, buildGradeResolver } from '@/db/scheduleCache';
@@ -35,6 +36,7 @@ export default function Reconcile() {
   const { data: sessions, refetch: refetchSessions } = useTeacherTodaySessions();
   const [buckets, setBuckets] = useState<ScanBucket[] | null>(null);
   const [rejected, setRejected] = useState<OfflineScan[]>([]);
+  const [rejectedMarks, setRejectedMarks] = useState<OfflineMark[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [oldestPending, setOldestPending] = useState<string | null>(null);
   // Passive confirmation (§7): how many scans auto-sync uploaded since last dismissed.
@@ -49,12 +51,14 @@ export default function Reconcile() {
     // against the entry for ITS OWN stamped teacher_id (not the active one), so an
     // assistant's teacher-A scans never grade-check against teacher B's roster.
     const activeTeacherId = stampTeacherId(useAuthStore.getState());
-    const [pending, rej, entries, activeEntry] = await Promise.all([
+    const [pending, rej, entries, activeEntry, rejMarks] = await Promise.all([
       getPendingScans(),
       getRejectedScans(),
       getFreshScheduleEntries(),
       getFreshScheduleEntry(activeTeacherId),
+      getRejectedMarks().catch(() => [] as OfflineMark[]),
     ]);
+    setRejectedMarks(rejMarks);
     // Grade-aware bucketing (Part 1): a known grade change splits the bucket, same
     // as a teacher change. Falls back to time/teacher-only when no fresh cache.
     setBuckets(computeBuckets(pending, buildGradeResolver(entries)));
@@ -78,7 +82,7 @@ export default function Reconcile() {
     [oldestPending],
   );
 
-  const nothingLeft = buckets !== null && buckets.length === 0 && rejected.length === 0;
+  const nothingLeft = buckets !== null && buckets.length === 0 && rejected.length === 0 && rejectedMarks.length === 0;
   // Prefer the live list; fall back to today's cached schedule when offline (§2).
   const effectiveSessions = sessions && sessions.length > 0 ? sessions : cachedSessions;
 
@@ -122,6 +126,7 @@ export default function Reconcile() {
           {pendingCount > 0 ? <DurabilityBanner count={pendingCount} aging={aging} /> : null}
 
           {rejected.length > 0 ? <RejectedSection scans={rejected} onChange={load} /> : null}
+          {rejectedMarks.length > 0 ? <RejectedMarksSection marks={rejectedMarks} onChange={load} /> : null}
 
           {buckets.map((bucket, i) => (
             <BucketCard
@@ -220,6 +225,50 @@ function RejectedSection({ scans, onChange }: { scans: OfflineScan[]; onChange: 
                 activeOpacity={0.8}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border }}
               >
+                <Icon name="trash" size={16} color={colors.textSecondary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('teacher.rejected_dismiss')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Manual marks the server refused on replay (not enrolled, no allowance, not your
+ * session): parked for a decision like rejected scans — retry or drop.
+ */
+function RejectedMarksSection({ marks, onChange }: { marks: OfflineMark[]; onChange: () => Promise<void> }) {
+  const { t } = useTranslation();
+  const statusKey: Record<string, string> = { present: 'attendance.present', late: 'attendance.late', absent: 'attendance.absent', excused: 'attendance.excused' };
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.danger, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs }}>
+        <Icon name="error" size={20} color={colors.dangerText} />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.dangerText }}>{t('teacher.rejected_marks_title', { count: marks.length })}</Text>
+      </View>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>{t('teacher.rejected_marks_hint')}</Text>
+      <View style={{ gap: spacing.sm }}>
+        {marks.map((m) => (
+          <View key={m.id} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, backgroundColor: colors.background }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>
+                {m.student_name ?? `#${m.student_id}`} · {t(statusKey[m.status] ?? 'teacher.not_recorded')}
+              </Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{hhmm(m.marked_at)}</Text>
+            </View>
+            {m.course_name ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{m.course_name}</Text> : null}
+            {m.last_error ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.dangerText, marginTop: 4 }}>{m.last_error}</Text> : null}
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
+              <TouchableOpacity onPress={async () => { await requeueMark(m.id); await onChange(); }} activeOpacity={0.8}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.primary }}>
+                <Icon name="refresh" size={16} color={colors.primary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>{t('teacher.rejected_requeue')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={async () => { await deleteMarks([m.id]); await onChange(); }} activeOpacity={0.8}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border }}>
                 <Icon name="trash" size={16} color={colors.textSecondary} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('teacher.rejected_dismiss')}</Text>
               </TouchableOpacity>

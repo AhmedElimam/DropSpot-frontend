@@ -9,6 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { initOfflineScans } from '@/db/offlineScans';
+import { initOfflineMarks } from '@/db/offlineMarks';
+import { prefetchTodayRosters } from '@/db/prefetchRosters';
 import { triggerAutoSync } from '@/db/autoSync';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 import { registerForPushNotifications } from '@/utils/push-notifications';
@@ -86,20 +88,22 @@ export default function TeacherTabLayout() {
   useEffect(() => {
     if (!isAuthenticated) return;
     let active = true;
-    initOfflineScans().then(() => {
+    Promise.all([initOfflineScans(), initOfflineMarks()]).then(() => {
       if (active) useOfflineStore.getState().refresh();
     });
     // Part 2: on open, enforce the date staleness guard and refresh the ACTIVE
     // teacher's schedule entry when online. Fire-and-forget — never blocks the UI,
     // and a failure just leaves the guard to fall back to manual reconciliation.
+    // Today's rosters are pre-fetched after the schedule so the attendance sheet opens
+    // offline for sessions the teacher never opened while connected.
     syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-      .finally(() => { void triggerAutoSync(); });
+      .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); });
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') {
         useOfflineStore.getState().refresh();
         // Refresh the cache first so auto-sync runs against fresh windows.
         syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-          .finally(() => { void triggerAutoSync(); });
+          .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); });
       }
     });
     return () => {

@@ -63,6 +63,7 @@ const ICON_MAP = {
   language: 'language',
   help: 'help-circle',
   close: 'close',
+  offline: 'cloud-offline',
   download: 'download',
   'person-remove': 'person-remove',
 } as const;
