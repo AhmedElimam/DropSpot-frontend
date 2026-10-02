@@ -15,6 +15,9 @@ export interface SessionRow {
   checked_in_count: number;
   /** «الحصة N من M» in the course's billing month; null when unknown. */
   cycle_position?: { n: number; of: number } | null;
+  enrolled_count?: number;
+  absent_count?: number;
+  duration_minutes?: number | null;
 }
 
 export interface SessionsPage {
@@ -102,7 +105,7 @@ export async function syncOfflineMarks(
   return (data.data ?? data) as { synced: number; total: number; results: OfflineMarkResult[] };
 }
 
-export async function getTeacherSessions(params?: { status?: string; page?: number }): Promise<SessionsPage> {
+export async function getTeacherSessions(params?: { status?: string; page?: number; from?: string; to?: string }): Promise<SessionsPage> {
   const { data } = await client.get('/teacher/sessions', { params });
   const items = extractList(data, 'teacher-session-row').map((item: any) => {
     const attrs = extractAttrs(item);

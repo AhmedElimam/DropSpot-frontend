@@ -1,49 +1,57 @@
 import { useMemo, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Switch, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Switch, Alert, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, nav } from '@/theme/index';
-import { Icon } from '@/components/ui/Icon';
-import { Badge, type BadgeVariant } from '@/components/ui/Badge';
+import { colors, spacing, radius, nav, gradients, shadows } from '@/theme/index';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/layout/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import type { SessionAttendee, SwapInAttendee } from '@/api/teacherSessions';
-import { dayLabel } from '@/utils/format';
+import { dayLabel, formatNumber } from '@/utils/format';
+import { goToScan } from '@/utils/sessionNav';
+import type { TeacherSession } from '@/api/teacher';
 
 type RosterTab = 'roster' | 'swap';
-type AttnFilter = 'awaiting' | 'present' | 'absent' | 'excused' | 'all';
+type Bucket = 'awaiting' | 'present' | 'absent' | 'excused';
+type Status = 'present' | 'late' | 'absent' | 'excused';
 
-/** Which filter bucket an attendance status falls into. */
-function attnBucket(status: string): Exclude<AttnFilter, 'all'> {
+function bucketOf(status: string): Bucket {
   if (status === 'present' || status === 'late') return 'present';
   if (status === 'absent') return 'absent';
   if (status === 'excused') return 'excused';
-  return 'awaiting'; // not_recorded / anything else = still to fill in
+  return 'awaiting';
 }
 
-const FILTER_ORDER: AttnFilter[] = ['awaiting', 'present', 'absent', 'excused', 'all'];
-
-const STATUS_META: Record<string, { key: string; variant: BadgeVariant }> = {
-  present: { key: 'attendance.present', variant: 'success' },
-  late: { key: 'attendance.late', variant: 'warning' },
-  absent: { key: 'attendance.absent', variant: 'danger' },
-  excused: { key: 'attendance.excused', variant: 'info' },
-  not_recorded: { key: 'teacher.not_recorded', variant: 'default' },
+const STATUS_COLOR: Record<string, string> = {
+  present: colors.success, late: colors.warning, absent: colors.danger, excused: colors.info, not_recorded: colors.borderStrong,
 };
-
-const MARK_OPTIONS: { status: 'present' | 'late' | 'absent' | 'excused'; color: string }[] = [
-  { status: 'present', color: colors.success },
-  { status: 'late', color: colors.warning },
-  { status: 'absent', color: colors.danger },
-  { status: 'excused', color: colors.info },
+const STATUS_KEY: Record<string, string> = {
+  present: 'attendance.present', late: 'attendance.late', absent: 'attendance.absent', excused: 'attendance.excused', not_recorded: 'teacher.not_recorded',
+};
+const MARK_OPTIONS: { status: Status; color: string; icon: IconName }[] = [
+  { status: 'present', color: colors.success, icon: 'present' },
+  { status: 'late', color: colors.warning, icon: 'late' },
+  { status: 'absent', color: colors.danger, icon: 'absent' },
+  { status: 'excused', color: colors.info, icon: 'excused' },
 ];
+// Rows still to record float to the top: they are what the teacher came here to do.
+const ORDER: Record<Bucket, number> = { awaiting: 0, present: 1, absent: 2, excused: 3 };
 
+/**
+ * One session's attendance sheet (founder 2026-10-02: "session details needs some love").
+ * The header IS the summary: a ring for how full the room is and three counts that double
+ * as the filter. Session settings live behind the gear, not stacked above the roster. Rows
+ * still to record come first; at the end of a session one button marks the rest absent.
+ * Every mark works offline (queued, «بانتظار المزامنة»).
+ */
 export default function SessionDetailScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -53,44 +61,73 @@ export default function SessionDetailScreen() {
   const controls = useSessionControls(id!);
   const { can } = useActiveAbilities();
   const canMark = can(ABILITY.MARK_MANUAL);
+  const canScan = can(ABILITY.SCAN);
 
   const [selected, setSelected] = useState<SessionAttendee | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [gradeDraft, setGradeDraft] = useState('');
-  // Tabs + attendance filter (parity with the web dashboard). Default tab is the
-  // roster; default filter is "awaiting" — the still-empty rows to fill in.
   const [tab, setTab] = useState<RosterTab>('roster');
-  const [filter, setFilter] = useState<AttnFilter>('awaiting');
+  const [filter, setFilter] = useState<Bucket | null>(null);
+  const [search, setSearch] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const swapIns = s?.swap_ins ?? [];
   const hasSwaps = swapIns.length > 0;
-  const activeTab: RosterTab = hasSwaps ? tab : 'roster'; // never strand on an empty swap tab
+  const activeTab: RosterTab = hasSwaps ? tab : 'roster';
   const baseList: (SessionAttendee | SwapInAttendee)[] = activeTab === 'swap' ? swapIns : s?.attendees ?? [];
 
-  // Per-filter counts over the active tab's list, for the pill labels.
   const counts = useMemo(() => {
-    const c = { awaiting: 0, present: 0, absent: 0, excused: 0, all: baseList.length };
-    for (const a of baseList) c[attnBucket(a.status)]++;
+    const c: Record<Bucket, number> = { awaiting: 0, present: 0, absent: 0, excused: 0 };
+    for (const a of baseList) c[bucketOf(a.status)]++;
     return c;
   }, [baseList]);
 
-  const filteredList = useMemo(
-    () => (filter === 'all' ? baseList : baseList.filter((a) => attnBucket(a.status) === filter)),
-    [baseList, filter],
-  );
+  const list = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return baseList
+      .filter((a) => (filter ? bucketOf(a.status) === filter : true))
+      .filter((a) => (!q ? true : (a.name ?? '').toLowerCase().includes(q) || (a.student_code ?? '').toLowerCase().includes(q)))
+      .slice()
+      .sort((a, b) => ORDER[bucketOf(a.status)] - ORDER[bucketOf(b.status)]);
+  }, [baseList, filter, search]);
+
+  const current = selected
+    ? s?.attendees.find((a) => a.student_id === selected.student_id) ?? s?.swap_ins?.find((a) => a.student_id === selected.student_id) ?? selected
+    : null;
 
   const openAttendee = (a: SessionAttendee) => {
     setSelected(a);
     setNoteDraft(a.note ?? '');
     setGradeDraft(a.mark != null ? String(a.mark) : '');
   };
-  // Keep the open sheet's data fresh after a mutation returns new detail — search
-  // the roster AND the swap-in list (a makeup student can be marked here too).
-  const current = selected
-    ? s?.attendees.find((a) => a.student_id === selected.student_id)
-      ?? s?.swap_ins?.find((a) => a.student_id === selected.student_id)
-      ?? selected
-    : null;
+  const mark = (studentId: number, status: Status) =>
+    controls.mark.mutate({ studentId, status }, { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('common.error')) });
+
+  const started = s?.scheduled_at ? Date.now() >= new Date(s.scheduled_at).getTime() : false;
+  const live = !!s && !s.is_cancelled && !s.is_completed;
+  const awaitingRows = baseList.filter((a) => bucketOf(a.status) === 'awaiting');
+
+  const markRestAbsent = () => {
+    if (!awaitingRows.length) return;
+    Alert.alert(t('session_ui.rest_absent_title'), t('session_ui.rest_absent_body', { n: formatNumber(awaitingRows.length) }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('session_ui.rest_absent_confirm'), style: 'destructive',
+        onPress: async () => {
+          setBulkBusy(true);
+          try {
+            for (const a of awaitingRows) {
+              // One by one through the same mutation: each mark is queued offline if needed.
+              await controls.mark.mutateAsync({ studentId: a.student_id, status: 'absent' }).catch(() => undefined);
+            }
+          } finally {
+            setBulkBusy(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const doCancelRestore = () => {
     if (!s) return;
@@ -99,88 +136,111 @@ export default function SessionDetailScreen() {
     } else {
       Alert.alert(t('teacher.cancel_session_title'), t('teacher.cancel_session_hint'), [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: t('teacher.cancel_session_confirm'), style: 'destructive', onPress: () => controls.cancel.mutate() },
+        { text: t('teacher.cancel_session_confirm'), style: 'destructive', onPress: () => { setSettingsOpen(false); controls.cancel.mutate(); } },
       ]);
     }
   };
 
   const renderAttendee = ({ item }: { item: SessionAttendee | SwapInAttendee }) => {
-    const meta = STATUS_META[item.status] ?? STATUS_META.not_recorded;
+    const color = STATUS_COLOR[item.status] ?? STATUS_COLOR.not_recorded;
     const fromLabel = 'from_label' in item ? item.from_label : null;
+    const awaiting = bucketOf(item.status) === 'awaiting';
     return (
-      <TouchableOpacity
-        onPress={() => openAttendee(item)}
-        activeOpacity={0.8}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}
-      >
+      <TouchableOpacity onPress={() => openAttendee(item)} activeOpacity={0.85}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: color, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 64 }}>
         <Avatar name={item.name ?? '—'} size={40} />
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{item.name ?? '—'}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
-            {item.student_code ?? (item.card_less ? t('teacher.card_less') : '')}
-            {item.checked_in_at ? ` · ${item.checked_in_at}` : ''}
-          </Text>
-          {fromLabel ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
-              <Icon name="refresh" size={12} color={colors.brand} />
-              <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand }} numberOfLines={1}>{t('teacher.swapped_from', { from: fromLabel })}</Text>
-            </View>
-          ) : null}
-          {/* Sheet + note signals */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: item.mark != null || item.note || item.sheet_awaited || item.number_flagged || item.pending_sync ? 4 : 0 }}>
-            {item.mark != null ? (
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{t('teacher.mark_short', { mark: item.mark })}</Text>
-            ) : null}
-            {item.sheet_awaited ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.warning }}>{t('teacher.sheet_awaited')}</Text> : null}
-            {item.pending_sync ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textTertiary }}>{t('teacher.mark_pending_sync')}</Text> : null}
-            {item.note ? <Icon name="note" size={13} color={colors.textTertiary} /> : null}
-            {item.number_flagged ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.danger }}>{t('teacher.number_fake')}</Text> : null}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{item.name ?? '—'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
+            {!awaiting ? (
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color }}>{t(STATUS_KEY[item.status] ?? 'teacher.not_recorded')}{item.checked_in_at ? ` · ${item.checked_in_at}` : ''}</Text>
+            ) : (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{item.student_code ?? (item.card_less ? t('teacher.card_less') : '')}</Text>
+            )}
+            {item.pending_sync ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.warningText }}>{`· ${t('teacher.mark_pending_sync')}`}</Text> : null}
+            {item.mark != null ? <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{`· ${t('teacher.mark_short', { mark: item.mark })}`}</Text> : null}
+            {item.sheet_awaited ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.warning }}>{`· ${t('teacher.sheet_awaited')}`}</Text> : null}
+            {item.note ? <Icon name="note" size={12} color={colors.textTertiary} /> : null}
+            {item.number_flagged ? <Icon name="warning" size={12} color={colors.danger} /> : null}
           </View>
+          {fromLabel ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand, marginTop: 2 }} numberOfLines={1}>{t('teacher.swapped_from', { from: fromLabel })}</Text> : null}
         </View>
-        {/* Quick present/absent — record straight from the row (no modal needed). */}
         {canMark ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-            <TouchableOpacity
-              onPress={() => controls.mark.mutate(
-                { studentId: item.student_id, status: 'present' },
-                { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('common.error')) },
-              )}
-              disabled={controls.mark.isPending}
-              hitSlop={6}
-              accessibilityLabel={t('attendance.present')}
-              style={{ width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: colors.success, backgroundColor: (item.status === 'present' || item.status === 'late') ? colors.success : colors.surface }}
-            >
-              <Icon name="present" size={20} color={(item.status === 'present' || item.status === 'late') ? '#fff' : colors.success} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => controls.mark.mutate(
-                { studentId: item.student_id, status: 'absent' },
-                { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('common.error')) },
-              )}
-              disabled={controls.mark.isPending}
-              hitSlop={6}
-              accessibilityLabel={t('attendance.absent')}
-              style={{ width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5, borderColor: colors.danger, backgroundColor: item.status === 'absent' ? colors.danger : colors.surface }}
-            >
-              <Icon name="absent" size={20} color={item.status === 'absent' ? '#fff' : colors.danger} />
-            </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {(['present', 'absent'] as const).map((st) => {
+              const on = item.status === st || (st === 'present' && item.status === 'late');
+              const c = st === 'present' ? colors.success : colors.danger;
+              return (
+                <TouchableOpacity key={st} onPress={() => mark(item.student_id, st)} hitSlop={4} accessibilityLabel={t(STATUS_KEY[st])}
+                  style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: on ? c : c + '14', borderWidth: on ? 0 : 1, borderColor: c + '55' }}>
+                  <Icon name={st === 'present' ? 'present' : 'absent'} size={22} color={on ? '#fff' : c} />
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        ) : (
-          <Badge label={t(meta.key)} variant={meta.variant} size="sm" />
-        )}
+        ) : null}
       </TouchableOpacity>
     );
   };
 
+  const stats: { key: Bucket; label: string; color: string }[] = [
+    { key: 'present', label: t('session_ui.stat_present'), color: colors.success },
+    { key: 'absent', label: t('session_ui.stat_absent'), color: colors.danger },
+    { key: 'awaiting', label: t('session_ui.stat_awaiting'), color: colors.accent },
+  ];
+  const total = baseList.length;
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="forward" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }} numberOfLines={1}>{s?.course_name ?? t('session.session_details')}</Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Header — the session at a glance; the counts are the filter. */}
+      <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="forward" size={22} color="#fff" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
+          {s ? (
+            <TouchableOpacity onPress={() => setSettingsOpen(true)} accessibilityRole="button" accessibilityLabel={t('session_ui.settings')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name="settings" size={20} color="#fff" outline />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {s ? (
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md }}>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  {s.is_cancelled ? <Chip label={t('session.cancelled')} bg={colors.danger} /> : s.is_completed ? <Chip label={t('session.completed')} bg="rgba(255,255,255,0.2)" /> : started ? <Chip label={t('teacher.live_now')} bg={colors.success} /> : null}
+                  {s.is_exam ? <Chip label={t('teacher.type_quiz_exam')} bg={colors.accent} dark /> : null}
+                </View>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 6 }} numberOfLines={2}>{s.course_name ?? t('session.session_details')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>
+                  {dayLabel(s.scheduled_at)}{s.time ? ` · ${s.time}` : ''}{s.location ? ` · ${s.location}` : ''}
+                </Text>
+              </View>
+              <AttendanceRing present={counts.present} total={total} onDark size={84} />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+              {stats.map((x) => {
+                const on = filter === x.key;
+                return (
+                  <TouchableOpacity key={x.key} onPress={() => setFilter(on ? null : x.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
+                    style={{ flex: 1, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: on ? '#fff' : 'rgba(255,255,255,0.14)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: x.color }} />
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 19, lineHeight: 25, color: on ? colors.textPrimary : '#fff' }}>{formatNumber(counts[x.key])}</Text>
+                    </View>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.textSecondary : 'rgba(255,255,255,0.72)' }}>{x.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
+      </LinearGradient>
 
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
@@ -188,83 +248,103 @@ export default function SessionDetailScreen() {
         <EmptyState icon="calendar" title={t('teacher.session_not_found')} />
       ) : (
         <FlatList
-          removeClippedSubviews
-          initialNumToRender={8}
-          maxToRenderPerBatch={8}
-          updateCellsBatchingPeriod={50}
-          windowSize={7}
-          data={filteredList}
+          data={list}
           keyExtractor={(a) => String(a.student_id)}
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
+          renderItem={renderAttendee}
+          removeClippedSubviews initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7}
+          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + 72 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
-            <View style={{ marginBottom: spacing.md }}>
-              {/* No signal: the sheet is the phone's last-known copy; marks queue and sync later. */}
+            <View style={{ marginBottom: spacing.sm, gap: spacing.sm }}>
               {s.offline ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.warning + '22', borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
-                  <Icon name="offline" size={18} color={colors.warning} />
-                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.textPrimary }}>{t('teacher.roster_offline_hint')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.warningLight, borderRadius: radius.lg, padding: spacing.md }}>
+                  <Icon name="offline" size={18} color={colors.warningText} />
+                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.warningText }}>{t('teacher.roster_offline_hint')}</Text>
                 </View>
               ) : null}
-              {/* Summary card */}
-              <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, flex: 1 }}>
-                    {dayLabel(s.scheduled_at)}{s.time ? ` · ${s.time}` : ''}{s.location ? ` · ${s.location}` : ''}
-                  </Text>
-                  {s.is_cancelled ? <Badge label={t('session.cancelled')} variant="danger" size="sm" /> : s.is_completed ? <Badge label={t('session.completed')} variant="default" size="sm" /> : null}
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
-                  <Icon name="present" size={18} color={colors.success} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>
-                    {t('teacher.present_of_total', { present: s.present_count, total: s.total_count })}
-                  </Text>
-                </View>
-              </View>
 
-              {/* Session controls */}
-              <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
-                <View style={{ flex: 1 }}>
-                  <Button
-                    title={s.is_cancelled ? t('teacher.restore_session') : t('teacher.cancel_session')}
-                    onPress={doCancelRestore}
-                    variant={s.is_cancelled ? 'success' : 'destructive'}
-                    loading={controls.cancel.isPending || controls.restore.isPending}
-                    disabled={s.is_completed}
-                  />
+              {hasSwaps ? (
+                <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4 }}>
+                  {([['roster', t('teacher.tab_roster'), s.attendees.length], ['swap', t('teacher.tab_swaps'), swapIns.length]] as const).map(([k, label, n]) => {
+                    const on = activeTab === k;
+                    return (
+                      <TouchableOpacity key={k} onPress={() => { setTab(k); setFilter(null); }} activeOpacity={0.85}
+                        style={{ flex: 1, minHeight: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.surface : 'transparent' }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary }}>{`${label} · ${formatNumber(n)}`}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              </View>
+              ) : null}
 
-              {/* Session type: normal sheet vs big exam (§1). An exam's marks report separately. */}
-              <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginTop: spacing.md }}>
+              {total > 8 ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md }}>
+                  <Icon name="search" size={18} color={colors.textTertiary} />
+                  <TextInput value={search} onChangeText={setSearch} placeholder={t('teacher.search_student_ph')} placeholderTextColor={colors.textTertiary}
+                    style={{ flex: 1, height: 44, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary }} />
+                  {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color={colors.textTertiary} /></TouchableOpacity> : null}
+                </View>
+              ) : null}
+
+              {canMark && started && !s.is_cancelled && awaitingRows.length > 0 ? (
+                <TouchableOpacity onPress={markRestAbsent} disabled={bulkBusy} activeOpacity={0.85}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md }}>
+                  {bulkBusy ? <ActivityIndicator color={colors.danger} /> : <Icon name="absent" size={20} color={colors.danger} />}
+                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>{t('session_ui.rest_absent', { n: formatNumber(awaitingRows.length) })}</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              {filter ? (
+                <TouchableOpacity onPress={() => setFilter(null)} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 }}>
+                  <Icon name="close" size={14} color={colors.brand} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('session_ui.clear_filter')}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          }
+          ListEmptyComponent={<EmptyState icon="children" title={baseList.length ? t('teacher.no_students_in_filter') : t('teacher.no_students')} />}
+        />
+      )}
+
+      {/* Scan straight into this session. */}
+      {s && canScan && live ? (
+        <TouchableOpacity onPress={() => goToScan({ id: s.id, course_name: s.course_name } as TeacherSession)} activeOpacity={0.9} accessibilityRole="button"
+          style={{ position: 'absolute', bottom: nav.bottomHeight + insets.bottom + spacing.sm, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8, height: 54, paddingHorizontal: spacing.xl, borderRadius: 27, backgroundColor: colors.success, ...shadows.md }}>
+          <Icon name="scan" size={22} color="#fff" />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('sessions_tab.scan')}</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      {/* Session settings — type, sheet, cancel. Out of the way of the roster. */}
+      <Modal visible={settingsOpen && !!s} transparent animationType="slide" onRequestClose={() => setSettingsOpen(false)}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlay }}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setSettingsOpen(false)} />
+          {s ? (
+            <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, gap: spacing.md }}>
+              <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('session_ui.settings')}</Text>
+
+              <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('teacher.session_type_label')}</Text>
                 <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: 4 }}>
                   {(['normal_sheet', 'quiz_exam'] as const).map((ty) => {
                     const on = (s.type ?? 'normal_sheet') === ty;
                     return (
-                      <TouchableOpacity
-                        key={ty}
+                      <TouchableOpacity key={ty} disabled={controls.setType.isPending} activeOpacity={0.85}
                         onPress={() => { if (!on) controls.setType.mutate(ty, { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.session_type_failed')) }); }}
-                        disabled={controls.setType.isPending}
-                        activeOpacity={0.85}
-                        style={{ flex: 1, paddingVertical: spacing.sm, borderRadius: radius.sm, backgroundColor: on ? colors.surface : 'transparent', alignItems: 'center' }}
-                      >
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary }}>
-                          {t(ty === 'normal_sheet' ? 'teacher.type_normal_sheet' : 'teacher.type_quiz_exam')}
-                        </Text>
+                        style={{ flex: 1, paddingVertical: spacing.sm, borderRadius: radius.sm, backgroundColor: on ? colors.surface : 'transparent', alignItems: 'center' }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary }}>{t(ty === 'normal_sheet' ? 'teacher.type_normal_sheet' : 'teacher.type_quiz_exam')}</Text>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
-                {s.is_exam ? (
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: spacing.sm }}>{t('teacher.type_quiz_exam_hint')}</Text>
-                ) : null}
+                {s.is_exam ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: spacing.sm }}>{t('teacher.type_quiz_exam_hint')}</Text> : null}
               </View>
 
-              {/* Sheet controls */}
-              <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginTop: spacing.md }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View style={{ flex: 1, paddingEnd: spacing.md }}>
+              <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                  <View style={{ flex: 1 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('teacher.sheet_excluded_label')}</Text>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('teacher.sheet_excluded_hint')}</Text>
                   </View>
@@ -278,69 +358,30 @@ export default function SessionDetailScreen() {
                 ) : null}
               </View>
 
-              {/* Tabs: enrolled roster (default) + swapped-in makeups (only when any) */}
-              {hasSwaps ? (
-                <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
-                  {([['roster', t('teacher.tab_roster'), s.total_count], ['swap', t('teacher.tab_swaps'), swapIns.length]] as const).map(([key, label, n]) => {
-                    const on = activeTab === key;
-                    return (
-                      <TouchableOpacity
-                        key={key}
-                        onPress={() => setTab(key)}
-                        activeOpacity={0.8}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, height: 40, borderRadius: radius.full, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border }}
-                      >
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? '#fff' : colors.textSecondary }}>{label}</Text>
-                        <View style={{ minWidth: 20, paddingHorizontal: 6, height: 20, borderRadius: 10, backgroundColor: on ? 'rgba(255,255,255,0.25)' : colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: on ? '#fff' : colors.textTertiary }}>{n}</Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ) : (
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginTop: spacing.lg }}>{t('teacher.roster')}</Text>
-              )}
-
-              {/* Attendance filter — default "awaiting" (still to fill in) */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingVertical: spacing.md }}>
-                {FILTER_ORDER.map((f) => {
-                  const on = filter === f;
-                  return (
-                    <TouchableOpacity
-                      key={f}
-                      onPress={() => setFilter(f)}
-                      activeOpacity={0.8}
-                      style={{ paddingHorizontal: spacing.md, height: 34, borderRadius: radius.full, justifyContent: 'center', backgroundColor: on ? colors.primaryLight : colors.surface, borderWidth: 1, borderColor: on ? colors.primary : colors.border }}
-                    >
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.primary : colors.textSecondary }}>
-                        {t(`teacher.filter_${f}`)} · {counts[f]}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+              <Button
+                title={s.is_cancelled ? t('teacher.restore_session') : t('teacher.cancel_session')}
+                onPress={doCancelRestore}
+                variant={s.is_cancelled ? 'success' : 'destructive'}
+                loading={controls.cancel.isPending || controls.restore.isPending}
+                disabled={s.is_completed}
+              />
             </View>
-          }
-          renderItem={renderAttendee}
-          ListEmptyComponent={
-            baseList.length > 0
-              ? <EmptyState icon="children" title={t('teacher.no_students_in_filter')} />
-              : <EmptyState icon="children" title={t('teacher.no_students')} />
-          }
-        />
-      )}
+          ) : null}
+        </View>
+      </Modal>
 
-      {/* Attendee action sheet */}
+      {/* One student — mark, sheet grade, note. */}
       <Modal visible={!!current} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlay }}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setSelected(null)} />
           <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             {current ? (
               <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
+                <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
-                  <Avatar name={current.name ?? '—'} size={44} />
+                  <Avatar name={current.name ?? '—'} size={48} />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{current.name ?? '—'}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{current.name ?? '—'}</Text>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{current.student_code ?? (current.card_less ? t('teacher.card_less') : '')}</Text>
                   </View>
                   <TouchableOpacity onPress={() => setSelected(null)} accessibilityLabel={t('common.close')} style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
@@ -348,21 +389,17 @@ export default function SessionDetailScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Manual attendance */}
                 {canMark ? (
                   <>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.mark_attendance')}</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg }}>
+                    <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
                       {MARK_OPTIONS.map((o) => {
                         const active = current.status === o.status;
                         return (
-                          <TouchableOpacity
-                            key={o.status}
-                            onPress={() => controls.mark.mutate({ studentId: current.student_id, status: o.status })}
-                            disabled={controls.mark.isPending}
-                            style={{ paddingHorizontal: spacing.lg, height: 44, justifyContent: 'center', borderRadius: radius.full, backgroundColor: active ? o.color : colors.surface, borderWidth: 1.5, borderColor: o.color }}
-                          >
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: active ? '#fff' : o.color }}>{t(STATUS_META[o.status].key)}</Text>
+                          <TouchableOpacity key={o.status} onPress={() => mark(current.student_id, o.status)} disabled={controls.mark.isPending}
+                            style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: active ? o.color : o.color + '12', borderWidth: active ? 0 : 1, borderColor: o.color + '55' }}>
+                            <Icon name={o.icon} size={22} color={active ? '#fff' : o.color} />
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? '#fff' : o.color }}>{t(STATUS_KEY[o.status])}</Text>
                           </TouchableOpacity>
                         );
                       })}
@@ -370,53 +407,30 @@ export default function SessionDetailScreen() {
                   </>
                 ) : null}
 
-                {/* Sheet grade (only meaningful once attending) */}
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>
                   {t('teacher.sheet_grade')}{s?.sheet_max_mark != null ? ` (${t('teacher.out_of', { max: s.sheet_max_mark })})` : ''}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
-                  <TextInput
-                    value={gradeDraft}
-                    onChangeText={setGradeDraft}
-                    keyboardType="numeric"
-                    placeholder={t('teacher.optional')}
-                    placeholderTextColor={colors.textTertiary}
-                    style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}
-                  />
-                  <Button
-                    title={t('common.save')}
+                  <TextInput value={gradeDraft} onChangeText={setGradeDraft} keyboardType="numeric" placeholder={t('teacher.optional')} placeholderTextColor={colors.textTertiary}
+                    style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }} />
+                  <Button title={t('common.save')} variant="primary" loading={controls.grade.isPending}
                     onPress={() => controls.grade.mutate(
                       { studentId: current.student_id, mark: gradeDraft.trim() ? Number(gradeDraft.trim()) : null },
                       { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.grade_failed')) },
-                    )}
-                    loading={controls.grade.isPending}
-                    variant="primary"
-                  />
+                    )} />
                 </View>
 
-                {/* Sheet-marked toggle */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.lg }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('teacher.sheet_marked')}</Text>
                   <Switch value={current.sheet_marked} onValueChange={() => controls.sheet.mutate(current.student_id)} trackColor={{ true: colors.brand }} />
                 </View>
 
-                {/* Parent note */}
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.parent_note')}</Text>
-                <TextInput
-                  value={noteDraft}
-                  onChangeText={setNoteDraft}
-                  placeholder={t('teacher.parent_note_placeholder')}
-                  placeholderTextColor={colors.textTertiary}
-                  multiline
-                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, minHeight: 80, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right', textAlignVertical: 'top' }}
-                />
+                <TextInput value={noteDraft} onChangeText={setNoteDraft} placeholder={t('teacher.parent_note_placeholder')} placeholderTextColor={colors.textTertiary} multiline
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, minHeight: 80, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlignVertical: 'top' }} />
                 <View style={{ marginTop: spacing.md }}>
-                  <Button
-                    title={t('teacher.save_note')}
-                    onPress={() => controls.note.mutate({ studentId: current.student_id, note: noteDraft.trim() })}
-                    loading={controls.note.isPending}
-                    variant="secondary"
-                  />
+                  <Button title={t('teacher.save_note')} variant="secondary" loading={controls.note.isPending}
+                    onPress={() => controls.note.mutate({ studentId: current.student_id, note: noteDraft.trim() })} />
                 </View>
               </ScrollView>
             ) : null}
@@ -427,21 +441,21 @@ export default function SessionDetailScreen() {
   );
 }
 
-/** Inline editor for the per-session sheet cap: a small numeric field + save. */
+function Chip({ label, bg, dark = false }: { label: string; bg: string; dark?: boolean }) {
+  return (
+    <View style={{ backgroundColor: bg, borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 9 }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: dark ? colors.onAccent : '#fff' }}>{label}</Text>
+    </View>
+  );
+}
+
+/** Inline editor for the per-session sheet cap: a small numeric field, saved on blur. */
 function SheetMaxEditor({ value, onSave }: { value: number | null; onSave: (v: number | null) => void }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(value != null ? String(value) : '');
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-      <TextInput
-        value={draft}
-        onChangeText={setDraft}
-        keyboardType="numeric"
-        placeholder={t('teacher.optional')}
-        placeholderTextColor={colors.textTertiary}
-        style={{ width: 72, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, paddingHorizontal: spacing.sm, height: 40, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, textAlign: 'center' }}
-        onBlur={() => onSave(draft.trim() ? Number(draft.trim()) : null)}
-      />
-    </View>
+    <TextInput value={draft} onChangeText={setDraft} keyboardType="numeric" placeholder={t('teacher.optional')} placeholderTextColor={colors.textTertiary}
+      style={{ width: 72, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, paddingHorizontal: spacing.sm, height: 40, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, textAlign: 'center' }}
+      onBlur={() => onSave(draft.trim() ? Number(draft.trim()) : null)} />
   );
 }

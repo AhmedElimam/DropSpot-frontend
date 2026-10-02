@@ -39,6 +39,11 @@ export interface TeacherSession {
   is_current: boolean;
   /** «الحصة N من M» in the course's billing month; null when the timeline has no date for it. */
   cycle_position?: { n: number; of: number } | null;
+  /** Present + late so far. */
+  checked_in_count?: number;
+  absent_count?: number;
+  /** Roster size by the attendance sheet's own rule (slot + course-level enrolments). */
+  enrolled_count?: number;
 }
 
 export async function getTeacherTodaySessions(): Promise<TeacherSession[]> {

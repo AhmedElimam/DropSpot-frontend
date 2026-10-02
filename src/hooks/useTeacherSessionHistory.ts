@@ -38,6 +38,16 @@ export function useTeacherSessionHistory(status?: string) {
  * waiting in the offline queue are laid over the picture, so what the teacher tapped is
  * what the teacher sees until the sync confirms it.
  */
+/** Every session in a date window (inclusive YYYY-MM-DD) — the Sessions tab's week strip. */
+export function useTeacherSessionsWindow(from: string, to: string) {
+  return useQuery({
+    queryKey: ['teacher-session-history', 'window', from, to],
+    queryFn: () => getTeacherSessions({ from, to }),
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useSessionDetail(id?: string) {
   return useQuery({
     queryKey: ['teacher-session-detail', id],

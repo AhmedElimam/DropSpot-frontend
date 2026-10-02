@@ -1,154 +1,159 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, nav, shadows } from '@/theme/index';
+import { colors, spacing, radius, nav, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { FilterChips } from '@/components/ui/FilterChips';
-import { useTeacherSessionHistory } from '@/hooks/useTeacherSessionHistory';
-import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
+import { useTeacherSessionsWindow } from '@/hooks/useTeacherSessionHistory';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import type { SessionRow } from '@/api/teacherSessions';
+import { SessionCard, type SessionCardData } from '@/components/session/TeacherSessionCard';
+import { formatNumber, formatDayDate } from '@/utils/format';
+import { goToScan } from '@/utils/sessionNav';
 import type { TeacherSession } from '@/api/teacher';
-import { dayLabel } from '@/utils/format';
-import { isSessionHighlighted, goToScan } from '@/utils/sessionNav';
 
-const SESSION_STATUS: Record<string, { key: string; color: string }> = {
-  scheduled: { key: 'session.scheduled', color: colors.info },
-  in_progress: { key: 'session.live', color: colors.success },
-  live: { key: 'session.live', color: colors.success },
-  completed: { key: 'session.completed', color: colors.textSecondary },
-  cancelled: { key: 'session.cancelled', color: colors.danger },
-};
+const DAY_SHORT = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
+const MONTH_FMT = new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' });
+
+function key(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+/** The Egyptian week starts on Saturday. */
+function weekStart(d: Date): Date {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return addDays(x, -((x.getDay() + 1) % 7));
+}
 
 /**
- * «الحصص» — its own tab (founder 2026-10-02: the attendance sheet sat under Students, which
- * is where nobody looked for it). Today first, then the history with status chips; every
- * row opens the sheet (manual marks work offline) or the scanner for whoever scans.
+ * «الحصص» (founder 2026-10-02, second pass). A week strip in the ink header — Saturday to
+ * Friday, a dot for each session that day, today ringed in apricot — and the chosen day's
+ * sessions underneath as the same cards Home uses. Move a week at a time with the arrows;
+ * «اليوم» jumps back. Everything a teacher used to scroll an endless list for is a tap.
  */
 export default function TeacherSessions() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { can } = useActiveAbilities();
   const canScan = can(ABILITY.SCAN);
-  const [status, setStatus] = useState<string | null>(null);
-  const today = useTeacherTodaySessions();
-  const history = useTeacherSessionHistory(status ?? undefined);
-  const { refreshing, onRefresh } = usePullRefresh(today.refetch, history.refetch);
-  const now = Date.now();
 
-  const statusOptions = useMemo(
-    () => [{ key: 'all', label: t('teacher.status_all') }, ...(['scheduled', 'completed', 'cancelled'] as const).map((k) => ({ key: k as string, label: t(`session.${k}`) }))],
-    [t],
-  );
+  const today = useMemo(() => new Date(), []);
+  const [selected, setSelected] = useState<Date>(today);
+  const start = useMemo(() => weekStart(selected), [selected]);
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(start, i)), [start]);
+  const from = key(days[0]);
+  const to = key(days[6]);
+  const q = useTeacherSessionsWindow(from, to);
+  const { refreshing, onRefresh } = usePullRefresh(q.refetch);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(id); }, []);
 
-  const openSheet = (id: string) => router.push(`/(teacher)/sessions/${id}` as Href);
+  const byDay = useMemo(() => {
+    const m = new Map<string, SessionCardData[]>();
+    for (const s of q.data?.items ?? []) {
+      const k = s.date ?? (s.scheduled_at ? key(new Date(s.scheduled_at)) : '');
+      m.set(k, [...(m.get(k) ?? []), s]);
+    }
+    return m;
+  }, [q.data]);
 
-  const renderToday = (s: TeacherSession) => {
-    const live = isSessionHighlighted(s, now);
-    return (
-      <TouchableOpacity key={s.id} onPress={() => openSheet(s.id)} activeOpacity={0.85}
-        style={{ backgroundColor: live ? colors.successLight : colors.surface, borderRadius: radius.xl, borderWidth: live ? 1.5 : 1, borderColor: live ? colors.success : colors.border, padding: spacing.lg, marginBottom: spacing.sm, ...shadows.sm }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }} numberOfLines={1}>{s.course_name ?? '—'}</Text>
-          {live ? (
-            <View style={{ backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 3, paddingHorizontal: 10 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('teacher.live_now')}</Text>
-            </View>
-          ) : s.cycle_position ? (
-            <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 8 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('teacher.position_of', { n: s.cycle_position.n, of: s.cycle_position.of })}</Text>
-            </View>
-          ) : null}
-        </View>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4 }}>
-          {s.time ?? ''}{s.location ? ` · ${s.location}` : ''}
-        </Text>
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
-          {canScan ? (
-            <TouchableOpacity onPress={() => goToScan(s)} activeOpacity={0.85} accessibilityRole="button"
-              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.lg, backgroundColor: live ? colors.success : colors.brand }}>
-              <Icon name="scan" size={18} color="#fff" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('sessions_tab.scan')}</Text>
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity onPress={() => openSheet(s.id)} activeOpacity={0.85} accessibilityRole="button"
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.lg, borderWidth: 1.5, borderColor: live ? colors.success : colors.brand, backgroundColor: colors.surface }}>
-            <Icon name="attendance" size={18} color={live ? colors.success : colors.brand} outline />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: live ? colors.success : colors.brand }}>{t('sessions_tab.sheet')}</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderHistory = ({ item }: { item: SessionRow }) => {
-    const st = SESSION_STATUS[item.status] ?? { key: 'session.scheduled', color: colors.textSecondary };
-    return (
-      <TouchableOpacity onPress={() => openSheet(item.id)} activeOpacity={0.8}
-        style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>{item.course_name ?? '—'}</Text>
-          <View style={{ backgroundColor: st.color, borderRadius: radius.full, paddingVertical: 3, paddingHorizontal: 10 }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#fff' }}>{t(st.key)}</Text>
-          </View>
-        </View>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4 }}>
-          {dayLabel(item.scheduled_at)}{item.time ? ` · ${item.time}` : ''}{item.location ? ` · ${item.location}` : ''}
-        </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
-          <Icon name="present" size={15} color={colors.success} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{t('teacher.checked_in_count', { count: item.checked_in_count })}</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const todayList = today.data ?? [];
+  const dayKey = key(selected);
+  const list = byDay.get(dayKey) ?? [];
+  const present = list.reduce((n, s) => n + (s.checked_in_count ?? 0), 0);
+  const roster = list.reduce((n, s) => n + (s.enrolled_count ?? 0), 0);
+  const isThisWeek = key(weekStart(today)) === from;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm }}>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary }}>{t('teacher.tab_sessions')}</Text>
-        {can(ABILITY.MANAGE_SESSIONS) ? (
-          <TouchableOpacity onPress={() => router.push('/(teacher)/schedule-new' as Href)} accessibilityRole="button" accessibilityLabel={t('teacher.add_schedule')} activeOpacity={0.85}
-            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="add" size={22} color={colors.brand} />
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{t('teacher.tab_sessions')}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>{MONTH_FMT.format(selected)}</Text>
+          </View>
+          {!isThisWeek || dayKey !== key(today) ? (
+            <TouchableOpacity onPress={() => setSelected(today)} activeOpacity={0.85} style={{ paddingHorizontal: spacing.md, height: 36, borderRadius: radius.full, backgroundColor: colors.accent, justifyContent: 'center' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onAccent }}>{t('teacher.today')}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {can(ABILITY.MANAGE_SESSIONS) ? (
+            <TouchableOpacity onPress={() => router.push('/(teacher)/schedule-new' as Href)} accessibilityRole="button" accessibilityLabel={t('teacher.add_schedule')} activeOpacity={0.85}
+              style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name="add" size={22} color="#fff" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Week strip — earlier weeks to the right (RTL), later to the left. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.lg, gap: 4 }}>
+          <TouchableOpacity onPress={() => setSelected(addDays(selected, -7))} hitSlop={8} accessibilityLabel={t('session_ui.prev_week')} style={{ padding: 4 }}>
+            <Icon name="forward" size={20} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
-        ) : null}
-      </View>
+          <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between' }}>
+            {days.map((d) => {
+              const k = key(d);
+              const on = k === dayKey;
+              const isToday = k === key(today);
+              const count = byDay.get(k)?.length ?? 0;
+              return (
+                <TouchableOpacity key={k} onPress={() => setSelected(d)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                  style={{ width: 42, paddingVertical: 8, borderRadius: 14, alignItems: 'center', backgroundColor: on ? '#fff' : 'transparent', borderWidth: isToday && !on ? 1.5 : 0, borderColor: colors.accent }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: on ? colors.textSecondary : 'rgba(255,255,255,0.65)' }}>{DAY_SHORT[d.getDay()]}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 22, color: on ? colors.textPrimary : '#fff' }}>{formatNumber(d.getDate())}</Text>
+                  <View style={{ flexDirection: 'row', gap: 2, height: 5, marginTop: 2 }}>
+                    {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
+                      <View key={i} style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: on ? colors.brand : colors.accent }} />
+                    ))}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <TouchableOpacity onPress={() => setSelected(addDays(selected, 7))} hitSlop={8} accessibilityLabel={t('session_ui.next_week')} style={{ padding: 4 }}>
+            <Icon name="back" size={20} color="rgba(255,255,255,0.8)" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
       <FlatList
-        data={history.data?.items ?? []}
+        data={list}
         keyExtractor={(s) => s.id}
-        renderItem={renderHistory}
-        style={{ opacity: history.isPlaceholderData ? 0.45 : 1 }}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }}
+        renderItem={({ item }) => (
+          <SessionCard s={item} now={now} onOpen={(s) => router.push(`/(teacher)/sessions/${s.id}` as Href)} onScan={canScan ? (s) => goToScan(s as TeacherSession) : undefined} />
+        )}
+        style={{ opacity: q.isPlaceholderData ? 0.5 : 1 }}
+        contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        removeClippedSubviews initialNumToRender={8} maxToRenderPerBatch={8} windowSize={7}
         ListHeaderComponent={
-          <View>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('teacher.todays_sessions')}</Text>
-            {today.isLoading ? (
-              <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.lg }} />
-            ) : todayList.length === 0 ? (
-              <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.sm }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('teacher.no_sessions_today')}</Text>
-              </View>
-            ) : todayList.map(renderToday)}
-
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginTop: spacing.lg, marginBottom: spacing.xs }}>{t('sessions_tab.history')}</Text>
-            <View style={{ marginHorizontal: -spacing.lg, paddingBottom: spacing.sm }}>
-              <FilterChips options={statusOptions} value={status ?? 'all'} onChange={(k) => setStatus(k === 'all' ? null : k)} />
-            </View>
-            {history.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.lg }} /> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.sm }}>
+            <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{formatDayDate(selected)}</Text>
+            {list.length > 0 ? (
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>
+                {t('session_ui.day_summary', { n: formatNumber(list.length) })}
+                {roster > 0 ? ` · ${t('session_ui.present_of', { n: formatNumber(present), of: formatNumber(roster) })}` : ''}
+              </Text>
+            ) : null}
           </View>
         }
-        ListEmptyComponent={history.isLoading ? null : <EmptyState icon="calendar" title={t('teacher.no_sessions_history')} message={t('teacher.no_sessions_history_hint')} />}
+        ListEmptyComponent={
+          q.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} /> : (
+            <View style={{ alignItems: 'center', paddingTop: spacing.xl4 }}>
+              <View style={{ width: 72, height: 72, borderRadius: 24, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="calendar" size={34} color={colors.accent} />
+              </View>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginTop: spacing.md }}>{t('session_ui.no_sessions_day')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4 }}>{t('session_ui.pick_another_day')}</Text>
+            </View>
+          )
+        }
       />
     </View>
   );
