@@ -1,4 +1,5 @@
 import client from './client';
+import type { EnrollmentTermsInput } from './enrollmentTerms';
 
 /**
  * Pre-Card Invitation Token (spec). A parent mints a one-time, short-lived QR for
@@ -54,7 +55,8 @@ export interface PreCardConfirmResult {
 
 export async function confirmPreCard(
   invitationId: number,
-  payload: { course_id: number; academic_session_id: number; session_schedule_id?: number },
+  // The shared «شروط التسجيل» keys ride along exactly as on enroll-by-card.
+  payload: { course_id: number; academic_session_id: number; session_schedule_id?: number } & EnrollmentTermsInput,
 ): Promise<PreCardConfirmResult> {
   const { data } = await client.post(`/pre-card-invitations/${invitationId}/confirm`, payload);
   return (data.data ?? data) as PreCardConfirmResult;

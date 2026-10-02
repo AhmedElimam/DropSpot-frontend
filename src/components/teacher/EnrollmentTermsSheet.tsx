@@ -3,7 +3,6 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, ActivityIn
 import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, control } from '@/theme/index';
-import { Icon } from '@/components/ui/Icon';
 import { getEnrollmentTerms, type BookingSecures, type EnrollmentTermsDefaults, type EnrollmentTermsInput } from '@/api/enrollmentTerms';
 
 /**
@@ -128,14 +127,9 @@ export function summarizeTerms(h: EnrollmentTermsHandle): string {
 
 interface Props {
   terms: EnrollmentTermsHandle;
-  /** Collapsed to one summary line with a «تعديل» toggle (the scanner's review card). */
-  compact?: boolean;
-  /** Hide the position picker (the screen has its own, e.g. the scanner overlay). */
-  hidePosition?: boolean;
 }
 
-export function EnrollmentTermsSheet({ terms, compact = false, hidePosition = false }: Props) {
-  const [open, setOpen] = useState(!compact);
+export function EnrollmentTermsSheet({ terms }: Props) {
   const d = terms.data;
   const s = terms.state;
 
@@ -166,62 +160,41 @@ export function EnrollmentTermsSheet({ terms, compact = false, hidePosition = fa
     );
   }
 
-  if (compact && !open) {
-    return (
-      <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.8} accessibilityRole="button"
-        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.md }}>
-        <Icon name="money" size={18} color={colors.brand} outline />
-        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.brand }} numberOfLines={2}>
-          شروط التسجيل: {summarizeTerms(terms)}
-        </Text>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>تعديل</Text>
-      </TouchableOpacity>
-    );
-  }
-
   return (
-    <View style={{ marginTop: compact ? spacing.md : 0 }}>
-      {compact ? (
-        <TouchableOpacity onPress={() => setOpen(false)} style={{ alignSelf: 'flex-end', marginBottom: spacing.xs }}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>طيّ</Text>
-        </TouchableOpacity>
-      ) : null}
-
+    <View>
       {/* 1. Where the class is, and where this student starts. */}
-      {!hidePosition ? (
-        <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
-            المقرر الآن على الحصة {d.cycle.position} من {d.cycle.threshold}
+      <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
+          المقرر الآن على الحصة {d.cycle.position} من {d.cycle.threshold}
+        </Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textTertiary, marginTop: 2, marginBottom: spacing.sm }}>
+          الطالب يبدأ من الحصة رقم — ما قبلها لا يُحاسَب عليه. إن لم تختر، يُحاسَب من موضع المقرر الآن.
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+          {Array.from({ length: d.cycle.threshold }, (_, i) => i + 1).map((n) => {
+            const active = n === chosen;
+            const isNow = n === d.cycle.position;
+            const pos = d.cycle.timeline.positions.find((p) => p.n === n);
+            return (
+              <TouchableOpacity key={n} onPress={() => terms.set({ joinsAt: n })} activeOpacity={0.8}
+                style={{ minWidth: 44, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: 999, alignItems: 'center',
+                  backgroundColor: active ? colors.brand : colors.surfaceSunken, borderWidth: 1.5, borderColor: active ? colors.brand : isNow ? colors.brand : colors.borderStrong }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: active ? '#fff' : colors.textPrimary }}>{n}</Text>
+                {pos?.label ? (
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 10, lineHeight: 13, color: active ? 'rgba(255,255,255,0.85)' : colors.textTertiary }} numberOfLines={1}>
+                    {pos.label}{pos.is_past ? '' : ' · قادمة'}
+                  </Text>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+        {remainingFor != null ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, marginTop: spacing.sm }}>
+            {`يُحاسَب على ${remainingFor} ${remainingFor === 1 ? 'حصة متبقية' : 'حصص متبقية'} من هذه الدورة${remainingCost != null ? ` — ${money(remainingCost)}` : ''}، والدورة القادمة كاملة.`}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textTertiary, marginTop: 2, marginBottom: spacing.sm }}>
-            الطالب يبدأ من الحصة رقم — ما قبلها لا يُحاسَب عليه. إن لم تختر، يُحاسَب من موضع المقرر الآن.
-          </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
-            {Array.from({ length: d.cycle.threshold }, (_, i) => i + 1).map((n) => {
-              const active = n === chosen;
-              const isNow = n === d.cycle.position;
-              const pos = d.cycle.timeline.positions.find((p) => p.n === n);
-              return (
-                <TouchableOpacity key={n} onPress={() => terms.set({ joinsAt: n })} activeOpacity={0.8}
-                  style={{ minWidth: 44, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: 999, alignItems: 'center',
-                    backgroundColor: active ? colors.brand : colors.surfaceSunken, borderWidth: 1.5, borderColor: active ? colors.brand : isNow ? colors.brand : colors.borderStrong }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: active ? '#fff' : colors.textPrimary }}>{n}</Text>
-                  {pos?.label ? (
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 10, lineHeight: 13, color: active ? 'rgba(255,255,255,0.85)' : colors.textTertiary }} numberOfLines={1}>
-                      {pos.label}{pos.is_past ? '' : ' · قادمة'}
-                    </Text>
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          {remainingFor != null ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, marginTop: spacing.sm }}>
-              {`يُحاسَب على ${remainingFor} ${remainingFor === 1 ? 'حصة متبقية' : 'حصص متبقية'} من هذه الدورة${remainingCost != null ? ` — ${money(remainingCost)}` : ''}، والدورة القادمة كاملة.`}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
+        ) : null}
+      </View>
 
       {/* 2. The دفعة. */}
       <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md }}>

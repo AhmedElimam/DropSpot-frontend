@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration, Modal, KeyboardAvoidingView } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +23,7 @@ import {
   type PreCardScanStudent,
 } from '@/api/preCardInvitation';
 import { TeacherTip } from '@/components/TeacherTip';
+import { Button } from '@/components/ui/Button';
 import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
 
 type Review =
@@ -41,16 +42,12 @@ export default function TeacherEnroll() {
   // Enrollment is on the COURSE (schedule master) — pick the course, not a session.
   const [course, setCourse] = useState<EnrollableClass | null>(null);
   /**
-   * Which session of the current cycle the students being scanned are on.
-   *
-   * A teacher who onboards a course that has been running for weeks would otherwise have
-   * every student start at session 1: the billing cycle would finish eight sessions late
-   * and the advance invoice would charge a whole cycle for the two sessions left. Set once
-   * per course and shown in the bar, so it is never silently applied.
+   * «شروط التسجيل» for this course — the same sheet every door shows (position in the
+   * month, دفعة, booklet). Founder 2026-10-02: it used to sit as a chip strip over the
+   * camera plus an inline form inside the review card and looked cramped; now the camera
+   * stays clean and the sheet opens as a popup right after a successful scan. Per-course
+   * answers (position, دفعة on/off) carry from one student to the next; money resets.
    */
-  const [joinsAt, setJoinsAt] = useState(1);
-  // The rest of the enrolment terms (دفعة, booklet) — the same sheet every door shows; the
-  // position is driven by the chip row above the camera and mirrored into it.
   const terms = useEnrollmentTerms(course?.course_id ?? null);
   const [review, setReview] = useState<Review>(null);
   const [busy, setBusy] = useState(false);
@@ -111,7 +108,6 @@ export default function TeacherEnroll() {
         academic_session_id: course!.academic_session_id,
         accept_grade_mismatch: vars.acceptGradeMismatch,
         ...terms.payload(),
-        joins_at_session: joinsAt,
       }),
   });
 
@@ -122,11 +118,13 @@ export default function TeacherEnroll() {
       confirmPreCard(invitationId, {
         course_id: course!.course_id,
         academic_session_id: course!.academic_session_id,
+        ...terms.payload(),
       }),
   });
 
   const flashDone = (name: string) => {
     setReview(null);
+    terms.resetPerStudent();
     setDone(name);
     setTimeout(() => setDone(null), 1800);
   };
@@ -223,7 +221,7 @@ export default function TeacherEnroll() {
                 <TouchableOpacity
                   key={c.course_id}
                   activeOpacity={0.7}
-                  onPress={() => { setCourse(c); setJoinsAt(1); }}
+                  onPress={() => setCourse(c)}
                   style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}
                 >
                   <View style={{ flex: 1 }}>
@@ -265,60 +263,6 @@ export default function TeacherEnroll() {
         </View>
       </View>
 
-      {/* Where the course actually stands. Only worth showing before a scan, and only
-          when the cycle is long enough to have a middle. */}
-      {!review && !done && course!.sessions_per_cycle > 1 ? (
-        <View style={{ position: 'absolute', top: insets.top + 74, left: 0, right: 0, paddingHorizontal: spacing.lg }}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 6 }}>
-            الطالب يبدأ من الحصة رقم — ما قبلها لا يُحاسَب عليه
-          </Text>
-          {/* Each number carries the DAY it fell on (from the class's own delivered and
-              scheduled sessions), so the teacher recognises «السبت 6 سبتمبر» instead of
-              counting back. Numbers past today's position read as upcoming. */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
-            {Array.from({ length: course!.sessions_per_cycle }, (_, i) => i + 1).map((n) => {
-              const active = n === joinsAt;
-              const pos = course!.timeline?.positions.find((p) => p.n === n);
-              const isNow = course!.timeline ? n === course!.timeline.cohort_position + 1 : false;
-              return (
-                <TouchableOpacity
-                  key={n}
-                  onPress={() => setJoinsAt(n)}
-                  activeOpacity={0.8}
-                  style={{
-                    minWidth: 40, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: 999,
-                    alignItems: 'center',
-                    backgroundColor: active ? '#fff' : 'rgba(255,255,255,0.16)',
-                    borderWidth: 1, borderColor: active || isNow ? '#fff' : 'rgba(255,255,255,0.28)',
-                  }}
-                >
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: active ? colors.textPrimary : '#fff' }}>{n}</Text>
-                  {pos?.label ? (
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 10, lineHeight: 13, color: active ? colors.textSecondary : 'rgba(255,255,255,0.75)' }} numberOfLines={1}>
-                      {pos.label}{pos.is_past ? '' : ' · قادمة'}
-                    </Text>
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          {joinsAt > 1 ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 18, color: 'rgba(255,255,255,0.75)', marginTop: 6 }}>
-              {(() => {
-                const remaining = course!.sessions_per_cycle - (joinsAt - 1);
-                const per = course!.price_session;
-                const fee = per != null ? ` — فاتورة هذه الدورة ${Math.round(per * remaining)} ج.م` : '';
-                return `يُحاسَب الطالب على ${remaining} ${remaining === 1 ? 'حصة متبقية' : 'حصص متبقية'} من الدورة${fee}، والدورة القادمة تُحسب كاملة.`;
-              })()}
-            </Text>
-          ) : course!.timeline && course!.timeline.cohort_position > 0 ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 18, color: 'rgba(255,255,255,0.75)', marginTop: 6 }}>
-              {`المقرر الآن على الحصة ${course!.timeline.cohort_position + 1} — إن لم تختر، يُحاسَب الطالب من هنا تلقائيًا.`}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
-
       {/* Scan frame */}
       {!review && !done ? (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
@@ -344,70 +288,77 @@ export default function TeacherEnroll() {
         </TouchableOpacity>
       ) : null}
 
-      {/* Review card — accept / reject */}
-      {review ? (
+      {/* No student behind this card — a small bottom card, back to scanning. */}
+      {review?.kind === 'miss' ? (
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl }}>
-          {review.kind === 'precard' ? (
-            <>
-              <View style={{ alignSelf: 'flex-start', marginBottom: spacing.sm }}>
-                <Badge text="دعوة بواسطة ولي الأمر — قبل البطاقة" color={colors.brand} />
-              </View>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{review.student.name}</Text>
-              {review.student.grade ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>{review.student.grade}</Text>
-              ) : null}
-              {review.student.report_flag ? <FlagChip flag={review.student.report_flag} /> : null}
-              {review.student.report_notice && review.student.report_notice_message ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.warning, marginTop: spacing.md }}>
-                  {review.student.report_notice_message}
-                </Text>
-              ) : null}
-              <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
-                <TouchableOpacity onPress={dismiss} activeOpacity={0.85} style={{ flex: 1, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger }}>رفض</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={accept} disabled={confirmPre.isPending} activeOpacity={0.85} style={{ flex: 2, backgroundColor: colors.success, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
-                  {confirmPre.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>قبول وتسجيل</Text>}
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : review.kind === 'match' ? (
-            <>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{review.student.name}</Text>
-              <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, flexWrap: 'wrap' }}>
-                <Badge text={review.student.has_card ? 'لديه بطاقة' : 'بدون بطاقة'} color={review.student.has_card ? colors.success : colors.textSecondary} />
-              </View>
-              {/* Cross-tenant disclosure: a confirmed report's colored flag (label +
-                  color); legacy confirmed-without-flag falls back to the fixed notice. */}
-              {review.student.report_flag ? <FlagChip flag={review.student.report_flag} /> : null}
-              {review.student.report_notice && review.student.report_notice_message ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.danger, marginTop: spacing.md }}>
-                  {review.student.report_notice_message}
-                </Text>
-              ) : null}
-              {/* دفعة / booklet for this student (the position is the chip row above the camera). */}
-              <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                <EnrollmentTermsSheet terms={terms} compact hidePosition />
-              </ScrollView>
-              <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
-                <TouchableOpacity onPress={dismiss} activeOpacity={0.85} style={{ flex: 1, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger }}>رفض</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={accept} disabled={enroll.isPending || terms.overpaid} activeOpacity={0.85} style={{ flex: 2, backgroundColor: colors.success, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', alignItems: 'center' }}>
-                  {enroll.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>قبول وتسجيل</Text>}
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>لا يوجد طالب بهذه البطاقة</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: spacing.xs }}>تأكد من البطاقة وأعد المسح.</Text>
-              <TouchableOpacity onPress={() => setReview(null)} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, minHeight: 50, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إعادة المسح</Text>
-              </TouchableOpacity>
-            </>
-          )}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>لا يوجد طالب بهذه البطاقة</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: spacing.xs }}>تأكد من البطاقة وأعد المسح.</Text>
+          <Button title="إعادة المسح" onPress={() => setReview(null)} style={{ marginTop: spacing.lg }} />
         </View>
+      ) : null}
+
+      {/* The popup after a successful scan: who was scanned, then «شروط التسجيل», then
+          accept / reject. The camera underneath is ignored while it is open. */}
+      {review && review.kind !== 'miss' ? (
+        <Modal visible transparent animationType="slide" onRequestClose={dismiss}>
+          <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(23,28,59,0.55)', justifyContent: 'flex-end' }}>
+            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={dismiss} accessibilityLabel="إغلاق" />
+            <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: '92%', overflow: 'hidden' }}>
+              {/* Header: the student. */}
+              <View style={{ backgroundColor: colors.surface, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.lg, borderBottomWidth: 1, borderColor: colors.border }}>
+                <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
+                  <View style={{ flex: 1 }}>
+                    {review.kind === 'precard' ? (
+                      <View style={{ alignSelf: 'flex-start', marginBottom: spacing.sm }}>
+                        <Badge text="دعوة بواسطة ولي الأمر — قبل البطاقة" color={colors.brand} />
+                      </View>
+                    ) : null}
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{review.student.name}</Text>
+                    {review.kind === 'precard' && review.student.grade ? (
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>{review.student.grade}</Text>
+                    ) : null}
+                    {review.kind === 'match' ? (
+                      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, flexWrap: 'wrap' }}>
+                        <Badge text={review.student.has_card ? 'لديه بطاقة' : 'بدون بطاقة'} color={review.student.has_card ? colors.success : colors.textSecondary} />
+                      </View>
+                    ) : null}
+                  </View>
+                  <TouchableOpacity onPress={dismiss} accessibilityRole="button" accessibilityLabel="إغلاق" style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
+                    <Icon name="close" size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+                {/* Cross-tenant disclosure: a confirmed report's colored flag (label +
+                    color); legacy confirmed-without-flag falls back to the fixed notice. */}
+                {review.student.report_flag ? <FlagChip flag={review.student.report_flag} /> : null}
+                {review.student.report_notice && review.student.report_notice_message ? (
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: review.kind === 'precard' ? colors.warning : colors.danger, marginTop: spacing.md }}>
+                    {review.student.report_notice_message}
+                  </Text>
+                ) : null}
+              </View>
+
+              {/* Body: the shared terms sheet (position in the month, دفعة, booklet). */}
+              <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.sm }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>شروط التسجيل</Text>
+                <EnrollmentTermsSheet terms={terms} />
+              </ScrollView>
+
+              {/* Footer: reject / accept. */}
+              <View style={{ flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.lg, backgroundColor: colors.surface, borderTopWidth: 1, borderColor: colors.border }}>
+                <Button title="رفض" variant="outline" onPress={dismiss} style={{ flex: 1 }} />
+                <Button
+                  title="قبول وتسجيل"
+                  variant="success"
+                  onPress={accept}
+                  loading={enroll.isPending || confirmPre.isPending}
+                  disabled={terms.overpaid || terms.isLoading}
+                  style={{ flex: 2 }}
+                />
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
       ) : null}
 
       {/* Success flash */}
