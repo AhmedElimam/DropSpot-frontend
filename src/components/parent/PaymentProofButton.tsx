@@ -1,5 +1,6 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
@@ -74,9 +75,7 @@ export function PaymentProofButton({ invoice }: { invoice: Invoice }) {
         <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('invoices.pay_transfer')}</Text>
       </TouchableOpacity>
 
-      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, maxHeight: '85%' }}>
+      <SheetModal visible={open} onClose={close} style={{ backgroundColor: colors.surface, padding: spacing.xl, maxHeight: '85%' }}>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.xs }}>
                 {t('invoices.pay_transfer')}
@@ -158,9 +157,7 @@ export function PaymentProofButton({ invoice }: { invoice: Invoice }) {
                 <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invoices.cancel')}</Text>
               </TouchableOpacity>
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      </SheetModal>
     </>
   );
 }

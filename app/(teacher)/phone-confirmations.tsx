@@ -1,8 +1,8 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
-  Alert, Modal, TextInput, KeyboardAvoidingView, Platform,
-} from 'react-native';
+  Alert, TextInput, } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -312,14 +312,7 @@ export default function PhoneConfirmationsScreen() {
         </ScrollView>
       )}
 
-      <Modal visible={sheet !== null} transparent animationType="slide" onRequestClose={closeSheet}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeSheet} />
-          <View style={{
-            backgroundColor: colors.surface,
-            borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl,
-            padding: spacing.xxl, paddingBottom: spacing.xl5,
-          }}>
+      <SheetModal visible={sheet !== null} onClose={closeSheet} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
             <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl }} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{sheetTitle}</Text>
 
@@ -431,9 +424,7 @@ export default function PhoneConfirmationsScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
     </View>
   );
 }

@@ -1,6 +1,7 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { memo } from 'react';
 import { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Alert } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -267,9 +268,7 @@ export default function TeacherPendingCollections() {
       )}
 
       {/* Collect modal — amount input, default = full remainder. */}
-      <Modal visible={!!target} transparent animationType="slide" onRequestClose={() => setTarget(null)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
+      <SheetModal visible={!!target} onClose={() => setTarget(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{target?.label}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.lg }}>{target?.name}</Text>
 
@@ -297,9 +296,7 @@ export default function TeacherPendingCollections() {
             <TouchableOpacity onPress={() => setTarget(null)} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.close')}</Text>
             </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
     </View>
   );
 }

@@ -1,5 +1,6 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -114,9 +115,7 @@ export default function BookingRequestsScreen() {
       )}
 
       {/* Accept sheet: the student, then the same «شروط التسجيل» every door shows. */}
-      <Modal visible={!!accepting} transparent animationType="slide" onRequestClose={() => setAccepting(null)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: '90%', paddingBottom: insets.bottom + spacing.lg }}>
+      <SheetModal visible={!!accepting} onClose={() => setAccepting(null)} avoidKeyboard style={{ backgroundColor: colors.background, maxHeight: '90%', paddingBottom: insets.bottom + spacing.lg }}>
             <ScrollView contentContainerStyle={{ padding: spacing.xl }} keyboardShouldPersistTaps="handled">
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('booking_requests.accept_confirm_title')}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.lg }}>
@@ -134,9 +133,7 @@ export default function BookingRequestsScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
     </View>
   );
 }

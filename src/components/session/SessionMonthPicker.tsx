@@ -1,5 +1,6 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
@@ -50,11 +51,7 @@ export function SessionMonthPicker({
   const shift = (n: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + n, 1));
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlay }}>
-        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
-        <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
-          <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
+    <SheetModal visible={visible} onClose={onClose} style={{ backgroundColor: colors.background, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
 
           {/* Month bar — earlier months to the right (RTL). */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -113,8 +110,6 @@ export function SessionMonthPicker({
             <Icon name="calendar" size={18} color={colors.onAccent} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onAccent }}>{t('session_ui.go_today')}</Text>
           </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
+    </SheetModal>
   );
 }

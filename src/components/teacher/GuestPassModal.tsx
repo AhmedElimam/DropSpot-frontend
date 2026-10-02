@@ -1,5 +1,6 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useState } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, ActivityIndicator, Alert, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
@@ -63,9 +64,7 @@ export function GuestPassModal({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
-        <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
+    <SheetModal visible={visible} onClose={onClose} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('teacher.guest_pass_title')}</Text>
             <TouchableOpacity onPress={() => { reset(); onClose(); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -112,8 +111,6 @@ export function GuestPassModal({
           <TouchableOpacity onPress={submit} disabled={busy} activeOpacity={0.85} style={{ marginTop: spacing.xl, minHeight: 52, borderRadius: radius.md, backgroundColor: colors.brand, justifyContent: 'center', alignItems: 'center', opacity: busy ? 0.6 : 1 }}>
             {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('teacher.guest_pass_submit')}</Text>}
           </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </SheetModal>
   );
 }

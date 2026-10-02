@@ -1,4 +1,5 @@
-import { Modal, View, Text, TouchableOpacity } from 'react-native';
+import { SheetModal } from '@/components/ui/SheetModal';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,11 +28,7 @@ export function AddStudentSheet({ visible, onClose, courseId }: { visible: boole
   ];
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(23,28,59,0.55)', justifyContent: 'flex-end' }}>
-        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} accessibilityLabel={t('common.close')} />
-        <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
-          <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
+    <SheetModal visible={visible} onClose={onClose} style={{ backgroundColor: colors.background, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: 2 }}>{t('add_student.title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.lg }}>{t('add_student.subtitle')}</Text>
           {options.filter((o) => o.show).map((o) => (
@@ -47,8 +44,6 @@ export function AddStudentSheet({ visible, onClose, courseId }: { visible: boole
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
           ))}
-        </View>
-      </View>
-    </Modal>
+    </SheetModal>
   );
 }

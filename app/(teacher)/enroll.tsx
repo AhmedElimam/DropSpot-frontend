@@ -1,6 +1,7 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useState, useCallback, useRef } from 'react';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration, Modal, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -300,10 +301,7 @@ export default function TeacherEnroll() {
       {/* The popup after a successful scan: who was scanned, then «شروط التسجيل», then
           accept / reject. The camera underneath is ignored while it is open. */}
       {review && review.kind !== 'miss' ? (
-        <Modal visible transparent animationType="slide" onRequestClose={dismiss}>
-          <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(23,28,59,0.55)', justifyContent: 'flex-end' }}>
-            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={dismiss} accessibilityLabel="إغلاق" />
-            <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, maxHeight: '92%', overflow: 'hidden' }}>
+        <SheetModal visible onClose={dismiss} avoidKeyboard style={{ backgroundColor: colors.background, maxHeight: '92%', overflow: 'hidden' }}>
               {/* Header: the student. */}
               <View style={{ backgroundColor: colors.surface, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.lg, borderBottomWidth: 1, borderColor: colors.border }}>
                 <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
@@ -356,9 +354,7 @@ export default function TeacherEnroll() {
                   style={{ flex: 2 }}
                 />
               </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+        </SheetModal>
       ) : null}
 
       {/* Success flash */}

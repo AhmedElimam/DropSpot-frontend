@@ -1,5 +1,6 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
@@ -44,9 +45,7 @@ export function TeacherSwitcher() {
         <Icon name="down" size={14} color="#fff" />
       </TouchableOpacity>
 
-      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.xl, paddingBottom: insets.bottom + spacing.xl, paddingHorizontal: spacing.xl, maxHeight: '70%' }}>
+      <SheetModal visible={open} onClose={() => setOpen(false)} style={{ backgroundColor: colors.background, paddingTop: spacing.xl, paddingBottom: insets.bottom + spacing.xl, paddingHorizontal: spacing.xl, maxHeight: '70%' }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('teacher.switch_teacher')}</Text>
               <TouchableOpacity onPress={() => setOpen(false)}><Icon name="forward" size={24} color={colors.textSecondary} /></TouchableOpacity>
@@ -71,9 +70,7 @@ export function TeacherSwitcher() {
                 );
               })}
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      </SheetModal>
     </>
   );
 }

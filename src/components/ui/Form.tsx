@@ -1,5 +1,6 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { memo, useMemo, useState, type ReactNode } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, Modal, ActivityIndicator, KeyboardAvoidingView, type TextInputProps, type StyleProp, type ViewStyle } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, ActivityIndicator, KeyboardAvoidingView, type TextInputProps, type StyleProp, type ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -369,11 +370,7 @@ function DateSheet({ value, minIso, onPick, onClose }: { value: Date | null; min
     </TouchableOpacity>
   );
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlay }}>
-        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
-        <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
-          <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
+    <SheetModal visible onClose={onClose} style={{ backgroundColor: colors.background, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             {arrow('forward', () => shift(-1), t('session_ui.prev_month'))}
             <Text style={{ flex: 1, textAlign: 'center', fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{MONTH_FMT.format(month)}</Text>
@@ -404,9 +401,7 @@ function DateSheet({ value, minIso, onPick, onClose }: { value: Date | null; min
             <Icon name="calendar" size={18} color={colors.onAccent} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onAccent }}>{t('teacher.today')}</Text>
           </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
+    </SheetModal>
   );
 }
 

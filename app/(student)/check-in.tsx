@@ -1,5 +1,6 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, RefreshControl, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Keyboard } from 'react-native';
 import { useConfigRule } from '@/hooks/useAppConfig';
 import { formatDate, formatShortDate, formatDateTime, formatTime } from '@/utils/format';
 import { useTranslation } from 'react-i18next';
@@ -425,10 +426,7 @@ export default function CheckInTab() {
       </ScrollView>
 
       {/* Excuse modal — pick which absence, then explain */}
-      <Modal visible={excuseVisible} transparent animationType="slide" onRequestClose={() => setExcuseVisible(false)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => { Keyboard.dismiss(); setExcuseVisible(false); }} />
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.md, paddingBottom: spacing.xl5, maxHeight: '85%' }}>
+      <SheetModal visible={excuseVisible} onClose={() => setExcuseVisible(false)} avoidKeyboard style={{ backgroundColor: colors.surface, paddingTop: spacing.md, paddingBottom: spacing.xl5, maxHeight: '85%' }}>
             {/* Grab handle (tap anywhere on it to drop the keyboard) + a clear close button */}
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.xxl, marginBottom: spacing.md }}>
               <TouchableOpacity
@@ -539,9 +537,7 @@ export default function CheckInTab() {
               </>
             )}
             </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
     </View>
   );
 }

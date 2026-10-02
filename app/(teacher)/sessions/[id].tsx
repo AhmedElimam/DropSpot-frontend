@@ -1,5 +1,6 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Switch, Alert, ScrollView, KeyboardAvoidingView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Switch, Alert, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -377,9 +378,7 @@ export default function SessionDetailScreen() {
       ) : null}
 
       {/* Session settings — type, sheet, cancel. Out of the way of the roster. */}
-      <Modal visible={settingsOpen && !!s} transparent animationType="slide" onRequestClose={() => setSettingsOpen(false)}>
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlay }}>
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setSettingsOpen(false)} />
+      <SheetModal visible={settingsOpen && !!s} onClose={() => setSettingsOpen(false)} style={{ padding: 0, backgroundColor: 'transparent' }} handle={false}>
           {s ? (
             <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, gap: spacing.md }}>
               <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
@@ -427,14 +426,10 @@ export default function SessionDetailScreen() {
               />
             </View>
           ) : null}
-        </View>
-      </Modal>
+      </SheetModal>
 
       {/* One student — mark, sheet grade, note. */}
-      <Modal visible={!!current} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlay }}>
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setSelected(null)} />
-          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
+      <SheetModal visible={!!current} onClose={() => setSelected(null)} avoidKeyboard style={{ backgroundColor: colors.background, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             {current ? (
               <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
                 <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
@@ -494,9 +489,7 @@ export default function SessionDetailScreen() {
                 </View>
               </ScrollView>
             ) : null}
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
     </View>
   );
 }
