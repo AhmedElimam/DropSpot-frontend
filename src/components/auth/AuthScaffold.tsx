@@ -28,69 +28,85 @@ interface AuthScaffoldProps {
 }
 
 /**
- * The auth screens' layout, in the app's canvas style (the same warm paper, ink text and
- * floating white card the role homes use — see project memory "canvas-based redesign").
- * The old deep-ink gradient band is gone: a dark hero over a form read as a lid, pushed
- * the first field below the fold on small phones, and made the status bar fight the
- * keyboard. Here the brand is one gradient tile, the title is dark text, and the form
- * starts within the first screen on a 5.5" phone.
+ * The auth screens' layout: the deep-ink hero band (the one brand moment — the founder
+ * wants the colour back, 2026-10-02: the all-canvas version "looked blind") rounding into a
+ * white form card that overlaps it. The band is SHORT on the inner screens (back button +
+ * title) and tall only on login, so the first field still lands within the first screen on
+ * a 5.5" phone — the problem the canvas version had set out to fix.
  */
 export function AuthScaffold({ title, subtitle, eyebrow, hero = 'compact', onBack, children, footer }: AuthScaffoldProps) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
+  const tall = hero === 'brand';
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar barStyle="light-content" backgroundColor={gradients.hero[0]} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.xxl, paddingHorizontal: spacing.lg }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + spacing.xxl }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {hero === 'brand' ? (
-            <View style={{ alignItems: 'center', paddingTop: spacing.xl, paddingBottom: spacing.xl }}>
-              <BrandTile size={88} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary, marginTop: spacing.md }}>{t('common.app_name')}</Text>
-            </View>
-          ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, marginBottom: spacing.lg }}>
+          <LinearGradient
+            colors={gradients.hero}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              paddingTop: insets.top + spacing.sm,
+              paddingBottom: spacing.xl4 + spacing.lg,
+              paddingHorizontal: spacing.xl,
+              borderBottomLeftRadius: radius.xxl + 12,
+              borderBottomRightRadius: radius.xxl + 12,
+            }}
+          >
+            {/* Top row: back (inner screens) + the small lockup. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
               {onBack ? (
                 <TouchableOpacity
                   onPress={onBack}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   accessibilityRole="button"
                   accessibilityLabel={t('common.back')}
-                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
+                  style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}
                 >
                   {/* RTL: "back" points to the right. */}
-                  <Icon name="forward" size={22} color={colors.textPrimary} />
+                  <Icon name="forward" size={22} color="#fff" />
                 </TouchableOpacity>
               ) : <View style={{ width: 44 }} />}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('common.app_name')}</Text>
-                <BrandTile size={34} />
-              </View>
+              {!tall ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: 'rgba(255,255,255,0.9)' }}>{t('common.app_name')}</Text>
+                  <BrandMark size={26} />
+                </View>
+              ) : null}
             </View>
-          )}
 
-          <View style={{ marginBottom: spacing.lg, alignItems: hero === 'brand' ? 'center' : 'flex-start' }}>
-            {eyebrow ? (
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand, marginBottom: 2, textAlign: hero === 'brand' ? 'center' : 'right' }}>{eyebrow}</Text>
+            {tall ? (
+              <View style={{ alignItems: 'center', marginTop: spacing.md }}>
+                <BrandMark size={96} />
+              </View>
             ) : null}
-            <Text style={{ fontFamily: fonts.bold, fontSize: 26, lineHeight: 36, color: colors.textPrimary, textAlign: hero === 'brand' ? 'center' : 'right' }}>{title}</Text>
-            {subtitle ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, marginTop: spacing.xs, textAlign: hero === 'brand' ? 'center' : 'right' }}>
-                {subtitle}
-              </Text>
-            ) : null}
-          </View>
 
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.xl, ...shadows.md }}>
+            <View style={{ marginTop: tall ? spacing.lg : spacing.md, alignItems: tall ? 'center' : 'flex-start' }}>
+              {eyebrow ? (
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginBottom: 2, textAlign: tall ? 'center' : 'right' }}>{eyebrow}</Text>
+              ) : null}
+              <Text style={{ fontFamily: fonts.bold, fontSize: tall ? 28 : 24, lineHeight: tall ? 40 : 34, color: '#fff', textAlign: tall ? 'center' : 'right' }}>{title}</Text>
+              {subtitle ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: 'rgba(255,255,255,0.78)', marginTop: spacing.xs, textAlign: tall ? 'center' : 'right' }}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+          </LinearGradient>
+
+          {/* The form card, pulled up over the band's rounded base. */}
+          <View style={{ marginTop: -spacing.xl4, marginHorizontal: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.xl, ...shadows.md }}>
             {children}
           </View>
 
-          {footer ? <View style={{ alignItems: 'center', marginTop: spacing.xl }}>{footer}</View> : null}
+          {footer ? <View style={{ alignItems: 'center', marginTop: spacing.xl, paddingHorizontal: spacing.lg }}>{footer}</View> : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
