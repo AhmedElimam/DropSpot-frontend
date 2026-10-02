@@ -51,7 +51,7 @@ export default function ExamCreateScreen() {
   const create = useMutation({
     mutationFn: createOneOffSession,
     onSuccess: (detail) => {
-      router.replace(`/(teacher)/students/session/${detail.id}` as never);
+      router.replace(`/(teacher)/sessions/${detail.id}` as never);
     },
     onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.exam_create_failed')),
   });

@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index';
 import { useAuthStore } from '@/stores/authStore';
@@ -13,114 +15,69 @@ import type { TeacherSession } from '@/api/teacher';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { OverridesSection } from '@/components/teacher/OverridesSection';
 import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
 import { PendingInvitations } from '@/components/teacher/PendingInvitations';
+import { HubRow, HubTile } from '@/components/teacher/HubRow';
+import { AddStudentSheet } from '@/components/teacher/AddStudentSheet';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { useQuery } from '@tanstack/react-query';
 import { getCashReconciliation } from '@/api/cash';
-import { formatNumber } from '@/utils/format';
-import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { getBookingRequests } from '@/api/bookingRequests';
+import { getAssistantActions } from '@/api/assistantActions';
 import { usePhoneConfirmations } from '@/hooks/usePhoneConfirmations';
+import { useTickets } from '@/hooks/useTickets';
+import { formatNumber } from '@/utils/format';
+import { isSessionHighlighted, pickCurrentSession, goToScan } from '@/utils/sessionNav';
 
-// Home's "current" HIGHLIGHT window — a UI convenience only. A session lights up
-// 30 min before its start through its scheduled end. This is DELIBERATELY separate
-// from the backend check-in validation window (10 min before / 15 after); the two
-// must never reference each other (spec Directive 3).
-const HIGHLIGHT_BEFORE_MIN = 30;
-
-function isHighlighted(s: TeacherSession, now: number): boolean {
-  if (!s.scheduled_at) return false;
-  const start = new Date(s.scheduled_at).getTime();
-  if (Number.isNaN(start)) return false;
-  const end = start + (s.duration_minutes ?? 60) * 60_000;
-  const windowOpens = start - HIGHLIGHT_BEFORE_MIN * 60_000;
-  return now >= windowOpens && now <= end;
-}
-
-function goToScan(session: TeacherSession) {
-  router.push(`/(teacher)/scan?name=${encodeURIComponent(session.course_name ?? '')}&id=${session.id}` as Href);
-}
-
+/**
+ * Home (founder 2026-10-02: "too much, not simple, hard to navigate"). Three things, in
+ * this order: what is happening NOW (the live or next session with its two actions), what
+ * NEEDS YOU (one list, only rows with a count), and the four things you reach for most.
+ * Everything else lives under الحصص, الطلاب and الإدارة.
+ */
 export default function TeacherHome() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const { data: unread } = useUnreadCount();
-  const { data: flags } = useFeatureFlags();
-  const { data: sessions, isLoading, refetch } = useTeacherTodaySessions();
+  const { can, isAssistant } = useActiveAbilities();
+  const canCash = can(ABILITY.SCAN);
+  const canStudents = can(ABILITY.MANAGE_STUDENTS);
+
+  const sessionsQ = useTeacherTodaySessions();
   const pending = useOfflineStore((s) => s.pending);
   const rejected = useOfflineStore((s) => s.rejected);
-  const needsAttention = pending + rejected; // scans to sync OR to decide on (§2)
-  const { can, isAssistant } = useActiveAbilities();
-  // مدام روز lives in the payments card for whoever handles cash (same gate as collecting).
-  // For an assistant the count she is waiting for; for the teacher open gaps + handovers to confirm.
-  const canCash = can(ABILITY.SCAN);
+  const offlineAttention = pending + rejected;
+
   const cashQ = useQuery({ queryKey: ['cash-reconciliation'], queryFn: () => getCashReconciliation(), enabled: canCash });
   const cashView = cashQ.data;
   const cashPending = cashView?.role === 'assistant' ? cashView.unanswered[0] ?? null : null;
   const cashAttention = cashView?.role === 'assistant'
     ? cashView.unanswered.length
     : cashView?.role === 'teacher' ? cashView.open_gaps.length + cashView.pending_handovers.length : 0;
-  // «أرقام تحتاج تأكيد» — no ability gate: the assistant who typed the number at the
-  // door is the one who can still ask the family, so both roles reach it by default.
-  const { data: phoneConfirmations, refetch: refetchNumbers } = usePhoneConfirmations();
-  const unconfirmedNumbers = phoneConfirmations?.count ?? 0;
-  const { refreshing, onRefresh } = usePullRefresh(refetch, refetchNumbers, cashQ.refetch);
-  const now = Date.now();
+  const bookingQ = useQuery({ queryKey: ['booking-requests'], queryFn: getBookingRequests, enabled: canStudents });
+  const actionsQ = useQuery({ queryKey: ['assistant-actions'], queryFn: getAssistantActions, enabled: !isAssistant });
+  const phonesQ = usePhoneConfirmations();
+  const ticketsQ = useTickets();
+  const openTickets = (ticketsQ.data ?? []).filter((x) => x.status === 'open').length;
 
-  const renderSession = (s: TeacherSession) => {
-    const highlighted = isHighlighted(s, now);
-    return (
-      <TouchableOpacity
-        key={s.id}
-        // Without scan_attendance an assistant opens the session sheet instead of the scanner.
-        onPress={() => (canCash ? goToScan(s) : router.push(`/(teacher)/students/session/${s.id}` as Href))}
-        activeOpacity={0.8}
-        style={{
-          backgroundColor: highlighted ? colors.successLight : colors.surface,
-          borderRadius: radius.xl,
-          borderWidth: highlighted ? 1.5 : 1,
-          borderColor: highlighted ? colors.success : colors.border,
-          padding: spacing.lg,
-          marginBottom: spacing.md,
-          flexDirection: 'row',
-          alignItems: 'center',
-          ...shadows.sm,
-          minHeight: 68,
-        }}
-      >
-        <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: highlighted ? colors.success : colors.brandTint, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
-          <Icon name="scan" size={24} color={highlighted ? '#fff' : colors.brand} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{s.course_name ?? '—'}</Text>
-            {/* Where this session sits in the course's billing month («الحصة ٣ من ٨»). */}
-            {s.cycle_position ? (
-              <View style={{ backgroundColor: highlighted ? colors.successLight : colors.brandTint, borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 8 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: highlighted ? colors.successText : colors.brand }}>
-                  {t('teacher.position_of', { n: s.cycle_position.n, of: s.cycle_position.of })}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>
-            {s.time ?? ''}{s.location ? ` · ${s.location}` : ''}
-          </Text>
-        </View>
-        {highlighted ? (
-          <View style={{ backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 4, paddingHorizontal: 10 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('teacher.live_now')}</Text>
-          </View>
-        ) : (
-          <Icon name="scan" size={20} color={colors.textTertiary} outline />
-        )}
-      </TouchableOpacity>
-    );
-  };
+  const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch);
+  const [addOpen, setAddOpen] = useState(false);
+
+  const now = Date.now();
+  const sessions = sessionsQ.data ?? [];
+  const current = pickCurrentSession(sessions, now);
+  const others = sessions.filter((s) => s.id !== current?.id);
+  const openSheet = (s: TeacherSession) => router.push(`/(teacher)/sessions/${s.id}` as Href);
+
+  const attention = [
+    offlineAttention > 0 && { key: 'sync', icon: 'warning' as const, title: pending > 0 ? t('teacher.pending_scans', { count: pending }) : t('teacher.rejected_title', { count: rejected }), sub: t('teacher.tap_to_reconcile'), badge: offlineAttention, href: '/(teacher)/reconcile' },
+    (phonesQ.data?.count ?? 0) > 0 && { key: 'phones', icon: 'phone' as const, title: t('home.phones_title'), sub: t('home.phones_sub', { count: phonesQ.data?.count ?? 0 }), badge: phonesQ.data?.count ?? 0, href: '/(teacher)/phone-confirmations' },
+    (bookingQ.data?.length ?? 0) > 0 && { key: 'booking', icon: 'bell' as const, title: t('booking_requests.title'), sub: t('booking_requests.manage_sub'), badge: bookingQ.data?.length ?? 0, href: '/(teacher)/booking-requests' },
+    cashAttention > 0 && { key: 'cash', icon: 'money' as const, title: cashPending ? t('cash.banner_pending') : t('cash.title'), sub: cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : t('home.cash_attention_sub'), badge: cashAttention, href: '/(teacher)/cash-reconcile' },
+    (actionsQ.data?.length ?? 0) > 0 && { key: 'actions', icon: 'eye' as const, title: t('assistant_actions.title'), sub: t('assistant_actions.manage_sub'), badge: actionsQ.data?.length ?? 0, href: '/(teacher)/assistant-actions' },
+    openTickets > 0 && { key: 'tickets', icon: 'tickets' as const, title: t('home.tickets_title'), sub: t('home.tickets_sub'), badge: openTickets, href: '/(teacher)/tickets' },
+  ].filter(Boolean) as { key: string; icon: 'warning' | 'phone' | 'bell' | 'money' | 'eye' | 'tickets'; title: string; sub: string; badge: number; href: string }[];
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -129,181 +86,106 @@ export default function TeacherHome() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.xl, paddingBottom: spacing.xl }}
-        >
+        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.xl, paddingBottom: spacing.xl }}>
           <HeaderBrandBar
             onBell={() => router.push('/(teacher)/notifications' as Href)}
             unread={unread}
             onScan={canCash ? () => router.push('/(teacher)/scan' as Href) : undefined}
-            scanBadge={needsAttention}
+            scanBadge={offlineAttention}
           />
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>{t('teacher.today')}</Text>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 2 }}>{user?.name ?? ''}</Text>
-          {/* Active-teacher chip — only shows for multi-relationship assistants. */}
           <TeacherSwitcher />
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
-          {/* Assistant consent: pending invitations to work for a teacher. */}
           <PendingInvitations />
-          {needsAttention > 0 ? (
-            <TouchableOpacity
-              onPress={() => router.push('/(teacher)/reconcile' as Href)}
-              activeOpacity={0.85}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                backgroundColor: colors.warningLight, borderRadius: radius.xl,
-                borderWidth: 1, borderColor: colors.warning, padding: spacing.lg, marginBottom: spacing.lg,
-              }}
-            >
-              <Icon name="warning" size={24} color={colors.warningText} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.warningText }}>
-                  {pending > 0 ? t('teacher.pending_scans', { count: pending }) : t('teacher.rejected_title', { count: rejected })}
+
+          {/* 1. NOW — the live or next session, with the two things to do with it. */}
+          {sessionsQ.isLoading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.lg }} />
+          ) : current ? (
+            <View style={{ backgroundColor: isSessionHighlighted(current, now) ? colors.successLight : colors.surface, borderRadius: radius.xl, borderWidth: 1.5, borderColor: isSessionHighlighted(current, now) ? colors.success : colors.border, padding: spacing.lg, ...shadows.sm }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: isSessionHighlighted(current, now) ? colors.successText : colors.textTertiary }}>
+                  {isSessionHighlighted(current, now) ? t('teacher.live_now') : t('home.next_session')}
                 </Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.warningText }}>{t('teacher.tap_to_reconcile')}</Text>
-              </View>
-              <Icon name="back" size={20} color={colors.warningText} />
-            </TouchableOpacity>
-          ) : null}
-          {/* «أرقام تحتاج تأكيد» (phone-verification spec §5). Sits directly under the
-              scans banner because it shares its nature: a small queue that only a human
-              standing near the family can close, and that goes stale fast if it is
-              buried. Shown to the teacher and to every assistant — no ability check,
-              matching the API, which gates on the TENANT instead. Hidden at zero rather
-              than kept as a permanent empty row: home shows what needs doing, and the
-              Resolution Center keeps the queue itself. */}
-          {unconfirmedNumbers > 0 ? (
-            <TouchableOpacity
-              onPress={() => router.push('/(teacher)/phone-confirmations' as Href)}
-              activeOpacity={0.85}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                backgroundColor: colors.surface, borderRadius: radius.xl,
-                borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
-                ...shadows.sm,
-              }}
-            >
-              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.warningLight, justifyContent: 'center', alignItems: 'center' }}>
-                <Icon name="phone" size={22} color={colors.warningText} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>أرقام تحتاج تأكيد</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>
-                  {unconfirmedNumbers} رقم لم يُثبت صاحبه ملكيته — راجِعها قبل أن تحتاج التواصل
-                </Text>
-              </View>
-              <View style={{ minWidth: 26, height: 26, borderRadius: 13, paddingHorizontal: 7, backgroundColor: colors.warning, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{unconfirmedNumbers}</Text>
-              </View>
-            </TouchableOpacity>
-          ) : null}
-          {/* Enroll (invite student) — requires the manage_students ability. */}
-          {can(ABILITY.MANAGE_STUDENTS) ? (
-            <TouchableOpacity
-              onPress={() => router.push('/(teacher)/enroll' as Href)}
-              activeOpacity={0.85}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                backgroundColor: colors.surface, borderRadius: radius.xl,
-                borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
-              }}
-            >
-              <Icon name="add" size={24} color={colors.brand} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تسجيل طالب بالبطاقة</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح رمز QR على البطاقة لتسجيله في حصة</Text>
-              </View>
-              <Icon name="back" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ) : null}
-          {/* Fast student recording — name + parent phone, activate later. Same ability as
-              enroll, and behind the super-admin's fast_register switch: off hides it here
-              and the API refuses it, so an old build cannot record either. */}
-          {can(ABILITY.MANAGE_STUDENTS) && flags?.fast_register ? (
-            <TouchableOpacity
-              onPress={() => router.push('/(teacher)/record-student' as Href)}
-              activeOpacity={0.85}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                backgroundColor: colors.surface, borderRadius: radius.xl,
-                borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg,
-              }}
-            >
-              <Icon name="add" size={24} color={colors.brand} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تسجيل سريع للطلاب</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>أضِف الطلاب بالاسم ورقم ولي الأمر — يُفعّلون حساباتهم لاحقًا</Text>
-              </View>
-              <Icon name="back" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ) : null}
-          {/* Collection is shown to an assistant exactly as to the teacher (founder
-              2026-09-05) — it is usually the assistant at the door taking the money — but
-              only with scan_attendance, the ability the collection APIs require: an
-              assistant never sees what they can't use (founder 2026-09-26). They collect
-              but never waive or reverse, see only their own venues, and every collection
-              they make goes to the teacher's oversight list. */}
-          {/* Payments card: collecting, and — for whoever handles cash — مدام روز, the
-              accounts manager (weekly count, handovers, expenses). She used to be a tab. */}
-          {canCash ? (
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: cashAttention ? colors.warning : colors.border, marginBottom: spacing.lg, overflow: 'hidden' }}>
-            <TouchableOpacity
-              onPress={() => router.push('/(teacher)/collect' as Href)}
-              activeOpacity={0.85}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg }}
-            >
-              <Icon name="money" size={24} color={colors.brand} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>تحصيل الدفعات</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>امسح البطاقة لتحصيل الفاتورة أو الملزمة</Text>
-              </View>
-              <Icon name="back" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-            {canCash ? (
-              <TouchableOpacity
-                onPress={() => router.push('/(teacher)/cash-reconcile' as Href)}
-                activeOpacity={0.85}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.borderLight, backgroundColor: cashAttention ? '#FEF3E2' : undefined }}
-              >
-                <Icon name="note" size={24} color={cashAttention ? colors.warning : colors.success} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.title')}</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>
-                    {cashPending
-                      ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) })
-                      : isAssistant ? t('cash.manage_sub_assistant') : t('cash.manage_sub')}
-                  </Text>
-                </View>
-                {cashAttention ? (
-                  <View style={{ minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{formatNumber(cashAttention)}</Text>
+                {current.cycle_position ? (
+                  <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 8 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('teacher.position_of', { n: current.cycle_position.n, of: current.cycle_position.of })}</Text>
                   </View>
-                ) : (
-                  <Icon name="back" size={20} color={colors.textSecondary} />
-                )}
-              </TouchableOpacity>
-            ) : null}
-          </View>
-          ) : null}
-          {/* «ما الجديد» for this installed version, once (written at /admin/release-notes). */}
-          <View style={{ marginBottom: spacing.lg }}><WhatsNewCard /></View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('teacher.todays_sessions')}</Text>
-          {isLoading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
-          ) : !sessions?.length ? (
-            <EmptyState icon="calendar" title={t('teacher.no_sessions_today')} message={t('teacher.no_sessions_hint')} />
+                ) : null}
+              </View>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary, marginTop: 4 }} numberOfLines={1}>{current.course_name ?? '—'}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>
+                {current.time ?? ''}{current.location ? ` · ${current.location}` : ''}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+                {canCash ? (
+                  <TouchableOpacity onPress={() => goToScan(current)} activeOpacity={0.85} accessibilityRole="button"
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 52, borderRadius: radius.lg, backgroundColor: isSessionHighlighted(current, now) ? colors.success : colors.brand }}>
+                    <Icon name="scan" size={20} color="#fff" />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('sessions_tab.scan')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity onPress={() => openSheet(current)} activeOpacity={0.85} accessibilityRole="button"
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 52, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, backgroundColor: colors.surface }}>
+                  <Icon name="attendance" size={20} color={colors.brand} outline />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.brand }}>{t('sessions_tab.sheet')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           ) : (
-            sessions.map(renderSession)
+            <TouchableOpacity onPress={() => router.push('/(teacher)/sessions' as Href)} activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>
+              <Icon name="calendar" size={22} color={colors.textTertiary} outline />
+              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('teacher.no_sessions_today')}</Text>
+              <Icon name="back" size={18} color={colors.textTertiary} />
+            </TouchableOpacity>
           )}
 
-          <OverridesSection />
+          {/* The rest of today, compact; the full list is the الحصص tab. */}
+          {others.length > 0 ? (
+            <View style={{ marginTop: spacing.sm }}>
+              {others.map((s) => (
+                <TouchableOpacity key={s.id} onPress={() => (canCash ? goToScan(s) : openSheet(s))} activeOpacity={0.8}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, marginTop: spacing.xs }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, minWidth: 54 }}>{s.time ?? ''}</Text>
+                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{s.course_name ?? '—'}</Text>
+                  <Icon name="back" size={16} color={colors.textTertiary} />
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity onPress={() => router.push('/(teacher)/sessions' as Href)} style={{ alignSelf: 'flex-start', paddingVertical: spacing.sm }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('home.all_sessions')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {/* 2. NEEDS YOU — one list, only what has a count. Nothing pending → nothing shown. */}
+          {attention.length > 0 ? (
+            <View style={{ marginTop: spacing.lg }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('home.needs_you')}</Text>
+              {attention.map((a) => (
+                <HubRow key={a.key} icon={a.icon} title={a.title} sub={a.sub} badge={a.badge} onPress={() => router.push(a.href as Href)} />
+              ))}
+            </View>
+          ) : null}
+
+          {/* 3. The four things reached for most — gated, so an assistant sees only theirs. */}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginTop: spacing.lg, marginBottom: spacing.sm }}>{t('home.quick')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            {canStudents ? <HubTile icon="add" title={t('add_student.title')} onPress={() => setAddOpen(true)} /> : null}
+            {canCash ? <HubTile icon="money" title={t('home.collect')} tint={colors.success} onPress={() => router.push('/(teacher)/collect' as Href)} /> : null}
+            {canCash ? <HubTile icon="note" title={t('cash.title_short')} tint={colors.success} badge={cashAttention} onPress={() => router.push('/(teacher)/cash-reconcile' as Href)} /> : null}
+            {!isAssistant ? <HubTile icon="reports" title={t('teacher.insights_title')} onPress={() => router.push('/(teacher)/insights' as Href)} /> : null}
+            <HubTile icon="children" title={t('teacher.tab_students')} onPress={() => router.push('/(teacher)/students' as Href)} />
+          </View>
+
+          <View style={{ marginTop: spacing.lg }}><WhatsNewCard /></View>
         </View>
       </ScrollView>
+      <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} />
     </View>
   );
 }

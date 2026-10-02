@@ -26,12 +26,14 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 // Visible tabs stay mounted; detail screens (href: null) are released once they are not one
 // of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
 // tabs are frozen on blur: a frozen screen defers its own release.
-const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","students","manage","tickets","settings"]);
+const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","sessions","students","manage","settings"]);
 const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
 
 /**
- * Teacher (and assistant) app — a 5-tab bar (home · camera · students · tickets ·
- * settings), deliberately separate from the parent/student navigation.
+ * Teacher (and assistant) app — a 5-tab bar (home · sessions · students · manage ·
+ * settings), deliberately separate from the parent/student navigation. Tickets left the
+ * bar on 2026-10-02 (reached from Home's attention list and Management → المتابعة); the
+ * attendance sheet moved out from under Students into its own الحصص tab.
  *
  * The invite-student camera screen (`enroll`) is a full-screen route: it's reached
  * by push (never a tab button) and hides the bar via the custom `tabBar` below —
@@ -41,17 +43,17 @@ const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
  */
 const labels: Record<string, string> = {
   index: 'teacher.tab_home',
+  sessions: 'teacher.tab_sessions',
   students: 'teacher.tab_students',
   manage: 'teacher.tab_manage',
-  tickets: 'teacher.tab_tickets',
   settings: 'teacher.tab_settings',
 };
 
 const icons: Record<string, IconName> = {
   index: 'home',
+  sessions: 'attendance',
   students: 'children',
   manage: 'book',
-  tickets: 'tickets',
   settings: 'settings',
 };
 
@@ -261,11 +263,16 @@ export default function TeacherTabLayout() {
         // skips exactly that render — the sensor would keep running behind another tab.
         options={{ href: null, freezeOnBlur: false }}
       />
+      {/* الحصص — today + history + the attendance sheet (manual marks work offline). */}
+      <Tabs.Screen name="sessions" />
       <Tabs.Screen name="students" />
-      {/* Management hub — courses, location, schedule tools. */}
+      {/* Management hub — four groups: students · schedule · money · follow-up. */}
       <Tabs.Screen name="manage" />
-      <Tabs.Screen name="tickets" />
       <Tabs.Screen name="settings" />
+      {/* Parent tickets — from Home's attention list and Management → المتابعة, not a tab. */}
+      <Tabs.Screen name="tickets" options={{ href: null }} />
+      {/* الاستثناءات — billing exceptions + phone check-in permissions, from Management. */}
+      <Tabs.Screen name="overrides" options={{ href: null }} />
       {/* Reconciliation is reached from the pending badge / Home, not a tab. */}
       <Tabs.Screen name="resolution" options={{ href: null }} />
       {/* «أرقام تحتاج تأكيد» — pushed from the Home card and the Resolution Center. */}

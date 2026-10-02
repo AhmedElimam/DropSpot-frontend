@@ -49,7 +49,7 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
     case 'left_early':
     case 'assistant_checkin_review':
     case 'assistant_session_created':
-      return session ? `/(teacher)/students/session/${session}` : '/(teacher)/students';
+      return session ? `/(teacher)/sessions/${session}` : '/(teacher)/sessions';
     case 'booking_request':
       return can('manage_students') ? '/(teacher)/booking-requests' : null;
     case 'student_edit_request_family':

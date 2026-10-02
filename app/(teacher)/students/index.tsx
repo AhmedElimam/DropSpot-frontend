@@ -12,13 +12,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useTeacherStudents, useTeacherCourses } from '@/hooks/useStudents';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { FilterChips } from '@/components/ui/FilterChips';
-import { useTeacherSessionHistory } from '@/hooks/useTeacherSessionHistory';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import type { SessionRow } from '@/api/teacherSessions';
 import { getTeacherCardOrders, type TeacherCardOrder } from '@/api/students';
-import { dayLabel } from '@/utils/format';
 
-type Segment = 'students' | 'sessions' | 'cards';
+type Segment = 'students' | 'cards';
 
 const CARD_STATUS: Record<string, { key: string; color: string }> = {
   submitted: { key: 'teacher.co_submitted', color: colors.warning },
@@ -30,31 +27,19 @@ const CARD_STATUS: Record<string, { key: string; color: string }> = {
   held: { key: 'teacher.co_held', color: colors.textSecondary },
 };
 
-// Backend session status → an existing session.* i18n key + a chip variant.
-const SESSION_STATUS: Record<string, { key: string; color: string }> = {
-  scheduled: { key: 'session.scheduled', color: colors.info },
-  in_progress: { key: 'session.live', color: colors.success },
-  live: { key: 'session.live', color: colors.success },
-  completed: { key: 'session.completed', color: colors.textSecondary },
-  cancelled: { key: 'session.cancelled', color: colors.danger },
-};
-
 export default function TeacherStudents() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   // A notification about a card order lands on the cards segment directly.
   const { segment: askedSegment } = useLocalSearchParams<{ segment?: string }>();
-  const [segment, setSegment] = useState<Segment>(askedSegment === 'cards' || askedSegment === 'sessions' ? askedSegment : 'students');
+  const [segment, setSegment] = useState<Segment>(askedSegment === 'cards' ? 'cards' : 'students');
   const [courseId, setCourseId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<string | null>(null);
 
   const { can } = useActiveAbilities();
   const { data: courses } = useTeacherCourses();
   const { data: students, isLoading: studentsLoading, refetch: refetchStudents, isPlaceholderData: studentsSwitching } =
     useTeacherStudents({ course_id: courseId ?? undefined });
-  const { data: sessions, isLoading: sessionsLoading, refetch: refetchSessions, isPlaceholderData: sessionsSwitching } =
-    useTeacherSessionHistory(status ?? undefined);
 
   // A course that no longer exists (deleted, or another teacher's context after a switch)
   // must not leave the roster filtered by a chip nobody can see.
@@ -70,15 +55,10 @@ export default function TeacherStudents() {
     () => [{ key: 0, label: t('teacher.all_courses') }, ...(courses ?? []).map((c) => ({ key: c.id, label: c.name }))],
     [courses, t],
   );
-  const statusOptions = useMemo(
-    () => [{ key: 'all', label: t('teacher.status_all') }, ...(['scheduled', 'completed', 'cancelled'] as const).map((k) => ({ key: k as string, label: t(`session.${k}`) }))],
-    [t],
-  );
   const cardOrders = useQuery({ queryKey: ['teacher-card-orders'], queryFn: getTeacherCardOrders, enabled: segment === 'cards' });
 
   // Each segment has its own list + RefreshControl, so keep the pull-refresh per segment.
   const studentsRefresh = usePullRefresh(refetchStudents);
-  const sessionsRefresh = usePullRefresh(refetchSessions);
   const cardsRefresh = usePullRefresh(cardOrders.refetch);
 
   // Search filters the loaded roster client-side (grade filter is server-side).
@@ -114,37 +94,6 @@ export default function TeacherStudents() {
 
   const listPad = { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom, paddingTop: spacing.sm };
 
-  const renderSession = ({ item }: { item: SessionRow }) => {
-    const st = SESSION_STATUS[item.status] ?? { key: 'session.scheduled', color: colors.textSecondary };
-    return (
-      <TouchableOpacity
-        onPress={() => router.push(`/(teacher)/students/session/${item.id}` as Href)}
-        activeOpacity={0.8}
-        style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>
-            {item.course_name ?? '—'}
-          </Text>
-          <View style={{ backgroundColor: st.color, borderRadius: radius.full, paddingVertical: 3, paddingHorizontal: 10 }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: '#fff' }}>{t(st.key)}</Text>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>
-            {dayLabel(item.scheduled_at)}{item.time ? ` · ${item.time}` : ''}{item.location ? ` · ${item.location}` : ''}
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
-          <Icon name="present" size={16} color={colors.success} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>
-            {t('teacher.checked_in_count', { count: item.checked_in_count })}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       {/* Title */}
@@ -152,10 +101,11 @@ export default function TeacherStudents() {
         <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary }}>{t('teacher.tab_students')}</Text>
       </View>
 
-      {/* Segmented: students / sessions / cards */}
+      {/* Segmented: students / cards (sessions have their own tab now). Without
+          manage_students the cards segment is not offered, so no bar at all. */}
+      {canCards ? (
       <View style={{ flexDirection: 'row', marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4, marginBottom: spacing.sm }}>
-        {/* Card orders need manage_students; without it the segment is not offered. */}
-        {((canCards ? ['students', 'sessions', 'cards'] : ['students', 'sessions']) as Segment[]).map((seg) => (
+        {(['students', 'cards'] as Segment[]).map((seg) => (
           <TouchableOpacity
             key={seg}
             onPress={() => setSegment(seg)}
@@ -163,11 +113,12 @@ export default function TeacherStudents() {
             style={{ flex: 1, paddingVertical: spacing.sm, borderRadius: radius.md, backgroundColor: segment === seg ? colors.surface : 'transparent', alignItems: 'center' }}
           >
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: segment === seg ? colors.brand : colors.textSecondary }}>
-              {t(seg === 'students' ? 'teacher.seg_students' : seg === 'sessions' ? 'teacher.seg_sessions' : 'teacher.seg_cards')}
+              {t(seg === 'students' ? 'teacher.seg_students' : 'teacher.seg_cards')}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
+      ) : null}
 
       {segment === 'students' ? (
         <>
@@ -205,55 +156,6 @@ export default function TeacherStudents() {
               refreshControl={<RefreshControl refreshing={studentsRefresh.refreshing} onRefresh={studentsRefresh.onRefresh} />}
               renderItem={renderStudentRow}
               ListEmptyComponent={<EmptyState icon="children" title={t('teacher.no_students')} message={t('teacher.no_students_hint')} />}
-            />
-          )}
-        </>
-      ) : segment === 'sessions' ? (
-        <>
-          {/* Session tools — teachers always; assistants only with manage_sessions
-              on their active teacher context. Add a weekly slot, or pause a range. */}
-          {can(ABILITY.MANAGE_SESSIONS) && (
-            <View style={{ flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.lg, marginBottom: spacing.sm }}>
-              <TouchableOpacity
-                onPress={() => router.push('/(teacher)/schedule-new' as Href)}
-                activeOpacity={0.85}
-                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 46, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.surface }}
-              >
-                <Icon name="add" size={18} color={colors.brand} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('teacher.add_schedule')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => router.push('/(teacher)/pause' as Href)}
-                activeOpacity={0.85}
-                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 46, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}
-              >
-                <Icon name="clock" size={18} color={colors.textSecondary} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>{t('teacher.pause_period')}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Session status chips */}
-          <View style={{ paddingBottom: spacing.sm }}>
-            <FilterChips options={statusOptions} value={status ?? 'all'} onChange={(k) => setStatus(k === 'all' ? null : k)} />
-          </View>
-
-          {sessionsLoading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
-          ) : (
-            <FlatList
-              removeClippedSubviews
-              initialNumToRender={8}
-              maxToRenderPerBatch={8}
-              updateCellsBatchingPeriod={50}
-              windowSize={7}
-              data={sessions?.items ?? []}
-              style={{ opacity: sessionsSwitching ? 0.45 : 1 }}
-              keyExtractor={(s) => s.id}
-              contentContainerStyle={listPad}
-              refreshControl={<RefreshControl refreshing={sessionsRefresh.refreshing} onRefresh={sessionsRefresh.onRefresh} />}
-              renderItem={renderSession}
-              ListEmptyComponent={<EmptyState icon="calendar" title={t('teacher.no_sessions_history')} message={t('teacher.no_sessions_history_hint')} />}
             />
           )}
         </>
