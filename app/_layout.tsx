@@ -30,6 +30,7 @@ NetInfo.configure({
 });
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '@/stores/authStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { SurveyModal } from '@/components/SurveyModal';
@@ -193,6 +194,8 @@ export default function RootLayout() {
   }
 
   return (
+    // gesture-handler components (the notifications swipe) need this at the very root.
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <HydrationGate>
@@ -216,5 +219,6 @@ export default function RootLayout() {
         </HydrationGate>
       </SafeAreaProvider>
     </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

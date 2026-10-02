@@ -42,6 +42,8 @@ export default function CourseCreateScreen() {
   const [termId, setTermId] = useState<string | null>(null);
   const [capacity, setCapacity] = useState('');
   const [radius_, setRadius] = useState(20);
+  // Phone (geofence) check-in — on by default; off hides the radius, which only it uses.
+  const [geofence, setGeofence] = useState(true);
   const [allowSwap, setAllowSwap] = useState(true);
   const [description, setDescription] = useState('');
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -100,6 +102,7 @@ export default function CourseCreateScreen() {
         capacity: capacity.trim() ? Number(capacity.trim()) : undefined,
         teacher_location_id: venueId,
         radius_horizontal_meters: radius_,
+        phone_checkin_enabled: geofence,
         allow_session_swap: allowSwap,
         starts_at: startMode === 'date' && startDate ? startDate : undefined,
         description: description.trim() || undefined,
@@ -234,11 +237,17 @@ export default function CourseCreateScreen() {
           </FormCard>
 
           {/* ── Attendance & details ── */}
+          <FormCard icon="location" title={t('course_ui.geofence_label')} tint={geofence ? colors.success : colors.borderStrong}>
+            <SwitchRow title={t('course_ui.geofence_label')} hint={t(geofence ? 'course_ui.geofence_hint' : 'course_ui.geofence_off_hint')} value={geofence} onChange={setGeofence} first />
+            {geofence ? (
+              <Field label={t('teacher.radius_label')} hint={showExplainer ? t('onboarding.geofence_hint') : undefined}>
+                <Stepper value={radius_} min={5} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
+              </Field>
+            ) : null}
+          </FormCard>
+
           <FormCard icon="settings" title={t('teacher.section_details')}>
-            <Field label={t('teacher.radius_label')} first hint={showExplainer ? t('onboarding.geofence_hint') : undefined}>
-              <Stepper value={radius_} min={5} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
-            </Field>
-            <SwitchRow title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />
+            <SwitchRow first title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />
             <Field label={t('teacher.capacity')} hint={t('form_ui.optional')}>
               <NumberInput value={capacity} onChangeText={setCapacity} placeholder={t('teacher.optional')} />
             </Field>

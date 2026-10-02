@@ -42,6 +42,7 @@ export default function CourseDetailScreen() {
   // Editable settings mirror the web edit form; seeded once the detail loads.
   const [name, setName] = useState('');
   const [radius_, setRadius] = useState(20);
+  const [geofence, setGeofence] = useState(true);
   const [allowSwap, setAllowSwap] = useState(true);
   const [sheetDefault, setSheetDefault] = useState(false);
   const [sheetMax, setSheetMax] = useState('');
@@ -62,6 +63,7 @@ export default function CourseDetailScreen() {
     if (course && !seeded) {
       setName(course.name ?? '');
       setRadius(course.radius_horizontal_meters ?? 20);
+      setGeofence(course.phone_checkin_enabled ?? true);
       setAllowSwap(course.allow_session_swap ?? true);
       setSheetDefault(course.sheet_expected_by_default);
       setSheetMax(course.sheet_max_mark != null ? String(course.sheet_max_mark) : '');
@@ -83,6 +85,7 @@ export default function CourseDetailScreen() {
         name: name.trim(),
         teacher_location_id: venueId,
         radius_horizontal_meters: radius_,
+        phone_checkin_enabled: geofence,
         allow_session_swap: allowSwap,
         sheet_expected_by_default: sheetDefault,
         sheet_max_mark: sheetMax.trim() ? Number(sheetMax.trim()) : null,
@@ -157,7 +160,20 @@ export default function CourseDetailScreen() {
     <FormScreen title={course.name} subtitle={course.grade_name ?? undefined}>
       {/* Where the phone check-in anchors — the card's colour IS the status. */}
       {onboarding?.active ? <Banner tone="info" text={t('onboarding.location_hint')} /> : null}
-      <FormCard icon="location" title={t(located ? 'teacher.phone_checkin_auto_on' : 'teacher.phone_checkin_off')} hint={t(located ? 'teacher.location_set_hint' : 'teacher.location_missing_hint')} tint={located ? colors.success : colors.warning}>
+      <FormCard icon="location"
+        title={t(!geofence ? 'course_ui.geofence_off_title' : located ? 'teacher.phone_checkin_auto_on' : 'teacher.phone_checkin_off')}
+        hint={t(!geofence ? 'course_ui.geofence_off_card_hint' : located ? 'teacher.location_set_hint' : 'teacher.location_missing_hint')}
+        tint={!geofence ? colors.borderStrong : located ? colors.success : colors.warning}>
+        {canCourses ? (
+          <View style={{ marginBottom: spacing.md }}>
+            <SwitchRow title={t('course_ui.geofence_label')} hint={t(geofence ? 'course_ui.geofence_hint' : 'course_ui.geofence_off_hint')} value={geofence} onChange={setGeofence} first />
+            {geofence ? (
+              <Field label={t('teacher.radius_label')}>
+                <Stepper value={radius_} min={5} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
+              </Field>
+            ) : null}
+          </View>
+        ) : null}
         {located && course.latitude != null ? (
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary, writingDirection: 'ltr', textAlign: 'right' }}>
             {course.latitude.toFixed(6)}, {course.longitude?.toFixed(6)}{course.location_accuracy_meters != null ? ` · ±${Math.round(course.location_accuracy_meters)}m` : ''}
@@ -191,10 +207,7 @@ export default function CourseDetailScreen() {
           </FormCard>
 
           <FormCard icon="attendance" title={t('teacher.settings_section')} tint={colors.accent}>
-            <Field label={t('teacher.radius_label')} first>
-              <Stepper value={radius_} min={5} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
-            </Field>
-            <SwitchRow title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />
+            <SwitchRow first title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />
             <SwitchRow title={t('teacher.sheet_default_label')} hint={t('teacher.sheet_default_hint')} value={sheetDefault} onChange={setSheetDefault} />
             <Field label={t('teacher.sheet_max_label')} hint={t('form_ui.optional')}>
               <NumberInput value={sheetMax} onChangeText={setSheetMax} decimals placeholder={t('teacher.optional')} />

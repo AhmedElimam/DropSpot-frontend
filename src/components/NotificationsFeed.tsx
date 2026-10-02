@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
-import { useNotificationsFeed, useMarkRead, useMarkUnread, useMarkAllRead, useDismissNotification, useRestoreNotification } from '@/hooks/useNotifications';
+import { useNotificationsFeed, useMarkRead, useMarkUnread, useMarkAllRead } from '@/hooks/useNotifications';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/api/notifications';
@@ -112,26 +112,22 @@ function bucketOf(iso: string, now: Date): Bucket {
   return 'older';
 }
 
-/** One feed row: swipe either way for «مقروء / إخفاء», or all the way for read ⇄ unread. */
+/** One feed row: swipe it aside to flip read ⇄ unread; tap to open what it is about. */
 const FeedRow = memo(function FeedRow({
-  n, opens, onOpen, onToggleRead, onHide,
+  n, opens, onOpen, onToggleRead,
 }: {
   n: Notification;
   opens: boolean;
   onOpen: (n: Notification) => void;
   onToggleRead: (n: Notification) => void;
-  onHide: (n: Notification) => void;
 }) {
   const { t } = useTranslation();
   const look = LOOK[n.type] ?? { icon: 'bell' as IconName, tint: colors.brand };
   const unread = !n.is_read;
   return (
     <SwipeRow
-      style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm, borderRadius: radius.xl }}
-      actions={[
-        { icon: unread ? 'success' : 'bell', label: t(unread ? 'notifications.swipe_read' : 'notifications.swipe_unread'), color: colors.brand, onTrigger: () => onToggleRead(n) },
-        { icon: 'close', label: t('notifications.swipe_hide'), color: colors.danger, onTrigger: () => onHide(n) },
-      ]}
+      style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm }}
+      action={{ icon: unread ? 'success' : 'bell', label: t(unread ? 'notifications.swipe_read' : 'notifications.swipe_unread'), color: unread ? colors.success : colors.brand, onTrigger: () => onToggleRead(n) }}
     >
       <TouchableOpacity
         onPress={() => onOpen(n)}
@@ -174,10 +170,9 @@ const FeedRow = memo(function FeedRow({
 
 /**
  * The notifications feed for every role. A tap marks the row read AND opens what it is
- * about through {@link notificationRouteFor} (the same table the push tap uses). Swipe
- * either way for the «مقروء / إخفاء» buttons, or all the way to flip read ⇄ unread; a hide
- * is soft («تراجع» for a few seconds; the server keeps the row). Filters: read state ×
- * kind, combinable.
+ * about through {@link notificationRouteFor} (the same table the push tap uses). Swipe a
+ * row aside to flip read ⇄ unread (one action, one side — founder's call). Filters: read
+ * state × kind, combinable.
  */
 export function NotificationsFeed({ can }: { can?: (ability: string) => boolean }) {
   const { t } = useTranslation();
@@ -188,16 +183,9 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
   const markRead = useMarkRead();
   const markUnread = useMarkUnread();
   const markAllRead = useMarkAllRead();
-  const dismiss = useDismissNotification();
-  const restore = useRestoreNotification();
   // Two independent filters that combine: read state × kind («غير المقروء» in «المال»).
   const [filter, setFilter] = useState<ReadFilter>('all');
   const [kind, setKind] = useState<Kind | null>(null);
-
-  // Undo bar after a hide.
-  const [undo, setUndo] = useState<Notification | null>(null);
-  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (undoTimer.current) clearTimeout(undoTimer.current); }, []);
 
   // One-time «اسحب…» hint, gone after the first swipe or a tap on ×.
   const [hint, setHint] = useState(false);
@@ -243,20 +231,6 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
     if (hint) closeHint();
     (n.is_read ? markUnread : markRead).mutate(n.id);
   }, [hint, closeHint, markRead, markUnread]);
-
-  const onHide = useCallback((n: Notification) => {
-    if (hint) closeHint();
-    dismiss.mutate(n.id);
-    setUndo(n);
-    if (undoTimer.current) clearTimeout(undoTimer.current);
-    undoTimer.current = setTimeout(() => setUndo(null), 5000);
-  }, [hint, closeHint, dismiss]);
-
-  const onUndo = () => {
-    if (!undo) return;
-    restore.mutate(undo.id);
-    setUndo(null);
-  };
 
   const Header = (
     <View>
@@ -342,7 +316,7 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
         sections={sections}
         keyExtractor={(n) => String(n.id)}
         stickySectionHeadersEnabled={false}
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom + 64, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         onEndReachedThreshold={0.4}
@@ -372,21 +346,11 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
             opens={notificationRouteFor({ role, type: item.type, data: item.data, can }) !== null}
             onOpen={onOpen}
             onToggleRead={onToggleRead}
-            onHide={onHide}
           />
         )}
         ListFooterComponent={feed.isFetchingNextPage ? <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: spacing.lg }} /> : <View style={{ height: spacing.lg }} />}
       />
 
-      {undo ? (
-        <View style={{ position: 'absolute', start: spacing.lg, end: spacing.lg, bottom: nav.bottomHeight + insets.bottom + spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.ink, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, ...shadows.md }}>
-          <Icon name="close" size={18} color="rgba(255,255,255,0.7)" />
-          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: '#fff' }} numberOfLines={1}>{t('notifications.hidden_toast')}</Text>
-          <TouchableOpacity onPress={onUndo} hitSlop={10} accessibilityRole="button">
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.accent }}>{t('notifications.undo')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
     </View>
   );
 }
