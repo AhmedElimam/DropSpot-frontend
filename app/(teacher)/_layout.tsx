@@ -26,7 +26,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 // Visible tabs stay mounted; detail screens (href: null) are released once they are not one
 // of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
 // tabs are frozen on blur: a frozen screen defers its own release.
-const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","sessions","students","manage","settings"]);
+const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","sessions","manage","students","settings"]);
 const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
 
 /**
@@ -265,9 +265,10 @@ export default function TeacherTabLayout() {
       />
       {/* الحصص — today + history + the attendance sheet (manual marks work offline). */}
       <Tabs.Screen name="sessions" />
-      <Tabs.Screen name="students" />
-      {/* Management hub — four groups: students · schedule · money · follow-up. */}
+      {/* Management hub — third, next to the day (founder 2026-10-02). Four groups:
+          students · schedule · money · follow-up. */}
       <Tabs.Screen name="manage" />
+      <Tabs.Screen name="students" />
       <Tabs.Screen name="settings" />
       {/* Parent tickets — from Home's attention list and Management → المتابعة, not a tab. */}
       <Tabs.Screen name="tickets" options={{ href: null }} />

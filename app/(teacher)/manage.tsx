@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,9 +8,8 @@ import { useQuery } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fonts } from '@/theme/typography';
 import { formatNumber } from '@/utils/format';
-import { colors, spacing, radius, nav } from '@/theme/index';
-import { Icon } from '@/components/ui/Icon';
-import { StatsCard } from '@/components/layout/StatsCard';
+import { colors, spacing, radius, nav, gradients } from '@/theme/index';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { HubRow } from '@/components/teacher/HubRow';
 import { AddStudentSheet } from '@/components/teacher/AddStudentSheet';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
@@ -26,6 +26,13 @@ import { getCashReconciliation } from '@/api/cash';
 type Group = 'students' | 'schedule' | 'money' | 'followup';
 const GROUPS: Group[] = ['students', 'schedule', 'money', 'followup'];
 const LAST_GROUP_KEY = 'manage_group_v1';
+// Each group has its own colour, carried by its tile and every row inside it.
+const GROUP_LOOK: Record<Group, { icon: IconName; tint: string }> = {
+  students: { icon: 'children', tint: colors.brand },
+  schedule: { icon: 'calendar', tint: colors.accent },
+  money: { icon: 'money', tint: colors.success },
+  followup: { icon: 'bell', tint: colors.warning },
+};
 
 /**
  * «الإدارة» (founder 2026-10-02: "too much … hard to navigate through that mess"). The
@@ -90,93 +97,119 @@ export default function TeacherManage() {
   };
   const [addOpen, setAddOpen] = useState(false);
 
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary }}>{t('teacher.tab_manage')}</Text>
-      </View>
+  const totalAttention = visible.reduce((n, g) => n + counts[g], 0);
+  const tint = GROUP_LOOK[group].tint;
 
-      {/* Segmented control — the whole hub in four words. */}
-      <View style={{ flexDirection: 'row', marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4, marginBottom: spacing.sm }}>
-        {visible.map((g) => {
-          const on = group === g;
-          const n = counts[g];
-          return (
-            <TouchableOpacity key={g} onPress={() => pick(g)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-              style={{ flex: 1, minHeight: 40, borderRadius: radius.md, backgroundColor: on ? colors.surface : 'transparent', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 4 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary }}>{t(`manage.group_${g}`)}</Text>
-              {n > 0 ? (
-                <View style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{n}</Text>
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={{ paddingTop: insets.top + spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff' }}>{t('teacher.tab_manage')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: totalAttention > 0 ? colors.accent : 'rgba(255,255,255,0.75)', marginTop: 2 }}>
+          {totalAttention > 0 ? t('manage.waiting_summary', { n: formatNumber(totalAttention) }) : t('manage.all_clear')}
+        </Text>
+
+        {/* The whole hub in four tiles; each says how much waits inside it. */}
+        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+          {visible.map((g) => {
+            const on = group === g;
+            const n = counts[g];
+            const look = GROUP_LOOK[g];
+            return (
+              <TouchableOpacity key={g} onPress={() => pick(g)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                style={{ flex: 1, alignItems: 'center', gap: 6, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: on ? '#fff' : 'rgba(255,255,255,0.14)' }}>
+                <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: on ? look.tint : 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
+                  <Icon name={look.icon} size={21} color="#fff" />
                 </View>
-              ) : null}
-            </TouchableOpacity>
-          );
-        })}
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.textPrimary : '#fff' }} numberOfLines={1}>{t(`manage.group_${g}`)}</Text>
+                {n > 0 ? (
+                  <View style={{ position: 'absolute', top: 6, end: 6, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onAccent }}>{formatNumber(n)}</Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </LinearGradient>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xs }}>
+        <View style={{ width: 4, height: 18, borderRadius: 2, backgroundColor: tint }} />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{t(`manage.group_${group}`)}</Text>
+        <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }} numberOfLines={1}>{t(`manage.group_${group}_sub`)}</Text>
       </View>
 
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: nav.bottomHeight + insets.bottom }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         {group === 'students' ? (
           <>
-            {canStudents ? <HubRow icon="add" title={t('add_student.title')} sub={t('add_student.subtitle')} onPress={() => setAddOpen(true)} /> : null}
-            {canStudents ? <HubRow icon="bell" title={t('booking_requests.title')} sub={t('booking_requests.manage_sub')} badge={pendingReqs} tint={colors.warning} onPress={() => router.push('/(teacher)/booking-requests' as Href)} /> : null}
-            <HubRow icon="phone" title={t('home.phones_title')} sub={t('manage.phones_sub')} badge={phoneCount} tint={colors.warning} onPress={() => router.push('/(teacher)/phone-confirmations' as Href)} />
-            {canStudents ? <HubRow icon="card" title={t('manage.cards_title')} sub={t('manage.cards_sub')} onPress={() => router.push('/(teacher)/students?segment=cards' as Href)} /> : null}
-            {canStudents ? <HubRow icon="send" title={t('card_order_link.title')} sub={t('card_order_link.manage_sub')} onPress={() => router.push('/(teacher)/card-order-link' as Href)} /> : null}
-            {canCash ? <HubRow icon="lock" title={t('teacher.overrides')} sub={t('manage.overrides_sub')} onPress={() => router.push('/(teacher)/overrides' as Href)} /> : null}
+            {canStudents ? <HubRow tint={tint} icon="add" title={t('add_student.title')} sub={t('add_student.subtitle')} onPress={() => setAddOpen(true)} /> : null}
+            {canStudents ? <HubRow tint={tint} icon="bell" title={t('booking_requests.title')} sub={t('booking_requests.manage_sub')} badge={pendingReqs} onPress={() => router.push('/(teacher)/booking-requests' as Href)} /> : null}
+            <HubRow tint={tint} icon="phone" title={t('home.phones_title')} sub={t('manage.phones_sub')} badge={phoneCount} onPress={() => router.push('/(teacher)/phone-confirmations' as Href)} />
+            {canStudents ? <HubRow tint={tint} icon="card" title={t('manage.cards_title')} sub={t('manage.cards_sub')} onPress={() => router.push('/(teacher)/students?segment=cards' as Href)} /> : null}
+            {canStudents ? <HubRow tint={tint} icon="send" title={t('card_order_link.title')} sub={t('card_order_link.manage_sub')} onPress={() => router.push('/(teacher)/card-order-link' as Href)} /> : null}
+            {canCash ? <HubRow tint={tint} icon="lock" title={t('teacher.overrides')} sub={t('manage.overrides_sub')} onPress={() => router.push('/(teacher)/overrides' as Href)} /> : null}
           </>
         ) : null}
 
         {group === 'schedule' ? (
           <>
-            <HubRow icon="book" title={t('teacher.courses_title')} sub={t('manage.courses_sub')} onPress={() => router.push('/(teacher)/courses' as Href)} />
-            {!isAssistant ? <HubRow icon="gps" title={t('manage.venues_title')} sub={t('manage.venues_sub')} onPress={() => router.push('/(teacher)/venues' as Href)} /> : null}
-            {canSessions ? <HubRow icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} onPress={() => router.push('/(teacher)/exam-create' as Href)} /> : null}
-            {!isAssistant && flags?.revise_mode && reviseOn !== false ? <HubRow icon="book" title={t('teacher.revision_mode_row')} sub={t('teacher.revision_mode_row_sub')} onPress={() => router.push('/(teacher)/revisions' as Href)} /> : null}
-            {canSessions ? <HubRow icon="clock" title={t('teacher.pause_period')} sub={t('teacher.pause_sub')} tint={colors.warning} onPress={() => router.push('/(teacher)/pause' as Href)} /> : null}
-            {canCourses ? <HubRow icon="calendar" title={t('teacher.merge_title')} sub={t('teacher.merge_sub')} onPress={() => router.push('/(teacher)/schedule-merge' as Href)} /> : null}
-            {canCourses && ramadanOn ? <HubRow icon="clock" title={t('teacher.overrides_title')} sub={t('teacher.overrides_sub')} tint={colors.info} onPress={() => router.push('/(teacher)/schedule-overrides' as Href)} /> : null}
+            <HubRow tint={tint} icon="book" title={t('teacher.courses_title')} sub={t('manage.courses_sub')} onPress={() => router.push('/(teacher)/courses' as Href)} />
+            {!isAssistant ? <HubRow tint={tint} icon="gps" title={t('manage.venues_title')} sub={t('manage.venues_sub')} onPress={() => router.push('/(teacher)/venues' as Href)} /> : null}
+            {canSessions ? <HubRow tint={tint} icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} onPress={() => router.push('/(teacher)/exam-create' as Href)} /> : null}
+            {!isAssistant && flags?.revise_mode && reviseOn !== false ? <HubRow tint={tint} icon="book" title={t('teacher.revision_mode_row')} sub={t('teacher.revision_mode_row_sub')} onPress={() => router.push('/(teacher)/revisions' as Href)} /> : null}
+            {canSessions ? <HubRow tint={tint} icon="clock" title={t('teacher.pause_period')} sub={t('teacher.pause_sub')} onPress={() => router.push('/(teacher)/pause' as Href)} /> : null}
+            {canCourses ? <HubRow tint={tint} icon="calendar" title={t('teacher.merge_title')} sub={t('teacher.merge_sub')} onPress={() => router.push('/(teacher)/schedule-merge' as Href)} /> : null}
+            {canCourses && ramadanOn ? <HubRow tint={tint} icon="clock" title={t('teacher.overrides_title')} sub={t('teacher.overrides_sub')} onPress={() => router.push('/(teacher)/schedule-overrides' as Href)} /> : null}
           </>
         ) : null}
 
         {group === 'money' ? (
           <>
             {!isAssistant && ins ? (
-              <TouchableOpacity activeOpacity={0.85} onPress={() => router.push('/(teacher)/insights' as Href)} style={{ marginBottom: spacing.sm }}>
-                <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
-                  <StatsCard label={t('insights.collected_month')} value={money(ins.financial.collected_this_month)} color={colors.success} bgColor={colors.success + '18'} />
-                  <StatsCard label={t('insights.outstanding_now')} value={money(ins.financial.outstanding)} color={colors.warning} bgColor={colors.warning + '18'} />
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.xs }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.view_all_insights')}</Text>
-                  <Icon name="back" size={16} color={colors.brand} />
-                </View>
+              <TouchableOpacity activeOpacity={0.88} onPress={() => router.push('/(teacher)/insights' as Href)} style={{ marginBottom: spacing.md }} accessibilityRole="button">
+                <LinearGradient colors={gradients.success} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: radius.xl, padding: spacing.lg }}>
+                  <View style={{ flexDirection: 'row', gap: spacing.md }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{t('insights.collected_month')}</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 2 }} numberOfLines={1} adjustsFontSizeToFit>{money(ins.financial.collected_this_month)}</Text>
+                    </View>
+                    <View style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.22)' }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{t('insights.outstanding_now')}</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 2 }} numberOfLines={1} adjustsFontSizeToFit>{money(ins.financial.outstanding)}</Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.md }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('teacher.view_all_insights')}</Text>
+                    <Icon name="back" size={16} color="#fff" />
+                  </View>
+                </LinearGradient>
               </TouchableOpacity>
             ) : !isAssistant ? (
-              <HubRow icon="reports" title={t('teacher.insights_title')} sub={t('teacher.insights_sub')} onPress={() => router.push('/(teacher)/insights' as Href)} />
+              <HubRow tint={tint} icon="reports" title={t('teacher.insights_title')} sub={t('teacher.insights_sub')} onPress={() => router.push('/(teacher)/insights' as Href)} />
             ) : null}
             {canCash ? (
-              <HubRow icon="note" title={cashPending ? t('cash.banner_pending') : t('cash.title')}
+              <HubRow tint={tint} icon="note" title={cashPending ? t('cash.banner_pending') : t('cash.title')}
                 sub={cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : isAssistant ? t('cash.manage_sub_assistant') : t('cash.manage_sub')}
-                badge={cashAttention} loud={!!cashPending} tint={colors.success} onPress={() => router.push('/(teacher)/cash-reconcile' as Href)} />
+                badge={cashAttention} loud={!!cashPending} onPress={() => router.push('/(teacher)/cash-reconcile' as Href)} />
             ) : null}
-            {canCash ? <HubRow icon="money" title={t('manage.pending_collections')} sub={t('manage.pending_collections_sub')} tint={colors.success} onPress={() => router.push('/(teacher)/pending-collections' as Href)} /> : null}
-            {canCash && expensesOn ? <HubRow icon="note" title={t('expenses.title')} sub={t('expenses.manage_sub')} tint={colors.success} onPress={() => router.push('/(teacher)/expenses' as Href)} /> : null}
-            {canReviewProofs ? <HubRow icon="card" title={t('payment_proofs.title')} sub={t('payment_proofs.manage_sub')} tint={colors.success} onPress={() => router.push('/(teacher)/payment-proofs' as Href)} /> : null}
-            {!isAssistant ? <HubRow icon="eye" title={t('assistant_actions.title')} sub={t('assistant_actions.manage_sub')} badge={pendingActions} tint={colors.warning} onPress={() => router.push('/(teacher)/assistant-actions' as Href)} /> : null}
-            {!isAssistant ? <HubRow icon="settings" title={t('billing_settings.title')} sub={t('billing_settings.manage_sub')} onPress={() => router.push('/(teacher)/billing-settings' as Href)} /> : null}
+            {canCash ? <HubRow tint={tint} icon="money" title={t('manage.pending_collections')} sub={t('manage.pending_collections_sub')} onPress={() => router.push('/(teacher)/pending-collections' as Href)} /> : null}
+            {canCash && expensesOn ? <HubRow tint={tint} icon="note" title={t('expenses.title')} sub={t('expenses.manage_sub')} onPress={() => router.push('/(teacher)/expenses' as Href)} /> : null}
+            {canReviewProofs ? <HubRow tint={tint} icon="card" title={t('payment_proofs.title')} sub={t('payment_proofs.manage_sub')} onPress={() => router.push('/(teacher)/payment-proofs' as Href)} /> : null}
+            {!isAssistant ? <HubRow tint={tint} icon="eye" title={t('assistant_actions.title')} sub={t('assistant_actions.manage_sub')} badge={pendingActions} onPress={() => router.push('/(teacher)/assistant-actions' as Href)} /> : null}
+            {!isAssistant ? <HubRow tint={tint} icon="settings" title={t('billing_settings.title')} sub={t('billing_settings.manage_sub')} onPress={() => router.push('/(teacher)/billing-settings' as Href)} /> : null}
           </>
         ) : null}
 
         {group === 'followup' ? (
           <>
-            <HubRow icon="bell" title={t('teacher.resolution_title')} sub={t('teacher.resolution_sub')} tint={colors.warning} onPress={() => router.push('/(teacher)/resolution' as Href)} />
-            <HubRow icon="tickets" title={t('teacher.tab_tickets')} sub={t('manage.tickets_sub')} badge={openTickets} tint={colors.warning} onPress={() => router.push('/(teacher)/tickets' as Href)} />
-            <HubRow icon="bell" title={t('manage.notifications_title')} sub={t('manage.notifications_sub')} onPress={() => router.push('/(teacher)/notifications' as Href)} />
-            {!isAssistant ? <HubRow icon="children" title={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /> : null}
+            <HubRow tint={tint} icon="bell" title={t('teacher.resolution_title')} sub={t('teacher.resolution_sub')} onPress={() => router.push('/(teacher)/resolution' as Href)} />
+            <HubRow tint={tint} icon="tickets" title={t('teacher.tab_tickets')} sub={t('manage.tickets_sub')} badge={openTickets} onPress={() => router.push('/(teacher)/tickets' as Href)} />
+            <HubRow tint={tint} icon="bell" title={t('manage.notifications_title')} sub={t('manage.notifications_sub')} onPress={() => router.push('/(teacher)/notifications' as Href)} />
+            {!isAssistant ? <HubRow tint={tint} icon="children" title={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /> : null}
           </>
         ) : null}
       </ScrollView>

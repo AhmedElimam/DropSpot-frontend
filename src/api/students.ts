@@ -124,6 +124,8 @@ export interface RosterStudent {
   attendance_total: number;
   attendance_attended: number;
   attendance_rate: number | null;
+  /** An overdue bill under this teacher. Only sent to someone who may collect. */
+  overdue?: boolean;
 }
 
 export interface TeacherCourse {
