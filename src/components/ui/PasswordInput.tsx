@@ -10,8 +10,10 @@ import { colors, spacing } from '@/theme/index';
  * off only while the eye is toggled on. Each instance is independent, so a screen
  * with several password fields (current / new / confirm) gets one toggle each.
  *
- * RTL: text is right-aligned, so the eye sits at the trailing (LEFT) edge, and the
- * input reserves left padding so a long password never runs under the icon.
+ * RTL: the eye sits at the TRAILING edge (`end` — the left in this RTL-only app), and the
+ * input reserves trailing padding so a long password never runs under the icon. Logical
+ * props on purpose: React Native swaps `left`/`right` in RTL, so a physical `left` here
+ * used to land the eye on the start edge, over the first letters.
  */
 export const PasswordInput = forwardRef<TextInput, TextInputProps>(
   function PasswordInput({ style, ...props }, ref) {
@@ -23,13 +25,13 @@ export const PasswordInput = forwardRef<TextInput, TextInputProps>(
           ref={ref}
           {...props}
           secureTextEntry={!visible}
-          style={[style, { paddingLeft: 46 }]}
+          style={[style, { paddingEnd: 46 }]}
         />
         <TouchableOpacity
           onPress={() => setVisible((v) => !v)}
           style={{
             position: 'absolute',
-            left: spacing.sm,
+            end: spacing.sm,
             // Span the field's full height and centre, then lift a few px: the input's
             // text sits optically above the box centre (Android especially), so a pure
             // centre reads slightly low against the glyphs.

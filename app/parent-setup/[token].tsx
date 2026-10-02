@@ -131,7 +131,7 @@ export default function ParentSetupScreen() {
       <TextInput
         value={info.phone_number}
         editable={false}
-        style={{ ...field, marginBottom: spacing.lg, borderColor: colors.border, backgroundColor: colors.surfaceSunken, color: colors.textSecondary, textAlign: 'left' }}
+        style={{ ...field, marginBottom: spacing.lg, borderColor: colors.border, backgroundColor: colors.surfaceSunken, color: colors.textSecondary, textAlign: 'left', writingDirection: 'ltr' }}
       />
 
       <Text style={label}>{t('setup.password')}</Text>

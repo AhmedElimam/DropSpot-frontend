@@ -193,7 +193,7 @@ export default function InviteLink() {
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textPrimary }} selectable>{minted.url}</Text>
             </View>
             <TouchableOpacity onPress={share} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md }}>
-              <Icon name="forward" size={18} color="#fff" />
+              <Icon name="send" size={18} color="#fff" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('invite_link.share')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { setMinted(null); setName(''); }} activeOpacity={0.85} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>

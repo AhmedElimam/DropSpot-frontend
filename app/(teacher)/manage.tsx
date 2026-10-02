@@ -175,7 +175,7 @@ export default function TeacherManage() {
           <>
             <HubRow icon="bell" title={t('teacher.resolution_title')} sub={t('teacher.resolution_sub')} tint={colors.warning} onPress={() => router.push('/(teacher)/resolution' as Href)} />
             <HubRow icon="tickets" title={t('teacher.tab_tickets')} sub={t('manage.tickets_sub')} badge={openTickets} tint={colors.warning} onPress={() => router.push('/(teacher)/tickets' as Href)} />
-            <HubRow icon="bell" title={t('nav.notifications')} sub={t('manage.notifications_sub')} onPress={() => router.push('/(teacher)/notifications' as Href)} />
+            <HubRow icon="bell" title={t('manage.notifications_title')} sub={t('manage.notifications_sub')} onPress={() => router.push('/(teacher)/notifications' as Href)} />
             {!isAssistant ? <HubRow icon="children" title={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /> : null}
           </>
         ) : null}

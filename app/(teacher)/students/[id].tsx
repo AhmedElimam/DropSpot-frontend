@@ -1109,7 +1109,7 @@ export default function StudentDetailScreen() {
                       >
                         <Icon name="book" size={20} color={colors.brand} />
                         <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}>{d.course_name}</Text>
-                        <Icon name="forward" size={18} color={colors.textTertiary} />
+                        <Icon name="back" size={18} color={colors.textTertiary} />
                       </TouchableOpacity>
                     ))}
                   </ScrollView>

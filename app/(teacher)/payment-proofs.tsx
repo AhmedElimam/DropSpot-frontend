@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
+import { formatNumber } from '@/utils/format';
 import { formatDateTime } from '@/utils/format';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -63,7 +64,7 @@ export default function PaymentProofsScreen() {
     );
   };
 
-  const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
+  const money = (v: number) => `${formatNumber(Math.round(v))} ${t('insights.egp')}`;
 
   const ProofCard = ({ p, review }: { p: PaymentProof; review: boolean }) => (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>

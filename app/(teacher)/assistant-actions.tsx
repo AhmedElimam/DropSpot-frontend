@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
+import { formatNumber } from '@/utils/format';
 import { formatDateTime } from '@/utils/format';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -62,7 +63,7 @@ export default function AssistantActionsScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={2}>{a.label ?? KIND_LABEL[a.kind]}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-            {KIND_LABEL[a.kind]} · {Math.round(a.amount).toLocaleString('en-US')} {t('insights.egp')} · {a.assistant_name}
+            {KIND_LABEL[a.kind]} · {formatNumber(Math.round(a.amount))} {t('insights.egp')} · {a.assistant_name}
           </Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{fmtDate(a.created_at)}</Text>
         </View>

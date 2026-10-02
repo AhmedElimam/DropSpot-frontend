@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
+import { formatNumber } from '@/utils/format';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { FilterChips } from '@/components/ui/FilterChips';
@@ -110,7 +111,7 @@ export default function InsightsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [venueList, perVenueRef.current, t]);
 
-  const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
+  const money = (v: number) => `${formatNumber(Math.round(v))} ${t('insights.egp')}`;
   const presets = d?.presets?.length ? d.presets : FALLBACK_PRESETS;
   const rangeLabel = d?.range?.label ?? presets.find((p) => p.key === range)?.label ?? '';
 

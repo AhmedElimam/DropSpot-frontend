@@ -217,7 +217,7 @@ export default function RevisionCreate() {
             ) : (
               <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
                 <View style={{ flex: 1.4 }}><Lbl>{t('revision_create.date')}</Lbl>
-                  <TextInput value={date} onChangeText={setDate} placeholder="2026-08-20" placeholderTextColor={colors.textTertiary} style={{ ...input, textAlign: 'left' }} /></View>
+                  <TextInput value={date} onChangeText={setDate} placeholder="2026-08-20" placeholderTextColor={colors.textTertiary} style={{ ...input, textAlign: 'left', writingDirection: 'ltr' }} /></View>
                 <View style={{ flex: 1 }}><Lbl>{t('revision_create.time')}</Lbl>
                   <TimePicker value={otTime || null} onChange={setOtTime} /></View>
               </View>

@@ -91,7 +91,7 @@ export default function BillingSettingsScreen() {
                   keyboardType="number-pad"
                   placeholder={t('billing_settings.number_ph')}
                   placeholderTextColor={colors.textTertiary}
-                  style={[input, { textAlign: 'left' }]}
+                  style={[input, { textAlign: 'left', writingDirection: 'ltr' }]}
                 />
                 <TextInput
                   value={form.vodafone_name ?? ''}
@@ -124,7 +124,7 @@ export default function BillingSettingsScreen() {
                   autoCapitalize="none"
                   placeholder={t('billing_settings.instapay_ph')}
                   placeholderTextColor={colors.textTertiary}
-                  style={[input, { textAlign: 'left' }]}
+                  style={[input, { textAlign: 'left', writingDirection: 'ltr' }]}
                 />
                 <TextInput
                   value={form.instapay_name ?? ''}
