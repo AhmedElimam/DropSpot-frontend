@@ -12,7 +12,7 @@ name: Build iOS IPA
 #
 # ios/ is gitignored, so the native project is regenerated with `expo prebuild` — which
 # applies app.config.ts (useFrameworks:static, RNFB forceStaticLinking, disable-SPM plugin,
-# notification sounds) and patch-package, i.e. the exact config that builds locally.
+# notification sounds), i.e. the exact config that builds locally.
 #
 # Trigger from the Actions tab (Run workflow), or push a tag like v1.4.0 to also attach
 # the .ipa to a GitHub Release. NOTE: on a public repo, artifacts and release assets are
@@ -38,8 +38,10 @@ permissions:
 
 jobs:
   build-ipa:
-    runs-on: macos-15
-    # A cold Expo/RN 0.81 iOS build (pods + full compile) runs ~30-45 min. Fail fast so a
+    # Expo SDK 57 (RN 0.86) needs Xcode 26.4 or newer; macos-15 tops out at Xcode 16.4,
+    # macos-26 ships 26.6 as its default.
+    runs-on: macos-26
+    # A cold Expo/RN 0.86 iOS build (pods + full compile) runs ~30-45 min. Fail fast so a
     # stuck build can't idle until GitHub's 6-hour hard limit.
     timeout-minutes: 90
     env:
@@ -53,7 +55,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Select latest stable Xcode
@@ -61,8 +63,8 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      # postinstall runs patch-package (the RNFirebase React-first-import patches that
-      # clear the iOS getConstants / non-modular-header compile walls).
+      # postinstall runs patch-package (no patches today: the RNFirebase 23.8.8 ones went
+      # with the move to RNFirebase 26 on SDK 57; forceStaticLinking covers that ground).
       - name: Install dependencies
         run: npm ci
 

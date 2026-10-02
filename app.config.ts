@@ -122,7 +122,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         // headers, which fails under useFrameworks:'static' with "non-modular header inside
         // framework module 'RNFBApp…'" and "'RCTConvert' must be imported from module before
         // required". Linking them statically drops the module wrapper so React headers compile
-        // textually as normal. (Expo SDK 54+ prebuilt-core Podfile reads ios.forceStaticLinking.)
+        // textually as normal. (Expo SDK 54+ prebuilt-core Podfile reads ios.forceStaticLinking; RNFirebase's own docs require it on RN 0.84+.)
         forceStaticLinking: ['RNFBApp', 'RNFBMessaging'],
       },
     },
@@ -143,11 +143,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ['./plugins/withAndroidRefreshRateCap', { maxHz: 60 }],
   // withRNFirebaseDisableSPM MUST come before the RNFirebase plugins so the Podfile global is set.
   './plugins/withRNFirebaseDisableSPM',
-  '@react-native-firebase/app',
+  // RNFirebase 26 ships its own switch for the same thing (CocoaPods instead of SPM, which
+  // is what static frameworks need). Stated here as well; the custom plugin above keeps the
+  // CLANG post_install setting and its SPM edit is idempotent next to this one.
+  ['@react-native-firebase/app', { ios: { disableSPM: true } }],
   '@react-native-firebase/messaging',
   'expo-router',
   'expo-sqlite',
   'expo-secure-store',
+  // SDK 57 ships config plugins for these; `expo install --fix` asks for them to be listed
+  // (it cannot write to a dynamic config itself).
+  'expo-font',
+  'expo-image',
+  'expo-sharing',
+  'expo-status-bar',
+  'expo-web-browser',
   // Bundle the custom notification tones into BOTH platforms (iOS app bundle +
   // Android res/raw). iOS references notify_ios by filename in the APNs payload;
   // Android plays notify_android via the 'drosspot-alerts' channel (push-notifications.ts).

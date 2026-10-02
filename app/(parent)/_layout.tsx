@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Redirect, Tabs } from 'expo-router';
-import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { getFocusedRouteNameFromRoute } from 'expo-router/react-navigation';
 import { View, Text, ActivityIndicator, AppState, AppStateStatus, StyleSheet } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { fonts } from '@/theme/typography';

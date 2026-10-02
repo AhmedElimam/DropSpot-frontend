@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useNavigationState } from '@react-navigation/native';
+import { useNavigationState } from 'expo-router/react-navigation';
 
 /**
  * Bounded screens for the role tab navigators (older-device heat and slowdown, 2026-09-27).

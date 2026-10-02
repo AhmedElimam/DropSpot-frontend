@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { useMemo, useEffect } from 'react';
 import { Redirect, Tabs } from 'expo-router';
 import { View, Text, ActivityIndicator, AppState, type AppStateStatus, StyleSheet } from 'react-native';
-import { BottomTabBar } from '@react-navigation/bottom-tabs';
+import { BottomTabBar } from 'expo-router/js-tabs';
 import NetInfo from '@react-native-community/netinfo';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
