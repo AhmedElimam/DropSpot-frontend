@@ -103,28 +103,32 @@ export default function TeacherManage() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ paddingTop: insets.top + spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff' }}>{t('teacher.tab_manage')}</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: totalAttention > 0 ? colors.accent : 'rgba(255,255,255,0.75)', marginTop: 2 }}>
-          {totalAttention > 0 ? t('manage.waiting_summary', { n: formatNumber(totalAttention) }) : t('manage.all_clear')}
-        </Text>
+        style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
+        {/* Compact header, as on Students: title + what waits on one line, the groups as one
+            row of pills underneath. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{t('teacher.tab_manage')}</Text>
+          <View style={{ flexShrink: 1, height: 26, paddingHorizontal: 10, borderRadius: radius.full, justifyContent: 'center', backgroundColor: totalAttention > 0 ? colors.accent : 'rgba(255,255,255,0.12)' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: totalAttention > 0 ? colors.onAccent : 'rgba(255,255,255,0.8)' }} numberOfLines={1}>
+              {totalAttention > 0 ? t('manage.waiting_summary', { n: formatNumber(totalAttention) }) : t('manage.all_clear')}
+            </Text>
+          </View>
+        </View>
 
-        {/* The whole hub in four tiles; each says how much waits inside it. */}
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+        <View style={{ flexDirection: 'row', gap: 6, marginTop: spacing.md }}>
           {visible.map((g) => {
             const on = group === g;
             const n = counts[g];
             const look = GROUP_LOOK[g];
             return (
               <TouchableOpacity key={g} onPress={() => pick(g)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                style={{ flex: 1, alignItems: 'center', gap: 6, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: on ? '#fff' : 'rgba(255,255,255,0.14)' }}>
-                <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: on ? look.tint : 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
-                  <Icon name={look.icon} size={21} color="#fff" />
-                </View>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.textPrimary : '#fff' }} numberOfLines={1}>{t(`manage.group_${g}`)}</Text>
+                style={{ flex: 1, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: radius.md, backgroundColor: on ? look.tint : 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: on ? look.tint : 'rgba(255,255,255,0.14)' }}>
+                <Icon name={look.icon} size={15} color="#fff" />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>{t(`manage.group_${g}`)}</Text>
                 {n > 0 ? (
-                  <View style={{ position: 'absolute', top: 6, end: 6, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onAccent }}>{formatNumber(n)}</Text>
+                  // Pinned to the corner, so four pills still fit a narrow phone.
+                  <View style={{ position: 'absolute', top: -6, end: -4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.accent, borderWidth: 1.5, borderColor: gradients.hero[1], alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onAccent }}>{formatNumber(n)}</Text>
                   </View>
                 ) : null}
               </TouchableOpacity>
@@ -133,7 +137,7 @@ export default function TeacherManage() {
         </View>
       </LinearGradient>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xs }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xs }}>
         <View style={{ width: 4, height: 18, borderRadius: 2, backgroundColor: tint }} />
         <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{t(`manage.group_${group}`)}</Text>
         <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }} numberOfLines={1}>{t(`manage.group_${group}_sub`)}</Text>

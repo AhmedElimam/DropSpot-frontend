@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, SectionList, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, SectionList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -90,8 +90,14 @@ const LOOK: Record<string, { icon: IconName; tint: string }> = {
   excuse_resolved: { icon: 'success', tint: colors.success },
 };
 
-type Filter = 'all' | 'unread' | NotificationCategory;
-const CATEGORIES: NotificationCategory[] = ['attendance', 'money', 'students', 'followup'];
+type ReadFilter = 'all' | 'unread';
+type Kind = Exclude<NotificationCategory, 'other'>;
+const KINDS: { key: Kind; icon: IconName; tint: string }[] = [
+  { key: 'attendance', icon: 'attendance', tint: colors.success },
+  { key: 'money', icon: 'money', tint: colors.accent },
+  { key: 'students', icon: 'children', tint: colors.brand },
+  { key: 'followup', icon: 'tickets', tint: colors.warning },
+];
 const HINT_KEY = 'notif_swipe_hint_v1';
 
 type Bucket = 'today' | 'yesterday' | 'week' | 'older';
@@ -106,7 +112,7 @@ function bucketOf(iso: string, now: Date): Bucket {
   return 'older';
 }
 
-/** One feed row: swipe toward the end = read / unread, the other way = hide. */
+/** One feed row: swipe either way for «مقروء / إخفاء», or all the way for read ⇄ unread. */
 const FeedRow = memo(function FeedRow({
   n, opens, onOpen, onToggleRead, onHide,
 }: {
@@ -122,8 +128,10 @@ const FeedRow = memo(function FeedRow({
   return (
     <SwipeRow
       style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm, borderRadius: radius.xl }}
-      start={{ icon: unread ? 'success' : 'bell', label: t(unread ? 'notifications.swipe_read' : 'notifications.swipe_unread'), color: colors.brand, onTrigger: () => onToggleRead(n) }}
-      end={{ icon: 'close', label: t('notifications.swipe_hide'), color: colors.danger, removes: true, onTrigger: () => onHide(n) }}
+      actions={[
+        { icon: unread ? 'success' : 'bell', label: t(unread ? 'notifications.swipe_read' : 'notifications.swipe_unread'), color: colors.brand, onTrigger: () => onToggleRead(n) },
+        { icon: 'close', label: t('notifications.swipe_hide'), color: colors.danger, onTrigger: () => onHide(n) },
+      ]}
     >
       <TouchableOpacity
         onPress={() => onOpen(n)}
@@ -167,8 +175,9 @@ const FeedRow = memo(function FeedRow({
 /**
  * The notifications feed for every role. A tap marks the row read AND opens what it is
  * about through {@link notificationRouteFor} (the same table the push tap uses). Swipe
- * one way to flip read / unread, the other to hide it (soft — «تراجع» brings it back for a
- * few seconds; the server keeps the row either way). Filters: all · unread · by kind.
+ * either way for the «مقروء / إخفاء» buttons, or all the way to flip read ⇄ unread; a hide
+ * is soft («تراجع» for a few seconds; the server keeps the row). Filters: read state ×
+ * kind, combinable.
  */
 export function NotificationsFeed({ can }: { can?: (ability: string) => boolean }) {
   const { t } = useTranslation();
@@ -181,7 +190,9 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
   const markAllRead = useMarkAllRead();
   const dismiss = useDismissNotification();
   const restore = useRestoreNotification();
-  const [filter, setFilter] = useState<Filter>('all');
+  // Two independent filters that combine: read state × kind («غير المقروء» in «المال»).
+  const [filter, setFilter] = useState<ReadFilter>('all');
+  const [kind, setKind] = useState<Kind | null>(null);
 
   // Undo bar after a hide.
   const [undo, setUndo] = useState<Notification | null>(null);
@@ -205,15 +216,13 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
     for (const n of all) c[notificationCategory(n.type)]++;
     return c;
   }, [all]);
-  // A kind chip shows only when there is something of that kind.
-  const chips: Filter[] = ['all', 'unread', ...CATEGORIES.filter((k) => catCounts[k] > 0)];
-  useEffect(() => { if (!chips.includes(filter)) setFilter('all'); }, [chips, filter]);
+  // A kind shows only when there is something of that kind.
+  const kinds = KINDS.filter((k) => catCounts[k.key] > 0);
+  useEffect(() => { if (kind && catCounts[kind] === 0) setKind(null); }, [kind, catCounts]);
 
-  const shown = useMemo(() => (
-    filter === 'all' ? all
-      : filter === 'unread' ? all.filter((n) => !n.is_read)
-      : all.filter((n) => notificationCategory(n.type) === filter)
-  ), [all, filter]);
+  const shown = useMemo(() => all
+    .filter((n) => (filter === 'unread' ? !n.is_read : true))
+    .filter((n) => (kind ? notificationCategory(n.type) === kind : true)), [all, filter, kind]);
 
   const sections = useMemo(() => {
     const now = new Date();
@@ -249,68 +258,70 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
     setUndo(null);
   };
 
-  const chipLabel = (f: Filter) => (f === 'all' || f === 'unread' ? t(`notifications.filter_${f}`) : t(`notifications.cat_${f}`));
-  const chipCount = (f: Filter) => (f === 'all' ? 0 : f === 'unread' ? unreadCount : catCounts[f]);
-
   const Header = (
     <View>
       <LinearGradient
         colors={gradients.hero}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{ paddingTop: insets.top + spacing.sm, paddingBottom: spacing.lg, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}
+        style={{ paddingTop: insets.top + spacing.sm, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}
       >
+        {/* Compact header, as on Students: back · title · unread count · mark all, one line. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg }}>
-          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="forward" size={22} color="#fff" />
+          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="forward" size={20} color="#fff" />
           </TouchableOpacity>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{t('notifications.title')}</Text>
           <View style={{ flex: 1 }} />
           {unreadCount > 0 ? (
             <TouchableOpacity
               onPress={() => markAllRead.mutate()}
               disabled={markAllRead.isPending}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: radius.md, height: 40, paddingHorizontal: spacing.md }}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.14)' }}
             >
-              {markAllRead.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="success" size={16} color="#fff" />}
-              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff' }}>{t('notifications.mark_all_read')}</Text>
+              {markAllRead.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="success" size={15} color="#fff" />}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('notifications.mark_all_read')}</Text>
             </TouchableOpacity>
+          ) : (
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{t('notifications.all_read_summary')}</Text>
+          )}
+        </View>
+
+        {/* Filter tray: a read / unread switch, then the kinds as equal tiles (tap again to clear). */}
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md, gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: radius.lg, padding: 3 }}>
+            {(['all', 'unread'] as ReadFilter[]).map((f) => {
+              const on = filter === f;
+              return (
+                <TouchableOpacity key={f} onPress={() => setFilter(f)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                  style={{ flex: 1, height: 34, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? '#fff' : 'transparent' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : 'rgba(255,255,255,0.85)' }}>{t(`notifications.filter_${f}`)}</Text>
+                  {f === 'unread' && unreadCount > 0 ? (
+                    <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onAccent }}>{formatNumber(unreadCount)}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {kinds.length > 1 ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {kinds.map((k) => {
+                const on = kind === k.key;
+                return (
+                  <TouchableOpacity key={k.key} onPress={() => setKind(on ? null : k.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
+                    style={{ flex: 1, height: 36, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: on ? k.tint : 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: on ? k.tint : 'rgba(255,255,255,0.14)' }}>
+                    <Icon name={k.icon} size={15} color="#fff" />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>{t(`notifications.cat_${k.key}`)}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: on ? '#fff' : 'rgba(255,255,255,0.6)' }}>{formatNumber(catCounts[k.key])}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           ) : null}
         </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md, paddingHorizontal: spacing.lg, marginTop: spacing.md }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff' }}>{t('notifications.title')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>
-              {unreadCount > 0 ? t('notifications.unread_summary', { n: formatNumber(unreadCount) }) : t('notifications.all_read_summary')}
-            </Text>
-          </View>
-          <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: unreadCount > 0 ? colors.accent : 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="bell" size={26} color={unreadCount > 0 ? colors.onAccent : '#fff'} />
-          </View>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
-          {chips.map((f) => {
-            const on = filter === f;
-            const n = chipCount(f);
-            return (
-              <TouchableOpacity
-                key={f}
-                onPress={() => setFilter(f)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: on ? '#fff' : 'rgba(255,255,255,0.16)' }}
-              >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : '#fff' }}>{chipLabel(f)}</Text>
-                {n > 0 ? (
-                  <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: f === 'unread' ? colors.accent : on ? colors.brandTint : 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: f === 'unread' ? colors.onAccent : on ? colors.brand : '#fff' }}>{formatNumber(n)}</Text>
-                  </View>
-                ) : null}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
       </LinearGradient>
 
       {hint && all.length > 0 ? (
@@ -346,8 +357,8 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
             <View style={{ padding: spacing.lg }}>
               <EmptyState
                 icon="bell"
-                title={filter === 'unread' ? t('notifications.no_unread') : t('notifications.no_notifications')}
-                message={filter === 'unread' ? t('notifications.no_unread_hint') : t('notifications.empty')}
+                title={filter === 'unread' && !kind ? t('notifications.no_unread') : t('notifications.no_notifications')}
+                message={filter === 'unread' && !kind ? t('notifications.no_unread_hint') : t('notifications.empty')}
               />
             </View>
           )

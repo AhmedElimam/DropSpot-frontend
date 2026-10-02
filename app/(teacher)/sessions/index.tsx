@@ -65,33 +65,33 @@ export default function TeacherSessions() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
+        style={{ paddingTop: insets.top + spacing.sm, paddingBottom: spacing.md, paddingHorizontal: spacing.lg, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
+        {/* Compact header, as on Students: one line for title · month (date filter) · اليوم · +. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{t('teacher.tab_sessions')}</Text>
-            {/* Date filter — any day, from a month calendar. */}
-            <TouchableOpacity onPress={() => setPickerOpen(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('session_ui.pick_date')}
-              style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' }}>
-              <Icon name="calendar" size={14} color="#fff" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{MONTH_FMT.format(selected)}</Text>
-              <Icon name="down" size={14} color="rgba(255,255,255,0.8)" />
-            </TouchableOpacity>
-          </View>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{t('teacher.tab_sessions')}</Text>
+          {/* Date filter — any day, from a month calendar. */}
+          <TouchableOpacity onPress={() => setPickerOpen(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('session_ui.pick_date')}
+            style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.12)' }}>
+            <Icon name="calendar" size={14} color="#fff" />
+            <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>{MONTH_FMT.format(selected)}</Text>
+            <Icon name="down" size={13} color="rgba(255,255,255,0.8)" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
           {!isThisWeek || dayKey !== key(today) ? (
-            <TouchableOpacity onPress={() => setSelected(today)} activeOpacity={0.85} style={{ paddingHorizontal: spacing.md, height: 36, borderRadius: radius.full, backgroundColor: colors.accent, justifyContent: 'center' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onAccent }}>{t('teacher.today')}</Text>
+            <TouchableOpacity onPress={() => setSelected(today)} activeOpacity={0.85} style={{ paddingHorizontal: 10, height: 32, borderRadius: radius.full, backgroundColor: colors.accent, justifyContent: 'center' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onAccent }}>{t('teacher.today')}</Text>
             </TouchableOpacity>
           ) : null}
           {can(ABILITY.MANAGE_SESSIONS) ? (
             <TouchableOpacity onPress={() => router.push('/(teacher)/schedule-new' as Href)} accessibilityRole="button" accessibilityLabel={t('teacher.add_schedule')} activeOpacity={0.85}
-              style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
-              <Icon name="add" size={22} color="#fff" />
+              style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name="add" size={22} color={colors.onAccent} />
             </TouchableOpacity>
           ) : null}
         </View>
 
         {/* Week strip — earlier weeks to the right (RTL), later to the left. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.lg, gap: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, gap: 4 }}>
           <TouchableOpacity onPress={() => setSelected(addDays(selected, -7))} hitSlop={8} accessibilityLabel={t('session_ui.prev_week')} style={{ padding: 4 }}>
             <Icon name="forward" size={20} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
@@ -102,9 +102,9 @@ export default function TeacherSessions() {
               const isToday = k === key(today);
               return (
                 <TouchableOpacity key={k} onPress={() => setSelected(d)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                  style={{ width: 42, paddingVertical: 8, borderRadius: 14, alignItems: 'center', backgroundColor: on ? '#fff' : 'transparent', borderWidth: isToday && !on ? 1.5 : 0, borderColor: colors.accent }}>
+                  style={{ width: 42, paddingVertical: 5, borderRadius: 12, alignItems: 'center', backgroundColor: on ? '#fff' : 'transparent', borderWidth: isToday && !on ? 1.5 : 0, borderColor: colors.accent }}>
                   <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: on ? colors.textSecondary : 'rgba(255,255,255,0.65)' }}>{DAY_SHORT[d.getDay()]}</Text>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 22, color: on ? colors.textPrimary : '#fff' }}>{formatNumber(d.getDate())}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, lineHeight: 20, color: on ? colors.textPrimary : '#fff' }}>{formatNumber(d.getDate())}</Text>
                   <DayMarker phases={phases.get(k)} tone="dark" selected={on} />
                 </TouchableOpacity>
               );
