@@ -1,26 +1,24 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView } from 'react-native';
-import { router } from 'expo-router';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, nav } from '@/theme/index';
+import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { TimePicker, formatTime12, format12InText } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
+import { FormScreen, FormCard, Field, Input, DateField, Banner, HeaderCount } from '@/components/ui/Form';
 import { useOverrideOptions, useCreateOverride, useCancelOverride } from '@/hooks/useScheduleTools';
+import { formatNumber } from '@/utils/format';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Temporary, auto-reverting time overrides (Ramadan Hours) — parity with the web
- * /schedule-overrides/create. Shift selected slots to a new start time within a
- * date window; they revert automatically after it ends. Cancel any active one.
+ * Temporary, auto-reverting time overrides (Ramadan hours). Shift chosen slots to a new
+ * start time inside a date window; they revert by themselves when it ends.
  */
 export default function ScheduleOverridesScreen() {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const { data, isLoading } = useOverrideOptions();
   const create = useCreateOverride();
   const cancel = useCancelOverride();
@@ -32,10 +30,7 @@ export default function ScheduleOverridesScreen() {
   const [times, setTimes] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (data && !start && !end) {
-      setStart(data.suggested.start);
-      setEnd(data.suggested.end);
-    }
+    if (data && !start && !end) { setStart(data.suggested.start); setEnd(data.suggested.end); }
   }, [data, start, end]);
 
   const chosen = Object.entries(times).filter(([, v]) => TIME_RE.test(v));
@@ -45,22 +40,13 @@ export default function ScheduleOverridesScreen() {
   const submit = () => {
     if (!canSubmit) return;
     create.mutate(
+      { label: label.trim() || undefined, start_date: start, end_date: end, items: chosen.map(([schedule_id, start_time]) => ({ schedule_id: Number(schedule_id), start_time })) },
       {
-        label: label.trim() || undefined,
-        start_date: start,
-        end_date: end,
-        items: chosen.map(([schedule_id, start_time]) => ({ schedule_id: Number(schedule_id), start_time })),
-      },
-      {
-        onSuccess: (res) =>
-          Alert.alert(t('teacher.overrides_title'), t('teacher.overrides_done', { count: res.created, date: end }), [
-            { text: t('common.ok'), onPress: () => { setTimes({}); setLabel(''); } },
-          ]),
+        onSuccess: (res) => Alert.alert(t('teacher.overrides_title'), t('teacher.overrides_done', { count: res.created, date: end }), [{ text: t('common.ok'), onPress: () => { setTimes({}); setLabel(''); } }]),
         onError: () => Alert.alert(t('common.error'), t('teacher.overrides_failed')),
       },
     );
   };
-
   const confirmCancel = (id: string) => {
     Alert.alert(t('teacher.overrides_cancel_title'), t('teacher.overrides_cancel_hint'), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -69,96 +55,69 @@ export default function ScheduleOverridesScreen() {
   };
 
   return (
-    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="forward" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('teacher.overrides_title')}</Text>
-      </View>
+    <FormScreen title={t('teacher.overrides_title')} subtitle={t('teacher.overrides_sub')} loading={isLoading || !data}
+      right={data && data.active.length > 0 ? <HeaderCount n={data.active.length} /> : null}>
+      {data ? (
+        <>
+          <Banner tone="info" text={t('teacher.overrides_intro', { eid: data.suggested.eid })} />
 
-      {isLoading || !data ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
-      ) : (
-        <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
-            <Icon name="info" size={18} color={colors.brand} />
-            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('teacher.overrides_intro', { eid: data.suggested.eid })}</Text>
-          </View>
-
-          {/* Active overrides */}
           {data.active.length > 0 ? (
-            <>
-              <Text style={label_}>{t('teacher.overrides_active')}</Text>
+            <FormCard icon="clock" title={t('teacher.overrides_active')} tint={colors.success}>
               {data.active.map((o) => (
-                <View key={o.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+                <View key={o.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: colors.success, padding: spacing.md, marginBottom: spacing.sm }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{o.label} · {o.course_name ?? ''}</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{format12InText(o.slot_label)} → {format12InText(o.new_time)}{o.end_date ? ` · ${t('teacher.until')} ${o.end_date}` : ''}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{o.label}{o.course_name ? ` · ${o.course_name}` : ''}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                      {format12InText(o.slot_label)} ← {format12InText(o.new_time)}{o.end_date ? ` · ${t('teacher.until')} ${o.end_date}` : ''}
+                    </Text>
                   </View>
-                  <TouchableOpacity onPress={() => confirmCancel(o.id)} disabled={cancel.isPending} style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
-                    <Icon name="trash" size={18} color={colors.danger} />
+                  <TouchableOpacity onPress={() => confirmCancel(o.id)} disabled={cancel.isPending} accessibilityRole="button" accessibilityLabel={t('teacher.overrides_cancel_confirm')}
+                    style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
+                    {cancel.isPending && cancel.variables === o.id ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="trash" size={18} color={colors.danger} />}
                   </TouchableOpacity>
                 </View>
               ))}
-            </>
+            </FormCard>
           ) : null}
 
-          {/* New override */}
-          <Text style={label_}>{t('teacher.overrides_new')}</Text>
-          <TextInput
-            value={label}
-            onChangeText={setLabel}
-            placeholder={t('teacher.overrides_label_ph')}
-            placeholderTextColor={colors.textTertiary}
-            style={inputStyle}
-          />
-
-          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('teacher.pause_from')}</Text>
-              <TextInput value={start} onChangeText={setStart} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textTertiary} autoCapitalize="none" style={inputStyle} />
+          <FormCard icon="calendar" title={t('teacher.overrides_new')} tint={colors.accent}>
+            <Field label={t('teacher.overrides_label_ph')} first hint={t('form_ui.optional')}>
+              <Input value={label} onChangeText={setLabel} placeholder="رمضان" maxLength={60} />
+            </Field>
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              <View style={{ flex: 1 }}><Field label={t('teacher.pause_from')}><DateField value={start} onChange={(v) => { setStart(v); if (v > end) setEnd(v); }} /></Field></View>
+              <View style={{ flex: 1 }}><Field label={t('teacher.pause_to')}><DateField value={end} minIso={start} onChange={setEnd} invalid={!datesValid} /></Field></View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('teacher.pause_to')}</Text>
-              <TextInput value={end} onChangeText={setEnd} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textTertiary} autoCapitalize="none" style={inputStyle} />
-            </View>
-          </View>
+          </FormCard>
 
-          {/* Slot picker with per-slot new time */}
-          <Text style={label_}>{t('teacher.overrides_pick_slots')}</Text>
-          {data.courses.map((group) => (
-            <View key={group.course_name ?? Math.random().toString()} style={{ marginBottom: spacing.md }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{group.course_name}</Text>
-              {group.schedules.map((s) => {
-                const included = TIME_RE.test(times[s.id] ?? '');
-                return (
-                  <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: included ? colors.brandTint : colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: included ? colors.brand : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{format12InText(s.label)}</Text>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 2 }}>{t('teacher.overrides_new_start')}</Text>
+          <FormCard icon="clock" title={t('teacher.overrides_pick_slots')} required hint={chosen.length ? t('form_ui.slots_n', { n: formatNumber(chosen.length) }) : t('teacher.overrides_new_start')}>
+            {data.courses.map((group, gi) => (
+              <View key={group.course_name ?? `g${gi}`} style={{ marginBottom: spacing.sm }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{group.course_name}</Text>
+                {group.schedules.map((s) => {
+                  const included = TIME_RE.test(times[s.id] ?? '');
+                  return (
+                    <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: included ? colors.brandTint : colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: included ? colors.brand : colors.border, padding: spacing.sm, paddingStart: spacing.md, marginBottom: spacing.sm }}>
+                      <Icon name={included ? 'success' : 'clock'} size={18} color={included ? colors.brand : colors.textTertiary} />
+                      <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, color: included ? colors.brand : colors.textPrimary }} numberOfLines={2}>{format12InText(s.label)}</Text>
+                      <View style={{ width: 132 }}>
+                        <TimePicker value={times[s.id] || null} onChange={(v) => setTimes((prev) => ({ ...prev, [s.id]: v }))} placeholder={formatTime12(s.start_time)} />
+                      </View>
+                      {included ? (
+                        <TouchableOpacity onPress={() => setTimes((prev) => { const n = { ...prev }; delete n[s.id]; return n; })} hitSlop={8} accessibilityLabel={t('form_ui.remove')}>
+                          <Icon name="close" size={16} color={colors.textTertiary} />
+                        </TouchableOpacity>
+                      ) : null}
                     </View>
-                    <View style={{ width: 132 }}>
-                      <TimePicker
-                        value={times[s.id] || null}
-                        onChange={(v) => setTimes((prev) => ({ ...prev, [s.id]: v }))}
-                        placeholder={formatTime12(s.start_time)}
-                      />
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          ))}
+                  );
+                })}
+              </View>
+            ))}
+          </FormCard>
 
-          <View style={{ marginTop: spacing.md }}>
-            <Button title={t('teacher.overrides_apply')} onPress={submit} loading={create.isPending} disabled={!canSubmit} variant="primary" />
-          </View>
-        </ScrollView>
-      )}
-    </KeyboardAvoidingView>
+          <Button title={t('teacher.overrides_apply')} onPress={submit} loading={create.isPending} disabled={!canSubmit} variant="primary" />
+        </>
+      ) : null}
+    </FormScreen>
   );
 }
-
-const label_ = { fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginTop: spacing.lg, marginBottom: spacing.sm } as const;
-const inputStyle = { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' as const };
