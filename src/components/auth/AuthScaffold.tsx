@@ -28,11 +28,11 @@ interface AuthScaffoldProps {
 }
 
 /**
- * The auth screens' layout: the deep-ink hero band (the one brand moment — the founder
- * wants the colour back, 2026-10-02: the all-canvas version "looked blind") rounding into a
- * white form card that overlaps it. The band is SHORT on the inner screens (back button +
- * title) and tall only on login, so the first field still lands within the first screen on
- * a 5.5" phone — the problem the canvas version had set out to fix.
+ * The auth screens' layout: the deep-ink blue fills the WHOLE screen (founder 2026-10-02:
+ * «make the background of register and login the blue color» — the warm-paper canvas under
+ * the card was the part he did not like), with the white form card sitting on it. The
+ * header is SHORT on the inner screens (back button + title) and tall only on login, so the
+ * first field still lands within the first screen on a 5.5" phone.
  */
 export function AuthScaffold({ title, subtitle, eyebrow, hero = 'compact', onBack, children, footer }: AuthScaffoldProps) {
   const insets = useSafeAreaInsets();
@@ -40,7 +40,7 @@ export function AuthScaffold({ title, subtitle, eyebrow, hero = 'compact', onBac
   const tall = hero === 'brand';
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }}>
       <StatusBar barStyle="light-content" backgroundColor={gradients.hero[0]} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
@@ -48,16 +48,11 @@ export function AuthScaffold({ title, subtitle, eyebrow, hero = 'compact', onBac
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <LinearGradient
-            colors={gradients.hero}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          <View
             style={{
               paddingTop: insets.top + spacing.sm,
-              paddingBottom: spacing.xl4 + spacing.lg,
+              paddingBottom: spacing.xl,
               paddingHorizontal: spacing.xl,
-              borderBottomLeftRadius: radius.xxl + 12,
-              borderBottomRightRadius: radius.xxl + 12,
             }}
           >
             {/* Top row: back (inner screens) + the small lockup. */}
@@ -99,19 +94,23 @@ export function AuthScaffold({ title, subtitle, eyebrow, hero = 'compact', onBac
                 </Text>
               ) : null}
             </View>
-          </LinearGradient>
+          </View>
 
-          {/* The form card, pulled up over the band's rounded base. */}
-          <View style={{ marginTop: -spacing.xl4, marginHorizontal: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.xl, ...shadows.md }}>
+          {/* The form card, white on the blue. */}
+          <View style={{ marginHorizontal: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.xl, ...shadows.md }}>
             {children}
           </View>
 
           {footer ? <View style={{ alignItems: 'center', marginTop: spacing.xl, paddingHorizontal: spacing.lg }}>{footer}</View> : null}
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </LinearGradient>
   );
 }
+
+/** Footer text on the blue: the muted white the header's subtitle uses. */
+export const AUTH_FOOTER_TEXT = 'rgba(255,255,255,0.78)';
+export const AUTH_FOOTER_LINK = '#FFFFFF';
 
 /** The white emblem on a small brand-gradient tile — the one brand moment per screen. */
 export function BrandTile({ size }: { size: number }) {

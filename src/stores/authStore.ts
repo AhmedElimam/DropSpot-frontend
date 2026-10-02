@@ -161,7 +161,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     leaveImpersonation: () => {
       if (leaving) return leaving;
-      leaving = (async (): Promise<'admin' | 'login'> => {
+      // The body starts on the next microtask, AFTER `leaving` holds the promise. An
+      // async IIFE runs synchronously up to its first await — so the revoke request was
+      // being issued while `leaving` was still null, and anything that reacted to it in
+      // the same tick (a refused request's session-over path) saw no exit in flight and
+      // started a second one, which consumed the admin's stash and left the first to sign
+      // the admin out.
+      leaving = Promise.resolve().then(async (): Promise<'admin' | 'login'> => {
         set({ switching: true });
         try {
           // Revoke the impersonation token FIRST, while it is still the bearer, so the
@@ -210,7 +216,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
           set({ switching: false });
           leaving = null;
         }
-      })();
+      });
 
       return leaving;
     },
@@ -228,7 +234,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
      * sign-out.
      */
     endImpersonationOrLogout: async () => {
-      if (leaving || get().impersonation?.active || (await SecureStore.getItemAsync('imp_admin_token'))) {
+      // A switch is already under way: the session this 401 belonged to is being replaced,
+      // so there is nothing to do for it. NOT awaited — the request that got the 401 may be
+      // one the switch itself is waiting on (the revoke, the server sign-out), and joining
+      // the switch from inside it never returns (the frozen spinner on exit, 2026-10-02).
+      if (leaving) {
+        return;
+      }
+      if (get().impersonation?.active || (await SecureStore.getItemAsync('imp_admin_token'))) {
         await get().leaveImpersonation();
 
         return;

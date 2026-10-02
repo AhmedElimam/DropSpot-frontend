@@ -9,7 +9,7 @@ import { useLogin } from '@/hooks/useAuth';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { isEgyptPhone } from '@/utils/validators';
 import { Button } from '@/components/ui/Button';
-import { AuthScaffold, AuthBanner } from '@/components/auth/AuthScaffold';
+import { AuthScaffold, AuthBanner, AUTH_FOOTER_TEXT } from '@/components/auth/AuthScaffold';
 import { AuthField } from '@/components/auth/AuthField';
 
 const digits = (v: string) => v.replace(/[^0-9]/g, '').slice(0, 11);
@@ -40,7 +40,7 @@ export default function LoginScreen() {
       title={t('auth.login')}
       subtitle={t('auth.login_subtitle')}
       footer={
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textTertiary, textAlign: 'center' }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: AUTH_FOOTER_TEXT, textAlign: 'center' }}>
           {t('common.tagline')}
         </Text>
       }

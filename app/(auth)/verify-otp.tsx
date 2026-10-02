@@ -8,7 +8,7 @@ import { verifyOtp, resendOtp, changeRegistrationPhone } from '@/api/auth';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { AuthScaffold, AuthBanner } from '@/components/auth/AuthScaffold';
+import { AuthScaffold, AuthBanner, AUTH_FOOTER_LINK } from '@/components/auth/AuthScaffold';
 import { OtpInput } from '@/components/auth/OtpInput';
 
 const RESEND_COOLDOWN = 60;
@@ -71,7 +71,7 @@ export default function VerifyOtpScreen() {
       subtitle={t('auth.verify_otp_desc')}
       footer={
         <TouchableOpacity style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => router.push('/(auth)/login')}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.brand }}>{t('auth.back_to_login')}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: AUTH_FOOTER_LINK }}>{t('auth.back_to_login')}</Text>
         </TouchableOpacity>
       }
     >
