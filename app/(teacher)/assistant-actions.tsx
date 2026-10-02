@@ -7,7 +7,7 @@ import { fonts } from '@/theme/typography';
 import { formatNumber } from '@/utils/format';
 import { formatDateTime } from '@/utils/format';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
@@ -21,8 +21,9 @@ function fmtDate(iso: string | null): string {
 }
 
 const KIND_LABEL: Record<AssistantAction['kind'], string> = {
-  proof: 'إثبات دفع', bill: 'فاتورة', booklet: 'ملزمة', booking: 'دفعة حجز',
+  proof: 'إثبات دفع', bill: 'فاتورة', booklet: 'ملزمة', booking: 'دفعة حجز', attendance: 'تعديل حضور',
 };
+const KIND_ICON: Partial<Record<AssistantAction['kind'], IconName>> = { attendance: 'attendance' };
 
 export default function AssistantActionsScreen() {
   const { t } = useTranslation();
@@ -37,6 +38,10 @@ export default function AssistantActionsScreen() {
       qc.invalidateQueries({ queryKey: ['assistant-actions'] });
       qc.invalidateQueries({ queryKey: ['teacher-insights'] });
       qc.invalidateQueries({ queryKey: ['payment-proofs'] });
+      // An undone attendance change shows on the student and on the session sheet.
+      qc.invalidateQueries({ queryKey: ['teacher-student'] });
+      qc.invalidateQueries({ queryKey: ['teacher-session-detail'] });
+      qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
     },
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
@@ -44,7 +49,9 @@ export default function AssistantActionsScreen() {
   const confirmReject = (a: AssistantAction) => {
     Alert.alert(
       t('assistant_actions.reject_confirm_title'),
-      t('assistant_actions.reject_confirm_hint', { what: KIND_LABEL[a.kind], amount: Math.round(a.amount) }),
+      a.kind === 'attendance'
+        ? t('assistant_actions.reject_attendance_hint')
+        : t('assistant_actions.reject_confirm_hint', { what: KIND_LABEL[a.kind], amount: Math.round(a.amount) }),
       [
         { text: t('common.cancel'), style: 'cancel' },
         { text: t('assistant_actions.reject'), style: 'destructive', onPress: () => reject.mutate(a.id) },
@@ -58,12 +65,14 @@ export default function AssistantActionsScreen() {
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.warning, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FEF3E2', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="money" size={20} color={colors.warning} />
+          <Icon name={KIND_ICON[a.kind] ?? 'money'} size={20} color={colors.warning} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={2}>{a.label ?? KIND_LABEL[a.kind]}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-            {KIND_LABEL[a.kind]} · {formatNumber(Math.round(a.amount))} {t('insights.egp')} · {a.assistant_name}
+            {a.kind === 'attendance'
+              ? `${KIND_LABEL[a.kind]} · ${a.assistant_name}`
+              : `${KIND_LABEL[a.kind]} · ${formatNumber(Math.round(a.amount))} ${t('insights.egp')} · ${a.assistant_name}`}
           </Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{fmtDate(a.created_at)}</Text>
         </View>

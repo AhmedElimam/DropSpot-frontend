@@ -85,7 +85,7 @@ export default function StudentDetailScreen() {
       ],
     );
   };
-  const { can } = useActiveAbilities();
+  const { can, isAssistant } = useActiveAbilities();
   const canManage = can(ABILITY.MANAGE_STUDENTS);
   const canCollect = can(ABILITY.SCAN);
   const canMarkManual = can(ABILITY.MARK_MANUAL);
@@ -839,7 +839,7 @@ export default function StudentDetailScreen() {
               then the older records — the session sheet's rows, for one student. */}
           <Section title={t('teacher.attendance_history')}>
             <StudentAttendanceList studentId={Number(s.id)} sessions={s.quick_sessions ?? []} history={s.attendance}
-              canMark={canMarkManual} onChanged={() => { void refetch(); }} />
+              canMark={canMarkManual} isAssistant={isAssistant} onChanged={() => { void refetch(); }} />
           </Section>
         </ScrollView>
       )}

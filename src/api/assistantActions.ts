@@ -2,14 +2,16 @@ import client from './client';
 
 /**
  * Teacher oversight of an assistant's money actions (payment-proof approvals + pending
- * collections). Reject-only — the teacher can reverse an assistant's action within the
+ * collections) and attendance changes. Reject-only — the teacher can reverse an assistant's action within the
  * 30-day window; entries auto-clear after.
  */
 export interface AssistantAction {
   id: number;
-  kind: 'proof' | 'bill' | 'booklet' | 'booking';
+  /** `attendance` = an assistant changed a recorded status (or recorded an ended session). */
+  kind: 'proof' | 'bill' | 'booklet' | 'booking' | 'attendance';
   label: string | null;
   amount: number;
+  student_id?: number | null;
   assistant_name: string;
   created_at: string | null;
 }

@@ -182,7 +182,7 @@ export default function TeacherStudents() {
   const renderStudent = useCallback(({ item }: { item: RosterStudent }) => <RosterRow s={item} onPress={openStudent} />, [openStudent]);
 
   const tiles: { key: Quick; label: string; dot: string; n: number }[] = [
-    { key: 'all', label: t('students_ui.tile_all'), dot: '#fff', n: counts.all },
+    { key: 'all', label: t('teacher.status_all'), dot: '#fff', n: counts.all },
     { key: 'low', label: t('students_ui.tile_low'), dot: colors.warning, n: counts.low },
     ...(seesMoney ? [{ key: 'overdue' as Quick, label: t('students_ui.tile_overdue'), dot: colors.danger, n: counts.overdue }] : []),
   ];
@@ -191,68 +191,58 @@ export default function TeacherStudents() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Compact header (founder: "the header takes a huge chunk of the space"): one line
+          for title · count · cards · add, one for search, one for the filter pills. */}
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ paddingTop: insets.top + spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
+        style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff' }}>{t('teacher.tab_students')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>
-              {t('students_ui.summary', { n: formatNumber(counts.all), c: formatNumber(courses?.length ?? 0) })}
-            </Text>
-          </View>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{t(segment === 'cards' ? 'teacher.seg_cards' : 'teacher.tab_students')}</Text>
+          {segment === 'students' ? (
+            <View style={{ backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{formatNumber(counts.all)}</Text>
+            </View>
+          ) : null}
+          <View style={{ flex: 1 }} />
+          {canStudents ? (
+            <TouchableOpacity onPress={() => setSegment(segment === 'cards' ? 'students' : 'cards')} accessibilityRole="button" accessibilityState={{ selected: segment === 'cards' }}
+              accessibilityLabel={t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 10, borderRadius: 12, backgroundColor: segment === 'cards' ? '#fff' : 'rgba(255,255,255,0.14)' }}>
+              <Icon name={segment === 'cards' ? 'children' : 'card'} size={17} color={segment === 'cards' ? colors.brand : '#fff'} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: segment === 'cards' ? colors.brand : '#fff' }}>{t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}</Text>
+            </TouchableOpacity>
+          ) : null}
           {canStudents ? (
             <TouchableOpacity onPress={() => setAddOpen(true)} accessibilityRole="button" accessibilityLabel={t('add_student.title')}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: spacing.md, borderRadius: 14, backgroundColor: colors.accent }}>
-              <Icon name="add" size={20} color={colors.onAccent} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.onAccent }}>{t('students_ui.add')}</Text>
+              style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="add" size={22} color={colors.onAccent} />
             </TouchableOpacity>
           ) : null}
         </View>
 
-        {/* Students / cards. Without manage_students the cards segment is not offered. */}
-        {canStudents ? (
-          <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: radius.lg, padding: 4, marginTop: spacing.md }}>
-            {(['students', 'cards'] as Segment[]).map((seg) => {
-              const on = segment === seg;
-              return (
-                <TouchableOpacity key={seg} onPress={() => setSegment(seg)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                  style={{ flex: 1, minHeight: 38, borderRadius: radius.md, backgroundColor: on ? '#fff' : 'transparent', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
-                  <Icon name={seg === 'students' ? 'children' : 'card'} size={16} color={on ? colors.brand : 'rgba(255,255,255,0.8)'} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : 'rgba(255,255,255,0.85)' }}>
-                    {t(seg === 'students' ? 'teacher.seg_students' : 'teacher.seg_cards')}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : null}
-
         {segment === 'students' ? (
           <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', paddingHorizontal: spacing.md, marginTop: spacing.md }}>
-              <Icon name="search" size={18} color="rgba(255,255,255,0.7)" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.lg, paddingHorizontal: spacing.md, marginTop: spacing.sm }}>
+              <Icon name="search" size={17} color="rgba(255,255,255,0.7)" />
               <TextInput
                 value={search}
                 onChangeText={setSearch}
                 placeholder={t('teacher.search_student_ph')}
                 placeholderTextColor="rgba(255,255,255,0.55)"
-                style={{ flex: 1, height: 44, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 15, color: '#fff', textAlign: 'right' }}
+                style={{ flex: 1, height: 40, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 14, color: '#fff', textAlign: 'right', paddingVertical: 0 }}
               />
               {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color="rgba(255,255,255,0.7)" /></TouchableOpacity> : null}
             </View>
 
-            {/* The numbers are the filter. */}
-            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+            {/* The numbers are the filter — pills now, not tall tiles. */}
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
               {tiles.map((x) => {
                 const on = quick === x.key;
                 return (
                   <TouchableOpacity key={x.key} onPress={() => setQuick(on && x.key !== 'all' ? 'all' : x.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
-                    style={{ flex: 1, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: on ? '#fff' : 'rgba(255,255,255,0.14)' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: on && x.key === 'all' ? colors.brand : x.dot }} />
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 19, lineHeight: 25, color: on ? colors.textPrimary : '#fff' }}>{formatNumber(x.n)}</Text>
-                    </View>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.textSecondary : 'rgba(255,255,255,0.72)' }} numberOfLines={1}>{x.label}</Text>
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.1)' }}>
+                    {x.key !== 'all' ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: x.dot }} /> : null}
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.textPrimary : '#fff' }} numberOfLines={1}>{x.label}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.brand : 'rgba(255,255,255,0.75)' }}>{formatNumber(x.n)}</Text>
                   </TouchableOpacity>
                 );
               })}

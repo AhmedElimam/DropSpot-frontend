@@ -107,7 +107,7 @@ const RecordableRow = memo(function RecordableRow({ session, rec, live, canMark,
   );
 });
 
-/** An older record (beyond the two weeks the profile can record against): read-only, opens its sheet. */
+/** A record with no recordable session behind it (e.g. the session was cancelled): read-only, opens its sheet. */
 const HistoryRow = memo(function HistoryRow({ r }: { r: StudentAttendanceRow }) {
   const { t } = useTranslation();
   const color = STATUS_COLOR[r.status] ?? STATUS_COLOR.not_recorded;
@@ -144,8 +144,8 @@ function markStudent(
 }
 
 /** The session sheet's student modal, for one session of this student: 4 marks + the sheet / exam mark. */
-function RecordSheet({ session, rec, studentId, canMark, onRecorded, onClose }: {
-  session: QuickSession; rec: Record_; studentId: number; canMark: boolean;
+function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded, onClose }: {
+  session: QuickSession; rec: Record_; studentId: number; canMark: boolean; isAssistant: boolean;
   onRecorded: (sessionId: string, patch: Partial<Record_>) => void; onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -208,6 +208,12 @@ function RecordSheet({ session, rec, studentId, canMark, onRecorded, onClose }: 
             <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: STATUS_COLOR[rec.status] ?? colors.textSecondary }}>{t(STATUS_KEY[rec.status] ?? 'teacher.not_recorded')}</Text>
           )}
           {rec.pending ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.warningText }}>{t('teacher.mark_pending_sync')}</Text> : null}
+          {isAssistant && canMark ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Icon name="eye" size={14} color={colors.textTertiary} />
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('quick_record.assistant_note')}</Text>
+            </View>
+          ) : null}
 
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.sm }}>
@@ -240,13 +246,17 @@ function RecordSheet({ session, rec, studentId, canMark, onRecorded, onClose }: 
 /**
  * «سجل الحضور» on the student profile, in the session sheet's style (founder 2026-10-02:
  * "remove this huge card … make it at the bottom where تسجيلات الحضور is, like session
- * details"). The last two weeks of this student's sessions come first, each recordable in
- * place — ✓ / ✗ on the row, a tap for متأخر / معذور and the sheet or exam mark — then the
- * older records, read-only, each opening its session. Writes go through the session
+ * details"). EVERY session row is recordable in place, to any status — ✓ / ✗ on the row,
+ * a tap for متأخر / معذور and the sheet or exam mark: the last two weeks plus every older
+ * session the student has a record in. An assistant's change of a recorded status (or of
+ * an ended session) goes to the teacher's review bucket server-side. Records the server
+ * did not send as sessions (a cancelled session) stay read-only and open their session. Writes go through the session
  * sheet's own controls, so offline marks queue and replay the same way.
  */
-export function StudentAttendanceList({ studentId, sessions, history, canMark, onChanged }: {
-  studentId: number; sessions: QuickSession[]; history: StudentAttendanceRow[]; canMark: boolean; onChanged: () => void;
+export function StudentAttendanceList({ studentId, sessions, history, canMark, isAssistant = false, onChanged }: {
+  studentId: number; sessions: QuickSession[]; history: StudentAttendanceRow[]; canMark: boolean;
+  /** An assistant is told that changing a recorded status goes to the teacher for review. */
+  isAssistant?: boolean; onChanged: () => void;
 }) {
   const { t } = useTranslation();
   const now = useMinuteClock();
@@ -265,7 +275,9 @@ export function StudentAttendanceList({ studentId, sessions, history, canMark, o
 
   const recentIds = useMemo(() => new Set(sessions.map((s) => s.id)), [sessions]);
   const older = useMemo(() => history.filter((r) => !r.session_id || !recentIds.has(r.session_id)), [history, recentIds]);
-  const olderShown = showAll ? older : older.slice(0, Math.max(0, PREVIEW - sessions.length));
+  const sessionsShown = showAll ? sessions : sessions.slice(0, PREVIEW);
+  const olderShown = showAll ? older : older.slice(0, Math.max(0, PREVIEW - sessionsShown.length));
+  const hidden = sessions.length + older.length - sessionsShown.length - olderShown.length;
   const open = sessions.find((s) => s.id === openId) ?? null;
 
   if (sessions.length === 0 && history.length === 0) {
@@ -274,18 +286,18 @@ export function StudentAttendanceList({ studentId, sessions, history, canMark, o
 
   return (
     <View>
-      {sessions.map((s) => (
+      {sessionsShown.map((s) => (
         <RecordableRow key={s.id} session={s} rec={recOf(s)} live={sessionPhase(s, now) === 'live'} canMark={canMark}
           studentId={studentId} onOpen={onOpen} onRecorded={onRecorded} />
       ))}
       {olderShown.map((r) => <HistoryRow key={r.id} r={r} />)}
-      {!showAll && older.length > olderShown.length ? (
+      {!showAll && hidden > 0 ? (
         <TouchableOpacity onPress={() => setShowAll(true)} style={{ paddingVertical: spacing.md, alignItems: 'center' }} accessibilityRole="button">
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('quick_record.show_all', { n: formatNumber(sessions.length + older.length) })}</Text>
         </TouchableOpacity>
       ) : null}
       {open ? (
-        <RecordSheet session={open} rec={recOf(open)} studentId={studentId} canMark={canMark} onRecorded={onRecorded} onClose={() => setOpenId(null)} />
+        <RecordSheet session={open} rec={recOf(open)} studentId={studentId} canMark={canMark} isAssistant={isAssistant} onRecorded={onRecorded} onClose={() => setOpenId(null)} />
       ) : null}
     </View>
   );
