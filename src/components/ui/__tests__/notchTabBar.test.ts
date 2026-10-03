@@ -5,7 +5,7 @@ describe('notchPath', () => {
   it('cuts a circle around the centre button, symmetric about the middle', () => {
     const width = 390;
     const d = notchPath(width, 98);
-    const arc = d.match(/L ([\d.]+) 30 A ([\d.]+) \2 0 1 0 ([\d.]+) 30/);
+    const arc = d.match(new RegExp(`L ([\\d.]+) ${RAISE} A ([\\d.]+) \\2 0 1 0 ([\\d.]+) ${RAISE}`));
     expect(arc).not.toBeNull();
     const [, left, radius, right] = arc!;
     expect(Number(radius)).toBe(NOTCH_R);

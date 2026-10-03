@@ -17,6 +17,7 @@ import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { colors } from '@/theme/index';
 import { type IconName } from '@/components/ui/Icon';
 import { NotchTabBar } from '@/components/ui/NotchTabBar';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
@@ -26,11 +27,11 @@ import { ROUTE_BY_ROLE } from '@/utils/routes';
 // tabs are frozen on blur: a frozen screen defers its own release.
 const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","sessions","manage","students","settings"]);
 const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
-// The bar, first to last (the first sits at the start edge — the right, in RTL). الحصص is
-// the raised centre button: the day's sessions and attendance are what a teacher opens
-// most (founder 2026-10-03). Management stays beside it (founder 2026-10-02: «next to the day»).
-const TAB_ORDER = ['index', 'manage', 'sessions', 'students', 'settings'] as const;
-const CENTER_TAB = 'sessions';
+// The bar, first to last (the first sits at the start edge — the right, in RTL). الإدارة is
+// the raised centre button and carries the app's emblem instead of an icon (founder
+// 2026-10-03); الحصص stays beside it (founder 2026-10-02: «next to the day»).
+const TAB_ORDER = ['index', 'sessions', 'manage', 'students', 'settings'] as const;
+const CENTER_TAB = 'manage';
 
 /**
  * Teacher (and assistant) app — a 5-tab bar (home · sessions · students · manage ·
@@ -54,7 +55,7 @@ const labels: Record<string, string> = {
 
 const icons: Record<string, IconName> = {
   index: 'home',
-  sessions: 'sessions',
+  sessions: 'lesson',
   students: 'children',
   manage: 'book',
   settings: 'settings',
@@ -215,7 +216,7 @@ export default function TeacherTabLayout() {
       // mounting the bar component for them. Every real tab shows the bar.
       tabBar={(props) => {
         if (shouldHideBar(props.state)) return null;
-        return <NotchTabBar {...props} tabs={TAB_ORDER} center={CENTER_TAB} labels={labels} icons={icons} />;
+        return <NotchTabBar {...props} tabs={TAB_ORDER} center={CENTER_TAB} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />;
       }}
       screenOptions={screenOptions}
       screenLayout={sceneLayout}

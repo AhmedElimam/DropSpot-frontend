@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { View, Text, Pressable, useWindowDimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { Tabs } from 'expo-router';
@@ -10,8 +10,8 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 
 /** The bar's own height, without the home indicator. Screens pad with `nav.bottomHeight`. */
 export const BAR_HEIGHT = 64;
-/** How far the centre button rises above the bar's top edge. */
-export const RAISE = 30;
+/** How far the centre button rises above the bar's top edge (founder 2026-10-03: «just down a little»). */
+export const RAISE = 22;
 /** Centre button diameter, and the notch cut around it (a 6pt breath on each side). */
 export const BUTTON = 56;
 export const NOTCH_R = BUTTON / 2 + 6;
@@ -56,6 +56,8 @@ interface NotchTabBarProps extends BottomTabBarProps {
   /** i18n key per tab. */
   labels: Record<string, string>;
   icons: Record<string, IconName>;
+  /** What sits in the centre button instead of its icon — the teacher's bar puts the brand mark there. */
+  centerGlyph?: (color: string, focused: boolean) => ReactNode;
 }
 
 /**
@@ -68,7 +70,7 @@ interface NotchTabBarProps extends BottomTabBarProps {
  * is left to navigation. Opaque on purpose, like the bar it replaces: a translucent
  * floating bar is continuous compositing work on mid-range Android.
  */
-export function NotchTabBar({ state, descriptors, navigation, tabs, center, labels, icons }: NotchTabBarProps) {
+export function NotchTabBar({ state, descriptors, navigation, tabs, center, labels, icons, centerGlyph }: NotchTabBarProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -119,9 +121,9 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
                     ...shadows.md,
                   }}
                 >
-                  <Icon name={icons[name] || 'home'} size={28} color={onButton} outline={!focused} />
+                  {centerGlyph ? centerGlyph(onButton, focused) : <Icon name={icons[name] || 'home'} size={28} color={onButton} outline={!focused} />}
                 </View>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 6 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 4 }}>
                   {label}
                 </Text>
               </Pressable>

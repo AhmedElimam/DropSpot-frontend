@@ -25,6 +25,8 @@ const ICON_MAP = {
   location: 'location',
   calendar: 'calendar',
   sessions: 'calendar-number',
+  /** A lesson in progress — the sessions tab (founder 2026-10-03: not the numbered calendar). */
+  lesson: 'easel',
   clock: 'time',
   quiz: 'document-text',
   grades: 'ribbon',
