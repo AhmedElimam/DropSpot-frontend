@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
@@ -7,7 +7,8 @@ import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@
 import { formatDate, daysUntil } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
 import { useInvoices, useParentPendingDues } from '@/hooks/useInvoices';
-import type { Invoice, PendingDue } from '@/api/invoices';
+import { getInvoiceReceiptUrl, type Invoice, type PendingDue } from '@/api/invoices';
+import { openRemotePdf } from '@/utils/openPdf';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -122,6 +123,22 @@ function InvoiceCard({ invoice }: { invoice: Invoice }) {
   const { byInvoice } = useMyComplaints();
   const complaint = byInvoice.get(Number(invoice.id));
   const [complainOpen, setComplainOpen] = useState(false);
+  // The PDF receipt — a PAID invoice only (founder 2026-10-03).
+  const [opening, setOpening] = useState(false);
+  const openReceipt = async () => {
+    if (opening) return;
+    setOpening(true);
+    try {
+      const url = await getInvoiceReceiptUrl(invoice.id);
+      if (!url) throw new Error('no url');
+      await openRemotePdf(url, [t('invoices.receipt_file'), invoice.number].filter(Boolean).join('-'));
+    } catch {
+      Alert.alert(t('invoices.receipt_failed'));
+    } finally {
+      setOpening(false);
+    }
+  };
+  const hasReceipt = invoice.receipt_available ?? invoice.status === 'paid';
   return (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -165,6 +182,13 @@ function InvoiceCard({ invoice }: { invoice: Invoice }) {
         <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>{formatEGP(invoice.amount)}</Text>
       </View>
       <PaymentSection invoice={invoice} />
+      {hasReceipt ? (
+        <TouchableOpacity onPress={openReceipt} disabled={opening} activeOpacity={0.85} accessibilityRole="button"
+          style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 46, borderRadius: radius.md, backgroundColor: colors.successLight, borderWidth: 1, borderColor: colors.success }}>
+          {opening ? <ActivityIndicator color={colors.successText} /> : <Icon name="download" size={18} color={colors.successText} />}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.successText }}>{t('invoices.download_receipt')}</Text>
+        </TouchableOpacity>
+      ) : null}
       {complaint ? (
         <View style={{ marginTop: spacing.md, alignSelf: 'flex-start' }}><ComplaintPill status={complaint.status} /></View>
       ) : invoice.status !== 'paid' && invoice.student_id ? (
