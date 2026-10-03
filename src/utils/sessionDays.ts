@@ -36,10 +36,10 @@ export function phasesByDay(items: PhaseInput[], now: number): Map<string, Sessi
 
 // Same meaning as the session cards' stripe: live green, upcoming indigo (apricot on the
 // dark header, where indigo would vanish), ended grey, cancelled red.
-export const PHASE_DOT: Record<'light' | 'dark', Record<SessionPhase, string>> = {
+export const PHASE_DOT = (): Record<'light' | 'dark', Record<SessionPhase, string>> => ({
   light: { live: colors.success, upcoming: colors.brand, done: colors.textTertiary, cancelled: colors.danger },
   dark: { live: '#4ADE9B', upcoming: colors.accent, done: 'rgba(255,255,255,0.45)', cancelled: '#FF7A8A' },
-};
+});
 
 /** Order the dots so the most pressing state shows first. */
 const RANK: Record<SessionPhase, number> = { live: 0, upcoming: 1, done: 2, cancelled: 3 };

@@ -89,7 +89,7 @@ export default function StudentTabLayout() {
           // two rounded corners that is continuous GPU work and a measurable heat source on
           // mid-range chips (Redmi Note 11S / Helio G96, 2026-09-22). Opaque + a hairline
           // rule keeps the same lifted look for free.
-          backgroundColor: '#FFFFFF',
+          backgroundColor: colors.tabBar,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
           paddingTop: 8,
@@ -108,7 +108,7 @@ export default function StudentTabLayout() {
             style={{
               fontFamily: fonts.medium,
               fontSize: 11,
-              color: focused ? colors.primary : colors.textTertiary,
+              color: focused ? colors.tabActive : colors.tabInactive,
               marginTop: 2,
             }}
           >
@@ -125,7 +125,7 @@ export default function StudentTabLayout() {
             <Icon
               name={icons[route.name] || 'home'}
               size={24}
-              color={focused ? colors.primary : colors.textTertiary}
+              color={focused ? colors.tabActive : colors.tabInactive}
               outline={!focused}
             />
           </View>

@@ -64,10 +64,10 @@ export default function ReportCardsScreen() {
         >
           <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
             <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginStart: spacing.sm }}>{t('common.back')}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: spacing.sm }}>{t('common.back')}</Text>
           </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff' }}>{t('reports.report_cards')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero }}>{t('reports.report_cards')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.onHeroSoft, marginTop: 4 }}>
             {t('reports.report_cards_sub')}
           </Text>
         </LinearGradient>

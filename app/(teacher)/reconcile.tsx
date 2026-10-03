@@ -95,11 +95,11 @@ export default function Reconcile() {
         style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.lg, paddingBottom: spacing.lg, flexDirection: 'row', alignItems: 'center' }}
       >
         <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', marginEnd: spacing.sm }}>
-          <Icon name="forward" size={26} color="#fff" />
+          <Icon name="forward" size={26} color={colors.onHero} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{t('teacher.reconcile_title')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('teacher.reconcile_subtitle')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }}>{t('teacher.reconcile_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>{t('teacher.reconcile_subtitle')}</Text>
         </View>
       </LinearGradient>
 

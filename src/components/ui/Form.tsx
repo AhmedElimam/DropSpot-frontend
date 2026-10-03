@@ -43,12 +43,12 @@ export function FormScreen({
         style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')}
-            style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="forward" size={20} color="#fff" />
+            style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="forward" size={20} color={colors.onHero} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }} numberOfLines={1}>{title}</Text>
-            {subtitle ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.75)' }} numberOfLines={1}>{subtitle}</Text> : null}
+            <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }} numberOfLines={1}>{title}</Text>
+            {subtitle ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft }} numberOfLines={1}>{subtitle}</Text> : null}
           </View>
           {right}
         </View>
@@ -130,10 +130,10 @@ export function Field({ label, required, hint, first, children }: { label: strin
   );
 }
 
-export const inputStyle = {
+export const inputStyle = () => ({
   backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg,
   paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' as const,
-};
+});
 
 export function Input({ invalid, multiline, style, center, ...rest }: TextInputProps & { invalid?: boolean; center?: boolean }) {
   return (
@@ -142,7 +142,7 @@ export function Input({ invalid, multiline, style, center, ...rest }: TextInputP
       multiline={multiline}
       {...rest}
       style={[
-        inputStyle,
+        inputStyle(),
         multiline ? { height: undefined, minHeight: 90, paddingTop: spacing.md, paddingBottom: spacing.md, textAlignVertical: 'top' as const } : null,
         center ? { textAlign: 'center' as const } : null,
         invalid ? { borderColor: colors.danger } : null,
@@ -259,15 +259,15 @@ export const OptionRow = memo(function OptionRow({ title, sub, selected, mode = 
   );
 });
 
-const TONES = {
+const TONES = () => ({
   info: { bg: colors.brandTint, fg: colors.brand, icon: 'info' as IconName },
   warn: { bg: colors.warningLight, fg: colors.warningText, icon: 'warning' as IconName },
   danger: { bg: colors.dangerLight, fg: colors.dangerText, icon: 'warning' as IconName },
   success: { bg: colors.successLight, fg: colors.successText, icon: 'success' as IconName },
-};
+});
 
-export function Banner({ tone = 'info', icon, text, children, style }: { tone?: keyof typeof TONES; icon?: IconName; text?: string; children?: ReactNode; style?: StyleProp<ViewStyle> }) {
-  const c = TONES[tone];
+export function Banner({ tone = 'info', icon, text, children, style }: { tone?: keyof ReturnType<typeof TONES>; icon?: IconName; text?: string; children?: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const c = TONES()[tone];
   return (
     <View style={[{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: c.bg, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }, style]}>
       <Icon name={icon ?? c.icon} size={18} color={c.fg} />
@@ -335,7 +335,7 @@ export function DateField({ value, onChange, placeholder, minIso, invalid }: { v
   return (
     <>
       <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.8} accessibilityRole="button"
-        style={[inputStyle, { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, invalid ? { borderColor: colors.danger } : null]}>
+        style={[inputStyle(), { flexDirection: 'row', alignItems: 'center', gap: spacing.sm }, invalid ? { borderColor: colors.danger } : null]}>
         <Icon name="calendar" size={18} color={picked ? colors.brand : colors.textTertiary} />
         <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: picked ? colors.textPrimary : colors.textTertiary }} numberOfLines={1}>
           {picked ? formatDayDate(picked) : (placeholder ?? t('form_ui.pick_date'))}

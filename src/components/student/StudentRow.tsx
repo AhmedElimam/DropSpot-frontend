@@ -43,7 +43,7 @@ export const StudentRow = memo(function StudentRow({ id, name, studentCode, grad
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderRadius: radius.md,
         padding: spacing.md,
         marginBottom: spacing.sm,

@@ -13,18 +13,18 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatNumber, timeAgo } from '@/utils/format';
 import { getAssistantActions, rejectAssistantAction, type AssistantAction } from '@/api/assistantActions';
 
-const KIND: Record<AssistantAction['kind'], { label: string; icon: IconName; tint: string }> = {
+const KIND = (): Record<AssistantAction['kind'], { label: string; icon: IconName; tint: string }> => ({
   proof: { label: 'إثبات دفع', icon: 'card', tint: colors.success },
   bill: { label: 'فاتورة', icon: 'money', tint: colors.success },
   booklet: { label: 'ملزمة', icon: 'book', tint: colors.success },
   booking: { label: 'دفعة حجز', icon: 'money', tint: colors.success },
   attendance: { label: 'تعديل حضور', icon: 'attendance', tint: colors.accent },
-};
+});
 
 /** One assistant action: what, how much, who, when — and the one button, «رفض». */
 const ActionRow = memo(function ActionRow({ a, busy, onReject }: { a: AssistantAction; busy: boolean; onReject: (a: AssistantAction) => void }) {
   const { t } = useTranslation();
-  const k = KIND[a.kind] ?? KIND.bill;
+  const k = KIND()[a.kind] ?? KIND().bill;
   const money = a.kind !== 'attendance';
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 5, borderStartColor: k.tint, padding: spacing.md, marginBottom: spacing.sm }}>
@@ -81,7 +81,7 @@ export default function AssistantActionsScreen() {
   const confirmReject = (a: AssistantAction) => {
     Alert.alert(
       t('assistant_actions.reject_confirm_title'),
-      a.kind === 'attendance' ? t('assistant_actions.reject_attendance_hint') : t('assistant_actions.reject_confirm_hint', { what: KIND[a.kind]?.label ?? a.kind, amount: Math.round(a.amount) }),
+      a.kind === 'attendance' ? t('assistant_actions.reject_attendance_hint') : t('assistant_actions.reject_confirm_hint', { what: KIND()[a.kind]?.label ?? a.kind, amount: Math.round(a.amount) }),
       [{ text: t('common.cancel'), style: 'cancel' }, { text: t('assistant_actions.reject'), style: 'destructive', onPress: () => reject.mutate(a.id) }],
     );
   };

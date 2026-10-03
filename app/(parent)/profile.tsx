@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { SupportContact } from '@/components/SupportContact';
+import { ThemeRow } from '@/components/ThemeRow';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients, control } from '@/theme/index';
@@ -83,17 +84,17 @@ export default function ParentSettings() {
           end={{ x: 1, y: 1 }}
           style={{ paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl5, alignItems: 'center' }}
         >
-          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.18)', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.25)', marginBottom: spacing.md }}>
-            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontSize: 36, color: '#fff' }}>{(user?.name || '?')[0]}</Text>
+          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: colors.onHeroChipBorder, marginBottom: spacing.md }}>
+            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ fontSize: 36, color: colors.onHero }}>{(user?.name || '?')[0]}</Text>
             </View>
           </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{user?.name}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{user?.name}</Text>
           {user?.phone ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginTop: spacing.xs }}>{user.phone}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.onHeroSoft, marginTop: spacing.xs }}>{user.phone}</Text>
           ) : null}
-          <View style={{ marginTop: spacing.md, backgroundColor: 'rgba(255,255,255,0.18)', paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: '#fff' }}>{t('profile.role_parent')}</Text>
+          <View style={{ marginTop: spacing.md, backgroundColor: colors.onHeroChip, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.onHero }}>{t('profile.role_parent')}</Text>
           </View>
         </LinearGradient>
 
@@ -143,6 +144,7 @@ export default function ParentSettings() {
           </View>
 
           <View style={{ marginBottom: spacing.md }}>
+            <ThemeRow />
             <SupportContact href={'/(parent)/support' as Href} />
           </View>
 

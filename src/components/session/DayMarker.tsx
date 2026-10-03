@@ -11,7 +11,7 @@ import type { SessionPhase } from '@/utils/sessionPhase';
  */
 export const DayMarker = memo(function DayMarker({ phases, tone, selected }: { phases?: SessionPhase[]; tone: 'light' | 'dark'; selected?: boolean }) {
   const list = dotPhases(phases);
-  const palette = PHASE_DOT[selected ? 'light' : tone];
+  const palette = PHASE_DOT()[selected ? 'light' : tone];
   if (list.length > 3) {
     return (
       <View style={{ height: 14, minWidth: 18, paddingHorizontal: 4, borderRadius: 7, marginTop: 2, backgroundColor: palette[list[0]], alignItems: 'center', justifyContent: 'center' }}>

@@ -98,9 +98,9 @@ export default function CreateTicket() {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity onPress={() => router.back()} style={{ marginEnd: spacing.md }}>
-                <Icon name="forward" size={26} color="#fff" />
+                <Icon name="forward" size={26} color={colors.onHero} />
               </TouchableOpacity>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>
                 {t('tickets.create')}
               </Text>
             </View>

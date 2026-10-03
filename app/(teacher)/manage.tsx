@@ -28,12 +28,12 @@ type Group = 'students' | 'schedule' | 'money' | 'followup';
 const GROUPS: Group[] = ['students', 'schedule', 'money', 'followup'];
 const LAST_GROUP_KEY = 'manage_group_v1';
 // Each group has its own colour, carried by its tile and every row inside it.
-const GROUP_LOOK: Record<Group, { icon: IconName; tint: string }> = {
+const GROUP_LOOK = (): Record<Group, { icon: IconName; tint: string }> => ({
   students: { icon: 'children', tint: colors.brand },
   schedule: { icon: 'calendar', tint: colors.accent },
   money: { icon: 'money', tint: colors.success },
   followup: { icon: 'bell', tint: colors.warning },
-};
+});
 
 /**
  * «الإدارة» (founder 2026-10-02: "too much … hard to navigate through that mess"). The
@@ -100,7 +100,7 @@ export default function TeacherManage() {
   const [addOpen, setAddOpen] = useState(false);
 
   const totalAttention = visible.reduce((n, g) => n + counts[g], 0);
-  const tint = GROUP_LOOK[group].tint;
+  const tint = GROUP_LOOK()[group].tint;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -109,9 +109,9 @@ export default function TeacherManage() {
         {/* Compact header, as on Students: title + what waits on one line, the groups as one
             row of pills underneath. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{t('teacher.tab_manage')}</Text>
-          <View style={{ flexShrink: 1, height: 26, paddingHorizontal: 10, borderRadius: radius.full, justifyContent: 'center', backgroundColor: totalAttention > 0 ? colors.accent : 'rgba(255,255,255,0.12)' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: totalAttention > 0 ? colors.onAccent : 'rgba(255,255,255,0.8)' }} numberOfLines={1}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t('teacher.tab_manage')}</Text>
+          <View style={{ flexShrink: 1, height: 26, paddingHorizontal: 10, borderRadius: radius.full, justifyContent: 'center', backgroundColor: totalAttention > 0 ? colors.accent : colors.onHeroChip }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: totalAttention > 0 ? colors.onAccent : colors.onHeroSoft }} numberOfLines={1}>
               {totalAttention > 0 ? t('manage.waiting_summary', { n: formatNumber(totalAttention) }) : t('manage.all_clear')}
             </Text>
           </View>
@@ -121,12 +121,12 @@ export default function TeacherManage() {
           {visible.map((g) => {
             const on = group === g;
             const n = counts[g];
-            const look = GROUP_LOOK[g];
+            const look = GROUP_LOOK()[g];
             return (
               <TouchableOpacity key={g} onPress={() => pick(g)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                style={{ flex: 1, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: radius.md, backgroundColor: on ? look.tint : 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: on ? look.tint : 'rgba(255,255,255,0.14)' }}>
-                <Icon name={look.icon} size={15} color="#fff" />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>{t(`manage.group_${g}`)}</Text>
+                style={{ flex: 1, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: radius.md, backgroundColor: on ? look.tint : colors.onHeroChip, borderWidth: 1, borderColor: on ? look.tint : colors.onHeroChip }}>
+                <Icon name={look.icon} size={15} color={colors.onHero} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }} numberOfLines={1}>{t(`manage.group_${g}`)}</Text>
                 {n > 0 ? (
                   // Pinned to the corner, so four pills still fit a narrow phone.
                   <View style={{ position: 'absolute', top: -6, end: -4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.accent, borderWidth: 1.5, borderColor: gradients.hero[1], alignItems: 'center', justifyContent: 'center' }}>

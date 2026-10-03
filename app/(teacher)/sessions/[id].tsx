@@ -34,18 +34,18 @@ function bucketOf(status: string): Bucket {
   return 'awaiting';
 }
 
-const STATUS_COLOR: Record<string, string> = {
+const STATUS_COLOR = (): Record<string, string> => ({
   present: colors.success, late: colors.warning, absent: colors.danger, excused: colors.info, not_recorded: colors.borderStrong,
-};
+});
 const STATUS_KEY: Record<string, string> = {
   present: 'attendance.present', late: 'attendance.late', absent: 'attendance.absent', excused: 'attendance.excused', not_recorded: 'teacher.not_recorded',
 };
-const MARK_OPTIONS: { status: Status; color: string; icon: IconName }[] = [
+const MARK_OPTIONS = (): { status: Status; color: string; icon: IconName }[] => ([
   { status: 'present', color: colors.success, icon: 'present' },
   { status: 'late', color: colors.warning, icon: 'late' },
   { status: 'absent', color: colors.danger, icon: 'absent' },
   { status: 'excused', color: colors.info, icon: 'excused' },
-];
+]);
 // Rows still to record float to the top: they are what the teacher came here to do.
 const ORDER: Record<Bucket, number> = { awaiting: 0, present: 1, absent: 2, excused: 3 };
 
@@ -176,7 +176,7 @@ export default function SessionDetailScreen() {
   };
 
   const renderAttendee = ({ item }: { item: SessionAttendee | SwapInAttendee }) => {
-    const color = STATUS_COLOR[item.status] ?? STATUS_COLOR.not_recorded;
+    const color = STATUS_COLOR()[item.status] ?? STATUS_COLOR().not_recorded;
     const fromLabel = 'from_label' in item ? item.from_label : null;
     const awaiting = bucketOf(item.status) === 'awaiting';
     return (
@@ -230,13 +230,13 @@ export default function SessionDetailScreen() {
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="forward" size={22} color="#fff" />
+          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="forward" size={22} color={colors.onHero} />
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
           {s ? (
-            <TouchableOpacity onPress={() => setSettingsOpen(true)} accessibilityRole="button" accessibilityLabel={t('session_ui.settings')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
-              <Icon name="settings" size={20} color="#fff" outline />
+            <TouchableOpacity onPress={() => setSettingsOpen(true)} accessibilityRole="button" accessibilityLabel={t('session_ui.settings')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name="settings" size={20} color={colors.onHero} outline />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -252,8 +252,8 @@ export default function SessionDetailScreen() {
                     : <Chip label={t('session_ui.upcoming')} bg="rgba(255,255,255,0.2)" />}
                   {s.is_exam ? <Chip label={t('teacher.type_quiz_exam')} bg={colors.accent} dark /> : null}
                 </View>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 6 }} numberOfLines={2}>{s.course_name ?? t('session.session_details')}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero, marginTop: 6 }} numberOfLines={2}>{s.course_name ?? t('session.session_details')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.onHeroSoft, marginTop: 2 }}>
                   {dayLabel(s.scheduled_at)}{s.time ? ` · ${s.time}` : ''}{s.location ? ` · ${s.location}` : ''}
                 </Text>
               </View>
@@ -265,12 +265,12 @@ export default function SessionDetailScreen() {
                 const on = filter === x.key;
                 return (
                   <TouchableOpacity key={x.key} onPress={() => setFilter(on ? null : x.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
-                    style={{ flex: 1, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: on ? '#fff' : 'rgba(255,255,255,0.14)' }}>
+                    style={{ flex: 1, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: on ? colors.onHero : colors.onHeroChip, borderWidth: 1, borderColor: on ? colors.onHero : colors.onHeroChip }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: x.color }} />
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 19, lineHeight: 25, color: on ? colors.textPrimary : '#fff' }}>{formatNumber(counts[x.key])}</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 19, lineHeight: 25, color: on ? colors.textPrimary : colors.onHero }}>{formatNumber(counts[x.key])}</Text>
                     </View>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.textSecondary : 'rgba(255,255,255,0.72)' }}>{x.label}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.textSecondary : colors.onHeroSoft }}>{x.label}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -448,7 +448,7 @@ export default function SessionDetailScreen() {
                   <>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.mark_attendance')}</Text>
                     <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
-                      {MARK_OPTIONS.map((o) => {
+                      {MARK_OPTIONS().map((o) => {
                         const active = current.status === o.status;
                         return (
                           <TouchableOpacity key={o.status} onPress={() => mark(current.student_id, o.status)} disabled={controls.mark.isPending}

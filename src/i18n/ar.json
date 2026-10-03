@@ -83,6 +83,11 @@
   },
   "common": {
     "close": "إغلاق",
+    "appearance": "المظهر",
+    "appearance_sub": "فاتح بالنهار، كحلي بلمسة نيون بالليل — أو اتركه للهاتف",
+    "appearance_system": "تلقائي",
+    "appearance_light": "فاتح",
+    "appearance_dark": "داكن",
     "app_name": "دروس سبوت",
     "tagline": "منصة تعليمية متكاملة",
     "greeting": "{{name}}، مرحباً",

@@ -1,6 +1,7 @@
 import '../src/i18n';
 import { setQueryClient } from '@/lib/queryClientRef';
-import { I18nManager, View, ActivityIndicator, Text, TextInput, AppState, type AppStateStatus } from 'react-native';
+import { I18nManager, View, ActivityIndicator, Text, TextInput, AppState, useColorScheme, type AppStateStatus } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
@@ -32,6 +33,7 @@ import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '@/stores/authStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { SurveyModal } from '@/components/SurveyModal';
 import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
@@ -114,20 +116,29 @@ setQueryClient(queryClient);
 function HydrationGate({ children }: { children: React.ReactNode }) {
   const isLoading = useAuthStore((s) => s.isLoading);
   const hydrate = useAuthStore((s) => s.hydrate);
+  const themeReady = useThemeStore((s) => s.hydrated);
+  const system = useColorScheme();
   const [hydrationStarted, setHydrationStarted] = useState(false);
 
   useEffect(() => {
     if (!hydrationStarted) {
       setHydrationStarted(true);
       hydrate();
+      // The saved appearance choice, applied before the first screen paints.
+      void useThemeStore.getState().hydrate(system);
     }
-  }, [hydrate, hydrationStarted]);
+  }, [hydrate, hydrationStarted, system]);
+
+  // «حسب النظام»: follow the phone when it flips (sunset schedule, Control Centre).
+  useEffect(() => {
+    useThemeStore.getState().systemChanged(system);
+  }, [system]);
 
   // While a session is being swapped (entering/leaving impersonation), cover the app: the
   // screens underneath would otherwise render one person's UI with the other's session.
   const switching = useAuthStore((s) => s.switching);
 
-  if (isLoading) {
+  if (isLoading || !themeReady) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -156,6 +167,10 @@ export default function RootLayout() {
   });
 
   const [splashHidden, setSplashHidden] = useState(false);
+  // The scheme the live tokens carry. A change re-keys the navigation tree below: every
+  // mounted screen is rebuilt on the new palette (react-navigation's StaticContainer would
+  // otherwise keep them exactly as they were — an inline `colors.x` is read at render only).
+  const scheme = useThemeStore((s) => s.scheme);
 
   useEffect(() => {
     if (fontError) {
@@ -195,12 +210,15 @@ export default function RootLayout() {
 
   return (
     // gesture-handler components (the notifications swipe) need this at the very root.
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
+        {/* Status bar icons follow the scheme: dark on the day mist, light on the night navy.
+            The auth screens, deep ink in both schemes, set their own while mounted. */}
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
         <HydrationGate>
           <AppConfigGate>
-          <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <View key={scheme} style={{ flex: 1, backgroundColor: colors.background }}>
             {/* Persistent impersonation banner sits above every screen. */}
             <ImpersonationBanner />
             <View style={{ flex: 1 }}>

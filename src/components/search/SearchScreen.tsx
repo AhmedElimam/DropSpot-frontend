@@ -52,7 +52,7 @@ export function SearchScreen({ userType }: SearchScreenProps) {
                 return (
                   <TouchableOpacity
                     key={r.id}
-                    style={{ padding: spacing.md, backgroundColor: colors.white, borderRadius: radius.md, marginBottom: spacing.sm, ...shadows.sm }}
+                    style={{ padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.md, marginBottom: spacing.sm, ...shadows.sm }}
                   >
                     <Text style={textPresets.body}>{r.name}</Text>
                     {r.subtitle && <Text style={textPresets.caption}>{r.subtitle}</Text>}
@@ -60,7 +60,7 @@ export function SearchScreen({ userType }: SearchScreenProps) {
                 );
               }
               return (
-                <TouchableOpacity key={r.id} style={{ padding: spacing.md, backgroundColor: colors.white, borderRadius: radius.md, marginBottom: spacing.sm, ...shadows.sm }}>
+                <TouchableOpacity key={r.id} style={{ padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.md, marginBottom: spacing.sm, ...shadows.sm }}>
                   <Text style={textPresets.body}>{r.name}</Text>
                   {r.subtitle && <Text style={textPresets.caption}>{r.subtitle}</Text>}
                 </TouchableOpacity>

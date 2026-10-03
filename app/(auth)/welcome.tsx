@@ -12,14 +12,14 @@ import { Icon } from '@/components/ui/Icon';
 // one-time "welcome aboard" gesture before the user is handed to login. Uses only
 // React Native's built-in Animated (no confetti dependency): the badge pops in,
 // the copy fades up, and a ring of festive dots bursts outward around the badge.
-const DOTS = [
+const DOTS = () => ([
   { angle: -90, color: colors.brand },
   { angle: -30, color: colors.success },
   { angle: 30, color: colors.accentWarm ?? colors.brand },
   { angle: 90, color: colors.brand },
   { angle: 150, color: colors.success },
   { angle: 210, color: colors.accentWarm ?? colors.brand },
-];
+]);
 
 export default function WelcomeScreen() {
   const { t } = useTranslation();
@@ -45,11 +45,11 @@ export default function WelcomeScreen() {
   const firstName = (name ?? '').trim().split(/\s+/)[0];
 
   return (
-    <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }}>
+    <LinearGradient colors={gradients.auth} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }}>
       <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom, paddingHorizontal: spacing.xl, alignItems: 'center', justifyContent: 'center' }}>
         {/* Badge + bursting dots */}
         <View style={{ width: 160, height: 160, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xxl }}>
-          {DOTS.map((d, i) => {
+          {DOTS().map((d, i) => {
             const rad = (d.angle * Math.PI) / 180;
             const translateX = burst.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(rad) * 92] });
             const translateY = burst.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(rad) * 92] });

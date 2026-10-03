@@ -110,12 +110,12 @@ const SECURES: { key: BookingSecures; label: string }[] = [
 
 const money = (n: number) => `${Math.round(n * 100) / 100} ج.م`;
 
-const label = { fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs } as const;
-const field = {
+const label = () => ({ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs } as const);
+const field = () => ({
   fontFamily: fonts.regular, fontSize: 16, minHeight: control.minHeight - 4,
   backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.borderStrong,
   paddingHorizontal: spacing.lg, paddingVertical: 12, color: colors.textPrimary, textAlign: 'right' as const,
-};
+});
 
 /** One-line summary for the collapsed form («الحصة 6/8 · دفعة 100 (مدفوع 100) · ملزمة مدفوعة»). */
 export function summarizeTerms(h: EnrollmentTermsHandle): string {
@@ -230,7 +230,7 @@ export function EnrollmentTermsSheet({ terms }: Props) {
         </View>
         {s.bookingOn ? (
           <View style={{ marginTop: spacing.md }}>
-            <Text style={label}>تؤمّن</Text>
+            <Text style={label()}>تؤمّن</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
               {SECURES.map((o) => {
                 const active = terms.securesEffective === o.key;
@@ -244,16 +244,16 @@ export function EnrollmentTermsSheet({ terms }: Props) {
             </View>
             {terms.securesEffective === 'session' ? (
               <>
-                <Text style={label}>عدد الحصص التي تغطّيها</Text>
+                <Text style={label()}>عدد الحصص التي تغطّيها</Text>
                 <TextInput value={s.sessions} onChangeText={(v) => terms.set({ sessions: v.replace(/[^0-9]/g, '') })} keyboardType="number-pad"
                   placeholder={remainingFor != null ? `${remainingFor} (المتبقي من الدورة)` : 'مثال: 3'} placeholderTextColor={colors.textTertiary} style={{ ...field, marginBottom: spacing.md }} />
               </>
             ) : null}
-            <Text style={label}>قيمة الدفعة</Text>
+            <Text style={label()}>قيمة الدفعة</Text>
             <TextInput value={s.amount} onChangeText={(v) => terms.set({ amount: v.replace(/[^0-9.]/g, '') })} keyboardType="numeric"
               placeholder={suggested != null ? `${suggested} (الافتراضي)` : 'المبلغ'} placeholderTextColor={colors.textTertiary} style={{ ...field, marginBottom: spacing.xs }} />
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginBottom: spacing.md }}>اتركها فارغة لاستخدام السعر الافتراضي.</Text>
-            <Text style={label}>المدفوع الآن (اختياري)</Text>
+            <Text style={label()}>المدفوع الآن (اختياري)</Text>
             <TextInput value={s.paid} onChangeText={(v) => terms.set({ paid: v.replace(/[^0-9.]/g, '') })} keyboardType="numeric"
               placeholder="0" placeholderTextColor={colors.textTertiary} style={{ ...field, borderColor: terms.overpaid ? colors.danger : colors.borderStrong }} />
             {terms.overpaid ? (
@@ -303,9 +303,9 @@ export function EnrollmentTermsSheet({ terms }: Props) {
           </View>
           {s.cyclePaid ? (
             <View style={{ marginTop: spacing.md }}>
-              <Text style={label}>المبلغ المدفوع مسبقًا (اختياري)</Text>
+              <Text style={label()}>المبلغ المدفوع مسبقًا (اختياري)</Text>
               <TextInput value={s.cyclePaidAmount} onChangeText={(v) => terms.set({ cyclePaidAmount: v.replace(/[^0-9.]/g, '') })} keyboardType="numeric"
-                placeholder={`${monthBill} (كامل الفاتورة)`} placeholderTextColor={colors.textTertiary} style={field} />
+                placeholder={`${monthBill} (كامل الفاتورة)`} placeholderTextColor={colors.textTertiary} style={field()} />
               {s.cyclePaidAmount.trim() !== '' && Number(s.cyclePaidAmount) < monthBill ? (
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.xs }}>
                   {`يبقى على الأسرة ${money(monthBill - Number(s.cyclePaidAmount))} تُحصَّل عند المسح.`}

@@ -21,14 +21,14 @@ function getInitials(name: string): string {
 }
 
 // Sanad palette — ink indigo, muted green, apricot and siblings (no bright purple/cyan)
-const avatarColors = [colors.brand, colors.success, colors.accentWarm, '#4A57B5', colors.danger, '#2A7DB0'];
+const avatarColors = () => ([colors.brand, colors.success, colors.accentWarm, '#4A57B5', colors.danger, '#2A7DB0']);
 
 function getColorForName(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return avatarColors[Math.abs(hash) % avatarColors.length];
+  return avatarColors()[Math.abs(hash) % avatarColors().length];
 }
 
 // expo-image, not RN Image, and memoised: an avatar sits in EVERY roster row, so this is

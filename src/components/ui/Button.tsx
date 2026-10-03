@@ -15,13 +15,13 @@ interface ButtonProps {
 
 // Sanad: grounded indigo primary, apricot accent for the single human moment,
 // muted green for positive confirmations. 52px tall — thumb-sized for elders.
-const variantStyles: Record<string, { bg: readonly [string, string]; textColor: string }> = {
+const variantStyles = (): Record<string, { bg: readonly [string, string]; textColor: string }> => ({
   primary: { bg: gradients.primary, textColor: colors.textInverse },
   accent: { bg: gradients.accent, textColor: colors.onAccent },
   success: { bg: gradients.success, textColor: colors.textInverse },
   secondary: { bg: ['#4A57B5', '#3A46A8'] as const, textColor: colors.textInverse },
   destructive: { bg: [colors.dangerDark, colors.danger] as const, textColor: colors.textInverse },
-};
+});
 
 export function Button({
   title,
@@ -77,7 +77,7 @@ export function Button({
     );
   }
 
-  const config = variantStyles[variant] || variantStyles.primary;
+  const config = variantStyles()[variant] || variantStyles().primary;
 
   return (
     <TouchableOpacity

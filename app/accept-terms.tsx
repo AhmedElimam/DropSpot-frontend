@@ -62,7 +62,7 @@ export default function AcceptTermsScreen() {
         end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg }}
       >
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{heading}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }}>{heading}</Text>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>

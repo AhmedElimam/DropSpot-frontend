@@ -68,12 +68,12 @@ export default function TeacherSessions() {
         style={{ paddingTop: insets.top + spacing.sm, paddingBottom: spacing.md, paddingHorizontal: spacing.lg, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
         {/* Compact header, as on Students: one line for title · month (date filter) · اليوم · +. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{t('teacher.tab_sessions')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t('teacher.tab_sessions')}</Text>
           {/* Date filter — any day, from a month calendar. */}
           <TouchableOpacity onPress={() => setPickerOpen(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('session_ui.pick_date')}
-            style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.12)' }}>
-            <Icon name="calendar" size={14} color="#fff" />
-            <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>{MONTH_FMT.format(selected)}</Text>
+            style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: colors.onHeroChip }}>
+            <Icon name="calendar" size={14} color={colors.onHero} />
+            <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }} numberOfLines={1}>{MONTH_FMT.format(selected)}</Text>
             <Icon name="down" size={13} color="rgba(255,255,255,0.8)" />
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
@@ -102,9 +102,9 @@ export default function TeacherSessions() {
               const isToday = k === key(today);
               return (
                 <TouchableOpacity key={k} onPress={() => setSelected(d)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                  style={{ width: 42, paddingVertical: 5, borderRadius: 12, alignItems: 'center', backgroundColor: on ? '#fff' : 'transparent', borderWidth: isToday && !on ? 1.5 : 0, borderColor: colors.accent }}>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: on ? colors.textSecondary : 'rgba(255,255,255,0.65)' }}>{DAY_SHORT[d.getDay()]}</Text>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, lineHeight: 20, color: on ? colors.textPrimary : '#fff' }}>{formatNumber(d.getDate())}</Text>
+                  style={{ width: 42, paddingVertical: 5, borderRadius: 12, alignItems: 'center', backgroundColor: on ? colors.onHero : 'transparent', borderWidth: isToday && !on ? 1.5 : 0, borderColor: colors.accent }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: on ? colors.textSecondary : colors.onHeroSoft }}>{DAY_SHORT[d.getDay()]}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, lineHeight: 20, color: on ? colors.textPrimary : colors.onHero }}>{formatNumber(d.getDate())}</Text>
                   <DayMarker phases={phases.get(k)} tone="dark" selected={on} />
                 </TouchableOpacity>
               );

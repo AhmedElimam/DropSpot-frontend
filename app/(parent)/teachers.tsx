@@ -79,8 +79,8 @@ export default function TeacherManagement() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
         >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff' }}>{t('parent.manage_teachers')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero }}>{t('parent.manage_teachers')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.onHeroSoft, marginTop: 4 }}>
             {t('parent.teachers')}
           </Text>
         </LinearGradient>

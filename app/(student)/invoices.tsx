@@ -17,11 +17,11 @@ import { Icon } from '@/components/ui/Icon';
 import { PaymentSection } from '@/components/parent/PaymentSection';
 import { PendingDueCard } from '@/components/parent/PendingDueCard';
 
-const statusConfig: Record<string, { color: string }> = {
+const statusConfig = (): Record<string, { color: string }> => ({
   paid: { color: colors.success },
   pending: { color: colors.warning },
   overdue: { color: colors.danger },
-};
+});
 
 export default function StudentInvoicesPage() {
   const { t } = useTranslation();
@@ -79,25 +79,25 @@ export default function StudentInvoicesPage() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
         >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: '#fff', letterSpacing: -0.5 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, letterSpacing: -0.5 }}>
             {t('invoices.title')}
           </Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.72)', marginTop: spacing.xs }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.onHeroSoft, marginTop: spacing.xs }}>
             {formatDate(new Date())}
           </Text>
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{formatEGP(totalDue)}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('invoices.total_due')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{formatEGP(totalDue)}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('invoices.total_due')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{formatEGP(paidAmount)}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('invoices.paid_amount')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{formatEGP(paidAmount)}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('invoices.paid_amount')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{overdueCount}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('invoices.overdue')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{overdueCount}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('invoices.overdue')}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -134,7 +134,7 @@ export default function StudentInvoicesPage() {
 
 function InvoiceCard({ invoice }: { invoice: Invoice }) {
   const { t } = useTranslation();
-  const sc = statusConfig[invoice.status] ?? statusConfig.pending;
+  const sc = statusConfig()[invoice.status] ?? statusConfig().pending;
   return (
     <TouchableOpacity
       activeOpacity={0.7}

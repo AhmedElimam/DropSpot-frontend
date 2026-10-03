@@ -16,14 +16,14 @@ import { Icon } from '@/components/ui/Icon';
 
 type TabKey = 'grades' | 'exams';
 
-const cardStyle = {
+const cardStyle = () => ({
   backgroundColor: colors.surface,
   borderRadius: radius.xl,
   borderWidth: 1,
   borderColor: colors.border,
   padding: spacing.xl,
   ...shadows.sm,
-} as const;
+} as const);
 
 // The student's OWN marks — mirrors the parent child-detail grades + exams tabs,
 // but scoped to the logged-in student's id (both endpoints authorize self-access).
@@ -71,12 +71,12 @@ export default function StudentMarksScreen() {
         >
           <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
             <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginStart: spacing.sm }}>{t('common.back')}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: spacing.sm }}>{t('common.back')}</Text>
           </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5 }}>
             {t('reports.my_marks')}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: spacing.xs }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: spacing.xs }}>
             {t('reports.my_marks_sub')}
           </Text>
         </LinearGradient>
@@ -104,7 +104,7 @@ export default function StudentMarksScreen() {
           </View>
 
           {activeTab === 'grades' && (
-            <View style={cardStyle}>
+            <View style={cardStyle()}>
               <Text style={[textPresets.h3, { marginBottom: spacing.md }]}>{t('reports.grades')}</Text>
               {gradesLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -150,7 +150,7 @@ export default function StudentMarksScreen() {
           )}
 
           {activeTab === 'exams' && (
-            <View style={cardStyle}>
+            <View style={cardStyle()}>
               <Text style={[textPresets.h3, { marginBottom: spacing.md }]}>{t('reports.exam_results')}</Text>
               {examsLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />

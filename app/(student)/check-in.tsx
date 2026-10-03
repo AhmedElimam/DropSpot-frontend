@@ -186,25 +186,25 @@ export default function CheckInTab() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
         >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5 }}>
             {t('attendance.check_in')}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: spacing.xs }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: spacing.xs }}>
             {formatDate(new Date())}
           </Text>
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.md }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.white }}>{sessions?.length ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('session.today_sessions')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{sessions?.length ?? 0}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{t('session.today_sessions')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.white }}>{stats?.total ? Math.round(((stats.present + stats.late) / stats.total) * 100) : 0}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('attendance.coverage_rate')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{stats?.total ? Math.round(((stats.present + stats.late) / stats.total) * 100) : 0}%</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{t('attendance.coverage_rate')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.white }}>{stats?.absent ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('attendance.absent')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{stats?.absent ?? 0}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{t('attendance.absent')}</Text>
             </View>
           </View>
         </LinearGradient>

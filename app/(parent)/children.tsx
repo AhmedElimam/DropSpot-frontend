@@ -58,15 +58,15 @@ export default function ChildrenList() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: '#fff', letterSpacing: -0.5 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, letterSpacing: -0.5 }}>
                 {t('parent.my_children')}
               </Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.onHeroSoft, marginTop: 4 }}>
                 {t('common.children_count', { count: children.length })}
               </Text>
             </View>
-            <View style={{ width: 48, height: 48, borderRadius: radius.lg, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Icon name="children" size={24} color="#fff" outline />
+            <View style={{ width: 48, height: 48, borderRadius: radius.lg, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Icon name="children" size={24} color={colors.onHero} outline />
             </View>
           </View>
         </LinearGradient>

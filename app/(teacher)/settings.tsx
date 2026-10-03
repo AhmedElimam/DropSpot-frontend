@@ -11,6 +11,7 @@ import { useLogout } from '@/hooks/useAuth';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { SupportContact } from '@/components/SupportContact';
+import { ThemeRow } from '@/components/ThemeRow';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
 import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -58,11 +59,11 @@ export default function TeacherSettings() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4, alignItems: 'center' }}
         >
-          <View style={{ width: 72, height: 72, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md }}>
-            <Icon name="profile" size={40} color="#fff" />
+          <View style={{ width: 72, height: 72, borderRadius: 24, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md }}>
+            <Icon name="profile" size={40} color={colors.onHero} />
           </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{user?.name ?? ''}</Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{user?.name ?? ''}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>
             {isAssistant ? t('teacher.role_assistant') : t('teacher.role_teacher')}
             {user?.phone ? ` · ${user.phone}` : ''}
           </Text>
@@ -71,9 +72,9 @@ export default function TeacherSettings() {
               <DistinguishedBadge />
             </View>
           ) : user?.is_founding_teacher ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderColor: 'rgba(255,209,102,0.9)', paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: 'rgba(255,209,102,0.9)', paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999 }}>
               <Icon name="star" size={14} color="#FFD166" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#fff' }}>عضو مؤسس</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.onHero }}>عضو مؤسس</Text>
             </View>
           ) : null}
         </LinearGradient>
@@ -118,6 +119,7 @@ export default function TeacherSettings() {
 
           {!isAssistant ? row('children', t('assistants.title'), t('assistants.subtitle'), () => router.push('/(teacher)/assistants' as Href)) : null}
           {row('bell', t('teacher.notifications'), t('teacher.notifications_hint'), () => Linking.openSettings())}
+          <ThemeRow />
           {row('lock', t('auth.change_password'), t('setup.password_hint'), () => router.push('/change-password'))}
 
           <View style={{ marginTop: spacing.md }}>

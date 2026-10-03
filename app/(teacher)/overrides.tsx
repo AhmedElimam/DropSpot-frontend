@@ -151,12 +151,12 @@ export default function OverridesScreen() {
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="forward" size={20} color="#fff" />
+          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="forward" size={20} color={colors.onHero} />
           </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{t('teacher.overrides')}</Text>
-          <View style={{ backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{formatNumber(total)}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t('teacher.overrides')}</Text>
+          <View style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }}>{formatNumber(total)}</Text>
           </View>
           <View style={{ flex: 1 }} />
           {canGrant ? (
@@ -173,10 +173,10 @@ export default function OverridesScreen() {
             const on = segment === k;
             return (
               <TouchableOpacity key={k} onPress={() => setSegment(k)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                style={{ flex: 1, height: 40, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: on ? '#fff' : 'rgba(255,255,255,0.14)' }}>
-                <Icon name={icon} size={15} color={on ? colors.brand : '#fff'} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.textPrimary : '#fff' }} numberOfLines={1}>{label}</Text>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.brand : 'rgba(255,255,255,0.7)' }}>{formatNumber(n)}</Text>
+                style={{ flex: 1, height: 40, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.onHero : colors.onHeroChip, borderWidth: 1, borderColor: on ? colors.onHero : colors.onHeroChip }}>
+                <Icon name={icon} size={15} color={on ? colors.brand : colors.onHero} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.textPrimary : colors.onHero }} numberOfLines={1}>{label}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.brand : colors.onHeroSoft }}>{formatNumber(n)}</Text>
               </TouchableOpacity>
             );
           })}

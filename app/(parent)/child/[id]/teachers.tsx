@@ -88,14 +88,14 @@ export default function TeacherManagement() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity onPress={() => router.back()} style={{ marginEnd: spacing.md }}>
-              <Icon name="forward" size={26} color="#fff" />
+              <Icon name="forward" size={26} color={colors.onHero} />
             </TouchableOpacity>
             <View>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>
                 {t('parent.manage_teachers')}
               </Text>
               {child && (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.onHeroSoft, marginTop: 2 }}>
                   {child.name}
                 </Text>
               )}

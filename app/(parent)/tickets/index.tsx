@@ -13,18 +13,18 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
 
 // Left-edge accent per ticket state — mapped onto the Sanad ink/semantic ramp.
-const statusColors: Record<string, [string, string]> = {
+const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
   in_progress: [colors.warning, colors.warningDark],
   resolved: [colors.success, colors.successDark],
   closed: [colors.textTertiary, colors.textSecondary],
-};
+});
 
-const priorityColors: Record<string, string> = {
+const priorityColors = (): Record<string, string> => ({
   low: colors.success,
   medium: colors.warning,
   high: colors.danger,
-};
+});
 
 export default function TicketsList() {
   const { t } = useTranslation();
@@ -47,10 +47,10 @@ export default function TicketsList() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.white, letterSpacing: -0.5 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, letterSpacing: -0.5 }}>
                 {t('tickets.title')}
               </Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.onHeroSoft, marginTop: 4 }}>
                 {t('tickets.count', { count: tickets?.length ?? 0 })}
               </Text>
             </View>
@@ -61,15 +61,15 @@ export default function TicketsList() {
               style={{
                 minHeight: 48,
                 justifyContent: 'center',
-                backgroundColor: 'rgba(255,255,255,0.12)',
+                backgroundColor: colors.onHeroChip,
                 borderRadius: radius.md,
                 paddingVertical: spacing.sm,
                 paddingHorizontal: spacing.lg,
                 borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.16)',
+                borderColor: colors.onHeroChipBorder,
               }}
             >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>+ {t('tickets.new')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onHero }}>+ {t('tickets.new')}</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -88,7 +88,7 @@ export default function TicketsList() {
             />
           ) : (
             tickets.map((ticket) => {
-              const sc = statusColors[ticket.status] || statusColors.open;
+              const sc = statusColors()[ticket.status] || statusColors().open;
               return (
                 <TouchableOpacity
                   key={ticket.id}
@@ -129,7 +129,7 @@ export default function TicketsList() {
 
                   <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.lg }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: priorityColors[ticket.priority] || colors.warning, marginEnd: 6 }} />
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: priorityColors()[ticket.priority] || colors.warning, marginEnd: 6 }} />
                       <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary }}>
                         {t(`tickets.priority_${ticket.priority}`)}
                       </Text>

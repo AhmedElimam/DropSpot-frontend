@@ -22,14 +22,14 @@ import { Icon } from '@/components/ui/Icon';
 
 type TabKey = 'attendance' | 'grades' | 'exams' | 'settings';
 
-const cardStyle = {
+const cardStyle = () => ({
   backgroundColor: colors.surface,
   borderRadius: radius.xxl,
   borderWidth: 1,
   borderColor: colors.border,
   padding: spacing.xl,
   ...shadows.sm,
-} as const;
+} as const);
 
 function fmtDateTime(iso?: string): string {
   if (!iso) return '';
@@ -143,7 +143,7 @@ export default function ChildDetailScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
             <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
-              <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginStart: spacing.sm }}>{t('common.back')}</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: spacing.sm }}>{t('common.back')}</Text>
             </TouchableOpacity>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -153,16 +153,16 @@ export default function ChildDetailScreen() {
                   onPress={() => router.push(`/(parent)/child/${child.id}/invite-code`)}
                   accessibilityRole="button"
                   accessibilityLabel={t('auth.invite_code_label')}
-                  style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
+                  style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, justifyContent: 'center', alignItems: 'center' }}
                 >
-                  <Icon name="scan" size={19} color="#fff" />
+                  <Icon name="scan" size={19} color={colors.onHero} />
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity
                 onPress={() => setShowPicker(true)}
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.onHeroChipBorder }}
               >
-                <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff' }}>{child.name}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHero }}>{child.name}</Text>
                 <Icon name="down" size={14} color="rgba(255,255,255,0.7)" style={{ marginStart: 6 }} />
               </TouchableOpacity>
             </View>
@@ -170,30 +170,30 @@ export default function ChildDetailScreen() {
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
-              style={{ width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', marginEnd: spacing.md }}
+              style={{ width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, marginEnd: spacing.md }}
             >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{(child.name || '?')[0]}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>{(child.name || '?')[0]}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{child.name}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{child.name}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>
                 {child.grade ?? ''}{child.student_code ? ` · ${child.student_code}` : ''}
               </Text>
             </View>
           </View>
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{attendanceRate}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{t('attendance.attendance_rate')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{attendanceRate}%</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('attendance.attendance_rate')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{avgGrade}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{t('quiz.avg_score')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{avgGrade}%</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('quiz.avg_score')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{absent}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{t('attendance.absent')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{absent}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('attendance.absent')}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -227,7 +227,7 @@ export default function ChildDetailScreen() {
           {activeTab === 'attendance' && (
             <>
               {upcoming && upcoming.length > 0 && (
-                <View style={cardStyle}>
+                <View style={cardStyle()}>
                   <Text style={textPresets.h3}>{t('session.upcoming_sessions')}</Text>
                   <View style={{ marginTop: spacing.md }}>
                     {upcoming.map((s, i) => (
@@ -249,7 +249,7 @@ export default function ChildDetailScreen() {
                   </View>
                 </View>
               )}
-              <View style={cardStyle}>
+              <View style={cardStyle()}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
                   <Text style={textPresets.h3}>{t('attendance.attendance_summary')}</Text>
                 </View>
@@ -323,7 +323,7 @@ export default function ChildDetailScreen() {
 
           {activeTab === 'grades' && (
             <>
-              <View style={cardStyle}>
+              <View style={cardStyle()}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
                   <Text style={textPresets.h3}>{t('reports.grades')}</Text>
                 </View>
@@ -378,7 +378,7 @@ export default function ChildDetailScreen() {
 
           {activeTab === 'exams' && (
             <>
-              <View style={cardStyle}>
+              <View style={cardStyle()}>
                 <Text style={textPresets.h3}>{t('reports.exam_results')}</Text>
                 {examsLoading ? (
                   <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: spacing.md }} />
@@ -418,7 +418,7 @@ export default function ChildDetailScreen() {
 
           {activeTab === 'settings' && (
             <>
-              <View style={cardStyle}>
+              <View style={cardStyle()}>
                 <Text style={textPresets.h3}>{t('child_settings.title')}</Text>
                 <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
@@ -433,7 +433,7 @@ export default function ChildDetailScreen() {
               </View>
 
               {child.can_generate_pre_card && (
-                <View style={cardStyle}>
+                <View style={cardStyle()}>
                   <Text style={textPresets.h3}>تسجيل عند المعلم قبل استلام البطاقة</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginTop: spacing.sm }}>
                     عندما تكون مع المعلم الآن، أنشئ رمزًا مؤقتًا واعرضه له ليُسجّل ابنك في حصصه — يصلح لدقائق قليلة فقط وللاستخدام الفوري أمام المعلم، ولا يُرسل عبر واتساب.
@@ -448,7 +448,7 @@ export default function ChildDetailScreen() {
               )}
 
               {child.teachers && child.teachers.length > 0 && (
-                <View style={cardStyle}>
+                <View style={cardStyle()}>
                   <Text style={textPresets.h3}>{t('parent.teachers')}</Text>
                   <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
                     {child.teachers.map((teacher) => (

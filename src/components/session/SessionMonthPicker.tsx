@@ -99,7 +99,7 @@ export function SessionMonthPicker({
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.md, marginTop: spacing.md }}>
             {LEGEND.map((p) => (
               <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: PHASE_DOT.light[p] }} />
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: PHASE_DOT().light[p] }} />
                 <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{t(LEGEND_KEY[p])}</Text>
               </View>
             ))}

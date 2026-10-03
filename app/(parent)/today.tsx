@@ -13,14 +13,14 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const cardStyle = {
+const cardStyle = () => ({
   backgroundColor: colors.surface,
   borderRadius: radius.xxl,
   borderWidth: 1,
   borderColor: colors.border,
   padding: spacing.lg,
   ...shadows.sm,
-} as const;
+} as const);
 
 function sessionTime(iso?: string): string {
   if (!iso) return '';
@@ -58,10 +58,10 @@ export default function TodayScreen() {
         >
           <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
             <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginStart: spacing.sm }}>{t('common.back')}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: spacing.sm }}>{t('common.back')}</Text>
           </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff' }}>{t('today.title')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero }}>{t('today.title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.onHeroSoft, marginTop: 4 }}>
             {t('today.subtitle')}
           </Text>
         </LinearGradient>
@@ -85,7 +85,7 @@ function ChildToday({ child, t }: { child: FeedChild; t: (k: string) => string }
     <View style={{ gap: spacing.md }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginStart: spacing.xs }}>{child.name}</Text>
       {child.teachers.map((teacher) => (
-        <View key={teacher.teacher_id} style={cardStyle}>
+        <View key={teacher.teacher_id} style={cardStyle()}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
             <Icon name="teacher" size={16} color={colors.textSecondary} outline />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>{teacher.teacher_name ?? ''}</Text>

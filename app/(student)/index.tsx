@@ -20,12 +20,12 @@ import { Icon } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 
-const statusDot: Record<string, string> = {
+const statusDot = (): Record<string, string> => ({
   live: colors.success,
   scheduled: colors.warning,
   completed: colors.info,
   cancelled: colors.danger,
-};
+});
 
 export default function StudentDashboard() {
   const { t } = useTranslation();
@@ -58,25 +58,25 @@ export default function StudentDashboard() {
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
         >
           <HeaderBrandBar onBell={() => router.navigate('/(student)/notifications' as never)} unread={unread} />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5 }}>
             {t('common.greeting', { name: user?.name || '' })}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: spacing.xs }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: spacing.xs }}>
             {formatDate(new Date())}
           </Text>
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{sessions?.length ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('session.today_sessions')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{sessions?.length ?? 0}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{t('session.today_sessions')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{sessions?.filter((s) => s.status === 'scheduled').length ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('session.upcoming_sessions')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{sessions?.filter((s) => s.status === 'scheduled').length ?? 0}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{t('session.upcoming_sessions')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{stats?.absent ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 2, textAlign: 'center' }}>{t('attendance.absent')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{stats?.absent ?? 0}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{t('attendance.absent')}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -170,7 +170,7 @@ export default function StudentDashboard() {
                     borderColor: startingSoon ? colors.brand : colors.border,
                     ...shadows.sm,
                     borderStartWidth: 4,
-                    borderStartColor: startingSoon ? colors.brand : (statusDot[session.status] || colors.border),
+                    borderStartColor: startingSoon ? colors.brand : (statusDot()[session.status] || colors.border),
                   }}
                 >
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>

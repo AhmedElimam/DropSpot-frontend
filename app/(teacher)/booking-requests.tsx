@@ -62,7 +62,7 @@ export default function BookingRequestsScreen() {
   const Card = ({ r }: { r: BookingRequest }) => (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.warning, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FEF3E2', alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.warningLight, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="child" size={20} color={colors.warning} />
         </View>
         <View style={{ flex: 1 }}>

@@ -40,8 +40,8 @@ export function AuthScaffold({ title, subtitle, eyebrow, hero = 'compact', onBac
   const tall = hero === 'brand';
 
   return (
-    <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }}>
-      <StatusBar barStyle="light-content" backgroundColor={gradients.hero[0]} />
+    <LinearGradient colors={gradients.auth} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1 }}>
+      <StatusBar barStyle="light-content" backgroundColor={gradients.auth[0]} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + spacing.xxl }}
@@ -72,14 +72,14 @@ export function AuthScaffold({ title, subtitle, eyebrow, hero = 'compact', onBac
               {!tall ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: 'rgba(255,255,255,0.9)' }}>{t('common.app_name')}</Text>
-                  <BrandMark size={26} />
+                  <BrandMark tint="#fff" size={26} />
                 </View>
               ) : null}
             </View>
 
             {tall ? (
               <View style={{ alignItems: 'center', marginTop: spacing.md }}>
-                <BrandMark size={96} />
+                <BrandMark tint="#fff" size={96} />
               </View>
             ) : null}
 
@@ -121,7 +121,7 @@ export function BrandTile({ size }: { size: number }) {
       end={{ x: 1, y: 1 }}
       style={{ width: size, height: size, borderRadius: size * 0.3, alignItems: 'center', justifyContent: 'center', ...shadows.sm }}
     >
-      <BrandMark size={Math.round(size * 0.56)} />
+      <BrandMark tint="#fff" size={Math.round(size * 0.56)} />
     </LinearGradient>
   );
 }

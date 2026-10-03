@@ -73,13 +73,13 @@ export default function BillingSettingsScreen() {
           </View>
 
           {/* Vodafone Cash */}
-          <View style={card}>
+          <View style={card()}>
             <View style={rowBetween}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                 <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.danger + '18', justifyContent: 'center', alignItems: 'center' }}>
                   <Icon name="phone" size={18} color={colors.danger} />
                 </View>
-                <Text style={sectionTitle}>{t('billing_settings.vodafone')}</Text>
+                <Text style={sectionTitle()}>{t('billing_settings.vodafone')}</Text>
               </View>
               <Switch value={form.vodafone_enabled} onValueChange={(v) => set({ vodafone_enabled: v })} trackColor={{ true: colors.brand }} />
             </View>
@@ -91,28 +91,28 @@ export default function BillingSettingsScreen() {
                   keyboardType="number-pad"
                   placeholder={t('billing_settings.number_ph')}
                   placeholderTextColor={colors.textTertiary}
-                  style={[input, { textAlign: 'left', writingDirection: 'ltr' }]}
+                  style={[input(), { textAlign: 'left', writingDirection: 'ltr' }]}
                 />
                 <TextInput
                   value={form.vodafone_name ?? ''}
                   onChangeText={(v) => set({ vodafone_name: v })}
                   placeholder={t('billing_settings.name_ph')}
                   placeholderTextColor={colors.textTertiary}
-                  style={input}
+                  style={input()}
                 />
-                {!vodafoneValid ? <Text style={errText}>{t('billing_settings.vodafone_invalid')}</Text> : null}
+                {!vodafoneValid ? <Text style={errText()}>{t('billing_settings.vodafone_invalid')}</Text> : null}
               </View>
             ) : null}
           </View>
 
           {/* InstaPay */}
-          <View style={card}>
+          <View style={card()}>
             <View style={rowBetween}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                 <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.brand + '18', justifyContent: 'center', alignItems: 'center' }}>
                   <Icon name="card" size={18} color={colors.brand} />
                 </View>
-                <Text style={sectionTitle}>{t('billing_settings.instapay')}</Text>
+                <Text style={sectionTitle()}>{t('billing_settings.instapay')}</Text>
               </View>
               <Switch value={form.instapay_enabled} onValueChange={(v) => set({ instapay_enabled: v })} trackColor={{ true: colors.brand }} />
             </View>
@@ -124,28 +124,28 @@ export default function BillingSettingsScreen() {
                   autoCapitalize="none"
                   placeholder={t('billing_settings.instapay_ph')}
                   placeholderTextColor={colors.textTertiary}
-                  style={[input, { textAlign: 'left', writingDirection: 'ltr' }]}
+                  style={[input(), { textAlign: 'left', writingDirection: 'ltr' }]}
                 />
                 <TextInput
                   value={form.instapay_name ?? ''}
                   onChangeText={(v) => set({ instapay_name: v })}
                   placeholder={t('billing_settings.name_ph')}
                   placeholderTextColor={colors.textTertiary}
-                  style={input}
+                  style={input()}
                 />
-                {!instapayValid ? <Text style={errText}>{t('billing_settings.instapay_invalid')}</Text> : null}
+                {!instapayValid ? <Text style={errText()}>{t('billing_settings.instapay_invalid')}</Text> : null}
               </View>
             ) : null}
           </View>
 
           {/* Cash in person */}
-          <View style={card}>
+          <View style={card()}>
             <View style={rowBetween}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                 <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.success + '18', justifyContent: 'center', alignItems: 'center' }}>
                   <Icon name="money" size={18} color={colors.success} />
                 </View>
-                <Text style={sectionTitle}>{t('billing_settings.physical')}</Text>
+                <Text style={sectionTitle()}>{t('billing_settings.physical')}</Text>
               </View>
               <Switch
                 value={form.physical_enabled || (!form.vodafone_enabled && !form.instapay_enabled)}
@@ -159,33 +159,33 @@ export default function BillingSettingsScreen() {
 
           {/* Booking & booklets — teacher-level payment models. Per-course amounts
               (booklet price, down-payment) are set on each course page. */}
-          <View style={card}>
+          <View style={card()}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
               <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.brand + '18', justifyContent: 'center', alignItems: 'center' }}>
                 <Icon name="book" size={18} color={colors.brand} />
               </View>
-              <Text style={sectionTitle}>{t('billing_settings.booking_title')}</Text>
+              <Text style={sectionTitle()}>{t('billing_settings.booking_title')}</Text>
             </View>
 
             {/* Booklets master switch */}
             <View style={[rowBetween, { marginTop: spacing.sm }]}>
-              <Text style={[settingLabel, { flex: 1, paddingEnd: spacing.md }]}>{t('billing_settings.offers_booklets')}</Text>
+              <Text style={[settingLabel(), { flex: 1, paddingEnd: spacing.md }]}>{t('billing_settings.offers_booklets')}</Text>
               <Switch value={form.offers_booklets} onValueChange={(v) => set({ offers_booklets: v })} trackColor={{ true: colors.brand }} />
             </View>
-            <Text style={hint}>{t('billing_settings.offers_booklets_hint')}</Text>
+            <Text style={hint()}>{t('billing_settings.offers_booklets_hint')}</Text>
 
-            <View style={divider} />
+            <View style={divider()} />
 
             {/* Down-payment (دفعة) at booking */}
             <View style={rowBetween}>
-              <Text style={[settingLabel, { flex: 1, paddingEnd: spacing.md }]}>{t('billing_settings.requires_down_payment')}</Text>
+              <Text style={[settingLabel(), { flex: 1, paddingEnd: spacing.md }]}>{t('billing_settings.requires_down_payment')}</Text>
               <Switch value={form.requires_down_payment} onValueChange={(v) => set({ requires_down_payment: v })} trackColor={{ true: colors.brand }} />
             </View>
-            <Text style={hint}>{t('billing_settings.requires_down_payment_hint')}</Text>
+            <Text style={hint()}>{t('billing_settings.requires_down_payment_hint')}</Text>
 
             {form.requires_down_payment ? (
               <View style={{ marginTop: spacing.md }}>
-                <Text style={[settingLabel, { marginBottom: spacing.sm }]}>{t('billing_settings.secures_label')}</Text>
+                <Text style={[settingLabel(), { marginBottom: spacing.sm }]}>{t('billing_settings.secures_label')}</Text>
                 <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>
                   {(['session', 'booklet', 'flat'] as const).map((k) => {
                     const on = form.default_booking_secures === k;
@@ -204,14 +204,14 @@ export default function BillingSettingsScreen() {
               </View>
             ) : null}
 
-            <View style={divider} />
+            <View style={divider()} />
 
             {/* Booklet fee counts as the booking charge */}
             <View style={rowBetween}>
-              <Text style={[settingLabel, { flex: 1, paddingEnd: spacing.md }]}>{t('billing_settings.booklet_secures_booking')}</Text>
+              <Text style={[settingLabel(), { flex: 1, paddingEnd: spacing.md }]}>{t('billing_settings.booklet_secures_booking')}</Text>
               <Switch value={form.booklet_secures_booking} onValueChange={(v) => set({ booklet_secures_booking: v })} trackColor={{ true: colors.brand }} />
             </View>
-            <Text style={hint}>{t('billing_settings.booklet_secures_booking_hint')}</Text>
+            <Text style={hint()}>{t('billing_settings.booklet_secures_booking_hint')}</Text>
           </View>
 
           <Button title={t('common.save')} onPress={submit} loading={save.isPending} disabled={!canSave} variant="primary" />
@@ -221,11 +221,11 @@ export default function BillingSettingsScreen() {
   );
 }
 
-const card = { backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md } as const;
+const card = () => ({ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md } as const);
 const rowBetween = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } as const;
-const sectionTitle = { fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary } as const;
-const input = { backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' as const };
-const errText = { fontFamily: fonts.regular, fontSize: 12, color: colors.dangerText } as const;
-const settingLabel = { fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary } as const;
-const hint = { fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: spacing.xs } as const;
-const divider = { height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.md } as const;
+const sectionTitle = () => ({ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary } as const);
+const input = () => ({ backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' as const });
+const errText = () => ({ fontFamily: fonts.regular, fontSize: 12, color: colors.dangerText } as const);
+const settingLabel = () => ({ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary } as const);
+const hint = () => ({ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: spacing.xs } as const);
+const divider = () => ({ height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.md } as const);

@@ -19,18 +19,18 @@ type Status = 'present' | 'late' | 'absent' | 'excused';
 type Record_ = QuickSession['attendance'] & { pending?: boolean };
 
 // Same colours and words as the session sheet's rows.
-const STATUS_COLOR: Record<string, string> = {
+const STATUS_COLOR = (): Record<string, string> => ({
   present: colors.success, late: colors.warning, absent: colors.danger, excused: colors.info, not_recorded: colors.borderStrong,
-};
+});
 const STATUS_KEY: Record<string, string> = {
   present: 'attendance.present', late: 'attendance.late', absent: 'attendance.absent', excused: 'attendance.excused', not_recorded: 'teacher.not_recorded',
 };
-const MARK_OPTIONS: { status: Status; color: string; icon: IconName }[] = [
+const MARK_OPTIONS = (): { status: Status; color: string; icon: IconName }[] => ([
   { status: 'present', color: colors.success, icon: 'present' },
   { status: 'late', color: colors.warning, icon: 'late' },
   { status: 'absent', color: colors.danger, icon: 'absent' },
   { status: 'excused', color: colors.info, icon: 'excused' },
-];
+]);
 const DAY_FMT = new Intl.DateTimeFormat('ar-EG', { weekday: 'short' });
 
 const PREVIEW = 12;
@@ -60,7 +60,7 @@ type RowProps = {
 const RecordableRow = memo(function RecordableRow({ session, rec, live, canMark, studentId, onOpen, onRecorded }: RowProps) {
   const { t } = useTranslation();
   const controls = useSessionControls(session.id);
-  const color = STATUS_COLOR[rec.status] ?? STATUS_COLOR.not_recorded;
+  const color = STATUS_COLOR()[rec.status] ?? STATUS_COLOR().not_recorded;
   const recorded = rec.status !== 'not_recorded';
 
   const mark = (status: Status) => markStudent(controls, studentId, session.id, status, rec.status, onRecorded, t);
@@ -108,7 +108,7 @@ const RecordableRow = memo(function RecordableRow({ session, rec, live, canMark,
 /** A record with no recordable session behind it (e.g. the session was cancelled): read-only, opens its sheet. */
 const HistoryRow = memo(function HistoryRow({ r }: { r: StudentAttendanceRow }) {
   const { t } = useTranslation();
-  const color = STATUS_COLOR[r.status] ?? STATUS_COLOR.not_recorded;
+  const color = STATUS_COLOR()[r.status] ?? STATUS_COLOR().not_recorded;
   const open = r.session_id ? () => router.push(`/(teacher)/sessions/${r.session_id}` as Href) : undefined;
   return (
     <TouchableOpacity onPress={open} disabled={!open} activeOpacity={0.85}
@@ -194,7 +194,7 @@ function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded
 
           {canMark ? (
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              {MARK_OPTIONS.map((m) => {
+              {MARK_OPTIONS().map((m) => {
                 const on = rec.status === m.status;
                 return (
                   <TouchableOpacity key={m.status} onPress={() => markStudent(controls, studentId, session.id, m.status, rec.status, onRecorded, t)} disabled={controls.mark.isPending} activeOpacity={0.85} accessibilityState={{ selected: on }}
@@ -206,7 +206,7 @@ function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded
               })}
             </View>
           ) : (
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: STATUS_COLOR[rec.status] ?? colors.textSecondary }}>{t(STATUS_KEY[rec.status] ?? 'teacher.not_recorded')}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: STATUS_COLOR()[rec.status] ?? colors.textSecondary }}>{t(STATUS_KEY[rec.status] ?? 'teacher.not_recorded')}</Text>
           )}
           {rec.pending ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.warningText }}>{t('teacher.mark_pending_sync')}</Text> : null}
           {isAssistant && canMark ? (

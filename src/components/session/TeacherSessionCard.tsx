@@ -25,12 +25,12 @@ export interface SessionCardData {
   enrolled_count?: number;
 }
 
-const PHASE: Record<SessionPhase, { stripe: string; chipBg: string; chipText: string; key: string }> = {
+const PHASE = (): Record<SessionPhase, { stripe: string; chipBg: string; chipText: string; key: string }> => ({
   live: { stripe: colors.success, chipBg: colors.success, chipText: '#fff', key: 'teacher.live_now' },
   upcoming: { stripe: colors.brand, chipBg: colors.brandTint, chipText: colors.brand, key: 'session_ui.upcoming' },
   done: { stripe: colors.borderStrong, chipBg: colors.surfaceSunken, chipText: colors.textSecondary, key: 'session.completed' },
   cancelled: { stripe: colors.danger, chipBg: colors.dangerLight, chipText: colors.dangerText, key: 'session.cancelled' },
-};
+});
 
 /**
  * The ONE session card (Home timeline, Sessions tab): a coloured stripe on the start edge
@@ -43,7 +43,7 @@ export const SessionCard = memo(function SessionCard({
 }: { s: SessionCardData; now: number; onOpen: (s: SessionCardData) => void; onScan?: (s: SessionCardData) => void; compact?: boolean }) {
   const { t } = useTranslation();
   const phase = sessionPhase(s, now);
-  const p = PHASE[phase];
+  const p = PHASE()[phase];
   const present = s.checked_in_count ?? 0;
   const absent = s.absent_count ?? 0;
   const total = s.enrolled_count ?? 0;

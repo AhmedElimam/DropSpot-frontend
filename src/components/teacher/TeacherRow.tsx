@@ -22,7 +22,7 @@ export function TeacherRow({ id, name, subject, courseCount, onPress }: TeacherR
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderRadius: radius.md,
         padding: spacing.md,
         marginBottom: spacing.sm,

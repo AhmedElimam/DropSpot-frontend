@@ -38,11 +38,11 @@ export function TeacherSwitcher() {
         onPress={() => setOpen(true)}
         activeOpacity={0.85}
         accessibilityRole="button"
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.md, alignSelf: 'flex-start', marginTop: spacing.sm }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.md, alignSelf: 'flex-start', marginTop: spacing.sm }}
       >
-        <Icon name="teacher" size={14} color="#fff" />
-        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff', maxWidth: 180 }} numberOfLines={1}>{active.name ?? '—'}</Text>
-        <Icon name="down" size={14} color="#fff" />
+        <Icon name="teacher" size={14} color={colors.onHero} />
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.onHero, maxWidth: 180 }} numberOfLines={1}>{active.name ?? '—'}</Text>
+        <Icon name="down" size={14} color={colors.onHero} />
       </TouchableOpacity>
 
       <SheetModal visible={open} onClose={() => setOpen(false)} style={{ backgroundColor: colors.background, paddingTop: spacing.xl, paddingBottom: insets.bottom + spacing.xl, paddingHorizontal: spacing.xl, maxHeight: '70%' }}>

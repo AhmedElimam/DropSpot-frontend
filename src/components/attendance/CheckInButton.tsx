@@ -23,14 +23,14 @@ export function CheckInButton({
     return (
       <View
         style={{
-          backgroundColor: '#D1FAE5',
+          backgroundColor: colors.successLight,
           paddingVertical: 14,
           paddingHorizontal: 24,
           borderRadius: radius.lg,
           alignItems: 'center',
         }}
       >
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#065F46' }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.successText }}>
           {t('attendance.checked_in_success')}
         </Text>
       </View>
@@ -47,7 +47,7 @@ export function CheckInButton({
       accessibilityLabel={t('attendance.check_in_now')}
     >
       <LinearGradient
-        colors={disabled ? ['#9CA3AF', '#9CA3AF'] : gradients.primary}
+        colors={disabled ? [colors.textTertiary, colors.textTertiary] : gradients.primary}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={{

@@ -41,12 +41,12 @@ const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
 const INTRO_KEY = 'cash_intro_seen_v1';
 type Segment = 'week' | 'expenses' | 'notes';
 
-const RESULT_TINT: Record<ReconciliationResult, string> = {
+const RESULT_TINT = (): Record<ReconciliationResult, string> => ({
   deficit: colors.danger, balanced: colors.success, surplus: colors.warning, unknown: colors.textTertiary,
-};
-const STATUS_TINT: Record<ReconciliationStatus, string> = {
+});
+const STATUS_TINT = (): Record<ReconciliationStatus, string> => ({
   confirmed: colors.success, discrepancy: colors.danger, pending: colors.warning, not_reconciled: colors.warning, awaiting_opening: colors.textTertiary,
-};
+});
 const SHEET_BACKDROP = 'rgba(23,28,59,0.45)';
 
 // ───────────────────────── small pieces ─────────────────────────
@@ -73,9 +73,9 @@ function Pill({ text, tint }: { text: string; tint: string }) {
 function ResultPill({ d }: { d: Drawer }) {
   const { t } = useTranslation();
   if (d.result && d.result !== 'unknown' && d.registry !== null) {
-    return <Pill tint={RESULT_TINT[d.result]} text={`${t(`cash.${d.result}`)}${d.difference !== null && d.result !== 'balanced' ? ` ${money(Math.abs(d.difference))}` : ''}`} />;
+    return <Pill tint={RESULT_TINT()[d.result]} text={`${t(`cash.${d.result}`)}${d.difference !== null && d.result !== 'balanced' ? ` ${money(Math.abs(d.difference))}` : ''}`} />;
   }
-  return <Pill tint={STATUS_TINT[d.status]} text={t(`cash.${d.status}`)} />;
+  return <Pill tint={STATUS_TINT()[d.status]} text={t(`cash.${d.status}`)} />;
 }
 
 /** Two big figures side by side — what the eye needs first. */
@@ -114,7 +114,7 @@ function Arithmetic({ d }: { d: Drawer }) {
       {d.registry !== null && d.difference !== null && d.result ? (
         <>
           <Rule />
-          <Figure label={t(`cash.${d.result}`)} value={`${d.difference > 0 ? '+' : ''}${money(d.difference)} ${egp}`} strong tint={RESULT_TINT[d.result]} />
+          <Figure label={t(`cash.${d.result}`)} value={`${d.difference > 0 ? '+' : ''}${money(d.difference)} ${egp}`} strong tint={RESULT_TINT()[d.result]} />
         </>
       ) : null}
       {!known ? (
@@ -281,7 +281,7 @@ function OpeningEntry({ d, onSaved }: { d: Drawer; onSaved: () => void }) {
 function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDrawer; name?: string; isTeacher: boolean; onChanged: () => void }) {
   const { t } = useTranslation();
   const answered = d.registry !== null;
-  const tint = d.result && d.result !== 'unknown' && answered ? RESULT_TINT[d.result] : colors.border;
+  const tint = d.result && d.result !== 'unknown' && answered ? RESULT_TINT()[d.result] : colors.border;
   const reviewWaiting = d.review_pending ?? 0;
   const openReview = () => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(d.id) } } as Href);
 
@@ -298,7 +298,7 @@ function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDraw
         left={d.expected !== null
           ? { label: t('cash.expected'), value: money(d.expected), tint: colors.brand }
           : { label: t('cash.net_movement'), value: `${(d.net_movement ?? 0) > 0 ? '+' : ''}${money(d.net_movement ?? 0)}`, tint: colors.warningDark }}
-        right={{ label: t('cash.actual'), value: answered ? money(d.actual ?? d.registry ?? 0) : '—', tint: answered && d.result && d.result !== 'unknown' ? RESULT_TINT[d.result] : undefined }}
+        right={{ label: t('cash.actual'), value: answered ? money(d.actual ?? d.registry ?? 0) : '—', tint: answered && d.result && d.result !== 'unknown' ? RESULT_TINT()[d.result] : undefined }}
       />
       <SurplusNotice d={d} />
       <Details d={d} extra={isTeacher && d.opening_source !== 'teacher' && !d.closed_at ? <OpeningEntry d={d} onSaved={onChanged} /> : null} />
@@ -841,41 +841,41 @@ export default function CashReconcileScreen() {
         {/* Hero: her greeting, the week, the gear. */}
         <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.md, paddingBottom: spacing.xl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
-            <TouchableOpacity onPress={() => router.back()} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="forward" size={22} color="#fff" />
+            <TouchableOpacity onPress={() => router.back()} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="forward" size={22} color={colors.onHero} />
             </TouchableOpacity>
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: '#fff' }}>{rose.name}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{t('cash.screen_title')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.onHero }}>{rose.name}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft }}>{t('cash.screen_title')}</Text>
             </View>
             {data?.role === 'teacher' ? (
-              <TouchableOpacity onPress={() => setSettingsOpen(true)} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="settings" size={20} color="#fff" outline />
+              <TouchableOpacity onPress={() => setSettingsOpen(true)} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="settings" size={20} color={colors.onHero} outline />
               </TouchableOpacity>
             ) : <View style={{ width: 40 }} />}
           </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{ins?.context?.greeting ?? ''}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2, marginBottom: spacing.lg }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{ins?.context?.greeting ?? ''}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2, marginBottom: spacing.lg }}>
             {ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
           </Text>
           {isPast ? (
             <TouchableOpacity onPress={() => { setPeriod('week'); setWeekOffset(0); setSegment('week'); }} activeOpacity={0.85}
-              style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <Icon name="calendar" size={22} color="#fff" />
+              style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.onHeroChipBorder, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <Icon name="calendar" size={22} color={colors.onHero} />
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('cash.viewing_past')}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>{t('cash.back_to_now')}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onHero }}>{t('cash.viewing_past')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2 }}>{t('cash.back_to_now')}</Text>
               </View>
-              <Icon name="back" size={18} color="#fff" />
+              <Icon name="back" size={18} color={colors.onHero} />
             </TouchableOpacity>
           ) : data ? (
             <NowCard data={data} onDone={onDone} onOpenHandovers={() => setHandoverOpen(true)} onCountOwn={() => setSegment('week')} />
           ) : isError ? (
-            <TouchableOpacity onPress={() => refetch()} style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.xl, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <Icon name="refresh" size={20} color="#fff" />
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('cash.load_failed')}</Text>
+            <TouchableOpacity onPress={() => refetch()} style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <Icon name="refresh" size={20} color={colors.onHero} />
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.onHero }}>{t('cash.load_failed')}</Text>
             </TouchableOpacity>
-          ) : <ActivityIndicator color="#fff" />}
+          ) : <ActivityIndicator color={colors.onHero} />}
         </LinearGradient>
 
         {/* Segments — sticky, so switching never means scrolling back up. */}

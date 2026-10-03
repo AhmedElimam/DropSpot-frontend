@@ -27,7 +27,7 @@ import { getExpenses, addExpense, deleteExpense, assignExpenseVenue, suggestCate
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const REVIEW_TINT: Record<string, string> = { pending: colors.textTertiary, accepted: colors.success, questioned: colors.warning, rejected: colors.danger };
+const REVIEW_TINT = (): Record<string, string> => ({ pending: colors.textTertiary, accepted: colors.success, questioned: colors.warning, rejected: colors.danger });
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
 
@@ -60,8 +60,8 @@ const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, perVenue
           {/* Weekly review state — the assistant sees their own; the teacher reviews from «مراجعة الأسبوع». */}
           {e.review_status && e.review_status !== 'accepted' ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-              <View style={{ backgroundColor: REVIEW_TINT[e.review_status] + '22', borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: REVIEW_TINT[e.review_status] }}>{t(`review.state_${e.review_status}`)}</Text>
+              <View style={{ backgroundColor: REVIEW_TINT()[e.review_status] + '22', borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: REVIEW_TINT()[e.review_status] }}>{t(`review.state_${e.review_status}`)}</Text>
               </View>
               {e.review_status === 'rejected' && e.reject_reason_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger }}>{e.reject_reason_label}{e.reject_note ? ` — ${e.reject_note}` : ''}</Text> : null}
             </View>

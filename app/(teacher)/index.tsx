@@ -119,8 +119,8 @@ export default function TeacherHome() {
             onScan={canCash ? () => router.push('/(teacher)/scan' as Href) : undefined}
             scanBadge={offlineAttention}
           />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{formatDayDate(new Date(now))}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>{formatDayDate(new Date(now))}</Text>
           <TeacherSwitcher />
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
             {[
@@ -128,9 +128,9 @@ export default function TeacherHome() {
               { k: 'present', v: rosterToday > 0 ? `${formatNumber(presentToday)}/${formatNumber(rosterToday)}` : formatNumber(presentToday), l: t('home.stat_present') },
               { k: 'attention', v: formatNumber(attentionTotal), l: t('home.stat_attention') },
             ].map((x) => (
-              <View key={x.k} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: radius.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 26, color: x.k === 'attention' && attentionTotal > 0 ? colors.accent : '#fff' }}>{x.v}</Text>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.72)' }} numberOfLines={1}>{x.l}</Text>
+              <View key={x.k} style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.onHeroChipBorder, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 26, color: x.k === 'attention' && attentionTotal > 0 ? colors.accent : colors.onHero }}>{x.v}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.onHeroSoft }} numberOfLines={1}>{x.l}</Text>
               </View>
             ))}
           </View>

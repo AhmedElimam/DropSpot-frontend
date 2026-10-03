@@ -15,7 +15,7 @@ import { Avatar } from '@/components/layout/Avatar';
 
 type TabKey = 'attendance' | 'grades';
 
-const rankColors = [colors.accentWarm, colors.inkFaint, '#B45309'];
+const rankColors = () => ([colors.accentWarm, colors.inkFaint, '#B45309']);
 
 export default function ReportsScreen() {
   const { t } = useTranslation();
@@ -116,25 +116,25 @@ export default function ReportsScreen() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
         >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.white, letterSpacing: -0.5 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, letterSpacing: -0.5 }}>
             {t('reports.title')}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.onHeroSoft, marginTop: 4 }}>
             {children?.length ?? 0} {t('nav.children')}
           </Text>
 
           <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{overallRate}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('attendance.attendance_rate')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>{overallRate}%</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('attendance.attendance_rate')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{overallAvg}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('quiz.avg_score')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>{overallAvg}%</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('quiz.avg_score')}</Text>
             </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{totalAbsent}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('attendance.absent')}</Text>
+            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>{totalAbsent}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('attendance.absent')}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -275,7 +275,7 @@ export default function ReportsScreen() {
                       <View style={{ gap: spacing.md, marginTop: spacing.md }}>
                         {teacherAvgList.slice(0, 3).map((teacher, i) => (
                           <View key={teacher.name} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: rankColors[i], justifyContent: 'center', alignItems: 'center', marginEnd: spacing.sm }}>
+                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: rankColors()[i], justifyContent: 'center', alignItems: 'center', marginEnd: spacing.sm }}>
                               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{i + 1}</Text>
                             </View>
                             <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.sm }}>

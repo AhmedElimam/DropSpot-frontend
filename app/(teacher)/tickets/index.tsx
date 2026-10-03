@@ -13,18 +13,18 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
 
 // Left-edge accent per ticket state.
-const statusColors: Record<string, [string, string]> = {
+const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
   in_progress: [colors.warning, colors.warningDark],
   resolved: [colors.success, colors.successDark],
   closed: [colors.textTertiary, colors.textSecondary],
-};
+});
 
-const priorityColors: Record<string, string> = {
+const priorityColors = (): Record<string, string> => ({
   low: colors.success,
   medium: colors.warning,
   high: colors.danger,
-};
+});
 
 // Teacher-side ticket list. Teachers respond to tickets (parents create them),
 // so there is no "new ticket" action here. Reuses the shared ticket hooks/API.
@@ -47,10 +47,10 @@ export default function TeacherTicketsList() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
         >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.white, letterSpacing: -0.5 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, letterSpacing: -0.5 }}>
             {t('tickets.title')}
           </Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.onHeroSoft, marginTop: 4 }}>
             {t('tickets.count', { count: tickets?.length ?? 0 })}
           </Text>
         </LinearGradient>
@@ -64,7 +64,7 @@ export default function TeacherTicketsList() {
             <EmptyState icon="tickets" title={t('tickets.empty')} />
           ) : (
             tickets.map((ticket) => {
-              const sc = statusColors[ticket.status] || statusColors.open;
+              const sc = statusColors()[ticket.status] || statusColors().open;
               return (
                 <TouchableOpacity
                   key={ticket.id}
@@ -95,7 +95,7 @@ export default function TeacherTicketsList() {
 
                   <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.lg }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: priorityColors[ticket.priority] || colors.warning, marginEnd: 6 }} />
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: priorityColors()[ticket.priority] || colors.warning, marginEnd: 6 }} />
                       <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary }}>
                         {t(`tickets.priority_${ticket.priority}`)}
                       </Text>

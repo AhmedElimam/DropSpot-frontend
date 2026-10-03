@@ -30,7 +30,7 @@ function rateColor(rate: number | null | undefined): string {
   return colors.danger;
 }
 
-const CARD_STATUS: Record<string, { key: string; color: string }> = {
+const CARD_STATUS = (): Record<string, { key: string; color: string }> => ({
   submitted: { key: 'teacher.co_submitted', color: colors.warning },
   approved: { key: 'teacher.co_approved', color: colors.success },
   rejected: { key: 'teacher.co_rejected', color: colors.danger },
@@ -38,7 +38,7 @@ const CARD_STATUS: Record<string, { key: string; color: string }> = {
   // Filed by the teacher for a family that never asked: parked until the office
   // releases the batch. Saying "under review" here would be false.
   held: { key: 'teacher.co_held', color: colors.textSecondary },
-};
+});
 
 /**
  * One roster row. Module-level and memoised with primitive-ish props: the roster filters
@@ -88,7 +88,7 @@ const CardOrderRow = memo(function CardOrderRow({ o }: { o: TeacherCardOrder }) 
   const { t } = useTranslation();
   // Unknown status → say so. Defaulting to "under review" made every status the app had
   // not learned yet look like a live request.
-  const st = CARD_STATUS[o.status] ?? { key: 'teacher.co_unknown', color: colors.textSecondary };
+  const st = CARD_STATUS()[o.status] ?? { key: 'teacher.co_unknown', color: colors.textSecondary };
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: st.color, padding: spacing.md, marginBottom: spacing.sm }}>
       <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: st.color + '1A', justifyContent: 'center', alignItems: 'center' }}>
@@ -196,19 +196,19 @@ export default function TeacherStudents() {
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{t(segment === 'cards' ? 'teacher.seg_cards' : 'teacher.tab_students')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t(segment === 'cards' ? 'teacher.seg_cards' : 'teacher.tab_students')}</Text>
           {segment === 'students' ? (
-            <View style={{ backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{formatNumber(counts.all)}</Text>
+            <View style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }}>{formatNumber(counts.all)}</Text>
             </View>
           ) : null}
           <View style={{ flex: 1 }} />
           {canStudents ? (
             <TouchableOpacity onPress={() => setSegment(segment === 'cards' ? 'students' : 'cards')} accessibilityRole="button" accessibilityState={{ selected: segment === 'cards' }}
               accessibilityLabel={t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 10, borderRadius: 12, backgroundColor: segment === 'cards' ? '#fff' : 'rgba(255,255,255,0.14)' }}>
-              <Icon name={segment === 'cards' ? 'children' : 'card'} size={17} color={segment === 'cards' ? colors.brand : '#fff'} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: segment === 'cards' ? colors.brand : '#fff' }}>{t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}</Text>
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 10, borderRadius: 12, backgroundColor: segment === 'cards' ? colors.onHero : colors.onHeroChip }}>
+              <Icon name={segment === 'cards' ? 'children' : 'card'} size={17} color={segment === 'cards' ? colors.brand : colors.onHero} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: segment === 'cards' ? colors.brand : colors.onHero }}>{t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}</Text>
             </TouchableOpacity>
           ) : null}
           {canStudents ? (
@@ -221,14 +221,14 @@ export default function TeacherStudents() {
 
         {segment === 'students' ? (
           <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.lg, paddingHorizontal: spacing.md, marginTop: spacing.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.lg, paddingHorizontal: spacing.md, marginTop: spacing.sm }}>
               <Icon name="search" size={17} color="rgba(255,255,255,0.7)" />
               <TextInput
                 value={search}
                 onChangeText={setSearch}
                 placeholder={t('teacher.search_student_ph')}
                 placeholderTextColor="rgba(255,255,255,0.55)"
-                style={{ flex: 1, height: 40, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 14, color: '#fff', textAlign: 'right', paddingVertical: 0 }}
+                style={{ flex: 1, height: 40, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 14, color: colors.onHero, textAlign: 'right', paddingVertical: 0 }}
               />
               {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color="rgba(255,255,255,0.7)" /></TouchableOpacity> : null}
             </View>
@@ -239,10 +239,10 @@ export default function TeacherStudents() {
                 const on = quick === x.key;
                 return (
                   <TouchableOpacity key={x.key} onPress={() => setQuick(on && x.key !== 'all' ? 'all' : x.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.1)' }}>
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? colors.onHero : colors.onHeroChip }}>
                     {x.key !== 'all' ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: x.dot }} /> : null}
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.textPrimary : '#fff' }} numberOfLines={1}>{x.label}</Text>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.brand : 'rgba(255,255,255,0.75)' }}>{formatNumber(x.n)}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.textPrimary : colors.onHero }} numberOfLines={1}>{x.label}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.brand : colors.onHeroSoft }}>{formatNumber(x.n)}</Text>
                   </TouchableOpacity>
                 );
               })}

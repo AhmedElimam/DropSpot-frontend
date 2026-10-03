@@ -19,7 +19,7 @@ import { timeAgo, formatNumber } from '@/utils/format';
 import { notificationCategory, type NotificationCategory } from '@/utils/notificationCategory';
 
 /** Icon + tint by type, so a glance tells money from attendance from مدام روز. */
-const LOOK: Record<string, { icon: IconName; tint: string }> = {
+const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
   attendance: { icon: 'attendance', tint: colors.success },
   absence: { icon: 'warning', tint: colors.danger },
   left_early: { icon: 'clock', tint: colors.warning },
@@ -88,16 +88,16 @@ const LOOK: Record<string, { icon: IconName; tint: string }> = {
   graduation_notice: { icon: 'trophy', tint: colors.success },
   discrepancy_resolved: { icon: 'success', tint: colors.success },
   excuse_resolved: { icon: 'success', tint: colors.success },
-};
+});
 
 type ReadFilter = 'all' | 'unread';
 type Kind = Exclude<NotificationCategory, 'other'>;
-const KINDS: { key: Kind; icon: IconName; tint: string }[] = [
+const KINDS = (): { key: Kind; icon: IconName; tint: string }[] => ([
   { key: 'attendance', icon: 'attendance', tint: colors.success },
   { key: 'money', icon: 'money', tint: colors.accent },
   { key: 'students', icon: 'children', tint: colors.brand },
   { key: 'followup', icon: 'tickets', tint: colors.warning },
-];
+]);
 const HINT_KEY = 'notif_swipe_hint_v1';
 
 type Bucket = 'today' | 'yesterday' | 'week' | 'older';
@@ -122,7 +122,7 @@ const FeedRow = memo(function FeedRow({
   onToggleRead: (n: Notification) => void;
 }) {
   const { t } = useTranslation();
-  const look = LOOK[n.type] ?? { icon: 'bell' as IconName, tint: colors.brand };
+  const look = LOOK()[n.type] ?? { icon: 'bell' as IconName, tint: colors.brand };
   const unread = !n.is_read;
   return (
     <SwipeRow
@@ -205,7 +205,7 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
     return c;
   }, [all]);
   // A kind shows only when there is something of that kind.
-  const kinds = KINDS.filter((k) => catCounts[k.key] > 0);
+  const kinds = KINDS().filter((k) => catCounts[k.key] > 0);
   useEffect(() => { if (kind && catCounts[kind] === 0) setKind(null); }, [kind, catCounts]);
 
   const shown = useMemo(() => all
@@ -242,35 +242,35 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
       >
         {/* Compact header, as on Students: back · title · unread count · mark all, one line. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg }}>
-          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="forward" size={20} color="#fff" />
+          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="forward" size={20} color={colors.onHero} />
           </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{t('notifications.title')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t('notifications.title')}</Text>
           <View style={{ flex: 1 }} />
           {unreadCount > 0 ? (
             <TouchableOpacity
               onPress={() => markAllRead.mutate()}
               disabled={markAllRead.isPending}
               accessibilityRole="button"
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.14)' }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: colors.onHeroChip }}
             >
-              {markAllRead.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="success" size={15} color="#fff" />}
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('notifications.mark_all_read')}</Text>
+              {markAllRead.isPending ? <ActivityIndicator size="small" color={colors.onHero} /> : <Icon name="success" size={15} color={colors.onHero} />}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }}>{t('notifications.mark_all_read')}</Text>
             </TouchableOpacity>
           ) : (
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{t('notifications.all_read_summary')}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.onHeroSoft }}>{t('notifications.all_read_summary')}</Text>
           )}
         </View>
 
         {/* Filter tray: a read / unread switch, then the kinds as equal tiles (tap again to clear). */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md, gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: radius.lg, padding: 3 }}>
+          <View style={{ flexDirection: 'row', backgroundColor: colors.onHeroChip, borderRadius: radius.lg, padding: 3 }}>
             {(['all', 'unread'] as ReadFilter[]).map((f) => {
               const on = filter === f;
               return (
                 <TouchableOpacity key={f} onPress={() => setFilter(f)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                  style={{ flex: 1, height: 34, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? '#fff' : 'transparent' }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : 'rgba(255,255,255,0.85)' }}>{t(`notifications.filter_${f}`)}</Text>
+                  style={{ flex: 1, height: 34, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.onHero : 'transparent' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.onHeroSoft }}>{t(`notifications.filter_${f}`)}</Text>
                   {f === 'unread' && unreadCount > 0 ? (
                     <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onAccent }}>{formatNumber(unreadCount)}</Text>
@@ -286,10 +286,10 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
                 const on = kind === k.key;
                 return (
                   <TouchableOpacity key={k.key} onPress={() => setKind(on ? null : k.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
-                    style={{ flex: 1, height: 36, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: on ? k.tint : 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: on ? k.tint : 'rgba(255,255,255,0.14)' }}>
-                    <Icon name={k.icon} size={15} color="#fff" />
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>{t(`notifications.cat_${k.key}`)}</Text>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: on ? '#fff' : 'rgba(255,255,255,0.6)' }}>{formatNumber(catCounts[k.key])}</Text>
+                    style={{ flex: 1, height: 36, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: on ? k.tint : colors.onHeroChip, borderWidth: 1, borderColor: on ? k.tint : colors.onHeroChip }}>
+                    <Icon name={k.icon} size={15} color={colors.onHero} />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }} numberOfLines={1}>{t(`notifications.cat_${k.key}`)}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: on ? colors.onHero : colors.onHeroSoft }}>{formatNumber(catCounts[k.key])}</Text>
                   </TouchableOpacity>
                 );
               })}

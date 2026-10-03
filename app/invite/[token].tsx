@@ -17,8 +17,8 @@ import { TermsConsentRow } from '@/components/auth/TermsConsentRow';
 const RELATIONS = ['father', 'mother', 'guardian'] as const;
 const hasLatinLetters = (v: string) => /[A-Za-z]/.test(v);
 
-const label = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm } as const;
-const field = {
+const label = () => ({ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm } as const);
+const field = () => ({
   fontFamily: fonts.regular,
   fontSize: 17,
   minHeight: control.minHeight,
@@ -29,7 +29,7 @@ const field = {
   color: colors.textPrimary,
   textAlign: 'right' as const,
   borderWidth: 1.5,
-};
+});
 
 export default function InviteAcceptScreen() {
   const { t } = useTranslation();
@@ -143,7 +143,7 @@ export default function InviteAcceptScreen() {
 
       {needsName && (
         <>
-          <Text style={label}>{t('invite.name')}</Text>
+          <Text style={label()}>{t('invite.name')}</Text>
           <TextInput
             value={name}
             onChangeText={setName}
@@ -158,7 +158,7 @@ export default function InviteAcceptScreen() {
       )}
 
       {/* Parent details — same as a normal signup. */}
-      <Text style={label}>{t('auth.parent_name')}</Text>
+      <Text style={label()}>{t('auth.parent_name')}</Text>
       <TextInput
         value={parentName}
         onChangeText={setParentName}
@@ -170,7 +170,7 @@ export default function InviteAcceptScreen() {
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>{t('auth.name_arabic_only')}</Text>
       ) : null}
 
-      <Text style={label}>{t('auth.parent_phone')}</Text>
+      <Text style={label()}>{t('auth.parent_phone')}</Text>
       <TextInput
         value={parentPhone}
         onChangeText={setParentPhone}
@@ -181,7 +181,7 @@ export default function InviteAcceptScreen() {
         style={{ ...field, marginBottom: spacing.lg, borderColor: parentPhone ? colors.brand : colors.borderStrong }}
       />
 
-      <Text style={label}>{t('auth.parent_relation')}</Text>
+      <Text style={label()}>{t('auth.parent_relation')}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg }}>
         {RELATIONS.map((rel) => {
           const on = parentRelation === rel;
@@ -198,7 +198,7 @@ export default function InviteAcceptScreen() {
         })}
       </View>
 
-      <Text style={label}>{t('invite.password')}</Text>
+      <Text style={label()}>{t('invite.password')}</Text>
       <PasswordInput
         value={password}
         onChangeText={setPassword}
@@ -207,7 +207,7 @@ export default function InviteAcceptScreen() {
         style={{ ...field, marginBottom: spacing.lg, borderColor: password ? colors.brand : colors.borderStrong }}
       />
 
-      <Text style={label}>{t('auth.confirm_password')}</Text>
+      <Text style={label()}>{t('auth.confirm_password')}</Text>
       <PasswordInput
         value={confirmPassword}
         onChangeText={setConfirmPassword}

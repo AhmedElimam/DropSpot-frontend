@@ -76,16 +76,16 @@ export default function ParentHome() {
           style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xxl }}
         >
           <HeaderBrandBar onBell={() => router.push('/(parent)/notifications')} unread={unread} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.72)' }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.onHeroSoft }}>
             {t('home.welcome')}
           </Text>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: '#fff', marginTop: 2 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, marginTop: 2 }}>
             {user?.name || 'ولي الأمر'}
           </Text>
           {kids.length > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, alignSelf: 'flex-start', marginTop: spacing.lg, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, alignSelf: 'flex-start', marginTop: spacing.lg, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: spacing.lg }}>
               <Icon name={allWell ? 'success' : 'warning'} size={20} color={allWell ? '#7FE3B0' : '#F3C77A'} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onHero }}>
                 {t(allWell ? 'home.all_well' : 'home.some_attention')}
               </Text>
             </View>
@@ -111,7 +111,7 @@ export default function ParentHome() {
 
           {/* Children */}
           <View style={{ gap: spacing.md }}>
-            <Text style={sectionLabel}>{t('home.children_section')}</Text>
+            <Text style={sectionLabel()}>{t('home.children_section')}</Text>
             {childrenLoading ? (
               <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl }} />
             ) : (
@@ -121,7 +121,7 @@ export default function ParentHome() {
 
           {/* Actions */}
           <View style={{ gap: spacing.md }}>
-            <Text style={sectionLabel}>{t('home.actions_section')}</Text>
+            <Text style={sectionLabel()}>{t('home.actions_section')}</Text>
             <BigAction
               icon="calendar" tint={colors.brandTint} iconColor={colors.brand}
               title={t('today.title')} subtitle={t('today.subtitle')}
@@ -147,7 +147,7 @@ export default function ParentHome() {
           {/* Latest update */}
           <View style={{ gap: spacing.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={sectionLabel}>{t('home.latest_update')}</Text>
+              <Text style={sectionLabel()}>{t('home.latest_update')}</Text>
               <TouchableOpacity onPress={() => router.push('/(parent)/notifications')} hitSlop={8}>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('notifications.view_all')}</Text>
               </TouchableOpacity>
@@ -244,7 +244,7 @@ function PendingSiblingClaims({ t }: { t: (k: string) => string }) {
 
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={sectionLabel}>{t('sibling_claim.section')}</Text>
+      <Text style={sectionLabel()}>{t('sibling_claim.section')}</Text>
       {claims.map((c) => (
         <View key={c.id} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 4, borderStartColor: colors.warning }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -302,7 +302,7 @@ function PendingInvites({ t }: { t: (k: string) => string }) {
 
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={sectionLabel}>{t('invites.pending_section')}</Text>
+      <Text style={sectionLabel()}>{t('invites.pending_section')}</Text>
       {invites.map((inv) => (
         <View key={inv.id} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 4, borderStartColor: colors.accentWarm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -365,4 +365,4 @@ function BigAction({ icon, tint, iconColor, title, subtitle, onPress }: {
   );
 }
 
-const sectionLabel = { fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary, marginStart: spacing.xs } as const;
+const sectionLabel = () => ({ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary, marginStart: spacing.xs } as const);

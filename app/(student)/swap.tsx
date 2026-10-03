@@ -49,7 +49,7 @@ export default function SwapRequestScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', padding: spacing.xl }}>
         <View style={{ alignItems: 'center', gap: spacing.md }}>
-          <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: '#E4F3E8', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.successLight, justifyContent: 'center', alignItems: 'center' }}>
             <Icon name="success" size={40} color={colors.success} />
           </View>
           <Text style={[textPresets.h2, { textAlign: 'center' }]}>{t('swap.pending_title')}</Text>
@@ -83,10 +83,10 @@ export default function SwapRequestScreen() {
         >
           <TouchableOpacity onPress={goBack} style={{ marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center' }}>
             <Icon name="forward" size={20} color="rgba(255,255,255,0.85)" />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.85)', marginStart: 4 }}>{t('common.back')}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: 4 }}>{t('common.back')}</Text>
           </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', letterSpacing: -0.5 }}>{t('swap.title')}</Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.72)', marginTop: spacing.xs }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5 }}>{t('swap.title')}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginTop: spacing.xs }}>
             {t('swap.subtitle')}
           </Text>
         </LinearGradient>
