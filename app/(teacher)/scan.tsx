@@ -155,8 +155,12 @@ export default function TeacherScan() {
   // Overdue-bill block: held until the operator grants a 15-day exemption or cancels.
   const [overdueBlock, setOverdueBlock] = useState<{ name: string; message: string; code: string; pending?: ScanPending | null } | null>(null);
   // Same-grade "wrong group" scan → admit once / transfer here.
-  const [otherGroup, setOtherGroup] = useState<{ name: string; message: string; cardCode: string; offer: ScanOffer } | null>(null);
+  const [otherGroup, setOtherGroup] = useState<{ name: string; message: string; cardCode: string; offer: ScanOffer; profileId: number | null } | null>(null);
   const [otherBusy, setOtherBusy] = useState(false);
+  // No session of the student's is running right now → HOLD on a popup (founder
+  // 2026-10-03) instead of a passing red flash: who they are, whether they are ours, what
+  // they owe (collect from here), and their profile when they are enrolled with this teacher.
+  const [noSession, setNoSession] = useState<{ name: string; message: string; code: string; enrolledHere: boolean; profileId: number | null; pending: ScanPending | null } | null>(null);
   const canManageStudents = can(ABILITY.MANAGE_STUDENTS);
   // Merged pay-on-scan popup: after an attendance scan surfaces dues, open ONE popup
   // listing every kind (bill / booklets / booking) with the paid/remaining + pay-full UI.
@@ -179,7 +183,7 @@ export default function TeacherScan() {
   }, []);
 
   // `locked` pauses scanning too — while the scanner is locked no card is read.
-  const paused = locked || idle || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup;
+  const paused = locked || idle || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup || !!noSession;
   // The sensor itself runs only when there is something to read for. Locked or idle,
   // the preview goes dark and the phone stops heating; the screen stays mounted so the
   // teacher's session context is untouched.
@@ -324,9 +328,17 @@ export default function TeacherScan() {
         }
         // Same-grade "wrong group": the student isn't in this running group but is the
         // same grade → hold on a prompt to admit once or transfer them here.
+        const profileId = res.enrolled_here && res.student_id ? res.student_id : null;
         if (!res.success && res.code === 'OTHER_GROUP_SAME_GRADE' && res.offer) {
           setBusy(false);
-          setOtherGroup({ name: res.student_name ?? '', message: res.message, cardCode: data, offer: res.offer });
+          setOtherGroup({ name: res.student_name ?? '', message: res.message, cardCode: data, offer: res.offer, profileId });
+          return;
+        }
+        // Nothing of theirs is running now (and no same-grade group of ours either) → hold
+        // on the no-session popup; dues and the profile ride along for our own students.
+        if (!res.success && res.code === 'NO_ACTIVE_SESSION') {
+          setBusy(false);
+          setNoSession({ name: res.student_name ?? '', message: res.message, code: data, enrolledHere: !!res.enrolled_here, profileId, pending: res.pending ?? null });
           return;
         }
         // Overdue bill → hold on a blocking prompt offering the 15-day exemption,
@@ -445,6 +457,15 @@ export default function TeacherScan() {
       setOtherBusy(false);
     }
   }, [otherGroup, otherBusy, flash, t]);
+
+  // From a scan popup into the student's page — only ever offered for a student enrolled
+  // with the scanning teacher (the server says so per scan; a stranger's card has no id here).
+  const openProfile = useCallback((studentId: number) => {
+    setNoSession(null);
+    setOtherGroup(null);
+    setBusy(false);
+    router.push(`/(teacher)/students/${studentId}` as Href);
+  }, []);
 
   const confirmGuest = useCallback(async () => {
     if (!guestPrompt || revisionId == null || revisionInstanceId == null) return;
@@ -588,7 +609,7 @@ export default function TeacherScan() {
       </View>
 
       {/* Scan frame + hint (hidden while the scanner is locked) */}
-      {!locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup && (
+      {!locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup && !noSession && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
           <View style={{ width: 250, height: 190, borderRadius: 22, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)' }}>
             <View style={bracket('tl')} />
@@ -625,7 +646,7 @@ export default function TeacherScan() {
       {/* Locked overlay — scanning is paused. The overlay ITSELF is the unlock target:
           hold anywhere to resume (it covers the header, so the header lock button can't
           receive the long-press). Tap does nothing so a stray tap can't unlock. */}
-      {locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup ? (
+      {locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup && !noSession ? (
         <TouchableOpacity
           activeOpacity={1}
           onLongPress={() => { setLocked(false); touch(); Vibration.vibrate(30); }}
@@ -647,7 +668,7 @@ export default function TeacherScan() {
       {/* Bottom action: enter the special/exam session picker (when the revision
           switch is on) OR issue a guest pass (already inside a special session, and
           only when the operator may issue one). */}
-      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && !otherGroup && (revisionMode ? canIssuePass : reviseOn !== false && !isAssistant) ? (
+      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && !otherGroup && !noSession && (revisionMode ? canIssuePass : reviseOn !== false && !isAssistant) ? (
         <TouchableOpacity
           onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
@@ -818,11 +839,86 @@ export default function TeacherScan() {
                 </TouchableOpacity>
               ) : null}
 
+              {otherGroup.profileId ? (
+                <TouchableOpacity onPress={() => openProfile(otherGroup.profileId!)} activeOpacity={0.85} style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Icon name="profile" size={16} color="#fff" outline />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('teacher.open_student_profile')}</Text>
+                </TouchableOpacity>
+              ) : null}
+
               <TouchableOpacity onPress={() => { setOtherGroup(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </>
           )}
+        </View>
+      ) : null}
+
+      {/* No session running for this student right now — held until dismissed. Our own
+          student: a «من طلابك» pill, their dues (collect here) and their profile. A
+          stranger's card: the fact, and nothing to go to. */}
+      {noSession ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,28,59,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="clock" size={48} color="#fff" outline />
+          </View>
+          {noSession.name ? (
+            <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', textAlign: 'center', marginTop: spacing.lg }}>{noSession.name}</Text>
+          ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm, paddingVertical: 5, paddingHorizontal: 14, borderRadius: radius.full, backgroundColor: noSession.enrolledHere ? 'rgba(31,147,102,0.35)' : 'rgba(201,162,39,0.22)', borderWidth: 1, borderColor: noSession.enrolledHere ? 'rgba(120,230,180,0.7)' : '#C9A227' }}>
+            <Icon name={noSession.enrolledHere ? 'success' : 'warning'} size={14} color={noSession.enrolledHere ? '#9CF2C8' : '#F5C542'} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: noSession.enrolledHere ? '#9CF2C8' : '#F5C542' }}>
+              {noSession.enrolledHere ? t('teacher.no_session_mine') : t('teacher.no_session_not_mine')}
+            </Text>
+          </View>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff', marginTop: spacing.lg, textAlign: 'center' }}>{t('teacher.no_session_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: 'rgba(255,255,255,0.85)', marginTop: 4, textAlign: 'center', paddingHorizontal: spacing.lg }}>
+            {noSession.enrolledHere ? t('teacher.no_session_hint_mine') : t('teacher.no_session_hint_not_mine')}
+          </Text>
+
+          {/* What they owe, at a glance — the same chips as the check-in flash. */}
+          {hasDues(noSession.pending) ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: spacing.md }}>
+              {noSession.pending!.bill && noSession.pending!.bill.total > 0 ? (
+                <PendingChip text={noSession.pending!.bill.overdue ? t('teacher.flag_bill_overdue') : t('teacher.flag_bill_due')} />
+              ) : null}
+              {noSession.pending!.booklets?.some((b) => (b.amount ?? 0) > 0) ? (
+                <PendingChip text={t('teacher.flag_booklet') + (noSession.pending!.booklets.length > 1 ? ` (${noSession.pending!.booklets.length})` : '')} />
+              ) : null}
+              {noSession.pending!.booking && noSession.pending!.booking.total > 0 ? <PendingChip text={t('teacher.flag_booking')} /> : null}
+            </View>
+          ) : null}
+
+          {/* Primary: collect their dues if any; otherwise their profile (when ours). */}
+          {hasDues(noSession.pending) ? (
+            <TouchableOpacity
+              onPress={() => { const n = noSession; setNoSession(null); setDuesFor({ code: n.code, name: n.name, pending: n.pending! }); }}
+              activeOpacity={0.85}
+              style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}
+            >
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher.collect_dues_now')}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {noSession.profileId ? (
+            hasDues(noSession.pending) ? (
+              <TouchableOpacity onPress={() => openProfile(noSession.profileId!)} activeOpacity={0.85} style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Icon name="profile" size={16} color="#fff" outline />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('teacher.open_student_profile')}</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={() => openProfile(noSession.profileId!)}
+                activeOpacity={0.85}
+                style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: spacing.xxl }}
+              >
+                <Icon name="profile" size={18} color={onWhite.brand} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher.open_student_profile')}</Text>
+              </TouchableOpacity>
+            )
+          ) : null}
+          <TouchableOpacity onPress={() => { setNoSession(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('common.close')}</Text>
+          </TouchableOpacity>
         </View>
       ) : null}
 
