@@ -160,7 +160,7 @@ export default function TeacherScan() {
   // No session of the student's is running right now → HOLD on a popup (founder
   // 2026-10-03) instead of a passing red flash: who they are, whether they are ours, what
   // they owe (collect from here), and their profile when they are enrolled with this teacher.
-  const [noSession, setNoSession] = useState<{ name: string; message: string; code: string; enrolledHere: boolean; profileId: number | null; pending: ScanPending | null } | null>(null);
+  const [noSession, setNoSession] = useState<{ name: string; message: string; code: string; enrolledHere: boolean | null; profileId: number | null; pending: ScanPending | null } | null>(null);
   const canManageStudents = can(ABILITY.MANAGE_STUDENTS);
   // Merged pay-on-scan popup: after an attendance scan surfaces dues, open ONE popup
   // listing every kind (bill / booklets / booking) with the paid/remaining + pay-full UI.
@@ -338,7 +338,7 @@ export default function TeacherScan() {
         // on the no-session popup; dues and the profile ride along for our own students.
         if (!res.success && res.code === 'NO_ACTIVE_SESSION') {
           setBusy(false);
-          setNoSession({ name: res.student_name ?? '', message: res.message, code: data, enrolledHere: !!res.enrolled_here, profileId, pending: res.pending ?? null });
+          setNoSession({ name: res.student_name ?? '', message: res.message, code: data, enrolledHere: res.enrolled_here ?? null, profileId, pending: res.pending ?? null });
           return;
         }
         // Overdue bill → hold on a blocking prompt offering the 15-day exemption,
@@ -865,15 +865,19 @@ export default function TeacherScan() {
           {noSession.name ? (
             <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', textAlign: 'center', marginTop: spacing.lg }}>{noSession.name}</Text>
           ) : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm, paddingVertical: 5, paddingHorizontal: 14, borderRadius: radius.full, backgroundColor: noSession.enrolledHere ? 'rgba(31,147,102,0.35)' : 'rgba(201,162,39,0.22)', borderWidth: 1, borderColor: noSession.enrolledHere ? 'rgba(120,230,180,0.7)' : '#C9A227' }}>
-            <Icon name={noSession.enrolledHere ? 'success' : 'warning'} size={14} color={noSession.enrolledHere ? '#9CF2C8' : '#F5C542'} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: noSession.enrolledHere ? '#9CF2C8' : '#F5C542' }}>
-              {noSession.enrolledHere ? t('teacher.no_session_mine') : t('teacher.no_session_not_mine')}
-            </Text>
-          </View>
+          {/* Ours or not — only when the server actually said (an older backend says
+              nothing, and the popup must not call a real student a stranger). */}
+          {noSession.enrolledHere !== null ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm, paddingVertical: 5, paddingHorizontal: 14, borderRadius: radius.full, backgroundColor: noSession.enrolledHere ? 'rgba(31,147,102,0.35)' : 'rgba(201,162,39,0.22)', borderWidth: 1, borderColor: noSession.enrolledHere ? 'rgba(120,230,180,0.7)' : '#C9A227' }}>
+              <Icon name={noSession.enrolledHere ? 'success' : 'warning'} size={14} color={noSession.enrolledHere ? '#9CF2C8' : '#F5C542'} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: noSession.enrolledHere ? '#9CF2C8' : '#F5C542' }}>
+                {noSession.enrolledHere ? t('teacher.no_session_mine') : t('teacher.no_session_not_mine')}
+              </Text>
+            </View>
+          ) : null}
           <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff', marginTop: spacing.lg, textAlign: 'center' }}>{t('teacher.no_session_title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: 'rgba(255,255,255,0.85)', marginTop: 4, textAlign: 'center', paddingHorizontal: spacing.lg }}>
-            {noSession.enrolledHere ? t('teacher.no_session_hint_mine') : t('teacher.no_session_hint_not_mine')}
+            {noSession.enrolledHere === null ? noSession.message : noSession.enrolledHere ? t('teacher.no_session_hint_mine') : t('teacher.no_session_hint_not_mine')}
           </Text>
 
           {/* What they owe, at a glance — the same chips as the check-in flash. */}

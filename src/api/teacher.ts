@@ -89,8 +89,9 @@ export interface ScanResult {
   // Present on an OTHER_GROUP_SAME_GRADE scan.
   offer?: ScanOffer | null;
   // The scanned student has a live enrolment with the scanning teacher — the scan popups
-  // may open their profile. Never true for a stranger's card.
-  enrolled_here?: boolean;
+  // may open their profile. Never true for a stranger's card. `null` when the server did
+  // not say (an older backend): the popup then claims nothing either way.
+  enrolled_here?: boolean | null;
 }
 
 /**
@@ -112,7 +113,7 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
       student_id: data.student_id ?? null,
       pending: data.pending ?? null,
       offer: data.offer ?? null,
-      enrolled_here: !!data.enrolled_here,
+      enrolled_here: typeof data.enrolled_here === 'boolean' ? data.enrolled_here : null,
     };
   } catch (e: any) {
     // Non-2xx failures (expired card, not enrolled, overdue block, etc.) carry the same shape.
@@ -127,7 +128,7 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
         // The overdue block carries the dues so the app can open the collect modal.
         pending: d.pending ?? null,
         offer: d.offer ?? null,
-        enrolled_here: !!d.enrolled_here,
+        enrolled_here: typeof d.enrolled_here === 'boolean' ? d.enrolled_here : null,
       };
     }
     throw e;
