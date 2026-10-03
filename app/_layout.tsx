@@ -124,10 +124,16 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
     if (!hydrationStarted) {
       setHydrationStarted(true);
       hydrate();
-      // The saved appearance choice, applied before the first screen paints.
-      void useThemeStore.getState().hydrate(system);
     }
-  }, [hydrate, hydrationStarted, system]);
+  }, [hydrate, hydrationStarted]);
+
+  // The saved appearance choice, applied before the first screen paints. Keyed on
+  // `themeReady`, not on a "started" flag: hydrate() is idempotent, and if the store is ever
+  // recreated un-hydrated (Fast Refresh re-evaluating the theme modules did exactly that,
+  // leaving the gate on its spinner for good) the next render simply hydrates again.
+  useEffect(() => {
+    if (!themeReady) void useThemeStore.getState().hydrate(system);
+  }, [themeReady, system]);
 
   // «حسب النظام»: follow the phone when it flips (sunset schedule, Control Centre).
   useEffect(() => {
