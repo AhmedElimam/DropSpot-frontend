@@ -27,6 +27,8 @@ const ICON_MAP = {
   sessions: 'calendar-number',
   /** A lesson in progress — the sessions tab (founder 2026-10-03: not the numbered calendar). */
   lesson: 'easel',
+  /** The parent's أبنائي centre tab (founder 2026-10-03: not the generic two-heads icon). */
+  kids: 'happy',
   clock: 'time',
   quiz: 'document-text',
   grades: 'ribbon',

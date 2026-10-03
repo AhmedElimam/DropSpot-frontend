@@ -35,7 +35,7 @@ const labels: Record<string, string> = {
 
 const icons: Record<string, IconName> = {
   index: 'home',
-  children: 'children',
+  children: 'kids',
   teachers: 'teacher',
   invoices: 'invoices',
   profile: 'settings',
