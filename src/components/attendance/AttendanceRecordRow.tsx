@@ -41,11 +41,12 @@ export const AttendanceRecordRow = memo(function AttendanceRecordRow({ record, c
   const valid = when && !isNaN(when.getTime());
   const attended = record.status === 'present' || record.status === 'late';
 
+  const icon = record.status === 'present' ? 'present' : record.status === 'late' ? 'late' : record.status === 'excused' ? 'excused' : 'absent';
+
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.borderLight }}>
-      <View style={{ width: 50, height: 54, borderRadius: radius.md, backgroundColor: tone.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 24, color: tone.fg, includeFontPadding: false }} numberOfLines={1}>{valid ? formatDate(when, { day: 'numeric' }) : '—'}</Text>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, lineHeight: 14, color: tone.fg }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{valid ? formatDate(when, { month: 'short' }) : ''}</Text>
+      <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: tone.bg, alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
+        <Icon name={icon} size={18} color={tone.fg} />
       </View>
 
       <View style={{ flex: 1, minWidth: 0 }}>
@@ -54,7 +55,7 @@ export const AttendanceRecordRow = memo(function AttendanceRecordRow({ record, c
           <StatusBadge status={record.status ?? ''} size="sm" />
         </View>
         <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
-          {[valid ? formatDate(when, { weekday: 'long' }) : null, valid ? formatTime(when) : null, record.teacher_name].filter(Boolean).join(' · ')}
+          {[valid ? formatDate(when, { weekday: 'long', day: 'numeric', month: 'short' }) : null, valid ? formatTime(when) : null, record.teacher_name].filter(Boolean).join(' · ')}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: 6 }}>
           {attended && record.check_in_method ? <StatusBadge status={record.check_in_method} size="sm" /> : null}

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, gradients, radius, spacing } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { Image } from 'expo-image';
 import { GeneratedAvatar } from '@/components/ui/GeneratedAvatar';
 
 export interface HeroStat {
@@ -26,11 +27,13 @@ export interface HeroStat {
  *
  * Draws through the hero tokens, so it is ink on paper by day and white on navy by night.
  */
-export function PageHero({ title, subtitle, avatar, onBack, action, stats, children, compact = false }: {
+export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, stats, children, compact = false }: {
   title: string;
   subtitle?: string;
-  /** A one-letter tile beside the title (a person's initial). */
+  /** The person's avatar seed (see `avatarSeed`) — drawn as their generated character. */
   avatar?: string;
+  /** A photo or logo that wins over the generated character when present. */
+  avatarUrl?: string | null;
   /** Show the back chip. Pass `true` to pop (falling back to the role home), or a handler. */
   onBack?: boolean | (() => void);
   /** A chip on the far side of the first row. */
@@ -77,7 +80,11 @@ export function PageHero({ title, subtitle, avatar, onBack, action, stats, child
       ) : null}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        {avatar ? (
+        {avatarUrl ? (
+          <View style={{ borderRadius: 20, overflow: 'hidden', borderWidth: 2, borderColor: colors.onHeroChipBorder }}>
+            <Image source={{ uri: avatarUrl }} style={{ width: 60, height: 60, backgroundColor: colors.surface }} contentFit="cover" accessibilityLabel={title} />
+          </View>
+        ) : avatar ? (
           <View style={{ borderRadius: 20, overflow: 'hidden', borderWidth: 2, borderColor: colors.onHeroChipBorder }}>
             <GeneratedAvatar seed={avatar} size={60} square label={title} />
           </View>

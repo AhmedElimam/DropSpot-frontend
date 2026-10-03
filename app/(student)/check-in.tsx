@@ -1,9 +1,10 @@
 import { SheetModal } from '@/components/ui/SheetModal';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
 import { useConfigRule } from '@/hooks/useAppConfig';
 import { formatDate, formatDateTime, formatTime } from '@/utils/format';
 import { useTranslation } from 'react-i18next';
+import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
@@ -25,15 +26,6 @@ import { ComplaintSheet, type ComplaintTarget } from '@/components/student/Compl
 import { useMyComplaints } from '@/hooks/useComplaints';
 import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
 import { AttendanceRecordRow } from '@/components/attendance/AttendanceRecordRow';
-
-type RecordFilter = 'all' | 'present' | 'absent' | 'excused';
-const RECORD_LIMIT = 8;
-const RECORD_FILTERS: { key: RecordFilter; label: string; match: (status: string | null | undefined) => boolean }[] = [
-  { key: 'all', label: 'attendance.filter_all', match: () => true },
-  { key: 'present', label: 'attendance.filter_present', match: (st) => st === 'present' || st === 'late' },
-  { key: 'absent', label: 'attendance.filter_absent', match: (st) => st === 'absent' },
-  { key: 'excused', label: 'attendance.filter_excused', match: (st) => st === 'excused' },
-];
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -81,25 +73,7 @@ export default function CheckInTab() {
   const [excuseVisible, setExcuseVisible] = useState(false);
   const [complaintTarget, setComplaintTarget] = useState<ComplaintTarget | null>(null);
   const myComplaints = useMyComplaints();
-  const [filter, setFilter] = useState<RecordFilter>('all');
-  const [expanded, setExpanded] = useState(false);
-  const allRecords = (records ?? []).filter(Boolean);
-  const activeFilter = RECORD_FILTERS.find((f) => f.key === filter) ?? RECORD_FILTERS[0];
-  const filteredRecords = filter === 'all' ? allRecords : allRecords.filter((r) => activeFilter.match(r.status));
-  const visibleRecords = expanded ? filteredRecords : filteredRecords.slice(0, RECORD_LIMIT);
-  // Rows grouped by month so a long record reads as a calendar, not a pile.
-  const monthGroups = useMemo(() => {
-    const groups: { key: string; label: string; rows: typeof visibleRecords }[] = [];
-    for (const r of visibleRecords) {
-      const d = r.session_time ? new Date(r.session_time) : null;
-      const ok = d && !isNaN(d.getTime());
-      const key = ok ? `${d.getFullYear()}-${d.getMonth()}` : 'unknown';
-      const label = ok ? formatDate(d, { month: 'long', year: 'numeric' }) : '—';
-      const last = groups[groups.length - 1];
-      if (last && last.key === key) last.rows.push(r); else groups.push({ key, label, rows: [r] });
-    }
-    return groups;
-  }, [visibleRecords]);
+  const recentRecords = (records ?? []).filter(Boolean).slice(0, 5);
   const [excuseText, setExcuseText] = useState('');
   const [excuseRecordId, setExcuseRecordId] = useState<number | null>(null);
   const [excuseSent, setExcuseSent] = useState(false);
@@ -262,16 +236,16 @@ export default function CheckInTab() {
                 {t('session.no_sessions')}
               </Text>
             ) : (
-              todaySessions.map((session) => {
+              todaySessions.map((session, i) => {
                 const isSelected = selectedSession === session.id;
                 const scheduled = new Date(session.scheduled_at);
                 const endTime = new Date(scheduled.getTime() + session.duration_minutes * 60000);
-                const timeStr = `${formatTime(scheduled)} - ${formatTime(endTime)}`;
                 const { canCheckIn: inWindow } = getCheckInWindow(session.scheduled_at);
                 const checkable = isCheckable(session);
                 // The student's own outcome, else a finished session's lifecycle status.
                 const badgeStatus = session.attendance_status
                   ?? (session.status !== 'scheduled' ? session.status : null);
+                const tone = isSelected ? colors.brand : checkable ? colors.success : colors.borderStrong;
 
                 return (
                   <TouchableOpacity
@@ -279,55 +253,42 @@ export default function CheckInTab() {
                     onPress={() => checkable && setSelectedSession(session.id)}
                     activeOpacity={checkable ? 0.7 : 1}
                     disabled={!checkable}
+                    accessibilityRole={checkable ? 'radio' : undefined}
+                    accessibilityState={checkable ? { selected: isSelected } : undefined}
                     style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      padding: spacing.md,
-                      borderRadius: radius.md,
+                      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+                      padding: spacing.md, borderRadius: radius.lg,
                       backgroundColor: isSelected ? colors.brandTint : colors.surfaceSunken,
-                      marginBottom: spacing.sm,
-                      borderWidth: 1.5,
-                      borderColor: isSelected ? colors.brand : colors.border,
-                      opacity: checkable || badgeStatus ? 1 : 0.6,
+                      borderWidth: 1.5, borderColor: isSelected ? colors.brand : colors.border,
+                      borderStartWidth: 4, borderStartColor: tone,
+                      marginBottom: i < todaySessions.length - 1 ? spacing.sm : 0,
+                      opacity: checkable || badgeStatus ? 1 : 0.65,
                     }}
                   >
-                    {checkable && (
-                      <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? colors.brand : colors.borderStrong, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
-                        {isSelected && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand }} />}
-                      </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={textPresets.subtitle}>{session.course_name}</Text>
-                      <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{session.teacher_name} · {timeStr}</Text>
-                      {session.status === 'scheduled' && !inWindow && (
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.dangerText, marginTop: 2 }}>
-                          {t('attendance.outside_window')}
-                        </Text>
-                      )}
-                      {session.status === 'scheduled' && (
-                        session.phone_checkin_allowed ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                            <Icon name="phone" size={12} color={colors.successText} />
-                            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.successText }}>
-                              {t('attendance.phone_allowed_badge')}
-                            </Text>
-                          </View>
-                        ) : (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                            <Icon name="card" size={12} color={colors.textTertiary} outline />
-                            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>
-                              {t('attendance.card_only_badge')}
-                            </Text>
-                          </View>
-                        )
-                      )}
+                    <View style={{ width: 56, alignItems: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, lineHeight: 20, color: isSelected ? colors.brand : colors.textPrimary }} numberOfLines={1} adjustsFontSizeToFit>{formatTime(scheduled)}</Text>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, lineHeight: 14, color: colors.textTertiary }} numberOfLines={1} adjustsFontSizeToFit>{formatTime(endTime)}</Text>
                     </View>
-                    {/* The student's outcome (present/late/absent/excused) or a finished
-                        session's status; a live dot only while it's still checkable. */}
+                    <View style={{ width: 1, alignSelf: 'stretch', backgroundColor: colors.borderLight }} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{session.course_name}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{session.teacher_name}</Text>
+                      {session.status === 'scheduled' ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                          <Icon name={session.phone_checkin_allowed ? 'phone' : 'card'} size={12} color={session.phone_checkin_allowed ? colors.successText : colors.textTertiary} outline={!session.phone_checkin_allowed} />
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: session.phone_checkin_allowed ? colors.successText : colors.textTertiary }}>
+                            {session.phone_checkin_allowed ? t('attendance.phone_allowed_badge') : t('attendance.card_only_badge')}
+                          </Text>
+                          {!inWindow ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.dangerText }}> · {t('attendance.outside_window')}</Text> : null}
+                        </View>
+                      ) : null}
+                    </View>
                     {badgeStatus ? (
                       <StatusBadge status={badgeStatus} size="sm" />
                     ) : checkable ? (
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success }} />
+                      <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? colors.brand : colors.borderStrong, justifyContent: 'center', alignItems: 'center' }}>
+                        {isSelected ? <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand }} /> : null}
+                      </View>
                     ) : null}
                   </TouchableOpacity>
                 );
@@ -394,100 +355,65 @@ export default function CheckInTab() {
             </>
           )}
 
-          {/* Excuse for a recorded absence */}
+          {/* Excuse for a recorded absence — a row that says what it is for, not a loud button. */}
           <TouchableOpacity
             onPress={() => { setExcuseVisible(true); setExcuseRecordId(null); setExcuseSent(false); setExcuseText(''); }}
             activeOpacity={0.8}
-            style={{ borderRadius: radius.md, overflow: 'hidden' }}
+            accessibilityRole="button"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: colors.warning, ...shadows.sm }}
           >
-            <View style={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.warningLight, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.warning }}>
-              <Icon name="note" size={20} color={colors.warningText} outline />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.warningText }}>{t('attendance.excuse')}</Text>
+            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.warningLight, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="note" size={22} color={colors.warningText} outline />
             </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('attendance.excuse')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{t('attendance.excuse_sub')}</Text>
+            </View>
+            {absentRecords.length > 0 ? (
+              <View style={{ minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 6, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onPrimary }}>{formatNumber(absentRecords.length)}</Text>
+              </View>
+            ) : null}
+            <Icon name="back" size={18} color={colors.textTertiary} />
           </TouchableOpacity>
 
-          {/* Attendance at a glance: the rate as a ring with tinted counts. */}
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
+          {/* Attendance at a glance — tap for the full record, course by course. */}
+          <TouchableOpacity onPress={() => router.push('/(student)/attendance')} activeOpacity={0.85} accessibilityRole="button" accessibilityHint={t('attendance.tap_for_detail')}
+            style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
               <SectionHead icon="attendance" color={colors.success} title={t('attendance.coverage')} />
-              <Text style={textPresets.caption}>{t('attendance.coverage_this_month')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('attendance.tap_for_detail')}</Text>
+                <Icon name="back" size={14} color={colors.brand} />
+              </View>
             </View>
             <AttendanceOverview present={stats?.present ?? 0} late={stats?.late ?? 0} absent={stats?.absent ?? 0} excused={stats?.excused ?? 0} />
-          </View>
+          </TouchableOpacity>
 
-          {/* The record itself (founder 2026-10-03: «some love on the attendance record page»):
-              filter chips with counts, then the sessions grouped by month as dated rows a
-              student can dispute from. */}
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm, overflow: 'hidden' }}>
-            <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
-              <SectionHead icon="calendar" color={colors.brand} title={t('attendance.history_title')} />
-              <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{t('attendance.history_sub')}</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.sm, paddingVertical: spacing.md }}>
-              {RECORD_FILTERS.map((f) => {
-                const on = filter === f.key;
-                const n = f.key === 'all' ? allRecords.length : allRecords.filter((r) => f.match(r.status)).length;
-                const tone = f.key === 'present' ? colors.success : f.key === 'absent' ? colors.danger : f.key === 'excused' ? colors.info : colors.primary;
-                return (
-                  <TouchableOpacity key={f.key} onPress={() => { setFilter(f.key); setExpanded(false); }} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                    style={{ minHeight: 36, paddingHorizontal: spacing.md, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, backgroundColor: on ? tone : colors.surfaceSunken, borderWidth: 1, borderColor: on ? tone : colors.border }}>
-                    {f.key !== 'all' ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: on ? colors.onPrimary : tone }} /> : null}
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: on ? colors.onPrimary : colors.textSecondary }}>{t(f.label)}</Text>
-                    <View style={{ minWidth: 20, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? 'rgba(255,255,255,0.22)' : colors.surface }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: on ? colors.onPrimary : colors.textTertiary }}>{formatNumber(n)}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            <View style={{ paddingHorizontal: spacing.lg }}>
-              {visibleRecords.length === 0 ? (
-                <View style={{ alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm }}>
-                  <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name="calendar" size={22} color={colors.textTertiary} outline />
-                  </View>
-                  <Text style={[textPresets.bodySmall, { color: colors.textTertiary, textAlign: 'center' }]}>
-                    {t(allRecords.length === 0 ? 'attendance.no_records' : 'attendance.no_records_filtered')}
-                  </Text>
-                </View>
-              ) : monthGroups.map((g) => (
-                <View key={g.key}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textTertiary }}>{g.label}</Text>
-                    <View style={{ flex: 1, height: 1, backgroundColor: colors.borderLight }} />
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textTertiary }}>{formatNumber(g.rows.length)}</Text>
-                  </View>
-                  {g.rows.map((record, i) => (
-                    <AttendanceRecordRow
-                      key={record.id || `${g.key}-${i}`}
-                      record={record}
-                      complaint={record.session_instance_id ? myComplaints.bySession.get(record.session_instance_id) : undefined}
-                      onComplain={(r) => setComplaintTarget({ type: 'attendance', sessionInstanceId: r.session_instance_id, courseName: r.course_name ?? '', sessionAt: r.session_time ?? null, recordedStatus: r.status ?? null })}
-                      last={i === g.rows.length - 1}
-                    />
-                  ))}
-                </View>
+          {/* The last five sessions; the whole record lives on its own page. */}
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
+            <SectionHead icon="calendar" color={colors.brand} title={t('attendance.recent_title')} />
+            <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{t('attendance.recent_sub')}</Text>
+            <View style={{ marginTop: spacing.xs }}>
+              {recentRecords.length === 0 ? (
+                <Text style={[textPresets.bodySmall, { color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }]}>{t('attendance.no_records')}</Text>
+              ) : recentRecords.map((record, i) => (
+                <AttendanceRecordRow
+                  key={record.id || i}
+                  record={record}
+                  complaint={record.session_instance_id ? myComplaints.bySession.get(record.session_instance_id) : undefined}
+                  onComplain={(r) => setComplaintTarget({ type: 'attendance', sessionInstanceId: r.session_instance_id, courseName: r.course_name ?? '', sessionAt: r.session_time ?? null, recordedStatus: r.status ?? null })}
+                  last={i === recentRecords.length - 1}
+                />
               ))}
             </View>
-
-            <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
-              {filteredRecords.length > RECORD_LIMIT ? (
-                <TouchableOpacity onPress={() => setExpanded((v) => !v)} activeOpacity={0.85} accessibilityRole="button"
-                  style={{ marginTop: spacing.sm, minHeight: 42, borderRadius: radius.md, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
-                  <Icon name={expanded ? 'up' : 'down'} size={16} color={colors.brand} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>
-                    {expanded ? t('attendance.show_less') : t('attendance.show_more', { count: formatNumber(filteredRecords.length - RECORD_LIMIT) })}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-              {allRecords.length > 0 ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md }}>
-                  <Icon name="info" size={14} color={colors.textTertiary} outline />
-                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('attendance.dispute_hint')}</Text>
-                </View>
-              ) : null}
-            </View>
+            {(records ?? []).length > 0 ? (
+              <TouchableOpacity onPress={() => router.push('/(student)/attendance')} activeOpacity={0.85} accessibilityRole="button"
+                style={{ marginTop: spacing.md, minHeight: 44, borderRadius: radius.md, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+                <Icon name="calendar" size={16} color={colors.brand} outline />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.brand }}>{t('attendance.open_detail')}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       </ScrollView>

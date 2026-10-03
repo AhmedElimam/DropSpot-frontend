@@ -184,8 +184,9 @@ export default function StudentDashboard() {
 
           {/* Attendance this month — the rate as a ring, the three counts beside it. */}
           <View style={{ marginTop: spacing.xl }}>
-            <SectionHead icon="attendance" color={colors.success} title={t('home.attendance_overview')} />
-            <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: spacing.lg, ...shadows.sm }}>
+            <SectionHead icon="attendance" color={colors.success} title={t('home.attendance_overview')} action={t('attendance.tap_for_detail')} onAction={() => router.push('/(student)/attendance')} />
+            <TouchableOpacity onPress={() => router.push('/(student)/attendance')} activeOpacity={0.85} accessibilityRole="button" accessibilityHint={t('attendance.tap_for_detail')}
+              style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: spacing.lg, ...shadows.sm }}>
               <PercentRing value={pct} caption={t('home.attendance_ring_label')} />
               <View style={{ flex: 1, gap: spacing.sm }}>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>
@@ -203,7 +204,7 @@ export default function StudentDashboard() {
                   </View>
                 ))}
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -291,7 +292,8 @@ function TeacherCard({ teacher }: { teacher: StudentTeacher }) {
   const rate = teacher.total > 0 ? Math.round(teacher.present / teacher.total * 100) : null;
   const tone = rate === null ? colors.textTertiary : rate >= 90 ? colors.success : rate >= 75 ? colors.brand : colors.accent;
   return (
-    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.md, ...shadows.sm }}>
+    <TouchableOpacity onPress={() => router.push(`/(student)/teacher/${teacher.id}`)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={teacher.name}
+      style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.md, ...shadows.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         {teacher.logo_url ? (
           <Image source={{ uri: teacher.logo_url }} style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: colors.surfaceSunken }} contentFit="cover" />
@@ -332,6 +334,10 @@ function TeacherCard({ teacher }: { teacher: StudentTeacher }) {
           </Text>
         ) : null}
       </View>
-    </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: spacing.sm }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('attendance.tap_for_detail')}</Text>
+        <Icon name="back" size={13} color={colors.brand} />
+      </View>
+    </TouchableOpacity>
   );
 }
