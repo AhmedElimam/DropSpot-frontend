@@ -149,7 +149,7 @@ export default function InviteAcceptScreen() {
             onChangeText={setName}
             placeholder={t('invite.name_placeholder')}
             placeholderTextColor={colors.textTertiary}
-            style={{ ...field, marginBottom: nameHasLatin ? spacing.xs : spacing.lg, borderColor: nameHasLatin ? colors.danger : name ? colors.brand : colors.borderStrong }}
+            style={{ ...field(), marginBottom: nameHasLatin ? spacing.xs : spacing.lg, borderColor: nameHasLatin ? colors.danger : name ? colors.brand : colors.borderStrong }}
           />
           {nameHasLatin ? (
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>{t('auth.name_arabic_only')}</Text>
@@ -164,7 +164,7 @@ export default function InviteAcceptScreen() {
         onChangeText={setParentName}
         placeholder={t('auth.parent_name_example')}
         placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: parentNameHasLatin ? spacing.xs : spacing.lg, borderColor: parentNameHasLatin ? colors.danger : parentName ? colors.brand : colors.borderStrong }}
+        style={{ ...field(), marginBottom: parentNameHasLatin ? spacing.xs : spacing.lg, borderColor: parentNameHasLatin ? colors.danger : parentName ? colors.brand : colors.borderStrong }}
       />
       {parentNameHasLatin ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>{t('auth.name_arabic_only')}</Text>
@@ -178,7 +178,7 @@ export default function InviteAcceptScreen() {
         autoCapitalize="none"
         placeholder="01000000000"
         placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.lg, borderColor: parentPhone ? colors.brand : colors.borderStrong }}
+        style={{ ...field(), marginBottom: spacing.lg, borderColor: parentPhone ? colors.brand : colors.borderStrong }}
       />
 
       <Text style={label()}>{t('auth.parent_relation')}</Text>
@@ -204,7 +204,7 @@ export default function InviteAcceptScreen() {
         onChangeText={setPassword}
         placeholder="••••••••"
         placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.lg, borderColor: password ? colors.brand : colors.borderStrong }}
+        style={{ ...field(), marginBottom: spacing.lg, borderColor: password ? colors.brand : colors.borderStrong }}
       />
 
       <Text style={label()}>{t('auth.confirm_password')}</Text>
@@ -213,7 +213,7 @@ export default function InviteAcceptScreen() {
         onChangeText={setConfirmPassword}
         placeholder="••••••••"
         placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: confirmPassword && password !== confirmPassword ? spacing.xs : spacing.lg, borderColor: confirmPassword ? (confirmPassword === password ? colors.success : colors.danger) : colors.borderStrong }}
+        style={{ ...field(), marginBottom: confirmPassword && password !== confirmPassword ? spacing.xs : spacing.lg, borderColor: confirmPassword ? (confirmPassword === password ? colors.success : colors.danger) : colors.borderStrong }}
       />
       {confirmPassword && password !== confirmPassword ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>{t('auth.password_mismatch')}</Text>

@@ -125,8 +125,8 @@ export default function TeacherManage() {
             return (
               <TouchableOpacity key={g} onPress={() => pick(g)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
                 style={{ flex: 1, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: radius.md, backgroundColor: on ? look.tint : colors.onHeroChip, borderWidth: 1, borderColor: on ? look.tint : colors.onHeroChip }}>
-                <Icon name={look.icon} size={15} color={colors.onHero} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }} numberOfLines={1}>{t(`manage.group_${g}`)}</Text>
+                <Icon name={look.icon} size={15} color={on ? colors.onPrimary : colors.onHero} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onPrimary : colors.onHero }} numberOfLines={1}>{t(`manage.group_${g}`)}</Text>
                 {n > 0 ? (
                   // Pinned to the corner, so four pills still fit a narrow phone.
                   <View style={{ position: 'absolute', top: -6, end: -4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.accent, borderWidth: 1.5, borderColor: gradients.hero[1], alignItems: 'center', justifyContent: 'center' }}>

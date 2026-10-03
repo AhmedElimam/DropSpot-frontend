@@ -231,7 +231,7 @@ export default function RecordStudent() {
               onChangeText={setName}
               placeholder="الاسم الكامل"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: spacing.xs, borderColor: nameError ? colors.danger : (name ? colors.brand : colors.borderStrong) }}
+              style={{ ...field(), marginBottom: spacing.xs, borderColor: nameError ? colors.danger : (name ? colors.brand : colors.borderStrong) }}
               returnKeyType="next"
             />
             {nameError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>يرجى إدخال الاسم بالعربية</Text> : <View style={{ height: spacing.md }} />}
@@ -244,7 +244,7 @@ export default function RecordStudent() {
               placeholder="01xxxxxxxxx"
               placeholderTextColor={colors.textTertiary}
               keyboardType="phone-pad"
-              style={{ ...field, marginBottom: spacing.xs, borderColor: (studentPhoneError || sameAsParentError) ? colors.danger : (studentPhone ? colors.brand : colors.borderStrong) }}
+              style={{ ...field(), marginBottom: spacing.xs, borderColor: (studentPhoneError || sameAsParentError) ? colors.danger : (studentPhone ? colors.brand : colors.borderStrong) }}
               returnKeyType="next"
             />
             {sameAsParentError
@@ -261,7 +261,7 @@ export default function RecordStudent() {
               placeholder="01xxxxxxxxx"
               placeholderTextColor={colors.textTertiary}
               keyboardType="phone-pad"
-              style={{ ...field, marginBottom: spacing.xs, borderColor: phoneError ? colors.danger : (parentPhone ? colors.brand : colors.borderStrong) }}
+              style={{ ...field(), marginBottom: spacing.xs, borderColor: phoneError ? colors.danger : (parentPhone ? colors.brand : colors.borderStrong) }}
               onSubmitEditing={() => canSubmit && submit()}
             />
             <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>سيُستخدم هذا الرقم لتنشيط حساب الطالب لاحقًا.</Text>
@@ -273,7 +273,7 @@ export default function RecordStudent() {
               onChangeText={setParentName}
               placeholder="الاسم الكامل"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
+              style={{ ...field(), marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
             />
 
             {/* Relationship — OPTIONAL, tap to toggle. */}

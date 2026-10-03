@@ -246,16 +246,16 @@ export function EnrollmentTermsSheet({ terms }: Props) {
               <>
                 <Text style={label()}>عدد الحصص التي تغطّيها</Text>
                 <TextInput value={s.sessions} onChangeText={(v) => terms.set({ sessions: v.replace(/[^0-9]/g, '') })} keyboardType="number-pad"
-                  placeholder={remainingFor != null ? `${remainingFor} (المتبقي من الدورة)` : 'مثال: 3'} placeholderTextColor={colors.textTertiary} style={{ ...field, marginBottom: spacing.md }} />
+                  placeholder={remainingFor != null ? `${remainingFor} (المتبقي من الدورة)` : 'مثال: 3'} placeholderTextColor={colors.textTertiary} style={{ ...field(), marginBottom: spacing.md }} />
               </>
             ) : null}
             <Text style={label()}>قيمة الدفعة</Text>
             <TextInput value={s.amount} onChangeText={(v) => terms.set({ amount: v.replace(/[^0-9.]/g, '') })} keyboardType="numeric"
-              placeholder={suggested != null ? `${suggested} (الافتراضي)` : 'المبلغ'} placeholderTextColor={colors.textTertiary} style={{ ...field, marginBottom: spacing.xs }} />
+              placeholder={suggested != null ? `${suggested} (الافتراضي)` : 'المبلغ'} placeholderTextColor={colors.textTertiary} style={{ ...field(), marginBottom: spacing.xs }} />
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginBottom: spacing.md }}>اتركها فارغة لاستخدام السعر الافتراضي.</Text>
             <Text style={label()}>المدفوع الآن (اختياري)</Text>
             <TextInput value={s.paid} onChangeText={(v) => terms.set({ paid: v.replace(/[^0-9.]/g, '') })} keyboardType="numeric"
-              placeholder="0" placeholderTextColor={colors.textTertiary} style={{ ...field, borderColor: terms.overpaid ? colors.danger : colors.borderStrong }} />
+              placeholder="0" placeholderTextColor={colors.textTertiary} style={{ ...field(), borderColor: terms.overpaid ? colors.danger : colors.borderStrong }} />
             {terms.overpaid ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginTop: spacing.xs }}>المدفوع أكبر من قيمة الدفعة.</Text>
             ) : s.amount.trim() !== '' && s.paid.trim() !== '' ? (

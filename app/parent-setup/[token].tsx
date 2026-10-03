@@ -102,7 +102,7 @@ export default function ParentSetupScreen() {
         onChangeText={setName}
         placeholder={t('setup.name')}
         placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.lg, borderColor: name ? colors.brand : colors.borderStrong }}
+        style={{ ...field(), marginBottom: spacing.lg, borderColor: name ? colors.brand : colors.borderStrong }}
       />
 
       {/* Relationship — optional, tap to toggle. */}
@@ -131,7 +131,7 @@ export default function ParentSetupScreen() {
       <TextInput
         value={info.phone_number}
         editable={false}
-        style={{ ...field, marginBottom: spacing.lg, borderColor: colors.border, backgroundColor: colors.surfaceSunken, color: colors.textSecondary, textAlign: 'left', writingDirection: 'ltr' }}
+        style={{ ...field(), marginBottom: spacing.lg, borderColor: colors.border, backgroundColor: colors.surfaceSunken, color: colors.textSecondary, textAlign: 'left', writingDirection: 'ltr' }}
       />
 
       <Text style={label()}>{t('setup.password')}</Text>
@@ -140,7 +140,7 @@ export default function ParentSetupScreen() {
         onChangeText={setPassword}
         placeholder="••••••••"
         placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.xs, borderColor: password ? colors.brand : colors.borderStrong }}
+        style={{ ...field(), marginBottom: spacing.xs, borderColor: password ? colors.brand : colors.borderStrong }}
       />
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.lg }}>
         {t('setup.password_hint')}

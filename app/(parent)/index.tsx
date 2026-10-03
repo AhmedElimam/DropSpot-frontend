@@ -20,13 +20,19 @@ import { usePendingSiblingClaims, useConfirmSiblingClaim, useDenySiblingClaim } 
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
+import { SectionHead } from '@/components/ui/SectionHead';
+import { ActionTile } from '@/components/ui/ShortcutTile';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { timeAgo } from '@/utils/format';
+import { timeAgo, formatNumber } from '@/utils/format';
 
 /**
- * Parent Home — "Sanad" simple mode, built for an older parent.
- * One job: understand each child at a glance, then reach the few things that
- * matter with big, word-labelled actions. No raw percentages, no dense grids.
+ * Parent Home — "Sanad" simple mode, built for an older parent (founder 2026-10-03: «some
+ * love on the parent side»). One job: understand each child at a glance, then reach the few
+ * things that matter with big, word-labelled actions. No raw percentages, no dense grids.
+ *
+ * The hero carries the household in two numbers (children · those doing well) and the
+ * one-line verdict; each child is a card with a coloured standing pill; the four actions
+ * are big two-per-row tiles with a colour each, sized for a thumb.
  *
  * A child's line is a PLAIN-LANGUAGE standing derived from real attendance_rate
  * (no fabricated "today" status — that would need a dedicated endpoint).
@@ -39,11 +45,11 @@ const notifIcon: Record<string, IconName> = {
   student_report: 'note', monthly_report: 'reports', daily_digest: 'bell',
 };
 
-type Standing = { key: string; color: string };
+type Standing = { key: string; color: string; tint: string };
 function standingFor(rate: number): Standing {
-  if (rate >= 90) return { key: 'home.standing_excellent', color: colors.success };
-  if (rate >= 75) return { key: 'home.standing_good', color: colors.brand };
-  return { key: 'home.standing_watch', color: colors.warning };
+  if (rate >= 90) return { key: 'home.standing_excellent', color: colors.successText, tint: colors.successLight };
+  if (rate >= 75) return { key: 'home.standing_good', color: colors.infoText, tint: colors.infoLight };
+  return { key: 'home.standing_watch', color: colors.warningText, tint: colors.warningLight };
 }
 
 export default function ParentHome() {
@@ -59,99 +65,100 @@ export default function ParentHome() {
 
   const kids = children ?? [];
   const latest = (notifications ?? [])[0];
-  const allWell = kids.length > 0 && kids.every((c) => (c.attendance_rate ?? 0) >= 75);
+  const well = kids.filter((c) => (c.attendance_rate ?? 0) >= 75).length;
+  const allWell = kids.length > 0 && well === kids.length;
+  const attention = (billingAlerts?.length ?? 0) + (risks?.length ?? 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        {/* Deep-ink hero */}
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xxl }}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl + insets.top, paddingBottom: spacing.xl4 + spacing.lg }}
         >
           <HeaderBrandBar onBell={() => router.push('/(parent)/notifications')} unread={unread} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.onHeroSoft }}>
-            {t('home.welcome')}
-          </Text>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, marginTop: 2 }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft }}>{t('home.welcome')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, marginTop: 2 }} numberOfLines={1}>
             {user?.name || 'ولي الأمر'}
           </Text>
-          {kids.length > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, alignSelf: 'flex-start', marginTop: spacing.lg, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: spacing.lg }}>
-              <Icon name={allWell ? 'success' : 'warning'} size={20} color={allWell ? '#7FE3B0' : '#F3C77A'} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onHero }}>
-                {t(allWell ? 'home.all_well' : 'home.some_attention')}
-              </Text>
+
+          {kids.length > 0 ? (
+            <View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.sm }}>
+              {[
+                { k: 'kids', v: formatNumber(kids.length), l: t('home.children_section') },
+                { k: 'well', v: formatNumber(well), l: t('home.standing_good'), good: true },
+                { k: 'attention', v: formatNumber(attention), l: t('home.some_attention_short'), warn: attention > 0 },
+              ].map((x) => (
+                <View key={x.k} style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.onHeroChipBorder, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 22, lineHeight: 28, color: x.warn ? colors.accent : colors.onHero }}>{x.v}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.onHeroSoft }} numberOfLines={1}>{x.l}</Text>
+                </View>
+              ))}
             </View>
-          )}
+          ) : null}
         </LinearGradient>
 
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
+          {/* The verdict card: one plain sentence about the household. */}
+          {kids.length > 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.md }}>
+              <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: allWell ? colors.successLight : colors.warningLight, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name={allWell ? 'success' : 'warning'} size={26} color={allWell ? colors.success : colors.warningDark} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t(allWell ? 'home.all_well' : 'home.some_attention')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{t('home.children_hint')}</Text>
+              </View>
+            </View>
+          ) : null}
 
-          <CardOrderBanner scope="parent" />
-          <WhatsNewCard />
-
-          {/* Overdue billing (may block check-in) then auto-termination risk */}
-          {(billingAlerts ?? []).map((alert, i) => (
-            <BillingOverdueCard key={`bill-${alert.student_id}-${i}`} alert={alert} showName />
-          ))}
-          {(risks ?? []).map((risk, i) => (
-            <AttendanceRiskCard key={`${risk.student_id}-${risk.course_name ?? i}`} risk={risk} showName />
-          ))}
-
-          {/* §3 — pending phone pre-card invitations awaiting the family's consent */}
-          <PendingSiblingClaims t={t} />
-          <PendingInvites t={t} />
+          <View style={{ gap: spacing.md, marginTop: spacing.md }}>
+            <CardOrderBanner scope="parent" />
+            <WhatsNewCard />
+            {/* Overdue billing (may block check-in) then auto-termination risk */}
+            {(billingAlerts ?? []).map((alert, i) => (
+              <BillingOverdueCard key={`bill-${alert.student_id}-${i}`} alert={alert} showName />
+            ))}
+            {(risks ?? []).map((risk, i) => (
+              <AttendanceRiskCard key={`${risk.student_id}-${risk.course_name ?? i}`} risk={risk} showName />
+            ))}
+            {/* §3 — pending phone pre-card invitations awaiting the family's consent */}
+            <PendingSiblingClaims t={t} />
+            <PendingInvites t={t} />
+          </View>
 
           {/* Children */}
-          <View style={{ gap: spacing.md }}>
-            <Text style={sectionLabel()}>{t('home.children_section')}</Text>
+          <View style={{ marginTop: spacing.xl }}>
+            <SectionHead icon="children" color={colors.brand} title={t('home.children_section')} />
             {childrenLoading ? (
               <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl }} />
             ) : (
-              kids.map((child) => <ChildCard key={child.id} child={child} t={t} />)
+              <View style={{ gap: spacing.sm }}>
+                {kids.map((child) => <ChildCard key={child.id} child={child} t={t} />)}
+              </View>
             )}
           </View>
 
-          {/* Actions */}
-          <View style={{ gap: spacing.md }}>
-            <Text style={sectionLabel()}>{t('home.actions_section')}</Text>
-            <BigAction
-              icon="calendar" tint={colors.brandTint} iconColor={colors.brand}
-              title={t('today.title')} subtitle={t('today.subtitle')}
-              onPress={() => router.push('/(parent)/today')}
-            />
-            <BigAction
-              icon="invoices" tint={colors.successLight} iconColor={colors.success}
-              title={t('home.invoices_title')}
-              onPress={() => router.push('/(parent)/invoices')}
-            />
-            <BigAction
-              icon="reports" tint={colors.brandTint} iconColor={colors.brand}
-              title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')}
-              onPress={() => router.push('/(parent)/report-cards')}
-            />
-            <BigAction
-              icon="ticket" tint={colors.accentWarmTint} iconColor={colors.accentWarm}
-              title={t('home.support_title')} subtitle={t('home.support_sub')}
-              onPress={() => router.push('/(parent)/tickets')}
-            />
+          {/* Actions — big, coloured, two per row. */}
+          <View style={{ marginTop: spacing.xl }}>
+            <SectionHead icon="star" color={colors.accent} title={t('home.actions_section')} />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.sm }}>
+              <ActionTile icon="calendar" color={colors.brand} tint={colors.brandTint} title={t('today.title')} subtitle={t('today.subtitle')} onPress={() => router.push('/(parent)/today')} />
+              <ActionTile icon="invoices" color={colors.success} tint={colors.successLight} title={t('home.invoices_title')} onPress={() => router.push('/(parent)/invoices')} />
+              <ActionTile icon="reports" color={colors.info} tint={colors.infoLight} title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')} onPress={() => router.push('/(parent)/report-cards')} />
+              <ActionTile icon="ticket" color={colors.accentWarm} tint={colors.accentWarmTint} title={t('home.support_title')} subtitle={t('home.support_sub')} onPress={() => router.push('/(parent)/tickets')} />
+            </View>
           </View>
 
           {/* Latest update */}
-          <View style={{ gap: spacing.md }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={sectionLabel()}>{t('home.latest_update')}</Text>
-              <TouchableOpacity onPress={() => router.push('/(parent)/notifications')} hitSlop={8}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('notifications.view_all')}</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={{ marginTop: spacing.xl }}>
+            <SectionHead icon="bell" color={colors.warningDark} title={t('home.latest_update')} action={t('notifications.view_all')} onAction={() => router.push('/(parent)/notifications')} />
             {latest ? (
               <TouchableOpacity onPress={() => router.push('/(parent)/notifications')} activeOpacity={0.75} style={{ flexDirection: 'row', gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 4, borderStartColor: colors.brand }}>
                 <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
@@ -185,20 +192,21 @@ function ChildCard({ child, t }: { child: Child; t: (k: string) => string }) {
       activeOpacity={0.75}
       accessibilityRole="button"
       accessibilityLabel={child.name}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xxl, padding: spacing.lg, ...shadows.sm }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xxl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 4, borderStartColor: standing.color }}
     >
-      <Avatar name={child.name} size={58} />
+      <Avatar name={child.name} size={56} />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{child.name}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }} numberOfLines={1}>{child.name}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 6 }}>
-          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: standing.color }} />
-          <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 16, color: standing.color, flexShrink: 0 }}>{t(standing.key)}</Text>
+          <View style={{ backgroundColor: standing.tint, borderRadius: radius.full, paddingVertical: 3, paddingHorizontal: 10 }}>
+            <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 13, color: standing.color }}>{t(standing.key)}</Text>
+          </View>
           {child.grade ? (
-            <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, flexShrink: 1 }}>· {child.grade}</Text>
+            <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, flexShrink: 1 }}>{child.grade}</Text>
           ) : null}
         </View>
       </View>
-      <Text style={{ fontSize: 28, color: colors.textTertiary }}>‹</Text>
+      <Icon name="back" size={20} color={colors.textTertiary} />
     </TouchableOpacity>
   );
 }
@@ -337,31 +345,6 @@ function PendingInvites({ t }: { t: (k: string) => string }) {
         </View>
       ))}
     </View>
-  );
-}
-
-function BigAction({ icon, tint, iconColor, title, subtitle, onPress }: {
-  icon: IconName; tint: string; iconColor: string; title: string; subtitle?: string; onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.75}
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 72, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm }}
-    >
-      <View style={{ width: 50, height: 50, borderRadius: 15, backgroundColor: tint, justifyContent: 'center', alignItems: 'center' }}>
-        <Icon name={icon} size={26} color={iconColor} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.textPrimary }}>{title}</Text>
-        {subtitle ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>{subtitle}</Text>
-        ) : null}
-      </View>
-      <Text style={{ fontSize: 26, color: colors.textTertiary }}>‹</Text>
-    </TouchableOpacity>
   );
 }
 

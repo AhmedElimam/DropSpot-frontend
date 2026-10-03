@@ -9,8 +9,9 @@
  * the paper itself, a shade deeper at the very top, with ink text. Colour lives in cards,
  * chips and numbers — not in a band.
  *
- * DARK — "Midnight". Deep navy, never black; surfaces one step lighter navy; neon cyan is
- * the signature (tab bar, chips, the hero's glass), with mint / amber / coral for state
+ * DARK — "Midnight". Deep navy, never black; surfaces one step lighter navy; the brand's
+ * apricot turns neon (#FF9A2E) and is the signature (tab bar, chips, the hero's glass) —
+ * cyan was tried first and rejected (founder 2026-10-03), with mint / amber / coral for state
  * text. Selection tints are SOLID colours a clear step lighter than the surface they sit
  * on (a translucent tint over navy was too faint to read as "selected"); borders likewise.
  * Fills that carry white text (buttons, badges) stay saturated-but-deep so the white keeps
@@ -127,8 +128,8 @@ export const dark: Palette = {
   primaryDark: '#3650D6',
   secondary: '#7C8DFF',
   secondaryLight: '#2A3680',
-  accent: '#2EE6FF',
-  accentLight: '#0E3E4F',
+  accent: '#FF9A2E',
+  accentLight: '#3F2A10',
 
   success: '#15A076',
   successLight: '#0F3D34',
@@ -172,21 +173,21 @@ export const dark: Palette = {
   brandTint: '#28357F',
   accentWarm: '#FFB454',
   accentWarmTint: '#3F2F10',
-  onAccent: '#04111F',
+  onAccent: '#1F1200',
 
   onHero: '#FFFFFF',
   onHeroSoft: 'rgba(255,255,255,0.72)',
   onHeroFaint: 'rgba(255,255,255,0.45)',
-  onHeroChip: 'rgba(46,230,255,0.10)',
-  onHeroChipBorder: 'rgba(46,230,255,0.28)',
+  onHeroChip: 'rgba(255,154,46,0.10)',
+  onHeroChipBorder: 'rgba(255,154,46,0.30)',
   heroChipActive: '#FFFFFF',
   onHeroChipActive: '#0B1230',
   onPrimary: '#FFFFFF',
-  tabActive: '#2EE6FF',
+  tabActive: '#FF9A2E',
   tabInactive: '#6F7BB8',
   tabBar: '#0F1739',
-  neon: '#2EE6FF',
-  neonTint: '#0E3E4F',
+  neon: '#FF9A2E',
+  neonTint: '#3F2A10',
   shadow: '#000000',
 };
 
@@ -217,7 +218,7 @@ export const gradientSets: Record<Scheme, GradientSet> = {
   },
   dark: {
     primary: ['#5F7CFF', '#4257E6'],
-    accent: ['#2EE6FF', '#17B8D6'],
+    accent: ['#FF9A2E', '#E07E14'],
     success: ['#1DBA8A', '#15A076'],
     warm: ['#FFB454', '#F09A2C'],
     surface: ['#141C45', '#0F1739'],

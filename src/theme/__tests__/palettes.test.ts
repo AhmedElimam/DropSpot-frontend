@@ -90,7 +90,7 @@ describe('the dark palette is navy, not black', () => {
   });
 
   it('the neon signature is bright', () => {
-    expect(luminance(parse(dark.neon).rgb)).toBeGreaterThan(0.5);
+    expect(luminance(parse(dark.neon).rgb)).toBeGreaterThan(0.4);
   });
 });
 

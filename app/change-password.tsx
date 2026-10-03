@@ -107,7 +107,7 @@ export default function ChangePasswordScreen() {
               onChangeText={setCurrent}
               placeholder="••••••••"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: spacing.lg, borderColor: current ? colors.brand : colors.borderStrong }}
+              style={{ ...field(), marginBottom: spacing.lg, borderColor: current ? colors.brand : colors.borderStrong }}
             />
 
             <Text style={label()}>{t('auth.new_password')}</Text>
@@ -116,7 +116,7 @@ export default function ChangePasswordScreen() {
               onChangeText={setNext}
               placeholder="••••••••"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: spacing.xs, borderColor: next ? colors.brand : colors.borderStrong }}
+              style={{ ...field(), marginBottom: spacing.xs, borderColor: next ? colors.brand : colors.borderStrong }}
             />
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.lg }}>
               {t('setup.password_hint')}
@@ -128,7 +128,7 @@ export default function ChangePasswordScreen() {
               onChangeText={setConfirm}
               placeholder="••••••••"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: mismatch ? spacing.xs : spacing.xxl, borderColor: confirm ? (mismatch ? colors.danger : colors.success) : colors.borderStrong }}
+              style={{ ...field(), marginBottom: mismatch ? spacing.xs : spacing.xxl, borderColor: confirm ? (mismatch ? colors.danger : colors.success) : colors.borderStrong }}
             />
             {mismatch && (
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.xxl }}>

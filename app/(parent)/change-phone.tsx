@@ -120,7 +120,7 @@ export default function ChangePhoneScreen() {
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.md }}>
               {t('auth.change_phone_new_label')}
             </Text>
-            <TextInput value={newPhone} onChangeText={(v) => setNewPhone(onlyDigits(v, 15))} keyboardType="phone-pad" placeholder="01000000000" placeholderTextColor={colors.textTertiary} style={{ ...field, letterSpacing: 1, writingDirection: 'ltr' }} />
+            <TextInput value={newPhone} onChangeText={(v) => setNewPhone(onlyDigits(v, 15))} keyboardType="phone-pad" placeholder="01000000000" placeholderTextColor={colors.textTertiary} style={{ ...field(), letterSpacing: 1, writingDirection: 'ltr' }} />
             <Primary label={t('auth.change_phone_send_new')} onPress={() => reqNew.mutate()} disabled={newPhone.trim().length < 10} />
           </>
         ) : null}

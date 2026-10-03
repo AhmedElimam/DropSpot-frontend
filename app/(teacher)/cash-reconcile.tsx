@@ -833,12 +833,12 @@ export default function CashReconcileScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.onHero} />}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[1]}
       >
-        {/* Hero: her greeting, the week, the gear. */}
+        {/* Hero: her greeting, the week, the gear — SHORT, so the segments sit in the first screen. */}
         <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.md, paddingBottom: spacing.xl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
             <TouchableOpacity onPress={() => router.back()} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
@@ -855,7 +855,7 @@ export default function CashReconcileScreen() {
             ) : <View style={{ width: 40 }} />}
           </View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{ins?.context?.greeting ?? ''}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2, marginBottom: spacing.lg }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>
             {ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
           </Text>
           {isPast ? (
@@ -868,14 +868,12 @@ export default function CashReconcileScreen() {
               </View>
               <Icon name="back" size={18} color={colors.onHero} />
             </TouchableOpacity>
-          ) : data ? (
-            <NowCard data={data} onDone={onDone} onOpenHandovers={() => setHandoverOpen(true)} onCountOwn={() => setSegment('week')} />
           ) : isError ? (
             <TouchableOpacity onPress={() => refetch()} style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
               <Icon name="refresh" size={20} color={colors.onHero} />
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.onHero }}>{t('cash.load_failed')}</Text>
             </TouchableOpacity>
-          ) : <ActivityIndicator color={colors.onHero} />}
+          ) : null}
         </LinearGradient>
 
         {/* Segments — sticky, so switching never means scrolling back up. */}
@@ -922,7 +920,18 @@ export default function CashReconcileScreen() {
                   }} />
                   : null
               ) : (
-                <WeekSegment data={data} onChanged={invalidate} onOpenHandover={() => setHandoverOpen(true)} />
+                <>
+                  {/* What needs the teacher now — it used to sit inside the hero, which pushed the
+                      segments (and the expenses behind them) below the fold (founder 2026-10-03:
+                      «I have to scroll down to see my expenses»). The hero is short now; this
+                      card opens the week segment instead. */}
+                  {!isPast ? (
+                    <View style={{ marginBottom: spacing.md }}>
+                      <NowCard data={data} onDone={onDone} onOpenHandovers={() => setHandoverOpen(true)} onCountOwn={() => setSegment('week')} />
+                    </View>
+                  ) : null}
+                  <WeekSegment data={data} onChanged={invalidate} onOpenHandover={() => setHandoverOpen(true)} />
+                </>
               )}
             </View>
           ) : segment === 'expenses' ? (

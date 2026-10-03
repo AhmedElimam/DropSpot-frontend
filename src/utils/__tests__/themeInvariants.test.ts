@@ -96,6 +96,22 @@ describe('no module-level constant captures a theme token', () => {
   });
 });
 
+describe('a module-level style function is always CALLED where it is spread', () => {
+  // `{ ...field }` with `const field = () => ({ … })` spreads the function — i.e. nothing —
+  // and the input silently loses its border and fill (fast-register, founder 2026-10-03).
+  const FN = /^(?:export )?const ([A-Za-z_][A-Za-z0-9_]*)(?:: [^=]+?)? = \(\)/gm;
+
+  it.each(FILES)('%s', (file) => {
+    const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    const names = [...src.matchAll(FN)].map((m) => m[1]);
+    const offenders = names.flatMap((n) => {
+      const re = new RegExp(`\\.\\.\\.${n}\\b(?!\\s*\\()`, 'g');
+      return [...src.matchAll(re)].map((m) => `${n} at ${src.slice(0, m.index).split('\n').length}`);
+    });
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe('tab bars and auth screens use the right tokens', () => {
   it.each(['app/(teacher)/_layout.tsx', 'app/(student)/_layout.tsx', 'app/(parent)/_layout.tsx'])('%s bar is tokenised', (file) => {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');

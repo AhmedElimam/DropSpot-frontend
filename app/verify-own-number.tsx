@@ -176,7 +176,7 @@ export default function VerifyOwnNumberScreen() {
                   maxLength={6}
                   placeholder="------"
                   placeholderTextColor={colors.textTertiary}
-                  style={{ ...field, textAlign: 'center', letterSpacing: 8, fontFamily: fonts.bold, fontSize: 22 }}
+                  style={{ ...field(), textAlign: 'center', letterSpacing: 8, fontFamily: fonts.bold, fontSize: 22 }}
                   editable={!verify.isPending}
                 />
 
