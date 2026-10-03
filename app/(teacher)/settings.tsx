@@ -13,6 +13,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { SupportContact } from '@/components/SupportContact';
 import { ThemeRow } from '@/components/ThemeRow';
+import { GeneratedAvatar } from '@/components/ui/GeneratedAvatar';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
 import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -37,7 +38,6 @@ export default function TeacherSettings() {
   const { data: reviseOn } = useReviseMode();
   const { data: flags } = useFeatureFlags();
   const setRevise = useSetReviseMode();
-  const initial = (user?.name ?? '?').trim()[0] ?? '?';
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -49,8 +49,8 @@ export default function TeacherSettings() {
           style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xl }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            <View style={{ width: 64, height: 64, borderRadius: 22, backgroundColor: colors.heroChipActive, justifyContent: 'center', alignItems: 'center', ...shadows.sm }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 28, lineHeight: 36, color: colors.onHeroChipActive }}>{initial}</Text>
+            <View style={{ borderRadius: 22, overflow: 'hidden', ...shadows.sm }}>
+              <GeneratedAvatar seed={String(user?.id ?? user?.name ?? '?')} size={64} square label={user?.name ?? ''} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.onHero }} numberOfLines={1}>{user?.name ?? ''}</Text>

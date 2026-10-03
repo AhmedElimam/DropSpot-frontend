@@ -79,7 +79,7 @@ export default function ParentSettings() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
-        <PageHero title={user?.name ?? ''} subtitle={user?.phone ?? undefined} avatar={(user?.name || '?')[0]}>
+        <PageHero title={user?.name ?? ''} subtitle={user?.phone ?? undefined} avatar={String(user?.id ?? user?.name ?? '?')}>
         <View style={{ alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.onHeroChip, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.onHero }}>{t('profile.role_parent')}</Text>
         </View>

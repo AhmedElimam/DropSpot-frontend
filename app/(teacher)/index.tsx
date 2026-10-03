@@ -32,6 +32,7 @@ import { formatNumber, formatDayDate } from '@/utils/format';
 import { pickCurrentSession, goToScan } from '@/utils/sessionNav';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useRose } from '@/hooks/useRose';
+import { useComplaints } from '@/hooks/useComplaints';
 
 function greetingKey(now: number): string {
   const h = new Date(now).getHours();
@@ -70,8 +71,10 @@ export default function TeacherHome() {
   const actionsQ = useQuery({ queryKey: ['assistant-actions'], queryFn: getAssistantActions, enabled: !isAssistant });
   const phonesQ = usePhoneConfirmations();
   const ticketsQ = useTickets();
+  const complaintsQ = useComplaints('pending');
+  const pendingComplaints = complaintsQ.data?.counts.pending ?? 0;
   const openTickets = (ticketsQ.data ?? []).filter((x) => x.status === 'open').length;
-  const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch);
+  const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch);
   const [addOpen, setAddOpen] = useState(false);
 
   const sessions = sessionsQ.data ?? [];
@@ -89,6 +92,7 @@ export default function TeacherHome() {
     cashAttention > 0 && { key: 'cash', icon: 'money' as IconName, title: cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title, sub: cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : t('home.cash_attention_sub'), badge: cashAttention, href: '/(teacher)/cash-reconcile' },
     (actionsQ.data?.length ?? 0) > 0 && { key: 'actions', icon: 'eye' as IconName, title: t('assistant_actions.title'), sub: t('assistant_actions.manage_sub'), badge: actionsQ.data?.length ?? 0, href: '/(teacher)/assistant-actions' },
     openTickets > 0 && { key: 'tickets', icon: 'tickets' as IconName, title: t('home.tickets_title'), sub: t('home.tickets_sub'), badge: openTickets, href: '/(teacher)/tickets' },
+    pendingComplaints > 0 && { key: 'complaints', icon: 'note' as IconName, title: t('home.complaints_title'), sub: t('home.complaints_sub', { count: pendingComplaints }), badge: pendingComplaints, href: '/(teacher)/complaints' },
   ].filter(Boolean) as { key: string; icon: IconName; title: string; sub: string; badge: number; href: string }[];
   const attentionTotal = attention.reduce((n, a) => n + a.badge, 0);
 

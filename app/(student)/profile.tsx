@@ -51,7 +51,7 @@ export default function StudentProfile() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <PageHero title={user?.name ?? ''} avatar={(user?.name || '?')[0]}>
+        <PageHero title={user?.name ?? ''} avatar={String(user?.id ?? user?.name ?? '?')}>
         {/* The student code lives on the card below, where it belongs — it is card data, not profile data. */}
         <View style={{ alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.onHeroChip, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.onHero }}>{t('profile.role_student')}</Text>

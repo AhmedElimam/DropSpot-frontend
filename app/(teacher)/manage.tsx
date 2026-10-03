@@ -23,6 +23,7 @@ import { getTeacherInsights } from '@/api/insights';
 import { getBookingRequests } from '@/api/bookingRequests';
 import { getAssistantActions } from '@/api/assistantActions';
 import { getCashReconciliation } from '@/api/cash';
+import { useComplaints } from '@/hooks/useComplaints';
 
 type Group = 'students' | 'schedule' | 'money' | 'followup';
 const GROUPS: Group[] = ['students', 'schedule', 'money', 'followup'];
@@ -70,6 +71,8 @@ export default function TeacherManage() {
   const pendingActions = assistantActions.data?.length ?? 0;
   const phoneCount = phones.data?.count ?? 0;
   const openTickets = (tickets.data ?? []).filter((x) => x.status === 'open').length;
+  const complaintsQ = useComplaints('pending');
+  const pendingComplaints = complaintsQ.data?.counts.pending ?? 0;
   const cashView = cash.data;
   const cashPending = cashView?.role === 'assistant' ? cashView.unanswered[0] ?? null : null;
   const cashAttention = cashView?.role === 'assistant' ? cashView.unanswered.length : cashView?.role === 'teacher' ? cashView.open_gaps.length + cashView.pending_handovers.length : 0;
@@ -95,7 +98,7 @@ export default function TeacherManage() {
     students: pendingReqs + phoneCount,
     schedule: 0,
     money: cashAttention + pendingActions,
-    followup: openTickets,
+    followup: openTickets + pendingComplaints,
   };
   const [addOpen, setAddOpen] = useState(false);
 
@@ -214,6 +217,7 @@ export default function TeacherManage() {
           <>
             <HubRow tint={tint} icon="bell" title={t('teacher.resolution_title')} sub={t('teacher.resolution_sub')} onPress={() => router.push('/(teacher)/resolution' as Href)} />
             <HubRow tint={tint} icon="tickets" title={t('teacher.tab_tickets')} sub={t('manage.tickets_sub')} badge={openTickets} onPress={() => router.push('/(teacher)/tickets' as Href)} />
+            <HubRow tint={tint} icon="note" title={t('complaints.title')} sub={t('complaints.manage_sub')} badge={pendingComplaints} onPress={() => router.push('/(teacher)/complaints' as Href)} />
             <HubRow tint={tint} icon="bell" title={t('manage.notifications_title')} sub={t('manage.notifications_sub')} onPress={() => router.push('/(teacher)/notifications' as Href)} />
             {!isAssistant ? <HubRow tint={tint} icon="children" title={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /> : null}
           </>

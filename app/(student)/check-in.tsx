@@ -21,6 +21,8 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { PageHero } from '@/components/ui/PageHero';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { formatNumber } from '@/utils/format';
+import { ComplaintSheet, ComplaintPill, type ComplaintTarget } from '@/components/student/ComplaintSheet';
+import { useMyComplaints } from '@/hooks/useComplaints';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -66,6 +68,8 @@ export default function CheckInTab() {
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkedInCourse, setCheckedInCourse] = useState('');
   const [excuseVisible, setExcuseVisible] = useState(false);
+  const [complaintTarget, setComplaintTarget] = useState<ComplaintTarget | null>(null);
+  const myComplaints = useMyComplaints();
   const [excuseText, setExcuseText] = useState('');
   const [excuseRecordId, setExcuseRecordId] = useState<number | null>(null);
   const [excuseSent, setExcuseSent] = useState(false);
@@ -394,20 +398,43 @@ export default function CheckInTab() {
               </View>
             </View>
 
-            {(records ?? []).slice(0, 10).map((record, i) => (
-              <View key={record?.id ?? i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
-                <View>
-                  <Text style={textPresets.body}>{record?.course_name}</Text>
-                  <Text style={textPresets.caption}>
-                    {record?.session_time ? formatShortDate(record.session_time) : ''}
-                  </Text>
+            {(records ?? []).slice(0, 10).map((record, i) => {
+              const complaint = record?.session_instance_id ? myComplaints.bySession.get(record.session_instance_id) : undefined;
+              return (
+                <View key={record?.id ?? i} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={textPresets.body} numberOfLines={1}>{record?.course_name}</Text>
+                      <Text style={textPresets.caption}>
+                        {record?.session_time ? formatShortDate(record.session_time) : ''}{record?.teacher_name ? ` · ${record.teacher_name}` : ''}
+                      </Text>
+                    </View>
+                    <StatusBadge status={record?.status ?? ''} size="sm" />
+                  </View>
+                  {/* «اعتراض» — dispute this mark; once filed, its state shows here. */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                    {complaint ? (
+                      <ComplaintPill status={complaint.status} />
+                    ) : record?.session_instance_id ? (
+                      <TouchableOpacity
+                        onPress={() => setComplaintTarget({ type: 'attendance', sessionInstanceId: record.session_instance_id, courseName: record.course_name ?? '', sessionAt: record.session_time ?? null, recordedStatus: record.status ?? null })}
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                      >
+                        <Icon name="note" size={13} color={colors.textTertiary} outline />
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{t('complaints.file_attendance')}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 </View>
-                <StatusBadge status={record?.status ?? ''} size="sm" />
-              </View>
-            ))}
+              );
+            })}
           </View>
         </View>
       </ScrollView>
+
+      <ComplaintSheet visible={!!complaintTarget} onClose={() => setComplaintTarget(null)} target={complaintTarget} />
 
       {/* Excuse modal — pick which absence, then explain */}
       <SheetModal visible={excuseVisible} onClose={() => setExcuseVisible(false)} avoidKeyboard style={{ backgroundColor: colors.surface, paddingTop: spacing.md, paddingBottom: spacing.xl5, maxHeight: '85%' }}>

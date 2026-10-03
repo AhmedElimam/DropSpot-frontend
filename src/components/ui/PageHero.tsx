@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, gradients, radius, spacing } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { GeneratedAvatar } from '@/components/ui/GeneratedAvatar';
 
 export interface HeroStat {
   value: string;
@@ -77,8 +78,8 @@ export function PageHero({ title, subtitle, avatar, onBack, action, stats, child
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         {avatar ? (
-          <View style={{ width: 60, height: 60, borderRadius: 20, backgroundColor: colors.heroChipActive, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 26, lineHeight: 34, color: colors.onHeroChipActive }}>{avatar}</Text>
+          <View style={{ borderRadius: 20, overflow: 'hidden', borderWidth: 2, borderColor: colors.onHeroChipBorder }}>
+            <GeneratedAvatar seed={avatar} size={60} square label={title} />
           </View>
         ) : null}
         <View style={{ flex: 1 }}>

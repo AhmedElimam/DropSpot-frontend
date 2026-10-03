@@ -19,6 +19,9 @@ import { PendingDueCard } from '@/components/parent/PendingDueCard';
 import { PageHero } from '@/components/ui/PageHero';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { formatNumber } from '@/utils/format';
+import { useState } from 'react';
+import { ComplaintSheet, ComplaintPill } from '@/components/student/ComplaintSheet';
+import { useMyComplaints } from '@/hooks/useComplaints';
 
 const statusConfig = (): Record<string, { color: string }> => ({
   paid: { color: colors.success },
@@ -115,6 +118,10 @@ export default function StudentInvoicesPage() {
 function InvoiceCard({ invoice }: { invoice: Invoice }) {
   const { t } = useTranslation();
   const sc = statusConfig()[invoice.status] ?? statusConfig().pending;
+  // «دفعت ولم يُسجَّل» — the student's dispute lives on the invoice it is about.
+  const { byInvoice } = useMyComplaints();
+  const complaint = byInvoice.get(Number(invoice.id));
+  const [complainOpen, setComplainOpen] = useState(false);
   return (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -152,6 +159,16 @@ function InvoiceCard({ invoice }: { invoice: Invoice }) {
         <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>{formatEGP(invoice.amount)}</Text>
       </View>
       <PaymentSection invoice={invoice} />
+      {complaint ? (
+        <View style={{ marginTop: spacing.md, alignSelf: 'flex-start' }}><ComplaintPill status={complaint.status} /></View>
+      ) : invoice.status !== 'paid' ? (
+        <TouchableOpacity onPress={() => setComplainOpen(true)} activeOpacity={0.8} accessibilityRole="button"
+          style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSunken }}>
+          <Icon name="note" size={16} color={colors.textSecondary} outline />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('complaints.file_payment')}</Text>
+        </TouchableOpacity>
+      ) : null}
+      <ComplaintSheet visible={complainOpen} onClose={() => setComplainOpen(false)} target={{ type: 'payment', invoiceId: Number(invoice.id), invoiceNumber: invoice.number, amount: invoice.amount }} />
     </TouchableOpacity>
   );
 }

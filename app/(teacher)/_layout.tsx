@@ -309,6 +309,8 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="invite-link" options={{ href: null }} />
       <Tabs.Screen name="booking-requests" options={{ href: null }} />
       <Tabs.Screen name="assistant-actions" options={{ href: null }} />
+      {/* «الاعتراضات» — student disputes on marks and payments; from Home and Management. */}
+      <Tabs.Screen name="complaints" options={{ href: null }} />
       {/* مدام روز — مديرة الحسابات: opened from the payments card on Home and from the
           manage hub, not a tab. */}
       <Tabs.Screen name="cash-reconcile" options={{ href: null }} />
