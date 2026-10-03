@@ -20,7 +20,9 @@ interface HeaderBrandBarProps {
   scanBadge?: number;
 }
 
-const ICON_BUTTON = { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', justifyContent: 'center', alignItems: 'center' } as const;
+// A function, not a constant: the hero tokens change with the scheme (light: ink on mist,
+// dark: white on navy) and a module-level object would keep the values of first import.
+const iconButton = () => ({ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, justifyContent: 'center', alignItems: 'center' } as const);
 
 function Badge({ count }: { count: number }) {
   return (
@@ -41,13 +43,13 @@ export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scan
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
       {/* First child → visual RIGHT in RTL: the notifications bell, then (optionally) the scanner. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <TouchableOpacity onPress={onBell} accessibilityRole="button" accessibilityLabel="الإشعارات" style={ICON_BUTTON}>
-          <Icon name="bell" size={22} color="#fff" outline />
+        <TouchableOpacity onPress={onBell} accessibilityRole="button" accessibilityLabel="الإشعارات" style={iconButton()}>
+          <Icon name="bell" size={22} color={colors.onHero} outline />
           {unread ? <Badge count={unread} /> : null}
         </TouchableOpacity>
         {onScan ? (
-          <TouchableOpacity onPress={onScan} accessibilityRole="button" accessibilityLabel="الكاميرا" style={ICON_BUTTON}>
-            <Icon name="scan" size={22} color="#fff" outline />
+          <TouchableOpacity onPress={onScan} accessibilityRole="button" accessibilityLabel="الكاميرا" style={iconButton()}>
+            <Icon name="scan" size={22} color={colors.onHero} outline />
             {scanBadge ? <Badge count={scanBadge} /> : null}
           </TouchableOpacity>
         ) : null}

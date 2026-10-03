@@ -1,28 +1,62 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
-import { router } from 'expo-router';
+import { memo } from 'react';
+import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
-import { formatDateTime } from '@/utils/format';
-import { colors, spacing, radius, nav, shadows } from '@/theme/index';
-import { Icon } from '@/components/ui/Icon';
+import { colors, spacing, radius, nav } from '@/theme/index';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { FormScreen, HeaderCount, Banner } from '@/components/ui/Form';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { formatNumber, timeAgo } from '@/utils/format';
 import { getAssistantActions, rejectAssistantAction, type AssistantAction } from '@/api/assistantActions';
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  return formatDateTime(d);
-}
+const KIND = (): Record<AssistantAction['kind'], { label: string; icon: IconName; tint: string }> => ({
+  proof: { label: 'إثبات دفع', icon: 'card', tint: colors.success },
+  bill: { label: 'فاتورة', icon: 'money', tint: colors.success },
+  booklet: { label: 'ملزمة', icon: 'book', tint: colors.success },
+  booking: { label: 'دفعة حجز', icon: 'money', tint: colors.success },
+  attendance: { label: 'تعديل حضور', icon: 'attendance', tint: colors.accent },
+});
 
-const KIND_LABEL: Record<AssistantAction['kind'], string> = {
-  proof: 'إثبات دفع', bill: 'فاتورة', booklet: 'ملزمة', booking: 'دفعة حجز',
-};
+/** One assistant action: what, how much, who, when — and the one button, «رفض». */
+const ActionRow = memo(function ActionRow({ a, busy, onReject }: { a: AssistantAction; busy: boolean; onReject: (a: AssistantAction) => void }) {
+  const { t } = useTranslation();
+  const k = KIND()[a.kind] ?? KIND().bill;
+  const money = a.kind !== 'attendance';
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 5, borderStartColor: k.tint, padding: spacing.md, marginBottom: spacing.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: k.tint + '1A', justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name={k.icon} size={22} color={k.tint} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={2}>{a.label ?? k.label}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+            <View style={{ backgroundColor: k.tint + '1A', borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: k.tint }}>{k.label}</Text>
+            </View>
+            {money ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>{`${formatNumber(Math.round(a.amount))} ${t('insights.egp')}`}</Text> : null}
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{a.assistant_name}</Text>
+            {a.created_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{`· ${timeAgo(a.created_at)}`}</Text> : null}
+          </View>
+        </View>
+        <TouchableOpacity onPress={() => onReject(a)} disabled={busy} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('assistant_actions.reject')}
+          style={{ height: 44, paddingHorizontal: spacing.md, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.danger + '14', borderWidth: 1, borderColor: colors.danger + '55' }}>
+          {busy ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="close" size={18} color={colors.danger} />}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{t('assistant_actions.reject_short')}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
 
+/**
+ * «مراجعة إجراءات المساعد» — the teacher's reject-only bucket: an assistant's payment-proof
+ * approvals, collections and attendance changes, each undoable within 30 days.
+ */
 export default function AssistantActionsScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -36,6 +70,10 @@ export default function AssistantActionsScreen() {
       qc.invalidateQueries({ queryKey: ['assistant-actions'] });
       qc.invalidateQueries({ queryKey: ['teacher-insights'] });
       qc.invalidateQueries({ queryKey: ['payment-proofs'] });
+      // An undone attendance change shows on the student and on the session sheet.
+      qc.invalidateQueries({ queryKey: ['teacher-student'] });
+      qc.invalidateQueries({ queryKey: ['teacher-session-detail'] });
+      qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
     },
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
@@ -43,63 +81,28 @@ export default function AssistantActionsScreen() {
   const confirmReject = (a: AssistantAction) => {
     Alert.alert(
       t('assistant_actions.reject_confirm_title'),
-      t('assistant_actions.reject_confirm_hint', { what: KIND_LABEL[a.kind], amount: Math.round(a.amount) }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('assistant_actions.reject'), style: 'destructive', onPress: () => reject.mutate(a.id) },
-      ],
+      a.kind === 'attendance' ? t('assistant_actions.reject_attendance_hint') : t('assistant_actions.reject_confirm_hint', { what: KIND()[a.kind]?.label ?? a.kind, amount: Math.round(a.amount) }),
+      [{ text: t('common.cancel'), style: 'cancel' }, { text: t('assistant_actions.reject'), style: 'destructive', onPress: () => reject.mutate(a.id) }],
     );
   };
 
   const rows = data ?? [];
 
-  const Card = ({ a }: { a: AssistantAction }) => (
-    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.warning, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FEF3E2', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="money" size={20} color={colors.warning} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={2}>{a.label ?? KIND_LABEL[a.kind]}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-            {KIND_LABEL[a.kind]} · {Math.round(a.amount).toLocaleString('en-US')} {t('insights.egp')} · {a.assistant_name}
-          </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{fmtDate(a.created_at)}</Text>
-        </View>
-      </View>
-      <TouchableOpacity onPress={() => confirmReject(a)} disabled={reject.isPending} activeOpacity={0.85}
-        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.danger, marginTop: spacing.md }}>
-        <Icon name="close" size={18} color={colors.danger} />
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.danger }}>{t('assistant_actions.reject')}</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="forward" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('assistant_actions.title')}</Text>
-      </View>
-
+    <FormScreen title={t('assistant_actions.title')} subtitle={t('assistant_actions.manage_sub')} scroll={false} right={rows.length > 0 ? <HeaderCount n={rows.length} /> : null}>
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
+        <FlatList
+          data={rows}
+          keyExtractor={(a) => String(a.id)}
+          renderItem={({ item }) => <ActionRow a={item} busy={reject.isPending && reject.variables === item.id} onReject={confirmReject} />}
+          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>{t('assistant_actions.intro')}</Text>
-          {rows.length === 0 ? (
-            <EmptyState icon="success" title={t('assistant_actions.none')} message={t('assistant_actions.none_hint')} />
-          ) : (
-            rows.map((a) => <Card key={a.id} a={a} />)
-          )}
-        </ScrollView>
+          ListHeaderComponent={rows.length > 0 ? <Banner tone="warn" icon="eye" text={t('assistant_actions.intro')} /> : null}
+          ListEmptyComponent={<EmptyState icon="success" title={t('assistant_actions.none')} message={t('assistant_actions.none_hint')} />}
+        />
       )}
-    </View>
+    </FormScreen>
   );
 }

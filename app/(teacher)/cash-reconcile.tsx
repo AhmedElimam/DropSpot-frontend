@@ -1,5 +1,6 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { memo, useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, KeyboardAvoidingView, Switch, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, Switch } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ExpensesPanel } from '@/components/cash/ExpensesPanel';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { useRose } from '@/hooks/useRose';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
   getCashReconciliation, respondReconciliation, setOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights,
@@ -39,12 +41,12 @@ const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
 const INTRO_KEY = 'cash_intro_seen_v1';
 type Segment = 'week' | 'expenses' | 'notes';
 
-const RESULT_TINT: Record<ReconciliationResult, string> = {
+const RESULT_TINT = (): Record<ReconciliationResult, string> => ({
   deficit: colors.danger, balanced: colors.success, surplus: colors.warning, unknown: colors.textTertiary,
-};
-const STATUS_TINT: Record<ReconciliationStatus, string> = {
+});
+const STATUS_TINT = (): Record<ReconciliationStatus, string> => ({
   confirmed: colors.success, discrepancy: colors.danger, pending: colors.warning, not_reconciled: colors.warning, awaiting_opening: colors.textTertiary,
-};
+});
 const SHEET_BACKDROP = 'rgba(23,28,59,0.45)';
 
 // ───────────────────────── small pieces ─────────────────────────
@@ -71,9 +73,9 @@ function Pill({ text, tint }: { text: string; tint: string }) {
 function ResultPill({ d }: { d: Drawer }) {
   const { t } = useTranslation();
   if (d.result && d.result !== 'unknown' && d.registry !== null) {
-    return <Pill tint={RESULT_TINT[d.result]} text={`${t(`cash.${d.result}`)}${d.difference !== null && d.result !== 'balanced' ? ` ${money(Math.abs(d.difference))}` : ''}`} />;
+    return <Pill tint={RESULT_TINT()[d.result]} text={`${t(`cash.${d.result}`)}${d.difference !== null && d.result !== 'balanced' ? ` ${money(Math.abs(d.difference))}` : ''}`} />;
   }
-  return <Pill tint={STATUS_TINT[d.status]} text={t(`cash.${d.status}`)} />;
+  return <Pill tint={STATUS_TINT()[d.status]} text={t(`cash.${d.status}`)} />;
 }
 
 /** Two big figures side by side — what the eye needs first. */
@@ -112,7 +114,7 @@ function Arithmetic({ d }: { d: Drawer }) {
       {d.registry !== null && d.difference !== null && d.result ? (
         <>
           <Rule />
-          <Figure label={t(`cash.${d.result}`)} value={`${d.difference > 0 ? '+' : ''}${money(d.difference)} ${egp}`} strong tint={RESULT_TINT[d.result]} />
+          <Figure label={t(`cash.${d.result}`)} value={`${d.difference > 0 ? '+' : ''}${money(d.difference)} ${egp}`} strong tint={RESULT_TINT()[d.result]} />
         </>
       ) : null}
       {!known ? (
@@ -170,6 +172,7 @@ function Details({ d, extra }: { d: Drawer; extra?: React.ReactNode }) {
 
 function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void }) {
   const { t } = useTranslation();
+  const rose = useRose();
   const egp = t('insights.egp');
   const [mode, setMode] = useState<'ask' | 'diff'>(row.expected === null ? 'diff' : 'ask');
   const [registry, setRegistry] = useState(row.expected !== null ? String(row.expected) : '');
@@ -192,7 +195,7 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
           <Icon name="money" size={18} color={colors.accent} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.banner_pending')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.banner_pending', { rose: rose.name })}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('cash.week_of', { start: formatShortDate(row.week_start), end: formatShortDate(row.week_end) })}{row.venue?.name ? ` · ${row.venue.name}` : ''}</Text>
         </View>
       </View>
@@ -278,7 +281,7 @@ function OpeningEntry({ d, onSaved }: { d: Drawer; onSaved: () => void }) {
 function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDrawer; name?: string; isTeacher: boolean; onChanged: () => void }) {
   const { t } = useTranslation();
   const answered = d.registry !== null;
-  const tint = d.result && d.result !== 'unknown' && answered ? RESULT_TINT[d.result] : colors.border;
+  const tint = d.result && d.result !== 'unknown' && answered ? RESULT_TINT()[d.result] : colors.border;
   const reviewWaiting = d.review_pending ?? 0;
   const openReview = () => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(d.id) } } as Href);
 
@@ -295,7 +298,7 @@ function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDraw
         left={d.expected !== null
           ? { label: t('cash.expected'), value: money(d.expected), tint: colors.brand }
           : { label: t('cash.net_movement'), value: `${(d.net_movement ?? 0) > 0 ? '+' : ''}${money(d.net_movement ?? 0)}`, tint: colors.warningDark }}
-        right={{ label: t('cash.actual'), value: answered ? money(d.actual ?? d.registry ?? 0) : '—', tint: answered && d.result && d.result !== 'unknown' ? RESULT_TINT[d.result] : undefined }}
+        right={{ label: t('cash.actual'), value: answered ? money(d.actual ?? d.registry ?? 0) : '—', tint: answered && d.result && d.result !== 'unknown' ? RESULT_TINT()[d.result] : undefined }}
       />
       <SurplusNotice d={d} />
       <Details d={d} extra={isTeacher && d.opening_source !== 'teacher' && !d.closed_at ? <OpeningEntry d={d} onSaved={onChanged} /> : null} />
@@ -428,19 +431,13 @@ function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () 
 function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: SHEET_BACKDROP, justifyContent: 'flex-end' }}>
-        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
-        <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom, maxHeight: '88%' }}>
-          <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
+    <SheetModal visible={open} onClose={onClose} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom, maxHeight: '88%' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{title}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}><Icon name="close" size={22} color={colors.textTertiary} /></TouchableOpacity>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{children}</ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </SheetModal>
   );
 }
 
@@ -483,6 +480,7 @@ function HandoverSheetBody({ venues, perVenue, assistants, onSaved }: { venues: 
 
 function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => void }) {
   const { t } = useTranslation();
+  const rose = useRose();
   const [tol, setTol] = useState(String(v.settings.tolerance));
   const [bulkMax, setBulkMax] = useState(String(v.settings.review_bulk_max ?? 500));
   const save = useMutation({
@@ -506,9 +504,10 @@ function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
       <View style={row}>{label(t('cash.setting_expenses'), t('cash.setting_expenses_hint'))}<Switch value={v.settings.expenses_enabled} onValueChange={(on) => save.mutate({ expenses_enabled: on })} disabled={save.isPending} /></View>
       <View style={row}>{label(t('cash.setting_per_venue'), t('cash.setting_per_venue_hint'))}<Switch value={v.settings.per_venue} onValueChange={(on) => save.mutate({ expenses_per_venue: on })} disabled={save.isPending || v.venues.length === 0} /></View>
       {v.settings.expenses_enabled ? (
-        <View style={row}>{label(t('cash.setting_reminder'), t('cash.setting_reminder_hint'))}<Switch value={v.settings.expense_reminder_enabled !== false} onValueChange={(on) => save.mutate({ expense_reminder_enabled: on })} disabled={save.isPending} /></View>
+        <View style={row}>{label(t('cash.setting_reminder'), t('cash.setting_reminder_hint', { rose: rose.name }))}<Switch value={v.settings.expense_reminder_enabled !== false} onValueChange={(on) => save.mutate({ expense_reminder_enabled: on })} disabled={save.isPending} /></View>
       ) : null}
-      <View style={row}>{label(t('cash.setting_insights'), t('cash.setting_insights_hint'))}<Switch value={v.settings.insights_enabled !== false} onValueChange={(on) => save.mutate({ insights_enabled: on })} disabled={save.isPending} /></View>
+      <View style={row}>{label(t('cash.setting_insights', { rose: rose.name }), t('cash.setting_insights_hint'))}<Switch value={v.settings.insights_enabled !== false} onValueChange={(on) => save.mutate({ insights_enabled: on })} disabled={save.isPending} /></View>
+      <View style={row}>{label(t('cash.setting_rose_name'), t('cash.setting_rose_name_hint'))}<Switch value={v.settings.rose_named !== false} onValueChange={(on) => save.mutate({ rose_named: on })} disabled={save.isPending} /></View>
       {v.settings.insights_enabled !== false ? (
         <View style={row}>{label(t('cash.setting_insight_pushes'))}
           <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -531,8 +530,9 @@ function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
 
 function Observations({ items }: { items: Observation[] }) {
   const { t } = useTranslation();
+  const rose = useRose();
   const open = (o: Observation) => router.push({ pathname: '/(teacher)/expenses', params: { from: o.trace.from, to: o.trace.to, ...(o.trace.category ? { category: o.trace.category } : {}), ...(o.trace.venue !== undefined ? { venue: String(o.trace.venue) } : {}) } } as Href);
-  if (items.length === 0) return <EmptyState icon="info" title={t('cash.notes_none')} message={t('cash.notes_none_hint')} />;
+  if (items.length === 0) return <EmptyState icon="info" title={t('cash.notes_none')} message={t('cash.notes_none_hint', { rose: rose.name })} />;
   return (
     <View>
       {items.map((o) => (
@@ -559,7 +559,7 @@ function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView
     if (row) {
       return (
         <View>
-          {row.week_start !== data.week.start ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#fff', opacity: 0.85, marginBottom: spacing.sm }}>{t('cash.late_answer_hint')}</Text> : null}
+          {row.week_start !== data.week.start ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('cash.late_answer_hint')}</Text> : null}
           <PromptCard row={row} onDone={onDone} />
         </View>
       );
@@ -663,12 +663,15 @@ function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView
 }
 
 function Calm({ text, sub }: { text: string; sub?: string }) {
+  // On the canvas now (it used to sit inside the hero), so a surface card with a green tile.
   return (
-    <View style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-      <Icon name="success" size={22} color="#fff" />
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md, ...shadows.sm }}>
+      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="success" size={22} color={colors.success} />
+      </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{text}</Text>
-        {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>{sub}</Text> : null}
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{text}</Text>
+        {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{sub}</Text> : null}
       </View>
     </View>
   );
@@ -772,6 +775,7 @@ function MonthView({ m, onOpenWeek }: { m: CashMonth; onOpenWeek: (weekStart: st
 
 export default function CashReconcileScreen() {
   const { t } = useTranslation();
+  const rose = useRose();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   // Period filter (founder 2026-09-25): this week by default; step back through past weeks or months.
@@ -832,49 +836,47 @@ export default function CashReconcileScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.onHero} />}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[1]}
       >
-        {/* Hero: her greeting, the week, the gear. */}
+        {/* Hero: her greeting, the week, the gear — SHORT, so the segments sit in the first screen. */}
         <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.md, paddingBottom: spacing.xl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
-            <TouchableOpacity onPress={() => router.back()} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="forward" size={22} color="#fff" />
+            <TouchableOpacity onPress={() => router.back()} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="forward" size={22} color={colors.onHero} />
             </TouchableOpacity>
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: '#fff' }}>{t('cash.persona_name')}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{t('cash.screen_title')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.onHero }}>{rose.name}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft }}>{t('cash.screen_title')}</Text>
             </View>
             {data?.role === 'teacher' ? (
-              <TouchableOpacity onPress={() => setSettingsOpen(true)} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="settings" size={20} color="#fff" outline />
+              <TouchableOpacity onPress={() => setSettingsOpen(true)} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="settings" size={20} color={colors.onHero} outline />
               </TouchableOpacity>
             ) : <View style={{ width: 40 }} />}
           </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{ins?.context?.greeting ?? ''}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2, marginBottom: spacing.lg }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{ins?.context?.greeting ?? ''}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>
             {ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
           </Text>
           {isPast ? (
             <TouchableOpacity onPress={() => { setPeriod('week'); setWeekOffset(0); setSegment('week'); }} activeOpacity={0.85}
-              style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <Icon name="calendar" size={22} color="#fff" />
+              style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.onHeroChipBorder, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <Icon name="calendar" size={22} color={colors.onHero} />
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('cash.viewing_past')}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>{t('cash.back_to_now')}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onHero }}>{t('cash.viewing_past')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2 }}>{t('cash.back_to_now')}</Text>
               </View>
-              <Icon name="back" size={18} color="#fff" />
+              <Icon name="back" size={18} color={colors.onHero} />
             </TouchableOpacity>
-          ) : data ? (
-            <NowCard data={data} onDone={onDone} onOpenHandovers={() => setHandoverOpen(true)} onCountOwn={() => setSegment('week')} />
           ) : isError ? (
-            <TouchableOpacity onPress={() => refetch()} style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.xl, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <Icon name="refresh" size={20} color="#fff" />
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('cash.load_failed')}</Text>
+            <TouchableOpacity onPress={() => refetch()} style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <Icon name="refresh" size={20} color={colors.onHero} />
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.onHero }}>{t('cash.load_failed')}</Text>
             </TouchableOpacity>
-          ) : <ActivityIndicator color="#fff" />}
+          ) : null}
         </LinearGradient>
 
         {/* Segments — sticky, so switching never means scrolling back up. */}
@@ -921,7 +923,18 @@ export default function CashReconcileScreen() {
                   }} />
                   : null
               ) : (
-                <WeekSegment data={data} onChanged={invalidate} onOpenHandover={() => setHandoverOpen(true)} />
+                <>
+                  {/* What needs the teacher now — it used to sit inside the hero, which pushed the
+                      segments (and the expenses behind them) below the fold (founder 2026-10-03:
+                      «I have to scroll down to see my expenses»). The hero is short now; this
+                      card opens the week segment instead. */}
+                  {!isPast ? (
+                    <View style={{ marginBottom: spacing.md }}>
+                      <NowCard data={data} onDone={onDone} onOpenHandovers={() => setHandoverOpen(true)} onCountOwn={() => setSegment('week')} />
+                    </View>
+                  ) : null}
+                  <WeekSegment data={data} onChanged={invalidate} onOpenHandover={() => setHandoverOpen(true)} />
+                </>
               )}
             </View>
           ) : segment === 'expenses' ? (
@@ -930,7 +943,7 @@ export default function CashReconcileScreen() {
             <View>
               {introSeen === false ? (
                 <View style={{ backgroundColor: colors.accentLight, borderRadius: radius.xl, padding: spacing.lg, marginBottom: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.intro_line1')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.intro_line1', { rose: rose.name })}</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4, lineHeight: 22 }}>{t('cash.intro_line2')}</Text>
                   <TouchableOpacity onPress={dismissIntro} style={{ alignSelf: 'flex-start', marginTop: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.full, backgroundColor: colors.accent }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('cash.intro_dismiss')}</Text>

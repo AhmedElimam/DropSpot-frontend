@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 // Visible tabs stay mounted; detail screens (href: null) are released once they are not one
 // of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
@@ -30,6 +31,7 @@ export default function StudentTabLayout() {
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const role = useAuthStore((s) => s.role);
 
   // The student's phone never registered for push, so grades, invoices, card status and
   // the parent-unreachable nudge only ever reached the in-app inbox. Same wiring as the
@@ -65,6 +67,11 @@ export default function StudentTabLayout() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  // Not this role's app (e.g. a super-admin whose impersonation just ended): `/` routes by role.
+  if (role && role !== 'student') {
+    return <Redirect href={ROUTE_BY_ROLE} />;
+  }
+
   return (
     <Tabs
       // Hardware back follows visit history, so pushed detail screens (marks, swap,
@@ -82,7 +89,7 @@ export default function StudentTabLayout() {
           // two rounded corners that is continuous GPU work and a measurable heat source on
           // mid-range chips (Redmi Note 11S / Helio G96, 2026-09-22). Opaque + a hairline
           // rule keeps the same lifted look for free.
-          backgroundColor: '#FFFFFF',
+          backgroundColor: colors.tabBar,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
           paddingTop: 8,
@@ -101,7 +108,7 @@ export default function StudentTabLayout() {
             style={{
               fontFamily: fonts.medium,
               fontSize: 11,
-              color: focused ? colors.primary : colors.textTertiary,
+              color: focused ? colors.tabActive : colors.tabInactive,
               marginTop: 2,
             }}
           >
@@ -118,7 +125,7 @@ export default function StudentTabLayout() {
             <Icon
               name={icons[route.name] || 'home'}
               size={24}
-              color={focused ? colors.primary : colors.textTertiary}
+              color={focused ? colors.tabActive : colors.tabInactive}
               outline={!focused}
             />
           </View>
@@ -129,6 +136,8 @@ export default function StudentTabLayout() {
       <Tabs.Screen name="check-in" />
       <Tabs.Screen name="invoices" />
       <Tabs.Screen name="marks" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="attendance" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="teacher/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="swap" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="order-card" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />

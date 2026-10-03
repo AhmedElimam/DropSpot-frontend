@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useTranslation } from 'react-i18next';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { router, type Href } from 'expo-router';
@@ -14,8 +16,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { SupportContact } from '@/components/SupportContact';
+import { ThemeRow } from '@/components/ThemeRow';
 import { useQuery } from '@tanstack/react-query';
 import { getMyCardStatus } from '@/api/profile';
+import { PageHero } from '@/components/ui/PageHero';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 
 /** The gold rule the printed card carries — the one mark this screen borrows. */
 const GOLD = '#C9A227';
@@ -32,6 +37,15 @@ export default function StudentProfile() {
   const { data: card, refetch: refetchCard } = useQuery({ queryKey: ['my-card'], queryFn: getMyCardStatus, staleTime: 60_000 });
   const { refreshing, onRefresh } = usePullRefresh(refetchCoverage, refetchQuizzes, refetchCard);
   const cardState = card?.card_state ?? user?.card_state ?? 'none';
+  // The phone QR is the card's own credential and exists ONLY once the card is in hand
+  // (founder 2026-10-03: a fallback when the card is forgotten or lost — never a substitute
+  // for a card that was not issued). Hidden behind a tap so it is not on screen by default.
+  const qrValue = cardState === 'in_hand' ? card?.card_token ?? null : null;
+  const [showQr, setShowQr] = useState(false);
+  const cardTone = cardState === 'in_hand' ? { fg: colors.success, bg: colors.successLight, icon: 'success' as const }
+    : cardState === 'preparing' ? { fg: colors.warning, bg: colors.warningLight, icon: 'clock' as const }
+    : cardState === 'ordered' ? { fg: colors.brand, bg: colors.brandTint, icon: 'clock' as const }
+    : { fg: colors.brand, bg: colors.brandTint, icon: 'invoices' as const };
 
   const sessionsAttended = coverage ? coverage.present + coverage.late : 0;
   const now = new Date();
@@ -49,26 +63,14 @@ export default function StudentProfile() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl5, alignItems: 'center' }}
-        >
-          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.18)', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.25)', marginBottom: spacing.md }}>
-            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontSize: 36, color: '#fff' }}>{(user?.name || '?')[0]}</Text>
-            </View>
-          </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{user?.name}</Text>
-          {/* The student code lives on the card below, where it belongs — it is card
-              data, not profile data, and printing it twice on one screen said nothing. */}
-          <View style={{ marginTop: spacing.md, backgroundColor: 'rgba(255,255,255,0.18)', paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff' }}>{t('profile.role_student')}</Text>
-          </View>
-        </LinearGradient>
+        <PageHero title={user?.name ?? ''} avatar={avatarSeed.student(user?.student_id, avatarSeed.user(user?.id, user?.name ?? '?'))}>
+        {/* The student code lives on the card below, where it belongs — it is card data, not profile data. */}
+        <View style={{ alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.onHeroChip, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.onHero }}>{t('profile.role_student')}</Text>
+        </View>
+        </PageHero>
 
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {/* The card block.
               There is NO in-app QR (founder 2026-09-05). The printed card is the only
               scannable credential — handing every student a free digital one undercut the
@@ -80,19 +82,14 @@ export default function StudentProfile() {
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm, overflow: 'hidden' }}>
             <View style={{ height: 3, backgroundColor: cardState === 'in_hand' ? colors.success : GOLD }} />
             <View style={{ padding: spacing.xl, alignItems: 'center' }}>
-              <View style={{ width: 60, height: 60, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-                backgroundColor: cardState === 'in_hand' ? colors.successLight
-                  : cardState === 'preparing' ? colors.warningLight : colors.brandTint }}>
-                <Icon
-                  name={cardState === 'in_hand' ? 'success' : cardState === 'preparing' ? 'clock' : 'invoices'}
-                  size={28}
-                  color={cardState === 'in_hand' ? colors.success : cardState === 'preparing' ? colors.warning : colors.brand}
-                />
+              <View style={{ width: 60, height: 60, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: cardTone.bg }}>
+                <Icon name={cardTone.icon} size={28} color={cardTone.fg} />
               </View>
 
               <Text style={{ fontFamily: fonts.bold, fontSize: 16.5, color: colors.textPrimary, marginTop: spacing.md, textAlign: 'center' }}>
                 {cardState === 'in_hand' ? 'بطاقتك معك'
                   : cardState === 'preparing' ? 'بطاقتك قيد التجهيز'
+                  : cardState === 'ordered' ? 'طلب بطاقتك قيد المراجعة'
                   : 'لا توجد بطاقة بعد'}
               </Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 22, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs }}>
@@ -100,8 +97,45 @@ export default function StudentProfile() {
                   ? 'استخدم بطاقتك لتسجيل الحضور. احملها معك في كل حصة، ولو فقدتها بلّغ معلّمك فورًا.'
                   : cardState === 'preparing'
                     ? 'تم اعتماد بطاقتك وهي قيد الطباعة. سجّل حضورك مع معلّمك حتى تستلمها.'
-                    : 'تسجيل الحضور يتم ببطاقة دروس سبوت. اطلب بطاقتك، وحتى تصلك سجّل حضورك مع معلّمك.'}
+                    : cardState === 'ordered'
+                      ? 'وصل طلبك وهو بانتظار اعتماد الإدارة. سنخبرك عند اعتماده، وحتى تصلك البطاقة سجّل حضورك مع معلّمك.'
+                      : 'تسجيل الحضور يتم ببطاقة دروس سبوت. اطلب بطاقتك، وحتى تصلك سجّل حضورك مع معلّمك.'}
               </Text>
+
+              {/* Where the order stands, in the admin's own words, so the student sees it move. */}
+              {(cardState === 'ordered' || cardState === 'preparing') && card?.order_status_label ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md, backgroundColor: cardTone.bg, borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md }}>
+                  <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: cardTone.fg }} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: cardTone.fg }}>{card.order_status_label}</Text>
+                  {card.ordered_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>· {formatDate(new Date(card.ordered_at), { day: 'numeric', month: 'short' })}</Text> : null}
+                </View>
+              ) : null}
+              {cardState === 'in_hand' && card?.card_released_at ? (
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.sm }}>
+                  استلمتها في {formatDate(new Date(card.card_released_at), { day: 'numeric', month: 'long', year: 'numeric' })}
+                </Text>
+              ) : null}
+
+              {qrValue ? (
+                <View style={{ alignSelf: 'stretch', marginTop: spacing.lg, alignItems: 'center' }}>
+                  <TouchableOpacity onPress={() => setShowQr((v) => !v)} activeOpacity={0.85} accessibilityRole="button"
+                    style={{ alignSelf: 'stretch', minHeight: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, backgroundColor: colors.brandTint, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
+                    <Icon name="scan" size={18} color={colors.brand} />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.brand }}>{showQr ? 'إخفاء رمز البطاقة' : 'نسيت بطاقتك؟ اعرض رمزها'}</Text>
+                  </TouchableOpacity>
+                  {showQr ? (
+                    <>
+                      {/* Scanners want dark modules on white whatever the app's scheme. */}
+                      <View style={{ marginTop: spacing.md, backgroundColor: '#FFFFFF', padding: spacing.lg, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border }}>
+                        <QRCode value={qrValue} size={188} backgroundColor="#FFFFFF" color="#171C3B" />
+                      </View>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm, paddingHorizontal: spacing.md }}>
+                        هذا هو رمز بطاقتك نفسه — يمسحه المعلم عند الباب إن نسيت البطاقة أو فقدتها. لا تشاركه مع أحد.
+                      </Text>
+                    </>
+                  ) : null}
+                </View>
+              ) : null}
 
               {user?.student_code ? (
                 <View style={{ marginTop: spacing.lg, paddingVertical: 6, paddingHorizontal: spacing.lg, borderRadius: radius.full, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border }}>
@@ -116,8 +150,8 @@ export default function StudentProfile() {
                   accessibilityRole="button"
                   style={{ marginTop: spacing.lg, alignSelf: 'stretch', minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}
                 >
-                  <Icon name="add" size={17} color="#fff" />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>اطلب بطاقتك</Text>
+                  <Icon name="add" size={17} color={colors.onPrimary} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>اطلب بطاقتك</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -217,6 +251,7 @@ export default function StudentProfile() {
           </View>
 
           <View style={{ marginBottom: spacing.md }}>
+            <ThemeRow />
             <SupportContact href={'/(student)/support' as Href} />
           </View>
 

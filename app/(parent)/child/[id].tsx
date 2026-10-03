@@ -19,17 +19,25 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
+import { SectionHead } from '@/components/ui/SectionHead';
+import { formatNumber } from '@/utils/format';
+import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
+import { AttendanceRecordRow } from '@/components/attendance/AttendanceRecordRow';
+import { ComplaintSheet, type ComplaintTarget } from '@/components/student/ComplaintSheet';
+import { useMyComplaints } from '@/hooks/useComplaints';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 
 type TabKey = 'attendance' | 'grades' | 'exams' | 'settings';
 
-const cardStyle = {
+const cardStyle = () => ({
   backgroundColor: colors.surface,
   borderRadius: radius.xxl,
   borderWidth: 1,
   borderColor: colors.border,
   padding: spacing.xl,
   ...shadows.sm,
-} as const;
+} as const);
 
 function fmtDateTime(iso?: string): string {
   if (!iso) return '';
@@ -48,6 +56,10 @@ export default function ChildDetailScreen() {
   const { data: children, isLoading: childrenLoading, refetch: refetchChildren } = useChildren();
   const [activeTab, setActiveTab] = useState<TabKey>('attendance');
   const [showPicker, setShowPicker] = useState(false);
+  const [showAllRecords, setShowAllRecords] = useState(false);
+  // A parent may dispute a child's mark the way the student can (founder 2026-10-03).
+  const [complaintTarget, setComplaintTarget] = useState<ComplaintTarget | null>(null);
+  const complaints = useMyComplaints();
 
   const selectedIndex = Math.max(0, (children ?? []).findIndex((c) => c.id === params.id));
   const child = (children ?? [])[selectedIndex];
@@ -134,71 +146,32 @@ export default function ChildDetailScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
+        <PageHero
+          title={child.name}
+          subtitle={`${child.grade ?? ''}${child.student_code ? ` · ${child.student_code}` : ''}`}
+          onBack
+          action={{ icon: 'children', label: t('home.children_section'), onPress: () => setShowPicker(true), accessibilityLabel: t('home.children_section') }}
+          stats={[
+            { value: `${formatNumber(attendanceRate)}%`, label: t('attendance.attendance_rate') },
+            { value: `${formatNumber(avgGrade)}%`, label: t('quiz.avg_score') },
+            { value: formatNumber(absent), label: t('attendance.absent'), warn: absent > 0 },
+          ]}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
-              <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginStart: spacing.sm }}>{t('common.back')}</Text>
-            </TouchableOpacity>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              {/* Quick shortcut to the pre-card registration QR (else buried in Settings). */}
-              {child.can_generate_pre_card ? (
-                <TouchableOpacity
-                  onPress={() => router.push(`/(parent)/child/${child.id}/invite-code`)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('auth.invite_code_label')}
-                  style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
-                >
-                  <Icon name="scan" size={19} color="#fff" />
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity
-                onPress={() => setShowPicker(true)}
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}
-              >
-                <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff' }}>{child.name}</Text>
-                <Icon name="down" size={14} color="rgba(255,255,255,0.7)" style={{ marginStart: 6 }} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View
-              style={{ width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', marginEnd: spacing.md }}
+          {/* Quick shortcut to the pre-card registration QR (else buried in Settings). */}
+          {child.can_generate_pre_card ? (
+            <TouchableOpacity
+              onPress={() => router.push(`/(parent)/child/${child.id}/invite-code`)}
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.invite_code_label')}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.md }}
             >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{(child.name || '?')[0]}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{child.name}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>
-                {child.grade ?? ''}{child.student_code ? ` · ${child.student_code}` : ''}
-              </Text>
-            </View>
-          </View>
+              <Icon name="scan" size={16} color={colors.onHero} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('auth.invite_code_label')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </PageHero>
 
-          <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{attendanceRate}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{t('attendance.attendance_rate')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{avgGrade}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{t('quiz.avg_score')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{absent}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{t('attendance.absent')}</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 4 }}>
             {tabs.map((tab) => (
               <TouchableOpacity
@@ -227,8 +200,8 @@ export default function ChildDetailScreen() {
           {activeTab === 'attendance' && (
             <>
               {upcoming && upcoming.length > 0 && (
-                <View style={cardStyle}>
-                  <Text style={textPresets.h3}>{t('session.upcoming_sessions')}</Text>
+                <View style={cardStyle()}>
+                  <SectionHead icon="calendar" color={colors.brand} title={t('session.upcoming_sessions')} />
                   <View style={{ marginTop: spacing.md }}>
                     {upcoming.map((s, i) => (
                       <View
@@ -249,73 +222,46 @@ export default function ChildDetailScreen() {
                   </View>
                 </View>
               )}
-              <View style={cardStyle}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-                  <Text style={textPresets.h3}>{t('attendance.attendance_summary')}</Text>
-                </View>
+              <View style={cardStyle()}>
+                <SectionHead icon="attendance" color={colors.success} title={t('attendance.history_title')} />
+                <Text style={[textPresets.bodySmall, { marginTop: 2, marginBottom: spacing.md }]}>{t('attendance.history_sub_child')}</Text>
                 {coverageLoading ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <>
-                    <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg }}>
-                      <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.success }}>{present}</Text>
-                        <Text style={[textPresets.caption, { fontSize: 13 }]}>{t('attendance.present')}</Text>
-                      </View>
-                      <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.md }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.danger }}>{absent}</Text>
-                        <Text style={[textPresets.caption, { fontSize: 13 }]}>{t('attendance.absent')}</Text>
-                      </View>
-                      <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.infoLight, borderRadius: radius.md, padding: spacing.md }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.infoText }}>{excused}</Text>
-                        <Text style={[textPresets.caption, { fontSize: 13 }]}>{t('attendance.excused')}</Text>
-                      </View>
-                    </View>
-                    <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.borderLight, marginBottom: spacing.lg, overflow: 'hidden' }}>
-                      <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${attendanceRate}%`, height: '100%', borderRadius: 4 }} />
-                    </View>
-                  </>
+                  <AttendanceOverview present={present} late={coverage?.late ?? 0} absent={absent} excused={excused} />
                 )}
-                <Text style={[textPresets.bodySmall, { marginBottom: spacing.sm }]}>{t('session.your_sessions')}</Text>
+                <View style={{ height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.md }} />
                 {recordsLoading ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : !records?.length ? (
                   <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, textAlign: 'center', padding: spacing.md }}>
-                    {t('common.no_data')}
+                    {t('attendance.no_records')}
                   </Text>
                 ) : (
-                  records.slice(0, 10).map((s, i) => (
-                    <View key={s.id} style={{ paddingVertical: spacing.md, borderBottomWidth: i < Math.min(records.length, 10) - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={textPresets.body}>{s.course_name ?? `#${s.session_instance_id}`}</Text>
-                          <Text style={textPresets.caption}>{fmtDateTime(s.session_time)}</Text>
-                          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 4, flexWrap: 'wrap' }}>
-                            {s.teacher_name && (
-                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Icon name="teacher" size={14} color={colors.textSecondary} outline style={{ marginEnd: 2 }} />
-                                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{s.teacher_name}</Text>
-                              </View>
-                            )}
-                            {s.location && (
-                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Icon name="location" size={14} color={colors.textSecondary} outline style={{ marginEnd: 2 }} />
-                                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{s.location}</Text>
-                              </View>
-                            )}
-                          </View>
-                        </View>
-                        <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                          <StatusBadge status={s.status} />
-                          {/* How the day was recorded — transparency for parents
-                              (card scan is primary; phone/manual are the exceptions). */}
-                          {s.check_in_method && (s.status === 'present' || s.status === 'late') ? (
-                            <StatusBadge status={s.check_in_method} size="sm" />
-                          ) : null}
-                        </View>
-                      </View>
+                  <>
+                    {records.slice(0, showAllRecords ? records.length : 8).map((r, i, arr) => (
+                      <AttendanceRecordRow
+                        key={r.id || i}
+                        record={r}
+                        complaint={r.session_instance_id ? complaints.bySession.get(r.session_instance_id) : undefined}
+                        onComplain={(rec) => setComplaintTarget({ type: 'attendance', sessionInstanceId: rec.session_instance_id, courseName: rec.course_name ?? '', sessionAt: rec.session_time ?? null, recordedStatus: rec.status ?? null })}
+                        last={i === arr.length - 1}
+                      />
+                    ))}
+                    {records.length > 8 ? (
+                      <TouchableOpacity onPress={() => setShowAllRecords((v) => !v)} activeOpacity={0.85} accessibilityRole="button"
+                        style={{ marginTop: spacing.sm, minHeight: 42, borderRadius: radius.md, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+                        <Icon name={showAllRecords ? 'up' : 'down'} size={16} color={colors.brand} />
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>
+                          {showAllRecords ? t('attendance.show_less') : t('attendance.show_more', { count: formatNumber(records.length - 8) })}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md }}>
+                      <Icon name="info" size={14} color={colors.textTertiary} outline />
+                      <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('attendance.dispute_hint')}</Text>
                     </View>
-                  ))
+                  </>
                 )}
               </View>
             </>
@@ -323,9 +269,9 @@ export default function ChildDetailScreen() {
 
           {activeTab === 'grades' && (
             <>
-              <View style={cardStyle}>
+              <View style={cardStyle()}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-                  <Text style={textPresets.h3}>{t('reports.grades')}</Text>
+                  <SectionHead icon="grades" color={colors.brand} title={t('reports.grades')} />
                 </View>
                 {gradesLoading ? (
                   <ActivityIndicator size="small" color={colors.primary} />
@@ -378,8 +324,8 @@ export default function ChildDetailScreen() {
 
           {activeTab === 'exams' && (
             <>
-              <View style={cardStyle}>
-                <Text style={textPresets.h3}>{t('reports.exam_results')}</Text>
+              <View style={cardStyle()}>
+                <SectionHead icon="reports" color={colors.accent} title={t('reports.exam_results')} />
                 {examsLoading ? (
                   <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: spacing.md }} />
                 ) : !exams?.length ? (
@@ -418,8 +364,8 @@ export default function ChildDetailScreen() {
 
           {activeTab === 'settings' && (
             <>
-              <View style={cardStyle}>
-                <Text style={textPresets.h3}>{t('child_settings.title')}</Text>
+              <View style={cardStyle()}>
+                <SectionHead icon="settings" color={colors.textSecondary} title={t('child_settings.title')} />
                 <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
                     <Text style={textPresets.body}>{t('child_settings.student_code')}</Text>
@@ -433,7 +379,7 @@ export default function ChildDetailScreen() {
               </View>
 
               {child.can_generate_pre_card && (
-                <View style={cardStyle}>
+                <View style={cardStyle()}>
                   <Text style={textPresets.h3}>تسجيل عند المعلم قبل استلام البطاقة</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginTop: spacing.sm }}>
                     عندما تكون مع المعلم الآن، أنشئ رمزًا مؤقتًا واعرضه له ليُسجّل ابنك في حصصه — يصلح لدقائق قليلة فقط وللاستخدام الفوري أمام المعلم، ولا يُرسل عبر واتساب.
@@ -448,8 +394,8 @@ export default function ChildDetailScreen() {
               )}
 
               {child.teachers && child.teachers.length > 0 && (
-                <View style={cardStyle}>
-                  <Text style={textPresets.h3}>{t('parent.teachers')}</Text>
+                <View style={cardStyle()}>
+                  <SectionHead icon="teacher" color={colors.brand} title={t('parent.teachers')} />
                   <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
                     {child.teachers.map((teacher) => (
                       <View key={teacher.id} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
@@ -476,6 +422,8 @@ export default function ChildDetailScreen() {
         </View>
       </ScrollView>
 
+      <ComplaintSheet visible={!!complaintTarget} onClose={() => setComplaintTarget(null)} target={complaintTarget} forStudentId={child.student_id} />
+
       <Modal visible={showPicker} transparent animationType="fade" onRequestClose={() => setShowPicker(false)}>
         <TouchableOpacity style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center' }} activeOpacity={1} onPress={() => setShowPicker(false)}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, width: '80%', maxHeight: 300, overflow: 'hidden', ...shadows.lg }}>
@@ -495,7 +443,7 @@ export default function ChildDetailScreen() {
                   onPress={() => { router.replace(`/(parent)/child/${item.id}`); setShowPicker(false); }}
                   style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: index === selectedIndex ? colors.brandTint : 'transparent' }}
                 >
-                  <Avatar name={item.name} size={40} />
+                  <Avatar name={item.name} seed={avatarSeed.student(item.student_id, item.name)} size={40} />
                   <View style={{ marginStart: spacing.md, flex: 1 }}>
                     <Text style={[textPresets.body, { fontFamily: fonts.bold }]}>{item.name}</Text>
                     <Text style={textPresets.caption}>{item.grade}</Text>

@@ -15,6 +15,9 @@ export interface SessionRow {
   checked_in_count: number;
   /** «الحصة N من M» in the course's billing month; null when unknown. */
   cycle_position?: { n: number; of: number } | null;
+  enrolled_count?: number;
+  absent_count?: number;
+  duration_minutes?: number | null;
 }
 
 export interface SessionsPage {
@@ -37,6 +40,8 @@ export interface SessionAttendee {
   note: string | null;
   /** Cross-tenant: this student's parent number was confirmed not genuine. */
   number_flagged?: boolean;
+  /** A manual mark queued on this phone, not yet on the server (offline). */
+  pending_sync?: boolean;
 }
 
 /** A student swapped INTO this session (one-time makeup) — roster attendee + origin. */
@@ -60,6 +65,8 @@ export interface SessionDetail {
   is_cancelled: boolean;
   is_completed: boolean;
   is_past: boolean;
+  /** Session length; with scheduled_at it says live / upcoming / ended. Older servers omit it (60). */
+  duration_minutes?: number | null;
   sheet_expected: boolean;
   sheet_excluded: boolean;
   sheet_max_mark: number | null;
@@ -69,9 +76,38 @@ export interface SessionDetail {
   attendees: SessionAttendee[];
   /** Students swapped INTO this session — shown in a separate, non-default tab. */
   swap_ins?: SwapInAttendee[];
+  /** Served from the phone's last-known copy because the server could not be reached. */
+  offline?: boolean;
+  cached_at?: string;
 }
 
-export async function getTeacherSessions(params?: { status?: string; page?: number }): Promise<SessionsPage> {
+export interface OfflineMarkResult {
+  client_uuid: string;
+  student_id: number;
+  session_instance_id: number;
+  outcome: 'synced' | 'already_applied' | 'stale' | 'failed';
+  code: string | null;
+  message: string | null;
+}
+
+/**
+ * Replay manual marks made while offline. Each carries its own session, student, the
+ * moment it was made and a client UUID; the server answers per row (see
+ * TeacherSessionController::offlineMarks) so the caller drops what landed and parks
+ * what was refused.
+ */
+export async function syncOfflineMarks(
+  marks: { client_uuid: string; session_instance_id: number; student_id: number; status: string; marked_at: string }[],
+  expectedTeacherId?: number | null,
+): Promise<{ synced: number; total: number; results: OfflineMarkResult[] }> {
+  const { data } = await client.post('/teacher/sessions/offline-marks', {
+    marks,
+    ...(expectedTeacherId ? { expected_teacher_id: expectedTeacherId } : {}),
+  });
+  return (data.data ?? data) as { synced: number; total: number; results: OfflineMarkResult[] };
+}
+
+export async function getTeacherSessions(params?: { status?: string; page?: number; from?: string; to?: string }): Promise<SessionsPage> {
   const { data } = await client.get('/teacher/sessions', { params });
   const items = extractList(data, 'teacher-session-row').map((item: any) => {
     const attrs = extractAttrs(item);

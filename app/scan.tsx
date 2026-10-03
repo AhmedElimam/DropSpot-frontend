@@ -1,5 +1,6 @@
 import { Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 /**
  * Where `drosspot://scan` lands — the deep link a student card's QR produces.
@@ -36,5 +37,5 @@ export default function ScanDeepLink() {
   // Anyone else pointed a phone at a card — most often a student or parent at their own.
   // There is nothing for them to scan, so send them home through the normal role router,
   // which also re-applies every gate (terms, password, the self-registration wall).
-  return <Redirect href="/" />;
+  return <Redirect href={ROUTE_BY_ROLE} />;
 }

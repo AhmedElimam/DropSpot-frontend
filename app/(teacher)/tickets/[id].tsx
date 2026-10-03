@@ -23,12 +23,12 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 
-const statusColors: Record<string, [string, string]> = {
+const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
   in_progress: [colors.warning, colors.warningDark],
   resolved: [colors.success, colors.successDark],
   closed: [colors.textTertiary, colors.textSecondary],
-};
+});
 
 // Teacher/assistant ticket thread. Status controls (resolve/close) are active for
 // staff (isParent === false). An assistant reply is audit-logged on-behalf-of the
@@ -74,7 +74,7 @@ export default function TeacherTicketDetail() {
     );
   }
 
-  const sc = statusColors[ticket.status] || statusColors.open;
+  const sc = statusColors()[ticket.status] || statusColors().open;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -91,13 +91,13 @@ export default function TeacherTicketDetail() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
             <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', marginEnd: spacing.sm }}>
-              <Icon name="forward" size={26} color="#fff" />
+              <Icon name="forward" size={26} color={colors.onHero} />
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }} numberOfLines={1}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }} numberOfLines={1}>
                 {ticket.subject}
               </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>
                 {ticket.student_name}{ticket.parent_name ? ` · ${ticket.parent_name}` : ''}
               </Text>
             </View>
@@ -107,12 +107,12 @@ export default function TeacherTicketDetail() {
             <View
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 6,
-                backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)',
+                backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder,
                 borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md,
               }}
             >
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ticket.status === 'open' ? '#fff' : sc[0] }} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t(`tickets.status_${ticket.status}`)}</Text>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ticket.status === 'open' ? colors.onHero : sc[0] }} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t(`tickets.status_${ticket.status}`)}</Text>
             </View>
 
             {/* Changing status is part of reply_tickets («الرد على التذاكر وتغيير حالتها»). */}
@@ -120,9 +120,9 @@ export default function TeacherTicketDetail() {
               <TouchableOpacity
                 onPress={() => handleStatusChange('resolved')}
                 activeOpacity={0.75}
-                style={{ minHeight: 34, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md }}
+                style={{ minHeight: 34, justifyContent: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('tickets.mark_resolved')}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('tickets.mark_resolved')}</Text>
               </TouchableOpacity>
             )}
 
@@ -130,9 +130,9 @@ export default function TeacherTicketDetail() {
               <TouchableOpacity
                 onPress={() => handleStatusChange('closed')}
                 activeOpacity={0.75}
-                style={{ minHeight: 34, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md }}
+                style={{ minHeight: 34, justifyContent: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('tickets.close')}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('tickets.close')}</Text>
               </TouchableOpacity>
             )}
           </View>

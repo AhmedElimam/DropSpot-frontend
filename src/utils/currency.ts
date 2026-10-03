@@ -16,7 +16,9 @@ export function formatEGP(amount: number): string {
  */
 export function formatMoney(amount: number): string {
   const n = Math.round((Number(amount) || 0) * 100) / 100;
-  return String(n);
+  // Same digits as every other money figure in the app (Arabic-Indic via formatNumber);
+  // String(n) printed Western digits on the scan, invite and course screens only.
+  return formatNumber(n, { maximumFractionDigits: 2 });
 }
 
 export function formatEGPShort(amount: number): string {

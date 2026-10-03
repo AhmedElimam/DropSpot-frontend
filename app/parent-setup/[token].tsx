@@ -14,8 +14,8 @@ import { PasswordInput } from '@/components/ui/PasswordInput';
 import { AuthScaffold } from '@/components/auth/AuthScaffold';
 import { TermsConsentRow } from '@/components/auth/TermsConsentRow';
 
-const label = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm } as const;
-const field = {
+const label = () => ({ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm } as const);
+const field = () => ({
   fontFamily: fonts.regular,
   fontSize: 17,
   minHeight: control.minHeight,
@@ -26,7 +26,7 @@ const field = {
   color: colors.textPrimary,
   textAlign: 'right' as const,
   borderWidth: 1.5,
-};
+});
 
 export default function ParentSetupScreen() {
   const { t } = useTranslation();
@@ -96,17 +96,17 @@ export default function ParentSetupScreen() {
       )}
 
       {/* Editable: the parent sets or corrects their own name. */}
-      <Text style={label}>{t('setup.name')}</Text>
+      <Text style={label()}>{t('setup.name')}</Text>
       <TextInput
         value={name}
         onChangeText={setName}
         placeholder={t('setup.name')}
         placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.lg, borderColor: name ? colors.brand : colors.borderStrong }}
+        style={{ ...field(), marginBottom: spacing.lg, borderColor: name ? colors.brand : colors.borderStrong }}
       />
 
       {/* Relationship — optional, tap to toggle. */}
-      <Text style={label}>صلة القرابة</Text>
+      <Text style={label()}>صلة القرابة</Text>
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
         {([['father', 'أب'], ['mother', 'أم'], ['guardian', 'ولي أمر']] as const).map(([value, ar]) => {
           const active = relationship === value;
@@ -127,20 +127,20 @@ export default function ParentSetupScreen() {
         })}
       </View>
 
-      <Text style={label}>{t('setup.phone')}</Text>
+      <Text style={label()}>{t('setup.phone')}</Text>
       <TextInput
         value={info.phone_number}
         editable={false}
-        style={{ ...field, marginBottom: spacing.lg, borderColor: colors.border, backgroundColor: colors.surfaceSunken, color: colors.textSecondary, textAlign: 'left' }}
+        style={{ ...field(), marginBottom: spacing.lg, borderColor: colors.border, backgroundColor: colors.surfaceSunken, color: colors.textSecondary, textAlign: 'left', writingDirection: 'ltr' }}
       />
 
-      <Text style={label}>{t('setup.password')}</Text>
+      <Text style={label()}>{t('setup.password')}</Text>
       <PasswordInput
         value={password}
         onChangeText={setPassword}
         placeholder="••••••••"
         placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.xs, borderColor: password ? colors.brand : colors.borderStrong }}
+        style={{ ...field(), marginBottom: spacing.xs, borderColor: password ? colors.brand : colors.borderStrong }}
       />
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.lg }}>
         {t('setup.password_hint')}

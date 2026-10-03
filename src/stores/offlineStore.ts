@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { countPendingScans, countRejectedScans } from '@/db/offlineScans';
+import { countPendingMarks, countRejectedMarks } from '@/db/offlineMarks';
 
 /**
  * Always-available counts of buffered scans, so a badge can show "something is
@@ -29,8 +30,12 @@ export const useOfflineStore = create<OfflineState>((set) => ({
   autoSynced: 0,
   refresh: async () => {
     try {
-      const [pending, rejected] = await Promise.all([countPendingScans(), countRejectedScans()]);
-      set({ pending, rejected });
+      // Scans AND manual marks: both are "something on this phone is not on the server yet".
+      const [ps, rs, pm, rm] = await Promise.all([
+        countPendingScans(), countRejectedScans(),
+        countPendingMarks().catch(() => 0), countRejectedMarks().catch(() => 0),
+      ]);
+      set({ pending: ps + pm, rejected: rs + rm });
     } catch {
       // DB not ready yet — leave the counts as-is.
     }

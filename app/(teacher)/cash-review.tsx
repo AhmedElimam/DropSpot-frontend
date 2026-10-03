@@ -29,9 +29,9 @@ import {
 
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
 type Filter = 'all' | ReviewStatus | 'late';
-const STATE_TINT: Record<ReviewStatus, string> = {
+const STATE_TINT = (): Record<ReviewStatus, string> => ({
   pending: colors.textTertiary, accepted: colors.success, questioned: colors.warning, rejected: colors.danger,
-};
+});
 
 /** What a decision would do to the difference (registry − expected), before the tap. */
 function impactOf(e: Expense, action: 'accept' | 'question' | 'reject', difference: number | null): number | null {
@@ -72,7 +72,7 @@ function ItemCard({ e, review, isTeacher, onDecided }: { e: Expense; review: Wee
     return t('review.impact', { before: money(difference), after: money(after) });
   };
 
-  const tint = STATE_TINT[e.review_status];
+  const tint = STATE_TINT()[e.review_status];
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: e.review_status === 'pending' ? colors.border : tint, padding: spacing.md, marginBottom: spacing.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>

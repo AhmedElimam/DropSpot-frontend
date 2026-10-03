@@ -10,8 +10,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
 
 export default function ChildrenList() {
   const { t } = useTranslation();
@@ -50,28 +52,9 @@ export default function ChildrenList() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: '#fff', letterSpacing: -0.5 }}>
-                {t('parent.my_children')}
-              </Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
-                {t('common.children_count', { count: children.length })}
-              </Text>
-            </View>
-            <View style={{ width: 48, height: 48, borderRadius: radius.lg, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Icon name="children" size={24} color="#fff" outline />
-            </View>
-          </View>
-        </LinearGradient>
+        <PageHero title={t('parent.my_children')} subtitle={t('common.children_count', { count: children.length })} />
 
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {children.map((child) => {
             const rate = child.attendance_rate ?? 0;
             const rateColor = rate >= 90 ? colors.success : rate >= 75 ? colors.brand : colors.warning;
@@ -83,7 +66,7 @@ export default function ChildrenList() {
                 style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xxl, padding: spacing.xl, ...shadows.sm }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Avatar name={child.name} size={56} />
+                  <Avatar name={child.name} seed={avatarSeed.student(child.student_id, child.name)} size={56} />
                   <View style={{ marginStart: spacing.md, flex: 1, minWidth: 0 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{child.name}</Text>
                     <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{child.grade}</Text>

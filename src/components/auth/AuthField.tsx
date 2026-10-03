@@ -1,9 +1,8 @@
 import { forwardRef, useState } from 'react';
-import { View, Text, TextInput, type TextInputProps, type StyleProp, type ViewStyle } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, type TextInputProps, type StyleProp, type ViewStyle } from 'react-native';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, control } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
-import { PasswordInput } from '@/components/ui/PasswordInput';
 
 export interface AuthFieldProps extends TextInputProps {
   label: string;
@@ -15,7 +14,7 @@ export interface AuthFieldProps extends TextInputProps {
   hint?: string;
   /** Paints a green border + tick once the value is known-good (e.g. a full phone). */
   valid?: boolean;
-  /** Renders the eye toggle (PasswordInput) instead of a plain input. */
+  /** A password field: hidden text plus a show/hide eye at the END of the box. */
   secure?: boolean;
   containerStyle?: StyleProp<ViewStyle>;
 }
@@ -32,8 +31,14 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
   ref,
 ) {
   const [focused, setFocused] = useState(false);
+  // The eye is a plain row item, not an absolutely-positioned overlay (PasswordInput's
+  // approach). Inside this flex row the overlay's wrapper had no width of its own, so the
+  // eye landed on top of the typed text (founder 2026-10-02: "show password icon is
+  // ruined on login"). It sits right after the lock, on the field's leading edge (founder,
+  // same day: «on the other side, beside the lock»); the typed text ends before it — no
+  // padding guesswork.
+  const [revealed, setRevealed] = useState(false);
   const tone = error ? colors.danger : focused ? colors.brand : valid ? colors.success : colors.borderStrong;
-  const Input = secure ? PasswordInput : TextInput;
 
   return (
     <View style={[{ marginBottom: spacing.lg }, containerStyle]}>
@@ -58,9 +63,21 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
         }}
       >
         {icon ? <Icon name={icon} size={20} color={focused || error || valid ? tone : colors.textTertiary} outline style={{ marginEnd: spacing.sm }} /> : null}
-        <Input
+        {secure ? (
+          <TouchableOpacity
+            onPress={() => setRevealed((v) => !v)}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={revealed ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+            style={{ marginEnd: spacing.sm, paddingVertical: 4, paddingHorizontal: 2 }}
+          >
+            <Icon name={revealed ? 'eyeOff' : 'eye'} size={22} color={focused ? colors.brand : colors.textTertiary} outline />
+          </TouchableOpacity>
+        ) : null}
+        <TextInput
           ref={ref}
           {...input}
+          secureTextEntry={secure ? !revealed : input.secureTextEntry}
           editable={editable}
           onFocus={(e) => { setFocused(true); onFocus?.(e); }}
           onBlur={(e) => { setFocused(false); onBlur?.(e); }}
@@ -73,7 +90,6 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
               color: colors.textPrimary,
               textAlign: 'right',
               paddingVertical: 14,
-              // A secure field's eye already reserves its own padding (PasswordInput).
             },
             style,
           ]}

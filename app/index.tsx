@@ -1,10 +1,13 @@
 import { Redirect, type Href } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
+import { useThemeStore } from '@/stores/themeStore';
 
 export default function Index() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.role);
   const user = useAuthStore((s) => s.user);
+  // A redirect loop shows up here first: every pass through `/` logs where it went.
+  if (__DEV__) console.log('[route] resolve →', !isAuthenticated ? 'login' : `${role} ${user?.must_accept_terms ? 'terms' : ''}`);
 
   if (!isAuthenticated) {
     return <Redirect href="/(auth)/login" />;
@@ -40,6 +43,11 @@ export default function Index() {
   if (role === 'parent' && user?.should_confirm_name) {
     return <Redirect href={'/(parent)/change-name?first=1' as Href} />;
   }
+
+  // An appearance change re-keys the navigation tree, which can land here instead of on
+  // the settings screen that flipped the switch; it leaves its route for a few seconds.
+  const returnTo = useThemeStore.getState().peekReturnTo();
+  if (returnTo) return <Redirect href={returnTo} />;
 
   // A super-admin / admin has no normal app — only the impersonation picker.
   if (role === 'admin') return <Redirect href={'/(admin)/impersonate' as Href} />;

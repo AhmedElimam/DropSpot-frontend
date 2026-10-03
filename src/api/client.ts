@@ -173,7 +173,15 @@ client.interceptors.response.use(
       error.response?.status === 401 &&
       !original._retry &&
       !original.url?.includes('/auth/login') &&
-      !original.url?.includes('/auth/refresh')
+      !original.url?.includes('/auth/refresh') &&
+      // A sign-out or an impersonation stop that is refused is ALREADY what it asked for:
+      // the token is dead. Running the "session over" recovery for it is what deadlocked
+      // the exit from impersonation (founder 2026-10-02, «loops until it crashes»): the
+      // recovery joins the in-flight leaveImpersonation(), which is awaiting this very
+      // request, which is awaiting the recovery — a spinner for good, and on relaunch the
+      // dead session repeats the cycle. These two just fail and let their caller carry on.
+      !original.url?.includes('/auth/logout') &&
+      !original.url?.includes('/impersonation/stop')
     ) {
       original._retry = true;
       try {

@@ -13,6 +13,7 @@ import { useTermsContent } from '@/hooks/useTermsContent';
 import { TermsConsentRow } from '@/components/auth/TermsConsentRow';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 /**
  * Blocking Terms-acceptance gate. Reached from the index router when the user's
@@ -49,7 +50,7 @@ export default function AcceptTermsScreen() {
       // read must_accept_terms=true and bounce straight back to this screen (the
       // "accept once, it reloads; accept again, it passes" bug).
       if (user && role) await setSession({ ...user, must_accept_terms: false }, role);
-      router.replace('/' as Href);
+      router.replace(ROUTE_BY_ROLE);
     },
   });
 
@@ -61,7 +62,7 @@ export default function AcceptTermsScreen() {
         end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg }}
       >
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{heading}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }}>{heading}</Text>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>

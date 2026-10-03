@@ -39,6 +39,11 @@ export interface TeacherSession {
   is_current: boolean;
   /** «الحصة N من M» in the course's billing month; null when the timeline has no date for it. */
   cycle_position?: { n: number; of: number } | null;
+  /** Present + late so far. */
+  checked_in_count?: number;
+  absent_count?: number;
+  /** Roster size by the attendance sheet's own rule (slot + course-level enrolments). */
+  enrolled_count?: number;
 }
 
 export async function getTeacherTodaySessions(): Promise<TeacherSession[]> {
@@ -83,6 +88,9 @@ export interface ScanResult {
   pending?: ScanPending | null;
   // Present on an OTHER_GROUP_SAME_GRADE scan.
   offer?: ScanOffer | null;
+  // The scanned student has a live enrolment with the scanning teacher — the scan popups
+  // may open their profile. Never true for a stranger's card.
+  enrolled_here?: boolean;
 }
 
 /**
@@ -104,6 +112,7 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
       student_id: data.student_id ?? null,
       pending: data.pending ?? null,
       offer: data.offer ?? null,
+      enrolled_here: !!data.enrolled_here,
     };
   } catch (e: any) {
     // Non-2xx failures (expired card, not enrolled, overdue block, etc.) carry the same shape.
@@ -118,6 +127,7 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
         // The overdue block carries the dues so the app can open the collect modal.
         pending: d.pending ?? null,
         offer: d.offer ?? null,
+        enrolled_here: !!d.enrolled_here,
       };
     }
     throw e;

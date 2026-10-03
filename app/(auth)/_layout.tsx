@@ -1,5 +1,6 @@
 import { Redirect, Stack } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 export default function AuthLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -14,7 +15,7 @@ export default function AuthLayout() {
   // logic here is exactly what sent a freshly-logged-in teacher to /(parent) —
   // the two copies drifted, and only a reload (routing through index) fixed it.
   if (isAuthenticated) {
-    return <Redirect href="/" />;
+    return <Redirect href={ROUTE_BY_ROLE} />;
   }
 
   return (

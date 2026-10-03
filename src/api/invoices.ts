@@ -18,7 +18,12 @@ export interface Invoice {
   amount: number;
   due_date: string;
   status: 'paid' | 'pending' | 'overdue';
+  paid_at?: string | null;
+  /** True once the invoice is paid in full — only then is there a PDF receipt. */
+  receipt_available?: boolean;
   items: string[];
+  /** The student the invoice bills (a parent needs it to file «دفعت ولم يُسجَّل» for them). */
+  student_id?: number;
   student_name?: string;
   teacher_name?: string;
   teacher_phone?: string | null;
@@ -81,6 +86,12 @@ function mapInvoices(data: any): Invoice[] {
     const attrs = extractAttrs(item);
     return { id: item.id, ...attrs };
   });
+}
+
+/** Parent: a short-lived signed link to a PAID invoice's PDF receipt. */
+export async function getInvoiceReceiptUrl(invoiceId: string): Promise<string> {
+  const { data } = await client.get(`/parents/invoices/${invoiceId}/receipt-url`);
+  return (data?.data?.url ?? '') as string;
 }
 
 /** Parent: invoices across all of the parent's children. */

@@ -11,6 +11,7 @@ import { AuthScaffold, AuthBanner } from '@/components/auth/AuthScaffold';
 import { AuthField } from '@/components/auth/AuthField';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { PasswordStrength } from '@/components/auth/PasswordStrength';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 const RESEND_COOLDOWN = 60;
 
@@ -39,7 +40,7 @@ export default function ResetPasswordScreen() {
     reset.mutate(
       { phone_number: phone, code, password },
       // Logged in on success → hand off to app/index.tsx which routes by role.
-      { onSuccess: () => router.replace('/') },
+      { onSuccess: () => router.replace(ROUTE_BY_ROLE) },
     );
   };
 

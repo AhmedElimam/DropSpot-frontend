@@ -202,12 +202,12 @@ export default function InvitePhone() {
 
               <View style={{ height: spacing.md }} />
               <Lbl>{t('invite_phone.student_phone')}</Lbl>
-              <TextInput value={studentPhone} onChangeText={(v) => setStudentPhone(v.replace(/[^0-9]/g, ''))} keyboardType="phone-pad" placeholder="01xxxxxxxxx" placeholderTextColor={colors.textTertiary} maxLength={11} style={{ ...input, textAlign: 'left', borderColor: studentPhoneError ? colors.danger : colors.border }} />
+              <TextInput value={studentPhone} onChangeText={(v) => setStudentPhone(v.replace(/[^0-9]/g, ''))} keyboardType="phone-pad" placeholder="01xxxxxxxxx" placeholderTextColor={colors.textTertiary} maxLength={11} style={{ ...input, textAlign: 'left', writingDirection: 'ltr', borderColor: studentPhoneError ? colors.danger : colors.border }} />
               {studentPhoneError ? <Text style={errText}>{t('invite_phone.phone_format_error')}</Text> : null}
 
               <View style={{ height: spacing.md }} />
               <Lbl>{t('invite_phone.parent_phone')}</Lbl>
-              <TextInput value={parentPhone} onChangeText={(v) => setParentPhone(v.replace(/[^0-9]/g, ''))} keyboardType="phone-pad" placeholder="01xxxxxxxxx" placeholderTextColor={colors.textTertiary} maxLength={11} style={{ ...input, textAlign: 'left', borderColor: parentPhoneError ? colors.danger : colors.border }} />
+              <TextInput value={parentPhone} onChangeText={(v) => setParentPhone(v.replace(/[^0-9]/g, ''))} keyboardType="phone-pad" placeholder="01xxxxxxxxx" placeholderTextColor={colors.textTertiary} maxLength={11} style={{ ...input, textAlign: 'left', writingDirection: 'ltr', borderColor: parentPhoneError ? colors.danger : colors.border }} />
               {parentPhoneError ? <Text style={errText}>{t('invite_phone.phone_format_error')}</Text> : null}
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>{t('invite_phone.phone_hint')}</Text>
             </View>

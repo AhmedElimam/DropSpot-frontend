@@ -21,14 +21,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
 
 // Status accent on the Sanad ink/semantic ramp (used for the header pill tint).
-const statusColors: Record<string, [string, string]> = {
+const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
   in_progress: [colors.warning, colors.warningDark],
   resolved: [colors.success, colors.successDark],
   closed: [colors.textTertiary, colors.textSecondary],
-};
+});
 
 export default function TicketDetail() {
   const { t } = useTranslation();
@@ -76,7 +77,7 @@ export default function TicketDetail() {
     );
   }
 
-  const sc = statusColors[ticket.status] || statusColors.open;
+  const sc = statusColors()[ticket.status] || statusColors().open;
   const isParent = user?.user_type_id === 4;
 
   return (
@@ -87,42 +88,24 @@ export default function TicketDetail() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* Header */}
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.lg }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', marginEnd: spacing.sm }}>
-              <Icon name="forward" size={26} color="#fff" />
-            </TouchableOpacity>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }} numberOfLines={1}>
-                {ticket.subject}
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>
-                {ticket.student_name} - {ticket.teacher_name}
-              </Text>
-            </View>
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <PageHero title={ticket.subject} subtitle={`${ticket.student_name} - ${ticket.teacher_name}`} onBack compact>
+          <View style={{ marginTop: spacing.md }}>
+<View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 6,
-                backgroundColor: 'rgba(255,255,255,0.12)',
+                backgroundColor: colors.onHeroChip,
                 borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.16)',
+                borderColor: colors.onHeroChipBorder,
                 borderRadius: radius.full,
                 paddingVertical: 5,
                 paddingHorizontal: spacing.md,
               }}
             >
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ticket.status === 'open' ? '#fff' : sc[0] }} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ticket.status === 'open' ? colors.onHero : sc[0] }} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>
                 {t(`tickets.status_${ticket.status}`)}
               </Text>
             </View>
@@ -134,13 +117,13 @@ export default function TicketDetail() {
                 style={{
                   minHeight: 34,
                   justifyContent: 'center',
-                  backgroundColor: 'rgba(255,255,255,0.16)',
+                  backgroundColor: colors.onHeroChip,
                   borderRadius: radius.full,
                   paddingVertical: 5,
                   paddingHorizontal: spacing.md,
                 }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>
                   {t('tickets.mark_resolved')}
                 </Text>
               </TouchableOpacity>
@@ -153,19 +136,20 @@ export default function TicketDetail() {
                 style={{
                   minHeight: 34,
                   justifyContent: 'center',
-                  backgroundColor: 'rgba(255,255,255,0.16)',
+                  backgroundColor: colors.onHeroChip,
                   borderRadius: radius.full,
                   paddingVertical: 5,
                   paddingHorizontal: spacing.md,
                 }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>
                   {t('tickets.close')}
                 </Text>
               </TouchableOpacity>
             )}
           </View>
-        </LinearGradient>
+          </View>
+        </PageHero>
 
         {/* Messages */}
         <ScrollView

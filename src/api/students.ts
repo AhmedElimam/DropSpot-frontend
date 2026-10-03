@@ -124,6 +124,8 @@ export interface RosterStudent {
   attendance_total: number;
   attendance_attended: number;
   attendance_rate: number | null;
+  /** An overdue bill under this teacher. Only sent to someone who may collect. */
+  overdue?: boolean;
 }
 
 export interface TeacherCourse {
@@ -199,10 +201,32 @@ export interface StudentParent {
 
 export interface StudentAttendanceRow {
   id: number;
+  /** The session this record belongs to (older servers omit it). */
+  session_id?: string | null;
   course_name: string | null;
   date: string | null;
   status: string;
   method: string | null;
+}
+
+/** A recent session the profile can record against, with this student's record in it. */
+export interface QuickSession {
+  id: string;
+  course_name: string | null;
+  scheduled_at: string | null;
+  date: string | null;
+  time: string | null;
+  duration_minutes: number | null;
+  status: string;
+  is_exam: boolean;
+  sheet_expected: boolean;
+  sheet_max_mark: number | null;
+  attendance: {
+    status: 'present' | 'late' | 'absent' | 'excused' | 'not_recorded';
+    checked_in_at: string | null;
+    mark: number | null;
+    sheet_marked: boolean;
+  };
 }
 
 export interface StudentDetail {
@@ -212,6 +236,8 @@ export interface StudentDetail {
   grade_name: string | null;
   courses: StudentCourse[];
   parents: StudentParent[];
+  /** Today + the last 14 days of this student's sessions, recordable from the profile (older servers omit it). */
+  quick_sessions?: QuickSession[];
   parent_number_notice?: boolean;
   parent_number_notice_message?: string | null;
   /**

@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { isArabicName } from '@/utils/validators';
 import { updateMyName, confirmMyName } from '@/api/profile';
+import { PageHero } from '@/components/ui/PageHero';
 
 /**
  * Tier A — a parent corrects their OWN display name. Direct self-edit (self-owned
@@ -72,17 +73,8 @@ export default function ChangeNameScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-        {!isFirstLogin ? (
-          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="forward" size={22} color={colors.textPrimary} />
-          </TouchableOpacity>
-        ) : null}
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>
-          {isFirstLogin ? 'تأكيد اسمك' : 'تعديل الاسم'}
-        </Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHero title={isFirstLogin ? 'تأكيد اسمك' : 'تعديل الاسم'} onBack={!isFirstLogin} compact />
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg }}>

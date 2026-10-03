@@ -17,13 +17,13 @@ import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/E
 import { recordStudent, orderCardsForNewlyAdded, type DedupeMatch, type RecordStudentPayload, type ParentRelationship, type ExistingStudentOffer } from '@/api/studentRecord';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
-const label = { fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.xs } as const;
-const field = {
+const label = () => ({ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.xs } as const);
+const field = () => ({
   fontFamily: fonts.regular, fontSize: 17, minHeight: control.minHeight,
   backgroundColor: colors.surfaceSunken, borderRadius: radius.lg,
   paddingHorizontal: spacing.lg, paddingVertical: 14, color: colors.textPrimary,
   textAlign: 'right' as const, borderWidth: 1.5,
-};
+});
 
 export default function RecordStudent() {
   const insets = useSafeAreaInsets();
@@ -200,7 +200,7 @@ export default function RecordStudent() {
         </View>
 
         {/* Course picker (choose once) */}
-        <Text style={label}>المقرر</Text>
+        <Text style={label()}>المقرر</Text>
         {eligible.length === 0 ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, marginBottom: spacing.lg }}>لا توجد مقررات لها مواعيد. أضِف موعدًا للمقرر أولًا.</Text>
         ) : (
@@ -224,27 +224,27 @@ export default function RecordStudent() {
         {courseId != null && (
           <>
             {/* Student name */}
-            <Text style={label}>اسم الطالب</Text>
+            <Text style={label()}>اسم الطالب</Text>
             <TextInput
               ref={nameRef}
               value={name}
               onChangeText={setName}
               placeholder="الاسم الكامل"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: spacing.xs, borderColor: nameError ? colors.danger : (name ? colors.brand : colors.borderStrong) }}
+              style={{ ...field(), marginBottom: spacing.xs, borderColor: nameError ? colors.danger : (name ? colors.brand : colors.borderStrong) }}
               returnKeyType="next"
             />
             {nameError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>يرجى إدخال الاسم بالعربية</Text> : <View style={{ height: spacing.md }} />}
 
             {/* Student's own phone — their login handle when the app launches */}
-            <Text style={label}>رقم هاتف الطالب</Text>
+            <Text style={label()}>رقم هاتف الطالب</Text>
             <TextInput
               value={studentPhone}
               onChangeText={setStudentPhone}
               placeholder="01xxxxxxxxx"
               placeholderTextColor={colors.textTertiary}
               keyboardType="phone-pad"
-              style={{ ...field, marginBottom: spacing.xs, borderColor: (studentPhoneError || sameAsParentError) ? colors.danger : (studentPhone ? colors.brand : colors.borderStrong) }}
+              style={{ ...field(), marginBottom: spacing.xs, borderColor: (studentPhoneError || sameAsParentError) ? colors.danger : (studentPhone ? colors.brand : colors.borderStrong) }}
               returnKeyType="next"
             />
             {sameAsParentError
@@ -254,30 +254,30 @@ export default function RecordStudent() {
                 : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>يسجّل الطالب الدخول بهذا الرقم عند إطلاق التطبيق.</Text>}
 
             {/* Parent phone — the activation anchor */}
-            <Text style={label}>رقم ولي الأمر</Text>
+            <Text style={label()}>رقم ولي الأمر</Text>
             <TextInput
               value={parentPhone}
               onChangeText={setParentPhone}
               placeholder="01xxxxxxxxx"
               placeholderTextColor={colors.textTertiary}
               keyboardType="phone-pad"
-              style={{ ...field, marginBottom: spacing.xs, borderColor: phoneError ? colors.danger : (parentPhone ? colors.brand : colors.borderStrong) }}
+              style={{ ...field(), marginBottom: spacing.xs, borderColor: phoneError ? colors.danger : (parentPhone ? colors.brand : colors.borderStrong) }}
               onSubmitEditing={() => canSubmit && submit()}
             />
             <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>سيُستخدم هذا الرقم لتنشيط حساب الطالب لاحقًا.</Text>
 
             {/* Parent name — OPTIONAL (the parent can set/modify it at setup). */}
-            <Text style={label}>اسم ولي الأمر (اختياري)</Text>
+            <Text style={label()}>اسم ولي الأمر (اختياري)</Text>
             <TextInput
               value={parentName}
               onChangeText={setParentName}
               placeholder="الاسم الكامل"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
+              style={{ ...field(), marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
             />
 
             {/* Relationship — OPTIONAL, tap to toggle. */}
-            <Text style={label}>صلة القرابة (اختياري)</Text>
+            <Text style={label()}>صلة القرابة (اختياري)</Text>
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
               {([['father', 'أب'], ['mother', 'أم'], ['guardian', 'ولي أمر']] as const).map(([value, ar]) => {
                 const active = relationship === value;
@@ -309,8 +309,8 @@ export default function RecordStudent() {
             </TouchableOpacity>
 
             {flash ? (
-              <View style={{ marginTop: spacing.md, backgroundColor: '#e7f7ee', borderRadius: radius.lg, padding: spacing.md, alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#0f7a48' }}>✅ {flash}</Text>
+              <View style={{ marginTop: spacing.md, backgroundColor: colors.successLight, borderRadius: radius.lg, padding: spacing.md, alignItems: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.successText }}>✅ {flash}</Text>
               </View>
             ) : null}
 

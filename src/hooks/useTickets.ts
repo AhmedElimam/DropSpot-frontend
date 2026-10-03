@@ -15,7 +15,9 @@ export function useTicket(id: string) {
 
 export function useStudentTeachers(studentId: number | null) {
   return useQuery({
-    queryKey: ['student-teachers', studentId],
+    // NOT 'student-teachers': that key holds the overview shape (api/studentOverview); two
+    // fetchers on one key would hand each other the wrong data.
+    queryKey: ['ticket-teachers', studentId],
     queryFn: () => getStudentTeachers(studentId!),
     enabled: !!studentId,
   });

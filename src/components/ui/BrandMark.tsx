@@ -1,4 +1,5 @@
 import { View, Image } from 'react-native';
+import { colors } from '@/theme/index';
 
 const brandLogo = require('@/assets/images/brand-logo.png');
 
@@ -12,6 +13,9 @@ interface BrandMarkProps {
   /** Opt-in rounded white tile behind the mark. Default OFF — the in-app asset is
    *  the WHITE emblem, which reads directly on the dark hero with no background. */
   tile?: boolean;
+  /** Colour the emblem is tinted to. Defaults to the brand indigo (deep on the day mist,
+   *  pale on the night navy); the auth screens, deep ink in both schemes, pass white. */
+  tint?: string;
 }
 
 /**
@@ -21,12 +25,12 @@ interface BrandMarkProps {
  * variant of the emblem (the file the launcher icon uses is navy-on-white), so it
  * renders directly on the dark hero — no tile.
  */
-export function BrandMark({ size = 44, tile = false }: BrandMarkProps) {
+export function BrandMark({ size = 44, tile = false, tint }: BrandMarkProps) {
   const logoHeight = tile ? Math.round(size * 0.74) : size;
   const logo = (
     <Image
       source={brandLogo}
-      style={{ height: logoHeight, width: Math.round(logoHeight * ASPECT) }}
+      style={{ height: logoHeight, width: Math.round(logoHeight * ASPECT), tintColor: tint ?? colors.brand }}
       resizeMode="contain"
     />
   );

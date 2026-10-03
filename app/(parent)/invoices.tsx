@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
@@ -7,7 +7,8 @@ import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@
 import { formatDate, daysUntil } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
 import { useInvoices, useParentPendingDues } from '@/hooks/useInvoices';
-import type { Invoice, PendingDue } from '@/api/invoices';
+import { getInvoiceReceiptUrl, type Invoice, type PendingDue } from '@/api/invoices';
+import { openRemotePdf } from '@/utils/openPdf';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -16,12 +17,17 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
 import { PaymentSection } from '@/components/parent/PaymentSection';
 import { PendingDueCard } from '@/components/parent/PendingDueCard';
+import { PageHero } from '@/components/ui/PageHero';
+import { SectionHead } from '@/components/ui/SectionHead';
+import { formatNumber } from '@/utils/format';
+import { ComplaintSheet, ComplaintPill } from '@/components/student/ComplaintSheet';
+import { useMyComplaints } from '@/hooks/useComplaints';
 
-const statusConfig: Record<string, { color: string }> = {
+const statusConfig = (): Record<string, { color: string }> => ({
   paid: { color: colors.success },
   pending: { color: colors.warning },
   overdue: { color: colors.danger },
-};
+});
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
@@ -74,36 +80,18 @@ export default function InvoicesPage() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: '#fff', letterSpacing: -0.5 }}>
-            {t('invoices.title')}
-          </Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.72)', marginTop: spacing.xs }}>
-            {formatDate(new Date())}
-          </Text>
+        <PageHero
+          title={t('invoices.title')}
+          subtitle={formatDate(new Date())}
+          compact
+          stats={[
+            { value: formatEGP(totalDue), label: t('invoices.total_due'), warn: totalDue > 0 },
+            { value: formatEGP(paidAmount), label: t('invoices.paid_amount') },
+            { value: formatNumber(overdueCount), label: t('invoices.overdue'), warn: overdueCount > 0 },
+          ]}
+        />
 
-          <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{formatEGP(totalDue)}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('invoices.total_due')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{formatEGP(paidAmount)}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('invoices.paid_amount')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff' }}>{overdueCount}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('invoices.overdue')}</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md }}>
           {groups.length === 0 ? (
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, ...shadows.sm }}>
               <EmptyState icon="invoices" title={t('invoices.no_invoices')} />
@@ -112,12 +100,7 @@ export default function InvoicesPage() {
             groups.map((group) => (
               <View key={group.teacher} style={{ gap: spacing.md }}>
                 {/* Per-teacher header — each teacher's bills stand on their own. */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md }}>
-                  <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
-                    <Icon name="teacher" size={18} color={colors.brand} />
-                  </View>
-                  <Text style={[textPresets.h3, { flex: 1 }]} numberOfLines={1}>{group.teacher}</Text>
-                </View>
+                <View style={{ marginTop: spacing.sm }}><SectionHead icon="teacher" color={colors.brand} title={group.teacher} /></View>
                 {group.dues.map((due) => (
                   <PendingDueCard key={`due-${due.id}`} due={due} showStudent />
                 ))}
@@ -135,7 +118,27 @@ export default function InvoicesPage() {
 
 function InvoiceCard({ invoice }: { invoice: Invoice }) {
   const { t } = useTranslation();
-  const sc = statusConfig[invoice.status] ?? statusConfig.pending;
+  const sc = statusConfig()[invoice.status] ?? statusConfig().pending;
+  // «دفعت ولم يُسجَّل» — the parent disputes it for the child the invoice bills.
+  const { byInvoice } = useMyComplaints();
+  const complaint = byInvoice.get(Number(invoice.id));
+  const [complainOpen, setComplainOpen] = useState(false);
+  // The PDF receipt — a PAID invoice only (founder 2026-10-03).
+  const [opening, setOpening] = useState(false);
+  const openReceipt = async () => {
+    if (opening) return;
+    setOpening(true);
+    try {
+      const url = await getInvoiceReceiptUrl(invoice.id);
+      if (!url) throw new Error('no url');
+      await openRemotePdf(url, [t('invoices.receipt_file'), invoice.number].filter(Boolean).join('-'));
+    } catch {
+      Alert.alert(t('invoices.receipt_failed'));
+    } finally {
+      setOpening(false);
+    }
+  };
+  const hasReceipt = invoice.receipt_available ?? invoice.status === 'paid';
   return (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -179,6 +182,23 @@ function InvoiceCard({ invoice }: { invoice: Invoice }) {
         <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>{formatEGP(invoice.amount)}</Text>
       </View>
       <PaymentSection invoice={invoice} />
+      {hasReceipt ? (
+        <TouchableOpacity onPress={openReceipt} disabled={opening} activeOpacity={0.85} accessibilityRole="button"
+          style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 46, borderRadius: radius.md, backgroundColor: colors.successLight, borderWidth: 1, borderColor: colors.success }}>
+          {opening ? <ActivityIndicator color={colors.successText} /> : <Icon name="download" size={18} color={colors.successText} />}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.successText }}>{t('invoices.download_receipt')}</Text>
+        </TouchableOpacity>
+      ) : null}
+      {complaint ? (
+        <View style={{ marginTop: spacing.md, alignSelf: 'flex-start' }}><ComplaintPill status={complaint.status} /></View>
+      ) : invoice.status !== 'paid' && invoice.student_id ? (
+        <TouchableOpacity onPress={() => setComplainOpen(true)} activeOpacity={0.8} accessibilityRole="button"
+          style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSunken }}>
+          <Icon name="note" size={16} color={colors.textSecondary} outline />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('complaints.file_payment')}</Text>
+        </TouchableOpacity>
+      ) : null}
+      <ComplaintSheet visible={complainOpen} onClose={() => setComplainOpen(false)} forStudentId={invoice.student_id ?? null} target={{ type: 'payment', invoiceId: Number(invoice.id), invoiceNumber: invoice.number, amount: invoice.amount }} />
     </TouchableOpacity>
   );
 }

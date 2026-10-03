@@ -12,6 +12,7 @@ import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 // Visible tabs stay mounted; detail screens (href: null) are released once they are not one
 // of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
@@ -47,6 +48,7 @@ export default function ParentTabLayout() {
   const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const role = useAuthStore((s) => s.role);
   const pushTokenRef = useRef<string | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
@@ -102,6 +104,11 @@ export default function ParentTabLayout() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  // Not this role's app (e.g. a super-admin whose impersonation just ended): `/` routes by role.
+  if (role && role !== 'parent') {
+    return <Redirect href={ROUTE_BY_ROLE} />;
+  }
+
   return (
     <Tabs
       // Hardware back follows visit history, so pushed detail screens (reports,
@@ -129,7 +136,7 @@ export default function ParentTabLayout() {
           // two rounded corners that is continuous GPU work and a measurable heat source on
           // mid-range chips (Redmi Note 11S / Helio G96, 2026-09-22). Opaque + a hairline
           // rule keeps the same lifted look for free.
-          backgroundColor: '#FFFFFF',
+          backgroundColor: colors.tabBar,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
           paddingTop: 8,
@@ -150,7 +157,7 @@ export default function ParentTabLayout() {
               style={{
                 fontFamily: fonts.medium,
                 fontSize: 12,
-                color: focused ? colors.primary : colors.textTertiary,
+                color: focused ? colors.tabActive : colors.tabInactive,
                 marginTop: 2,
               }}
             >
@@ -168,7 +175,7 @@ export default function ParentTabLayout() {
             <Icon
               name={icons[route.name] || 'home'}
               size={24}
-              color={focused ? colors.primary : colors.textTertiary}
+              color={focused ? colors.tabActive : colors.tabInactive}
               outline={!focused}
             />
           </View>

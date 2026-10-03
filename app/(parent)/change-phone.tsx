@@ -10,10 +10,11 @@ import { Icon } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { startPhoneChange, verifyOldPhone, requestNewPhone, confirmPhoneChange } from '@/api/phoneChange';
+import { PageHero } from '@/components/ui/PageHero';
 
 type Step = 'intro' | 'verify_old' | 'enter_new' | 'verify_new';
 
-const field = {
+const field = () => ({
   fontFamily: fonts.regular,
   fontSize: 18,
   minHeight: control.minHeight,
@@ -26,7 +27,7 @@ const field = {
   borderWidth: 1.5,
   borderColor: colors.borderStrong,
   letterSpacing: 2,
-};
+});
 
 export default function ChangePhoneScreen() {
   const { t } = useTranslation();
@@ -83,13 +84,8 @@ export default function ChangePhoneScreen() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="forward" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('auth.change_phone')}</Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHero title={t('auth.change_phone')} onBack={true} compact />
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl }}>
@@ -110,7 +106,7 @@ export default function ChangePhoneScreen() {
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.md }}>
               {t('auth.change_phone_old_sent', { phone: maskedOld })}
             </Text>
-            <TextInput value={oldCode} onChangeText={(v) => setOldCode(onlyDigits(v, 6))} keyboardType="number-pad" placeholder="------" placeholderTextColor={colors.textTertiary} style={field} />
+            <TextInput value={oldCode} onChangeText={(v) => setOldCode(onlyDigits(v, 6))} keyboardType="number-pad" placeholder="------" placeholderTextColor={colors.textTertiary} style={field()} />
             <Primary label={t('auth.change_phone_verify')} onPress={() => verifyOld.mutate()} disabled={oldCode.length !== 6} />
           </>
         ) : null}
@@ -120,7 +116,7 @@ export default function ChangePhoneScreen() {
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.md }}>
               {t('auth.change_phone_new_label')}
             </Text>
-            <TextInput value={newPhone} onChangeText={(v) => setNewPhone(onlyDigits(v, 15))} keyboardType="phone-pad" placeholder="01000000000" placeholderTextColor={colors.textTertiary} style={{ ...field, letterSpacing: 1, writingDirection: 'ltr' }} />
+            <TextInput value={newPhone} onChangeText={(v) => setNewPhone(onlyDigits(v, 15))} keyboardType="phone-pad" placeholder="01000000000" placeholderTextColor={colors.textTertiary} style={{ ...field(), letterSpacing: 1, writingDirection: 'ltr' }} />
             <Primary label={t('auth.change_phone_send_new')} onPress={() => reqNew.mutate()} disabled={newPhone.trim().length < 10} />
           </>
         ) : null}
@@ -130,7 +126,7 @@ export default function ChangePhoneScreen() {
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.md }}>
               {t('auth.change_phone_new_sent', { phone: maskedNew })}
             </Text>
-            <TextInput value={newCode} onChangeText={(v) => setNewCode(onlyDigits(v, 6))} keyboardType="number-pad" placeholder="------" placeholderTextColor={colors.textTertiary} style={field} />
+            <TextInput value={newCode} onChangeText={(v) => setNewCode(onlyDigits(v, 6))} keyboardType="number-pad" placeholder="------" placeholderTextColor={colors.textTertiary} style={field()} />
             <Primary label={t('auth.change_phone_confirm')} onPress={() => confirm.mutate()} disabled={newCode.length !== 6} />
           </>
         ) : null}

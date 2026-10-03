@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView } from 'react-native';
+import { SheetModal } from '@/components/ui/SheetModal';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, Alert, TextInput } from 'react-native';
 import { useState } from 'react';
 import { openRemotePdf } from '@/utils/openPdf';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
@@ -7,9 +8,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
-import { Badge, type BadgeVariant } from '@/components/ui/Badge';
+import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { StudentAttendanceList } from '@/components/student/StudentAttendanceList';
 import { useStudentDetail } from '@/hooks/useStudents';
 import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -20,17 +23,6 @@ import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePo
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBooklet, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
-
-// Attendance status → an i18n key + Badge variant. 'not_recorded' is the neutral
-// "no record for this session" state (only appears in session detail, kept here
-// for completeness).
-const STATUS_META: Record<string, { key: string; variant: BadgeVariant }> = {
-  present: { key: 'attendance.present', variant: 'success' },
-  late: { key: 'attendance.late', variant: 'warning' },
-  absent: { key: 'attendance.absent', variant: 'danger' },
-  excused: { key: 'attendance.excused', variant: 'info' },
-  not_recorded: { key: 'teacher.not_recorded', variant: 'default' },
-};
 
 function StatTile({ label, value, color }: { label: string; value: number; color: string }) {
   return (
@@ -50,11 +42,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-// How many attendance rows the screen builds before the user asks for the rest.
-const ATTENDANCE_PREVIEW = 12;
-
 export default function StudentDetailScreen() {
-  const [showAllAttendance, setShowAllAttendance] = useState(false);
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -99,7 +87,7 @@ export default function StudentDetailScreen() {
       ],
     );
   };
-  const { can } = useActiveAbilities();
+  const { can, isAssistant } = useActiveAbilities();
   const canManage = can(ABILITY.MANAGE_STUDENTS);
   const canCollect = can(ABILITY.SCAN);
   const canMarkManual = can(ABILITY.MARK_MANUAL);
@@ -425,7 +413,7 @@ export default function StudentDetailScreen() {
         >
           {/* Summary */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>
-            <Avatar name={s.name ?? '—'} size={56} />
+            <Avatar name={s.name ?? '—'} seed={avatarSeed.student(s.id, s.name ?? '—')} size={56} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{s.name ?? '—'}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
@@ -849,41 +837,11 @@ export default function StudentDetailScreen() {
           ) : null}
 
           {/* Attendance history */}
+          {/* Recent sessions recordable in place (✓ / ✗, a tap for the rest and the mark),
+              then the older records — the session sheet's rows, for one student. */}
           <Section title={t('teacher.attendance_history')}>
-            {s.attendance.length === 0 ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary }}>{t('teacher.no_attendance')}</Text>
-            ) : (
-              /* Only the most recent slice is built on mount. The server returns a
-                 student's ENTIRE attendance history unpaginated, and this is a plain
-                 ScrollView, so every row was constructed and laid out before the screen
-                 could appear — five views each, hundreds of them for a student enrolled a
-                 full term. That is the delay felt when opening a student (Android
-                 slowness reports, 2026-09-22). The rest is one tap away and almost never
-                 wanted: a teacher opens this screen for the recent picture. */
-              (showAllAttendance ? s.attendance : s.attendance.slice(0, ATTENDANCE_PREVIEW)).map((r) => {
-                const meta = STATUS_META[r.status] ?? STATUS_META.not_recorded;
-                return (
-                  <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{r.course_name ?? '—'}</Text>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{dayLabel(r.date)}</Text>
-                    </View>
-                    <Badge label={t(meta.key)} variant={meta.variant} size="sm" />
-                  </View>
-                );
-              })
-            )}
-            {!showAllAttendance && s.attendance.length > ATTENDANCE_PREVIEW ? (
-              <TouchableOpacity
-                onPress={() => setShowAllAttendance(true)}
-                style={{ paddingVertical: spacing.md, alignItems: 'center' }}
-                accessibilityRole="button"
-              >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>
-                  {`عرض السجل كامل (${s.attendance.length})`}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
+            <StudentAttendanceList studentId={Number(s.id)} sessions={s.quick_sessions ?? []} history={s.attendance}
+              canMark={canMarkManual} isAssistant={isAssistant} onChanged={() => { void refetch(); }} />
           </Section>
         </ScrollView>
       )}
@@ -893,9 +851,7 @@ export default function StudentDetailScreen() {
       {/* Restate the cycle's bill. One number, stated plainly, with what happens to the old
           invoice said out loud — a teacher correcting money should never have to guess
           whether the previous figure survived. */}
-      <Modal visible={!!amountFor} animationType="slide" transparent onRequestClose={() => !amountBusy && setAmountFor(null)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+      <SheetModal visible={!!amountFor} onClose={() => !amountBusy && setAmountFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>
                 {`تصحيح قيمة الفاتورة — ${amountFor?.courseName ?? ''}`}
@@ -938,15 +894,11 @@ export default function StudentDetailScreen() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>حفظ المبلغ</Text>
               )}
             </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
 
       {/* «سُدِّدت قبل الانضمام»: say plainly what it does and does not do, then one optional
           number. Blank = the whole remaining bill. */}
-      <Modal visible={!!priorFor} animationType="slide" transparent onRequestClose={() => !priorBusy && setPriorFor(null)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+      <SheetModal visible={!!priorFor} onClose={() => !priorBusy && setPriorFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>
                 {`سُدِّدت قبل الانضمام — ${priorFor?.courseName ?? ''}`}
@@ -979,13 +931,9 @@ export default function StudentDetailScreen() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>تسجيلها كمسدَّدة مسبقًا</Text>
               )}
             </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
 
-      <Modal visible={!!positionFor} animationType="slide" transparent onRequestClose={() => !positionBusy && setPositionFor(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
+      <SheetModal visible={!!positionFor} onClose={() => !positionBusy && setPositionFor(null)} style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{`الطالب على الحصة رقم — ${positionFor?.courseName ?? ''}`}</Text>
               <TouchableOpacity onPress={() => !positionBusy && setPositionFor(null)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
@@ -1017,14 +965,10 @@ export default function StudentDetailScreen() {
               })}
             </ScrollView>
             {positionBusy ? <ActivityIndicator style={{ marginTop: spacing.md }} color={colors.brand} /> : null}
-          </View>
-        </View>
-      </Modal>
+      </SheetModal>
 
       {/* The paper register — past days of one course, tick who came. */}
-      <Modal visible={!!backfillFor} animationType="slide" transparent onRequestClose={() => !backfillBusy && setBackfillFor(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
+      <SheetModal visible={!!backfillFor} onClose={() => !backfillBusy && setBackfillFor(null)} style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>تسجيل حضور سابق من السجل الورقي</Text>
               <TouchableOpacity onPress={() => !backfillBusy && setBackfillFor(null)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
@@ -1068,13 +1012,9 @@ export default function StudentDetailScreen() {
             >
               {backfillBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{`تسجيل الحضور (${backfillPicked.length})`}</Text>}
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      </SheetModal>
 
-      <Modal visible={!!transferFor} animationType="slide" transparent onRequestClose={() => !transferBusy && setTransferFor(null)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '75%' }}>
+      <SheetModal visible={!!transferFor} onClose={() => !transferBusy && setTransferFor(null)} style={{ backgroundColor: colors.background, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '75%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('teacher.transfer_title')}</Text>
               <TouchableOpacity onPress={() => !transferBusy && setTransferFor(null)} hitSlop={10}>
@@ -1109,7 +1049,7 @@ export default function StudentDetailScreen() {
                       >
                         <Icon name="book" size={20} color={colors.brand} />
                         <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}>{d.course_name}</Text>
-                        <Icon name="forward" size={18} color={colors.textTertiary} />
+                        <Icon name="back" size={18} color={colors.textTertiary} />
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -1118,14 +1058,10 @@ export default function StudentDetailScreen() {
             )}
 
             {transferBusy ? <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.sm }} /> : null}
-          </View>
-        </View>
-      </Modal>
+      </SheetModal>
 
       {/* Name/phone correction request → super-admin review */}
-      <Modal visible={editOpen} animationType="slide" transparent onRequestClose={() => !editBusy && setEditOpen(false)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '88%' }}>
+      <SheetModal visible={editOpen} onClose={() => !editBusy && setEditOpen(false)} avoidKeyboard style={{ backgroundColor: colors.background, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '88%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>طلب تعديل بيانات الطالب</Text>
               <TouchableOpacity onPress={() => !editBusy && setEditOpen(false)} hitSlop={10}>
@@ -1174,14 +1110,10 @@ export default function StudentDetailScreen() {
                 {editBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إرسال للمراجعة</Text>}
               </TouchableOpacity>
             </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
 
       {/* Incident report → super-admin review (teacher-only) */}
-      <Modal visible={reportOpen} animationType="slide" transparent onRequestClose={() => !reportBusy && setReportOpen(false)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '90%' }}>
+      <SheetModal visible={reportOpen} onClose={() => !reportBusy && setReportOpen(false)} avoidKeyboard style={{ backgroundColor: colors.background, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '90%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>الإبلاغ عن حادثة</Text>
               <TouchableOpacity onPress={() => !reportBusy && setReportOpen(false)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
@@ -1233,14 +1165,10 @@ export default function StudentDetailScreen() {
                 {reportBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إرسال البلاغ</Text>}
               </TouchableOpacity>
             </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
 
       {/* Flag a parent's phone number → super-admin review (teacher-only) */}
-      <Modal visible={!!flagFor} animationType="slide" transparent onRequestClose={() => !flagBusy && setFlagFor(null)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+      <SheetModal visible={!!flagFor} onClose={() => !flagBusy && setFlagFor(null)} avoidKeyboard style={{ backgroundColor: colors.background, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>الإبلاغ عن رقم غير صحيح</Text>
               <TouchableOpacity onPress={() => !flagBusy && setFlagFor(null)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
@@ -1254,9 +1182,7 @@ export default function StudentDetailScreen() {
               style={{ backgroundColor: colors.danger, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', opacity: flagBusy ? 0.6 : 1 }}>
               {flagBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إرسال البلاغ</Text>}
             </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
     </View>
   );
 }

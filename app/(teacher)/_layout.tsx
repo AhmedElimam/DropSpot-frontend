@@ -9,6 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { initOfflineScans } from '@/db/offlineScans';
+import { initOfflineMarks } from '@/db/offlineMarks';
+import { prefetchTodayRosters } from '@/db/prefetchRosters';
 import { triggerAutoSync } from '@/db/autoSync';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 import { registerForPushNotifications } from '@/utils/push-notifications';
@@ -20,16 +22,19 @@ import { colors, radius } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 // Visible tabs stay mounted; detail screens (href: null) are released once they are not one
 // of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
 // tabs are frozen on blur: a frozen screen defers its own release.
-const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","students","manage","tickets","settings"]);
+const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","sessions","manage","students","settings"]);
 const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
 
 /**
- * Teacher (and assistant) app — a 5-tab bar (home · camera · students · tickets ·
- * settings), deliberately separate from the parent/student navigation.
+ * Teacher (and assistant) app — a 5-tab bar (home · sessions · students · manage ·
+ * settings), deliberately separate from the parent/student navigation. Tickets left the
+ * bar on 2026-10-02 (reached from Home's attention list and Management → المتابعة); the
+ * attendance sheet moved out from under Students into its own الحصص tab.
  *
  * The invite-student camera screen (`enroll`) is a full-screen route: it's reached
  * by push (never a tab button) and hides the bar via the custom `tabBar` below —
@@ -39,17 +44,17 @@ const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
  */
 const labels: Record<string, string> = {
   index: 'teacher.tab_home',
+  sessions: 'teacher.tab_sessions',
   students: 'teacher.tab_students',
   manage: 'teacher.tab_manage',
-  tickets: 'teacher.tab_tickets',
   settings: 'teacher.tab_settings',
 };
 
 const icons: Record<string, IconName> = {
   index: 'home',
+  sessions: 'sessions',
   students: 'children',
   manage: 'book',
-  tickets: 'tickets',
   settings: 'settings',
 };
 
@@ -86,20 +91,22 @@ export default function TeacherTabLayout() {
   useEffect(() => {
     if (!isAuthenticated) return;
     let active = true;
-    initOfflineScans().then(() => {
+    Promise.all([initOfflineScans(), initOfflineMarks()]).then(() => {
       if (active) useOfflineStore.getState().refresh();
     });
     // Part 2: on open, enforce the date staleness guard and refresh the ACTIVE
     // teacher's schedule entry when online. Fire-and-forget — never blocks the UI,
     // and a failure just leaves the guard to fall back to manual reconciliation.
+    // Today's rosters are pre-fetched after the schedule so the attendance sheet opens
+    // offline for sessions the teacher never opened while connected.
     syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-      .finally(() => { void triggerAutoSync(); });
+      .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); });
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') {
         useOfflineStore.getState().refresh();
         // Refresh the cache first so auto-sync runs against fresh windows.
         syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-          .finally(() => { void triggerAutoSync(); });
+          .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); });
       }
     });
     return () => {
@@ -145,18 +152,6 @@ export default function TeacherTabLayout() {
     return () => unsub();
   }, [isAuthenticated]);
 
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)/login" />;
-  }
-
   // screenOptions is MEMOISED and its label/icon are module-level components.
   //
   // It used to be an inline arrow returning a fresh object — with fresh `tabBarLabel` and
@@ -186,7 +181,7 @@ export default function TeacherTabLayout() {
           // two rounded corners that is continuous GPU work and a measurable heat source on
           // mid-range chips (Redmi Note 11S / Helio G96, 2026-09-22). Opaque + a hairline
           // rule keeps the same lifted look for free.
-          backgroundColor: '#FFFFFF',
+          backgroundColor: colors.tabBar,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
           paddingTop: 8,
@@ -207,7 +202,7 @@ export default function TeacherTabLayout() {
               style={{
                 fontFamily: fonts.medium,
                 fontSize: 12,
-                color: focused ? colors.primary : colors.textTertiary,
+                color: focused ? colors.tabActive : colors.tabInactive,
                 marginTop: 2,
               }}
             >
@@ -220,7 +215,7 @@ export default function TeacherTabLayout() {
             <Icon
               name={icons[route.name] || 'home'}
               size={24}
-              color={focused ? colors.primary : colors.textTertiary}
+              color={focused ? colors.tabActive : colors.tabInactive}
               outline={!focused}
             />
           </View>
@@ -228,6 +223,29 @@ export default function TeacherTabLayout() {
     }),
     [insets.bottom, t, freezeTabs],
   );
+
+  // Every hook above runs on EVERY render — the early returns live here, after them. They
+  // sat above `useFeatureFlags` and the memo, so signing out rendered two hooks fewer and
+  // React threw «Rendered fewer hooks than expected» (blamed on the root's SurveyModal).
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  // Not this role's app (a super-admin whose impersonation just ended, a role that changed
+  // under the screen): `/` routes by role. Without this the teacher tabs kept rendering for
+  // the admin until something else navigated.
+  if (role && role !== 'teacher' && role !== 'assistant') {
+    if (__DEV__) console.log('[route] (teacher) → resolve for role', role);
+    return <Redirect href={ROUTE_BY_ROLE} />;
+  }
 
   return (
     <>
@@ -257,11 +275,17 @@ export default function TeacherTabLayout() {
         // skips exactly that render — the sensor would keep running behind another tab.
         options={{ href: null, freezeOnBlur: false }}
       />
-      <Tabs.Screen name="students" />
-      {/* Management hub — courses, location, schedule tools. */}
+      {/* الحصص — today + history + the attendance sheet (manual marks work offline). */}
+      <Tabs.Screen name="sessions" />
+      {/* Management hub — third, next to the day (founder 2026-10-02). Four groups:
+          students · schedule · money · follow-up. */}
       <Tabs.Screen name="manage" />
-      <Tabs.Screen name="tickets" />
+      <Tabs.Screen name="students" />
       <Tabs.Screen name="settings" />
+      {/* Parent tickets — from Home's attention list and Management → المتابعة, not a tab. */}
+      <Tabs.Screen name="tickets" options={{ href: null }} />
+      {/* الاستثناءات — billing exceptions + phone check-in permissions, from Management. */}
+      <Tabs.Screen name="overrides" options={{ href: null }} />
       {/* Reconciliation is reached from the pending badge / Home, not a tab. */}
       <Tabs.Screen name="resolution" options={{ href: null }} />
       {/* «أرقام تحتاج تأكيد» — pushed from the Home card and the Resolution Center. */}
@@ -285,6 +309,8 @@ export default function TeacherTabLayout() {
       <Tabs.Screen name="invite-link" options={{ href: null }} />
       <Tabs.Screen name="booking-requests" options={{ href: null }} />
       <Tabs.Screen name="assistant-actions" options={{ href: null }} />
+      {/* «الاعتراضات» — student disputes on marks and payments; from Home and Management. */}
+      <Tabs.Screen name="complaints" options={{ href: null }} />
       {/* مدام روز — مديرة الحسابات: opened from the payments card on Home and from the
           manage hub, not a tab. */}
       <Tabs.Screen name="cash-reconcile" options={{ href: null }} />

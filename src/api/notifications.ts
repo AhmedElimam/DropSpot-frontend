@@ -23,6 +23,21 @@ export async function markRead(id: number): Promise<void> {
   await client.patch(`/notifications/${id}/read`);
 }
 
+/** Swipe back to unread. */
+export async function markUnread(id: number): Promise<void> {
+  await client.patch(`/notifications/${id}/unread`);
+}
+
+/** Swipe away — hidden from the feed (the server keeps the row). */
+export async function dismissNotification(id: number): Promise<void> {
+  await client.post(`/notifications/${id}/dismiss`);
+}
+
+/** «تراجع» after a swipe-away. */
+export async function restoreNotification(id: number): Promise<void> {
+  await client.post(`/notifications/${id}/restore`);
+}
+
 export async function markAllRead(): Promise<void> {
   await client.post('/notifications/read-all');
 }

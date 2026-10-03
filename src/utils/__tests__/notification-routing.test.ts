@@ -5,7 +5,7 @@ describe('notificationRouteFor (feed + push taps)', () => {
     expect(notificationRouteFor({ role: 'teacher', type: 'ticket_reply', data: { ticket_id: 7 } })).toBe('/(teacher)/tickets/7');
     expect(notificationRouteFor({ role: 'teacher', type: 'cash_review', data: { expense_id: 12, event: 'answered' } })).toBe('/(teacher)/expense-thread?id=12');
     expect(notificationRouteFor({ role: 'teacher', type: 'cash_gap', data: { reconciliation_id: 3 } })).toBe('/(teacher)/cash-review?id=3');
-    expect(notificationRouteFor({ role: 'teacher', type: 'assistant_checkin_review', data: { session_instance_id: 44 } })).toBe('/(teacher)/students/session/44');
+    expect(notificationRouteFor({ role: 'teacher', type: 'assistant_checkin_review', data: { session_instance_id: 44 } })).toBe('/(teacher)/sessions/44');
     expect(notificationRouteFor({ role: 'teacher', type: 'invitation_accepted', data: { student_id: 9 } })).toBe('/(teacher)/students/9');
     expect(notificationRouteFor({ role: 'teacher', type: 'admin_ticket_reply', data: { admin_ticket_id: 1 } })).toBe('/(teacher)/resolution');
   });

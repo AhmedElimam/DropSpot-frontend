@@ -19,7 +19,8 @@ export async function confirmMyName(): Promise<{ name: string }> {
   return (data.data ?? {}) as { name: string };
 }
 
-export type CardState = 'none' | 'preparing' | 'in_hand';
+/** none → ordered (waiting for approval) → preparing (approved / printing) → in_hand. */
+export type CardState = 'none' | 'ordered' | 'preparing' | 'in_hand';
 
 export interface CardStatus {
   /** Always null — there is no in-app QR. Kept so an older build reading it gets nothing. */
@@ -28,6 +29,11 @@ export interface CardStatus {
   /** none = no card and none coming · preparing = being printed · in_hand. */
   card_state: CardState;
   student_code: string | null;
+  /** The latest open order's status and its Arabic label, when one exists. */
+  order_status?: string | null;
+  order_status_label?: string | null;
+  ordered_at?: string | null;
+  card_released_at?: string | null;
 }
 
 /**

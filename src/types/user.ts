@@ -34,6 +34,8 @@ export interface User {
   is_founding_teacher?: boolean;
   /** The single flagship «عضو مميز» tier (violet-gold badge, lifetime subscription-exempt). */
   is_distinguished_member?: boolean;
+  /** Teacher only: their uploaded brand logo — shown as their avatar when set. */
+  logo_url?: string | null;
 }
 
 export interface AuthTokens {

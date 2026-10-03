@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
+import { onWhite } from '@/theme/onWhite';
 import { Icon } from '@/components/ui/Icon';
 import { RichTextEditor, type RichTextEditorRef } from '@/components/RichTextEditor';
 import { useCourses } from '@/hooks/useCourses';
@@ -193,7 +194,7 @@ export default function InviteLink() {
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textPrimary }} selectable>{minted.url}</Text>
             </View>
             <TouchableOpacity onPress={share} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md }}>
-              <Icon name="forward" size={18} color="#fff" />
+              <Icon name="send" size={18} color="#fff" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('invite_link.share')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { setMinted(null); setName(''); }} activeOpacity={0.85} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
@@ -271,7 +272,7 @@ export default function InviteLink() {
                           ) : null}
                           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: brand, textAlign: 'center' }}>{(tpl.booking_title || '').trim() || 'حجز مكان'}</Text>
                           {(tpl.booking_intro || '').trim() ? (
-                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: 4 }}>{tpl.booking_intro}</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: onWhite.muted, textAlign: 'center', marginTop: 4 }}>{tpl.booking_intro}</Text>
                           ) : null}
                           <View style={{ backgroundColor: '#f3ecfd', borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.sm }}>
                             <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: brand, textAlign: 'center' }}>تسجيل الطالب في «المقرر»</Text>

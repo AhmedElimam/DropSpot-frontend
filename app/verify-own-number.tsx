@@ -14,7 +14,7 @@ import { sendOwnNumberOtp, verifyOwnNumber, changeOwnNumber } from '@/api/ownNum
 
 const RESEND_COOLDOWN = 60;
 
-const field = {
+const field = () => ({
   fontFamily: fonts.regular,
   fontSize: 17,
   minHeight: control.minHeight,
@@ -26,7 +26,7 @@ const field = {
   textAlign: 'right' as const,
   borderWidth: 1.5,
   borderColor: colors.border,
-};
+});
 
 /**
  * Own-number verification. Two ways in, and they must not feel the same:
@@ -107,19 +107,19 @@ export default function VerifyOwnNumberScreen() {
         style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
       >
         {walled ? (
-          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="call" size={20} color="#fff" />
+          <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="call" size={20} color={colors.onHero} />
           </View>
         ) : (
           <TouchableOpacity
             onPress={() => router.back()}
             accessibilityRole="button"
-            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
+            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}
           >
-            <Icon name="forward" size={22} color="#fff" />
+            <Icon name="forward" size={22} color={colors.onHero} />
           </TouchableOpacity>
         )}
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{t('own_number.title')}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }}>{t('own_number.title')}</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
@@ -151,7 +151,7 @@ export default function VerifyOwnNumberScreen() {
                   keyboardType="phone-pad"
                   placeholder={t('own_number.new_number_placeholder')}
                   placeholderTextColor={colors.textTertiary}
-                  style={field}
+                  style={field()}
                   editable={!change.isPending}
                 />
                 <TouchableOpacity
@@ -176,7 +176,7 @@ export default function VerifyOwnNumberScreen() {
                   maxLength={6}
                   placeholder="------"
                   placeholderTextColor={colors.textTertiary}
-                  style={{ ...field, textAlign: 'center', letterSpacing: 8, fontFamily: fonts.bold, fontSize: 22 }}
+                  style={{ ...field(), textAlign: 'center', letterSpacing: 8, fontFamily: fonts.bold, fontSize: 22 }}
                   editable={!verify.isPending}
                 />
 

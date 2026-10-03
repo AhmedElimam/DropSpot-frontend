@@ -181,23 +181,23 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <TouchableOpacity onPress={() => router.back()} style={{ padding: spacing.xs }}>
-            <Icon name="forward" size={24} color="#fff" />
+            <Icon name="forward" size={24} color={colors.onHero} />
           </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff', flex: 1, textAlign: 'center', marginHorizontal: spacing.md }} numberOfLines={1}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onHero, flex: 1, textAlign: 'center', marginHorizontal: spacing.md }} numberOfLines={1}>
             {quiz?.title ?? ''}
           </Text>
-          <View style={{ backgroundColor: timeLeft < 60 ? colors.danger : 'rgba(255,255,255,0.2)', paddingVertical: 4, paddingHorizontal: 12, borderRadius: radius.full }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff', direction: 'ltr' }}>
+          <View style={{ backgroundColor: timeLeft < 60 ? colors.danger : colors.onHeroChip, paddingVertical: 4, paddingHorizontal: 12, borderRadius: radius.full }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.onHero, direction: 'ltr' }}>
               {formatTime(timeLeft)}
             </Text>
           </View>
         </View>
 
-        <View style={{ height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', marginTop: spacing.md, overflow: 'hidden' }}>
-          <View style={{ width: `${progress}%`, height: '100%', backgroundColor: '#fff', borderRadius: 2 }} />
+        <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.onHeroChip, marginTop: spacing.md, overflow: 'hidden' }}>
+          <View style={{ width: `${progress}%`, height: '100%', backgroundColor: colors.onHero, borderRadius: 2 }} />
         </View>
 
-        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: spacing.sm }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, textAlign: 'center', marginTop: spacing.sm }}>
           {currentIndex + 1} / {questions.length} · {answeredCount}/{questions.length} {t('quiz.answered')}
         </Text>
       </LinearGradient>

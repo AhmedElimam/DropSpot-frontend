@@ -1,22 +1,25 @@
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, SectionList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
-import { useNotificationsFeed, useMarkRead, useMarkAllRead } from '@/hooks/useNotifications';
+import { useNotificationsFeed, useMarkRead, useMarkUnread, useMarkAllRead } from '@/hooks/useNotifications';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/api/notifications';
 import { notificationRouteFor } from '@/utils/notification-routing';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { timeAgo } from '@/utils/format';
+import { SwipeRow } from '@/components/ui/SwipeRow';
+import { timeAgo, formatNumber } from '@/utils/format';
+import { notificationCategory, type NotificationCategory } from '@/utils/notificationCategory';
 
 /** Icon + tint by type, so a glance tells money from attendance from مدام روز. */
-const LOOK: Record<string, { icon: IconName; tint: string }> = {
+const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
   attendance: { icon: 'attendance', tint: colors.success },
   absence: { icon: 'warning', tint: colors.danger },
   left_early: { icon: 'clock', tint: colors.warning },
@@ -85,9 +88,18 @@ const LOOK: Record<string, { icon: IconName; tint: string }> = {
   graduation_notice: { icon: 'trophy', tint: colors.success },
   discrepancy_resolved: { icon: 'success', tint: colors.success },
   excuse_resolved: { icon: 'success', tint: colors.success },
-};
+});
 
-type Filter = 'all' | 'unread';
+type ReadFilter = 'all' | 'unread';
+type Kind = Exclude<NotificationCategory, 'other'>;
+const KINDS = (): { key: Kind; icon: IconName; tint: string }[] => ([
+  { key: 'attendance', icon: 'attendance', tint: colors.success },
+  { key: 'money', icon: 'money', tint: colors.accent },
+  { key: 'students', icon: 'children', tint: colors.brand },
+  { key: 'followup', icon: 'tickets', tint: colors.warning },
+]);
+const HINT_KEY = 'notif_swipe_hint_v1';
+
 type Bucket = 'today' | 'yesterday' | 'week' | 'older';
 
 function bucketOf(iso: string, now: Date): Bucket {
@@ -100,11 +112,67 @@ function bucketOf(iso: string, now: Date): Bucket {
   return 'older';
 }
 
+/** One feed row: swipe it aside to flip read ⇄ unread; tap to open what it is about. */
+const FeedRow = memo(function FeedRow({
+  n, opens, onOpen, onToggleRead,
+}: {
+  n: Notification;
+  opens: boolean;
+  onOpen: (n: Notification) => void;
+  onToggleRead: (n: Notification) => void;
+}) {
+  const { t } = useTranslation();
+  const look = LOOK()[n.type] ?? { icon: 'bell' as IconName, tint: colors.brand };
+  const unread = !n.is_read;
+  return (
+    <SwipeRow
+      style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm }}
+      action={{ icon: unread ? 'success' : 'bell', label: t(unread ? 'notifications.swipe_read' : 'notifications.swipe_unread'), color: unread ? colors.success : colors.brand, onTrigger: () => onToggleRead(n) }}
+    >
+      <TouchableOpacity
+        onPress={() => onOpen(n)}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityHint={t('notifications.swipe_a11y')}
+        style={{
+          flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start',
+          backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1,
+          borderColor: unread ? look.tint + '55' : colors.border,
+          borderStartWidth: unread ? 5 : 1, borderStartColor: unread ? look.tint : colors.border,
+          padding: spacing.lg,
+        }}
+      >
+        <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: unread ? look.tint : look.tint + '1A', justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name={look.icon} size={22} color={unread ? '#fff' : look.tint} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ flex: 1, fontFamily: unread ? fonts.bold : fonts.medium, fontSize: 15, color: unread ? colors.textPrimary : colors.textSecondary }} numberOfLines={2}>{n.title}</Text>
+            {unread ? <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: look.tint }} /> : null}
+          </View>
+          {n.body ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textSecondary, marginTop: 3 }} numberOfLines={3}>{n.body}</Text>
+          ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{timeAgo(n.created_at)}</Text>
+            {opens ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('notifications.open')}</Text>
+                <Icon name="back" size={14} color={colors.brand} />
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </TouchableOpacity>
+    </SwipeRow>
+  );
+});
+
 /**
  * The notifications feed for every role. A tap marks the row read AND opens what it is
- * about (the ticket, the student, the expense thread, the invoices…) through
- * {@link notificationRouteFor}, the same table the push tap uses. Rows are grouped by day,
- * the unread ones can be shown alone, and older pages load as you scroll.
+ * about through {@link notificationRouteFor} (the same table the push tap uses). Swipe a
+ * row aside to flip read ⇄ unread (one action, one side — founder's call). Filters: read
+ * state × kind, combinable.
  */
 export function NotificationsFeed({ can }: { can?: (ability: string) => boolean }) {
   const { t } = useTranslation();
@@ -113,12 +181,36 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
   const feed = useNotificationsFeed();
   const { refreshing, onRefresh } = usePullRefresh(feed.refetch);
   const markRead = useMarkRead();
+  const markUnread = useMarkUnread();
   const markAllRead = useMarkAllRead();
-  const [filter, setFilter] = useState<Filter>('all');
+  // Two independent filters that combine: read state × kind («غير المقروء» in «المال»).
+  const [filter, setFilter] = useState<ReadFilter>('all');
+  const [kind, setKind] = useState<Kind | null>(null);
+
+  // One-time «اسحب…» hint, gone after the first swipe or a tap on ×.
+  const [hint, setHint] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(HINT_KEY).then((v) => setHint(v !== '1')).catch(() => {});
+  }, []);
+  const closeHint = useCallback(() => {
+    setHint(false);
+    AsyncStorage.setItem(HINT_KEY, '1').catch(() => {});
+  }, []);
 
   const all = useMemo(() => feed.data?.pages.flat() ?? [], [feed.data]);
   const unreadCount = all.filter((n) => !n.is_read).length;
-  const shown = filter === 'unread' ? all.filter((n) => !n.is_read) : all;
+  const catCounts = useMemo(() => {
+    const c: Record<NotificationCategory, number> = { attendance: 0, money: 0, students: 0, followup: 0, other: 0 };
+    for (const n of all) c[notificationCategory(n.type)]++;
+    return c;
+  }, [all]);
+  // A kind shows only when there is something of that kind.
+  const kinds = KINDS().filter((k) => catCounts[k.key] > 0);
+  useEffect(() => { if (kind && catCounts[kind] === 0) setKind(null); }, [kind, catCounts]);
+
+  const shown = useMemo(() => all
+    .filter((n) => (filter === 'unread' ? !n.is_read : true))
+    .filter((n) => (kind ? notificationCategory(n.type) === kind : true)), [all, filter, kind]);
 
   const sections = useMemo(() => {
     const now = new Date();
@@ -129,73 +221,109 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
       .map((k) => ({ key: k, title: t(`notifications.group_${k}`), data: groups[k] }));
   }, [shown, t]);
 
-  const onPressRow = (n: Notification) => {
+  const onOpen = useCallback((n: Notification) => {
     if (!n.is_read) markRead.mutate(n.id);
     const route = notificationRouteFor({ role, type: n.type, data: n.data, can });
     if (route) router.push(route as never);
-  };
+  }, [markRead, role, can]);
+
+  const onToggleRead = useCallback((n: Notification) => {
+    if (hint) closeHint();
+    (n.is_read ? markUnread : markRead).mutate(n.id);
+  }, [hint, closeHint, markRead, markUnread]);
 
   const Header = (
-    <LinearGradient
-      colors={gradients.hero}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.lg }}
-    >
-      <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-        <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
-        <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginStart: spacing.sm }}>{t('common.back')}</Text>
-      </TouchableOpacity>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff' }}>{t('notifications.title')}</Text>
-        {unreadCount > 0 ? (
-          <TouchableOpacity
-            onPress={() => markAllRead.mutate()}
-            disabled={markAllRead.isPending}
-            style={{ backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: spacing.md }}
-          >
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff' }}>{t('notifications.mark_all_read')}</Text>
+    <View>
+      <LinearGradient
+        colors={gradients.hero}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ paddingTop: insets.top + spacing.sm, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}
+      >
+        {/* Compact header, as on Students: back · title · unread count · mark all, one line. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg }}>
+          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="forward" size={20} color={colors.onHero} />
           </TouchableOpacity>
-        ) : null}
-      </View>
-      {/* الكل / غير المقروء */}
-      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
-        {(['all', 'unread'] as Filter[]).map((f) => {
-          const on = filter === f;
-          return (
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t('notifications.title')}</Text>
+          <View style={{ flex: 1 }} />
+          {unreadCount > 0 ? (
             <TouchableOpacity
-              key={f}
-              onPress={() => setFilter(f)}
+              onPress={() => markAllRead.mutate()}
+              disabled={markAllRead.isPending}
               accessibilityRole="button"
-              accessibilityState={{ selected: on }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? '#fff' : 'rgba(255,255,255,0.14)' }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: colors.onHeroChip }}
             >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : '#fff' }}>{t(`notifications.filter_${f}`)}</Text>
-              {f === 'unread' && unreadCount > 0 ? (
-                <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: on ? colors.brand : 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{unreadCount}</Text>
-                </View>
-              ) : null}
+              {markAllRead.isPending ? <ActivityIndicator size="small" color={colors.onHero} /> : <Icon name="success" size={15} color={colors.onHero} />}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }}>{t('notifications.mark_all_read')}</Text>
             </TouchableOpacity>
-          );
-        })}
-      </View>
-    </LinearGradient>
+          ) : (
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.onHeroSoft }}>{t('notifications.all_read_summary')}</Text>
+          )}
+        </View>
+
+        {/* Filter tray: a read / unread switch, then the kinds as equal tiles (tap again to clear). */}
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md, gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', backgroundColor: colors.onHeroChip, borderRadius: radius.lg, padding: 3 }}>
+            {(['all', 'unread'] as ReadFilter[]).map((f) => {
+              const on = filter === f;
+              return (
+                <TouchableOpacity key={f} onPress={() => setFilter(f)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                  style={{ flex: 1, height: 34, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.heroChipActive : 'transparent' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.onHeroChipActive : colors.onHeroSoft }}>{t(`notifications.filter_${f}`)}</Text>
+                  {f === 'unread' && unreadCount > 0 ? (
+                    <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onAccent }}>{formatNumber(unreadCount)}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {kinds.length > 1 ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {kinds.map((k) => {
+                const on = kind === k.key;
+                return (
+                  <TouchableOpacity key={k.key} onPress={() => setKind(on ? null : k.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
+                    style={{ flex: 1, height: 36, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: on ? k.tint : colors.onHeroChip, borderWidth: 1, borderColor: on ? k.tint : colors.onHeroChip }}>
+                    <Icon name={k.icon} size={15} color={colors.onHero} />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }} numberOfLines={1}>{t(`notifications.cat_${k.key}`)}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: on ? colors.onHero : colors.onHeroSoft }}>{formatNumber(catCounts[k.key])}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
+      </LinearGradient>
+
+      {hint && all.length > 0 ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.accentLight }}>
+          <Icon name="transfer" size={20} color={colors.accentText} />
+          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.accentText }}>{t('notifications.swipe_hint')}</Text>
+          <TouchableOpacity onPress={closeHint} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.close')}>
+            <Icon name="close" size={16} color={colors.accentText} />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+    </View>
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <SectionList
         sections={sections}
         keyExtractor={(n) => String(n.id)}
         stickySectionHeadersEnabled={false}
-        style={{ backgroundColor: colors.background }}
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         onEndReachedThreshold={0.4}
         onEndReached={() => { if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage(); }}
         ListHeaderComponent={Header}
+        initialNumToRender={10}
+        windowSize={7}
         ListEmptyComponent={
           feed.isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl4 }} />
@@ -203,8 +331,8 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
             <View style={{ padding: spacing.lg }}>
               <EmptyState
                 icon="bell"
-                title={filter === 'unread' ? t('notifications.no_unread') : t('notifications.no_notifications')}
-                message={filter === 'unread' ? t('notifications.no_unread_hint') : t('notifications.empty')}
+                title={filter === 'unread' && !kind ? t('notifications.no_unread') : t('notifications.no_notifications')}
+                message={filter === 'unread' && !kind ? t('notifications.no_unread_hint') : t('notifications.empty')}
               />
             </View>
           )
@@ -212,44 +340,17 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
         renderSectionHeader={({ section }) => (
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm }}>{section.title}</Text>
         )}
-        renderItem={({ item: n }) => {
-          const look = LOOK[n.type] ?? { icon: 'bell' as IconName, tint: colors.brand };
-          const opens = notificationRouteFor({ role, type: n.type, data: n.data, can }) !== null;
-          return (
-            <TouchableOpacity
-              onPress={() => onPressRow(n)}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              style={{
-                flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', marginHorizontal: spacing.lg, marginBottom: spacing.sm,
-                backgroundColor: n.is_read ? colors.surface : colors.brandTint, borderWidth: 1,
-                borderColor: n.is_read ? colors.border : colors.brand + '55', borderRadius: radius.xl, padding: spacing.lg, ...shadows.sm,
-              }}
-            >
-              <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: look.tint + '1A', justifyContent: 'center', alignItems: 'center' }}>
-                <Icon name={look.icon} size={20} color={look.tint} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: n.is_read ? fonts.medium : fonts.bold, fontSize: 15, color: colors.textPrimary }}>{n.title}</Text>
-                {n.body ? (
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginTop: 2 }}>{n.body}</Text>
-                ) : null}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{timeAgo(n.created_at)}</Text>
-                  {opens ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('notifications.open')}</Text>
-                      <Icon name="back" size={14} color={colors.brand} />
-                    </View>
-                  ) : null}
-                </View>
-              </View>
-              {!n.is_read ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand, marginTop: 4 }} /> : null}
-            </TouchableOpacity>
-          );
-        }}
+        renderItem={({ item }) => (
+          <FeedRow
+            n={item}
+            opens={notificationRouteFor({ role, type: item.type, data: item.data, can }) !== null}
+            onOpen={onOpen}
+            onToggleRead={onToggleRead}
+          />
+        )}
         ListFooterComponent={feed.isFetchingNextPage ? <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: spacing.lg }} /> : <View style={{ height: spacing.lg }} />}
       />
+
     </View>
   );
 }

@@ -1,5 +1,9 @@
 import { syncOfflineBatch } from '@/api/teacher';
+import { syncOfflineMarks } from '@/api/teacherSessions';
 import { getPendingScans, deleteScans, markScanRejected, type OfflineScan } from './offlineScans';
+import { getPendingMarks, deleteMarks, markMarkRejected } from './offlineMarks';
+import { applyMarkResults } from './marksSync';
+import { getQueryClient } from '@/lib/queryClientRef';
 import { getFreshScheduleEntries, localDateKey, type ScheduleCacheEntry } from './scheduleCache';
 import { matchAutoSession } from './autoSyncMatch';
 import { useOfflineStore } from '@/stores/offlineStore';
@@ -27,8 +31,9 @@ function teacherKey(id: number | null): string {
  * failure → the scans stay buffered untouched for the next pass.
  */
 export async function runAutoSync(now: Date = new Date()): Promise<number> {
+  const marksSynced = await runMarkSync();
   const pending = await getPendingScans();
-  if (!pending.length) return 0;
+  if (!pending.length) return marksSynced;
 
   // Today-only cache entries, one per teacher context (stale ones already pruned).
   const entries = await getFreshScheduleEntries(now);
@@ -82,6 +87,46 @@ export async function runAutoSync(now: Date = new Date()): Promise<number> {
     }
   }
 
+  return synced + marksSynced;
+}
+
+/**
+ * Replay queued MANUAL marks. No window matching is needed — each mark names its session.
+ * Grouped by the teacher context stamped at mark time (the server refuses a batch whose
+ * stamp does not match the sessions' teacher). Per-row: synced / already_applied / stale →
+ * dropped (stale also refreshes that session so the newer truth shows); failed → parked
+ * for a decision. A network failure leaves everything queued.
+ */
+export async function runMarkSync(): Promise<number> {
+  const pending = await getPendingMarks().catch(() => []);
+  if (!pending.length) return 0;
+  const byTeacher = new Map<string, typeof pending>();
+  for (const m of pending) {
+    const k = teacherKey(m.teacher_id ?? null);
+    byTeacher.set(k, [...(byTeacher.get(k) ?? []), m]);
+  }
+  let synced = 0;
+  const touched = new Set<number>();
+  for (const [, rows] of byTeacher) {
+    try {
+      const resp = await syncOfflineMarks(
+        rows.map((m) => ({ client_uuid: m.client_uuid, session_instance_id: m.session_instance_id, student_id: m.student_id, status: m.status, marked_at: m.marked_at })),
+        rows[0]?.teacher_id ?? null,
+      );
+      const r = applyMarkResults(rows, resp.results);
+      for (const rej of r.toReject) await markMarkRejected(rej.id, rej.error);
+      await deleteMarks(r.toDelete);
+      synced += r.synced;
+      for (const row of rows) touched.add(row.session_instance_id);
+    } catch {
+      // Transient — keep the marks queued for the next pass.
+    }
+  }
+  const qc = getQueryClient();
+  if (qc) {
+    for (const sid of touched) void qc.invalidateQueries({ queryKey: ['teacher-session-detail', String(sid)] });
+    if (touched.size) void qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
+  }
   return synced;
 }
 

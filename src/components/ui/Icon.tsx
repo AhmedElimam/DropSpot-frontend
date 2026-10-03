@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
+import { colors } from '@/theme/index';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -23,6 +24,7 @@ const ICON_MAP = {
   call: 'call',
   location: 'location',
   calendar: 'calendar',
+  sessions: 'calendar-number',
   clock: 'time',
   quiz: 'document-text',
   grades: 'ribbon',
@@ -36,8 +38,11 @@ const ICON_MAP = {
   send: 'send',
   transfer: 'swap-horizontal',
   add: 'add',
-  back: 'chevron-back',
-  forward: 'chevron-forward',
+  // Direction glyphs are mapped the way the founder reads them in this RTL app
+  // (2026-10-03: «the arrows on the whole app are reversed»): `back` points RIGHT and a
+  // row's `forward`/disclosure chevron points LEFT. Change here, never per screen.
+  back: 'chevron-forward',
+  forward: 'chevron-back',
   down: 'chevron-down',
   up: 'chevron-up',
   search: 'search',
@@ -63,6 +68,7 @@ const ICON_MAP = {
   language: 'language',
   help: 'help-circle',
   close: 'close',
+  offline: 'cloud-offline',
   download: 'download',
   'person-remove': 'person-remove',
 } as const;
@@ -82,8 +88,8 @@ interface IconProps {
 // several per list row. Without it every icon on screen re-rendered whenever its screen
 // did, which on a roster or a session list is hundreds of wasted renders per keystroke
 // or poll tick (Android slowness, 2026-09-22).
-export const Icon = memo(function Icon({ name, size = 22, color = '#0F172A', outline = false, style }: IconProps) {
+export const Icon = memo(function Icon({ name, size = 22, color, outline = false, style }: IconProps) {
   const base = ICON_MAP[name];
   const glyph = (outline ? `${base}-outline` : base) as IoniconName;
-  return <Ionicons name={glyph} size={size} color={color} style={style} />;
+  return <Ionicons name={glyph} size={size} color={color ?? colors.textPrimary} style={style} />;
 });
