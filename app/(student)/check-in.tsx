@@ -202,39 +202,45 @@ export default function CheckInTab() {
         />
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
-          {/* PRIMARY: card scan at the door */}
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
-                <Icon name="card" size={28} color={colors.brand} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <SectionHead icon="card" color={colors.brand} title={t('attendance.card_primary_title')} />
-                <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{t('attendance.card_primary_desc')}</Text>
-              </View>
+          {/* PRIMARY: the card at the door — one compact strip, code as a chip (founder 2026-10-03:
+              the tab needed «love»; the old block gave the code half a screen). */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.md, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
+            <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name="card" size={24} color={colors.brand} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{t('attendance.card_primary_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={2}>{t('attendance.card_primary_desc')}</Text>
             </View>
             {user?.student_code ? (
-              <View style={{ marginTop: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}>
-                <Text style={textPresets.caption}>{t('child_settings.student_code')}</Text>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary, letterSpacing: 2, marginTop: 2 }}>
-                  {user.student_code}
-                </Text>
+              <View style={{ alignItems: 'center', backgroundColor: colors.surfaceSunken, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingVertical: 6, paddingHorizontal: spacing.sm }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: colors.textTertiary }}>{t('child_settings.student_code')}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, letterSpacing: 1 }} numberOfLines={1}>{user.student_code}</Text>
               </View>
             ) : null}
           </View>
 
-          {/* Session picker */}
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
-            <Text style={[textPresets.h3, { marginBottom: spacing.lg }]}>
-              {t('attendance.select_session')}
-            </Text>
+          {/* Today's sessions — pick the one to check into. */}
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+              <SectionHead icon="sessions" color={colors.brand} title={t('session.today_sessions')} />
+              {todaySessions.length > 0 ? (
+                <Text style={textPresets.caption}>{checkableSessions.length > 0 ? t('attendance.select_session') : ''}</Text>
+              ) : null}
+            </View>
 
             {sessionsLoading ? (
               <ActivityIndicator color={colors.primary} style={{ paddingVertical: spacing.xl }} />
             ) : todaySessions.length === 0 ? (
-              <Text style={[textPresets.bodySmall, { color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }]}>
-                {t('session.no_sessions')}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
+                <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="calendar" size={20} color={colors.textTertiary} outline />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('session.no_sessions')}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }}>{t('attendance.no_sessions_hint')}</Text>
+                </View>
+              </View>
             ) : (
               todaySessions.map((session, i) => {
                 const isSelected = selectedSession === session.id;

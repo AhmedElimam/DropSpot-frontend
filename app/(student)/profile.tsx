@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useTranslation } from 'react-i18next';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { router, type Href } from 'expo-router';
@@ -35,6 +37,11 @@ export default function StudentProfile() {
   const { data: card, refetch: refetchCard } = useQuery({ queryKey: ['my-card'], queryFn: getMyCardStatus, staleTime: 60_000 });
   const { refreshing, onRefresh } = usePullRefresh(refetchCoverage, refetchQuizzes, refetchCard);
   const cardState = card?.card_state ?? user?.card_state ?? 'none';
+  // The phone QR is the card's own credential and exists ONLY once the card is in hand
+  // (founder 2026-10-03: a fallback when the card is forgotten or lost — never a substitute
+  // for a card that was not issued). Hidden behind a tap so it is not on screen by default.
+  const qrValue = cardState === 'in_hand' ? card?.card_token ?? null : null;
+  const [showQr, setShowQr] = useState(false);
   const cardTone = cardState === 'in_hand' ? { fg: colors.success, bg: colors.successLight, icon: 'success' as const }
     : cardState === 'preparing' ? { fg: colors.warning, bg: colors.warningLight, icon: 'clock' as const }
     : cardState === 'ordered' ? { fg: colors.brand, bg: colors.brandTint, icon: 'clock' as const }
@@ -107,6 +114,27 @@ export default function StudentProfile() {
                 <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.sm }}>
                   استلمتها في {formatDate(new Date(card.card_released_at), { day: 'numeric', month: 'long', year: 'numeric' })}
                 </Text>
+              ) : null}
+
+              {qrValue ? (
+                <View style={{ alignSelf: 'stretch', marginTop: spacing.lg, alignItems: 'center' }}>
+                  <TouchableOpacity onPress={() => setShowQr((v) => !v)} activeOpacity={0.85} accessibilityRole="button"
+                    style={{ alignSelf: 'stretch', minHeight: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, backgroundColor: colors.brandTint, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
+                    <Icon name="scan" size={18} color={colors.brand} />
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.brand }}>{showQr ? 'إخفاء رمز البطاقة' : 'نسيت بطاقتك؟ اعرض رمزها'}</Text>
+                  </TouchableOpacity>
+                  {showQr ? (
+                    <>
+                      {/* Scanners want dark modules on white whatever the app's scheme. */}
+                      <View style={{ marginTop: spacing.md, backgroundColor: '#FFFFFF', padding: spacing.lg, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border }}>
+                        <QRCode value={qrValue} size={188} backgroundColor="#FFFFFF" color="#171C3B" />
+                      </View>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm, paddingHorizontal: spacing.md }}>
+                        هذا هو رمز بطاقتك نفسه — يمسحه المعلم عند الباب إن نسيت البطاقة أو فقدتها. لا تشاركه مع أحد.
+                      </Text>
+                    </>
+                  ) : null}
+                </View>
               ) : null}
 
               {user?.student_code ? (

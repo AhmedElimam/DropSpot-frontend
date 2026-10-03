@@ -38,8 +38,11 @@ const ICON_MAP = {
   send: 'send',
   transfer: 'swap-horizontal',
   add: 'add',
-  back: 'chevron-back',
-  forward: 'chevron-forward',
+  // Direction glyphs are mapped the way the founder reads them in this RTL app
+  // (2026-10-03: «the arrows on the whole app are reversed»): `back` points RIGHT and a
+  // row's `forward`/disclosure chevron points LEFT. Change here, never per screen.
+  back: 'chevron-forward',
+  forward: 'chevron-back',
   down: 'chevron-down',
   up: 'chevron-up',
   search: 'search',
