@@ -206,7 +206,7 @@ export default function TeacherStudents() {
           {canStudents ? (
             <TouchableOpacity onPress={() => setSegment(segment === 'cards' ? 'students' : 'cards')} accessibilityRole="button" accessibilityState={{ selected: segment === 'cards' }}
               accessibilityLabel={t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 10, borderRadius: 12, backgroundColor: segment === 'cards' ? colors.onHero : colors.onHeroChip }}>
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 10, borderRadius: 12, backgroundColor: segment === 'cards' ? colors.heroChipActive : colors.onHeroChip }}>
               <Icon name={segment === 'cards' ? 'children' : 'card'} size={17} color={segment === 'cards' ? colors.brand : colors.onHero} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: segment === 'cards' ? colors.brand : colors.onHero }}>{t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}</Text>
             </TouchableOpacity>
@@ -239,9 +239,9 @@ export default function TeacherStudents() {
                 const on = quick === x.key;
                 return (
                   <TouchableOpacity key={x.key} onPress={() => setQuick(on && x.key !== 'all' ? 'all' : x.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? colors.onHero : colors.onHeroChip }}>
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? colors.heroChipActive : colors.onHeroChip }}>
                     {x.key !== 'all' ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: x.dot }} /> : null}
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.textPrimary : colors.onHero }} numberOfLines={1}>{x.label}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onHeroChipActive : colors.onHero }} numberOfLines={1}>{x.label}</Text>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.brand : colors.onHeroSoft }}>{formatNumber(x.n)}</Text>
                   </TouchableOpacity>
                 );

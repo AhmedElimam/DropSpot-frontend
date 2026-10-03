@@ -102,9 +102,9 @@ export default function TeacherSessions() {
               const isToday = k === key(today);
               return (
                 <TouchableOpacity key={k} onPress={() => setSelected(d)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                  style={{ width: 42, paddingVertical: 5, borderRadius: 12, alignItems: 'center', backgroundColor: on ? colors.onHero : 'transparent', borderWidth: isToday && !on ? 1.5 : 0, borderColor: colors.accent }}>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: on ? colors.textSecondary : colors.onHeroSoft }}>{DAY_SHORT[d.getDay()]}</Text>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, lineHeight: 20, color: on ? colors.textPrimary : colors.onHero }}>{formatNumber(d.getDate())}</Text>
+                  style={{ width: 42, paddingVertical: 5, borderRadius: 12, alignItems: 'center', backgroundColor: on ? colors.heroChipActive : 'transparent', borderWidth: isToday && !on ? 1.5 : 0, borderColor: colors.accent }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 10, color: on ? colors.onHeroChipActive : colors.onHeroSoft }}>{DAY_SHORT[d.getDay()]}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, lineHeight: 20, color: on ? colors.onHeroChipActive : colors.onHero }}>{formatNumber(d.getDate())}</Text>
                   <DayMarker phases={phases.get(k)} tone="dark" selected={on} />
                 </TouchableOpacity>
               );

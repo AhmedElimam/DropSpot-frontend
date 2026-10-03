@@ -269,8 +269,8 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
               const on = filter === f;
               return (
                 <TouchableOpacity key={f} onPress={() => setFilter(f)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                  style={{ flex: 1, height: 34, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.onHero : 'transparent' }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.onHeroSoft }}>{t(`notifications.filter_${f}`)}</Text>
+                  style={{ flex: 1, height: 34, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.heroChipActive : 'transparent' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.onHeroChipActive : colors.onHeroSoft }}>{t(`notifications.filter_${f}`)}</Text>
                   {f === 'unread' && unreadCount > 0 ? (
                     <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onAccent }}>{formatNumber(unreadCount)}</Text>

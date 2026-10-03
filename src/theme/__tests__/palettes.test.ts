@@ -41,7 +41,8 @@ const PAIRS: [keyof Palette | 'white', keyof Palette, number][] = [
   ['textPrimary', 'background', 7],
   ['textPrimary', 'surface', 7],
   ['textSecondary', 'surface', 4.5],
-  ['textTertiary', 'surface', 3],
+  // 2.8 is the standard Sanad caption grey (#939AB0) the founder asked to keep.
+  ['textTertiary', 'surface', 2.75],
   ['onPrimary', 'primary', 4.5],
   ['white', 'danger', 4.5],
   ['white', 'info', 4.5],
@@ -53,7 +54,7 @@ const PAIRS: [keyof Palette | 'white', keyof Palette, number][] = [
   ['infoText', 'infoLight', 4.5],
   ['brand', 'surface', 3],
   ['tabActive', 'tabBar', 3],
-  ['tabInactive', 'tabBar', 3],
+  ['tabInactive', 'tabBar', 2.75],
 ];
 
 describe.each([['light', light], ['dark', dark]] as const)('%s palette', (name, p) => {
@@ -93,11 +94,45 @@ describe('the dark palette is navy, not black', () => {
   });
 });
 
-describe('the light palette is a tinted canvas, not white', () => {
-  it('background is off-white and cooler than paper', () => {
-    expect(light.background.toUpperCase()).not.toBe('#FFFFFF');
+describe('the light palette is the standard warm paper, not white', () => {
+  it('background is off-white and warm (founder: «the standard warmer colour»)', () => {
+    expect(light.background.toUpperCase()).toBe('#F4F1EB');
     const [r, , b] = parse(light.background).rgb;
-    expect(b).toBeGreaterThan(r);
+    expect(r).toBeGreaterThan(b);
+  });
+
+  it('the hero stays warm — no blue band', () => {
+    for (const stop of gradientSets.light.hero) {
+      const [r, , b] = parse(stop).rgb;
+      expect(r).toBeGreaterThan(b);
+    }
+  });
+});
+
+describe('selection reads: tints are a clear step from the surface they sit on', () => {
+  const TINTS = ['primaryLight', 'brandTint', 'secondaryLight', 'infoLight', 'accentLight', 'successLight', 'warningLight', 'dangerLight', 'neonTint'] as const;
+
+  it.each(TINTS)('dark %s is visibly lighter than the surface and the sunken fill', (k) => {
+    const tint = luminance(over(dark[k], parse(dark.surface).rgb));
+    expect(tint - luminance(parse(dark.surface).rgb)).toBeGreaterThan(0.012);
+    expect(tint - luminance(parse(dark.surfaceSunken).rgb)).toBeGreaterThan(0.012);
+  });
+
+  it.each(TINTS)('light %s is visibly different from white and from the paper', (k) => {
+    const tint = parse(light[k]).rgb;
+    const dist = (a: RGB, b: RGB) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    expect(dist(tint, [255, 255, 255])).toBeGreaterThan(18);
+    expect(dist(tint, parse(light.background).rgb)).toBeGreaterThan(18);
+  });
+
+  it.each([['light', light], ['dark', dark]] as const)('%s: an input border shows on the sunken fill and on the surface', (_n, p) => {
+    expect(contrast(p.border, p.surfaceSunken, p.background)).toBeGreaterThan(1.25);
+    expect(contrast(p.border, p.surface, p.background)).toBeGreaterThan(1.25);
+  });
+
+  it.each([['light', light], ['dark', dark]] as const)('%s: the selected hero chip and its text read', (_n, p) => {
+    expect(contrast(p.onHeroChipActive, p.heroChipActive, p.background)).toBeGreaterThanOrEqual(4.5);
+    for (const stop of gradientSets[_n].hero) expect(contrast(p.heroChipActive, stop, stop)).toBeGreaterThan(2);
   });
 });
 

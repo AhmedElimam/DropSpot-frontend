@@ -86,8 +86,8 @@ export function HeaderAction({ icon, label, onPress, tone = 'accent', accessibil
 /** A count pill for the title line. */
 export function HeaderCount({ n }: { n: number }) {
   return (
-    <View style={{ backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{formatNumber(n)}</Text>
+    <View style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }}>{formatNumber(n)}</Text>
     </View>
   );
 }

@@ -1,17 +1,20 @@
 /**
  * The two palettes. Every key exists in both, so a screen that reads `colors.x` is never
- * handed `undefined` when the scheme flips. Founder 2026-10-03: «the app background
- * whiteness and the top blue on page — put some love on the theme; and a dark mode, not
- * black: dark blue with neon».
+ * handed `undefined` when the scheme flips. Founder 2026-10-03: «the top blue on page — put
+ * some love on the theme; and a dark mode, not black: dark blue with neon»; then, on the
+ * first cut: «the light mist isn't comfortable for the eye — the standard warmer colour».
  *
- * LIGHT — "Mist". The canvas is a cool, faintly indigo mist instead of white or paper, and
- * the page header is no longer a dark slab: it is the mist itself, a shade deeper at the
- * very top, with ink text. Colour lives in cards, chips and numbers — not in a band.
+ * LIGHT — the standard Sanad warm paper (#F4F1EB) with white cards, exactly the canvas the
+ * screens were designed on. What changed is the page header: no longer a dark slab, it is
+ * the paper itself, a shade deeper at the very top, with ink text. Colour lives in cards,
+ * chips and numbers — not in a band.
  *
  * DARK — "Midnight". Deep navy, never black; surfaces one step lighter navy; neon cyan is
  * the signature (tab bar, chips, the hero's glass), with mint / amber / coral for state
- * text. Fills that carry white text (buttons, badges) stay saturated-but-deep so the white
- * keeps its contrast; the neon goes on text and borders, where it reads, not on fills.
+ * text. Selection tints are SOLID colours a clear step lighter than the surface they sit
+ * on (a translucent tint over navy was too faint to read as "selected"); borders likewise.
+ * Fills that carry white text (buttons, badges) stay saturated-but-deep so the white keeps
+ * its contrast; the neon goes on text and borders, where it reads, not on fills.
  */
 export type Scheme = 'light' | 'dark';
 
@@ -33,8 +36,8 @@ export interface Palette {
   accentWarm: string; accentWarmTint: string; onAccent: string;
   /** Text and icons ON the page hero (ink in light, white in dark). */
   onHero: string; onHeroSoft: string; onHeroFaint: string;
-  /** Glass chips / stat tiles ON the hero. */
-  onHeroChip: string; onHeroChipBorder: string;
+  /** Glass chips / stat tiles ON the hero, and the SELECTED chip with its text. */
+  onHeroChip: string; onHeroChipBorder: string; heroChipActive: string; onHeroChipActive: string;
   /** Text on a `primary` fill. */
   onPrimary: string;
   /** Bottom tab bar. */
@@ -47,101 +50,107 @@ export interface Palette {
 
 export const light: Palette = {
   primary: '#34419B',
-  primaryLight: '#E4E8FA',
+  // Selection tints a shade deeper than the old #ECEEF9: a selected chip must read as
+  // selected on a white card, not only by its border (founder 2026-10-03).
+  primaryLight: '#E3E7F7',
   primaryDark: '#1E2657',
   secondary: '#4A57B5',
-  secondaryLight: '#E4E8FA',
+  secondaryLight: '#E3E7F7',
   accent: '#E7913A',
-  accentLight: '#FBEDDB',
+  accentLight: '#F9E6CF',
 
   success: '#1F9366',
-  successLight: '#DDF2E8',
+  successLight: '#E2F1EA',
   successDark: '#17734F',
   successText: '#14603F',
   warning: '#B27C10',
-  warningLight: '#F8ECCF',
+  warningLight: '#F6EBD1',
   warningDark: '#8A6109',
   warningText: '#6B4A05',
   danger: '#CB3A4C',
-  dangerLight: '#FADFE3',
+  dangerLight: '#F7E0E3',
   dangerDark: '#A82C3C',
   dangerText: '#7C1F2B',
   info: '#34419B',
-  infoLight: '#E4E8FA',
+  infoLight: '#E3E7F7',
   infoText: '#26306E',
 
   white: '#FFFFFF',
-  background: '#E9EDF6',
+  // Warm paper canvas — chosen, not a default clinical grey
+  background: '#F4F1EB',
   surface: '#FFFFFF',
-  border: '#D6DCEA',
-  borderLight: '#E3E8F2',
+  // A touch firmer than before so an input's edge shows on the sunken fill.
+  border: '#DFD8C9',
+  borderLight: '#EBE6DA',
 
-  textPrimary: '#161C3A',
-  textSecondary: '#4F5A78',
-  textTertiary: '#8A93AE',
+  textPrimary: '#1A2140',
+  textSecondary: '#55607A',
+  textTertiary: '#939AB0',
   textInverse: '#FFFFFF',
 
-  overlay: 'rgba(22, 28, 58, 0.5)',
-  overlayLight: 'rgba(22, 28, 58, 0.3)',
+  overlay: 'rgba(26, 33, 64, 0.5)',
+  overlayLight: 'rgba(26, 33, 64, 0.3)',
   whatsapp: '#25D366',
 
-  paper: '#E9EDF6',
-  surfaceSunken: '#F3F5FB',
-  borderStrong: '#C3CBE0',
-  ink: '#161C3A',
-  inkSoft: '#4F5A78',
-  inkFaint: '#8A93AE',
+  paper: '#F4F1EB',
+  surfaceSunken: '#FAF8F3',
+  borderStrong: '#CFC6B3',
+  ink: '#1A2140',
+  inkSoft: '#55607A',
+  inkFaint: '#939AB0',
   brand: '#34419B',
   brandDeep: '#1E2657',
-  brandTint: '#E4E8FA',
+  brandTint: '#E3E7F7',
   accentWarm: '#E7913A',
-  accentWarmTint: '#FBEDDB',
+  accentWarmTint: '#F9E6CF',
   onAccent: '#231303',
 
-  onHero: '#161C3A',
-  onHeroSoft: '#4F5A78',
-  onHeroFaint: '#7F88A6',
-  onHeroChip: 'rgba(52,65,155,0.08)',
-  onHeroChipBorder: 'rgba(52,65,155,0.16)',
+  onHero: '#1A2140',
+  onHeroSoft: '#55607A',
+  onHeroFaint: '#7F88A0',
+  onHeroChip: 'rgba(26,33,64,0.07)',
+  onHeroChipBorder: 'rgba(26,33,64,0.14)',
+  heroChipActive: '#34419B',
+  onHeroChipActive: '#FFFFFF',
   onPrimary: '#FFFFFF',
   tabActive: '#34419B',
-  tabInactive: '#8A93AE',
+  tabInactive: '#939AB0',
   tabBar: '#FFFFFF',
   neon: '#34419B',
-  neonTint: 'rgba(52,65,155,0.12)',
+  neonTint: '#E3E7F7',
   shadow: '#1A2140',
 };
 
 export const dark: Palette = {
   primary: '#4A66F0',
-  primaryLight: 'rgba(96,120,255,0.18)',
+  primaryLight: '#28357F',
   primaryDark: '#3650D6',
   secondary: '#7C8DFF',
-  secondaryLight: 'rgba(124,141,255,0.16)',
+  secondaryLight: '#2A3680',
   accent: '#2EE6FF',
-  accentLight: 'rgba(46,230,255,0.14)',
+  accentLight: '#0E3E4F',
 
   success: '#15A076',
-  successLight: 'rgba(53,245,197,0.14)',
+  successLight: '#0F3D34',
   successDark: '#0F7E5C',
   successText: '#5CF2C2',
   warning: '#B8841A',
-  warningLight: 'rgba(255,200,61,0.14)',
+  warningLight: '#3F2F10',
   warningDark: '#8F6410',
   warningText: '#FFD166',
   danger: '#D9324F',
-  dangerLight: 'rgba(255,84,112,0.16)',
+  dangerLight: '#55203A',
   dangerDark: '#B0273F',
   dangerText: '#FF8DA1',
   info: '#4A66F0',
-  infoLight: 'rgba(96,120,255,0.18)',
+  infoLight: '#28357F',
   infoText: '#9DB1FF',
 
   white: '#FFFFFF',
   background: '#0B1230',
   surface: '#141C45',
-  border: '#283373',
-  borderLight: '#1F2A62',
+  border: '#2F3C8A',
+  borderLight: '#242E6E',
 
   textPrimary: '#EEF2FF',
   textSecondary: '#AAB4E6',
@@ -154,28 +163,30 @@ export const dark: Palette = {
 
   paper: '#0B1230',
   surfaceSunken: '#0F1739',
-  borderStrong: '#3A48A0',
+  borderStrong: '#4A5AB8',
   ink: '#EEF2FF',
   inkSoft: '#AAB4E6',
   inkFaint: '#7682BF',
   brand: '#8FA2FF',
   brandDeep: '#0E1540',
-  brandTint: 'rgba(124,141,255,0.16)',
+  brandTint: '#28357F',
   accentWarm: '#FFB454',
-  accentWarmTint: 'rgba(255,180,84,0.16)',
+  accentWarmTint: '#3F2F10',
   onAccent: '#04111F',
 
   onHero: '#FFFFFF',
   onHeroSoft: 'rgba(255,255,255,0.72)',
   onHeroFaint: 'rgba(255,255,255,0.45)',
   onHeroChip: 'rgba(46,230,255,0.10)',
-  onHeroChipBorder: 'rgba(46,230,255,0.24)',
+  onHeroChipBorder: 'rgba(46,230,255,0.28)',
+  heroChipActive: '#FFFFFF',
+  onHeroChipActive: '#0B1230',
   onPrimary: '#FFFFFF',
   tabActive: '#2EE6FF',
   tabInactive: '#6F7BB8',
   tabBar: '#0F1739',
   neon: '#2EE6FF',
-  neonTint: 'rgba(46,230,255,0.14)',
+  neonTint: '#0E3E4F',
   shadow: '#000000',
 };
 
@@ -187,7 +198,7 @@ export interface GradientSet {
   success: readonly [string, string];
   warm: readonly [string, string];
   surface: readonly [string, string];
-  /** The page header. Light: the mist, a shade deeper at the top. Dark: deep navy. */
+  /** The page header. Light: the paper, a shade deeper at the top. Dark: deep navy. */
   hero: readonly [string, string, string];
   /** Login / register / welcome: full-screen deep ink in both schemes (founder 2026-10-02
    *  asked for the blue there — it is the one place the dark band stays in light mode). */
@@ -200,8 +211,8 @@ export const gradientSets: Record<Scheme, GradientSet> = {
     accent: ['#E7913A', '#D97B22'],
     success: ['#1F9366', '#17734F'],
     warm: ['#E7913A', '#D97B22'],
-    surface: ['#FFFFFF', '#F3F5FB'],
-    hero: ['#D9E0F4', '#E3E8F5', '#E9EDF6'],
+    surface: ['#FFFFFF', '#FAF8F3'],
+    hero: ['#E8E1D2', '#EFEAE0', '#F4F1EB'],
     auth: ['#232C6B', '#1A2147', '#171C3B'],
   },
   dark: {

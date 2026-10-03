@@ -173,9 +173,9 @@ export default function OverridesScreen() {
             const on = segment === k;
             return (
               <TouchableOpacity key={k} onPress={() => setSegment(k)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                style={{ flex: 1, height: 40, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.onHero : colors.onHeroChip, borderWidth: 1, borderColor: on ? colors.onHero : colors.onHeroChip }}>
+                style={{ flex: 1, height: 40, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.heroChipActive : colors.onHeroChip, borderWidth: 1, borderColor: on ? colors.heroChipActive : colors.onHeroChipBorder }}>
                 <Icon name={icon} size={15} color={on ? colors.brand : colors.onHero} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.textPrimary : colors.onHero }} numberOfLines={1}>{label}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onHeroChipActive : colors.onHero }} numberOfLines={1}>{label}</Text>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.brand : colors.onHeroSoft }}>{formatNumber(n)}</Text>
               </TouchableOpacity>
             );

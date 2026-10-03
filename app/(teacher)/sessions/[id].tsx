@@ -265,12 +265,12 @@ export default function SessionDetailScreen() {
                 const on = filter === x.key;
                 return (
                   <TouchableOpacity key={x.key} onPress={() => setFilter(on ? null : x.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
-                    style={{ flex: 1, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: on ? colors.onHero : colors.onHeroChip, borderWidth: 1, borderColor: on ? colors.onHero : colors.onHeroChip }}>
+                    style={{ flex: 1, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: on ? colors.heroChipActive : colors.onHeroChip, borderWidth: 1, borderColor: on ? colors.heroChipActive : colors.onHeroChipBorder }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: x.color }} />
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 19, lineHeight: 25, color: on ? colors.textPrimary : colors.onHero }}>{formatNumber(counts[x.key])}</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 19, lineHeight: 25, color: on ? colors.onHeroChipActive : colors.onHero }}>{formatNumber(counts[x.key])}</Text>
                     </View>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.textSecondary : colors.onHeroSoft }}>{x.label}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.onHeroChipActive : colors.onHeroSoft }}>{x.label}</Text>
                   </TouchableOpacity>
                 );
               })}
