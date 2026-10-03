@@ -1,11 +1,8 @@
 import type { ComponentProps } from 'react';
 import { useMemo, useEffect } from 'react';
 import { Redirect, Tabs } from 'expo-router';
-import { View, Text, ActivityIndicator, AppState, type AppStateStatus, StyleSheet } from 'react-native';
-import { BottomTabBar } from 'expo-router/js-tabs';
+import { View, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
-import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { initOfflineScans } from '@/db/offlineScans';
@@ -17,9 +14,10 @@ import { registerForPushNotifications } from '@/utils/push-notifications';
 import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
-import { fonts } from '@/theme/typography';
-import { colors, radius } from '@/theme/index';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import { colors } from '@/theme/index';
+import { type IconName } from '@/components/ui/Icon';
+import { NotchTabBar } from '@/components/ui/NotchTabBar';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
@@ -29,6 +27,11 @@ import { ROUTE_BY_ROLE } from '@/utils/routes';
 // tabs are frozen on blur: a frozen screen defers its own release.
 const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","sessions","manage","students","settings"]);
 const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
+// The bar, first to last (the first sits at the start edge — the right, in RTL). الإدارة is
+// the raised centre button and carries the app's emblem instead of an icon (founder
+// 2026-10-03); الحصص stays beside it (founder 2026-10-02: «next to the day»).
+const TAB_ORDER = ['index', 'sessions', 'manage', 'students', 'settings'] as const;
+const CENTER_TAB = 'manage';
 
 /**
  * Teacher (and assistant) app — a 5-tab bar (home · sessions · students · manage ·
@@ -52,7 +55,7 @@ const labels: Record<string, string> = {
 
 const icons: Record<string, IconName> = {
   index: 'home',
-  sessions: 'sessions',
+  sessions: 'lesson',
   students: 'children',
   manage: 'book',
   settings: 'settings',
@@ -80,8 +83,6 @@ function shouldHideBar(state: { routes: { name: string; state?: unknown }[]; ind
 }
 
 export default function TeacherTabLayout() {
-  const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const role = useAuthStore((s) => s.role);
@@ -159,7 +160,7 @@ export default function TeacherTabLayout() {
   // re-renders whenever the offline badge changes (pending/rejected scans), so a single
   // sync tick rebuilt 36 option objects and re-rendered the whole tab bar. On an
   // entry-level device that is a visible stutter on a screen the teacher never left.
-  // Only `insets` and `t` actually affect the result, so that is all it depends on.
+  // The bar itself is NotchTabBar below; only the freeze flag affects what is left here.
   // Freezing the hidden tabs (react-freeze) is a FLAG, off by default (2026-10-01). With 5+
   // tabs it is the documented cause of memory growing and the JS thread getting slower with
   // every tab switch (react-native-screens #2971) — the teacher-side complaint word for
@@ -174,54 +175,8 @@ export default function TeacherTabLayout() {
         // Consistent scene background so a tab switch never flashes a white frame
         // between two screens (e.g. the black scanner and a cream screen).
         sceneStyle: { backgroundColor: colors.background },
-        tabBarStyle: {
-          // OPAQUE on purpose. A translucent bar (this was rgba(...,0.92)) is a floating,
-          // absolutely-positioned overlay, so every frame Android had to re-composite the
-          // scene BEHIND it — on every screen, in every role. Together with elevation 8 and
-          // two rounded corners that is continuous GPU work and a measurable heat source on
-          // mid-range chips (Redmi Note 11S / Helio G96, 2026-09-22). Opaque + a hairline
-          // rule keeps the same lifted look for free.
-          backgroundColor: colors.tabBar,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.border,
-          paddingTop: 8,
-          paddingBottom: 10 + insets.bottom,
-          height: 64 + insets.bottom,
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          elevation: 0,
-          borderTopLeftRadius: radius.xl,
-          borderTopRightRadius: radius.xl,
-        },
-        tabBarLabel: ({ focused }) => {
-          const labelKey = labels[route.name];
-          return labelKey ? (
-            <Text
-              style={{
-                fontFamily: fonts.medium,
-                fontSize: 12,
-                color: focused ? colors.tabActive : colors.tabInactive,
-                marginTop: 2,
-              }}
-            >
-              {t(labelKey)}
-            </Text>
-          ) : null;
-        },
-        tabBarIcon: ({ focused }) => (
-          <View style={{ opacity: focused ? 1 : 0.55, transform: [{ scale: focused ? 1.08 : 1 }] }}>
-            <Icon
-              name={icons[route.name] || 'home'}
-              size={24}
-              color={focused ? colors.tabActive : colors.tabInactive}
-              outline={!focused}
-            />
-          </View>
-        ),
     }),
-    [insets.bottom, t, freezeTabs],
+    [freezeTabs],
   );
 
   // Every hook above runs on EVERY render — the early returns live here, after them. They
@@ -261,7 +216,7 @@ export default function TeacherTabLayout() {
       // mounting the bar component for them. Every real tab shows the bar.
       tabBar={(props) => {
         if (shouldHideBar(props.state)) return null;
-        return <BottomTabBar {...props} />;
+        return <NotchTabBar {...props} tabs={TAB_ORDER} center={CENTER_TAB} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />;
       }}
       screenOptions={screenOptions}
       screenLayout={sceneLayout}

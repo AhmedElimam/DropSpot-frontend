@@ -1,15 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { Redirect, Tabs } from 'expo-router';
-import { getFocusedRouteNameFromRoute } from 'expo-router/react-navigation';
-import { View, Text, ActivityIndicator, AppState, AppStateStatus, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, AppState, AppStateStatus } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
-import { fonts } from '@/theme/typography';
-import { colors, radius } from '@/theme/index';
-import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '@/theme/index';
 import { registerForPushNotifications, unregisterPushNotifications } from '@/utils/push-notifications';
 import { useNotificationTaps } from '@/hooks/useNotificationTaps';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import { type IconName } from '@/components/ui/Icon';
+import { NotchTabBar } from '@/components/ui/NotchTabBar';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
@@ -17,35 +14,45 @@ import { ROUTE_BY_ROLE } from '@/utils/routes';
 // Visible tabs stay mounted; detail screens (href: null) are released once they are not one
 // of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
 // tabs are frozen on blur: a frozen screen defers its own release.
-const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","children","teachers","invoices","tickets","profile"]);
+const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","children","teachers","invoices","profile"]);
 const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
 
-// Five large, always-labelled tabs. Teacher Management was added as its own tab
-// per an explicit founder decision (reversing the earlier 4-tab minimum); the
-// same management also stays inline in child detail as a shortcut. Reports and
-// Tickets remain demoted to stack screens (href: null below): Reports surfaces
-// from child detail, support (Tickets) from the "المساعدة والدعم" action on Home.
+// Five large, always-labelled tabs, أبنائي raised in the middle (founder 2026-10-03: «a cut
+// design on the middle nav for the most important tab»). Teacher Management is its own tab
+// per an explicit founder decision; the same management also stays inline in child detail.
+// Reports and Tickets are stack screens (href: null below): Reports surfaces from child
+// detail, support (Tickets) from the «المساعدة والدعم» action on Home — Tickets left the
+// bar on 2026-10-03 so the bar has a middle.
+const TAB_ORDER = ['index', 'teachers', 'children', 'invoices', 'profile'] as const;
+const CENTER_TAB = 'children';
 const labels: Record<string, string> = {
   index: 'nav.home',
   children: 'nav.children',
   teachers: 'parent.teachers',
   invoices: 'nav.invoices',
-  tickets: 'nav.tickets',
   profile: 'nav.settings',
 };
 
 const icons: Record<string, IconName> = {
   index: 'home',
-  children: 'children',
+  children: 'kids',
   teachers: 'teacher',
   invoices: 'invoices',
-  tickets: 'tickets',
   profile: 'settings',
 };
 
+// Inside an open ticket conversation ([id], the reply box) or the compose form (create),
+// a floating bar overlaps the input + send button, so no bar is mounted there — the ticket
+// LIST keeps it. The nested state is undefined until the stack mounts (= the list).
+function shouldHideBar(state: { routes: { name: string; state?: unknown }[]; index: number }): boolean {
+  const tab = state.routes[state.index];
+  if (tab?.name !== 'tickets') return false;
+  const nested = tab.state as { routes?: { name: string }[]; index?: number } | undefined;
+  const nestedName = nested?.routes?.[nested?.index ?? 0]?.name;
+  return nestedName === '[id]' || nestedName === 'create';
+}
+
 export default function ParentTabLayout() {
-  const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const role = useAuthStore((s) => s.role);
@@ -116,78 +123,23 @@ export default function ParentTabLayout() {
       // instead of jumping to the Home tab.
       backBehavior="history"
       screenLayout={sceneLayout}
-      screenOptions={({ route }) => {
-        // Inside an open ticket conversation ([id], the reply box) or the compose
-        // form (create), the floating absolute tab bar overlaps the input + send
-        // button, so hide it there — the ticket LIST keeps the bar. Focused nested
-        // route is undefined until the stack mounts, which defaults to the list.
-        const focusedName = getFocusedRouteNameFromRoute(route);
-        const hideBar = route.name === 'tickets' && (focusedName === '[id]' || focusedName === 'create');
-
-        return {
-        headerShown: false,
-          freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),
-        tabBarStyle: hideBar
-          ? { display: 'none' }
-          : {
-          // OPAQUE on purpose. A translucent bar (this was rgba(...,0.92)) is a floating,
-          // absolutely-positioned overlay, so every frame Android had to re-composite the
-          // scene BEHIND it — on every screen, in every role. Together with elevation 8 and
-          // two rounded corners that is continuous GPU work and a measurable heat source on
-          // mid-range chips (Redmi Note 11S / Helio G96, 2026-09-22). Opaque + a hairline
-          // rule keeps the same lifted look for free.
-          backgroundColor: colors.tabBar,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.border,
-          paddingTop: 8,
-          paddingBottom: 10 + insets.bottom,
-          height: 64 + insets.bottom,
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          elevation: 0,
-          borderTopLeftRadius: radius.xl,
-          borderTopRightRadius: radius.xl,
-        },
-        tabBarLabel: ({ focused }) => {
-          const labelKey = labels[route.name];
-          return labelKey ? (
-            <Text
-              style={{
-                fontFamily: fonts.medium,
-                fontSize: 12,
-                color: focused ? colors.tabActive : colors.tabInactive,
-                marginTop: 2,
-              }}
-            >
-              {t(labelKey)}
-            </Text>
-          ) : null;
-        },
-        tabBarIcon: ({ focused }) => (
-          <View
-            style={{
-              opacity: focused ? 1 : 0.55,
-              transform: [{ scale: focused ? 1.08 : 1 }],
-            }}
-          >
-            <Icon
-              name={icons[route.name] || 'home'}
-              size={24}
-              color={focused ? colors.tabActive : colors.tabInactive}
-              outline={!focused}
-            />
-          </View>
-        ),
-        };
+      // No bar inside an open ticket; every real tab shows the notched bar.
+      tabBar={(props) => {
+        if (shouldHideBar(props.state)) return null;
+        return <NotchTabBar {...props} tabs={TAB_ORDER} center={CENTER_TAB} labels={labels} icons={icons} />;
       }}
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),
+        sceneStyle: { backgroundColor: colors.background },
+      })}
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="children" />
       <Tabs.Screen name="teachers" />
       <Tabs.Screen name="invoices" />
-      <Tabs.Screen name="tickets" />
+      {/* Support tickets — from Home's «المساعدة والدعم» tile, not a tab (2026-10-03). */}
+      <Tabs.Screen name="tickets" options={{ href: null }} />
       <Tabs.Screen name="profile" />
       {/* Demoted from the tab bar; still routable from Home / child detail. */}
       <Tabs.Screen name="reports" options={{ href: null }} />

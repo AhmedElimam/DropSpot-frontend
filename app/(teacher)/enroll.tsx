@@ -304,7 +304,6 @@ export default function TeacherEnroll() {
         <SheetModal visible onClose={dismiss} avoidKeyboard style={{ backgroundColor: colors.background, maxHeight: '92%', overflow: 'hidden' }}>
               {/* Header: the student. */}
               <View style={{ backgroundColor: colors.surface, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.lg, borderBottomWidth: 1, borderColor: colors.border }}>
-                <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
                   <View style={{ flex: 1 }}>
                     {review.kind === 'precard' ? (

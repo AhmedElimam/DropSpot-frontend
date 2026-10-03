@@ -1,6 +1,7 @@
 import { Redirect, Stack } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
+import { colors } from '@/theme/index';
 
 /**
  * The super-admin's area (the impersonation picker). Signed out → login; any other role
@@ -19,5 +20,5 @@ export default function AdminLayout() {
     return <Redirect href={ROUTE_BY_ROLE} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />;
 }

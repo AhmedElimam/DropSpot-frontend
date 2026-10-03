@@ -433,7 +433,6 @@ export default function SessionDetailScreen() {
       <SheetModal visible={!!current} onClose={() => setSelected(null)} avoidKeyboard style={{ backgroundColor: colors.background, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             {current ? (
               <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
-                <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
                   <Avatar name={current.name ?? '—'} seed={avatarSeed.student(current.student_id, current.name ?? '—')} size={48} />
                   <View style={{ flex: 1 }}>

@@ -313,7 +313,6 @@ export default function PhoneConfirmationsScreen() {
       )}
 
       <SheetModal visible={sheet !== null} onClose={closeSheet} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl }} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{sheetTitle}</Text>
 
             {sheet?.kind === 'ack' ? (
