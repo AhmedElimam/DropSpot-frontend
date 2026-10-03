@@ -10,6 +10,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { startPhoneChange, verifyOldPhone, requestNewPhone, confirmPhoneChange } from '@/api/phoneChange';
+import { PageHero } from '@/components/ui/PageHero';
 
 type Step = 'intro' | 'verify_old' | 'enter_new' | 'verify_new';
 
@@ -83,13 +84,8 @@ export default function ChangePhoneScreen() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="forward" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('auth.change_phone')}</Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHero title={t('auth.change_phone')} onBack={true} compact />
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl }}>

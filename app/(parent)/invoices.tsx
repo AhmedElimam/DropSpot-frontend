@@ -16,6 +16,9 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
 import { PaymentSection } from '@/components/parent/PaymentSection';
 import { PendingDueCard } from '@/components/parent/PendingDueCard';
+import { PageHero } from '@/components/ui/PageHero';
+import { SectionHead } from '@/components/ui/SectionHead';
+import { formatNumber } from '@/utils/format';
 
 const statusConfig = (): Record<string, { color: string }> => ({
   paid: { color: colors.success },
@@ -74,36 +77,18 @@ export default function InvoicesPage() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, letterSpacing: -0.5 }}>
-            {t('invoices.title')}
-          </Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.onHeroSoft, marginTop: spacing.xs }}>
-            {formatDate(new Date())}
-          </Text>
+        <PageHero
+          title={t('invoices.title')}
+          subtitle={formatDate(new Date())}
+          compact
+          stats={[
+            { value: formatEGP(totalDue), label: t('invoices.total_due'), warn: totalDue > 0 },
+            { value: formatEGP(paidAmount), label: t('invoices.paid_amount') },
+            { value: formatNumber(overdueCount), label: t('invoices.overdue'), warn: overdueCount > 0 },
+          ]}
+        />
 
-          <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{formatEGP(totalDue)}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('invoices.total_due')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{formatEGP(paidAmount)}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('invoices.paid_amount')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{overdueCount}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('invoices.overdue')}</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md }}>
           {groups.length === 0 ? (
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, ...shadows.sm }}>
               <EmptyState icon="invoices" title={t('invoices.no_invoices')} />
@@ -112,12 +97,7 @@ export default function InvoicesPage() {
             groups.map((group) => (
               <View key={group.teacher} style={{ gap: spacing.md }}>
                 {/* Per-teacher header — each teacher's bills stand on their own. */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md }}>
-                  <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
-                    <Icon name="teacher" size={18} color={colors.brand} />
-                  </View>
-                  <Text style={[textPresets.h3, { flex: 1 }]} numberOfLines={1}>{group.teacher}</Text>
-                </View>
+                <View style={{ marginTop: spacing.sm }}><SectionHead icon="teacher" color={colors.brand} title={group.teacher} /></View>
                 {group.dues.map((due) => (
                   <PendingDueCard key={`due-${due.id}`} due={due} showStudent />
                 ))}

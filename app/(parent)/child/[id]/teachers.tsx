@@ -24,6 +24,8 @@ import { DistinguishedBadge } from '@/components/DistinguishedBadge';
 import { Avatar } from '@/components/layout/Avatar';
 import { Button } from '@/components/ui/Button';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { PageHero } from '@/components/ui/PageHero';
+import { formatNumber } from '@/utils/format';
 
 export default function TeacherManagement() {
   const { t } = useTranslation();
@@ -80,30 +82,9 @@ export default function TeacherManagement() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ marginEnd: spacing.md }}>
-              <Icon name="forward" size={26} color={colors.onHero} />
-            </TouchableOpacity>
-            <View>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>
-                {t('parent.manage_teachers')}
-              </Text>
-              {child && (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.onHeroSoft, marginTop: 2 }}>
-                  {child.name}
-                </Text>
-              )}
-            </View>
-          </View>
-        </LinearGradient>
+        <PageHero title={t('parent.manage_teachers')} subtitle={child?.name} onBack stats={[{ value: formatNumber(teachers.length), label: t('parent.teachers') }]} />
 
-        <View style={{ padding: spacing.lg, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {!teachers.length ? (
             <EmptyState icon="teacher" title={t('parent.no_teachers')} />
           ) : (

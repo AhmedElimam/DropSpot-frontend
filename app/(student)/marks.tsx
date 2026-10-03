@@ -13,6 +13,8 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
+import { formatNumber } from '@/utils/format';
 
 type TabKey = 'grades' | 'exams';
 
@@ -63,23 +65,16 @@ export default function StudentMarksScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-            <Icon name="forward" size={22} color={colors.onHeroSoft} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: spacing.sm }}>{t('common.back')}</Text>
-          </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5 }}>
-            {t('reports.my_marks')}
-          </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: spacing.xs }}>
-            {t('reports.my_marks_sub')}
-          </Text>
-        </LinearGradient>
+        <PageHero
+          title={t('reports.my_marks')}
+          subtitle={t('reports.my_marks_sub')}
+          onBack
+          stats={[
+            { value: `${formatNumber(avgGrade)}%`, label: t('quiz.avg_score') },
+            { value: formatNumber(grades?.length ?? 0), label: t('reports.grades') },
+            { value: formatNumber(exams?.length ?? 0), label: t('reports.exam_results') },
+          ]}
+        />
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 4 }}>

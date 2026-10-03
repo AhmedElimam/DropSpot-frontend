@@ -12,6 +12,8 @@ import { getReportDownloadUrl, type ReportCard } from '@/api/reports';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PageHero } from '@/components/ui/PageHero';
+import { formatNumber } from '@/utils/format';
 
 const pct = (v: ReportCard['overall_score']): string =>
   v === null || v === undefined || v === '' ? '—' : `${Math.round(Number(v))}%`;
@@ -56,23 +58,9 @@ export default function ReportCardsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl }}
-        >
-          <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-            <Icon name="forward" size={22} color={colors.onHeroSoft} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: spacing.sm }}>{t('common.back')}</Text>
-          </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero }}>{t('reports.report_cards')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.onHeroSoft, marginTop: 4 }}>
-            {t('reports.report_cards_sub')}
-          </Text>
-        </LinearGradient>
+        <PageHero title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')} onBack stats={[{ value: formatNumber(list.length), label: t('reports.report_cards') }]} />
 
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl4 }} />
           ) : list.length === 0 ? (

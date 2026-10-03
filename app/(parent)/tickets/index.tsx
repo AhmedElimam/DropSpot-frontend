@@ -11,6 +11,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
 
 // Left-edge accent per ticket state — mapped onto the Sanad ink/semantic ramp.
 const statusColors = (): Record<string, [string, string]> => ({
@@ -39,42 +40,9 @@ export default function TicketsList() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, letterSpacing: -0.5 }}>
-                {t('tickets.title')}
-              </Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.onHeroSoft, marginTop: 4 }}>
-                {t('tickets.count', { count: tickets?.length ?? 0 })}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.push('/(parent)/tickets/create')}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              style={{
-                minHeight: 48,
-                justifyContent: 'center',
-                backgroundColor: colors.onHeroChip,
-                borderRadius: radius.md,
-                paddingVertical: spacing.sm,
-                paddingHorizontal: spacing.lg,
-                borderWidth: 1,
-                borderColor: colors.onHeroChipBorder,
-              }}
-            >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onHero }}>+ {t('tickets.new')}</Text>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
+        <PageHero title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} action={{ icon: 'add', label: t('tickets.new'), onPress: () => router.push('/(parent)/tickets/create') }} />
 
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
           ) : isError ? (

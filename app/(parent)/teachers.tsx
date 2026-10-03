@@ -15,6 +15,7 @@ import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DistinguishedBadge } from '@/components/DistinguishedBadge';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { PageHero } from '@/components/ui/PageHero';
 
 /**
  * Top-level "Teacher Management" tab: every child grouped with the teachers
@@ -73,17 +74,7 @@ export default function TeacherManagement() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero }}>{t('parent.manage_teachers')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.onHeroSoft, marginTop: 4 }}>
-            {t('parent.teachers')}
-          </Text>
-        </LinearGradient>
+        <PageHero title={t('parent.manage_teachers')} subtitle={t('parent.teachers')} />
 
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl4 }} />
@@ -92,7 +83,7 @@ export default function TeacherManagement() {
         ) : !hasAnyTeacher ? (
           <EmptyState icon="teacher" title={t('parent.no_teachers')} />
         ) : (
-          <View style={{ padding: spacing.lg, gap: spacing.lg }}>
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.lg }}>
             {list.map((child) => (
               <View
                 key={child.id}

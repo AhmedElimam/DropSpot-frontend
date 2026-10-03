@@ -17,6 +17,7 @@ import { SupportContact } from '@/components/SupportContact';
 import { ThemeRow } from '@/components/ThemeRow';
 import { useQuery } from '@tanstack/react-query';
 import { getMyCardStatus } from '@/api/profile';
+import { PageHero } from '@/components/ui/PageHero';
 
 /** The gold rule the printed card carries — the one mark this screen borrows. */
 const GOLD = '#C9A227';
@@ -50,26 +51,14 @@ export default function StudentProfile() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl5, alignItems: 'center' }}
-        >
-          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: colors.onHeroChipBorder, marginBottom: spacing.md }}>
-            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontSize: 36, color: colors.onHero }}>{(user?.name || '?')[0]}</Text>
-            </View>
-          </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{user?.name}</Text>
-          {/* The student code lives on the card below, where it belongs — it is card
-              data, not profile data, and printing it twice on one screen said nothing. */}
-          <View style={{ marginTop: spacing.md, backgroundColor: colors.onHeroChip, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.onHero }}>{t('profile.role_student')}</Text>
-          </View>
-        </LinearGradient>
+        <PageHero title={user?.name ?? ''} avatar={(user?.name || '?')[0]}>
+        {/* The student code lives on the card below, where it belongs — it is card data, not profile data. */}
+        <View style={{ alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.onHeroChip, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.onHero }}>{t('profile.role_student')}</Text>
+        </View>
+        </PageHero>
 
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {/* The card block.
               There is NO in-app QR (founder 2026-09-05). The printed card is the only
               scannable credential — handing every student a free digital one undercut the

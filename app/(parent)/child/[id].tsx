@@ -19,6 +19,9 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/layout/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
+import { SectionHead } from '@/components/ui/SectionHead';
+import { formatNumber } from '@/utils/format';
 
 type TabKey = 'attendance' | 'grades' | 'exams' | 'settings';
 
@@ -134,71 +137,32 @@ export default function ChildDetailScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
+        <PageHero
+          title={child.name}
+          subtitle={`${child.grade ?? ''}${child.student_code ? ` · ${child.student_code}` : ''}`}
+          onBack
+          action={{ icon: 'children', label: t('home.children_section'), onPress: () => setShowPicker(true), accessibilityLabel: t('home.children_section') }}
+          stats={[
+            { value: `${formatNumber(attendanceRate)}%`, label: t('attendance.attendance_rate') },
+            { value: `${formatNumber(avgGrade)}%`, label: t('quiz.avg_score') },
+            { value: formatNumber(absent), label: t('attendance.absent'), warn: absent > 0 },
+          ]}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Icon name="forward" size={22} color={colors.onHeroSoft} />
-              <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: spacing.sm }}>{t('common.back')}</Text>
-            </TouchableOpacity>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              {/* Quick shortcut to the pre-card registration QR (else buried in Settings). */}
-              {child.can_generate_pre_card ? (
-                <TouchableOpacity
-                  onPress={() => router.push(`/(parent)/child/${child.id}/invite-code`)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('auth.invite_code_label')}
-                  style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, justifyContent: 'center', alignItems: 'center' }}
-                >
-                  <Icon name="scan" size={19} color={colors.onHero} />
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity
-                onPress={() => setShowPicker(true)}
-                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.onHeroChipBorder }}
-              >
-                <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHero }}>{child.name}</Text>
-                <Icon name="down" size={14} color={colors.onHeroSoft} style={{ marginStart: 6 }} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View
-              style={{ width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, marginEnd: spacing.md }}
+          {/* Quick shortcut to the pre-card registration QR (else buried in Settings). */}
+          {child.can_generate_pre_card ? (
+            <TouchableOpacity
+              onPress={() => router.push(`/(parent)/child/${child.id}/invite-code`)}
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.invite_code_label')}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.md }}
             >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>{(child.name || '?')[0]}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{child.name}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>
-                {child.grade ?? ''}{child.student_code ? ` · ${child.student_code}` : ''}
-              </Text>
-            </View>
-          </View>
+              <Icon name="scan" size={16} color={colors.onHero} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('auth.invite_code_label')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </PageHero>
 
-          <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{attendanceRate}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('attendance.attendance_rate')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{avgGrade}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('quiz.avg_score')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{absent}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('attendance.absent')}</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 4 }}>
             {tabs.map((tab) => (
               <TouchableOpacity
@@ -228,7 +192,7 @@ export default function ChildDetailScreen() {
             <>
               {upcoming && upcoming.length > 0 && (
                 <View style={cardStyle()}>
-                  <Text style={textPresets.h3}>{t('session.upcoming_sessions')}</Text>
+                  <SectionHead icon="calendar" color={colors.brand} title={t('session.upcoming_sessions')} />
                   <View style={{ marginTop: spacing.md }}>
                     {upcoming.map((s, i) => (
                       <View
@@ -251,7 +215,7 @@ export default function ChildDetailScreen() {
               )}
               <View style={cardStyle()}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-                  <Text style={textPresets.h3}>{t('attendance.attendance_summary')}</Text>
+                  <SectionHead icon="attendance" color={colors.success} title={t('attendance.attendance_summary')} />
                 </View>
                 {coverageLoading ? (
                   <ActivityIndicator size="small" color={colors.primary} />
@@ -325,7 +289,7 @@ export default function ChildDetailScreen() {
             <>
               <View style={cardStyle()}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-                  <Text style={textPresets.h3}>{t('reports.grades')}</Text>
+                  <SectionHead icon="grades" color={colors.brand} title={t('reports.grades')} />
                 </View>
                 {gradesLoading ? (
                   <ActivityIndicator size="small" color={colors.primary} />
@@ -379,7 +343,7 @@ export default function ChildDetailScreen() {
           {activeTab === 'exams' && (
             <>
               <View style={cardStyle()}>
-                <Text style={textPresets.h3}>{t('reports.exam_results')}</Text>
+                <SectionHead icon="reports" color={colors.accent} title={t('reports.exam_results')} />
                 {examsLoading ? (
                   <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: spacing.md }} />
                 ) : !exams?.length ? (
@@ -419,7 +383,7 @@ export default function ChildDetailScreen() {
           {activeTab === 'settings' && (
             <>
               <View style={cardStyle()}>
-                <Text style={textPresets.h3}>{t('child_settings.title')}</Text>
+                <SectionHead icon="settings" color={colors.textSecondary} title={t('child_settings.title')} />
                 <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
                     <Text style={textPresets.body}>{t('child_settings.student_code')}</Text>
@@ -449,7 +413,7 @@ export default function ChildDetailScreen() {
 
               {child.teachers && child.teachers.length > 0 && (
                 <View style={cardStyle()}>
-                  <Text style={textPresets.h3}>{t('parent.teachers')}</Text>
+                  <SectionHead icon="teacher" color={colors.brand} title={t('parent.teachers')} />
                   <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
                     {child.teachers.map((teacher) => (
                       <View key={teacher.id} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>

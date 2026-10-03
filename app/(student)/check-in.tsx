@@ -18,6 +18,9 @@ import { Icon } from '@/components/ui/Icon';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SuccessConfirmation } from '@/components/ui/SuccessConfirmation';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { PageHero } from '@/components/ui/PageHero';
+import { SectionHead } from '@/components/ui/SectionHead';
+import { formatNumber } from '@/utils/format';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -180,34 +183,15 @@ export default function CheckInTab() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5 }}>
-            {t('attendance.check_in')}
-          </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: spacing.xs }}>
-            {formatDate(new Date())}
-          </Text>
-
-          <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.md }}>
-            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{sessions?.length ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{t('session.today_sessions')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{stats?.total ? Math.round(((stats.present + stats.late) / stats.total) * 100) : 0}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{t('attendance.coverage_rate')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{stats?.absent ?? 0}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{t('attendance.absent')}</Text>
-            </View>
-          </View>
-        </LinearGradient>
+        <PageHero
+          title={t('attendance.check_in')}
+          subtitle={formatDate(new Date())}
+          stats={[
+            { value: formatNumber(sessions?.length ?? 0), label: t('session.today_sessions') },
+            { value: `${formatNumber(stats?.total ? Math.round(((stats.present + stats.late) / stats.total) * 100) : 0)}%`, label: t('attendance.coverage_rate') },
+            { value: formatNumber(stats?.absent ?? 0), label: t('attendance.absent'), warn: (stats?.absent ?? 0) > 0 },
+          ]}
+        />
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {/* PRIMARY: card scan at the door */}
@@ -217,7 +201,7 @@ export default function CheckInTab() {
                 <Icon name="card" size={28} color={colors.brand} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={textPresets.h3}>{t('attendance.card_primary_title')}</Text>
+                <SectionHead icon="card" color={colors.brand} title={t('attendance.card_primary_title')} />
                 <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{t('attendance.card_primary_desc')}</Text>
               </View>
             </View>
@@ -391,7 +375,7 @@ export default function CheckInTab() {
           {/* Attendance history */}
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
-              <Text style={textPresets.h3}>{t('attendance.coverage')}</Text>
+              <SectionHead icon="attendance" color={colors.success} title={t('attendance.coverage')} />
               <Text style={textPresets.bodySmall}>{t('attendance.coverage_this_month')}</Text>
             </View>
 

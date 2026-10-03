@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SuccessConfirmation } from '@/components/ui/SuccessConfirmation';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
 
 export default function CreateTicket() {
   const { t } = useTranslation();
@@ -86,25 +87,7 @@ export default function CreateTicket() {
           contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl4 }}
           keyboardShouldPersistTaps="handled"
         >
-          <LinearGradient
-            colors={gradients.hero}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              paddingHorizontal: spacing.lg,
-              paddingTop: spacing.xl4 + insets.top,
-              paddingBottom: spacing.xl4,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => router.back()} style={{ marginEnd: spacing.md }}>
-                <Icon name="forward" size={26} color={colors.onHero} />
-              </TouchableOpacity>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>
-                {t('tickets.create')}
-              </Text>
-            </View>
-          </LinearGradient>
+          <PageHero title={t('tickets.create')} onBack compact />
 
           <View style={{ padding: spacing.lg, gap: spacing.lg }}>
             {/* Student + Teacher selection */}

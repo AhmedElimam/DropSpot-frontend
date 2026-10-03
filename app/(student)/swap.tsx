@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
 
 export default function SwapRequestScreen() {
   const { t } = useTranslation();
@@ -75,23 +76,9 @@ export default function SwapRequestScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xxxl }}
-        >
-          <TouchableOpacity onPress={goBack} style={{ marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center' }}>
-            <Icon name="forward" size={20} color={colors.onHeroSoft} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: 4 }}>{t('common.back')}</Text>
-          </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5 }}>{t('swap.title')}</Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginTop: spacing.xs }}>
-            {t('swap.subtitle')}
-          </Text>
-        </LinearGradient>
+        <PageHero title={t('swap.title')} subtitle={t('swap.subtitle')} onBack={goBack} />
 
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xxl, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {/* STEP 1 — pick the session you'll miss */}
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>

@@ -12,6 +12,8 @@ import { Icon } from '@/components/ui/Icon';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PageHero } from '@/components/ui/PageHero';
+import { SectionHead } from '@/components/ui/SectionHead';
 
 const cardStyle = () => ({
   backgroundColor: colors.surface,
@@ -50,21 +52,7 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl }}
-        >
-          <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-            <Icon name="forward" size={22} color={colors.onHeroSoft} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: spacing.sm }}>{t('common.back')}</Text>
-          </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero }}>{t('today.title')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.onHeroSoft, marginTop: 4 }}>
-            {t('today.subtitle')}
-          </Text>
-        </LinearGradient>
+        <PageHero title={t('today.title')} subtitle={t('today.subtitle')} onBack compact />
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg }}>
           {isLoading ? (
@@ -83,7 +71,7 @@ export default function TodayScreen() {
 function ChildToday({ child, t }: { child: FeedChild; t: (k: string) => string }) {
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginStart: spacing.xs }}>{child.name}</Text>
+      <SectionHead icon="child" color={colors.brand} title={child.name} />
       {child.teachers.map((teacher) => (
         <View key={teacher.teacher_id} style={cardStyle()}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>

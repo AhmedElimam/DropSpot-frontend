@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
 
 // Status accent on the Sanad ink/semantic ramp (used for the header pill tint).
 const statusColors = (): Record<string, [string, string]> => ({
@@ -87,27 +88,9 @@ export default function TicketDetail() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {/* Header */}
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.lg }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', marginEnd: spacing.sm }}>
-              <Icon name="forward" size={26} color={colors.onHero} />
-            </TouchableOpacity>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }} numberOfLines={1}>
-                {ticket.subject}
-              </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>
-                {ticket.student_name} - {ticket.teacher_name}
-              </Text>
-            </View>
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <PageHero title={ticket.subject} subtitle={`${ticket.student_name} - ${ticket.teacher_name}`} onBack compact>
+          <View style={{ marginTop: spacing.md }}>
+<View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View
               style={{
                 flexDirection: 'row',
@@ -165,7 +148,8 @@ export default function TicketDetail() {
               </TouchableOpacity>
             )}
           </View>
-        </LinearGradient>
+          </View>
+        </PageHero>
 
         {/* Messages */}
         <ScrollView

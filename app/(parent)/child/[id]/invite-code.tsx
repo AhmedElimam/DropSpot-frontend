@@ -9,6 +9,7 @@ import { colors, spacing, radius, textPresets, shadows } from '@/theme/index';
 import { useChildren } from '@/hooks/useChildren';
 import { generatePreCard, type PreCardToken } from '@/api/preCardInvitation';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
 
 /**
  * Pre-Card Invitation QR (spec §4). The parent, in-person with the teacher,
@@ -60,14 +61,9 @@ export default function InviteCodeScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg, gap: spacing.md }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="forward" size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[textPresets.h3, { flex: 1 }]}>رمز التسجيل</Text>
-      </View>
+      <PageHero title="رمز التسجيل" onBack={true} compact />
 
       <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl * 2, alignItems: 'center' }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center' }}>
