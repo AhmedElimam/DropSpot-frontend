@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Linking, Switch } from 'react-native';
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,7 +14,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { SupportContact } from '@/components/SupportContact';
 import { ThemeRow } from '@/components/ThemeRow';
-import { GeneratedAvatar } from '@/components/ui/GeneratedAvatar';
+import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
 import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -49,8 +50,13 @@ export default function TeacherSettings() {
           style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xl }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            {/* The teacher's own logo when they uploaded one, else their generated mark. */}
             <View style={{ borderRadius: 22, overflow: 'hidden', ...shadows.sm }}>
-              <GeneratedAvatar seed={String(user?.id ?? user?.name ?? '?')} size={64} square label={user?.name ?? ''} />
+              {user?.logo_url ? (
+                <Image source={{ uri: user.logo_url }} style={{ width: 64, height: 64, backgroundColor: colors.surface }} contentFit="cover" accessibilityLabel={user?.name ?? ''} />
+              ) : (
+                <GeneratedAvatar seed={avatarSeed.user(user?.id, user?.name ?? '?')} size={64} square label={user?.name ?? ''} />
+              )}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.onHero }} numberOfLines={1}>{user?.name ?? ''}</Text>

@@ -10,6 +10,7 @@ import { colors, spacing, radius, nav, gradients, shadows } from '@/theme/index'
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { MarkRow, MarksHeader, type SessionKind } from '@/components/session/SessionMarks';
@@ -182,7 +183,7 @@ export default function SessionDetailScreen() {
     return (
       <TouchableOpacity onPress={() => openAttendee(item)} activeOpacity={0.85}
         style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: color, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 64 }}>
-        <Avatar name={item.name ?? '—'} size={40} />
+        <Avatar name={item.name ?? '—'} seed={avatarSeed.student(item.student_id, item.name ?? '—')} size={40} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{item.name ?? '—'}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
@@ -434,7 +435,7 @@ export default function SessionDetailScreen() {
               <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
                 <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: spacing.md }} />
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
-                  <Avatar name={current.name ?? '—'} size={48} />
+                  <Avatar name={current.name ?? '—'} seed={avatarSeed.student(current.student_id, current.name ?? '—')} size={48} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{current.name ?? '—'}</Text>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{current.student_code ?? (current.card_less ? t('teacher.card_less') : '')}</Text>

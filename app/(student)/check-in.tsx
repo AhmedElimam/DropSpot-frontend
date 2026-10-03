@@ -2,7 +2,7 @@ import { SheetModal } from '@/components/ui/SheetModal';
 import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Keyboard } from 'react-native';
 import { useConfigRule } from '@/hooks/useAppConfig';
-import { formatDate, formatShortDate, formatDateTime, formatTime } from '@/utils/format';
+import { formatDate, formatDateTime, formatTime } from '@/utils/format';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
@@ -21,8 +21,19 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { PageHero } from '@/components/ui/PageHero';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { formatNumber } from '@/utils/format';
-import { ComplaintSheet, ComplaintPill, type ComplaintTarget } from '@/components/student/ComplaintSheet';
+import { ComplaintSheet, type ComplaintTarget } from '@/components/student/ComplaintSheet';
 import { useMyComplaints } from '@/hooks/useComplaints';
+import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
+import { AttendanceRecordRow } from '@/components/attendance/AttendanceRecordRow';
+
+type RecordFilter = 'all' | 'present' | 'absent' | 'excused';
+const RECORD_LIMIT = 8;
+const RECORD_FILTERS: { key: RecordFilter; label: string; match: (status: string | null | undefined) => boolean }[] = [
+  { key: 'all', label: 'attendance.filter_all', match: () => true },
+  { key: 'present', label: 'attendance.filter_present', match: (st) => st === 'present' || st === 'late' },
+  { key: 'absent', label: 'attendance.filter_absent', match: (st) => st === 'absent' },
+  { key: 'excused', label: 'attendance.filter_excused', match: (st) => st === 'excused' },
+];
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -70,6 +81,12 @@ export default function CheckInTab() {
   const [excuseVisible, setExcuseVisible] = useState(false);
   const [complaintTarget, setComplaintTarget] = useState<ComplaintTarget | null>(null);
   const myComplaints = useMyComplaints();
+  const [filter, setFilter] = useState<RecordFilter>('all');
+  const [expanded, setExpanded] = useState(false);
+  const allRecords = (records ?? []).filter(Boolean);
+  const activeFilter = RECORD_FILTERS.find((f) => f.key === filter) ?? RECORD_FILTERS[0];
+  const filteredRecords = filter === 'all' ? allRecords : allRecords.filter((r) => activeFilter.match(r.status));
+  const visibleRecords = expanded ? filteredRecords : filteredRecords.slice(0, RECORD_LIMIT);
   const [excuseText, setExcuseText] = useState('');
   const [excuseRecordId, setExcuseRecordId] = useState<number | null>(null);
   const [excuseSent, setExcuseSent] = useState(false);
@@ -376,60 +393,59 @@ export default function CheckInTab() {
             </View>
           </TouchableOpacity>
 
-          {/* Attendance history */}
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
-              <SectionHead icon="attendance" color={colors.success} title={t('attendance.coverage')} />
-              <Text style={textPresets.bodySmall}>{t('attendance.coverage_this_month')}</Text>
+          {/* Attendance record (founder 2026-10-03: «some love on the attendance record page»):
+              the rate as a ring with tinted counts, then the sessions as dated rows a student
+              can filter and dispute. */}
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
+            <SectionHead icon="attendance" color={colors.success} title={t('attendance.history_title')} />
+            <Text style={[textPresets.bodySmall, { marginTop: 2, marginBottom: spacing.md }]}>{t('attendance.history_sub')}</Text>
+            <AttendanceOverview present={stats?.present ?? 0} late={stats?.late ?? 0} absent={stats?.absent ?? 0} excused={stats?.excused ?? 0} />
+
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+              {RECORD_FILTERS.map((f) => {
+                const on = filter === f.key;
+                const n = f.key === 'all' ? allRecords.length : allRecords.filter((r) => f.match(r.status)).length;
+                return (
+                  <TouchableOpacity key={f.key} onPress={() => { setFilter(f.key); setExpanded(false); }} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                    style={{ flex: 1, minHeight: 36, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 4, backgroundColor: on ? colors.primary : colors.surfaceSunken, borderWidth: 1, borderColor: on ? colors.primary : colors.border }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: on ? colors.onPrimary : colors.textSecondary }}>{t(f.label)}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: on ? colors.onPrimary : colors.textTertiary }}>{formatNumber(n)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg }}>
-              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.successText }}>{stats?.present ?? 0}</Text>
-                <Text style={textPresets.caption}>{t('attendance.coverage_present')}</Text>
-              </View>
-              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.dangerText }}>{stats?.absent ?? 0}</Text>
-                <Text style={textPresets.caption}>{t('attendance.coverage_absent')}</Text>
-              </View>
-              <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.infoLight, borderRadius: radius.md, padding: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.infoText }}>{stats?.excused ?? 0}</Text>
-                <Text style={textPresets.caption}>{t('attendance.coverage_excused')}</Text>
-              </View>
+            <View style={{ marginTop: spacing.xs }}>
+              {visibleRecords.length === 0 ? (
+                <Text style={[textPresets.bodySmall, { color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }]}>
+                  {t(allRecords.length === 0 ? 'attendance.no_records' : 'attendance.no_records_filtered')}
+                </Text>
+              ) : visibleRecords.map((record, i) => (
+                <AttendanceRecordRow
+                  key={record.id || i}
+                  record={record}
+                  complaint={record.session_instance_id ? myComplaints.bySession.get(record.session_instance_id) : undefined}
+                  onComplain={(r) => setComplaintTarget({ type: 'attendance', sessionInstanceId: r.session_instance_id, courseName: r.course_name ?? '', sessionAt: r.session_time ?? null, recordedStatus: r.status ?? null })}
+                  last={i === visibleRecords.length - 1}
+                />
+              ))}
             </View>
 
-            {(records ?? []).slice(0, 10).map((record, i) => {
-              const complaint = record?.session_instance_id ? myComplaints.bySession.get(record.session_instance_id) : undefined;
-              return (
-                <View key={record?.id ?? i} style={{ paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={textPresets.body} numberOfLines={1}>{record?.course_name}</Text>
-                      <Text style={textPresets.caption}>
-                        {record?.session_time ? formatShortDate(record.session_time) : ''}{record?.teacher_name ? ` · ${record.teacher_name}` : ''}
-                      </Text>
-                    </View>
-                    <StatusBadge status={record?.status ?? ''} size="sm" />
-                  </View>
-                  {/* «اعتراض» — dispute this mark; once filed, its state shows here. */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-                    {complaint ? (
-                      <ComplaintPill status={complaint.status} />
-                    ) : record?.session_instance_id ? (
-                      <TouchableOpacity
-                        onPress={() => setComplaintTarget({ type: 'attendance', sessionInstanceId: record.session_instance_id, courseName: record.course_name ?? '', sessionAt: record.session_time ?? null, recordedStatus: record.status ?? null })}
-                        hitSlop={6}
-                        accessibilityRole="button"
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                      >
-                        <Icon name="note" size={13} color={colors.textTertiary} outline />
-                        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{t('complaints.file_attendance')}</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                </View>
-              );
-            })}
+            {filteredRecords.length > RECORD_LIMIT ? (
+              <TouchableOpacity onPress={() => setExpanded((v) => !v)} activeOpacity={0.85} accessibilityRole="button"
+                style={{ marginTop: spacing.sm, minHeight: 42, borderRadius: radius.md, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+                <Icon name={expanded ? 'up' : 'down'} size={16} color={colors.brand} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>
+                  {expanded ? t('attendance.show_less') : t('attendance.show_more', { count: formatNumber(filteredRecords.length - RECORD_LIMIT) })}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {allRecords.length > 0 ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md }}>
+                <Icon name="info" size={14} color={colors.textTertiary} outline />
+                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('attendance.dispute_hint')}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
       </ScrollView>

@@ -7,7 +7,11 @@ interface AvatarProps {
   name: string;
   size?: number;
   imageUrl?: string | null;
-  /** Something stable for the person (an id); the name is the fallback seed. */
+  /**
+   * The person's canonical seed — `avatarSeed.student(id)` / `avatarSeed.user(id)` from
+   * GeneratedAvatar — so the same person gets the same mark on every screen. The name is
+   * only the last resort (it formats differently from screen to screen).
+   */
   seed?: string | number | null;
 }
 

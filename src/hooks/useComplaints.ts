@@ -2,16 +2,25 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import {
-  approveComplaint, fileComplaint, getComplaints, getMyComplaints, rejectComplaint, reviewComplaint,
+  approveComplaint, fileComplaint, getComplaints, getFamilyComplaints, getMyComplaints, rejectComplaint, reviewComplaint,
   type Complaint, type ComplaintBucket,
 } from '@/api/complaints';
 
-// ---- student ----
+// ---- student / parent ----
 
-/** The student's own complaints, plus quick lookups by session and by invoice. */
+/**
+ * The complaints this reader can see — a student's own, or every one on a parent's
+ * children — plus quick lookups by session and by invoice (both ids are global, so one
+ * map serves all of a parent's children).
+ */
 export function useMyComplaints(enabled = true) {
   const role = useAuthStore((s) => s.role);
-  const q = useQuery({ queryKey: ['my-complaints'], queryFn: getMyComplaints, enabled: enabled && role === 'student', staleTime: 30_000 });
+  const q = useQuery({
+    queryKey: ['my-complaints', role],
+    queryFn: role === 'parent' ? getFamilyComplaints : getMyComplaints,
+    enabled: enabled && (role === 'student' || role === 'parent'),
+    staleTime: 30_000,
+  });
   const bySession = useMemo(() => {
     const m = new Map<number, Complaint>();
     for (const c of q.data ?? []) if (c.session_instance_id && !m.has(c.session_instance_id)) m.set(c.session_instance_id, c);

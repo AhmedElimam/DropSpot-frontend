@@ -5,6 +5,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { formatNumber } from '@/utils/format';
 
 export type SessionKind = 'normal_sheet' | 'quiz_exam';
@@ -72,7 +73,7 @@ export const MarkRow = memo(function MarkRow({ a, max, onSave }: {
   const border = state === 'error' || state === 'invalid' ? colors.danger : state === 'saved' ? colors.success : colors.border;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: a.mark != null ? colors.success : attended ? colors.accent : colors.borderStrong, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 62, opacity: attended ? 1 : 0.6 }}>
-      <Avatar name={a.name ?? '—'} size={38} />
+      <Avatar name={a.name ?? '—'} seed={avatarSeed.student(a.student_id, a.name ?? '—')} size={38} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{a.name ?? '—'}</Text>
         <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: state === 'error' || state === 'invalid' ? colors.danger : colors.textTertiary, marginTop: 1 }} numberOfLines={1}>

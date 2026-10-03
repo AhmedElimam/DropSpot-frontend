@@ -11,6 +11,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import client from '@/api/client';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DistinguishedBadge } from '@/components/DistinguishedBadge';
@@ -90,7 +91,7 @@ export default function TeacherManagement() {
                 style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-                  <Avatar name={child.name} size={44} />
+                  <Avatar name={child.name} seed={avatarSeed.student(child.student_id, child.name)} size={44} />
                   <View style={{ marginStart: spacing.md, flex: 1 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{child.name}</Text>
                     {child.grade ? <Text style={textPresets.bodySmall}>{child.grade}</Text> : null}

@@ -24,7 +24,7 @@ import { ShortcutTile } from '@/components/ui/ShortcutTile';
 import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { PercentRing } from '@/components/ui/PercentRing';
-import { GeneratedAvatar } from '@/components/ui/GeneratedAvatar';
+import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { getStudentTeachers, type StudentTeacher } from '@/api/studentOverview';
 
 const statusDot = (): Record<string, string> => ({
@@ -296,7 +296,7 @@ function TeacherCard({ teacher }: { teacher: StudentTeacher }) {
         {teacher.logo_url ? (
           <Image source={{ uri: teacher.logo_url }} style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: colors.surfaceSunken }} contentFit="cover" />
         ) : (
-          <GeneratedAvatar seed={`teacher-${teacher.id}`} size={48} square label={teacher.name} />
+          <GeneratedAvatar seed={avatarSeed.user(teacher.id, teacher.name)} size={48} square label={teacher.name} />
         )}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{teacher.name}</Text>

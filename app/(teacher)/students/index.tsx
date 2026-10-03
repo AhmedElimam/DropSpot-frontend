@@ -9,6 +9,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FilterChips } from '@/components/ui/FilterChips';
 import { AddStudentSheet } from '@/components/teacher/AddStudentSheet';
@@ -56,7 +57,7 @@ const RosterRow = memo(function RosterRow({ s, onPress }: { s: RosterStudent; on
       accessibilityRole="button"
       style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: color, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 66 }}
     >
-      <Avatar name={s.name ?? '—'} size={42} />
+      <Avatar name={s.name ?? '—'} seed={avatarSeed.student(s.id, s.name ?? '—')} size={42} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{s.name ?? '—'}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>

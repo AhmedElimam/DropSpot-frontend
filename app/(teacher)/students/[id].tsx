@@ -10,6 +10,7 @@ import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StudentAttendanceList } from '@/components/student/StudentAttendanceList';
 import { useStudentDetail } from '@/hooks/useStudents';
@@ -412,7 +413,7 @@ export default function StudentDetailScreen() {
         >
           {/* Summary */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>
-            <Avatar name={s.name ?? '—'} size={56} />
+            <Avatar name={s.name ?? '—'} seed={avatarSeed.student(s.id, s.name ?? '—')} size={56} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{s.name ?? '—'}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>

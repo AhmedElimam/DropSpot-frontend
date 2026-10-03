@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
@@ -65,7 +66,7 @@ export default function ChildrenList() {
                 style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xxl, padding: spacing.xl, ...shadows.sm }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Avatar name={child.name} size={56} />
+                  <Avatar name={child.name} seed={avatarSeed.student(child.student_id, child.name)} size={56} />
                   <View style={{ marginStart: spacing.md, flex: 1, minWidth: 0 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{child.name}</Text>
                     <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{child.grade}</Text>

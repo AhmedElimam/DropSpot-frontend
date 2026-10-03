@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 import { fonts } from '@/theme/typography';
 import { colors, radius, spacing, shadows } from '@/theme/index';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Badge } from '@/components/ui/Badge';
 import { useTranslation } from 'react-i18next';
 
@@ -53,7 +54,7 @@ export const StudentRow = memo(function StudentRow({ id, name, studentCode, grad
       accessibilityRole="button"
       accessibilityLabel={`${name} - ${studentCode}`}
     >
-      <Avatar name={name} size={44} />
+      <Avatar name={name} seed={avatarSeed.student(id, name)} size={44} />
 
       <View style={{ flex: 1, marginHorizontal: spacing.md }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>

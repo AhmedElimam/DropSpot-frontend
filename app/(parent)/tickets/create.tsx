@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, control } from '@/theme/index';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { useChildren } from '@/hooks/useChildren';
 import { createTicket } from '@/api/tickets';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -119,7 +120,7 @@ export default function CreateTicket() {
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                         <View style={{ marginEnd: spacing.md }}>
-                          <Avatar name={child.name} size={44} />
+                          <Avatar name={child.name} seed={avatarSeed.student(child.student_id, child.name)} size={44} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>

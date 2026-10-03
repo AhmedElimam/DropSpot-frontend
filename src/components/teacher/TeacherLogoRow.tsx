@@ -7,6 +7,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { getTeacherLogo, uploadTeacherLogo, deleteTeacherLogo } from '@/api/teacherLogo';
+import { useAuthStore } from '@/stores/authStore';
 
 /**
  * Teacher settings row: upload / change / remove the teacher's brand logo. The logo is
@@ -15,9 +16,18 @@ import { getTeacherLogo, uploadTeacherLogo, deleteTeacherLogo } from '@/api/teac
  */
 export function TeacherLogoRow() {
   const { t } = useTranslation();
-  const [logo, setLogo] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const sessionLogo = useAuthStore((s) => s.user?.logo_url ?? null);
+  const [logo, setLogoState] = useState<string | null>(sessionLogo);
+  const [loading, setLoading] = useState(!sessionLogo);
   const [busy, setBusy] = useState(false);
+
+  // The logo is also the teacher's avatar (settings hero and elsewhere), so every change
+  // here is written back into the session user — no relaunch needed to see it.
+  const setLogo = (url: string | null) => {
+    setLogoState(url);
+    const { user, role, setSession } = useAuthStore.getState();
+    if (user && role) void setSession({ ...user, logo_url: url }, role);
+  };
 
   useEffect(() => {
     let active = true;
@@ -26,6 +36,7 @@ export function TeacherLogoRow() {
       .catch(() => { /* keep placeholder */ })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function pickAndUpload() {

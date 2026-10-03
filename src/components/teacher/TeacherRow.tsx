@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { fonts } from '@/theme/typography';
 import { colors, radius, spacing, shadows } from '@/theme/index';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { useTranslation } from 'react-i18next';
 
 interface TeacherRowProps {
@@ -32,7 +33,7 @@ export function TeacherRow({ id, name, subject, courseCount, onPress }: TeacherR
       accessibilityRole="button"
       accessibilityLabel={`${name} - ${subject || ''}`}
     >
-      <Avatar name={name} size={44} />
+      <Avatar name={name} seed={avatarSeed.user(id, name)} size={44} />
 
       <View style={{ flex: 1, marginHorizontal: spacing.md }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>

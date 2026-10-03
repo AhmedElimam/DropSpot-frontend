@@ -8,6 +8,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -43,6 +44,7 @@ function fmtDate(iso: string | null): string {
 type RowData = {
   key: string;
   id: number;
+  studentId: number | null;
   name: string | null;
   detail: string | null;
   grantedBy: string | null;
@@ -66,7 +68,7 @@ const ExceptionRow = memo(function ExceptionRow({ r, now, canRevoke, revoking, o
   return (
     <TouchableOpacity onPress={() => onOpen(r)} activeOpacity={0.85} accessibilityRole="button"
       style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: u.color, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 66 }}>
-      <Avatar name={r.name ?? '—'} size={42} />
+      <Avatar name={r.name ?? '—'} seed={avatarSeed.student(r.studentId, r.name ?? '—')} size={42} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{r.name ?? '—'}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 3 }}>
@@ -117,10 +119,10 @@ export default function OverridesScreen() {
   const [segment, setSegment] = useState<Segment>('billing');
 
   const billingRows = useMemo<RowData[]>(() => (overrides.data ?? []).map((o: BillingOverride) => ({
-    key: `o${o.id}`, id: o.id, name: o.student_name, detail: o.reason, grantedBy: o.granted_by_name, expiresAt: o.expires_at,
+    key: `o${o.id}`, id: o.id, studentId: o.student_id ?? null, name: o.student_name, detail: o.reason, grantedBy: o.granted_by_name, expiresAt: o.expires_at,
   })), [overrides.data]);
   const phoneRows = useMemo<RowData[]>(() => (permissions.data ?? []).map((p: CheckinPermission) => ({
-    key: `p${p.id}`, id: p.id, name: p.student_name, detail: [p.course_name, p.note].filter(Boolean).join(' · ') || null, grantedBy: p.granted_by_name, expiresAt: p.expires_at,
+    key: `p${p.id}`, id: p.id, studentId: p.student_id ?? null, name: p.student_name, detail: [p.course_name, p.note].filter(Boolean).join(' · ') || null, grantedBy: p.granted_by_name, expiresAt: p.expires_at,
   })), [permissions.data]);
   const rows = segment === 'billing' ? billingRows : phoneRows;
   const loading = segment === 'billing' ? overrides.isLoading : permissions.isLoading;

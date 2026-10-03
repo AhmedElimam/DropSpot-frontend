@@ -10,6 +10,7 @@ import { PageHero } from '@/components/ui/PageHero';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useComplaints, useComplaintDecision } from '@/hooks/useComplaints';
 import { useAuthStore } from '@/stores/authStore';
@@ -163,7 +164,7 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 5, borderStartColor: tint, padding: spacing.md }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <Avatar name={c.student_name ?? '—'} seed={c.student_id} size={44} />
+        <Avatar name={c.student_name ?? '—'} seed={avatarSeed.student(c.student_id, c.student_name ?? '—')} size={44} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{c.student_name ?? '—'}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={2}>{subject}</Text>
@@ -175,6 +176,12 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
           {c.created_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{timeAgo(c.created_at)}</Text> : null}
         </View>
       </View>
+      {c.filed_by_parent ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 3 }}>
+          <Icon name="children" size={12} color={colors.brand} outline />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.brand }}>{c.filed_by_name ? t('complaints.by_parent_name', { name: c.filed_by_name }) : t('complaints.by_parent')}</Text>
+        </View>
+      ) : null}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 4 }}>

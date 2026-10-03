@@ -18,6 +18,7 @@ import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
 import { usePendingPrecardInvites, useAcceptPrecardInvite, useRejectPrecardInvite } from '@/hooks/usePrecardPhone';
 import { usePendingSiblingClaims, useConfirmSiblingClaim, useDenySiblingClaim } from '@/hooks/useSiblingClaims';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { SectionHead } from '@/components/ui/SectionHead';
@@ -194,7 +195,7 @@ function ChildCard({ child, t }: { child: Child; t: (k: string) => string }) {
       accessibilityLabel={child.name}
       style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xxl, padding: spacing.lg, ...shadows.sm, borderStartWidth: 4, borderStartColor: standing.color }}
     >
-      <Avatar name={child.name} size={56} />
+      <Avatar name={child.name} seed={avatarSeed.student(child.student_id, child.name)} size={56} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }} numberOfLines={1}>{child.name}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 6 }}>

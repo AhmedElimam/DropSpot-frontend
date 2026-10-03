@@ -7,6 +7,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { StudentRow } from '@/components/student/StudentRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useTeacherStudents } from '@/hooks/useStudents';
@@ -92,7 +93,7 @@ export default function GrantException() {
         <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl }} keyboardShouldPersistTaps="handled">
           {/* Selected student card + jump to profile */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>
-            <Avatar name={selected.name} size={48} />
+            <Avatar name={selected.name} seed={avatarSeed.student(selected.id, selected.name)} size={48} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{selected.name}</Text>
             </View>

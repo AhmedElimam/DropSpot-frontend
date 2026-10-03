@@ -22,6 +22,7 @@ import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DistinguishedBadge } from '@/components/DistinguishedBadge';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Button } from '@/components/ui/Button';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { PageHero } from '@/components/ui/PageHero';
@@ -104,7 +105,7 @@ export default function TeacherManagement() {
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Avatar name={teacher.name} size={48} />
+                    <Avatar name={teacher.name} seed={avatarSeed.user(teacher.id, teacher.name)} imageUrl={teacher.logo_url ?? null} size={48} />
                     <View style={{ flex: 1, marginStart: spacing.md }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>
                         {teacher.name}

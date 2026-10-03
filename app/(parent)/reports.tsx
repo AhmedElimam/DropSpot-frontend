@@ -12,6 +12,7 @@ import { getStudentGrades } from '@/api/grades';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { PageHero } from '@/components/ui/PageHero';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { formatNumber } from '@/utils/format';
@@ -185,7 +186,7 @@ export default function ReportsScreen() {
                     style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Avatar name={child.name} size={44} />
+                      <Avatar name={child.name} seed={avatarSeed.student(child.student_id, child.name)} size={44} />
                       <View style={{ marginStart: spacing.md, flex: 1 }}>
                         <Text style={[textPresets.body, { fontFamily: fonts.bold }]}>{child.name}</Text>
                         <Text style={textPresets.caption}>{child.grade}</Text>
@@ -284,7 +285,7 @@ export default function ReportsScreen() {
                         style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Avatar name={child.name} size={44} />
+                          <Avatar name={child.name} seed={avatarSeed.student(child.student_id, child.name)} size={44} />
                           <View style={{ marginStart: spacing.md, flex: 1 }}>
                             <Text style={[textPresets.body, { fontFamily: fonts.bold }]}>{child.name}</Text>
                             <Text style={textPresets.caption}>{child.grade}</Text>

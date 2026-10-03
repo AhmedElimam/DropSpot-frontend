@@ -19,6 +19,8 @@ export interface Invoice {
   due_date: string;
   status: 'paid' | 'pending' | 'overdue';
   items: string[];
+  /** The student the invoice bills (a parent needs it to file «دفعت ولم يُسجَّل» for them). */
+  student_id?: number;
   student_name?: string;
   teacher_name?: string;
   teacher_phone?: string | null;

@@ -23,8 +23,13 @@ export type ComplaintTarget =
  * and not recorded, add a line, send. Each kind lives where its record is — the session
  * list and the invoice card — so this sheet only needs the one target.
  */
-export function ComplaintSheet({ visible, onClose, target }: { visible: boolean; onClose: () => void; target: ComplaintTarget | null }) {
+export function ComplaintSheet({ visible, onClose, target, forStudentId }: {
+  visible: boolean; onClose: () => void; target: ComplaintTarget | null;
+  /** Parent mode: the child (students.id) this is filed for. Absent = the student files for themself. */
+  forStudentId?: number | null;
+}) {
   const { t } = useTranslation();
+  const asParent = !!forStudentId;
   const file = useFileComplaint();
   const [claim, setClaim] = useState<ComplaintClaim | null>(null);
   const [note, setNote] = useState('');
@@ -49,8 +54,8 @@ export function ComplaintSheet({ visible, onClose, target }: { visible: boolean;
     if (!canSend) return;
     file.mutate(
       isAttendance
-        ? { type: 'attendance', session_instance_id: target.sessionInstanceId, claim: claim!, note: note.trim() || undefined }
-        : { type: 'payment', invoice_id: target.invoiceId, note: note.trim() || undefined },
+        ? { type: 'attendance', session_instance_id: target.sessionInstanceId, claim: claim!, note: note.trim() || undefined, student_id: forStudentId ?? undefined }
+        : { type: 'payment', invoice_id: target.invoiceId, note: note.trim() || undefined, student_id: forStudentId ?? undefined },
       { onSuccess: () => setSent(true) },
     );
   };
@@ -90,7 +95,7 @@ export function ComplaintSheet({ visible, onClose, target }: { visible: boolean;
                 <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{t('complaints.recorded', { status: '' }).replace(': ', ':')}</Text>
                 {target.recordedStatus ? <StatusBadge status={target.recordedStatus} size="sm" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary }}>{t('complaints.not_recorded')}</Text>}
               </View>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>{t('complaints.claim_hint')}</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>{t(asParent ? 'complaints.claim_hint_child' : 'complaints.claim_hint')}</Text>
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                 {(['present', 'absent'] as ComplaintClaim[]).map((c) => {
                   const on = claim === c;
@@ -99,7 +104,7 @@ export function ComplaintSheet({ visible, onClose, target }: { visible: boolean;
                     <TouchableOpacity key={c} onPress={() => setClaim(c)} activeOpacity={0.85} accessibilityRole="radio" accessibilityState={{ selected: on }}
                       style={{ flex: 1, minHeight: 56, borderRadius: radius.lg, borderWidth: on ? 2 : 1, borderColor: on ? tint : colors.border, backgroundColor: on ? `${tint}1A` : colors.surfaceSunken, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
                       <Icon name={c === 'present' ? 'present' : 'absent'} size={20} color={on ? tint : colors.textTertiary} />
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: on ? tint : colors.textSecondary }}>{t(c === 'present' ? 'complaints.claim_present' : 'complaints.claim_absent')}</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: on ? tint : colors.textSecondary }}>{t(c === 'present' ? (asParent ? 'complaints.claim_present_child' : 'complaints.claim_present') : (asParent ? 'complaints.claim_absent_child' : 'complaints.claim_absent'))}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -108,7 +113,7 @@ export function ComplaintSheet({ visible, onClose, target }: { visible: boolean;
           ) : (
             <View style={{ backgroundColor: colors.infoLight, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
               <Icon name="info" size={18} color={colors.infoText} outline />
-              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.infoText }}>{t('complaints.payment_hint')}</Text>
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.infoText }}>{t(asParent ? 'complaints.payment_hint_child' : 'complaints.payment_hint')}</Text>
             </View>
           )}
 
