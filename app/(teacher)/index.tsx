@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index';
+import { onWhite } from '@/theme/onWhite';
 import { useAuthStore } from '@/stores/authStore';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import { WhatsNewCard } from '@/components/WhatsNewCard';
@@ -253,8 +254,10 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
         {canScan ? (
           <TouchableOpacity onPress={() => onScan(s)} activeOpacity={0.85} accessibilityRole="button"
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50, borderRadius: radius.lg, backgroundColor: '#fff' }}>
-            <Icon name="scan" size={20} color={live ? colors.success : colors.brand} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: live ? colors.successText : colors.brand }}>{t('sessions_tab.scan')}</Text>
+            {/* The button is white in both schemes, so its ink is fixed (onWhite), never a theme
+                token that turns pale in dark mode. */}
+            <Icon name="scan" size={20} color={live ? onWhite.success : onWhite.brand} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: live ? onWhite.success : onWhite.brand }}>{t('sessions_tab.scan')}</Text>
           </TouchableOpacity>
         ) : null}
         <TouchableOpacity onPress={() => onOpen(s)} activeOpacity={0.85} accessibilityRole="button"

@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
+import { onWhite } from '@/theme/onWhite';
 import { useAuthStore } from '@/stores/authStore';
 import { useTodaySessions } from '@/hooks/useSessions';
 import { useCoverageStats, useStudentAttendanceRisk } from '@/hooks/useAttendance';
@@ -239,8 +240,8 @@ function Spotlight({ s, now }: { s: Session; now: number }) {
           </View>
           {live || soon ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: spacing.lg }}>
-              <Icon name="card" size={16} color={colors.primaryDark} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primaryDark }}>{t('attendance.check_in')}</Text>
+              <Icon name="card" size={16} color={onWhite.brand} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: onWhite.brand }}>{t('attendance.check_in')}</Text>
             </View>
           ) : <Icon name="back" size={18} color="rgba(255,255,255,0.8)" />}
         </View>

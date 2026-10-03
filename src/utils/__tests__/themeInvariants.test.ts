@@ -124,3 +124,34 @@ describe('tab bars and auth screens use the right tokens', () => {
     expect(fs.readFileSync(path.join(ROOT, file), 'utf8')).toContain('gradients.auth');
   });
 });
+
+/**
+ * An element that is white in BOTH schemes (`backgroundColor: '#fff'`) must not carry a
+ * theme text token that flips pale in dark mode — that was «bright text on a bright
+ * background» on the teacher's live-session card (founder 2026-10-03). Its ink comes from
+ * `onWhite` (src/theme/onWhite.ts) or a literal dark hex. Checked within the element's own
+ * tag and the few lines of children right after it.
+ */
+describe('always-white surfaces use fixed ink', () => {
+  const FLIPPING = /colors\.(brand|primary|successText|warningText|dangerText|infoText|accentText|textPrimary|textSecondary|ink|onHero)\b/;
+  const WHITE_BG = /backgroundColor:\s*['"]#(fff|FFF|ffffff|FFFFFF)['"]/;
+  const offenders: string[] = [];
+  for (const file of FILES.filter((f) => f.endsWith('.tsx'))) {
+    const lines = fs.readFileSync(path.join(ROOT, file), 'utf8').split('\n');
+    lines.forEach((line, i) => {
+      if (!WHITE_BG.test(line)) return;
+      // A self-closing marker (a dot) has no children.
+      if (/\/>\s*\)?\s*:?\s*(null)?\s*\}?\s*$/.test(line)) return;
+      // Only the element's own children: stop at the first closing tag, at most 6 lines on.
+      const inside: string[] = [line];
+      for (let j = i + 1; j < Math.min(lines.length, i + 7); j++) {
+        if (/^\s*<\//.test(lines[j])) break;
+        inside.push(lines[j]);
+      }
+      if (FLIPPING.test(inside.join('\n'))) offenders.push(`${file}:${i + 1}`);
+    });
+  }
+  it('no white surface draws its text with a scheme-flipping token', () => {
+    expect(offenders).toEqual([]);
+  });
+});

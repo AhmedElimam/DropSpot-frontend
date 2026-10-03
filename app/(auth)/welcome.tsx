@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, gradients, control } from '@/theme/index';
+import { onWhite } from '@/theme/onWhite';
 import { Icon } from '@/components/ui/Icon';
 
 // Celebration wall shown the moment a new student account is verified — a warm,
@@ -94,7 +95,7 @@ export default function WelcomeScreen() {
       <View style={{ paddingHorizontal: spacing.xl, paddingBottom: insets.bottom + spacing.xl }}>
         <TouchableOpacity onPress={() => router.replace('/(auth)/login')} activeOpacity={0.85} style={{ borderRadius: radius.lg, overflow: 'hidden' }}>
           <View style={{ backgroundColor: '#fff', minHeight: control.minHeight, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', borderRadius: radius.lg }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.brand, letterSpacing: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: onWhite.brand, letterSpacing: 1 }}>
               {t('auth.congrats_cta')}
             </Text>
           </View>

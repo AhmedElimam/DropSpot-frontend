@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { formatMoney } from '@/utils/currency';
 import { colors, spacing, radius } from '@/theme/index';
+import { onWhite } from '@/theme/onWhite';
 import { scanCard, grantDoorExemption, admitOnce, transferHere, getMyTeachers, type ScanResult, type ScanOffer } from '@/api/teacher';
 import { scanRevision, addRevisionGuest } from '@/api/revisions';
 import { issueGuestPass } from '@/api/guestPasses';
@@ -669,7 +670,7 @@ export default function TeacherScan() {
             {isSpread ? t('teacher.guest_billed') : t('teacher.guest_free')}
           </Text>
           <TouchableOpacity onPress={confirmGuest} activeOpacity={0.85} style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#4c1d95' }}>{t('teacher.guest_add')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher.guest_add')}</Text>
           </TouchableOpacity>
           {canIssuePass ? (
             <TouchableOpacity onPress={() => { setGuestPrompt(null); setGErr(''); setPhoneOpen(true); }} activeOpacity={0.85} style={{ marginTop: spacing.md }}>
@@ -799,7 +800,7 @@ export default function TeacherScan() {
                   activeOpacity={0.85}
                   style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}
                 >
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.brand }}>{t('teacher.other_group_once')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher.other_group_once')}</Text>
                 </TouchableOpacity>
               ) : null}
 
