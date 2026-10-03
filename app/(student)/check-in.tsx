@@ -1,5 +1,5 @@
 import { SheetModal } from '@/components/ui/SheetModal';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
 import { useConfigRule } from '@/hooks/useAppConfig';
 import { formatDate, formatDateTime, formatTime } from '@/utils/format';
@@ -26,6 +26,9 @@ import { ComplaintSheet, type ComplaintTarget } from '@/components/student/Compl
 import { useMyComplaints } from '@/hooks/useComplaints';
 import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
 import { AttendanceRecordRow } from '@/components/attendance/AttendanceRecordRow';
+import { TodaySessionCard } from '@/components/student/TodaySessionCard';
+import { useQuery } from '@tanstack/react-query';
+import { getStudentTeachers } from '@/api/studentOverview';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -61,6 +64,21 @@ export default function CheckInTab() {
   const submitExcuseMutation = useSubmitExcuse();
 
   const todaySessions = sessions ?? [];
+  // A 30-second clock so «starts in N minutes» and the live bar move while the tab is open.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  // The session payload carries only the teacher's NAME; the student's teachers list has
+  // the id (avatar seed) and the logo, so match on the name.
+  const studentIdForTeachers = useAuthStore((st) => st.user?.student_id ?? null);
+  const teachersQ = useQuery({ queryKey: ['student-teachers', studentIdForTeachers], queryFn: () => getStudentTeachers(studentIdForTeachers as number), enabled: !!studentIdForTeachers, staleTime: 60_000 });
+  const teacherByName = useMemo(() => {
+    const m = new Map<string, { id: number; logo_url: string | null }>();
+    for (const tc of teachersQ.data ?? []) m.set(tc.name.trim(), { id: tc.id, logo_url: tc.logo_url });
+    return m;
+  }, [teachersQ.data]);
   // Phone check-in is offered only when the session is still scheduled, phone check-in
   // is permitted for it, the window is open, and the student hasn't already checked in.
   const isCheckable = (s: SessionInstance) =>
@@ -220,85 +238,55 @@ export default function CheckInTab() {
             ) : null}
           </View>
 
-          {/* Today's sessions — pick the one to check into. */}
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+          {/* Today's sessions (founder 2026-10-03: «needs some love»): a header that says how
+              many and how many can be checked into now, then one card per session with the
+              teacher's logo, the time range, a live/soon/later pill and the outcome. */}
+          <View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm, paddingHorizontal: 2 }}>
               <SectionHead icon="sessions" color={colors.brand} title={t('session.today_sessions')} />
               {todaySessions.length > 0 ? (
-                <Text style={textPresets.caption}>{checkableSessions.length > 0 ? t('attendance.select_session') : ''}</Text>
+                <View style={{ minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{formatNumber(todaySessions.length)}</Text>
+                </View>
+              ) : null}
+              <View style={{ flex: 1 }} />
+              {checkableSessions.length > 0 ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.successLight, borderRadius: radius.full, paddingVertical: 4, paddingHorizontal: 10 }}>
+                  <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.success }} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.successText }}>{t('attendance.checkable_now', { n: formatNumber(checkableSessions.length) })}</Text>
+                </View>
               ) : null}
             </View>
 
             {sessionsLoading ? (
-              <ActivityIndicator color={colors.primary} style={{ paddingVertical: spacing.xl }} />
+              <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border }}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
             ) : todaySessions.length === 0 ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
-                <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="calendar" size={20} color={colors.textTertiary} outline />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
+                <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="calendar" size={22} color={colors.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('session.no_sessions')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('session.no_sessions')}</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }}>{t('attendance.no_sessions_hint')}</Text>
                 </View>
               </View>
             ) : (
-              todaySessions.map((session, i) => {
-                const isSelected = selectedSession === session.id;
-                const scheduled = new Date(session.scheduled_at);
-                const endTime = new Date(scheduled.getTime() + session.duration_minutes * 60000);
-                const { canCheckIn: inWindow } = getCheckInWindow(session.scheduled_at);
-                const checkable = isCheckable(session);
-                // The student's own outcome, else a finished session's lifecycle status.
-                const badgeStatus = session.attendance_status
-                  ?? (session.status !== 'scheduled' ? session.status : null);
-                const tone = isSelected ? colors.brand : checkable ? colors.success : colors.borderStrong;
-
-                return (
-                  <TouchableOpacity
+              <View style={{ gap: spacing.sm }}>
+                {todaySessions.map((session) => (
+                  <TodaySessionCard
                     key={session.id}
-                    onPress={() => checkable && setSelectedSession(session.id)}
-                    activeOpacity={checkable ? 0.7 : 1}
-                    disabled={!checkable}
-                    accessibilityRole={checkable ? 'radio' : undefined}
-                    accessibilityState={checkable ? { selected: isSelected } : undefined}
-                    style={{
-                      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-                      padding: spacing.md, borderRadius: radius.lg,
-                      backgroundColor: isSelected ? colors.brandTint : colors.surfaceSunken,
-                      borderWidth: 1.5, borderColor: isSelected ? colors.brand : colors.border,
-                      borderStartWidth: 4, borderStartColor: tone,
-                      marginBottom: i < todaySessions.length - 1 ? spacing.sm : 0,
-                      opacity: checkable || badgeStatus ? 1 : 0.65,
-                    }}
-                  >
-                    <View style={{ width: 56, alignItems: 'center' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, lineHeight: 20, color: isSelected ? colors.brand : colors.textPrimary }} numberOfLines={1} adjustsFontSizeToFit>{formatTime(scheduled)}</Text>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, lineHeight: 14, color: colors.textTertiary }} numberOfLines={1} adjustsFontSizeToFit>{formatTime(endTime)}</Text>
-                    </View>
-                    <View style={{ width: 1, alignSelf: 'stretch', backgroundColor: colors.borderLight }} />
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{session.course_name}</Text>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{session.teacher_name}</Text>
-                      {session.status === 'scheduled' ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                          <Icon name={session.phone_checkin_allowed ? 'phone' : 'card'} size={12} color={session.phone_checkin_allowed ? colors.successText : colors.textTertiary} outline={!session.phone_checkin_allowed} />
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: session.phone_checkin_allowed ? colors.successText : colors.textTertiary }}>
-                            {session.phone_checkin_allowed ? t('attendance.phone_allowed_badge') : t('attendance.card_only_badge')}
-                          </Text>
-                          {!inWindow ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.dangerText }}> · {t('attendance.outside_window')}</Text> : null}
-                        </View>
-                      ) : null}
-                    </View>
-                    {badgeStatus ? (
-                      <StatusBadge status={badgeStatus} size="sm" />
-                    ) : checkable ? (
-                      <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? colors.brand : colors.borderStrong, justifyContent: 'center', alignItems: 'center' }}>
-                        {isSelected ? <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand }} /> : null}
-                      </View>
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })
+                    session={session}
+                    now={now}
+                    teacher={session.teacher_name ? teacherByName.get(session.teacher_name.trim()) ?? null : null}
+                    selected={selectedSessionData?.id === session.id}
+                    checkable={isCheckable(session)}
+                    inWindow={getCheckInWindow(session.scheduled_at).canCheckIn}
+                    onSelect={setSelectedSession}
+                  />
+                ))}
+              </View>
             )}
           </View>
 
