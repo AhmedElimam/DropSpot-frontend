@@ -1,6 +1,6 @@
 import { SheetModal } from '@/components/ui/SheetModal';
-import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Keyboard } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
 import { useConfigRule } from '@/hooks/useAppConfig';
 import { formatDate, formatDateTime, formatTime } from '@/utils/format';
 import { useTranslation } from 'react-i18next';
@@ -87,6 +87,19 @@ export default function CheckInTab() {
   const activeFilter = RECORD_FILTERS.find((f) => f.key === filter) ?? RECORD_FILTERS[0];
   const filteredRecords = filter === 'all' ? allRecords : allRecords.filter((r) => activeFilter.match(r.status));
   const visibleRecords = expanded ? filteredRecords : filteredRecords.slice(0, RECORD_LIMIT);
+  // Rows grouped by month so a long record reads as a calendar, not a pile.
+  const monthGroups = useMemo(() => {
+    const groups: { key: string; label: string; rows: typeof visibleRecords }[] = [];
+    for (const r of visibleRecords) {
+      const d = r.session_time ? new Date(r.session_time) : null;
+      const ok = d && !isNaN(d.getTime());
+      const key = ok ? `${d.getFullYear()}-${d.getMonth()}` : 'unknown';
+      const label = ok ? formatDate(d, { month: 'long', year: 'numeric' }) : '—';
+      const last = groups[groups.length - 1];
+      if (last && last.key === key) last.rows.push(r); else groups.push({ key, label, rows: [r] });
+    }
+    return groups;
+  }, [visibleRecords]);
   const [excuseText, setExcuseText] = useState('');
   const [excuseRecordId, setExcuseRecordId] = useState<number | null>(null);
   const [excuseSent, setExcuseSent] = useState(false);
@@ -393,59 +406,88 @@ export default function CheckInTab() {
             </View>
           </TouchableOpacity>
 
-          {/* Attendance record (founder 2026-10-03: «some love on the attendance record page»):
-              the rate as a ring with tinted counts, then the sessions as dated rows a student
-              can filter and dispute. */}
+          {/* Attendance at a glance: the rate as a ring with tinted counts. */}
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
-            <SectionHead icon="attendance" color={colors.success} title={t('attendance.history_title')} />
-            <Text style={[textPresets.bodySmall, { marginTop: 2, marginBottom: spacing.md }]}>{t('attendance.history_sub')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+              <SectionHead icon="attendance" color={colors.success} title={t('attendance.coverage')} />
+              <Text style={textPresets.caption}>{t('attendance.coverage_this_month')}</Text>
+            </View>
             <AttendanceOverview present={stats?.present ?? 0} late={stats?.late ?? 0} absent={stats?.absent ?? 0} excused={stats?.excused ?? 0} />
+          </View>
 
-            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+          {/* The record itself (founder 2026-10-03: «some love on the attendance record page»):
+              filter chips with counts, then the sessions grouped by month as dated rows a
+              student can dispute from. */}
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm, overflow: 'hidden' }}>
+            <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
+              <SectionHead icon="calendar" color={colors.brand} title={t('attendance.history_title')} />
+              <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{t('attendance.history_sub')}</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.sm, paddingVertical: spacing.md }}>
               {RECORD_FILTERS.map((f) => {
                 const on = filter === f.key;
                 const n = f.key === 'all' ? allRecords.length : allRecords.filter((r) => f.match(r.status)).length;
+                const tone = f.key === 'present' ? colors.success : f.key === 'absent' ? colors.danger : f.key === 'excused' ? colors.info : colors.primary;
                 return (
                   <TouchableOpacity key={f.key} onPress={() => { setFilter(f.key); setExpanded(false); }} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                    style={{ flex: 1, minHeight: 36, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 4, backgroundColor: on ? colors.primary : colors.surfaceSunken, borderWidth: 1, borderColor: on ? colors.primary : colors.border }}>
+                    style={{ minHeight: 36, paddingHorizontal: spacing.md, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, backgroundColor: on ? tone : colors.surfaceSunken, borderWidth: 1, borderColor: on ? tone : colors.border }}>
+                    {f.key !== 'all' ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: on ? colors.onPrimary : tone }} /> : null}
                     <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: on ? colors.onPrimary : colors.textSecondary }}>{t(f.label)}</Text>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: on ? colors.onPrimary : colors.textTertiary }}>{formatNumber(n)}</Text>
+                    <View style={{ minWidth: 20, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? 'rgba(255,255,255,0.22)' : colors.surface }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: on ? colors.onPrimary : colors.textTertiary }}>{formatNumber(n)}</Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
 
-            <View style={{ marginTop: spacing.xs }}>
+            <View style={{ paddingHorizontal: spacing.lg }}>
               {visibleRecords.length === 0 ? (
-                <Text style={[textPresets.bodySmall, { color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }]}>
-                  {t(allRecords.length === 0 ? 'attendance.no_records' : 'attendance.no_records_filtered')}
-                </Text>
-              ) : visibleRecords.map((record, i) => (
-                <AttendanceRecordRow
-                  key={record.id || i}
-                  record={record}
-                  complaint={record.session_instance_id ? myComplaints.bySession.get(record.session_instance_id) : undefined}
-                  onComplain={(r) => setComplaintTarget({ type: 'attendance', sessionInstanceId: r.session_instance_id, courseName: r.course_name ?? '', sessionAt: r.session_time ?? null, recordedStatus: r.status ?? null })}
-                  last={i === visibleRecords.length - 1}
-                />
+                <View style={{ alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm }}>
+                  <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="calendar" size={22} color={colors.textTertiary} outline />
+                  </View>
+                  <Text style={[textPresets.bodySmall, { color: colors.textTertiary, textAlign: 'center' }]}>
+                    {t(allRecords.length === 0 ? 'attendance.no_records' : 'attendance.no_records_filtered')}
+                  </Text>
+                </View>
+              ) : monthGroups.map((g) => (
+                <View key={g.key}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textTertiary }}>{g.label}</Text>
+                    <View style={{ flex: 1, height: 1, backgroundColor: colors.borderLight }} />
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textTertiary }}>{formatNumber(g.rows.length)}</Text>
+                  </View>
+                  {g.rows.map((record, i) => (
+                    <AttendanceRecordRow
+                      key={record.id || `${g.key}-${i}`}
+                      record={record}
+                      complaint={record.session_instance_id ? myComplaints.bySession.get(record.session_instance_id) : undefined}
+                      onComplain={(r) => setComplaintTarget({ type: 'attendance', sessionInstanceId: r.session_instance_id, courseName: r.course_name ?? '', sessionAt: r.session_time ?? null, recordedStatus: r.status ?? null })}
+                      last={i === g.rows.length - 1}
+                    />
+                  ))}
+                </View>
               ))}
             </View>
 
-            {filteredRecords.length > RECORD_LIMIT ? (
-              <TouchableOpacity onPress={() => setExpanded((v) => !v)} activeOpacity={0.85} accessibilityRole="button"
-                style={{ marginTop: spacing.sm, minHeight: 42, borderRadius: radius.md, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
-                <Icon name={expanded ? 'up' : 'down'} size={16} color={colors.brand} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>
-                  {expanded ? t('attendance.show_less') : t('attendance.show_more', { count: formatNumber(filteredRecords.length - RECORD_LIMIT) })}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-            {allRecords.length > 0 ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md }}>
-                <Icon name="info" size={14} color={colors.textTertiary} outline />
-                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('attendance.dispute_hint')}</Text>
-              </View>
-            ) : null}
+            <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
+              {filteredRecords.length > RECORD_LIMIT ? (
+                <TouchableOpacity onPress={() => setExpanded((v) => !v)} activeOpacity={0.85} accessibilityRole="button"
+                  style={{ marginTop: spacing.sm, minHeight: 42, borderRadius: radius.md, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+                  <Icon name={expanded ? 'up' : 'down'} size={16} color={colors.brand} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>
+                    {expanded ? t('attendance.show_less') : t('attendance.show_more', { count: formatNumber(filteredRecords.length - RECORD_LIMIT) })}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+              {allRecords.length > 0 ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md }}>
+                  <Icon name="info" size={14} color={colors.textTertiary} outline />
+                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('attendance.dispute_hint')}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -453,29 +495,14 @@ export default function CheckInTab() {
       <ComplaintSheet visible={!!complaintTarget} onClose={() => setComplaintTarget(null)} target={complaintTarget} />
 
       {/* Excuse modal — pick which absence, then explain */}
-      <SheetModal visible={excuseVisible} onClose={() => setExcuseVisible(false)} avoidKeyboard style={{ backgroundColor: colors.surface, paddingTop: spacing.md, paddingBottom: spacing.xl5, maxHeight: '85%' }}>
-            {/* Grab handle (tap anywhere on it to drop the keyboard) + a clear close button */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.xxl, marginBottom: spacing.md }}>
-              <TouchableOpacity
-                onPress={() => setExcuseVisible(false)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel={t('common.close')}
-                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}
-              >
-                <Icon name="close" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity activeOpacity={1} onPress={() => Keyboard.dismiss()} style={{ flex: 1, alignItems: 'center' }}>
-                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
-              </TouchableOpacity>
-              <View style={{ width: 36 }} />
-            </View>
-
+      <SheetModal visible={excuseVisible} onClose={() => setExcuseVisible(false)} avoidKeyboard style={{ backgroundColor: colors.surface, maxHeight: '85%' }}>
+            {/* The sheet itself is the only way out (handle, swipe, dim, back) — a close
+                button and a second handle here made it dismiss three ways at once. */}
             <ScrollView
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: spacing.xxl, paddingBottom: spacing.lg }}
+              contentContainerStyle={{ paddingHorizontal: spacing.sm, paddingBottom: spacing.lg }}
             >
 
             {excuseSent ? (

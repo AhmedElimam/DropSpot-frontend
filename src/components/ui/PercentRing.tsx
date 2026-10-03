@@ -26,8 +26,9 @@ export const PercentRing = memo(function PercentRing({ value, size = 112, stroke
             strokeDasharray={`${c} ${c}`} strokeDashoffset={c * (1 - pct / 100)} strokeLinecap="round" />
         ) : null}
       </Svg>
-      <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.26, lineHeight: size * 0.32, color: tone }}>{formatNumber(pct)}%</Text>
-      {caption ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textTertiary, marginTop: -2 }} numberOfLines={1}>{caption}</Text> : null}
+      {/* Arabic-Indic digits ride high: a loose line height keeps «١٠٠٪» from clipping. */}
+      <Text style={{ fontFamily: fonts.bold, fontSize: size * 0.24, lineHeight: size * 0.34, color: tone, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{formatNumber(pct)}%</Text>
+      {caption ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, lineHeight: 14, color: colors.textTertiary, maxWidth: size * 0.7 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{caption}</Text> : null}
     </View>
   );
 });

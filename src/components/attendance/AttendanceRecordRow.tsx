@@ -43,9 +43,9 @@ export const AttendanceRecordRow = memo(function AttendanceRecordRow({ record, c
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.borderLight }}>
-      <View style={{ width: 48, height: 52, borderRadius: radius.md, backgroundColor: tone.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 19, lineHeight: 22, color: tone.fg }}>{valid ? formatDate(when, { day: 'numeric' }) : '—'}</Text>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: tone.fg, marginTop: 1 }} numberOfLines={1}>{valid ? formatDate(when, { month: 'short' }) : ''}</Text>
+      <View style={{ width: 50, height: 54, borderRadius: radius.md, backgroundColor: tone.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 24, color: tone.fg, includeFontPadding: false }} numberOfLines={1}>{valid ? formatDate(when, { day: 'numeric' }) : '—'}</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, lineHeight: 14, color: tone.fg }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{valid ? formatDate(when, { month: 'short' }) : ''}</Text>
       </View>
 
       <View style={{ flex: 1, minWidth: 0 }}>

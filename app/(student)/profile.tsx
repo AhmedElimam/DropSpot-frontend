@@ -35,6 +35,10 @@ export default function StudentProfile() {
   const { data: card, refetch: refetchCard } = useQuery({ queryKey: ['my-card'], queryFn: getMyCardStatus, staleTime: 60_000 });
   const { refreshing, onRefresh } = usePullRefresh(refetchCoverage, refetchQuizzes, refetchCard);
   const cardState = card?.card_state ?? user?.card_state ?? 'none';
+  const cardTone = cardState === 'in_hand' ? { fg: colors.success, bg: colors.successLight, icon: 'success' as const }
+    : cardState === 'preparing' ? { fg: colors.warning, bg: colors.warningLight, icon: 'clock' as const }
+    : cardState === 'ordered' ? { fg: colors.brand, bg: colors.brandTint, icon: 'clock' as const }
+    : { fg: colors.brand, bg: colors.brandTint, icon: 'invoices' as const };
 
   const sessionsAttended = coverage ? coverage.present + coverage.late : 0;
   const now = new Date();
@@ -71,19 +75,14 @@ export default function StudentProfile() {
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm, overflow: 'hidden' }}>
             <View style={{ height: 3, backgroundColor: cardState === 'in_hand' ? colors.success : GOLD }} />
             <View style={{ padding: spacing.xl, alignItems: 'center' }}>
-              <View style={{ width: 60, height: 60, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-                backgroundColor: cardState === 'in_hand' ? colors.successLight
-                  : cardState === 'preparing' ? colors.warningLight : colors.brandTint }}>
-                <Icon
-                  name={cardState === 'in_hand' ? 'success' : cardState === 'preparing' ? 'clock' : 'invoices'}
-                  size={28}
-                  color={cardState === 'in_hand' ? colors.success : cardState === 'preparing' ? colors.warning : colors.brand}
-                />
+              <View style={{ width: 60, height: 60, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: cardTone.bg }}>
+                <Icon name={cardTone.icon} size={28} color={cardTone.fg} />
               </View>
 
               <Text style={{ fontFamily: fonts.bold, fontSize: 16.5, color: colors.textPrimary, marginTop: spacing.md, textAlign: 'center' }}>
                 {cardState === 'in_hand' ? 'بطاقتك معك'
                   : cardState === 'preparing' ? 'بطاقتك قيد التجهيز'
+                  : cardState === 'ordered' ? 'طلب بطاقتك قيد المراجعة'
                   : 'لا توجد بطاقة بعد'}
               </Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 22, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs }}>
@@ -91,8 +90,24 @@ export default function StudentProfile() {
                   ? 'استخدم بطاقتك لتسجيل الحضور. احملها معك في كل حصة، ولو فقدتها بلّغ معلّمك فورًا.'
                   : cardState === 'preparing'
                     ? 'تم اعتماد بطاقتك وهي قيد الطباعة. سجّل حضورك مع معلّمك حتى تستلمها.'
-                    : 'تسجيل الحضور يتم ببطاقة دروس سبوت. اطلب بطاقتك، وحتى تصلك سجّل حضورك مع معلّمك.'}
+                    : cardState === 'ordered'
+                      ? 'وصل طلبك وهو بانتظار اعتماد الإدارة. سنخبرك عند اعتماده، وحتى تصلك البطاقة سجّل حضورك مع معلّمك.'
+                      : 'تسجيل الحضور يتم ببطاقة دروس سبوت. اطلب بطاقتك، وحتى تصلك سجّل حضورك مع معلّمك.'}
               </Text>
+
+              {/* Where the order stands, in the admin's own words, so the student sees it move. */}
+              {(cardState === 'ordered' || cardState === 'preparing') && card?.order_status_label ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md, backgroundColor: cardTone.bg, borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md }}>
+                  <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: cardTone.fg }} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: cardTone.fg }}>{card.order_status_label}</Text>
+                  {card.ordered_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>· {formatDate(new Date(card.ordered_at), { day: 'numeric', month: 'short' })}</Text> : null}
+                </View>
+              ) : null}
+              {cardState === 'in_hand' && card?.card_released_at ? (
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.sm }}>
+                  استلمتها في {formatDate(new Date(card.card_released_at), { day: 'numeric', month: 'long', year: 'numeric' })}
+                </Text>
+              ) : null}
 
               {user?.student_code ? (
                 <View style={{ marginTop: spacing.lg, paddingVertical: 6, paddingHorizontal: spacing.lg, borderRadius: radius.full, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border }}>
@@ -107,8 +122,8 @@ export default function StudentProfile() {
                   accessibilityRole="button"
                   style={{ marginTop: spacing.lg, alignSelf: 'stretch', minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}
                 >
-                  <Icon name="add" size={17} color="#fff" />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>اطلب بطاقتك</Text>
+                  <Icon name="add" size={17} color={colors.onPrimary} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>اطلب بطاقتك</Text>
                 </TouchableOpacity>
               ) : null}
             </View>

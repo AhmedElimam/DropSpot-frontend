@@ -1,4 +1,4 @@
-import { avatarFeatures, avatarSeed } from '../GeneratedAvatar';
+import { AVATAR_CHARACTERS, avatarFeatures, avatarSeed } from '../GeneratedAvatar';
 
 /**
  * The generated character (founder 2026-10-03: no initials; «robot, carrot, fruits,
@@ -12,14 +12,18 @@ describe('avatarFeatures', () => {
     expect(avatarFeatures('أحمد محمد')).toEqual(avatarFeatures('أحمد محمد'));
   });
 
-  it('spreads a class over most characters and several backdrops', () => {
-    const seeds = Array.from({ length: 60 }, (_, i) => avatarSeed.student(i));
+  it('has a wide cast and spreads a class over most of it, several backdrops and every expression', () => {
+    expect(AVATAR_CHARACTERS.length).toBeGreaterThanOrEqual(40);
+    expect(new Set(AVATAR_CHARACTERS).size).toBe(AVATAR_CHARACTERS.length);
+    const seeds = Array.from({ length: 120 }, (_, i) => avatarSeed.student(i));
     const characters = new Set(seeds.map((s) => avatarFeatures(s).character));
-    expect(characters.size).toBeGreaterThanOrEqual(16);
+    expect(characters.size).toBeGreaterThanOrEqual(34);
     const backdrops = new Set(seeds.map((s) => avatarFeatures(s).backgroundColor));
     expect(backdrops.size).toBeGreaterThanOrEqual(6);
+    const expressions = new Set(seeds.map((s) => avatarFeatures(s).expression));
+    expect(expressions.size).toBe(5);
     const combos = new Set(seeds.map((s) => JSON.stringify(avatarFeatures(s))));
-    expect(combos.size).toBeGreaterThan(45);
+    expect(combos.size).toBeGreaterThan(110);
   });
 
   it('never puts a character on a backdrop it would vanish against', () => {
@@ -30,6 +34,9 @@ describe('avatarFeatures', () => {
       fox: ['#E7913A', '#E9655C', '#D97B22'],
       frog: ['#1F9366'],
       cactus: ['#1F9366'],
+      whale: ['#34419B', '#4A57B5', '#2A9DB0'],
+      octopus: ['#E7913A', '#E9655C', '#D97B22'],
+      sun: ['#E7913A', '#C9A227', '#D97B22'],
       banana: ['#E7913A', '#C9A227', '#D97B22'],
       bee: ['#C9A227'],
       chick: ['#E7913A', '#C9A227'],
