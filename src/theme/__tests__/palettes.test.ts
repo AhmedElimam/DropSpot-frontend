@@ -47,7 +47,11 @@ const PAIRS: [keyof Palette | 'white', keyof Palette, number][] = [
   ['white', 'danger', 4.5],
   ['white', 'info', 4.5],
   ['white', 'success', 3],
-  ['onAccent', 'accent', 4.5],
+  // White on solid orange is the founder's call (2026-10-03: «make it white»). It measures
+  // ~2.5:1 (light) / ~2.1:1 (dark): fine for the short bold labels it carries, below body-text
+  // guidance. The floor stops it from getting any worse.
+  ['onAccent', 'accent', 2],
+  ['accentText', 'accentLight', 4.5],
   ['successText', 'successLight', 4.5],
   ['warningText', 'warningLight', 4.5],
   ['dangerText', 'dangerLight', 4.5],

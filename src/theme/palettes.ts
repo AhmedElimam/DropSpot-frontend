@@ -34,7 +34,9 @@ export interface Palette {
   paper: string; surfaceSunken: string; borderStrong: string;
   ink: string; inkSoft: string; inkFaint: string;
   brand: string; brandDeep: string; brandTint: string;
-  accentWarm: string; accentWarmTint: string; onAccent: string;
+  /** `onAccent` = text/icons ON a solid orange fill (white, founder 2026-10-03); `accentText`
+   *  = orange-toned text on the LIGHT orange tint (`accentLight`). */
+  accentWarm: string; accentWarmTint: string; onAccent: string; accentText: string;
   /** Text and icons ON the page hero (ink in light, white in dark). */
   onHero: string; onHeroSoft: string; onHeroFaint: string;
   /** Glass chips / stat tiles ON the hero, and the SELECTED chip with its text. */
@@ -104,7 +106,10 @@ export const light: Palette = {
   brandTint: '#E3E7F7',
   accentWarm: '#E7913A',
   accentWarmTint: '#F9E6CF',
-  onAccent: '#231303',
+  // White on orange (founder 2026-10-03: «orange background but the text is black — make it
+  // white»). Below 4.5:1 on purpose; see palettes.test.
+  onAccent: '#FFFFFF',
+  accentText: '#8A4B0F',
 
   onHero: '#1A2140',
   onHeroSoft: '#55607A',
@@ -173,7 +178,8 @@ export const dark: Palette = {
   brandTint: '#28357F',
   accentWarm: '#FFB454',
   accentWarmTint: '#3F2F10',
-  onAccent: '#1F1200',
+  onAccent: '#FFFFFF',
+  accentText: '#FFC27A',
 
   onHero: '#FFFFFF',
   onHeroSoft: 'rgba(255,255,255,0.72)',

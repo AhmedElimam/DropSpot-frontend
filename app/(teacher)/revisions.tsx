@@ -52,7 +52,7 @@ export default function TeacherRevisions() {
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{rev.title}</Text>
               {rev.is_quiz_exam ? (
                 <View style={{ backgroundColor: colors.accentLight, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onAccent }}>{t('teacher.exam_badge')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.accentText }}>{t('teacher.exam_badge')}</Text>
                 </View>
               ) : null}
             </View>
@@ -74,8 +74,8 @@ export default function TeacherRevisions() {
             {rev.is_quiz_exam ? (
               <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/revision-marks', params: { revisionId: String(rev.id), instanceId: String(rev.instance_id), title: rev.title, maxMark: rev.max_mark != null ? String(rev.max_mark) : '' } })}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 40, borderRadius: radius.md, backgroundColor: colors.accentLight }}>
-                <Icon name="grades" size={16} color={colors.onAccent} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onAccent }}>{t('teacher.exam_marks')}</Text>
+                <Icon name="grades" size={16} color={colors.accentText} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accentText }}>{t('teacher.exam_marks')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>

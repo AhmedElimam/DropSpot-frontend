@@ -300,10 +300,10 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
 
       {hint && all.length > 0 ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.accentLight }}>
-          <Icon name="transfer" size={20} color={colors.onAccent} />
-          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.onAccent }}>{t('notifications.swipe_hint')}</Text>
+          <Icon name="transfer" size={20} color={colors.accentText} />
+          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.accentText }}>{t('notifications.swipe_hint')}</Text>
           <TouchableOpacity onPress={closeHint} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.close')}>
-            <Icon name="close" size={16} color={colors.onAccent} />
+            <Icon name="close" size={16} color={colors.accentText} />
           </TouchableOpacity>
         </View>
       ) : null}
