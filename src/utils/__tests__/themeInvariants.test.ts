@@ -28,7 +28,7 @@ function walk(dir: string): string[] {
 const FILES = [...walk(path.join(ROOT, 'app')), ...walk(path.join(ROOT, 'src'))].map((f) => path.relative(ROOT, f));
 
 const SATURATED = /backgroundColor: (colors\.(primary|primaryDark|success|successDark|danger|dangerDark|warning|warningDark|info|brand|brandDeep|accent|accentWarm|secondary)\b|gradients\.|'#[0-9A-Fa-f]{3,6}')|colors=\{gradients\.(primary|accent|success|warm)\}|rgba\(0,\s*0,\s*0/;
-const WHITE = /'#(?:fff|FFF|ffffff|FFFFFF)'|="#(?:fff|FFF|ffffff|FFFFFF)"|colors\.white\b|colors\.textInverse\b|'rgba\(255,\s*255,\s*255,/;
+const WHITE = /'#(?:fff|FFF|ffffff|FFFFFF)'|="#(?:fff|FFF|ffffff|FFFFFF)"|colors\.white\b|colors\.textInverse\b|'rgba\(255,\s*255,\s*255,|="rgba\(255,\s*255,\s*255,/;
 
 function openTagEnd(src: string, from: number): number {
   let depth = 0;

@@ -74,7 +74,7 @@ export default function TeacherSessions() {
             style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: colors.onHeroChip }}>
             <Icon name="calendar" size={14} color={colors.onHero} />
             <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }} numberOfLines={1}>{MONTH_FMT.format(selected)}</Text>
-            <Icon name="down" size={13} color="rgba(255,255,255,0.8)" />
+            <Icon name="down" size={13} color={colors.onHeroSoft} />
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
           {!isThisWeek || dayKey !== key(today) ? (
@@ -93,7 +93,7 @@ export default function TeacherSessions() {
         {/* Week strip — earlier weeks to the right (RTL), later to the left. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, gap: 4 }}>
           <TouchableOpacity onPress={() => setSelected(addDays(selected, -7))} hitSlop={8} accessibilityLabel={t('session_ui.prev_week')} style={{ padding: 4 }}>
-            <Icon name="forward" size={20} color="rgba(255,255,255,0.8)" />
+            <Icon name="forward" size={20} color={colors.onHeroSoft} />
           </TouchableOpacity>
           <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between' }}>
             {days.map((d) => {
@@ -111,7 +111,7 @@ export default function TeacherSessions() {
             })}
           </View>
           <TouchableOpacity onPress={() => setSelected(addDays(selected, 7))} hitSlop={8} accessibilityLabel={t('session_ui.next_week')} style={{ padding: 4 }}>
-            <Icon name="back" size={20} color="rgba(255,255,255,0.8)" />
+            <Icon name="back" size={20} color={colors.onHeroSoft} />
           </TouchableOpacity>
         </View>
       </LinearGradient>

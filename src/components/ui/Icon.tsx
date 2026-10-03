@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
+import { colors } from '@/theme/index';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -84,8 +85,8 @@ interface IconProps {
 // several per list row. Without it every icon on screen re-rendered whenever its screen
 // did, which on a roster or a session list is hundreds of wasted renders per keystroke
 // or poll tick (Android slowness, 2026-09-22).
-export const Icon = memo(function Icon({ name, size = 22, color = '#0F172A', outline = false, style }: IconProps) {
+export const Icon = memo(function Icon({ name, size = 22, color, outline = false, style }: IconProps) {
   const base = ICON_MAP[name];
   const glyph = (outline ? `${base}-outline` : base) as IoniconName;
-  return <Ionicons name={glyph} size={size} color={color} style={style} />;
+  return <Ionicons name={glyph} size={size} color={color ?? colors.textPrimary} style={style} />;
 });

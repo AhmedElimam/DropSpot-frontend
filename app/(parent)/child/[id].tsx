@@ -142,7 +142,7 @@ export default function ChildDetailScreen() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
             <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
+              <Icon name="forward" size={22} color={colors.onHeroSoft} />
               <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: spacing.sm }}>{t('common.back')}</Text>
             </TouchableOpacity>
 
@@ -163,7 +163,7 @@ export default function ChildDetailScreen() {
                 style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.onHeroChipBorder }}
               >
                 <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHero }}>{child.name}</Text>
-                <Icon name="down" size={14} color="rgba(255,255,255,0.7)" style={{ marginStart: 6 }} />
+                <Icon name="down" size={14} color={colors.onHeroSoft} style={{ marginStart: 6 }} />
               </TouchableOpacity>
             </View>
           </View>

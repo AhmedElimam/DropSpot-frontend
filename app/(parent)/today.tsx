@@ -57,7 +57,7 @@ export default function TodayScreen() {
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl }}
         >
           <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-            <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
+            <Icon name="forward" size={22} color={colors.onHeroSoft} />
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginStart: spacing.sm }}>{t('common.back')}</Text>
           </TouchableOpacity>
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero }}>{t('today.title')}</Text>

@@ -182,7 +182,7 @@ export default function TeacherStudents() {
   const renderStudent = useCallback(({ item }: { item: RosterStudent }) => <RosterRow s={item} onPress={openStudent} />, [openStudent]);
 
   const tiles: { key: Quick; label: string; dot: string; n: number }[] = [
-    { key: 'all', label: t('teacher.status_all'), dot: '#fff', n: counts.all },
+    { key: 'all', label: t('teacher.status_all'), dot: colors.onHero, n: counts.all },
     { key: 'low', label: t('students_ui.tile_low'), dot: colors.warning, n: counts.low },
     ...(seesMoney ? [{ key: 'overdue' as Quick, label: t('students_ui.tile_overdue'), dot: colors.danger, n: counts.overdue }] : []),
   ];
@@ -222,15 +222,15 @@ export default function TeacherStudents() {
         {segment === 'students' ? (
           <>
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.lg, paddingHorizontal: spacing.md, marginTop: spacing.sm }}>
-              <Icon name="search" size={17} color="rgba(255,255,255,0.7)" />
+              <Icon name="search" size={17} color={colors.onHeroSoft} />
               <TextInput
                 value={search}
                 onChangeText={setSearch}
                 placeholder={t('teacher.search_student_ph')}
-                placeholderTextColor="rgba(255,255,255,0.55)"
+                placeholderTextColor={colors.onHeroFaint}
                 style={{ flex: 1, height: 40, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 14, color: colors.onHero, textAlign: 'right', paddingVertical: 0 }}
               />
-              {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color="rgba(255,255,255,0.7)" /></TouchableOpacity> : null}
+              {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color={colors.onHeroSoft} /></TouchableOpacity> : null}
             </View>
 
             {/* The numbers are the filter — pills now, not tall tiles. */}

@@ -559,7 +559,7 @@ function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView
     if (row) {
       return (
         <View>
-          {row.week_start !== data.week.start ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#fff', opacity: 0.85, marginBottom: spacing.sm }}>{t('cash.late_answer_hint')}</Text> : null}
+          {row.week_start !== data.week.start ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('cash.late_answer_hint')}</Text> : null}
           <PromptCard row={row} onDone={onDone} />
         </View>
       );
@@ -663,12 +663,15 @@ function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView
 }
 
 function Calm({ text, sub }: { text: string; sub?: string }) {
+  // On the canvas now (it used to sit inside the hero), so a surface card with a green tile.
   return (
-    <View style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-      <Icon name="success" size={22} color="#fff" />
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md, ...shadows.sm }}>
+      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="success" size={22} color={colors.success} />
+      </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{text}</Text>
-        {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>{sub}</Text> : null}
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{text}</Text>
+        {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{sub}</Text> : null}
       </View>
     </View>
   );

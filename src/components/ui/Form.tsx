@@ -76,9 +76,9 @@ export function HeaderAction({ icon, label, onPress, tone = 'accent', accessibil
   const accent = tone === 'accent';
   return (
     <TouchableOpacity onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, minWidth: 36, paddingHorizontal: label ? 10 : 0, justifyContent: 'center', borderRadius: 12, backgroundColor: accent ? colors.accent : 'rgba(255,255,255,0.14)' }}>
-      <Icon name={icon} size={label ? 17 : 20} color={accent ? colors.onAccent : '#fff'} />
-      {label ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: accent ? colors.onAccent : '#fff' }}>{label}</Text> : null}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, minWidth: 36, paddingHorizontal: label ? 10 : 0, justifyContent: 'center', borderRadius: 12, backgroundColor: accent ? colors.accent : colors.onHeroChip }}>
+      <Icon name={icon} size={label ? 17 : 20} color={accent ? colors.onAccent : colors.onHero} />
+      {label ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: accent ? colors.onAccent : colors.onHero }}>{label}</Text> : null}
     </TouchableOpacity>
   );
 }

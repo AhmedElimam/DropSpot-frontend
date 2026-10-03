@@ -247,9 +247,9 @@ export default function SessionDetailScreen() {
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   {phase === 'cancelled' ? <Chip label={t('session.cancelled')} bg={colors.danger} />
-                    : phase === 'done' ? <Chip label={t('session.completed')} bg="rgba(255,255,255,0.2)" />
+                    : phase === 'done' ? <Chip label={t('session.completed')} bg={colors.onHeroChip} />
                     : phase === 'live' ? <Chip label={t('teacher.live_now')} bg={colors.success} />
-                    : <Chip label={t('session_ui.upcoming')} bg="rgba(255,255,255,0.2)" />}
+                    : <Chip label={t('session_ui.upcoming')} bg={colors.onHeroChip} />}
                   {s.is_exam ? <Chip label={t('teacher.type_quiz_exam')} bg={colors.accent} dark /> : null}
                 </View>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero, marginTop: 6 }} numberOfLines={2}>{s.course_name ?? t('session.session_details')}</Text>
@@ -257,7 +257,7 @@ export default function SessionDetailScreen() {
                   {dayLabel(s.scheduled_at)}{s.time ? ` · ${s.time}` : ''}{s.location ? ` · ${s.location}` : ''}
                 </Text>
               </View>
-              <AttendanceRing present={counts.present} total={total} onDark size={84} />
+              <AttendanceRing present={counts.present} total={total} onHero size={84} />
             </View>
 
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
@@ -497,7 +497,7 @@ export default function SessionDetailScreen() {
 function Chip({ label, bg, dark = false }: { label: string; bg: string; dark?: boolean }) {
   return (
     <View style={{ backgroundColor: bg, borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 9 }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: dark ? colors.onAccent : '#fff' }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: dark ? colors.onAccent : bg === colors.onHeroChip ? colors.onHero : colors.onPrimary }}>{label}</Text>
     </View>
   );
 }
