@@ -48,8 +48,12 @@ export default function LoginScreen() {
       {loginMutation.isError ? (
         <AuthBanner
           tone="danger"
+          // A wrong password now says how many tries are left (three, then a 15-minute
+          // lock — founder 2026-10-04); the server's Arabic line is shown when it sends one.
           text={isAxiosError(loginMutation.error) && loginMutation.error.response?.status === 401
-            ? t('auth.invalid_credentials')
+            ? (typeof loginMutation.error.response?.data?.message === 'string' && /[\u0600-\u06FF]/.test(loginMutation.error.response.data.message)
+              ? loginMutation.error.response.data.message
+              : t('auth.invalid_credentials'))
             : getFriendlyErrorMessage(loginMutation.error)}
         />
       ) : null}

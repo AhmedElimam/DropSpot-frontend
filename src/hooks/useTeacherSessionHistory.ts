@@ -1,4 +1,6 @@
+import { Alert } from 'react-native';
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import i18n from '@/i18n';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { queueMark, getPendingMarksForSession } from '@/db/offlineMarks';
@@ -92,6 +94,17 @@ export function useSessionControls(id: string) {
         try {
           return await markAttendance(id, v.studentId, v.status);
         } catch (e) {
+          // A student who owes this teacher (founder 2026-10-04): warn; confirming grants
+          // the 15-day exemption and marks. Cancelling leaves the sheet as it was.
+          if (overdueWarning(e)) {
+            const current = qc.getQueryData<SessionDetail>(['teacher-session-detail', id]);
+            const who = current?.attendees.find((a) => a.student_id === v.studentId) ?? current?.swap_ins?.find((a) => a.student_id === v.studentId);
+            if (await confirmOverdue(who?.name ?? null, (e as any).response.data)) {
+              return await markAttendance(id, v.studentId, v.status, true);
+            }
+            if (current) return current;
+            throw new Error('CANCELLED');
+          }
           if (!isNetworkFailure(e)) throw e; // a server verdict (not enrolled, no allowance…) is shown, not queued
         }
       }
@@ -141,5 +154,27 @@ export function usePauseSessions() {
   return useMutation({
     mutationFn: (v: { from: string; to: string }) => pauseSessions(v.from, v.to),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teacher-session-history'] }),
+  });
+}
+
+/** The server's «owes money» answer to a manual mark (402 BILLING_OVERDUE). */
+function overdueWarning(e: unknown): boolean {
+  const r = (e as { response?: { status?: number; data?: { code?: string } } })?.response;
+  return r?.status === 402 && r.data?.code === 'BILLING_OVERDUE';
+}
+
+/** The warning on a manual check-in of a student who owes: resolves true on «منح الاستثناء». */
+function confirmOverdue(name: string | null, data: { message?: string; errors?: { days?: number } }): Promise<boolean> {
+  const days = data?.errors?.days ?? 15;
+  return new Promise((resolve) => {
+    Alert.alert(
+      i18n.t('teacher.overdue_mark_title'),
+      [name, data?.message ?? i18n.t('teacher.overdue_mark_body', { days })].filter(Boolean).join('\n\n'),
+      [
+        { text: i18n.t('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
+        { text: i18n.t('teacher.overdue_mark_confirm', { days }), onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
   });
 }

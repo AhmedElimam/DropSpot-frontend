@@ -696,6 +696,37 @@ export default function StudentDetailScreen() {
             </TouchableOpacity>
             ) : null}
 
+            {/* Every 15-day exemption this student was given, newest first, with where it
+                came from — the screen, the door scan, the kiosk, or a manual check-in at a
+                given session (founder 2026-10-04: «track that on the student's profile»). */}
+            {(s.billing.exemptions ?? []).length > 0 ? (
+              <View style={{ marginTop: spacing.md }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('students_ui.exemptions_title')}</Text>
+                {(s.billing.exemptions ?? []).map((x) => (
+                  <View key={x.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: x.active ? colors.info : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+                    <Icon name="shield" size={18} color={x.active ? colors.infoText : colors.textTertiary} outline={!x.active} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{x.source_label}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                        {[
+                          x.granted_at ? formatDayDate(x.granted_at) : null,
+                          x.granted_by ? t('students_ui.exemption_by', { name: x.granted_by }) : null,
+                          x.session?.course_name ?? null,
+                        ].filter(Boolean).join(' · ')}
+                      </Text>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: x.active ? colors.infoText : colors.textTertiary, marginTop: 2 }}>
+                        {x.revoked
+                          ? t('students_ui.exemption_revoked')
+                          : x.active && x.expires_at
+                            ? t('teacher.override_until', { date: formatDayDate(x.expires_at) })
+                            : t('students_ui.exemption_ended')}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
             {/* Collected payments the teacher can CANCEL (per-charge). */}
             {(s.billing.collected ?? []).length > 0 ? (
               <View style={{ marginTop: spacing.md }}>

@@ -164,8 +164,10 @@ export async function markAttendance(
   sessionId: string | number,
   studentId: number,
   status: 'present' | 'late' | 'absent' | 'excused',
+  /** Sent after the operator confirmed the overdue warning: grant the 15-day exemption, then mark. */
+  grantAllowance = false,
 ): Promise<SessionDetail> {
-  const { data } = await client.post(`/teacher/sessions/${sessionId}/mark`, { student_id: studentId, status });
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/mark`, { student_id: studentId, status, ...(grantAllowance ? { grant_allowance: true } : {}) });
   return detail(data);
 }
 

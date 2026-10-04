@@ -126,6 +126,25 @@ export interface RosterStudent {
   attendance_rate: number | null;
   /** An overdue bill under this teacher. Only sent to someone who may collect. */
   overdue?: boolean;
+  /** An active 15-day billing exemption under this teacher (same audience as `overdue`). */
+  exempted?: boolean;
+  /** Where that exemption came from: screen · door_scan · kiosk · manual_checkin (null = older grant). */
+  exemption_source?: string | null;
+  exemption_expires_at?: string | null;
+}
+
+/** One 15-day exemption on a student's profile, newest first (founder 2026-10-04). */
+export interface StudentExemption {
+  id: number;
+  granted_at: string | null;
+  expires_at: string | null;
+  active: boolean;
+  revoked: boolean;
+  source: string | null;
+  source_label: string;
+  granted_by: string | null;
+  /** The session it was granted at — a manual check-in only. */
+  session: { id: string; course_name: string | null; scheduled_at: string | null } | null;
 }
 
 export interface TeacherCourse {
@@ -259,6 +278,8 @@ export interface StudentDetail {
     overdue_amount: string;
     override_active: boolean;
     override_expires_at: string | null;
+    /** Every exemption granted to this student under this teacher, newest first. */
+    exemptions?: StudentExemption[];
     /** Teacher-wide 15-day-allowance switch. */
     allowance_enabled?: boolean;
     /** This student is blocked from the 15-day allowance under this teacher. */

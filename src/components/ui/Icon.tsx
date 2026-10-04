@@ -68,6 +68,8 @@ const ICON_MAP = {
   eyeOff: 'eye-off',
   mail: 'mail',
   lock: 'lock-closed',
+  /** A 15-day billing exemption (founder 2026-10-04). */
+  shield: 'shield-checkmark',
   phone: 'phone-portrait',
   gps: 'navigate',
   trophy: 'trophy',

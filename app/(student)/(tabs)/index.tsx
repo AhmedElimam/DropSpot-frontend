@@ -71,8 +71,8 @@ export default function StudentDashboard() {
   const firstName = (user?.name ?? '').split(' ')[0];
 
   const shortcuts = [
-    { key: 'checkin', icon: 'card' as const, label: t('attendance.check_in'), color: colors.brand, tint: colors.brandTint, onPress: () => router.navigate('/(student)/check-in') },
-    { key: 'invoices', icon: 'invoices' as const, label: t('nav.invoices'), color: colors.accent, tint: colors.accentLight, onPress: () => router.navigate('/(student)/invoices') },
+    { key: 'checkin', icon: 'card' as const, label: t('attendance.check_in'), color: colors.brand, tint: colors.brandTint, onPress: () => router.navigate('/(student)/(tabs)/check-in') },
+    { key: 'invoices', icon: 'invoices' as const, label: t('nav.invoices'), color: colors.accent, tint: colors.accentLight, onPress: () => router.navigate('/(student)/(tabs)/invoices') },
     { key: 'swap', icon: 'calendar' as const, label: t('swap.entry'), color: colors.success, tint: colors.successLight, onPress: () => router.navigate('/(student)/swap') },
     { key: 'marks', icon: 'reports' as const, label: t('nav.marks'), color: colors.info, tint: colors.infoLight, onPress: () => router.navigate('/(student)/marks') },
   ];
@@ -123,7 +123,7 @@ export default function StudentDashboard() {
           ) : spotlight ? (
             <Spotlight s={spotlight} now={now} />
           ) : (
-            <TouchableOpacity onPress={() => router.navigate('/(student)/check-in')} activeOpacity={0.9}
+            <TouchableOpacity onPress={() => router.navigate('/(student)/(tabs)/check-in')} activeOpacity={0.9}
               style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.md }}>
               <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="calendar" size={26} color={colors.accent} />
@@ -170,7 +170,7 @@ export default function StudentDashboard() {
 
           {/* Today */}
           <View style={{ marginTop: spacing.xl }}>
-            <SectionHead icon="sessions" color={colors.brand} title={t('session.today_sessions')} action={t('common.view_all')} onAction={() => router.navigate('/(student)/check-in')} />
+            <SectionHead icon="sessions" color={colors.brand} title={t('session.today_sessions')} action={t('common.view_all')} onAction={() => router.navigate('/(student)/(tabs)/check-in')} />
             {sessionsLoading ? (
               <ActivityIndicator color={colors.primary} style={{ paddingVertical: spacing.xl }} />
             ) : list.length === 0 ? (
@@ -222,7 +222,7 @@ function Spotlight({ s, now }: { s: Session; now: number }) {
   const live = s.status === 'live';
   const soon = !live && start.getTime() - now <= FOUR_HOURS;
   return (
-    <TouchableOpacity onPress={() => router.navigate('/(student)/check-in')} activeOpacity={0.9} accessibilityRole="button" style={{ borderRadius: radius.xxl, overflow: 'hidden', ...shadows.md }}>
+    <TouchableOpacity onPress={() => router.navigate('/(student)/(tabs)/check-in')} activeOpacity={0.9} accessibilityRole="button" style={{ borderRadius: radius.xxl, overflow: 'hidden', ...shadows.md }}>
       <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: spacing.lg }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           {live ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' }} /> : null}
@@ -261,7 +261,7 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
   const accent = startingSoon ? colors.brand : (statusDot()[session.status] || colors.border);
   return (
     <TouchableOpacity
-      onPress={() => router.navigate('/(student)/check-in')}
+      onPress={() => router.navigate('/(student)/(tabs)/check-in')}
       activeOpacity={0.75}
       style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.md, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}
     >

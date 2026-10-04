@@ -34,7 +34,7 @@ export default function ChangeNameScreen() {
   // (initialRouteName), so going back lands on Home on a first login too.
   const leave = () => {
     if (router.canGoBack()) router.back();
-    else router.replace('/(parent)');
+    else router.replace('/(parent)/(tabs)');
   };
 
   // Prefill from the current name: first token → first name, the rest → last name.

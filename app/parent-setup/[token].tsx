@@ -58,7 +58,7 @@ export default function ParentSetupScreen() {
     if (!token || password.length < 6 || !termsAccepted || !nameValid) return;
     setupMutation.mutate(
       { token: token as string, password, terms_accepted: termsAccepted, name: name.trim(), ...(relationship ? { relationship } : {}) },
-      { onSuccess: () => router.replace('/(parent)') },
+      { onSuccess: () => router.replace('/(parent)/(tabs)') },
     );
   };
 

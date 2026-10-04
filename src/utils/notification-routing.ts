@@ -70,7 +70,7 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
       return can('review_payment_proofs') ? '/(teacher)/payment-proofs' : null;
     case 'billing_override_granted_by_assistant':
       // The override itself is listed on the home screen; with a student, their profile.
-      return student ? `/(teacher)/students/${student}` : '/(teacher)';
+      return student ? `/(teacher)/students/${student}` : '/(teacher)/(tabs)';
     case 'assistant_action_review':
       return isAssistant ? null : '/(teacher)/assistant-actions';
     case 'financial_report':
@@ -109,7 +109,7 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
 
 function parentRoute(type: string, data: Record<string, unknown> | null | undefined): string | null {
   const student = id(data, 'student_id', 'studentId');
-  const child = student ? `/(parent)/child/${student}` : '/(parent)';
+  const child = student ? `/(parent)/child/${student}` : '/(parent)/(tabs)';
 
   if (ADMIN_TICKET_TYPES.has(type)) return '/(parent)/support';
 
@@ -121,7 +121,7 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
     case 'payment_proof_approved':
     case 'payment_proof_rejected':
     case 'billing_override_granted':
-      return '/(parent)/invoices';
+      return '/(parent)/(tabs)/invoices';
     case 'monthly_report':
     case 'student_report':
       return '/(parent)/report-cards';
@@ -146,7 +146,7 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
       return child;
     // The sibling gate's confirm/deny card lives on the parent home screen.
     case 'sibling_claim':
-      return '/(parent)';
+      return '/(parent)/(tabs)';
     case 'student_edit_result':
       return '/(parent)/children';
     case 'parent_number_approved':
@@ -167,7 +167,7 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
     case 'invoice_new':
     case 'invoice_overdue':
     case 'payment_received':
-      return '/(student)/invoices';
+      return '/(student)/(tabs)/invoices';
     case 'grade':
       return '/(student)/marks';
     case 'card_preparing':
@@ -176,7 +176,7 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
     case 'special_session':
     case 'booking_request_result':
     case 'parent_unreachable':
-      return '/(student)';
+      return '/(student)/(tabs)';
     case 'student_edit_result':
       return '/(student)/profile';
     case 'ticket_reply':

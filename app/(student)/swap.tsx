@@ -24,7 +24,7 @@ export default function SwapRequestScreen() {
   // router.back() then silently does nothing. Fall back to the dashboard tab.
   const goBack = () => {
     if (router.canGoBack()) router.back();
-    else router.replace('/(student)');
+    else router.replace('/(student)/(tabs)');
   };
 
   const [originalId, setOriginalId] = useState<number | null>(null);

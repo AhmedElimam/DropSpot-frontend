@@ -78,7 +78,7 @@ export default function InviteAcceptScreen() {
         parent_relation: parentRelation,
         terms_accepted: terms,
       },
-      { onSuccess: () => router.replace('/(student)') },
+      { onSuccess: () => router.replace('/(student)/(tabs)') },
     );
   };
 

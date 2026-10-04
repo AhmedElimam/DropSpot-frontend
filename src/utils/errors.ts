@@ -15,7 +15,13 @@ export function getFriendlyErrorMessage(error: unknown): string {
       return t('errors.network');
     }
     const status = error.response.status;
-    if (status === 401) return t('errors.session_expired');
+    if (status === 401) {
+      // A wrong password or code (counted: three tries) carries its own Arabic line.
+      const code = error.response.data?.code;
+      const msg = error.response.data?.message;
+      if (['INVALID_OTP', 'INVALID_CREDENTIALS', 'INVALID_CODE'].includes(code) && typeof msg === 'string' && /[؀-ۿ]/.test(msg)) return msg;
+      return t('errors.session_expired');
+    }
     if (status === 402) {
       // Payment required — e.g. an overdue bill blocking check-in. The server sends a
       // clear Arabic reason; surface it so the student knows WHY, not a generic error.

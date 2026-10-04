@@ -1523,6 +1523,9 @@
     "roster": "كشف الحضور",
     "roster_offline_hint": "لا يوجد اتصال — هذا آخر كشف محفوظ على هاتفك. ما تسجّله الآن يُحفظ ويُرسل تلقائيًا عند عودة الاتصال.",
     "mark_pending_sync": "بانتظار المزامنة",
+    "overdue_mark_title": "على الطالب مستحقات متأخرة",
+    "overdue_mark_body": "تأكيد الحضور يمنحه استثناء سداد لمدة {{days}} يومًا، ويُسجَّل في ملفه.",
+    "overdue_mark_confirm": "منح استثناء {{days}} يومًا وتسجيل الحضور",
     "rejected_marks_title": "علامات حضور بحاجة لقرارك ({{count}})",
     "rejected_marks_hint": "رفض الخادم هذه العلامات اليدوية عند المزامنة ولن تُعاد تلقائيًا. أعد المحاولة أو تجاهلها.",
     "tab_roster": "المسجلون",
@@ -2179,6 +2182,13 @@
     "go_today": "اذهب إلى اليوم"
   },
   "students_ui": {
+    "exemptions_title": "سجل استثناءات السداد",
+    "exemption_by": "بواسطة {{name}}",
+    "exemption_revoked": "أُلغي",
+    "exemption_ended": "انتهى",
+    "exempt": "معفى",
+    "exempt_manual": "معفى عند الحضور",
+    "tile_exempt": "معفى",
     "tile_low": "حضور ضعيف",
     "tile_overdue": "متأخر في الدفع",
     "overdue": "متأخر في الدفع",

@@ -215,7 +215,7 @@ export default function TeacherAssistants() {
   const [createErr, setCreateErr] = useState<string | null>(null);
 
   // Assistant management is teacher-only; an assistant is bounced (backend also 403s).
-  if (role === 'assistant') return <Redirect href={'/(teacher)' as Href} />;
+  if (role === 'assistant') return <Redirect href={'/(teacher)/(tabs)' as Href} />;
 
   const catalog = data?.all_abilities ?? [];
   const takeaway = data?.takeaway_abilities ?? [];

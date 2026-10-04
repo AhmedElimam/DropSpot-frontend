@@ -21,7 +21,7 @@ import { getTeacherCardOrders, type TeacherCardOrder, type RosterStudent } from 
 import { formatNumber } from '@/utils/format';
 
 type Segment = 'students' | 'cards';
-type Quick = 'all' | 'low' | 'overdue';
+type Quick = 'all' | 'low' | 'overdue' | 'exempt';
 
 // Same bands as everywhere a rate is coloured: ≥ 75 fine, 50–74 slipping, < 50 at risk.
 const LOW_RATE = 75;
@@ -67,6 +67,15 @@ const RosterRow = memo(function RosterRow({ s, onPress }: { s: RosterStudent; on
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.dangerLight, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
               <Icon name="money" size={11} color={colors.dangerText} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.dangerText }}>{t('students_ui.overdue')}</Text>
+            </View>
+          ) : null}
+          {/* Let in on a 15-day exemption; a manual check-in grant says so. */}
+          {s.exempted ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.infoLight, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
+              <Icon name="shield" size={11} color={colors.infoText} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.infoText }}>
+                {s.exemption_source === 'manual_checkin' ? t('students_ui.exempt_manual') : t('students_ui.exempt')}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -158,14 +167,15 @@ export default function TeacherStudents() {
     all: roster.length,
     low: roster.filter((s) => s.attendance_rate != null && s.attendance_rate < LOW_RATE).length,
     overdue: roster.filter((s) => s.overdue).length,
+    exempt: roster.filter((s) => s.exempted).length,
   }), [roster]);
-  useEffect(() => { if (quick === 'overdue' && !seesMoney) setQuick('all'); }, [quick, seesMoney]);
+  useEffect(() => { if ((quick === 'overdue' || quick === 'exempt') && !seesMoney) setQuick('all'); }, [quick, seesMoney]);
 
   // Search + quick filter run client-side over the loaded roster (course is server-side).
   const sections = useMemo(() => {
     const q = search.trim().toLowerCase();
     const rows = roster
-      .filter((s) => (quick === 'low' ? s.attendance_rate != null && s.attendance_rate < LOW_RATE : quick === 'overdue' ? !!s.overdue : true))
+      .filter((s) => (quick === 'low' ? s.attendance_rate != null && s.attendance_rate < LOW_RATE : quick === 'overdue' ? !!s.overdue : quick === 'exempt' ? !!s.exempted : true))
       .filter((s) => !q || (s.name ?? '').toLowerCase().includes(q) || (s.student_code ?? '').toLowerCase().includes(q));
     const out: { key: string; title: string; data: RosterStudent[] }[] = [];
     for (const s of rows) {
@@ -187,6 +197,8 @@ export default function TeacherStudents() {
     { key: 'all', label: t('teacher.status_all'), dot: colors.onHero, n: counts.all },
     { key: 'low', label: t('students_ui.tile_low'), dot: colors.warning, n: counts.low },
     ...(seesMoney ? [{ key: 'overdue' as Quick, label: t('students_ui.tile_overdue'), dot: colors.danger, n: counts.overdue }] : []),
+    // Students let in on a 15-day exemption (founder 2026-10-04: «track that … the pay filter»).
+    ...(seesMoney && counts.exempt > 0 ? [{ key: 'exempt' as Quick, label: t('students_ui.tile_exempt'), dot: colors.info, n: counts.exempt }] : []),
   ];
 
   const listPad = { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg, paddingTop: spacing.sm };

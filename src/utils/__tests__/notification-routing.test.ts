@@ -22,8 +22,8 @@ describe('notificationRouteFor (feed + push taps)', () => {
 
   it('sends a parent to the child and the family screens', () => {
     expect(notificationRouteFor({ role: 'parent', type: 'attendance', data: { student_id: 5, student_name: 'x' } })).toBe('/(parent)/child/5');
-    expect(notificationRouteFor({ role: 'parent', type: 'attendance' })).toBe('/(parent)');
-    expect(notificationRouteFor({ role: 'parent', type: 'payment_received', data: { student_id: 5 } })).toBe('/(parent)/invoices');
+    expect(notificationRouteFor({ role: 'parent', type: 'attendance' })).toBe('/(parent)/(tabs)');
+    expect(notificationRouteFor({ role: 'parent', type: 'payment_received', data: { student_id: 5 } })).toBe('/(parent)/(tabs)/invoices');
     expect(notificationRouteFor({ role: 'parent', type: 'daily_digest', data: { student_id: 5 } })).toBe('/(parent)/today');
     expect(notificationRouteFor({ role: 'parent', type: 'ticket_reply', data: { ticket_id: 8 } })).toBe('/(parent)/tickets/8');
   });

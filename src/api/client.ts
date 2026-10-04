@@ -181,7 +181,10 @@ client.interceptors.response.use(
       // request, which is awaiting the recovery — a spinner for good, and on relaunch the
       // dead session repeats the cycle. These two just fail and let their caller carry on.
       !original.url?.includes('/auth/logout') &&
-      !original.url?.includes('/impersonation/stop')
+      !original.url?.includes('/impersonation/stop') &&
+      // A wrong code is an answer, not an expired session: never «refresh» over it.
+      !original.url?.includes('/auth/verify-otp') &&
+      !original.url?.includes('/auth/reset-password')
     ) {
       original._retry = true;
       try {

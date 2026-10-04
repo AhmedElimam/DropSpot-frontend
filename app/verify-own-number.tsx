@@ -80,7 +80,7 @@ export default function VerifyOwnNumberScreen() {
       // Clear the flag locally and drop into the student app. await: the store commits
       // only after an async persist, so navigating first can re-read the stale flag.
       if (user && role) await setSession({ ...user, needs_own_number_verification: false }, role);
-      router.replace('/(student)' as Href);
+      router.replace('/(student)/(tabs)' as Href);
     },
   });
 
