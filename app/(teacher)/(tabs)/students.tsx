@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { FlatList, SectionList } from '@/components/ui/Refreshable';
+import { FlatList, SectionList, ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -247,8 +247,11 @@ export default function TeacherStudents() {
               {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color={colors.onHeroSoft} /></TouchableOpacity> : null}
             </View>
 
-            {/* The numbers are the filter — pills now, not tall tiles. */}
-            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
+            {/* The numbers are the filter — pills now, not tall tiles. A sideways scroll, edge
+                to edge: with «معفى» added the pills no longer fit one screen width. */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              style={{ marginTop: spacing.sm, marginHorizontal: -spacing.lg }}
+              contentContainerStyle={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg }}>
               {tiles.map((x) => {
                 const on = quick === x.key;
                 return (
@@ -260,7 +263,7 @@ export default function TeacherStudents() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
           </>
         ) : null}
       </LinearGradient>
