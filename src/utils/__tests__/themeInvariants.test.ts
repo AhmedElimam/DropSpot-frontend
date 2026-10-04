@@ -171,3 +171,29 @@ describe('always-white surfaces use fixed ink', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * `onAccent` is WHITE (ink for a SOLID orange fill). On the pale orange tint (`accentLight`)
+ * white is unreadable — that was «إضافة يوم» / «إضافة موعد» (founder 2026-10-04). Text on
+ * the tint uses `accentText`. Checked within the element's own children, like above.
+ */
+describe('pale orange tint never carries white ink', () => {
+  const TINT_BG = /backgroundColor:\s*colors\.accentLight\b/;
+  const offenders: string[] = [];
+  for (const file of FILES.filter((f) => f.endsWith('.tsx'))) {
+    const lines = fs.readFileSync(path.join(ROOT, file), 'utf8').split('\n');
+    lines.forEach((line, i) => {
+      if (!TINT_BG.test(line)) return;
+      if (/\/>\s*\)?\s*:?\s*(null)?\s*\}?\s*$/.test(line)) return;
+      const inside: string[] = [line];
+      for (let j = i + 1; j < Math.min(lines.length, i + 7); j++) {
+        if (/^\s*<\//.test(lines[j])) break;
+        inside.push(lines[j]);
+      }
+      if (/colors\.onAccent\b/.test(inside.join('\n'))) offenders.push(`${file}:${i + 1}`);
+    });
+  }
+  it('no accentLight surface draws its text or icon with onAccent', () => {
+    expect(offenders).toEqual([]);
+  });
+});

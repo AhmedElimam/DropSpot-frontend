@@ -15,8 +15,8 @@ export interface SwipeAction {
 const PANEL_W = 96;
 
 /**
- * A list row with ONE swipe action, revealed under the row's start edge (the right, in
- * this RTL app) as the row is dragged toward the end. Past the threshold the action
+ * A list row with a swipe action revealed under the right edge as the row is dragged
+ * left, and optionally a second one under the left edge as it is dragged right. Past the threshold the action
  * fires and the row springs back — "swipe to read", nothing else (founder 2026-10-02:
  * one side to swipe to read, no hide).
  *
@@ -26,20 +26,34 @@ const PANEL_W = 96;
  * threshold ("it doesn't swipe to read, it stays the same"). The root layout mounts the
  * GestureHandlerRootView this needs.
  */
-export function SwipeRow({ action, children, style }: { action: SwipeAction; children: ReactNode; style?: StyleProp<ViewStyle> }) {
+export function SwipeRow({ action, leftAction, children, style }: {
+  /** Revealed on the RIGHT edge by a swipe from right to left. */
+  action?: SwipeAction;
+  /** Revealed on the LEFT edge by a swipe from left to right (founder 2026-10-04: a second
+   *  action on the teacher's home session cards). Optional — most rows have one action. */
+  leftAction?: SwipeAction;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
   const ref = useRef<SwipeableMethods>(null);
-  const fire = () => {
-    action.onTrigger();
+  // The library reports PHYSICAL directions, never flipped for RTL: 'left' = the row moved
+  // left (finger right → left, the right panel shows); 'right' = the opposite.
+  const fire = (direction: 'left' | 'right') => {
+    const a = direction === 'left' ? action : leftAction;
     ref.current?.close();
+    a?.onTrigger();
   };
   return (
     <ReanimatedSwipeable
       ref={ref}
       friction={1.4}
       rightThreshold={64}
+      leftThreshold={64}
       overshootRight={false}
-      renderRightActions={(progress) => <Panel progress={progress} action={action} />}
-      onSwipeableWillOpen={fire}
+      overshootLeft={false}
+      renderRightActions={action ? (progress) => <Panel progress={progress} action={action} /> : undefined}
+      renderLeftActions={leftAction ? (progress) => <Panel progress={progress} action={leftAction} /> : undefined}
+      onSwipeableWillOpen={(d) => fire(d === 'left' ? 'left' : 'right')}
       containerStyle={style}
     >
       {children}

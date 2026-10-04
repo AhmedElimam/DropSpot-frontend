@@ -973,6 +973,11 @@
     "day_done": "انتهت حصص اليوم",
     "see_week": "اعرض جدول الأسبوع في تبويب الحصص",
     "rest_of_day": "بقية اليوم",
+    "roster_title": "كشف الحضور",
+    "roster_open_full": "فتح كشف الحضور كاملًا",
+    "roster_empty": "لا يوجد طلاب في هذه الحصة",
+    "roster_count": "حضر {{present}} من {{total}}",
+    "session_cancel_failed": "تعذّر إلغاء الحصة",
     "insights_short": "الرؤى"
   },
   "swap": {

@@ -378,8 +378,10 @@ export default function SessionDetailScreen() {
         </TouchableOpacity>
       ) : null}
 
-      {/* Session settings — type, sheet, cancel. Out of the way of the roster. */}
-      <SheetModal visible={settingsOpen && !!s} onClose={() => setSettingsOpen(false)} style={{ padding: 0, backgroundColor: 'transparent' }} handle={false}>
+      {/* Session settings — type, sheet, cancel. Out of the way of the roster. The card draws
+          its own background and safe-area padding, so the sheet adds none (a transparent
+          bottom padding showed as a see-through gap under the card). */}
+      <SheetModal visible={settingsOpen && !!s} onClose={() => setSettingsOpen(false)} style={{ padding: 0, paddingBottom: 0, backgroundColor: 'transparent' }} handle={false}>
           {s ? (
             <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, gap: spacing.md }}>
               <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border }} />

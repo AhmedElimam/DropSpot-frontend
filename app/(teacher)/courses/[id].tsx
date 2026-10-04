@@ -238,8 +238,8 @@ export default function CourseDetailScreen() {
       <FormCard icon="calendar" title={t('teacher.slots_section')} tint={colors.accent}
         action={canSessions ? (
           <TouchableOpacity onPress={() => router.push('/(teacher)/schedule-new' as Href)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 34, borderRadius: radius.full, backgroundColor: colors.accentLight }}>
-            <Icon name="add" size={16} color={colors.onAccent} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onAccent }}>{t('teacher.add_slot')}</Text>
+            <Icon name="add" size={16} color={colors.accentText} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accentText }}>{t('teacher.add_slot')}</Text>
           </TouchableOpacity>
         ) : undefined}>
         {course.schedules.length === 0 ? (

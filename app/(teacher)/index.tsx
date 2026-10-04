@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index';
 import { onWhite } from '@/theme/onWhite';
@@ -22,6 +22,9 @@ import { HubRow } from '@/components/teacher/HubRow';
 import { AddStudentSheet } from '@/components/teacher/AddStudentSheet';
 import { SessionCard, sessionPhase, type SessionCardData } from '@/components/session/TeacherSessionCard';
 import { AttendanceRing } from '@/components/session/AttendanceVisuals';
+import { SessionRosterSheet } from '@/components/session/SessionRosterSheet';
+import { SwipeRow, type SwipeAction } from '@/components/ui/SwipeRow';
+import { cancelSession } from '@/api/teacherSessions';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getCashReconciliation } from '@/api/cash';
@@ -77,6 +80,36 @@ export default function TeacherHome() {
   const openTickets = (ticketsQ.data ?? []).filter((x) => x.status === 'open').length;
   const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch);
   const [addOpen, setAddOpen] = useState(false);
+  // Swipe on a session card (founder 2026-10-04): right → left cancels it (after a
+  // confirmation), left → right shows its «كشف الحضور» in a sheet.
+  const qc = useQueryClient();
+  const [rosterFor, setRosterFor] = useState<string | null>(null);
+  const confirmCancel = (s: { id: string; course_name?: string | null }) => {
+    Alert.alert(t('teacher.cancel_session_title'), [s.course_name, t('teacher.cancel_session_hint')].filter(Boolean).join('\n\n'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('teacher.cancel_session_confirm'), style: 'destructive', onPress: async () => {
+          try {
+            await cancelSession(s.id);
+            qc.invalidateQueries({ queryKey: ['teacher-session-detail', s.id] });
+            qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
+            await sessionsQ.refetch();
+          } catch (e: any) {
+            Alert.alert(t('common.error'), e?.response?.data?.message ?? t('home.session_cancel_failed'));
+          }
+        },
+      },
+    ]);
+  };
+  // Only a session that has not ended and is not already cancelled can be cancelled; the
+  // server refuses a completed one, so the swipe is not offered there.
+  const swipesFor = (s: TeacherSession): { action?: SwipeAction; leftAction: SwipeAction } => {
+    const cancellable = s.status !== 'cancelled' && s.status !== 'completed' && sessionPhase(s, now) !== 'done';
+    return {
+      action: cancellable ? { icon: 'close', label: t('teacher.cancel_session'), color: colors.danger, onTrigger: () => confirmCancel(s) } : undefined,
+      leftAction: { icon: 'attendance', label: t('sessions_tab.sheet'), color: colors.success, onTrigger: () => setRosterFor(s.id) },
+    };
+  };
 
   const sessions = sessionsQ.data ?? [];
   const current = pickCurrentSession(sessions, now);
@@ -148,7 +181,9 @@ export default function TeacherHome() {
               <ActivityIndicator color={colors.primary} />
             </View>
           ) : current ? (
-            <Spotlight s={current} now={now} canScan={canCash} onScan={scan} onOpen={openSheet} />
+            <SwipeRow {...swipesFor(current)} style={{ borderRadius: radius.xxl }}>
+              <Spotlight s={current} now={now} canScan={canCash} onScan={scan} onOpen={openSheet} />
+            </SwipeRow>
           ) : (
             <TouchableOpacity onPress={() => router.push('/(teacher)/sessions' as Href)} activeOpacity={0.9}
               style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.md }}>
@@ -192,7 +227,11 @@ export default function TeacherHome() {
           {rest.length > 0 ? (
             <View style={{ marginTop: spacing.xl }}>
               <SectionHead icon="calendar" color={colors.brand} title={t('home.rest_of_day')} action={t('home.all_sessions')} onAction={() => router.push('/(teacher)/sessions' as Href)} />
-              {rest.map((s) => <SessionCard key={s.id} s={s} now={now} onOpen={openSheet} compact />)}
+              {rest.map((s) => (
+                <SwipeRow key={s.id} {...swipesFor(s)} style={{ borderRadius: radius.xl }}>
+                  <SessionCard s={s} now={now} onOpen={openSheet} compact />
+                </SwipeRow>
+              ))}
             </View>
           ) : null}
 
@@ -200,6 +239,7 @@ export default function TeacherHome() {
         </View>
       </ScrollView>
       <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} />
+      <SessionRosterSheet sessionId={rosterFor} onClose={() => setRosterFor(null)} onOpenFull={(id) => { setRosterFor(null); openSheet({ id }); }} />
     </View>
   );
 }
