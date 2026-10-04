@@ -195,7 +195,7 @@ export default function OverridesScreen() {
           renderItem={({ item }) => (
             <ExceptionRow r={item} now={now} canRevoke={canRevoke} revoking={revokingId === item.id} onRevoke={revoke} onOpen={open} />
           )}
-          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
+          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           removeClippedSubviews initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7}
           ListHeaderComponent={

@@ -1,34 +1,22 @@
 import { useEffect } from 'react';
-import { Redirect, Tabs } from 'expo-router';
-import { View, Text, ActivityIndicator, StyleSheet, AppState, type AppStateStatus } from 'react-native';
+import { Redirect, Stack } from 'expo-router';
+import { View, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
 import { registerForPushNotifications } from '@/utils/push-notifications';
 import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { useAuthStore } from '@/stores/authStore';
-import { fonts } from '@/theme/typography';
-import { colors, radius } from '@/theme/index';
-import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon, type IconName } from '@/components/ui/Icon';
-import { boundedSceneLayout } from '@/navigation/boundedScenes';
-import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { colors } from '@/theme/index';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
 
-// Visible tabs stay mounted; detail screens (href: null) are released once they are not one
-// of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
-// tabs are frozen on blur: a frozen screen defers its own release.
-const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","check-in","invoices","profile"]);
-const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
+// A deep link straight to a detail screen still has the tabs underneath to go back to.
+export const unstable_settings = { initialRouteName: '(tabs)' };
 
-const icons: Record<string, IconName> = {
-  index: 'home',
-  'check-in': 'attendance',
-  invoices: 'invoices',
-  profile: 'profile',
-};
-
-export default function StudentTabLayout() {
-  const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
+/**
+ * Student app: a STACK whose first screen is the tab bar ((tabs)/_layout). Marks, the
+ * attendance record, a teacher's page, swap, the card order, notifications and support are
+ * pushed on top of the tabs, so each has the iOS edge swipe back (founder 2026-10-04). They
+ * used to be hidden tabs, which have no back gesture.
+ */
+export default function StudentLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const role = useAuthStore((s) => s.role);
@@ -48,13 +36,6 @@ export default function StudentTabLayout() {
   }, [isAuthenticated, impersonating]);
   useNotificationTaps();
 
-  // Freezing the hidden tabs (react-freeze) is a FLAG, off by default (2026-10-01). With 5+
-  // tabs it is the documented cause of memory growing and the JS thread getting slower with
-  // every tab switch (react-native-screens #2971) — the teacher-side complaint word for
-  // word. Older detail screens are released by BoundedScene regardless. Super-admin flag
-  // «تجميد التبويبات المخفية», read from /app-config at launch, so the two can be compared
-  // on one phone without a rebuild.
-  const freezeTabs = useFeatureFlags().data?.freeze_hidden_tabs === true;
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
@@ -73,77 +54,8 @@ export default function StudentTabLayout() {
   }
 
   return (
-    <Tabs
-      // Hardware back follows visit history, so pushed detail screens (marks, swap,
-      // order-card, notifications) pop back to the previous screen instead of jumping
-      // to the Home tab.
-      backBehavior="history"
-      screenLayout={sceneLayout}
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),
-        tabBarStyle: {
-          // OPAQUE on purpose. A translucent bar (this was rgba(...,0.92)) is a floating,
-          // absolutely-positioned overlay, so every frame Android had to re-composite the
-          // scene BEHIND it — on every screen, in every role. Together with elevation 8 and
-          // two rounded corners that is continuous GPU work and a measurable heat source on
-          // mid-range chips (Redmi Note 11S / Helio G96, 2026-09-22). Opaque + a hairline
-          // rule keeps the same lifted look for free.
-          backgroundColor: colors.tabBar,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.border,
-          paddingTop: 8,
-          paddingBottom: 10 + insets.bottom,
-          height: 64 + insets.bottom,
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          elevation: 0,
-          borderTopLeftRadius: radius.xl,
-          borderTopRightRadius: radius.xl,
-        },
-        tabBarLabel: ({ focused }) => (
-          <Text
-            style={{
-              fontFamily: fonts.medium,
-              fontSize: 11,
-              color: focused ? colors.tabActive : colors.tabInactive,
-              marginTop: 2,
-            }}
-          >
-            {route.name === 'index' ? t('nav.dashboard') : route.name === 'check-in' ? t('nav.check_in') : route.name === 'invoices' ? t('nav.invoices') : t('nav.profile')}
-          </Text>
-        ),
-        tabBarIcon: ({ focused }) => (
-          <View
-            style={{
-              opacity: focused ? 1 : 0.55,
-              transform: [{ scale: focused ? 1.08 : 1 }],
-            }}
-          >
-            <Icon
-              name={icons[route.name] || 'home'}
-              size={24}
-              color={focused ? colors.tabActive : colors.tabInactive}
-              outline={!focused}
-            />
-          </View>
-        ),
-      })}
-    >
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="check-in" />
-      <Tabs.Screen name="invoices" />
-      <Tabs.Screen name="marks" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="attendance" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="teacher/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="swap" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="order-card" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      {/* Support → the admin queue. Full-page compose, so the floating bar is hidden. */}
-      <Tabs.Screen name="support" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="profile" />
-    </Tabs>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+      <Stack.Screen name="(tabs)" />
+    </Stack>
   );
 }

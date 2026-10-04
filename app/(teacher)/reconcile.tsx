@@ -122,7 +122,7 @@ export default function Reconcile() {
       ) : nothingLeft ? (
         <EmptyState icon="success" title={t('teacher.nothing_pending')} message={t('teacher.nothing_pending_hint')} />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom }} showsVerticalScrollIndicator={false}>
           {pendingCount > 0 ? <DurabilityBanner count={pendingCount} aging={aging} /> : null}
 
           {rejected.length > 0 ? <RejectedSection scans={rejected} onChange={load} /> : null}

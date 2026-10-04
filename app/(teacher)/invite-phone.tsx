@@ -151,7 +151,7 @@ export default function InvitePhone() {
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('invite_phone.title')}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
         {eligible.length === 0 ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xl }}>{t('invite_phone.no_courses')}</Text>
         ) : (

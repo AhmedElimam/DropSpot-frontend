@@ -381,7 +381,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
 
   const body = (
     <ScrollView
-      contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
+      contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}

@@ -317,7 +317,7 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
         sections={sections}
         keyExtractor={(n) => String(n.id)}
         stickySectionHeadersEnabled={false}
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         onEndReachedThreshold={0.4}

@@ -108,7 +108,7 @@ export default function ComplaintsScreen() {
         <FlatList
           data={rows}
           keyExtractor={(c) => String(c.id)}
-          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg, gap: spacing.sm }}
+          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg, gap: spacing.sm }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={<EmptyState icon="note" title={t(`complaints.empty_${bucket}`)} />}
           renderItem={({ item }) => (

@@ -103,7 +103,10 @@ export const shadows = {
 };
 
 export const nav = {
+  /** Space a TAB screen leaves for the floating tab bar. */
   bottomHeight: 88,
+  /** End-of-page breathing room on a PUSHED screen — it has no tab bar under it (2026-10-04). */
+  pageEnd: 16,
 } as const;
 
 /**

@@ -30,10 +30,11 @@ export default function ChangeNameScreen() {
   const setSession = useAuthStore((s) => s.setSession);
   const isFirstLogin = useLocalSearchParams<{ first?: string }>().first === '1';
 
-  // Leaving the prompt means entering the app, not popping a screen off a stack.
+  // Leaving the prompt enters the app. The parent stack always has the tabs underneath
+  // (initialRouteName), so going back lands on Home on a first login too.
   const leave = () => {
-    if (isFirstLogin) router.replace('/(parent)');
-    else router.back();
+    if (router.canGoBack()) router.back();
+    else router.replace('/(parent)');
   };
 
   // Prefill from the current name: first token → first name, the rest → last name.

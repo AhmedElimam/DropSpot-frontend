@@ -262,7 +262,7 @@ export default function TeacherPendingCollections() {
           data={data ?? []}
           keyExtractor={(s) => String(s.student_id)}
           renderItem={renderStudent}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl, flexGrow: 1 }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl, flexGrow: 1 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
           ListEmptyComponent={<EmptyState icon="money" title={t('collections.empty')} />}
         />

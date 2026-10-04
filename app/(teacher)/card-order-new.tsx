@@ -76,7 +76,7 @@ export default function CardOrderNew() {
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('teacher.order_card')}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
         {/* Step 1 — student */}
         <Label text={t('teacher.pick_student')} />
         {!studentId ? (

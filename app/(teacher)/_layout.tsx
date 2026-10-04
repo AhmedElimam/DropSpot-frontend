@@ -1,6 +1,5 @@
-import type { ComponentProps } from 'react';
-import { useMemo, useEffect } from 'react';
-import { Redirect, Tabs } from 'expo-router';
+import { useEffect } from 'react';
+import { Redirect, Stack } from 'expo-router';
 import { View, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
@@ -15,74 +14,21 @@ import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { colors } from '@/theme/index';
-import { type IconName } from '@/components/ui/Icon';
-import { NotchTabBar } from '@/components/ui/NotchTabBar';
-import { BrandMark } from '@/components/ui/BrandMark';
-import { boundedSceneLayout } from '@/navigation/boundedScenes';
-import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
 
-// Visible tabs stay mounted; detail screens (href: null) are released once they are not one
-// of the two most recently visited — see src/navigation/boundedScenes.tsx. Only the visible
-// tabs are frozen on blur: a frozen screen defers its own release.
-const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","sessions","manage","students","settings"]);
-const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
-// The bar, first to last (the first sits at the start edge — the right, in RTL). الإدارة is
-// the raised centre button and carries the app's emblem instead of an icon (founder
-// 2026-10-03); الحصص stays beside it (founder 2026-10-02: «next to the day»).
-const TAB_ORDER = ['index', 'sessions', 'manage', 'students', 'settings'] as const;
-const CENTER_TAB = 'manage';
+// A deep link straight to a detail screen still has the tabs underneath to go back to.
+export const unstable_settings = { initialRouteName: '(tabs)' };
 
 /**
- * Teacher (and assistant) app — a 5-tab bar (home · sessions · students · manage ·
- * settings), deliberately separate from the parent/student navigation. Tickets left the
- * bar on 2026-10-02 (reached from Home's attention list and Management → المتابعة); the
- * attendance sheet moved out from under Students into its own الحصص tab.
- *
- * The invite-student camera screen (`enroll`) is a full-screen route: it's reached
- * by push (never a tab button) and hides the bar via the custom `tabBar` below —
- * react-navigation's own render hook returns NOTHING for that route, so the bar
- * component is simply not mounted there (not a style override). Every actual tab —
- * scan/Camera included — renders the normal bar.
+ * Teacher (and assistant) app: a STACK whose first screen is the tab bar ((tabs)/_layout).
+ * Every other screen — a session's sheet, a student, collect, the scanner, مدام روز… — is
+ * pushed on top of the tabs, so each one has the iOS edge swipe back and returns to where
+ * it was opened from (founder 2026-10-04). They used to be hidden tabs (href: null), which
+ * have no back gesture; opening a session from Home also switched tabs on the way.
+ * Full-screen camera screens (scan, enroll) simply have no bar now — they are not tabs.
  */
-const labels: Record<string, string> = {
-  index: 'teacher.tab_home',
-  sessions: 'teacher.tab_sessions',
-  students: 'teacher.tab_students',
-  manage: 'teacher.tab_manage',
-  settings: 'teacher.tab_settings',
-};
 
-const icons: Record<string, IconName> = {
-  index: 'home',
-  sessions: 'lesson',
-  students: 'children',
-  manage: 'book',
-  settings: 'settings',
-};
-
-// Top-level routes that must never show the tab bar. Any live CAMERA screen is
-// full-screen so the bar never overlaps the camera controls: the invite scanner
-// (enroll) and the attendance scanner (scan) — both exit via their own in-screen
-// close button, so hiding the bar never traps the user.
-const FULLSCREEN_ROUTES = ['enroll', 'scan'];
-
-// Decide whether the bar should be hidden for the currently-focused tab. Hidden on
-// the camera screens (scan, enroll) and on an open ticket conversation (tickets/[id]),
-// where the reply box + keyboard need the whole screen. The ticket LIST keeps the bar.
-function shouldHideBar(state: { routes: { name: string; state?: unknown }[]; index: number }): boolean {
-  const tab = state.routes[state.index];
-  if (!tab) return false;
-  if (FULLSCREEN_ROUTES.includes(tab.name)) return true;
-  if (tab.name === 'tickets') {
-    const nested = tab.state as { routes?: { name: string }[]; index?: number } | undefined;
-    const nestedName = nested?.routes?.[nested?.index ?? 0]?.name;
-    return nestedName === '[id]';
-  }
-  return false;
-}
-
-export default function TeacherTabLayout() {
+export default function TeacherLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const role = useAuthStore((s) => s.role);
@@ -153,35 +99,8 @@ export default function TeacherTabLayout() {
     return () => unsub();
   }, [isAuthenticated]);
 
-  // screenOptions is MEMOISED and its label/icon are module-level components.
-  //
-  // It used to be an inline arrow returning a fresh object — with fresh `tabBarLabel` and
-  // `tabBarIcon` closures — for EVERY ONE of the 36 registered screens. This layout
-  // re-renders whenever the offline badge changes (pending/rejected scans), so a single
-  // sync tick rebuilt 36 option objects and re-rendered the whole tab bar. On an
-  // entry-level device that is a visible stutter on a screen the teacher never left.
-  // The bar itself is NotchTabBar below; only the freeze flag affects what is left here.
-  // Freezing the hidden tabs (react-freeze) is a FLAG, off by default (2026-10-01). With 5+
-  // tabs it is the documented cause of memory growing and the JS thread getting slower with
-  // every tab switch (react-native-screens #2971) — the teacher-side complaint word for
-  // word. Older detail screens are released by BoundedScene regardless. Super-admin flag
-  // «تجميد التبويبات المخفية», read from /app-config at launch, so the two can be compared
-  // on one phone without a rebuild.
-  const freezeTabs = useFeatureFlags().data?.freeze_hidden_tabs === true;
-  const screenOptions = useMemo<ComponentProps<typeof Tabs>['screenOptions']>(
-    () => ({ route }) => ({
-        headerShown: false,
-        freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),
-        // Consistent scene background so a tab switch never flashes a white frame
-        // between two screens (e.g. the black scanner and a cream screen).
-        sceneStyle: { backgroundColor: colors.background },
-    }),
-    [freezeTabs],
-  );
-
-  // Every hook above runs on EVERY render — the early returns live here, after them. They
-  // sat above `useFeatureFlags` and the memo, so signing out rendered two hooks fewer and
-  // React threw «Rendered fewer hooks than expected» (blamed on the root's SurveyModal).
+  // Every hook above runs on EVERY render — the early returns live here, after them (an
+  // early return above a hook threw «Rendered fewer hooks than expected» on sign-out).
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
@@ -206,102 +125,9 @@ export default function TeacherTabLayout() {
     <>
     {/* Relocation prompt — teachers only (assistants never edit geofence anchors). */}
     {isAuthenticated && role === 'teacher' ? <RelocationPrompt enabled /> : null}
-    <Tabs
-      // Hardware back follows the actual visit history, not the default "jump to the
-      // first tab" — so pushed detail screens (courses, insights, pending-collections,
-      // …, all registered here as href:null tab routes) pop back to where you came from
-      // instead of teleporting Home.
-      backBehavior="history"
-      // Render NO bar on full-screen surfaces (invite scanner, open ticket) by not
-      // mounting the bar component for them. Every real tab shows the bar.
-      tabBar={(props) => {
-        if (shouldHideBar(props.state)) return null;
-        return <NotchTabBar {...props} tabs={TAB_ORDER} center={CENTER_TAB} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />;
-      }}
-      screenOptions={screenOptions}
-      screenLayout={sceneLayout}
-    >
-      <Tabs.Screen name="index" />
-      {/* The scanner is no longer a tab: it opens from the QR button beside the bell on
-          Home (and from each session card). Its pending-scans badge moved there too. */}
-      <Tabs.Screen
-        name="scan"
-        // NOT frozen: the camera unmounts through a re-render on blur, and a frozen screen
-        // skips exactly that render — the sensor would keep running behind another tab.
-        options={{ href: null, freezeOnBlur: false }}
-      />
-      {/* الحصص — today + history + the attendance sheet (manual marks work offline). */}
-      <Tabs.Screen name="sessions" />
-      {/* Management hub — third, next to the day (founder 2026-10-02). Four groups:
-          students · schedule · money · follow-up. */}
-      <Tabs.Screen name="manage" />
-      <Tabs.Screen name="students" />
-      <Tabs.Screen name="settings" />
-      {/* Parent tickets — from Home's attention list and Management → المتابعة, not a tab. */}
-      <Tabs.Screen name="tickets" options={{ href: null }} />
-      {/* الاستثناءات — billing exceptions + phone check-in permissions, from Management. */}
-      <Tabs.Screen name="overrides" options={{ href: null }} />
-      {/* Reconciliation is reached from the pending badge / Home, not a tab. */}
-      <Tabs.Screen name="resolution" options={{ href: null }} />
-      {/* «أرقام تحتاج تأكيد» — pushed from the Home card and the Resolution Center. */}
-      <Tabs.Screen name="phone-confirmations" options={{ href: null }} />
-      {/* Insights — pushed from the manage hub, not a tab. */}
-      <Tabs.Screen name="insights" options={{ href: null }} />
-      {/* Order a card for an existing enrollment — pushed from the roster cards segment. */}
-      <Tabs.Screen name="card-order-new" options={{ href: null }} />
-      {/* Mint a card-order portal link for a not-yet-enrolled family — from the manage hub. */}
-      <Tabs.Screen name="card-order-link" options={{ href: null }} />
-      {/* أماكن التدريس — the teacher's own venues, from the manage hub. */}
-      <Tabs.Screen name="venues" options={{ href: null }} />
-      <Tabs.Screen name="reconcile" options={{ href: null }} />
-      {/* Enroll-by-card (invite student) — pushed from Home; full screen, no bar. */}
-      <Tabs.Screen name="enroll" options={{ href: null, freezeOnBlur: false }} />{/* camera screen — see scan */}
-      {/* Fast student recording (name + parent phone) — pushed from Home, not a tab. */}
-      <Tabs.Screen name="record-student" options={{ href: null }} />
-      <Tabs.Screen name="revision-create" options={{ href: null }} />
-      {/* One-off special/exam session creator (normal mode) — pushed from Manage. */}
-      <Tabs.Screen name="exam-create" options={{ href: null }} />
-      <Tabs.Screen name="invite-link" options={{ href: null }} />
-      <Tabs.Screen name="booking-requests" options={{ href: null }} />
-      <Tabs.Screen name="assistant-actions" options={{ href: null }} />
-      {/* «الاعتراضات» — student disputes on marks and payments; from Home and Management. */}
-      <Tabs.Screen name="complaints" options={{ href: null }} />
-      {/* مدام روز — مديرة الحسابات: opened from the payments card on Home and from the
-          manage hub, not a tab. */}
-      <Tabs.Screen name="cash-reconcile" options={{ href: null }} />
-      <Tabs.Screen name="expenses" options={{ href: null }} />
-      {/* Weekly review (the teacher reconciles) + the question thread on one expense. */}
-      <Tabs.Screen name="cash-review" options={{ href: null }} />
-      <Tabs.Screen name="expense-thread" options={{ href: null }} />
-      {/* Revision-session picker → scan tab in revision mode. Not a tab. */}
-      <Tabs.Screen name="revisions" options={{ href: null }} />
-      {/* Merged-exam mark entry — pushed from the revisions list, not a tab. */}
-      <Tabs.Screen name="revision-marks" options={{ href: null }} />
-      {/* Payment kind picker → scan tab in payment mode. Not a tab. */}
-      <Tabs.Screen name="collect" options={{ href: null }} />
-      <Tabs.Screen name="pending-collections" options={{ href: null }} />
-      {/* Billing settings (teacher-only) + payment-proof review — from the manage hub. */}
-      <Tabs.Screen name="billing-settings" options={{ href: null }} />
-      <Tabs.Screen name="payment-proofs" options={{ href: null }} />
-      {/* Notifications feed — opened from the home-header bell, not a tab. */}
-      <Tabs.Screen name="notifications" options={{ href: null }} />
-      <Tabs.Screen name="invite-phone" options={{ href: null }} />
-      {/* Grant a billing exception — searched from Home, not a tab. */}
-      <Tabs.Screen name="grant-exception" options={{ href: null }} />
-      {/* Add a weekly schedule slot — pushed from the sessions segment, not a tab. */}
-      <Tabs.Screen name="schedule-new" options={{ href: null }} />
-      {/* Courses management (settings · GPS location · weekly slots) — from Settings. */}
-      <Tabs.Screen name="courses" options={{ href: null }} />
-      {/* Pause a date range (bulk-cancel) — from the sessions segment, not a tab. */}
-      <Tabs.Screen name="pause" options={{ href: null }} />
-      {/* Schedule tools — merge two slots, Ramadan time overrides. From the manage hub. */}
-      <Tabs.Screen name="schedule-merge" options={{ href: null }} />
-      <Tabs.Screen name="schedule-overrides" options={{ href: null }} />
-      {/* Assistant management (teacher-only) — reached from Settings, not a tab. */}
-      <Tabs.Screen name="assistants" options={{ href: null }} />
-      {/* Getting Started reference — pushed from Settings, not a tab. */}
-      <Tabs.Screen name="getting-started" options={{ href: null }} />
-    </Tabs>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+      <Stack.Screen name="(tabs)" />
+    </Stack>
     </>
   );
 }

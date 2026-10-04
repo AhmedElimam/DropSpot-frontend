@@ -58,7 +58,7 @@ export function FormScreen({
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
         ) : scroll ? (
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} keyboardDismissMode="on-drag"
-            contentContainerStyle={[{ padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }, contentStyle]}>
+            contentContainerStyle={[{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }, contentStyle]}>
             {children}
           </ScrollView>
         ) : (

@@ -295,7 +295,7 @@ export default function SessionDetailScreen() {
             : renderAttendee}
           // Clipping detaches off-screen rows, which drops a focused mark field's keyboard on Android.
           removeClippedSubviews={mode !== 'marks'} initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7}
-          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + 72 }}
+          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + 72 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
@@ -373,7 +373,7 @@ export default function SessionDetailScreen() {
       {/* Scan straight into this session. */}
       {s && canScan && live && mode === 'attendance' ? (
         <TouchableOpacity onPress={() => goToScan({ id: s.id, course_name: s.course_name } as TeacherSession)} activeOpacity={0.9} accessibilityRole="button"
-          style={{ position: 'absolute', bottom: nav.bottomHeight + insets.bottom + spacing.sm, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8, height: 54, paddingHorizontal: spacing.xl, borderRadius: 27, backgroundColor: colors.success, ...shadows.md }}>
+          style={{ position: 'absolute', bottom: nav.pageEnd + insets.bottom + spacing.sm, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8, height: 54, paddingHorizontal: spacing.xl, borderRadius: 27, backgroundColor: colors.success, ...shadows.md }}>
           <Icon name="scan" size={22} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('sessions_tab.scan')}</Text>
         </TouchableOpacity>

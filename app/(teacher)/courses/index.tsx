@@ -88,7 +88,7 @@ export default function TeacherCourses() {
           keyExtractor={(c) => c.id}
           renderItem={({ item }) => <CourseRow c={item} onPress={open} />}
           removeClippedSubviews initialNumToRender={8} maxToRenderPerBatch={8} windowSize={7}
-          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
+          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={<EmptyState icon="book" title={t('teacher.courses_empty_title')} message={t('teacher.courses_empty_hint')} />}
         />

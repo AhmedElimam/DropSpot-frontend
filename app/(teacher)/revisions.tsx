@@ -100,7 +100,7 @@ export default function TeacherRevisions() {
           data={list}
           keyExtractor={(r) => String(r.id)}
           renderItem={renderRow}
-          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
+          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={<EmptyState icon="book" title={t('teacher.revisions_empty')} />}
         />

@@ -68,7 +68,7 @@ describe('shouldKeepMounted', () => {
 describe('each role layout lists exactly its visible tabs', () => {
   for (const role of ['teacher', 'parent', 'student']) {
     it(role, () => {
-      const src = fs.readFileSync(path.join(__dirname, `../../../app/(${role})/_layout.tsx`), 'utf8');
+      const src = fs.readFileSync(path.join(__dirname, `../../../app/(${role})/(tabs)/_layout.tsx`), 'utf8');
       const declared = src.match(/const VISIBLE_TABS[^=]*=\s*new Set\((\[[^\]]*\])\)/);
       expect(declared).not.toBeNull();
       const listed = new Set<string>(JSON.parse(declared![1]));

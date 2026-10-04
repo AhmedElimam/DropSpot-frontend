@@ -165,7 +165,7 @@ export default function GrantException() {
               windowSize={7}
               data={filtered}
               keyExtractor={(s) => s.id}
-              contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom, paddingTop: spacing.sm }}
+              contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom, paddingTop: spacing.sm }}
               keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
                 <StudentRow

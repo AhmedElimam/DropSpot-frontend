@@ -98,7 +98,7 @@ export default function AssistantActionsScreen() {
           data={rows}
           keyExtractor={(a) => String(a.id)}
           renderItem={({ item }) => <ActionRow a={item} busy={reject.isPending && reject.variables === item.id} onReject={confirmReject} />}
-          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
+          contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListHeaderComponent={rows.length > 0 ? <Banner tone="warn" icon="eye" text={t('assistant_actions.intro')} /> : null}
           ListEmptyComponent={<EmptyState icon="success" title={t('assistant_actions.none')} message={t('assistant_actions.none_hint')} />}

@@ -63,7 +63,7 @@ export default function TeacherVenues() {
     <FormScreen title="أماكن التدريس" subtitle="تنظّم بها مقرراتك وتحدّد أي مساعد يعمل في كل مكان" loading={isLoading} scroll={false}
       right={venues.length > 0 ? <HeaderCount n={venues.length} /> : null}>
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xxl }}
+        contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xxl }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.brand} />}>
         <Banner tone="info" icon="gps" text="لا علاقة للمكان بموقع تسجيل الحضور، وربط المقرر بمكان اختياري دائمًا." />
 
