@@ -61,14 +61,15 @@ export default function RecordStudent() {
 
   const nameError = name.trim() !== '' && !isArabicName(name);
   const phoneError = parentPhone.trim() !== '' && !isEgyptPhone(parentPhone);
-  // The student's own phone — required: they sign in with it when the app launches.
+  // The student's own phone — OPTIONAL for now (founder 2026-10-04): empty is fine, a typed
+  // number must be valid. When given, the student signs in with it.
   const studentPhoneError = studentPhone.trim() !== '' && !isEgyptPhone(studentPhone);
   const sameAsParentError =
     studentPhone.trim() !== '' && parentPhone.trim() !== '' && studentPhone.trim() === parentPhone.trim();
   const canSubmit =
     courseId != null &&
     isArabicName(name.trim()) &&
-    isEgyptPhone(studentPhone.trim()) &&
+    (studentPhone.trim() === '' || isEgyptPhone(studentPhone.trim())) &&
     isEgyptPhone(parentPhone.trim()) &&
     !sameAsParentError &&
     !terms.overpaid &&
@@ -93,7 +94,7 @@ export default function RecordStudent() {
     if (courseId == null) return;
     const payload: RecordStudentPayload = {
       student_name: name.trim(),
-      student_phone: studentPhone.trim(),
+      ...(studentPhone.trim() ? { student_phone: studentPhone.trim() } : {}),
       parent_phone: parentPhone.trim(),
       ...(parentName.trim() ? { parent_name: parentName.trim() } : {}),
       ...(relationship ? { relationship } : {}),
@@ -237,7 +238,7 @@ export default function RecordStudent() {
             {nameError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>يرجى إدخال الاسم بالعربية</Text> : <View style={{ height: spacing.md }} />}
 
             {/* Student's own phone — their login handle when the app launches */}
-            <Text style={label()}>رقم هاتف الطالب</Text>
+            <Text style={label()}>رقم هاتف الطالب <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}>(اختياري)</Text></Text>
             <TextInput
               value={studentPhone}
               onChangeText={setStudentPhone}
@@ -251,7 +252,7 @@ export default function RecordStudent() {
               ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>رقم الطالب لا يمكن أن يطابق رقم ولي الأمر</Text>
               : studentPhoneError
                 ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>رقم هاتف غير صحيح</Text>
-                : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>يسجّل الطالب الدخول بهذا الرقم عند إطلاق التطبيق.</Text>}
+                : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>إن وُجد، يسجّل الطالب الدخول به. يمكن تركه فارغًا.</Text>}
 
             {/* Parent phone — the activation anchor */}
             <Text style={label()}>رقم ولي الأمر</Text>
