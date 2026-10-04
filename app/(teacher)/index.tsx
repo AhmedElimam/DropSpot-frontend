@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
@@ -117,7 +117,15 @@ export default function TeacherHome() {
   const rest = sessions.filter((s) => s.id !== current?.id);
   const presentToday = sessions.reduce((n, s) => n + (s.checked_in_count ?? 0), 0);
   const rosterToday = sessions.reduce((n, s) => n + (s.enrolled_count ?? 0), 0);
-  const openSheet = (s: { id: string }) => router.push(`/(teacher)/sessions/${s.id}` as Href);
+  // One push per tap: a second touch landing within 0.7 s (a double tap, or a touch delivered
+  // twice) must not stack the session page twice (founder 2026-10-04).
+  const lastOpen = useRef(0);
+  const openSheet = (s: { id: string }) => {
+    const t0 = Date.now();
+    if (t0 - lastOpen.current < 700) return;
+    lastOpen.current = t0;
+    router.push(`/(teacher)/sessions/${s.id}` as Href);
+  };
   const scan = (s: SessionCardData) => goToScan(s as TeacherSession);
 
   const attention = [

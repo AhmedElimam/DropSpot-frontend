@@ -30,3 +30,13 @@ describe('pull-to-refresh is the floating one', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+// The pull is read from the list's own touch events. A gesture-handler recognizer around the
+// list blocked the iOS edge swipe back and let a card's tap fire twice (2026-10-04).
+describe('the floating refresh never claims a touch', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/components/ui/Refreshable.tsx'), 'utf8');
+  it('does not use react-native-gesture-handler', () => {
+    expect(src).not.toMatch(/from 'react-native-gesture-handler'/);
+    expect(src).not.toMatch(/GestureDetector/);
+  });
+});

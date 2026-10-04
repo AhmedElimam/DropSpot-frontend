@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useMemo, useRef, type ComponentType, type ReactElement } from 'react';
+import { forwardRef, useCallback, useEffect, useRef, type ComponentType, type ReactElement } from 'react';
 import {
   ActivityIndicator,
   FlatList as RNFlatList,
@@ -6,11 +6,11 @@ import {
   ScrollView as RNScrollView,
   SectionList as RNSectionList,
   View,
+  type GestureResponderEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type RefreshControlProps,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, shadows } from '@/theme/index';
@@ -24,9 +24,14 @@ const PULL_REST = 56;
 const RESISTANCE = 0.55;
 const CIRCLE = 40;
 
+type Touch = (e: GestureResponderEvent) => void;
 type ScrollLikeProps = {
   refreshControl?: ReactElement<RefreshControlProps>;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  onTouchStart?: Touch;
+  onTouchMove?: Touch;
+  onTouchEnd?: Touch;
+  onTouchCancel?: Touch;
   scrollEventThrottle?: number;
   bounces?: boolean;
   [key: string]: unknown;
@@ -55,26 +60,20 @@ function withFloatingRefresh<C extends ComponentType<any>>(Base: C): C {
   return Wrapped as unknown as C;
 }
 
-function FloatingRefresh({ Base, forwardedRef, refreshControl, onScroll, scrollEventThrottle, ...rest }: ScrollLikeProps & {
+function FloatingRefresh({ Base, forwardedRef, refreshControl, onScroll, scrollEventThrottle, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, ...rest }: ScrollLikeProps & {
   Base: ComponentType<any>;
   forwardedRef: unknown;
 }) {
   const insets = useSafeAreaInsets();
   const { refreshing = false, onRefresh, tintColor } = refreshControl!.props;
 
-  const atTop = useSharedValue(true);
   const pull = useSharedValue(refreshing ? PULL_REST : 0);
-  const busy = useSharedValue(refreshing);
-  // The finger's travel at the moment the list reached the top, so a drag that scrolls up
-  // to the top and keeps going starts the circle from zero instead of jumping.
-  const startY = useSharedValue(0);
   const refreshingRef = useRef(refreshing);
 
   useEffect(() => {
     refreshingRef.current = refreshing;
-    busy.value = refreshing;
     pull.value = refreshing ? withSpring(PULL_REST, { damping: 18, stiffness: 220 }) : withTiming(0, { duration: 220 });
-  }, [refreshing, busy, pull]);
+  }, [refreshing, pull]);
 
   const fire = useCallback(() => {
     onRefresh?.();
@@ -82,33 +81,54 @@ function FloatingRefresh({ Base, forwardedRef, refreshControl, onScroll, scrollE
     setTimeout(() => { if (!refreshingRef.current) pull.value = withTiming(0, { duration: 220 }); }, 900);
   }, [onRefresh, pull]);
 
-  const native = useMemo(() => Gesture.Native(), []);
-  const pan = useMemo(() => Gesture.Pan()
-    .activeOffsetY([-8, 8])
-    .failOffsetX([-24, 24])
-    .simultaneousWithExternalGesture(native)
-    .onBegin(() => { startY.value = 0; })
-    .onUpdate((e) => {
-      if (busy.value) return;
-      if (!atTop.value) { startY.value = e.translationY; return; }
-      const d = e.translationY - startY.value;
-      pull.value = d <= 0 ? 0 : Math.min(PULL_MAX, d * RESISTANCE);
-    })
-    .onEnd(() => {
-      if (busy.value) return;
-      if (pull.value >= PULL_TRIGGER) {
-        pull.value = withSpring(PULL_REST, { damping: 18, stiffness: 220 });
-        runOnJS(fire)();
-      } else {
-        pull.value = withTiming(0, { duration: 200 });
-      }
-    }), [native, busy, atTop, startY, pull, fire]);
-  const gesture = useMemo(() => Gesture.Simultaneous(pan, native), [pan, native]);
+  // The pull is read from the scroll view's own touch events. They only OBSERVE: nothing
+  // here claims a touch, so a tap on a card fires once and the system's edge swipe back
+  // keeps working (a gesture-handler Pan around the list broke both, 2026-10-04).
+  const touch = useRef<{ x: number; y: number; tracking: boolean; vertical: boolean | null }>({ x: 0, y: 0, tracking: false, vertical: null });
+  const atTopRef = useRef(true);
+
+  const handleTouchStart = useCallback((e: GestureResponderEvent) => {
+    const { pageX, pageY } = e.nativeEvent;
+    touch.current = { x: pageX, y: pageY, tracking: atTopRef.current, vertical: null };
+    onTouchStart?.(e);
+  }, [onTouchStart]);
+
+  const handleTouchMove = useCallback((e: GestureResponderEvent) => {
+    onTouchMove?.(e);
+    const t = touch.current;
+    if (refreshingRef.current || e.nativeEvent.touches.length > 1) return;
+    const { pageX, pageY } = e.nativeEvent;
+    // A drag that scrolls the list up to the top and keeps going starts the pull there.
+    if (!t.tracking) {
+      if (atTopRef.current) { t.tracking = true; t.x = pageX; t.y = pageY; }
+      return;
+    }
+    const dx = pageX - t.x;
+    const dy = pageY - t.y;
+    if (t.vertical === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) t.vertical = Math.abs(dy) > Math.abs(dx);
+    if (t.vertical !== true) return; // a sideways swipe (a card's swipe action) is not a pull
+    pull.value = dy <= 0 ? 0 : Math.min(PULL_MAX, dy * RESISTANCE);
+  }, [onTouchMove, pull]);
+
+  const release = useCallback(() => {
+    const t = touch.current;
+    t.tracking = false;
+    if (refreshingRef.current) return;
+    if (t.vertical === true && pull.value >= PULL_TRIGGER) {
+      pull.value = withSpring(PULL_REST, { damping: 18, stiffness: 220 });
+      fire();
+    } else if (pull.value > 0) {
+      pull.value = withTiming(0, { duration: 200 });
+    }
+  }, [fire, pull]);
+
+  const handleTouchEnd = useCallback((e: GestureResponderEvent) => { onTouchEnd?.(e); release(); }, [onTouchEnd, release]);
+  const handleTouchCancel = useCallback((e: GestureResponderEvent) => { onTouchCancel?.(e); release(); }, [onTouchCancel, release]);
 
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    atTop.value = e.nativeEvent.contentOffset.y <= 0.5;
+    atTopRef.current = e.nativeEvent.contentOffset.y <= 0.5;
     onScroll?.(e);
-  }, [atTop, onScroll]);
+  }, [onScroll]);
 
   const circle = useAnimatedStyle(() => ({
     opacity: interpolate(pull.value, [0, 24], [0, 1], Extrapolation.CLAMP),
@@ -121,15 +141,17 @@ function FloatingRefresh({ Base, forwardedRef, refreshControl, onScroll, scrollE
 
   return (
     <>
-      <GestureDetector gesture={gesture}>
-        <Base
-          ref={forwardedRef}
-          {...rest}
-          bounces={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={scrollEventThrottle ?? 16}
-        />
-      </GestureDetector>
+      <Base
+        ref={forwardedRef}
+        {...rest}
+        bounces={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={scrollEventThrottle ?? 16}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
+      />
       {/* Floats over the content; never takes a touch. */}
       <View pointerEvents="none" style={{ position: 'absolute', top: insets.top - CIRCLE, left: 0, right: 0, alignItems: 'center' }}>
         <Animated.View
