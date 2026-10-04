@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';

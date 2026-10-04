@@ -1,8 +1,7 @@
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useMemo, useState } from 'react';
-import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
-  Alert, TextInput, } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, TextInput } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';

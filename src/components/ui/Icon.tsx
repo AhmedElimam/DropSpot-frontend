@@ -42,11 +42,14 @@ const ICON_MAP = {
   send: 'send',
   transfer: 'swap-horizontal',
   add: 'add',
-  // Direction glyphs are mapped the way the founder reads them in this RTL app
-  // (2026-10-03: «the arrows on the whole app are reversed»): `back` points RIGHT and a
-  // row's `forward`/disclosure chevron points LEFT. Change here, never per screen.
-  back: 'chevron-forward',
-  forward: 'chevron-back',
+  // Direction glyphs. NOTE the names are historical and read backwards: screens use
+  // `back` for a ROW's disclosure chevron and `forward` for the HEADER back button.
+  // RTL convention (founder 2026-10-04, reversing the 10-03 swap — «arrows look reversed»):
+  // the header back button points RIGHT (`forward` → chevron-forward) and a row's
+  // disclosure points LEFT (`back` → chevron-back). The week navigators rely on this too
+  // (previous week on the right, pointing right). Change here, never per screen.
+  back: 'chevron-back',
+  forward: 'chevron-forward',
   down: 'chevron-down',
   up: 'chevron-up',
   search: 'search',

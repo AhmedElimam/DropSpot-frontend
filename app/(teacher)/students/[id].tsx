@@ -1,5 +1,6 @@
 import { SheetModal } from '@/components/ui/SheetModal';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, Alert, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, Alert, TextInput } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { useState } from 'react';
 import { openRemotePdf } from '@/utils/openPdf';
 import { router, useLocalSearchParams, type Href } from 'expo-router';

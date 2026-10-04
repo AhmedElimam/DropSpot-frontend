@@ -173,7 +173,7 @@ export const dark: Palette = {
   ink: '#EEF2FF',
   inkSoft: '#AAB4E6',
   inkFaint: '#7682BF',
-  brand: '#8FA2FF',
+  brand: '#7489F2', // a little darker than #8FA2FF (founder 2026-10-04)
   brandDeep: '#0E1540',
   brandTint: '#28357F',
   accentWarm: '#FFB454',

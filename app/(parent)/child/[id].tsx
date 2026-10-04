@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { View, Text, ScrollView, TouchableOpacity, Modal, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ActivityIndicator, RefreshControl } from 'react-native';
+import { ScrollView, FlatList } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';

@@ -1,6 +1,7 @@
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { useConfigRule } from '@/hooks/useAppConfig';
 import { formatDate, formatDateTime, formatTime } from '@/utils/format';
 import { useTranslation } from 'react-i18next';

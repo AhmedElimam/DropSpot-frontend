@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import {
-  View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator,
-  RefreshControl, Alert, KeyboardAvoidingView, Platform,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
