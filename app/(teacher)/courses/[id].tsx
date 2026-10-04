@@ -7,12 +7,14 @@ import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
-import { formatTime12 } from '@/components/ui/TimePicker';
+import { TimePicker, formatTime12 } from '@/components/ui/TimePicker';
+import { SheetModal } from '@/components/ui/SheetModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { SelectField } from '@/components/ui/SelectField';
-import { FormScreen, FormCard, Field, Input, NumberInput, Stepper, SwitchRow, Banner } from '@/components/ui/Form';
+import { FormScreen, FormCard, Field, Input, NumberInput, Stepper, SwitchRow, Banner, DayPicker, TimeRangeRow } from '@/components/ui/Form';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
-import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule, useDeleteCourse } from '@/hooks/useCourses';
+import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule, useUpdateSchedule, useDeleteCourse } from '@/hooks/useCourses';
 import { getCourseFormOptions } from '@/api/courses';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
@@ -37,6 +39,7 @@ export default function CourseDetailScreen() {
   const saveSettings = useUpdateCourseSettings(id);
   const saveLocation = useUpdateCourseLocation(id);
   const removeSlot = useRemoveSchedule(id);
+  const [editing, setEditing] = useState<CourseSchedule | null>(null);
   const deleteCourse = useDeleteCourse(id);
 
   // Editable settings mirror the web edit form; seeded once the detail loads.
@@ -257,6 +260,12 @@ export default function CourseDetailScreen() {
                 </Text>
               </View>
               {canCourses ? (
+                <TouchableOpacity onPress={() => setEditing(slot)} accessibilityRole="button" accessibilityLabel={t('teacher.edit_slot_title')}
+                  style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
+                  <Icon name="note" size={18} color={colors.brand} />
+                </TouchableOpacity>
+              ) : null}
+              {canCourses ? (
                 <TouchableOpacity onPress={() => retireSlot(slot)} disabled={removeSlot.isPending} accessibilityRole="button" accessibilityLabel={t('teacher.retire_slot_confirm')}
                   style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
                   {removeSlot.isPending && removeSlot.variables === slot.id ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="trash" size={18} color={colors.danger} />}
@@ -267,6 +276,8 @@ export default function CourseDetailScreen() {
         )}
       </FormCard>
 
+      <EditSlotSheet courseId={id} slot={editing} onClose={() => setEditing(null)} />
+
       {/* Danger zone — hard-delete the whole course. Teacher only. */}
       {!isAssistant ? (
         <FormCard icon="warning" title="منطقة الخطر" hint="حذف المقرر نهائيًا يزيل مواعيده وحصصه وسجلّاته. لا يمكن التراجع. غير متاح إن كان به طلاب نشطون." tint={colors.danger} style={{ borderColor: colors.danger + '55' }}>
@@ -274,5 +285,66 @@ export default function CourseDetailScreen() {
         </FormCard>
       ) : null}
     </FormScreen>
+  );
+}
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Change a slot's day, time or capacity (founder 2026-10-04: «I cannot edit the time and day
+ * of the week»). Upcoming sessions nothing has touched move with it; held ones stay; the
+ * group's families are told — the server does all of that, this only asks.
+ */
+function EditSlotSheet({ courseId, slot, onClose }: { courseId: string; slot: CourseSchedule | null; onClose: () => void }) {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const update = useUpdateSchedule(courseId);
+  const [day, setDay] = useState(0);
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [capacity, setCapacity] = useState('');
+
+  useEffect(() => {
+    if (!slot) return;
+    setDay(slot.day_of_week);
+    setStart(slot.start_time);
+    setEnd(slot.end_time);
+    setCapacity(slot.capacity != null ? String(slot.capacity) : '');
+  }, [slot]);
+
+  const orderBad = TIME_RE.test(start) && TIME_RE.test(end) && end <= start;
+  const ready = TIME_RE.test(start) && TIME_RE.test(end) && !orderBad;
+
+  const save = () => {
+    if (!slot || !ready) return;
+    const cap = capacity.trim() ? Number(capacity.trim()) : null;
+    update.mutate(
+      { scheduleId: slot.id, payload: { day_of_week: day, start_time: start, end_time: end, capacity: cap && cap > 0 ? cap : null } },
+      {
+        onSuccess: () => { onClose(); Alert.alert('', t('teacher.edit_slot_done')); },
+        // A clash with another group names it — show the server's own sentence.
+        onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.edit_slot_failed')),
+      },
+    );
+  };
+
+  return (
+    <SheetModal visible={!!slot} onClose={onClose} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('teacher.edit_slot_title')}</Text>
+      <DayPicker value={day} onChange={setDay} tint={colors.accent} />
+      <Field label={t('teacher.schedule_start')} required>
+        <TimeRangeRow>
+          <View style={{ flex: 1 }}><TimePicker value={start || null} onChange={setStart} /></View>
+          <Text style={{ fontFamily: fonts.bold, color: colors.textTertiary }}>–</Text>
+          <View style={{ flex: 1 }}><TimePicker value={end || null} onChange={setEnd} invalid={orderBad} /></View>
+        </TimeRangeRow>
+      </Field>
+      {orderBad ? <Banner tone="danger" text={t('teacher.schedule_end_after')} style={{ marginTop: spacing.sm, marginBottom: 0 }} /> : null}
+      <Field label={t('teacher.schedule_capacity')}>
+        <NumberInput value={capacity} onChangeText={setCapacity} placeholder={t('teacher.optional')} maxLength={4} />
+      </Field>
+      <Banner tone="info" text={t('teacher.edit_slot_hint')} style={{ marginTop: spacing.md }} />
+      <Button title={t('teacher.edit_slot_save')} onPress={save} loading={update.isPending} disabled={!ready} variant="primary" />
+    </SheetModal>
   );
 }

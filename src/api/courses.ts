@@ -160,6 +160,19 @@ export async function updateCourseLocation(id: string | number, payload: Locatio
   return (data.data ?? data) as CourseDetail;
 }
 
+export interface ScheduleEditPayload {
+  day_of_week: number;
+  start_time: string; // HH:mm, 24h
+  end_time: string;
+  capacity?: number | null;
+}
+
+/** Change a slot's day / time / capacity; untouched upcoming sessions move with it. */
+export async function updateCourseSchedule(courseId: string | number, scheduleId: string | number, payload: ScheduleEditPayload): Promise<CourseDetail> {
+  const { data } = await client.patch(`/teacher/courses/${courseId}/schedules/${scheduleId}`, payload);
+  return (data.data ?? data) as CourseDetail;
+}
+
 export async function removeCourseSchedule(courseId: string | number, scheduleId: string | number): Promise<CourseDetail> {
   const { data } = await client.delete(`/teacher/courses/${courseId}/schedules/${scheduleId}`);
   return (data.data ?? data) as CourseDetail;

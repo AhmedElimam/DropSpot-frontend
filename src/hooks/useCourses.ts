@@ -7,6 +7,8 @@ import {
   updateCourseSettings,
   updateCourseLocation,
   removeCourseSchedule,
+  updateCourseSchedule,
+  type ScheduleEditPayload,
   deleteCourse,
   type CourseDetail,
   type CourseSettingsPayload,
@@ -59,6 +61,14 @@ export function useUpdateCourseLocation(id: string) {
   const sync = useSyncCourse(id);
   return useMutation({
     mutationFn: (payload: LocationPayload) => updateCourseLocation(id, payload),
+    onSuccess: sync,
+  });
+}
+
+export function useUpdateSchedule(courseId: string) {
+  const sync = useSyncCourse(courseId);
+  return useMutation({
+    mutationFn: ({ scheduleId, payload }: { scheduleId: string; payload: ScheduleEditPayload }) => updateCourseSchedule(courseId, scheduleId, payload),
     onSuccess: sync,
   });
 }
