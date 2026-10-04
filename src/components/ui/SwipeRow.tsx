@@ -15,6 +15,15 @@ export interface SwipeAction {
 const PANEL_W = 96;
 
 /**
+ * The strip along each side of the screen where iOS starts the back gesture. In RTL the
+ * back swipe starts at the RIGHT edge and moves left — the same motion that opens a row's
+ * action — so a row that also answered there moved one way while the page went back the
+ * other ("it glitches on directions on back motion", founder 2026-10-04). A drag that starts
+ * in this strip belongs to the page; rows only answer inside it.
+ */
+const EDGE_GUARD = 28;
+
+/**
  * A list row with a swipe action revealed under the right edge as the row is dragged
  * left, and optionally a second one under the left edge as it is dragged right. Past the threshold the action
  * fires and the row springs back — "swipe to read", nothing else (founder 2026-10-02:
@@ -51,6 +60,10 @@ export function SwipeRow({ action, leftAction, children, style }: {
       leftThreshold={64}
       overshootRight={false}
       overshootLeft={false}
+      hitSlop={{ left: -EDGE_GUARD, right: -EDGE_GUARD }}
+      // A deliberate sideways drag, not the first few points of a back swipe or a scroll.
+      dragOffsetFromLeftEdge={16}
+      dragOffsetFromRightEdge={16}
       renderRightActions={action ? (progress) => <Panel progress={progress} action={action} /> : undefined}
       renderLeftActions={leftAction ? (progress) => <Panel progress={progress} action={leftAction} /> : undefined}
       onSwipeableWillOpen={(d) => fire(d === 'left' ? 'left' : 'right')}
