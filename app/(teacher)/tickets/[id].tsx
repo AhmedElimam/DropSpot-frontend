@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
+import { useKeyboardShown } from '@/hooks/useKeyboardShown';
 
 const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
@@ -37,6 +37,7 @@ export default function TeacherTicketDetail() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const keyboardShown = useKeyboardShown();
   const user = useAuthStore((s) => s.user);
   const { can } = useActiveAbilities();
   const { data: ticket, isLoading, refetch } = useTicket(id ?? '');
@@ -81,7 +82,9 @@ export default function TeacherTicketDetail() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior="padding"
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        // No navigation header sits above this screen — its own hero is inside — so there is
+        // nothing to offset. The old 90 was a header that no longer exists: empty space.
+        keyboardVerticalOffset={0}
       >
         <LinearGradient
           colors={gradients.hero}
@@ -192,7 +195,7 @@ export default function TeacherTicketDetail() {
           <View
             style={{
               flexDirection: 'row', alignItems: 'flex-end', padding: spacing.md,
-              paddingBottom: spacing.md + insets.bottom, backgroundColor: colors.surface,
+              paddingBottom: spacing.md + (keyboardShown ? 0 : insets.bottom), backgroundColor: colors.surface,
               borderTopWidth: 1, borderTopColor: colors.border, gap: spacing.sm,
             }}
           >
