@@ -2157,6 +2157,7 @@
     "group_followup_sub": "الطلبات، التذاكر، الإشعارات"
   },
   "session_ui": {
+    "open_details": "تفاصيل الحصة",
     "upcoming": "قادمة",
     "minutes": "{{n}} دقيقة",
     "present_of": "حضر {{n}} من {{of}}",

@@ -28,6 +28,21 @@ function storage(): { getItem: (k: string) => Promise<string | null>; setItem: (
 
 export type SystemScheme = Scheme | null | undefined;
 
+/**
+ * Tell iOS / Android which style the APP is in, so native pieces (keyboard, date picker,
+ * an unstyled text field) match it. A pinned light or dark choice pins it; «follow the
+ * phone» releases it. The app follows the phone's dark mode since 2026-10-04 (the config
+ * used to force light, so iOS always answered «light»).
+ */
+function pinNative(preference: ThemePreference, scheme: Scheme): void {
+  try {
+    const { Appearance } = require('react-native');
+    Appearance?.setColorScheme?.(preference === 'system' ? null : scheme);
+  } catch {
+    // Not available (tests): the tokens still carry the scheme.
+  }
+}
+
 export function resolveScheme(preference: ThemePreference, system: SystemScheme): Scheme {
   if (preference === 'system') return system === 'dark' ? 'dark' : 'light';
   return preference;
@@ -57,6 +72,7 @@ export const useThemeStore = create<ThemeState>((set, get) => {
   const apply = (preference: ThemePreference, system: SystemScheme) => {
     const next = resolveScheme(preference, system);
     applyScheme(next);
+    pinNative(preference, next);
     if (next !== get().scheme) set({ scheme: next });
   };
 

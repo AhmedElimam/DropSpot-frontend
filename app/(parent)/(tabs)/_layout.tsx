@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { colors } from '@/theme/index';
 import { type IconName } from '@/components/ui/Icon';
 import { NotchTabBar } from '@/components/ui/NotchTabBar';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
@@ -11,7 +12,8 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","children","teachers","invoices","profile"]);
 const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
 
-// Five large, always-labelled tabs, أبنائي raised in the middle (founder 2026-10-03: «a cut
+// Five large, always-labelled tabs, أبنائي raised in the middle with the app's emblem
+// (founder 2026-10-04, like the teacher's الإدارة; 2026-10-03: «a cut
 // design on the middle nav for the most important tab»). Tickets left the bar on 2026-10-03
 // (Home's «المساعدة والدعم» opens them) so the bar has a middle.
 const TAB_ORDER = ['index', 'teachers', 'children', 'invoices', 'profile'] as const;
@@ -40,7 +42,7 @@ export default function ParentTabsLayout() {
       // Hardware back between tabs follows the visit history.
       backBehavior="history"
       screenLayout={sceneLayout}
-      tabBar={(props) => <NotchTabBar {...props} tabs={TAB_ORDER} center={CENTER_TAB} labels={labels} icons={icons} />}
+      tabBar={(props) => <NotchTabBar {...props} tabs={TAB_ORDER} center={CENTER_TAB} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
       screenOptions={({ route }) => ({
         headerShown: false,
         freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),

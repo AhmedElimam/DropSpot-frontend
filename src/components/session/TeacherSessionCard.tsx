@@ -101,6 +101,17 @@ export const SessionCard = memo(function SessionCard({
           </View>
         ) : null}
 
+        {/* Compact cards (Home's rest of the day) sit in a swipe row, where a tap on the card
+            competes with the swipe — a plain button opens the session (founder 2026-10-04). */}
+        {compact ? (
+          <TouchableOpacity onPress={() => onOpen(s)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('session_ui.open_details')}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 38, marginTop: 4, borderRadius: radius.md, borderWidth: 1.5, borderColor: phase === 'live' ? colors.success : colors.brand }}>
+            <Icon name="attendance" size={16} color={phase === 'live' ? colors.successText : colors.brand} outline />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: phase === 'live' ? colors.successText : colors.brand }}>{t('session_ui.open_details')}</Text>
+            <Icon name="back" size={14} color={phase === 'live' ? colors.successText : colors.brand} />
+          </TouchableOpacity>
+        ) : null}
+
         {actionable ? (
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 4 }}>
             {onScan ? (

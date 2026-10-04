@@ -19,12 +19,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'drosspot',
-  // LIGHT-ONLY, deliberately. The app ships a single palette (src/theme) with no dark
-  // variants, so 'automatic' was a lie: it left AppCompat in MODE_NIGHT_FOLLOW_SYSTEM,
-  // and expo-system-ui then paints the ROOT VIEW Color.BLACK on a device in dark mode —
-  // which is the black seen behind the splash logo while JS boots. MODE_NIGHT_NO keeps
-  // it white. Revisit only when a real dark palette exists.
-  userInterfaceStyle: 'light',
+  // FOLLOWS THE PHONE (2026-10-04). It was forced to 'light' while the app had one
+  // palette; with the Mist / Midnight schemes it must not be — 'light' made iOS answer
+  // «light» forever, so «follow the phone» never saw dark mode. Native controls are pinned
+  // to the app's own choice by the theme store (Appearance.setColorScheme), so a light
+  // choice on a dark phone cannot give white-on-white text fields.
+  userInterfaceStyle: 'automatic',
   // Explicit window/root background so it can never fall back to a night-mode default.
   // Matches the splash background below (one continuous colour from launch to first paint).
   backgroundColor: '#FBFBFB',
@@ -41,6 +41,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // iPhone-only — we don't support iPad, so don't declare tablet support (otherwise
     // App Store Connect demands iPad screenshots / capabilities).
     supportsTablet: false,
+    // The home-screen icon follows the phone: light, dark and tinted (iOS 18+). Read from
+    // app.json, where the three files are named; a plain `icon` here overrode them.
+    icon: (config.ios as { icon?: unknown } | undefined)?.icon as never ?? './assets/images/icon.png',
     // App uses only standard/exempt encryption (HTTPS) — declaring this avoids
     // EAS prompting (and crashing) on ITSAppUsesNonExemptEncryption at build.
     config: {
@@ -199,19 +202,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         image: './assets/images/splash-icon.png',
         imageWidth: 160,
         backgroundColor: '#FBFBFB',
-        // The dark variant is declared for ANDROID ONLY, on purpose. A cross-platform
-        // `dark` block makes expo-splash-screen force iOS to UIUserInterfaceStyle
-        // "Automatic", which quietly cancels `userInterfaceStyle: 'light'` above — and a
-        // light-only app following a dark-mode iPad renders unstyled TextInputs as white
-        // text on our near-white ground. Android needs its variant to pin
-        // values-night/colors.xml against OEM forced-dark; iOS does not.
-        android: {
-          image: './assets/images/splash-icon.png',
-          imageWidth: 160,
-          dark: {
-            image: './assets/images/splash-icon.png',
-            backgroundColor: '#FBFBFB',
-          },
+        // Dark mode (both platforms since 2026-10-04): the white emblem on the Midnight
+        // background, so a dark phone does not flash a white splash before a navy app.
+        dark: {
+          image: './assets/images/brand-logo.png',
+          backgroundColor: '#080E26',
         },
       },
     ],
