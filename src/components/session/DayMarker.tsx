@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { View, Text } from 'react-native';
 import { fonts } from '@/theme/typography';
 import { formatNumber } from '@/utils/format';
-import { PHASE_DOT, dotPhases } from '@/utils/sessionDays';
+import { PHASE_DOT, PHASE_COUNT, dotPhases } from '@/utils/sessionDays';
 import type { SessionPhase } from '@/utils/sessionPhase';
 
 /**
@@ -13,9 +13,10 @@ export const DayMarker = memo(function DayMarker({ phases, tone, selected }: { p
   const list = dotPhases(phases);
   const palette = PHASE_DOT()[selected ? 'light' : tone];
   if (list.length > 3) {
+    const [bg, fg] = PHASE_COUNT()[selected ? 'light' : tone][list[0]];
     return (
-      <View style={{ height: 14, minWidth: 18, paddingHorizontal: 4, borderRadius: 7, marginTop: 2, backgroundColor: palette[list[0]], alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 9, lineHeight: 13, color: '#fff' }}>{formatNumber(list.length)}</Text>
+      <View style={{ height: 15, minWidth: 19, paddingHorizontal: 4, borderRadius: 8, marginTop: 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 10, lineHeight: 14, color: fg }}>{formatNumber(list.length)}</Text>
       </View>
     );
   }

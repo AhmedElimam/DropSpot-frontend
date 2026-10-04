@@ -41,6 +41,27 @@ export const PHASE_DOT = (): Record<'light' | 'dark', Record<SessionPhase, strin
   dark: { live: '#4ADE9B', upcoming: colors.accent, done: 'rgba(255,255,255,0.45)', cancelled: '#FF7A8A' },
 });
 
+/**
+ * The count chip (four sessions or more): [background, text] per phase. A dot can be any
+ * colour, but a number needs contrast — white on the faded "done" grey was unreadable
+ * (founder 2026-10-04: «on previous days it's gray and text is white»).
+ */
+export const PHASE_COUNT = (): Record<'light' | 'dark', Record<SessionPhase, [string, string]>> => ({
+  light: {
+    live: [colors.success, '#FFFFFF'],
+    upcoming: [colors.brand, '#FFFFFF'],
+    done: [colors.surfaceSunken, colors.textSecondary],
+    cancelled: [colors.danger, '#FFFFFF'],
+  },
+  // On the ink hero (the same in both schemes).
+  dark: {
+    live: ['#4ADE9B', '#063D24'],
+    upcoming: [colors.accent, colors.onAccent],
+    done: ['rgba(255,255,255,0.88)', '#121D5C'],
+    cancelled: ['#FF7A8A', '#4A0712'],
+  },
+});
+
 /** Order the dots so the most pressing state shows first. */
 const RANK: Record<SessionPhase, number> = { live: 0, upcoming: 1, done: 2, cancelled: 3 };
 export function dotPhases(phases: SessionPhase[] | undefined): SessionPhase[] {

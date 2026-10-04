@@ -63,7 +63,17 @@
     "due_booking": "تحصيل دفعة الحجز",
     "collected_full": "تم التحصيل بالكامل",
     "collected_partial": "تم تحصيل {{amount}} ج.م — المتبقّي {{remaining}} ج.م",
-    "collect_failed": "تعذّر التحصيل. حاول مرة أخرى."
+    "collect_failed": "تعذّر التحصيل. حاول مرة أخرى.",
+    "f_owing": "عليهم مستحقات",
+    "f_all": "الكل",
+    "bill_line": "رسوم الحصص ({{n}} فاتورة)",
+    "paid_of": "دُفع {{paid}} من {{total}}",
+    "stat_out": "لم يُحصَّل بعد",
+    "stat_late": "متأخرون",
+    "stat_in": "تم تحصيله",
+    "search_ph": "ابحث بالاسم أو الكود",
+    "empty_filter": "لا يوجد طلاب في هذا التصنيف",
+    "half": "النصف"
   },
   "survey": {
     "later": "لاحقًا",
