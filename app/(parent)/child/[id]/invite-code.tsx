@@ -65,7 +65,7 @@ export default function InviteCodeScreen() {
       {/* Header */}
       <PageHero title="رمز التسجيل" subtitle={child?.name ?? undefined} onBack={true} compact />
 
-      <ScrollView contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl * 2, alignItems: 'center' }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl * 2, alignItems: 'center' }}>
         <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.xl }}>
           اعرض هذا الرمز للمعلم الآن ليُسجّل ابنك في حصصه. صالح لدقائق قليلة فقط — للاستخدام الفوري أمام المعلم، ولا يُرسل عبر واتساب.
         </Text>

@@ -20,7 +20,7 @@ export default function DevAvatars() {
   const p = Math.max(0, Number(page ?? 0) || 0);
   const slice = AVATAR_CHARACTERS.map((c, i) => [c, i] as const).slice(p * PER, p * PER + PER);
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ paddingTop: insets.top + spacing.md, paddingHorizontal: spacing.md, paddingBottom: insets.bottom + spacing.xl }}>
+    <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ paddingTop: insets.top + spacing.md, paddingHorizontal: spacing.md, paddingBottom: insets.bottom + spacing.xl }}>
       {slice.map(([c, i]) => (
         <View key={c} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
           <Text style={{ width: 74, fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary }}>{c}</Text>

@@ -287,7 +287,7 @@ export default function SessionDetailScreen() {
         <EmptyState icon="calendar" title={t('teacher.session_not_found')} />
       ) : (
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <FlatList
+        <FlatList showsVerticalScrollIndicator={false}
           data={mode === 'marks' ? marksList : list}
           keyExtractor={(a) => String(a.student_id)}
           renderItem={mode === 'marks'
@@ -435,7 +435,7 @@ export default function SessionDetailScreen() {
       {/* One student — mark, sheet grade, note. */}
       <SheetModal visible={!!current} onClose={() => setSelected(null)} avoidKeyboard style={{ backgroundColor: colors.background, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             {current ? (
-              <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
                   <Avatar name={current.name ?? '—'} seed={avatarSeed.student(current.student_id, current.name ?? '—')} size={48} />
                   <View style={{ flex: 1 }}>

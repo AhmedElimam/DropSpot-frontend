@@ -96,7 +96,7 @@ export default function TeacherRevisions() {
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
-        <FlatList
+        <FlatList showsVerticalScrollIndicator={false}
           data={list}
           keyExtractor={(r) => String(r.id)}
           renderItem={renderRow}

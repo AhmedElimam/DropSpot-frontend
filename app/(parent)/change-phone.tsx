@@ -88,7 +88,7 @@ export default function ChangePhoneScreen() {
       <PageHero title={t('auth.change_phone')} onBack={true} compact />
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl }}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl }}>
         {step === 'intro' ? (
           <>
             <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 26, color: colors.textSecondary, textAlign: 'right' }}>

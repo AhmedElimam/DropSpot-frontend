@@ -64,7 +64,7 @@ export default function RevisionMarks() {
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <FlatList
+        <FlatList showsVerticalScrollIndicator={false}
           removeClippedSubviews
           initialNumToRender={8}
           maxToRenderPerBatch={8}

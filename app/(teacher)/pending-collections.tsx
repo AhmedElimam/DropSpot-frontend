@@ -253,7 +253,7 @@ export default function TeacherPendingCollections() {
       ) : isError ? (
         <ErrorState onRetry={() => refetch()} />
       ) : (
-        <FlatList
+        <FlatList showsVerticalScrollIndicator={false}
           removeClippedSubviews
           initialNumToRender={8}
           maxToRenderPerBatch={8}

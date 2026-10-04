@@ -84,7 +84,7 @@ export default function CreateTicket() {
         style={{ flex: 1 }}
         behavior="padding"
       >
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl4 }}
           keyboardShouldPersistTaps="handled"
         >

@@ -174,7 +174,7 @@ export default function ImpersonatePicker() {
           {isFetching ? (
             <ActivityIndicator style={{ marginTop: spacing.xl }} color={colors.brand} />
           ) : (
-            <FlatList
+            <FlatList showsVerticalScrollIndicator={false}
               removeClippedSubviews
               initialNumToRender={8}
               maxToRenderPerBatch={8}

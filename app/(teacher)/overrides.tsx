@@ -189,7 +189,7 @@ export default function OverridesScreen() {
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
-        <FlatList
+        <FlatList showsVerticalScrollIndicator={false}
           data={rows}
           keyExtractor={(r) => r.key}
           renderItem={({ item }) => (

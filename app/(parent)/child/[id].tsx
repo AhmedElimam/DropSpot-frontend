@@ -431,7 +431,7 @@ export default function ChildDetailScreen() {
             <View style={{ paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
               <Text style={[textPresets.h3, { textAlign: 'center' }]}>{t('child_settings.switch_child')}</Text>
             </View>
-            <FlatList
+            <FlatList showsVerticalScrollIndicator={false}
               removeClippedSubviews
               initialNumToRender={8}
               maxToRenderPerBatch={8}

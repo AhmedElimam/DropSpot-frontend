@@ -49,7 +49,10 @@ type ScrollLikeProps = {
  * Without a refreshControl these are the plain React Native components.
  */
 function withFloatingRefresh<C extends ComponentType<any>>(Base: C): C {
-  const Wrapped = forwardRef<unknown, ScrollLikeProps>((props, ref) => {
+  const Wrapped = forwardRef<unknown, ScrollLikeProps>((given, ref) => {
+    // No scroll bars: a native app, not a web page (founder 2026-10-04). A screen can still
+    // ask for one explicitly.
+    const props: ScrollLikeProps = { showsVerticalScrollIndicator: false, showsHorizontalScrollIndicator: false, ...given };
     if (Platform.OS !== 'ios' || !props.refreshControl) {
       const B = Base as ComponentType<any>;
       return <B ref={ref} {...props} />;

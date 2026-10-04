@@ -88,7 +88,7 @@ export function SelectField({
               {emptyHint ?? '—'}
             </Text>
           ) : (
-            <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
+            <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled keyboardShouldPersistTaps="handled">
               {options.map((o, i) => {
                 const active = o.key === value;
                 return (

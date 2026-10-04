@@ -117,7 +117,7 @@ export default function TeacherSessions() {
         </View>
       </LinearGradient>
 
-      <FlatList
+      <FlatList showsVerticalScrollIndicator={false}
         data={list}
         keyExtractor={(s) => s.id}
         renderItem={({ item }) => (

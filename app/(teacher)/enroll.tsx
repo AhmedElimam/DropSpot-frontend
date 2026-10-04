@@ -212,7 +212,7 @@ export default function TeacherEnroll() {
         {isLoading ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.xl }} />
         ) : (
-          <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.sm }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.sm }}>
             {(classes ?? []).length === 0 ? (
               <Text style={{ fontFamily: fonts.regular, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xl }}>
                 لا توجد مقررات لها مواعيد. أضِف موعدًا للمقرر أولًا.

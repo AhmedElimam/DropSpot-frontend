@@ -51,7 +51,7 @@ export function TeacherSwitcher() {
               <TouchableOpacity onPress={() => setOpen(false)}><Icon name="forward" size={24} color={colors.textSecondary} /></TouchableOpacity>
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.lg }}>{t('teacher.switch_teacher_hint')}</Text>
-            <ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false}>
               {teachers.map((tt) => {
                 const isActive = tt.teacher_id === active.teacher_id;
                 const busy = switchTeacher.isPending && switchTeacher.variables === tt.teacher_id;

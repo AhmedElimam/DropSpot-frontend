@@ -55,7 +55,7 @@ export function WhatsNewModal() {
             <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, marginTop: spacing.md, textAlign: 'center' }}>{note.title || t('whats_new.title')}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginTop: 2 }}>{t('whats_new.version', { version: note.version })}</Text>
           </View>
-          <ScrollView style={{ marginTop: spacing.lg }} contentContainerStyle={{ gap: spacing.sm }}>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: spacing.lg }} contentContainerStyle={{ gap: spacing.sm }}>
             {note.lines.map((line, i) => (
               <View key={i} style={{ flexDirection: 'row', gap: spacing.sm }}>
                 <Icon name="success" size={16} color={colors.brand} />

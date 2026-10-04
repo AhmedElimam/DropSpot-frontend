@@ -117,7 +117,7 @@ export default function BookingRequestsScreen() {
 
       {/* Accept sheet: the student, then the same «شروط التسجيل» every door shows. */}
       <SheetModal visible={!!accepting} onClose={() => setAccepting(null)} avoidKeyboard style={{ backgroundColor: colors.background, maxHeight: '90%', paddingBottom: insets.bottom + spacing.lg }}>
-            <ScrollView contentContainerStyle={{ padding: spacing.xl }} keyboardShouldPersistTaps="handled">
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl }} keyboardShouldPersistTaps="handled">
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('booking_requests.accept_confirm_title')}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.lg }}>
                 {accepting ? t('booking_requests.accept_confirm_hint', { name: accepting.student_name, course: accepting.course_name ?? '' }) : ''}

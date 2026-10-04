@@ -65,7 +65,7 @@ export default function ExpenseThreadScreen() {
       {isLoading || !data ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
-        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
           {e?.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>{e.note}</Text> : null}
           {data.messages.map((m) => (
             <View key={m.id} style={{ alignSelf: m.is_me ? 'flex-start' : 'flex-end', maxWidth: '85%', backgroundColor: m.is_me ? colors.brand + '14' : colors.surface, borderWidth: 1, borderColor: m.is_me ? colors.brand + '33' : colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm }}>

@@ -83,7 +83,7 @@ export default function TeacherCourses() {
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
-        <FlatList
+        <FlatList showsVerticalScrollIndicator={false}
           data={list}
           keyExtractor={(c) => c.id}
           renderItem={({ item }) => <CourseRow c={item} onPress={open} />}

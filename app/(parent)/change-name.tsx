@@ -78,7 +78,7 @@ export default function ChangeNameScreen() {
       <PageHero title={isFirstLogin ? 'تأكيد اسمك' : 'تعديل الاسم'} onBack={!isFirstLogin} compact />
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg }}>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.lg, lineHeight: 22 }}>
             {isFirstLogin
               ? 'سجّلك معلّم أبنائك برقم هاتفك، واسمك مأخوذ من اسم ابنك. تأكّد أنه مكتوب صحيحًا — هكذا سيظهر لمعلّمي أبنائك.'

@@ -256,7 +256,7 @@ export default function TeacherAssistants() {
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>المساعدون</Text>
       </View>
 
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false}
         // The tab bar floats over the content (position: absolute), so its height has to
         // be part of the padding or the last assistant card sits underneath it.
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}

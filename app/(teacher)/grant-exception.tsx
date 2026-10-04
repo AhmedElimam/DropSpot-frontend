@@ -90,7 +90,7 @@ export default function GrantException() {
       ) : null}
 
       {selected ? (
-        <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl }} keyboardShouldPersistTaps="handled">
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl }} keyboardShouldPersistTaps="handled">
           {/* Selected student card + jump to profile */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>
             <Avatar name={selected.name} seed={avatarSeed.student(selected.id, selected.name)} size={48} />
@@ -157,7 +157,7 @@ export default function GrantException() {
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : (
-            <FlatList
+            <FlatList showsVerticalScrollIndicator={false}
               removeClippedSubviews
               initialNumToRender={8}
               maxToRenderPerBatch={8}

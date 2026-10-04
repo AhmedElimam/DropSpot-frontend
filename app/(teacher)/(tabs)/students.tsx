@@ -279,7 +279,7 @@ export default function TeacherStudents() {
           {studentsLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : (
-            <SectionList
+            <SectionList showsVerticalScrollIndicator={false}
               sections={sections}
               keyExtractor={(s) => s.id}
               renderItem={renderStudent}
@@ -334,7 +334,7 @@ export default function TeacherStudents() {
           {cardOrders.isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : (
-            <FlatList
+            <FlatList showsVerticalScrollIndicator={false}
               removeClippedSubviews
               initialNumToRender={8}
               maxToRenderPerBatch={8}
