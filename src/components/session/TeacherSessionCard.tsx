@@ -49,12 +49,15 @@ export const SessionCard = memo(function SessionCard({
   const total = s.enrolled_count ?? 0;
   const actionable = !compact && (phase === 'live' || phase === 'upcoming');
   const [clock, meridiem] = (s.time ?? '').split(' ');
+  // A compact card (Home's rest of the day) is NOT tappable: it sits in a swipe row, and a
+  // tap on the card opened the session while swiping. Only its «تفاصيل الحصة» button opens it
+  // (founder 2026-10-04). Full cards stay tappable as a whole.
+  const Shell = (compact ? View : TouchableOpacity) as typeof TouchableOpacity;
+  const press = compact ? {} : { onPress: () => onOpen(s), activeOpacity: 0.85, accessibilityRole: 'button' as const };
 
   return (
-    <TouchableOpacity
-      onPress={() => onOpen(s)}
-      activeOpacity={0.85}
-      accessibilityRole="button"
+    <Shell
+      {...press}
       style={{
         flexDirection: 'row', backgroundColor: phase === 'live' ? colors.successLight : colors.surface,
         borderRadius: radius.xl, borderWidth: 1, borderColor: phase === 'live' ? colors.success : colors.border,
@@ -101,8 +104,7 @@ export const SessionCard = memo(function SessionCard({
           </View>
         ) : null}
 
-        {/* Compact cards (Home's rest of the day) sit in a swipe row, where a tap on the card
-            competes with the swipe — a plain button opens the session (founder 2026-10-04). */}
+        {/* The compact card's only way into the session (see Shell above). */}
         {compact ? (
           <TouchableOpacity onPress={() => onOpen(s)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('session_ui.open_details')}
             style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 38, marginTop: 4, borderRadius: radius.md, borderWidth: 1.5, borderColor: phase === 'live' ? colors.success : colors.brand }}>
@@ -129,6 +131,6 @@ export const SessionCard = memo(function SessionCard({
           </View>
         ) : null}
       </View>
-    </TouchableOpacity>
+    </Shell>
   );
 });

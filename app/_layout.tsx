@@ -3,6 +3,7 @@ import { setQueryClient } from '@/lib/queryClientRef';
 import { I18nManager, View, ActivityIndicator, Text, TextInput, AppState, useColorScheme, type AppStateStatus } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
@@ -140,6 +141,23 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
     useThemeStore.getState().systemChanged(system);
   }, [system]);
 
+  // The native splash stays up until THIS gate is ready — the saved login and appearance
+  // restored — so it hands over straight to the first real screen. It used to come down as
+  // soon as the fonts loaded, leaving a bare spinner page between the splash and the app
+  // (founder 2026-10-04). Both reads are local (SecureStore), so this is milliseconds; the
+  // root's five-second fallback still releases it if something hangs.
+  const ready = !isLoading && themeReady;
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
+
+  // The NATIVE root view's colour follows the scheme too: it is what shows behind a screen
+  // while it slides, a keyboard opens, or the app resumes — light on a navy app otherwise.
+  const scheme = useThemeStore((s) => s.scheme);
+  useEffect(() => {
+    if (themeReady) SystemUI.setBackgroundColorAsync(colors.background).catch(() => {});
+  }, [themeReady, scheme]);
+
   // While a session is being swapped (entering/leaving impersonation), cover the app: the
   // screens underneath would otherwise render one person's UI with the other's session.
   const switching = useAuthStore((s) => s.switching);
@@ -184,12 +202,12 @@ export default function RootLayout() {
     }
   }, [fontError]);
 
-  // Hide on fonts loaded OR on a font error — the old condition checked only
+  // Render on fonts loaded OR on a font error — the old condition checked only
   // `fontsLoaded`, so a font that failed to load left the splash on screen forever
-  // with a fully rendered, completely untouchable app underneath it.
+  // with a fully rendered, completely untouchable app underneath it. The splash itself
+  // comes down in HydrationGate, once the first real screen can paint.
   useEffect(() => {
     if ((fontsLoaded || fontError) && !splashHidden) {
-      SplashScreen.hideAsync().catch(() => {});
       setSplashHidden(true);
     }
   }, [fontsLoaded, fontError, splashHidden]);

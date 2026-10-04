@@ -26,8 +26,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // choice on a dark phone cannot give white-on-white text fields.
   userInterfaceStyle: 'automatic',
   // Explicit window/root background so it can never fall back to a night-mode default.
-  // Matches the splash background below (one continuous colour from launch to first paint).
-  backgroundColor: '#FBFBFB',
+  // The app's own Mist background, and the splash's below: one colour from launch to the
+  // first screen. Its night twin (Midnight) comes from withAndroidNightWindowBackground on
+  // Android; iOS gets it from the root layout (SystemUI) once JS runs, behind the splash.
+  backgroundColor: '#F4F1EB',
   ios: {
     bundleIdentifier: 'com.drosspot.app',
     // App Store Connect rejects a re-used build number. CI stamps the run number via
@@ -147,6 +149,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // twice as often on a chip no faster than a 60 Hz phone's — sustained heat for nothing an
   // attendance app needs. Build-time (MainActivity), so it ships only in a native build.
   ['./plugins/withAndroidRefreshRateCap', { maxHz: 60 }],
+  // Android: the window behind the app is navy at night too (see the plugin) — no light
+  // flash between the dark splash and the first screen.
+  ['./plugins/withAndroidNightWindowBackground', { color: '#080E26' }],
   // withRNFirebaseDisableSPM MUST come before the RNFirebase plugins so the Podfile global is set.
   './plugins/withRNFirebaseDisableSPM',
   '@react-native-firebase/app',
@@ -202,13 +207,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-splash-screen',
       {
+        // Follows the phone (2026-10-04): the logo on the app's own background in each mode,
+        // so the splash hands over to the first screen without a colour change.
+        //  - Both images are 700×700 with the SAME padding (logo ≈ 74% wide, centred). Android
+        //    12+ draws the splash logo inside a circle; the dark one used to be the edge-to-edge
+        //    brand-logo.png, larger than the light logo and cut by that circle.
+        //  - Colours = the Mist / Midnight `background` tokens (src/theme/palettes.ts).
         image: './assets/images/splash-icon.png',
         imageWidth: 160,
-        backgroundColor: '#FBFBFB',
-        // Dark mode (both platforms since 2026-10-04): the white emblem on the Midnight
-        // background, so a dark phone does not flash a white splash before a navy app.
+        backgroundColor: '#F4F1EB',
         dark: {
-          image: './assets/images/brand-logo.png',
+          image: './assets/images/splash-icon-dark.png',
           backgroundColor: '#080E26',
         },
       },
