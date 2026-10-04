@@ -41,8 +41,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // iPhone-only — we don't support iPad, so don't declare tablet support (otherwise
     // App Store Connect demands iPad screenshots / capabilities).
     supportsTablet: false,
-    // The home-screen icon follows the phone: light, dark and tinted (iOS 18+). Read from
-    // app.json, where the three files are named; a plain `icon` here overrode them.
+    // The home-screen icon is an Icon Composer document (assets/app.icon, named in app.json):
+    // iOS 26 renders it as real glass in the Clear and tinted styles, like Apple's own icons
+    // (founder 2026-10-04: a flat PNG looked out of place). Light = navy logo on white,
+    // dark = cream on navy, Clear/tinted = white logo. Xcode 26 also bakes the older-iOS PNGs
+    // from it. A plain `icon` here would override it.
     icon: (config.ios as { icon?: unknown } | undefined)?.icon as never ?? './assets/images/icon.png',
     // App uses only standard/exempt encryption (HTTPS) — declaring this avoids
     // EAS prompting (and crashing) on ITSAppUsesNonExemptEncryption at build.

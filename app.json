@@ -24,11 +24,7 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "buildNumber": "30",
-      "icon": {
-        "light": "./assets/images/icon.png",
-        "dark": "./assets/images/ios-icon-dark.png",
-        "tinted": "./assets/images/ios-icon-tinted.png"
-      }
+      "icon": "./assets/app.icon"
     },
     "android": {
       "package": "com.drosspot.app",
