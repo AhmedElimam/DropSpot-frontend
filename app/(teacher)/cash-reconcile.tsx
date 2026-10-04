@@ -835,6 +835,10 @@ export default function CashReconcileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* The notch strip, in the hero's own colours. The list scrolls BELOW it, so the sticky
+          segments stop under the status bar instead of sliding beneath the notch with the
+          page under the clock (founder 2026-10-04). */}
+      <LinearGradient colors={[gradients.hero[0], gradients.hero[1]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: insets.top }} />
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.onHero} />}
@@ -843,7 +847,7 @@ export default function CashReconcileScreen() {
         stickyHeaderIndices={[1]}
       >
         {/* Hero: her greeting, the week, the gear — SHORT, so the segments sit in the first screen. */}
-        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.md, paddingBottom: spacing.xl }}>
+        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
             <TouchableOpacity onPress={() => router.back()} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="forward" size={22} color={colors.onHero} />
