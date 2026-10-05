@@ -56,6 +56,7 @@ export function useFileGradeComplaint() {
       qc.invalidateQueries({ queryKey: ['grades'] });
       qc.invalidateQueries({ queryKey: ['exam-results'] });
       qc.invalidateQueries({ queryKey: ['reports', 'grades'] });
+      qc.invalidateQueries({ queryKey: ['student-teacher-detail'] });
     },
   });
 }

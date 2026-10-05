@@ -1,29 +1,38 @@
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet } from 'react-native';
-import { fonts } from '@/theme/typography';
-import { colors, radius } from '@/theme/index';
-import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import { colors } from '@/theme/index';
+import { type IconName } from '@/components/ui/Icon';
+import { NotchTabBar } from '@/components/ui/NotchTabBar';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
-// The four tabs (the student bar is the stock one — founder 2026-10-03: leave it alone).
-// Every other student screen lives in the stack around this navigator
+// The five tabs. Every other student screen lives in the stack around this navigator
 // (app/(student)/_layout.tsx), so it has the iOS edge swipe back (founder 2026-10-04).
-const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","check-in","invoices","profile"]);
+const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","check-in","chat","invoices","profile"]);
 const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
+
+// The same notched bar as the teacher and the parent, the app's emblem in the raised middle
+// (founder 2026-10-06 — it replaces the stock bar the student kept until now). The middle is
+// «سوا»: group chat and threads, a coming-soon screen until they open.
+const TAB_ORDER = ['index', 'check-in', 'chat', 'invoices', 'profile'] as const;
+const CENTER_TAB = 'chat';
+const labels: Record<string, string> = {
+  index: 'nav.dashboard',
+  'check-in': 'nav.check_in',
+  chat: 'together.tab',
+  invoices: 'nav.invoices',
+  profile: 'nav.profile',
+};
 
 const icons: Record<string, IconName> = {
   index: 'home',
   'check-in': 'attendance',
+  chat: 'chat',
   invoices: 'invoices',
   profile: 'profile',
 };
 
 export default function StudentTabsLayout() {
-  const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   // Freezing the hidden tabs is a super-admin FLAG, off by default (react-native-screens #2971).
   const freezeTabs = useFeatureFlags().data?.freeze_hidden_tabs === true;
   return (
@@ -33,61 +42,16 @@ export default function StudentTabsLayout() {
       // to the Home tab.
       backBehavior="history"
       screenLayout={sceneLayout}
+      tabBar={(props) => <NotchTabBar {...props} tabs={TAB_ORDER} center={CENTER_TAB} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
       screenOptions={({ route }) => ({
         headerShown: false,
         freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),
-        tabBarStyle: {
-          // OPAQUE on purpose. A translucent bar (this was rgba(...,0.92)) is a floating,
-          // absolutely-positioned overlay, so every frame Android had to re-composite the
-          // scene BEHIND it — on every screen, in every role. Together with elevation 8 and
-          // two rounded corners that is continuous GPU work and a measurable heat source on
-          // mid-range chips (Redmi Note 11S / Helio G96, 2026-09-22). Opaque + a hairline
-          // rule keeps the same lifted look for free.
-          backgroundColor: colors.tabBar,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.border,
-          paddingTop: 8,
-          paddingBottom: 10 + insets.bottom,
-          height: 64 + insets.bottom,
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          elevation: 0,
-          borderTopLeftRadius: radius.xl,
-          borderTopRightRadius: radius.xl,
-        },
-        tabBarLabel: ({ focused }) => (
-          <Text
-            style={{
-              fontFamily: fonts.medium,
-              fontSize: 11,
-              color: focused ? colors.tabActive : colors.tabInactive,
-              marginTop: 2,
-            }}
-          >
-            {route.name === 'index' ? t('nav.dashboard') : route.name === 'check-in' ? t('nav.check_in') : route.name === 'invoices' ? t('nav.invoices') : t('nav.profile')}
-          </Text>
-        ),
-        tabBarIcon: ({ focused }) => (
-          <View
-            style={{
-              opacity: focused ? 1 : 0.55,
-              transform: [{ scale: focused ? 1.08 : 1 }],
-            }}
-          >
-            <Icon
-              name={icons[route.name] || 'home'}
-              size={24}
-              color={focused ? colors.tabActive : colors.tabInactive}
-              outline={!focused}
-            />
-          </View>
-        ),
+        sceneStyle: { backgroundColor: colors.background },
       })}
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="check-in" />
+      <Tabs.Screen name="chat" />
       <Tabs.Screen name="invoices" />
       <Tabs.Screen name="profile" />
     </Tabs>

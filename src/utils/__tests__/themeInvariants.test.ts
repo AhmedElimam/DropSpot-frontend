@@ -114,13 +114,6 @@ describe('a module-level style function is always CALLED where it is spread', ()
 
 describe('tab bars and auth screens use the right tokens', () => {
   // The student bar is the stock one; the teacher and parent bars are NotchTabBar.
-  it.each(['app/(student)/(tabs)/_layout.tsx'])('%s bar is tokenised', (file) => {
-    const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    expect(src).toContain('backgroundColor: colors.tabBar');
-    expect(src).toContain('colors.tabActive : colors.tabInactive');
-    expect(src).not.toMatch(/backgroundColor: '#FFFFFF'/);
-  });
-
   it('the notched bar is tokenised', () => {
     const src = fs.readFileSync(path.join(ROOT, 'src/components/ui/NotchTabBar.tsx'), 'utf8');
     expect(src).toContain('fill={colors.tabBar}');
@@ -129,7 +122,8 @@ describe('tab bars and auth screens use the right tokens', () => {
     expect(src).not.toMatch(/backgroundColor: '#FFFFFF'/);
   });
 
-  it.each(['app/(teacher)/(tabs)/_layout.tsx', 'app/(parent)/(tabs)/_layout.tsx'])('%s mounts the notched bar with a centre tab', (file) => {
+  // The student joined the notched bar on 2026-10-06 (founder: «the logo as same as teacher and parents»).
+  it.each(['app/(teacher)/(tabs)/_layout.tsx', 'app/(parent)/(tabs)/_layout.tsx', 'app/(student)/(tabs)/_layout.tsx'])('%s mounts the notched bar with a centre tab', (file) => {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
     expect(src).toContain('<NotchTabBar');
     expect(src).toMatch(/const CENTER_TAB = '[a-z]+'/);

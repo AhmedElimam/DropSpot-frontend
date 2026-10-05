@@ -20,6 +20,7 @@ import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
 import { AttendanceRecordList } from '@/components/attendance/AttendanceRecordList';
 import { ComplaintSheet, type ComplaintTarget } from '@/components/student/ComplaintSheet';
+import { GradeComplaintSheet, GradeComplaintStatus, gradeTargetFromExam, type GradeComplaintTarget } from '@/components/complaints/GradeComplaintSheet';
 import type { AttendanceRecord } from '@/types/attendance';
 
 /**
@@ -42,6 +43,8 @@ export default function StudentTeacherPage() {
   const complaints = useMyComplaints();
   const { refreshing, onRefresh } = usePullRefresh(q.refetch, complaints.refetch);
   const [complaintTarget, setComplaintTarget] = useState<ComplaintTarget | null>(null);
+  // «اعتراض على الدرجة» on a sheet mark or an exam, as on the marks page (founder 2026-10-06).
+  const [gradeTarget, setGradeTarget] = useState<GradeComplaintTarget | null>(null);
   const d = q.data;
 
   const rate = d && d.total > 0 ? Math.round((d.present / d.total) * 100) : null;
@@ -170,6 +173,10 @@ export default function StudentTeacherPage() {
                       {formatNumber(m.score)}{m.max_score != null ? `/${formatNumber(m.max_score)}` : ''}
                     </Text>
                   </View>
+                  <GradeComplaintStatus
+                    complaint={m.complaint}
+                    onComplain={m.attendance_record_id ? () => setGradeTarget({ source: 'session', recordId: m.attendance_record_id as number, title: m.course_name ?? t('student_teacher.marks'), date: m.date, mark: m.score, max: m.max_score }) : undefined}
+                  />
                 </View>
               );
             })}
@@ -183,7 +190,8 @@ export default function StudentTeacherPage() {
             ) : d.exams.map((e, i) => {
               const pass = e.pct != null ? e.pct >= 50 : true;
               return (
-                <View key={`${e.date}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: i < d.exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                <View key={`${e.source}-${e.attendance_record_id ?? e.revision_attendance_id ?? i}`} style={{ paddingVertical: spacing.md, borderBottomWidth: i < d.exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
                   <View style={{ width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: pass ? colors.successLight : colors.dangerLight }}>
                     <Icon name="reports" size={20} color={pass ? colors.success : colors.danger} />
                   </View>
@@ -197,6 +205,14 @@ export default function StudentTeacherPage() {
                     </Text>
                     {e.pct != null ? <Text style={textPresets.caption}>{formatNumber(e.pct)}%</Text> : null}
                   </View>
+                </View>
+                <GradeComplaintStatus
+                  complaint={e.complaint}
+                  onComplain={(() => {
+                    const target = gradeTargetFromExam(e, t('student_teacher.exams'));
+                    return target ? () => setGradeTarget(target) : undefined;
+                  })()}
+                />
                 </View>
               );
             })}
@@ -216,6 +232,7 @@ export default function StudentTeacherPage() {
       </ScrollView>
 
       <ComplaintSheet visible={!!complaintTarget} onClose={() => setComplaintTarget(null)} target={complaintTarget} />
+      <GradeComplaintSheet visible={!!gradeTarget} onClose={() => setGradeTarget(null)} target={gradeTarget} />
     </View>
   );
 }

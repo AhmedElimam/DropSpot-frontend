@@ -1,4 +1,5 @@
 import client from './client';
+import type { GradeComplaintState } from './complaints';
 
 /** One course the student attends under a teacher, with how attendance stands there. */
 export interface StudentCourseStanding {
@@ -55,6 +56,10 @@ export interface StudentTeacherUpcoming {
 
 export interface StudentTeacherMark {
   id: number;
+  /** The record a «اعتراض على الدرجة» points at. */
+  attendance_record_id?: number;
+  /** The newest grade complaint on this mark, if any. */
+  complaint?: GradeComplaintState | null;
   course_name: string | null;
   date: string | null;
   score: number;
@@ -69,6 +74,9 @@ export interface StudentTeacherExam {
   max: number | null;
   pct: number | null;
   source: 'session' | 'revision';
+  attendance_record_id?: number;
+  revision_attendance_id?: number;
+  complaint?: GradeComplaintState | null;
 }
 
 /** One teacher in depth: courses, next and past sessions, sheet marks and exam results. */

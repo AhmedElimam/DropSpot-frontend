@@ -31,6 +31,7 @@ const ICON_MAP = {
   kids: 'happy',
   clock: 'time',
   quiz: 'document-text',
+  chat: 'chatbubbles',
   grades: 'ribbon',
   attendance: 'checkmark-circle',
   present: 'checkmark-circle',
@@ -85,6 +86,8 @@ const ICON_MAP = {
   image: 'image',
   brush: 'brush',
   undo: 'arrow-undo',
+  // Threads («النقاشات») — also the student's «سوا» coming-soon tab.
+  threads: 'chatbox-ellipses',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;
