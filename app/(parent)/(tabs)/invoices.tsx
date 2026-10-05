@@ -199,7 +199,7 @@ function InvoiceCard({ invoice }: { invoice: Invoice }) {
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('complaints.file_payment')}</Text>
         </TouchableOpacity>
       ) : null}
-      <ComplaintSheet visible={complainOpen} onClose={() => setComplainOpen(false)} forStudentId={invoice.student_id ?? null} target={{ type: 'payment', invoiceId: Number(invoice.id), invoiceNumber: invoice.number, amount: invoice.amount }} />
+      <ComplaintSheet visible={complainOpen} onClose={() => setComplainOpen(false)} forStudentId={invoice.student_id ?? null} target={{ type: 'payment', invoiceId: Number(invoice.id), invoiceNumber: invoice.number, amount: invoice.amount, remaining: invoice.remaining }} />
     </TouchableOpacity>
   );
 }

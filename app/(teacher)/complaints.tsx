@@ -21,18 +21,22 @@ import { cleanMarkInput, formatMark, parseMarkInput } from '@/utils/markInput';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatDate, formatNumber, timeAgo } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
-import type { Complaint, ComplaintBucket } from '@/api/complaints';
+import { ledgerMethodFor, type Complaint, type ComplaintBucket, type LedgerMethod } from '@/api/complaints';
 
 /**
  * «الاعتراضات» — the staff bucket (founder 2026-10-03). Three segments: what waits for a
  * decision, what an ASSISTANT decided and the teacher has not yet seen (teacher only), and
- * the recent record. Approving applies the correction (a mark, the invoice marked paid, or
- * a grade rewritten); an assistant sees only the kinds their abilities let them decide.
+ * the recent record. Approving applies the correction (a mark, a payment recorded, or a
+ * grade rewritten); an assistant sees only the kinds their abilities let them decide.
  *
  * Grade complaints («اعتراض على الدرجة», 2026-10-05) carry the recorded and claimed marks
  * and the family's photo of the paper with what they drew on it. Approving one asks for the
  * corrected mark. A merged-exam grade is the teacher's alone (the server answers an
  * assistant TEACHER_ONLY), so an assistant never sees decide buttons on those rows.
+ *
+ * A payment complaint is recorded like any payment (founder review 2026-10-05): approving
+ * confirms the AMOUNT really paid (a part, for a part-paid invoice), CASH or a TRANSFER, and
+ * for cash WHO received it. A transfer enters no drawer; cash enters the receiver's drawer.
  */
 export default function ComplaintsScreen() {
   const { t } = useTranslation();
@@ -49,9 +53,15 @@ export default function ComplaintsScreen() {
   // Approving a grade complaint: the corrected mark, prefilled with what was asked for.
   const [grading, setGrading] = useState<Complaint | null>(null);
   const [markText, setMarkText] = useState('');
+  // Approving a payment: the amount, cash or transfer, and for cash who received it.
+  const [paying, setPaying] = useState<Complaint | null>(null);
+  const [payText, setPayText] = useState('');
+  const [payMethod, setPayMethod] = useState<LedgerMethod | null>(null);
+  const [payReceiver, setPayReceiver] = useState<number | null>(null);
 
   const counts = q.data?.counts ?? { pending: 0, review: 0 };
   const can = q.data?.can_decide ?? { attendance: false, payment: false, grade: false };
+  const receivers = q.data?.receivers ?? [];
   const canDecideRow = (c: Complaint) =>
     c.type === 'attendance' ? can.attendance
       : c.type === 'payment' ? can.payment
@@ -67,6 +77,14 @@ export default function ComplaintsScreen() {
       const start = c.claimed_mark ?? c.recorded_mark;
       setMarkText(start !== null && start !== undefined ? formatMark(start) : '');
       setGrading(c);
+      return;
+    }
+    if (c.type === 'payment') {
+      const start = c.claimed_amount ?? c.invoice_remaining ?? null;
+      setPayText(start !== null && start !== undefined ? formatMark(start) : '');
+      setPayMethod(ledgerMethodFor(c.paid_method));
+      setPayReceiver(receivers.find((r) => r.is_me)?.id ?? null);
+      setPaying(c);
       return;
     }
     const claimLabel = c.claim === 'present' ? t('attendance.present') : t('attendance.absent');
@@ -98,6 +116,25 @@ export default function ComplaintsScreen() {
     if (!grading || !canApproveMark || markValue === null) return;
     approve.mutate({ id: grading.id, mark: markValue }, {
       onSuccess: () => { setGrading(null); setMarkText(''); },
+      onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+    });
+  };
+
+  const payDue = paying?.invoice_remaining ?? null;
+  const payValue = parseMarkInput(payText);
+  const payError = !paying || !payText.trim()
+    ? null
+    : payValue === null || payValue <= 0
+      ? t('complaints.amount_min')
+      : payDue !== null && payValue > payDue + 0.001
+        ? t('complaints.amount_max', { amount: formatEGP(payDue) })
+        : null;
+  const canApprovePay = !!paying && payValue !== null && payValue > 0 && !payError && !!payMethod
+    && (payMethod !== 'cash' || payReceiver !== null) && !approve.isPending;
+  const sendPayment = () => {
+    if (!paying || !canApprovePay || payValue === null || !payMethod) return;
+    approve.mutate({ id: paying.id, amount: payValue, method: payMethod, received_by: payMethod === 'cash' ? payReceiver ?? undefined : undefined }, {
+      onSuccess: () => { setPaying(null); setPayText(''); },
       onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
     });
   };
@@ -216,6 +253,65 @@ export default function ComplaintsScreen() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>{t('complaints.grade.approve_confirm')}</Text>
         </TouchableOpacity>
       </SheetModal>
+
+      {/* Approve a payment: what was really paid, how, and — for cash — whose drawer it is in. */}
+      <SheetModal visible={!!paying} onClose={() => setPaying(null)} avoidKeyboard style={{ backgroundColor: colors.surface }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('complaints.approve_payment_title')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md }}>
+          {paying ? `${paying.student_name ?? ''} · ${t('complaints.payment_label', { number: paying.invoice_number ?? '—', amount: formatEGP(paying.invoice_amount ?? 0) })}\n${t('complaints.approve_payment_hint')}` : ''}
+        </Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('complaints.paid_how_much')}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <TextInput
+            value={payText}
+            onChangeText={(v) => setPayText(cleanMarkInput(v).slice(0, 9))}
+            keyboardType="decimal-pad"
+            selectTextOnFocus
+            accessibilityLabel={t('complaints.paid_how_much')}
+            style={{ flex: 1, height: 54, backgroundColor: colors.surfaceSunken, borderWidth: 1.5, borderColor: payError ? colors.danger : colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, fontFamily: fonts.bold, fontSize: 21, color: colors.textPrimary, textAlign: 'center' }}
+          />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textTertiary }}>{t('complaints.currency')}</Text>
+        </View>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: payError ? colors.dangerText : colors.textSecondary, marginTop: spacing.xs }}>
+          {payError ?? (payDue !== null ? t('complaints.still_due', { amount: formatEGP(payDue) }) : '')}
+        </Text>
+
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: spacing.md, marginBottom: spacing.xs }}>{t('complaints.method_label')}</Text>
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          {(['cash', 'digital'] as LedgerMethod[]).map((m) => {
+            const on = payMethod === m;
+            return (
+              <TouchableOpacity key={m} onPress={() => setPayMethod(m)} activeOpacity={0.85} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                style={{ flex: 1, minHeight: 46, borderRadius: radius.lg, borderWidth: on ? 2 : 1, borderColor: on ? colors.accent : colors.border, backgroundColor: on ? `${colors.accent}1A` : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.accent : colors.textSecondary, textAlign: 'center' }} numberOfLines={2}>{t(`complaints.method_${m}`)}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {payMethod === 'cash' && receivers.length > 0 ? (
+          <>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: spacing.md, marginBottom: spacing.xs }}>{t('complaints.received_by_label')}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              {receivers.map((r) => {
+                const on = payReceiver === r.id;
+                return (
+                  <TouchableOpacity key={r.id} onPress={() => setPayReceiver(r.id)} activeOpacity={0.85} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                    style={{ minHeight: 40, borderRadius: radius.full, borderWidth: on ? 2 : 1, borderColor: on ? colors.accent : colors.border, backgroundColor: on ? `${colors.accent}1A` : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.md }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.accent : colors.textSecondary }} numberOfLines={1}>{r.is_me ? t('complaints.receiver_me') : r.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
+
+        <TouchableOpacity onPress={sendPayment} disabled={!canApprovePay} activeOpacity={0.85} accessibilityRole="button"
+          style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, opacity: approve.isPending ? 0.6 : canApprovePay ? 1 : 0.5 }}>
+          {approve.isPending ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="success" size={18} color={colors.onPrimary} />}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>{t('complaints.approve_payment_confirm', { amount: payValue !== null ? formatEGP(payValue) : '—' })}</Text>
+        </TouchableOpacity>
+      </SheetModal>
     </View>
   );
 }
@@ -232,13 +328,16 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
     ? t(c.claim === 'present' ? 'complaints.says_present' : 'complaints.says_absent')
     : isGrade
       ? (c.claimed_mark !== null && c.claimed_mark !== undefined ? t('complaints.grade.says_mark', { mark: formatMark(c.claimed_mark) }) : t('complaints.grade.says_no_mark'))
-      : t('complaints.says_paid');
+      : c.claimed_amount !== null && c.claimed_amount !== undefined
+        ? t('complaints.says_paid_amount', { amount: formatEGP(c.claimed_amount), method: c.paid_method ? t(`complaints.paid_${c.paid_method}`) : '' }).trim()
+        : t('complaints.says_paid');
   const when = c.session_at ? ` · ${formatDate(new Date(c.session_at), { weekday: 'long', day: 'numeric', month: 'short' })}` : '';
   const subject = isAttendance
     ? `${c.course_name ?? ''}${when}`
     : isGrade
       ? `${c.exam_title ?? c.course_name ?? ''}${when}`
-      : t('complaints.payment_label', { number: c.invoice_number ?? '—', amount: formatEGP(c.invoice_amount ?? 0) });
+      : t('complaints.payment_label', { number: c.invoice_number ?? '—', amount: formatEGP(c.invoice_amount ?? 0) })
+        + (c.status === 'pending' && c.invoice_remaining !== null && c.invoice_remaining !== undefined ? ` · ${t('complaints.still_due', { amount: formatEGP(c.invoice_remaining) })}` : '');
   const decided = c.status !== 'pending';
   const statusTone = c.status === 'approved' ? { bg: colors.successLight, fg: colors.successText } : c.status === 'rejected' ? { bg: colors.dangerLight, fg: colors.dangerText } : { bg: colors.warningLight, fg: colors.warningText };
 
@@ -294,6 +393,13 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
           </View>
           {isGrade && c.status === 'approved' && c.corrected_mark !== null && c.corrected_mark !== undefined ? (
             <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.successText }}>{t('complaints.grade.corrected_to', { mark: formatMark(c.corrected_mark) })}</Text>
+          ) : null}
+          {c.type === 'payment' && c.status === 'approved' && c.approved_amount !== null && c.approved_amount !== undefined ? (
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.successText }}>
+              {c.approved_method === 'digital'
+                ? t('complaints.recorded_payment_digital', { amount: formatEGP(c.approved_amount) })
+                : t('complaints.recorded_payment_cash', { amount: formatEGP(c.approved_amount), name: c.received_by_name ?? '' })}
+            </Text>
           ) : null}
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>
             {c.decided_by_teacher ? t('complaints.decided_by', { name: c.decided_by_name ?? '' }) : `${t('complaints.by_assistant')} · ${c.decided_by_name ?? ''}`}

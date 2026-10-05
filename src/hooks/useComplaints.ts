@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import {
   approveComplaint, fileComplaint, fileGradeComplaint, getComplaints, getFamilyComplaints, getMyComplaints, rejectComplaint, reviewComplaint,
-  type Complaint, type ComplaintBucket,
+  type ApproveInput, type Complaint, type ComplaintBucket,
 } from '@/api/complaints';
 
 // ---- student / parent ----
@@ -79,7 +79,7 @@ export function useComplaintDecision() {
     // An approved grade complaint rewrites a session mark or a merged-exam mark.
     qc.invalidateQueries({ queryKey: ['revision-attendees'] });
   };
-  const approve = useMutation({ mutationFn: ({ id, mark }: { id: number; mark?: number }) => approveComplaint(id, mark), onSuccess: after });
+  const approve = useMutation({ mutationFn: ({ id, ...input }: { id: number } & ApproveInput) => approveComplaint(id, input), onSuccess: after });
   const reject = useMutation({ mutationFn: ({ id, note }: { id: number; note?: string }) => rejectComplaint(id, note), onSuccess: after });
   const review = useMutation({ mutationFn: (id: number) => reviewComplaint(id), onSuccess: after });
   return { approve, reject, review };

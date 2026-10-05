@@ -31,6 +31,15 @@ export interface Complaint {
   invoice_id: number | null;
   invoice_number: string | null;
   invoice_amount: number | null;
+  /** Still due on the invoice now — the most a payment complaint can record. */
+  invoice_remaining?: number | null;
+  // ---- payment complaints: what the family stated, and what was approved ----
+  paid_method?: PaidMethod | null;
+  claimed_amount?: number | null;
+  approved_amount?: number | null;
+  /** cash = into the receiver's drawer; digital = a transfer, into no drawer. */
+  approved_method?: LedgerMethod | null;
+  received_by_name?: string | null;
   decided_by_name: string | null;
   decided_by_teacher: boolean;
   decided_at: string | null;
@@ -54,6 +63,15 @@ export interface Complaint {
 
 export type GradeSource = 'session' | 'revision';
 
+/** How the family says they paid. A transfer never enters a cash drawer. */
+export type PaidMethod = 'cash' | 'vodafone_cash' | 'instapay';
+export type LedgerMethod = 'cash' | 'digital';
+export const ledgerMethodFor = (m?: PaidMethod | null): LedgerMethod | null =>
+  m === 'cash' ? 'cash' : m === 'vodafone_cash' || m === 'instapay' ? 'digital' : null;
+
+/** Someone a decider may name as having received disputed cash (themselves, the teacher, or — for the teacher — an assistant). */
+export interface CashReceiver { id: number; name: string; is_me: boolean }
+
 /** The slim complaint state each grade / exam result carries (`complaint` on the row). */
 export interface GradeComplaintState {
   id: number;
@@ -69,6 +87,7 @@ export interface ComplaintList {
   rows: Complaint[];
   counts: { pending: number; review: number };
   can_decide: { attendance: boolean; payment: boolean; grade: boolean };
+  receivers: CashReceiver[];
 }
 
 const num = (v: any): number | null => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -82,6 +101,9 @@ const row = (r: any): Complaint => {
     claimed_mark: num(a.claimed_mark),
     max_mark: num(a.max_mark),
     corrected_mark: num(a.corrected_mark),
+    invoice_remaining: num(a.invoice_remaining),
+    claimed_amount: num(a.claimed_amount),
+    approved_amount: num(a.approved_amount),
     photo_annotations: a.photo_annotations ? parseAnnotations(a.photo_annotations) : null,
   };
 };
@@ -98,6 +120,9 @@ export interface FileComplaintInput {
   session_instance_id?: number;
   invoice_id?: number;
   claim?: ComplaintClaim;
+  /** Payment: how they paid, and how much (≤ what is still due; a part for a part-paid invoice). */
+  paid_method?: PaidMethod;
+  claimed_amount?: number;
   note?: string;
   /** Parent only: which child this is about. Routes the call to the parent endpoint. */
   student_id?: number;
@@ -185,12 +210,24 @@ export async function getComplaints(bucket: ComplaintBucket = 'pending'): Promis
     rows: ((d.rows ?? []) as any[]).map(row),
     counts: { pending: Number(d.counts?.pending ?? 0), review: Number(d.counts?.review ?? 0) },
     can_decide: { attendance: !!d.can_decide?.attendance, payment: !!d.can_decide?.payment, grade: !!d.can_decide?.grade },
+    receivers: ((d.receivers ?? []) as any[]).map((r) => ({ id: Number(r.id), name: String(r.name ?? ''), is_me: !!r.is_me })),
   };
 }
 
-/** Approve. A grade complaint carries the corrected `mark` (the server defaults to the one asked for). */
-export async function approveComplaint(id: number, mark?: number): Promise<void> {
-  await client.post(`/teacher/complaints/${id}/approve`, mark !== undefined ? { mark } : {});
+export interface ApproveInput {
+  /** Grade: the corrected mark (the server defaults to the one asked for). */
+  mark?: number;
+  /** Payment: the amount really paid (≤ what is still due). */
+  amount?: number;
+  /** Payment: cash (into a drawer) or digital (a transfer — no drawer). */
+  method?: LedgerMethod;
+  /** Payment, cash only: who received it (defaults to the decider). */
+  received_by?: number;
+}
+
+export async function approveComplaint(id: number, input: ApproveInput = {}): Promise<void> {
+  const body = Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined));
+  await client.post(`/teacher/complaints/${id}/approve`, body);
 }
 
 export async function rejectComplaint(id: number, note?: string): Promise<void> {

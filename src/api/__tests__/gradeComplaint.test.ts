@@ -59,9 +59,27 @@ describe('approveComplaint', () => {
   beforeEach(() => mockPost.mockReset().mockResolvedValue({ data: {} }));
 
   it('carries the corrected mark only when given', async () => {
-    await approveComplaint(4, 17.5);
+    await approveComplaint(4, { mark: 17.5 });
     expect(mockPost).toHaveBeenLastCalledWith('/teacher/complaints/4/approve', { mark: 17.5 });
     await approveComplaint(4);
     expect(mockPost).toHaveBeenLastCalledWith('/teacher/complaints/4/approve', {});
+  });
+
+  it('carries a payment as amount, method and — for cash — who received it', async () => {
+    await approveComplaint(9, { amount: 100, method: 'cash', received_by: 12 });
+    expect(mockPost).toHaveBeenLastCalledWith('/teacher/complaints/9/approve', { amount: 100, method: 'cash', received_by: 12 });
+    // A transfer names no receiver: it enters no drawer.
+    await approveComplaint(9, { amount: 150, method: 'digital', received_by: undefined });
+    expect(mockPost).toHaveBeenLastCalledWith('/teacher/complaints/9/approve', { amount: 150, method: 'digital' });
+  });
+});
+
+describe('ledgerMethodFor', () => {
+  it('maps what the family says onto cash or a transfer', () => {
+    const { ledgerMethodFor } = require('../complaints');
+    expect(ledgerMethodFor('cash')).toBe('cash');
+    expect(ledgerMethodFor('vodafone_cash')).toBe('digital');
+    expect(ledgerMethodFor('instapay')).toBe('digital');
+    expect(ledgerMethodFor(null)).toBeNull();
   });
 });
