@@ -426,7 +426,9 @@ export default function SessionDetailScreen() {
                 onPress={doCancelRestore}
                 variant={s.is_cancelled ? 'success' : 'destructive'}
                 loading={controls.cancel.isPending || controls.restore.isPending}
-                disabled={s.is_completed}
+                // The server's rule (2026-10-05): no cancelling once the session has ended — by
+                // the clock, not the status, which an hourly job sets — or once anyone is checked in.
+                disabled={!s.is_cancelled && (s.is_completed || phase === 'done' || s.attendees.some((a) => a.status === 'present' || a.status === 'late'))}
               />
             </View>
           ) : null}
