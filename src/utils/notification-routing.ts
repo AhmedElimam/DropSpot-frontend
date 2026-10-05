@@ -41,6 +41,10 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
   if (ADMIN_TICKET_TYPES.has(type)) return '/(teacher)/resolution';
 
   switch (type) {
+    // ── complaints («الاعتراضات») ──
+    case 'complaint_filed':
+    case 'complaint_review':
+      return '/(teacher)/complaints';
     // ── students ──
     case 'invitation_accepted':
     case 'guardian_disputed':
@@ -114,6 +118,10 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
   if (ADMIN_TICKET_TYPES.has(type)) return '/(parent)/support';
 
   switch (type) {
+    // A decided complaint: a payment one lands on the invoices; attendance / grade ones on
+    // the children list (the decision names no child to open directly).
+    case 'complaint_decided':
+      return data?.type === 'payment' ? '/(parent)/(tabs)/invoices' : '/(parent)/(tabs)/children';
     case 'payment_received':
     case 'invoice':
     case 'invoice_new':
@@ -164,6 +172,9 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
   if (ADMIN_TICKET_TYPES.has(type)) return '/(student)/support';
 
   switch (type) {
+    // A decided complaint opens where the disputed record lives.
+    case 'complaint_decided':
+      return data?.type === 'grade' ? '/(student)/marks' : data?.type === 'payment' ? '/(student)/(tabs)/invoices' : '/(student)/attendance';
     case 'invoice_new':
     case 'invoice_overdue':
     case 'payment_received':

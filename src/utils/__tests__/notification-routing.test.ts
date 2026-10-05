@@ -35,3 +35,13 @@ describe('notificationRouteFor (feed + push taps)', () => {
     expect(notificationRouteFor({ role: null, type: 'grade' })).toBeNull();
   });
 });
+
+describe('complaint notifications open where they are about', () => {
+  it('routes the teacher to the complaints queue and the family to the disputed record', () => {
+    expect(notificationRouteFor({ role: 'teacher', type: 'complaint_filed', data: { complaint_id: 1, type: 'grade' } })).toBe('/(teacher)/complaints');
+    expect(notificationRouteFor({ role: 'teacher', type: 'complaint_review', data: {} })).toBe('/(teacher)/complaints');
+    expect(notificationRouteFor({ role: 'student', type: 'complaint_decided', data: { type: 'grade' } })).toBe('/(student)/marks');
+    expect(notificationRouteFor({ role: 'student', type: 'complaint_decided', data: { type: 'attendance' } })).toBe('/(student)/attendance');
+    expect(notificationRouteFor({ role: 'parent', type: 'complaint_decided', data: { type: 'payment' } })).toBe('/(parent)/(tabs)/invoices');
+  });
+});
