@@ -57,6 +57,18 @@ export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOpt
   return dtf(options ? opts({ weekday: 'long', day: 'numeric', month: 'long' }, options) : DATE_OPTS).format(d);
 }
 
+/**
+ * ONLY the parts asked for — «٧» for { day: 'numeric' }, «أكت» for { month: 'short' }.
+ * formatDate merges its options INTO weekday + day + month, so formatDate(d, { day: 'numeric' })
+ * still prints «الثلاثاء ٧ أكتوبر» — which, in a 48pt date tile, was the oversized date the
+ * founder saw on the student's teacher page (2026-10-06). Date tiles use this.
+ */
+export function formatDateOnly(date: string | Date, options: Intl.DateTimeFormatOptions): string {
+  const d = toDate(date);
+  if (Number.isNaN(d.getTime())) return '';
+  return dtf(opts(options)).format(d);
+}
+
 const SHORT_DATE_OPTS = opts({ weekday: 'short', day: 'numeric', month: 'short' });
 export function formatShortDate(date: string | Date): string {
   const d = toDate(date);

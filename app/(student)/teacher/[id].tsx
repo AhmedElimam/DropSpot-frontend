@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useMyComplaints } from '@/hooks/useComplaints';
 import { getStudentTeacherDetail } from '@/api/studentOverview';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { formatDate, formatNumber, formatTime } from '@/utils/format';
+import { formatDate, formatDateOnly, formatNumber, formatTime } from '@/utils/format';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
 import { SectionHead } from '@/components/ui/SectionHead';
@@ -129,15 +129,15 @@ export default function StudentTeacherPage() {
               return (
                 <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: i < d.upcoming.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
                   <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: s.type === 'quiz_exam' ? colors.accentLight : colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 22, color: s.type === 'quiz_exam' ? colors.accent : colors.brand, includeFontPadding: false }}>{ok ? formatDate(when, { day: 'numeric' }) : '—'}</Text>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 10, lineHeight: 13, color: s.type === 'quiz_exam' ? colors.accent : colors.brand }} numberOfLines={1} adjustsFontSizeToFit>{ok ? formatDate(when, { month: 'short' }) : ''}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 23, color: s.type === 'quiz_exam' ? colors.accent : colors.brand, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{ok ? formatDateOnly(when, { day: 'numeric' }) : '—'}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 10, lineHeight: 13, color: s.type === 'quiz_exam' ? colors.accent : colors.brand }} numberOfLines={1} adjustsFontSizeToFit>{ok ? formatDateOnly(when, { month: 'short' }) : ''}</Text>
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>
                       {s.type === 'quiz_exam' ? `${t('student_teacher.exam_label')} · ` : ''}{s.course_name ?? '—'}
                     </Text>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
-                      {[ok ? formatDate(when, { weekday: 'long' }) : null, ok ? formatTime(when) : null, t('student_teacher.minutes', { n: formatNumber(s.duration_minutes) }), s.location].filter(Boolean).join(' · ')}
+                      {[ok ? formatDateOnly(when, { weekday: 'long' }) : null, ok ? formatTime(when) : null, t('student_teacher.minutes', { n: formatNumber(s.duration_minutes) }), s.location].filter(Boolean).join(' · ')}
                     </Text>
                   </View>
                 </View>
@@ -175,7 +175,7 @@ export default function StudentTeacherPage() {
                   </View>
                   <GradeComplaintStatus
                     complaint={m.complaint}
-                    onComplain={m.attendance_record_id ? () => setGradeTarget({ source: 'session', recordId: m.attendance_record_id as number, title: m.course_name ?? t('student_teacher.marks'), date: m.date, mark: m.score, max: m.max_score }) : undefined}
+                    onComplain={(m.attendance_record_id ?? m.id) ? () => setGradeTarget({ source: 'session', recordId: (m.attendance_record_id ?? m.id) as number, title: m.course_name ?? t('student_teacher.marks'), date: m.date, mark: m.score, max: m.max_score }) : undefined}
                   />
                 </View>
               );
