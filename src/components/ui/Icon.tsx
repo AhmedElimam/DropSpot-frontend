@@ -80,6 +80,11 @@ const ICON_MAP = {
   offline: 'cloud-offline',
   download: 'download',
   'person-remove': 'person-remove',
+  /** «اعتراض على الدرجة»: photograph the paper, pick it, draw on it, undo a line. */
+  camera: 'camera',
+  image: 'image',
+  brush: 'brush',
+  undo: 'arrow-undo',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;

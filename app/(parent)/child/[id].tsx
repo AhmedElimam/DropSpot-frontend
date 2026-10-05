@@ -27,6 +27,7 @@ import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
 import { AttendanceRecordRow } from '@/components/attendance/AttendanceRecordRow';
 import { ComplaintSheet, type ComplaintTarget } from '@/components/student/ComplaintSheet';
 import { useMyComplaints } from '@/hooks/useComplaints';
+import { GradeComplaintSheet, GradeComplaintStatus, gradeTargetFromExam, gradeTargetFromRecord, type GradeComplaintTarget } from '@/components/complaints/GradeComplaintSheet';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 
 type TabKey = 'attendance' | 'grades' | 'exams' | 'settings';
@@ -61,6 +62,8 @@ export default function ChildDetailScreen() {
   // A parent may dispute a child's mark the way the student can (founder 2026-10-03).
   const [complaintTarget, setComplaintTarget] = useState<ComplaintTarget | null>(null);
   const complaints = useMyComplaints();
+  // …and a grade or exam mark («اعتراض على الدرجة», founder 2026-10-05).
+  const [gradeTarget, setGradeTarget] = useState<GradeComplaintTarget | null>(null);
 
   const selectedIndex = Math.max(0, (children ?? []).findIndex((c) => c.id === params.id));
   const child = (children ?? [])[selectedIndex];
@@ -310,6 +313,10 @@ export default function ChildDetailScreen() {
                             </View>
                           ) : null}
                         </View>
+                        <GradeComplaintStatus
+                          complaint={g.complaint}
+                          onComplain={g.score != null ? () => setGradeTarget(gradeTargetFromRecord(g, t('reports.grades'))) : undefined}
+                        />
                       </View>
                     ))}
                   </>
@@ -337,8 +344,9 @@ export default function ChildDetailScreen() {
                   <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
                     {exams.map((e, i) => {
                       const pass = e.pct != null ? e.pct >= 50 : true;
+                      const target = gradeTargetFromExam(e, t('reports.exam_results'));
                       return (
-                        <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: i < exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                        <View key={`${e.source ?? 's'}-${e.attendance_record_id ?? e.revision_attendance_id ?? i}`} style={{ paddingVertical: spacing.md, borderBottomWidth: i < exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <View style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md, backgroundColor: pass ? colors.successLight : colors.dangerLight }}>
                               <Icon name="reports" size={20} color={pass ? colors.success : colors.danger} />
@@ -353,6 +361,12 @@ export default function ChildDetailScreen() {
                               </Text>
                               {e.pct != null ? <Text style={textPresets.caption}>{e.pct}%</Text> : null}
                             </View>
+                          </View>
+                          <View style={{ paddingStart: 44 + spacing.md }}>
+                            <GradeComplaintStatus
+                              complaint={e.complaint}
+                              onComplain={target ? () => setGradeTarget(target) : undefined}
+                            />
                           </View>
                         </View>
                       );
@@ -424,6 +438,7 @@ export default function ChildDetailScreen() {
       </ScrollView>
 
       <ComplaintSheet visible={!!complaintTarget} onClose={() => setComplaintTarget(null)} target={complaintTarget} forStudentId={child.student_id} />
+      <GradeComplaintSheet visible={!!gradeTarget} onClose={() => setGradeTarget(null)} target={gradeTarget} forStudentId={child.student_id} />
 
       <Modal visible={showPicker} transparent animationType="fade" onRequestClose={() => setShowPicker(false)}>
         <TouchableOpacity style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center' }} activeOpacity={1} onPress={() => setShowPicker(false)}>

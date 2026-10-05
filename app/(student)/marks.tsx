@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
 import { formatNumber } from '@/utils/format';
+import { GradeComplaintSheet, GradeComplaintStatus, gradeTargetFromExam, gradeTargetFromRecord, type GradeComplaintTarget } from '@/components/complaints/GradeComplaintSheet';
 
 type TabKey = 'grades' | 'exams';
 
@@ -35,6 +36,8 @@ export default function StudentMarksScreen() {
   const insets = useSafeAreaInsets();
   const studentId = useAuthStore((s) => s.user?.student_id) ?? null;
   const [activeTab, setActiveTab] = useState<TabKey>('grades');
+  // «اعتراض على الدرجة» on a sheet mark or an exam (founder 2026-10-05).
+  const [gradeTarget, setGradeTarget] = useState<GradeComplaintTarget | null>(null);
 
   const { data: grades, isLoading: gradesLoading, refetch: refetchGrades } = useQuery({
     queryKey: ['grades', studentId],
@@ -138,6 +141,10 @@ export default function StudentMarksScreen() {
                           </View>
                         ) : null}
                       </View>
+                      <GradeComplaintStatus
+                        complaint={g.complaint}
+                        onComplain={g.score != null ? () => setGradeTarget(gradeTargetFromRecord(g, t('reports.grades'))) : undefined}
+                      />
                     </View>
                   ))}
                 </>
@@ -158,8 +165,9 @@ export default function StudentMarksScreen() {
                 <View style={{ gap: spacing.sm }}>
                   {exams.map((e, i) => {
                     const pass = e.pct != null ? e.pct >= 50 : true;
+                    const target = gradeTargetFromExam(e, t('reports.exam_results'));
                     return (
-                      <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: i < exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                      <View key={`${e.source ?? 's'}-${e.attendance_record_id ?? e.revision_attendance_id ?? i}`} style={{ paddingVertical: spacing.md, borderBottomWidth: i < exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                           <View style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md, backgroundColor: pass ? colors.successLight : colors.dangerLight }}>
                             <Icon name="reports" size={20} color={pass ? colors.success : colors.danger} />
@@ -175,6 +183,12 @@ export default function StudentMarksScreen() {
                             {e.pct != null ? <Text style={textPresets.caption}>{e.pct}%</Text> : null}
                           </View>
                         </View>
+                        <View style={{ paddingStart: 44 + spacing.md }}>
+                          <GradeComplaintStatus
+                            complaint={e.complaint}
+                            onComplain={target ? () => setGradeTarget(target) : undefined}
+                          />
+                        </View>
                       </View>
                     );
                   })}
@@ -184,6 +198,8 @@ export default function StudentMarksScreen() {
           )}
         </View>
       </ScrollView>
+
+      <GradeComplaintSheet visible={!!gradeTarget} onClose={() => setGradeTarget(null)} target={gradeTarget} />
     </View>
   );
 }

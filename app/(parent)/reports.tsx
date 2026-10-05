@@ -62,12 +62,15 @@ export default function ReportsScreen() {
 
   const allGradeData = gradeQueries.data ?? [];
   const gradeMap: Record<number, { avg: number; count: number }> = {};
+  // Grade complaints still waiting for the teacher, per child — the child page has the detail.
+  const pendingGradeComplaints: Record<number, number> = {};
   const teacherScores: Record<string, { total: number; count: number }> = {};
   allGradeData.forEach(({ studentId, grades }) => {
     const avg = grades.length > 0
       ? Math.round(grades.reduce((s, g) => s + g.percentage, 0) / grades.length)
       : 0;
     gradeMap[studentId] = { avg, count: grades.length };
+    pendingGradeComplaints[studentId] = grades.filter((g) => g.complaint?.status === 'pending').length;
     grades.forEach((g) => {
       if (g.teacher_name) {
         if (!teacherScores[g.teacher_name]) teacherScores[g.teacher_name] = { total: 0, count: 0 };
@@ -311,6 +314,12 @@ export default function ReportsScreen() {
                         <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.surfaceSunken, marginTop: spacing.md, overflow: 'hidden' }}>
                           <LinearGradient colors={avg >= 90 ? gradients.success : gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${avg}%`, height: '100%', borderRadius: 3 }} />
                         </View>
+                        {pendingGradeComplaints[child.student_id] ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: spacing.sm, backgroundColor: colors.warningLight, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
+                            <Icon name="note" size={12} color={colors.warningText} outline />
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.warningText }}>{t('complaints.grade.pending_count', { n: formatNumber(pendingGradeComplaints[child.student_id]) })}</Text>
+                          </View>
+                        ) : null}
                       </TouchableOpacity>
                     );
                   })}

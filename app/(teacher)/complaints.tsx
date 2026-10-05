@@ -15,6 +15,9 @@ import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useComplaints, useComplaintDecision } from '@/hooks/useComplaints';
 import { useAuthStore } from '@/stores/authStore';
+import { useActiveAbilities } from '@/hooks/useActiveAbilities';
+import { AnnotatedPhoto } from '@/components/complaints/AnnotatedPhoto';
+import { cleanMarkInput, formatMark, parseMarkInput } from '@/utils/markInput';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatDate, formatNumber, timeAgo } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
@@ -23,23 +26,36 @@ import type { Complaint, ComplaintBucket } from '@/api/complaints';
 /**
  * «الاعتراضات» — the staff bucket (founder 2026-10-03). Three segments: what waits for a
  * decision, what an ASSISTANT decided and the teacher has not yet seen (teacher only), and
- * the recent record. Approving applies the correction (a mark, or the invoice marked paid);
- * an assistant sees only the kinds their abilities let them decide.
+ * the recent record. Approving applies the correction (a mark, the invoice marked paid, or
+ * a grade rewritten); an assistant sees only the kinds their abilities let them decide.
+ *
+ * Grade complaints («اعتراض على الدرجة», 2026-10-05) carry the recorded and claimed marks
+ * and the family's photo of the paper with what they drew on it. Approving one asks for the
+ * corrected mark. A merged-exam grade is the teacher's alone (the server answers an
+ * assistant TEACHER_ONLY), so an assistant never sees decide buttons on those rows.
  */
 export default function ComplaintsScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const isAssistant = user?.user_type_id === 6;
+  const abilities = useActiveAbilities();
+  const isAssistant = abilities.isAssistant || user?.user_type_id === 6;
   const [bucket, setBucket] = useState<ComplaintBucket>('pending');
   const q = useComplaints(bucket);
   const { refreshing, onRefresh } = usePullRefresh(q.refetch);
   const { approve, reject, review } = useComplaintDecision();
   const [rejecting, setRejecting] = useState<Complaint | null>(null);
   const [note, setNote] = useState('');
+  // Approving a grade complaint: the corrected mark, prefilled with what was asked for.
+  const [grading, setGrading] = useState<Complaint | null>(null);
+  const [markText, setMarkText] = useState('');
 
   const counts = q.data?.counts ?? { pending: 0, review: 0 };
-  const can = q.data?.can_decide ?? { attendance: false, payment: false };
+  const can = q.data?.can_decide ?? { attendance: false, payment: false, grade: false };
+  const canDecideRow = (c: Complaint) =>
+    c.type === 'attendance' ? can.attendance
+      : c.type === 'payment' ? can.payment
+        : can.grade && !(isAssistant && c.grade_source === 'revision');
   const segments: { key: ComplaintBucket; label: string; badge?: number }[] = [
     { key: 'pending', label: t('complaints.bucket_pending'), badge: counts.pending },
     ...(!isAssistant ? [{ key: 'review' as ComplaintBucket, label: t('complaints.bucket_review'), badge: counts.review }] : []),
@@ -47,11 +63,17 @@ export default function ComplaintsScreen() {
   ];
 
   const confirmApprove = (c: Complaint) => {
+    if (c.type === 'grade') {
+      const start = c.claimed_mark ?? c.recorded_mark;
+      setMarkText(start !== null && start !== undefined ? formatMark(start) : '');
+      setGrading(c);
+      return;
+    }
     const claimLabel = c.claim === 'present' ? t('attendance.present') : t('attendance.absent');
     Alert.alert(
       t('complaints.approve'),
       c.type === 'attendance' ? t('complaints.approve_confirm_attendance', { claim: claimLabel }) : t('complaints.approve_confirm_payment'),
-      [{ text: t('common.cancel'), style: 'cancel' }, { text: t('complaints.approve'), onPress: () => approve.mutate(c.id, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) }) }],
+      [{ text: t('common.cancel'), style: 'cancel' }, { text: t('complaints.approve'), onPress: () => approve.mutate({ id: c.id }, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) }) }],
     );
   };
   const sendReject = () => {
@@ -62,8 +84,26 @@ export default function ComplaintsScreen() {
     });
   };
 
+  const gradeMax = grading?.max_mark ?? null;
+  const markValue = parseMarkInput(markText);
+  const markError = !grading || !markText.trim()
+    ? null
+    : markValue === null || markValue < 0
+      ? t('complaints.grade.mark_min')
+      : gradeMax !== null && markValue > gradeMax
+        ? t('complaints.grade.mark_range', { max: formatMark(gradeMax) })
+        : null;
+  const canApproveMark = !!grading && markValue !== null && !markError && !approve.isPending;
+  const sendGrade = () => {
+    if (!grading || !canApproveMark || markValue === null) return;
+    approve.mutate({ id: grading.id, mark: markValue }, {
+      onSuccess: () => { setGrading(null); setMarkText(''); },
+      onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+    });
+  };
+
   const rows = q.data?.rows ?? [];
-  const busyId = approve.isPending ? approve.variables : reject.isPending ? reject.variables?.id : review.isPending ? review.variables : null;
+  const busyId = approve.isPending ? approve.variables?.id : reject.isPending ? reject.variables?.id : review.isPending ? review.variables : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -115,7 +155,7 @@ export default function ComplaintsScreen() {
             <ComplaintRow
               c={item}
               bucket={bucket}
-              canDecide={item.type === 'attendance' ? can.attendance : can.payment}
+              canDecide={canDecideRow(item)}
               busy={busyId === item.id}
               onApprove={() => confirmApprove(item)}
               onReject={() => { setRejecting(item); setNote(''); }}
@@ -145,6 +185,37 @@ export default function ComplaintsScreen() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>{t('complaints.reject')}</Text>
         </TouchableOpacity>
       </SheetModal>
+
+      {/* Approve a grade: the corrected mark (0..max), prefilled with what the family asked for. */}
+      <SheetModal visible={!!grading} onClose={() => setGrading(null)} avoidKeyboard style={{ backgroundColor: colors.surface }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('complaints.grade.approve_title')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md }}>
+          {grading ? `${grading.student_name ?? ''} · ${grading.exam_title ?? ''}\n${t('complaints.grade.approve_hint', { from: formatMark(grading.recorded_mark) })}` : ''}
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <TextInput
+            value={markText}
+            onChangeText={(v) => setMarkText(cleanMarkInput(v).slice(0, 7))}
+            keyboardType="decimal-pad"
+            autoFocus
+            selectTextOnFocus
+            placeholder="0"
+            placeholderTextColor={colors.textTertiary}
+            style={{ flex: 1, height: 56, backgroundColor: colors.surfaceSunken, borderWidth: 1.5, borderColor: markError ? colors.danger : colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary, textAlign: 'center' }}
+          />
+          {gradeMax !== null ? <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textTertiary }}>/ {formatMark(gradeMax)}</Text> : null}
+        </View>
+        {markError ? (
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.dangerText, marginTop: spacing.xs }}>{markError}</Text>
+        ) : grading && markValue !== null ? (
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, marginTop: spacing.xs }}>{t('complaints.grade.approve_change', { from: formatMark(grading.recorded_mark), to: formatMark(markValue) })}</Text>
+        ) : null}
+        <TouchableOpacity onPress={sendGrade} disabled={!canApproveMark} activeOpacity={0.85} accessibilityRole="button"
+          style={{ marginTop: spacing.md, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, opacity: approve.isPending ? 0.6 : canApproveMark ? 1 : 0.5 }}>
+          {approve.isPending ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="success" size={18} color={colors.onPrimary} />}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>{t('complaints.grade.approve_confirm')}</Text>
+        </TouchableOpacity>
+      </SheetModal>
     </View>
   );
 }
@@ -154,11 +225,20 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
 }) {
   const { t } = useTranslation();
   const isAttendance = c.type === 'attendance';
-  const tint = isAttendance ? colors.warningDark : colors.accent;
-  const says = isAttendance ? t(c.claim === 'present' ? 'complaints.says_present' : 'complaints.says_absent') : t('complaints.says_paid');
+  const isGrade = c.type === 'grade';
+  const tint = isAttendance ? colors.warningDark : isGrade ? colors.info : colors.accent;
+  const typeLabel = t(isAttendance ? 'complaints.file_attendance' : isGrade ? 'complaints.grade.file' : 'complaints.file_payment');
+  const says = isAttendance
+    ? t(c.claim === 'present' ? 'complaints.says_present' : 'complaints.says_absent')
+    : isGrade
+      ? (c.claimed_mark !== null && c.claimed_mark !== undefined ? t('complaints.grade.says_mark', { mark: formatMark(c.claimed_mark) }) : t('complaints.grade.says_no_mark'))
+      : t('complaints.says_paid');
+  const when = c.session_at ? ` · ${formatDate(new Date(c.session_at), { weekday: 'long', day: 'numeric', month: 'short' })}` : '';
   const subject = isAttendance
-    ? `${c.course_name ?? ''}${c.session_at ? ` · ${formatDate(new Date(c.session_at), { weekday: 'long', day: 'numeric', month: 'short' })}` : ''}`
-    : t('complaints.payment_label', { number: c.invoice_number ?? '—', amount: formatEGP(c.invoice_amount ?? 0) });
+    ? `${c.course_name ?? ''}${when}`
+    : isGrade
+      ? `${c.exam_title ?? c.course_name ?? ''}${when}`
+      : t('complaints.payment_label', { number: c.invoice_number ?? '—', amount: formatEGP(c.invoice_amount ?? 0) });
   const decided = c.status !== 'pending';
   const statusTone = c.status === 'approved' ? { bg: colors.successLight, fg: colors.successText } : c.status === 'rejected' ? { bg: colors.dangerLight, fg: colors.dangerText } : { bg: colors.warningLight, fg: colors.warningText };
 
@@ -172,7 +252,7 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
         </View>
         <View style={{ alignItems: 'flex-end', gap: 4 }}>
           <View style={{ backgroundColor: `${tint}1F`, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: tint }}>{t(isAttendance ? 'complaints.file_attendance' : 'complaints.file_payment')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: tint }}>{typeLabel}</Text>
           </View>
           {c.created_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{timeAgo(c.created_at)}</Text> : null}
         </View>
@@ -186,7 +266,7 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
 
       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, paddingHorizontal: spacing.sm, paddingVertical: 4 }}>
-          <Icon name={isAttendance ? (c.claim === 'present' ? 'present' : 'absent') : 'money'} size={14} color={colors.textSecondary} />
+          <Icon name={isAttendance ? (c.claim === 'present' ? 'present' : 'absent') : isGrade ? 'grades' : 'money'} size={14} color={colors.textSecondary} />
           <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{says}</Text>
         </View>
         {isAttendance ? (
@@ -194,15 +274,27 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('complaints.recorded', { status: '' }).replace(': ', ':')}</Text>
             {c.recorded_status ? <StatusBadge status={c.recorded_status} size="sm" /> : <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{t('complaints.not_recorded')}</Text>}
           </View>
+        ) : isGrade ? (
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>
+            {c.max_mark !== null && c.max_mark !== undefined
+              ? t('complaints.grade.recorded_of', { mark: formatMark(c.recorded_mark), max: formatMark(c.max_mark) })
+              : t('complaints.grade.recorded_only', { mark: formatMark(c.recorded_mark) })}
+          </Text>
         ) : null}
       </View>
       {c.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: spacing.sm }}>«{c.note}»</Text> : null}
+      {isGrade && c.photo_url ? (
+        <AnnotatedPhoto uri={c.photo_url} annotations={c.photo_annotations} height={170} style={{ marginTop: spacing.sm }} />
+      ) : null}
 
       {decided ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, flexWrap: 'wrap' }}>
           <View style={{ backgroundColor: statusTone.bg, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: statusTone.fg }}>{t(`complaints.status_${c.status}`)}</Text>
           </View>
+          {isGrade && c.status === 'approved' && c.corrected_mark !== null && c.corrected_mark !== undefined ? (
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.successText }}>{t('complaints.grade.corrected_to', { mark: formatMark(c.corrected_mark) })}</Text>
+          ) : null}
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>
             {c.decided_by_teacher ? t('complaints.decided_by', { name: c.decided_by_name ?? '' }) : `${t('complaints.by_assistant')} · ${c.decided_by_name ?? ''}`}
             {c.decided_at ? ` · ${timeAgo(c.decided_at)}` : ''}
@@ -229,7 +321,7 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>{t('complaints.reject')}</Text>
           </TouchableOpacity>
         </View>
-      ) : (
+      ) : isGrade ? null : (
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>{t('complaints.cannot_decide')}</Text>
       )}
     </View>

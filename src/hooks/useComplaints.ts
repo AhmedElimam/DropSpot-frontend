@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import {
-  approveComplaint, fileComplaint, getComplaints, getFamilyComplaints, getMyComplaints, rejectComplaint, reviewComplaint,
+  approveComplaint, fileComplaint, fileGradeComplaint, getComplaints, getFamilyComplaints, getMyComplaints, rejectComplaint, reviewComplaint,
   type Complaint, type ComplaintBucket,
 } from '@/api/complaints';
 
@@ -23,12 +23,13 @@ export function useMyComplaints(enabled = true) {
   });
   const bySession = useMemo(() => {
     const m = new Map<number, Complaint>();
-    for (const c of q.data ?? []) if (c.session_instance_id && !m.has(c.session_instance_id)) m.set(c.session_instance_id, c);
+    // Attendance complaints only: a grade complaint on a session mark names the session too.
+    for (const c of q.data ?? []) if (c.type === 'attendance' && c.session_instance_id && !m.has(c.session_instance_id)) m.set(c.session_instance_id, c);
     return m;
   }, [q.data]);
   const byInvoice = useMemo(() => {
     const m = new Map<number, Complaint>();
-    for (const c of q.data ?? []) if (c.invoice_id && !m.has(c.invoice_id)) m.set(c.invoice_id, c);
+    for (const c of q.data ?? []) if (c.type === 'payment' && c.invoice_id && !m.has(c.invoice_id)) m.set(c.invoice_id, c);
     return m;
   }, [q.data]);
   return { ...q, bySession, byInvoice };
@@ -39,6 +40,23 @@ export function useFileComplaint() {
   return useMutation({
     mutationFn: fileComplaint,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-complaints'] }); },
+  });
+}
+
+/**
+ * «اعتراض على الدرجة». The grade rows carry their own complaint state, so a filing
+ * refreshes the marks and exam lists (student and parent) as well as the complaint list.
+ */
+export function useFileGradeComplaint() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fileGradeComplaint,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-complaints'] });
+      qc.invalidateQueries({ queryKey: ['grades'] });
+      qc.invalidateQueries({ queryKey: ['exam-results'] });
+      qc.invalidateQueries({ queryKey: ['reports', 'grades'] });
+    },
   });
 }
 
@@ -58,8 +76,10 @@ export function useComplaintDecision() {
     qc.invalidateQueries({ queryKey: ['teacher-student'] });
     qc.invalidateQueries({ queryKey: ['teacher-session-detail'] });
     qc.invalidateQueries({ queryKey: ['teacher-insights'] });
+    // An approved grade complaint rewrites a session mark or a merged-exam mark.
+    qc.invalidateQueries({ queryKey: ['revision-attendees'] });
   };
-  const approve = useMutation({ mutationFn: (id: number) => approveComplaint(id), onSuccess: after });
+  const approve = useMutation({ mutationFn: ({ id, mark }: { id: number; mark?: number }) => approveComplaint(id, mark), onSuccess: after });
   const reject = useMutation({ mutationFn: ({ id, note }: { id: number; note?: string }) => rejectComplaint(id, note), onSuccess: after });
   const review = useMutation({ mutationFn: (id: number) => reviewComplaint(id), onSuccess: after });
   return { approve, reject, review };
