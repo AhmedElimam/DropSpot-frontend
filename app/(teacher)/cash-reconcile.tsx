@@ -509,6 +509,7 @@ function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
       ) : null}
       <View style={row}>{label(t('cash.setting_insights', { rose: rose.name }), t('cash.setting_insights_hint'))}<Switch value={v.settings.insights_enabled !== false} onValueChange={(on) => save.mutate({ insights_enabled: on })} disabled={save.isPending} /></View>
       <View style={row}>{label(t('cash.setting_rose_name'), t('cash.setting_rose_name_hint'))}<Switch value={v.settings.rose_named !== false} onValueChange={(on) => save.mutate({ rose_named: on })} disabled={save.isPending} /></View>
+      <View style={row}>{label(t('cash.setting_briefing', { rose: rose.name }), t('cash.setting_briefing_hint'))}<Switch value={v.settings.rose_briefing_enabled !== false} onValueChange={(on) => save.mutate({ rose_briefing_enabled: on })} disabled={save.isPending} /></View>
       {v.settings.insights_enabled !== false ? (
         <View style={row}>{label(t('cash.setting_insight_pushes'))}
           <View style={{ flexDirection: 'row', gap: 6 }}>

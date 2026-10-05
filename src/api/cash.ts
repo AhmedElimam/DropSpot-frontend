@@ -54,6 +54,8 @@ export interface CashSettings extends CashSettingsLite {
   review_bulk_max?: number;
   /** Teacher switch: her screens say «مدام روز» (true) or «مديرة الحسابات». Assistants always see the name. */
   rose_named?: boolean;
+  /** Teacher switch: her nightly «ورقة بكرة» (sessions, venues, overdue bills, complaints) to the teacher and assistants. */
+  rose_briefing_enabled?: boolean;
 }
 
 /** A مدام روز suggestion the person confirms with a tap (v2 §5). Nothing is logged by her. */
@@ -330,7 +332,7 @@ export async function reviewHandover(id: number, decision: 'confirm' | 'reject')
   await client.post(`/teacher/cash/handovers/${id}/${decision}`);
 }
 
-export async function updateCashSettings(patch: Partial<{ expenses_enabled: boolean; expenses_per_venue: boolean; cash_tolerance: number; expense_reminder_enabled: boolean; insights_enabled: boolean; insight_pushes_per_day: number; review_bulk_max: number; rose_named: boolean }>): Promise<CashSettings> {
+export async function updateCashSettings(patch: Partial<{ expenses_enabled: boolean; expenses_per_venue: boolean; cash_tolerance: number; expense_reminder_enabled: boolean; insights_enabled: boolean; insight_pushes_per_day: number; review_bulk_max: number; rose_named: boolean; rose_briefing_enabled: boolean }>): Promise<CashSettings> {
   const { data } = await client.post('/teacher/cash/settings', patch);
   noteRoseSetting(data.data as CashSettings);
   return data.data as CashSettings;

@@ -41,6 +41,9 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
   if (ADMIN_TICKET_TYPES.has(type)) return '/(teacher)/resolution';
 
   switch (type) {
+    // ── مدام روز's «ورقة بكرة»: the coming day's sessions ──
+    case 'rose_briefing':
+      return '/(teacher)/sessions';
     // ── complaints («الاعتراضات») ──
     case 'complaint_filed':
     case 'complaint_review':

@@ -68,6 +68,7 @@ const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
   cash_handover: { icon: 'transfer', tint: colors.brand },
   cash_reconciliation: { icon: 'money', tint: colors.brand },
   cash_insight: { icon: 'star', tint: colors.brand },
+  rose_briefing: { icon: 'calendar', tint: colors.brand },
   expense_reminder: { icon: 'money', tint: colors.brand },
   financial_report: { icon: 'reports', tint: colors.brand },
   assistant_course_created: { icon: 'book', tint: colors.warning },
