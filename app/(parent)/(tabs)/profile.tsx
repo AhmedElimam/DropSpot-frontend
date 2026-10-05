@@ -131,6 +131,21 @@ export default function ParentSettings() {
             </View>
           </View>
 
+          {/* The family's conversations with its teachers — easy to miss as a home tile alone. */}
+          <TouchableOpacity
+            onPress={() => router.push('/(parent)/tickets' as Href)}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}
+          >
+            <Icon name="ticket" size={20} color={colors.accentWarm} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('parent.teacher_tickets_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{t('parent.teacher_tickets_sub')}</Text>
+            </View>
+            <Icon name="back" size={16} color={colors.textTertiary} />
+          </TouchableOpacity>
+
           <View style={{ marginBottom: spacing.md }}>
             <ThemeRow />
             <SupportContact href={'/(parent)/support' as Href} />

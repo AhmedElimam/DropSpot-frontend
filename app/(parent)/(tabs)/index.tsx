@@ -154,7 +154,7 @@ export default function ParentHome() {
               <ActionTile icon="calendar" color={colors.brand} tint={colors.brandTint} title={t('today.title')} subtitle={t('today.subtitle')} onPress={() => router.push('/(parent)/today')} />
               <ActionTile icon="invoices" color={colors.success} tint={colors.successLight} title={t('home.invoices_title')} onPress={() => router.push('/(parent)/(tabs)/invoices')} />
               <ActionTile icon="reports" color={colors.info} tint={colors.infoLight} title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')} onPress={() => router.push('/(parent)/report-cards')} />
-              <ActionTile icon="ticket" color={colors.accentWarm} tint={colors.accentWarmTint} title={t('home.support_title')} subtitle={t('home.support_sub')} onPress={() => router.push('/(parent)/tickets')} />
+              <ActionTile icon="ticket" color={colors.accentWarm} tint={colors.accentWarmTint} title={t('parent.teacher_tickets_title')} subtitle={t('parent.teacher_tickets_sub')} onPress={() => router.push('/(parent)/tickets')} />
             </View>
           </View>
 

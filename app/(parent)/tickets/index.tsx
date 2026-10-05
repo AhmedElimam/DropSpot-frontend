@@ -41,7 +41,7 @@ export default function TicketsList() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <PageHero title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} action={{ icon: 'add', label: t('tickets.new'), onPress: () => router.push('/(parent)/tickets/create') }} />
+        <PageHero onBack title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} action={{ icon: 'add', label: t('tickets.new'), onPress: () => router.push('/(parent)/tickets/create') }} />
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {isLoading ? (

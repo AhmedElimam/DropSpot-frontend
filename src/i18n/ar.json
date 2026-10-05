@@ -758,7 +758,9 @@
     "grades_report": "تقرير الدرجات",
     "view_report": "عرض التقرير",
     "no_children": "لا يوجد أبناء مسجلين",
-    "remove_error": "تعذر إزالة المعلم. حاول مرة أخرى."
+    "remove_error": "تعذر إزالة المعلم. حاول مرة أخرى.",
+    "teacher_tickets_title": "تذاكر المعلمين",
+    "teacher_tickets_sub": "راسل معلّم ابنك وتابع الرد"
   },
   "whats_new": {
     "title": "ما الجديد",

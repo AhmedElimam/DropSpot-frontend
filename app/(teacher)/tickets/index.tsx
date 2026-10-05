@@ -2,7 +2,6 @@ import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
 import { useTickets } from '@/hooks/useTickets';
@@ -12,6 +11,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
 
 // Left-edge accent per ticket state.
 const statusColors = (): Record<string, [string, string]> => ({
@@ -42,19 +42,8 @@ export default function TeacherTicketsList() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, letterSpacing: -0.5 }}>
-            {t('tickets.title')}
-          </Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: colors.onHeroSoft, marginTop: 4 }}>
-            {t('tickets.count', { count: tickets?.length ?? 0 })}
-          </Text>
-        </LinearGradient>
+        {/* A pushed screen since tickets left the tab bar (2026-10-04) — so it needs its back. */}
+        <PageHero onBack title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} />
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
           {isLoading ? (
