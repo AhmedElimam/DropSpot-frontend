@@ -30,6 +30,42 @@ function touch(x: number, y: number, t: number) {
 }
 
 describe('PhotoAnnotator', () => {
+  it('the circle and arrow tools draw a whole shape from one drag, and a tap is not a mark', () => {
+    const onDone = jest.fn();
+    let tree!: ReactTestRenderer;
+    const el = (visible: boolean) => createElement(PhotoAnnotator, { visible, uri: 'file:///paper.jpg', imageSize: { width: 1000, height: 1000 }, onCancel: () => {}, onDone });
+    act(() => { tree = create(el(false)); });
+    act(() => { tree.update(el(true)); });
+    const area = tree.root.findAll((n) => typeof n.props.onLayout === 'function' && n.props.style?.flex === 1 && n.props.style?.margin !== undefined)[0];
+    act(() => { area.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 400 } } }); });
+    const surface = () => tree.root.findAll((n) => typeof n.props.onResponderGrant === 'function' && typeof n.type === 'string' && n.props.style?.position === 'absolute')[0];
+    const press = (label: string) => {
+      const btn = tree.root.findAll((n) => typeof n.props.onPress === 'function' && n.findAll((c) => c.props.children === label).length > 0)[0];
+      act(() => { btn.props.onPress(); });
+    };
+    const drag = (from: [number, number], to: [number, number]) => {
+      act(() => { surface().props.onResponderGrant(touch(from[0], from[1], 1)); });
+      act(() => { surface().props.onResponderMove(touch((from[0] + to[0]) / 2, (from[1] + to[1]) / 2, 2)); });
+      act(() => { surface().props.onResponderMove(touch(to[0], to[1], 3)); });
+      act(() => { surface().props.onResponderRelease(touch(to[0], to[1], 4)); });
+    };
+
+    press('t:complaints.grade.tool_circle');
+    drag([100, 100], [300, 200]);
+    act(() => { surface().props.onResponderGrant(touch(50, 50, 10)); });
+    act(() => { surface().props.onResponderRelease(touch(50, 50, 11)); });   // a tap: ignored
+    press('t:complaints.grade.tool_arrow');
+    drag([50, 350], [250, 250]);
+    press('t:complaints.grade.done');
+
+    const { strokes } = onDone.mock.calls[0][0];
+    expect(strokes).toHaveLength(2);
+    expect(strokes[0].points.length).toBeGreaterThan(40);              // the circle
+    expect(strokes[0].points[0]).toEqual(strokes[0].points[strokes[0].points.length - 1]);
+    expect(strokes[1].points).toHaveLength(5);                          // shaft + two barbs
+    expect(strokes[1].points[1]).toEqual([0.625, 0.625]);               // the tip, where the finger stopped
+  });
+
   it('stores what the finger drew as fractions of the image, and undo drops the last line', () => {
     const onDone = jest.fn();
     let tree!: ReactTestRenderer;

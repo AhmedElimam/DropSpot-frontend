@@ -160,3 +160,59 @@ export function serialiseAnnotations(a: PhotoAnnotations | null | undefined): st
   }
   return json;
 }
+
+// ── shapes (founder 2026-10-06: «the edit UI needs a little enhancing») ──────────────────
+// A circle around an answer and an arrow to a question are what people actually draw on a
+// paper. Both are stored as ordinary strokes — a list of points — so the server, the web
+// dashboard and every viewer draw them with no change at all.
+
+/** Pen thicknesses, as fractions of the image width (inside the server's 0.002–0.05). */
+export const STROKE_WIDTHS = [0.005, DEFAULT_STROKE_WIDTH, 0.014] as const;
+
+/** A drag shorter than this (a fraction of the image) is a slip, not a shape. */
+export const MIN_SHAPE = 0.015;
+
+/**
+ * The ellipse inside the box a drag from `a` to `b` spans, as a closed run of points.
+ * Drawn in image fractions: on a non-square photo it is the oval that fills that box,
+ * exactly what the finger outlined on screen.
+ */
+export function ellipsePoints(a: Point, b: Point, segments = 48): Point[] {
+  const cx = (a[0] + b[0]) / 2;
+  const cy = (a[1] + b[1]) / 2;
+  const rx = Math.abs(b[0] - a[0]) / 2;
+  const ry = Math.abs(b[1] - a[1]) / 2;
+  const out: Point[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = (i / segments) * Math.PI * 2;
+    out.push([clamp01(round(cx + rx * Math.cos(t), 4)), clamp01(round(cy + ry * Math.sin(t), 4))]);
+  }
+  return out;
+}
+
+/**
+ * An arrow from `a` to `b`: the shaft, then the two sides of the head, as ONE run of points
+ * (shaft → tip → one barb, back to the tip → the other barb). `aspect` is the image's
+ * width / height, so the head keeps its angle on a tall photo. The head is about a fifth of
+ * the shaft, within sensible bounds.
+ */
+export function arrowPoints(a: Point, b: Point, aspect: number): Point[] {
+  const k = aspect > 0 ? aspect : 1;
+  // Work in a space where one unit is the same length across and down (x scaled by aspect).
+  const ax = a[0] * k, ay = a[1], bx = b[0] * k, by = b[1];
+  const len = Math.hypot(bx - ax, by - ay);
+  if (len === 0) return [a, b];
+  const head = Math.min(Math.max(len * 0.22, 0.025), 0.09);
+  const angle = Math.atan2(by - ay, bx - ax);
+  const spread = Math.PI / 7;
+  const barb = (sign: number): Point => {
+    const t = angle + Math.PI + sign * spread;
+    return [clamp01(round((bx + head * Math.cos(t)) / k, 4)), clamp01(round(by + head * Math.sin(t), 4))];
+  };
+  return [a, b, barb(1), b, barb(-1)];
+}
+
+/** Whether a drag from `a` to `b` is long enough to be a shape. */
+export function isShape(a: Point, b: Point): boolean {
+  return Math.hypot(b[0] - a[0], b[1] - a[1]) >= MIN_SHAPE;
+}

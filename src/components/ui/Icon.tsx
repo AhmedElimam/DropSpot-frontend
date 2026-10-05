@@ -85,6 +85,9 @@ const ICON_MAP = {
   camera: 'camera',
   image: 'image',
   brush: 'brush',
+  // The photo editor's shape tools («علِّم على الخطأ»).
+  shapeCircle: 'ellipse-outline',
+  shapeArrow: 'arrow-forward',
   undo: 'arrow-undo',
   // Threads («النقاشات») — also the student's «مجموعاتي» coming-soon tab.
   threads: 'chatbox-ellipses',
