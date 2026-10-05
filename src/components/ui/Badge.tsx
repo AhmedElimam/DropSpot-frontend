@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View, Text } from 'react-native';
 import { fonts } from '@/theme/typography';
 import { colors } from '@/theme/index';
@@ -12,16 +13,17 @@ interface BadgeProps {
 }
 
 // Text colors are the dark AA-contrast variants, not the mid-tone brand colors.
-const badgeColors: Record<BadgeVariant, { bg: string; text: string }> = {
+const badgeColors = (): Record<BadgeVariant, { bg: string; text: string }> => ({
   default: { bg: colors.surfaceSunken, text: colors.inkSoft },
   success: { bg: colors.successLight, text: colors.successText },
   warning: { bg: colors.warningLight, text: colors.warningText },
   danger: { bg: colors.dangerLight, text: colors.dangerText },
   info: { bg: colors.infoLight, text: colors.infoText },
-};
+});
 
-export function Badge({ label, variant = 'default', size = 'md' }: BadgeProps) {
-  const { bg, text } = badgeColors[variant];
+// memo: a pure leaf, and it sits inside list rows (attendance, collections, proofs).
+export const Badge = memo(function Badge({ label, variant = 'default', size = 'md' }: BadgeProps) {
+  const { bg, text } = badgeColors()[variant];
   const isSm = size === 'sm';
 
   return (
@@ -45,4 +47,4 @@ export function Badge({ label, variant = 'default', size = 'md' }: BadgeProps) {
       </Text>
     </View>
   );
-}
+});

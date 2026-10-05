@@ -1,5 +1,7 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, KeyboardAvoidingView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Alert } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 // expo-image decodes to the rendered size. The old Image decoded every proof screenshot at
 // full resolution (a 12 MP shot is ~48 MB as a bitmap) for a 64 px thumbnail — twenty proofs
 // in the list was the memory pressure Play Console reported.
@@ -9,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
+import { formatNumber } from '@/utils/format';
 import { formatDateTime } from '@/utils/format';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -63,7 +66,7 @@ export default function PaymentProofsScreen() {
     );
   };
 
-  const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
+  const money = (v: number) => `${formatNumber(Math.round(v))} ${t('insights.egp')}`;
 
   const ProofCard = ({ p, review }: { p: PaymentProof; review: boolean }) => (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
@@ -134,7 +137,7 @@ export default function PaymentProofsScreen() {
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           showsVerticalScrollIndicator={false}
         >
@@ -167,11 +170,7 @@ export default function PaymentProofsScreen() {
       </Modal>
 
       {/* Reject reason */}
-      <Modal visible={!!rejecting} transparent animationType="slide" onRequestClose={() => setRejecting(null)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setRejecting(null)} />
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.xl }} />
+      <SheetModal visible={!!rejecting} onClose={() => setRejecting(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('payment_proofs.reject_title')}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs }}>{t('payment_proofs.reject_hint')}</Text>
             <TextInput
@@ -190,9 +189,7 @@ export default function PaymentProofsScreen() {
             >
               {reject.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('payment_proofs.reject')}</Text>}
             </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
     </View>
   );
 }

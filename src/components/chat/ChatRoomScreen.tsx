@@ -452,20 +452,20 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
         }}
       >
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 44, justifyContent: 'center', alignItems: 'center' }} accessibilityRole="button" accessibilityLabel={t('common.back')}>
-          <Icon name="forward" size={26} color="#fff" />
+          <Icon name="forward" size={26} color={colors.onHero} />
         </TouchableOpacity>
-        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }}>
+        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.onHero }}>
             {(data.course.name || '؟').trim().charAt(0)}
           </Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }} numberOfLines={1}>{data.course.name}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.onHero }} numberOfLines={1}>{data.course.name}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             {/* The dot is the socket's word, not a guess: green only once the private channel is
                 subscribed; amber while it tries or after it failed (the poll carries the room then). */}
-            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: connected ? '#8FE3A2' : (socketStatus === 'off' ? 'rgba(255,255,255,0.35)' : '#F3C969') }} />
-            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)' }} numberOfLines={1}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: connected ? '#8FE3A2' : (socketStatus === 'off' ? colors.onHeroFaint : '#F3C969') }} />
+            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft }} numberOfLines={1}>
               {typingLabel ?? `${connected ? t('chat.live') : t('chat.polling')} · ${t('chat.members_count', { count: data.course.members })}`}
             </Text>
           </View>
@@ -477,20 +477,20 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
             accessibilityRole="button"
             accessibilityLabel={t('chat.reports_title')}
           >
-            <Icon name="flag" size={21} color="#fff" outline={openReports === 0} />
+            <Icon name="flag" size={21} color={colors.onHero} outline={openReports === 0} />
             {openReports > 0 ? (
               <View style={{ position: 'absolute', top: 6, end: 4, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{openReports > 9 ? '9+' : openReports}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onPrimary }}>{openReports > 9 ? '9+' : openReports}</Text>
               </View>
             ) : null}
           </TouchableOpacity>
         ) : null}
         <TouchableOpacity onPress={toggleNotify} disabled={setNotify.isPending} style={{ width: 40, height: 44, justifyContent: 'center', alignItems: 'center' }} accessibilityRole="button" accessibilityLabel={notify ? t('chat.notify_on') : t('chat.notify_off')}>
-          <Icon name={notify ? 'bell' : 'bellOff'} size={21} color={notify ? '#fff' : 'rgba(255,255,255,0.6)'} outline />
+          <Icon name={notify ? 'bell' : 'bellOff'} size={21} color={notify ? colors.onHero : colors.onHeroFaint} outline />
         </TouchableOpacity>
         {isModerator ? (
           <TouchableOpacity onPress={roomMenu} style={{ width: 34, height: 44, justifyContent: 'center', alignItems: 'center' }} accessibilityRole="button" accessibilityLabel={t('chat.room_settings')}>
-            <Icon name="settings" size={20} color="#fff" outline />
+            <Icon name="settings" size={20} color={colors.onHero} outline />
           </TouchableOpacity>
         ) : null}
       </LinearGradient>

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,10 +13,14 @@ import { getStudentGrades } from '@/api/grades';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
+import { PageHero } from '@/components/ui/PageHero';
+import { SectionHead } from '@/components/ui/SectionHead';
+import { formatNumber } from '@/utils/format';
 
 type TabKey = 'attendance' | 'grades';
 
-const rankColors = [colors.accentWarm, colors.inkFaint, '#B45309'];
+const rankColors = () => ([colors.accentWarm, colors.inkFaint, '#B45309']);
 
 export default function ReportsScreen() {
   const { t } = useTranslation();
@@ -106,40 +111,21 @@ export default function ReportsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.white, letterSpacing: -0.5 }}>
-            {t('reports.title')}
-          </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
-            {children?.length ?? 0} {t('nav.children')}
-          </Text>
+        <PageHero
+          title={t('reports.title')}
+          subtitle={`${formatNumber(children?.length ?? 0)} ${t('nav.children')}`}
+          stats={[
+            { value: `${formatNumber(overallRate)}%`, label: t('attendance.attendance_rate') },
+            { value: `${formatNumber(overallAvg)}%`, label: t('quiz.avg_score') },
+            { value: formatNumber(totalAbsent), label: t('attendance.absent'), warn: totalAbsent > 0 },
+          ]}
+        />
 
-          <View style={{ flexDirection: 'row', marginTop: spacing.xl, gap: spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{overallRate}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('attendance.attendance_rate')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{overallAvg}%</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('quiz.avg_score')}</Text>
-            </View>
-            <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>{totalAbsent}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{t('attendance.absent')}</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 4 }}>
             {tabs.map((tab) => (
               <TouchableOpacity
@@ -163,7 +149,7 @@ export default function ReportsScreen() {
           {activeTab === 'attendance' && (
             <>
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
-                <Text style={textPresets.h3}>{t('attendance.attendance_summary')}</Text>
+                <SectionHead icon="attendance" color={colors.success} title={t('attendance.attendance_summary')} />
                 <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.surfaceSunken, marginTop: spacing.md, marginBottom: spacing.lg, overflow: 'hidden' }}>
                   <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${overallRate}%`, height: '100%', borderRadius: 4 }} />
                 </View>
@@ -201,7 +187,7 @@ export default function ReportsScreen() {
                     style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Avatar name={child.name} size={44} />
+                      <Avatar name={child.name} seed={avatarSeed.student(child.student_id, child.name)} size={44} />
                       <View style={{ marginStart: spacing.md, flex: 1 }}>
                         <Text style={[textPresets.body, { fontFamily: fonts.bold }]}>{child.name}</Text>
                         <Text style={textPresets.caption}>{child.grade}</Text>
@@ -250,7 +236,7 @@ export default function ReportsScreen() {
           {activeTab === 'grades' && (
             <>
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
-                <Text style={textPresets.h3}>{t('reports.grade_summary')}</Text>
+                <SectionHead icon="grades" color={colors.brand} title={t('reports.grade_summary')} />
                 <View style={{ alignItems: 'center', marginTop: spacing.md, marginBottom: spacing.lg }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 40, color: colors.brand }}>{overallAvg}%</Text>
                   <Text style={textPresets.bodySmall}>{t('quiz.avg_score')}</Text>
@@ -268,14 +254,11 @@ export default function ReportsScreen() {
                 <>
                   {teacherAvgList.length > 0 && (
                     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Icon name="trophy" size={20} color={colors.accentWarm} />
-                        <Text style={textPresets.h3}>{t('reports.top_teachers')}</Text>
-                      </View>
+                      <SectionHead icon="trophy" color={colors.accentWarm} title={t('reports.top_teachers')} />
                       <View style={{ gap: spacing.md, marginTop: spacing.md }}>
                         {teacherAvgList.slice(0, 3).map((teacher, i) => (
                           <View key={teacher.name} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: rankColors[i], justifyContent: 'center', alignItems: 'center', marginEnd: spacing.sm }}>
+                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: rankColors()[i], justifyContent: 'center', alignItems: 'center', marginEnd: spacing.sm }}>
                               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{i + 1}</Text>
                             </View>
                             <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.sm }}>
@@ -303,7 +286,7 @@ export default function ReportsScreen() {
                         style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Avatar name={child.name} size={44} />
+                          <Avatar name={child.name} seed={avatarSeed.student(child.student_id, child.name)} size={44} />
                           <View style={{ marginStart: spacing.md, flex: 1 }}>
                             <Text style={[textPresets.body, { fontFamily: fonts.bold }]}>{child.name}</Text>
                             <Text style={textPresets.caption}>{child.grade}</Text>

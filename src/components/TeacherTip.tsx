@@ -54,7 +54,7 @@ export function TeacherTip({ tip, icon, titleKey, bodyKey, bulletKeys, cta }: Te
     <Modal visible={visible} transparent animationType="fade" onRequestClose={complete}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
         <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl }}>
             <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
               <Icon name={icon} size={28} color={colors.brand} />
             </View>

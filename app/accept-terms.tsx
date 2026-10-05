@@ -13,6 +13,7 @@ import { useTermsContent } from '@/hooks/useTermsContent';
 import { TermsConsentRow } from '@/components/auth/TermsConsentRow';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 /**
  * Blocking Terms-acceptance gate. Reached from the index router when the user's
@@ -54,7 +55,7 @@ export default function AcceptTermsScreen() {
       // read must_accept_terms=true and bounce straight back to this screen (the
       // "accept once, it reloads; accept again, it passes" bug).
       if (user && role) await setSession({ ...user, must_accept_terms: false, terms_update: false }, role);
-      router.replace('/' as Href);
+      router.replace(ROUTE_BY_ROLE);
     },
   });
 
@@ -67,11 +68,11 @@ export default function AcceptTermsScreen() {
         style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg }}
       >
         {isUpdate && (
-          <View style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 3, marginBottom: spacing.xs }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('terms.update_badge')}</Text>
+          <View style={{ alignSelf: 'flex-start', backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 3, marginBottom: spacing.xs }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }}>{t('terms.update_badge')}</Text>
           </View>
         )}
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{heading}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }}>{heading}</Text>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>

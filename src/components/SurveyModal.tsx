@@ -78,7 +78,7 @@ export function SurveyModal() {
             )}
           </View>
 
-          <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }} keyboardShouldPersistTaps="handled">
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }} keyboardShouldPersistTaps="handled">
             {survey.questions.map((q) => (
               <View key={q.key} style={{ marginBottom: spacing.xl }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.sm }}>

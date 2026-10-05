@@ -90,7 +90,7 @@ export interface EnrollResult {
 // Enroll an existing student into the course (schedule master) from their scanned
 // card. Enrollment is course-level; the home slot is auto-bound server-side when
 // the course has a single weekly slot.
-export async function enrollByCard(payload: {
+export async function enrollByCard(payload: import('./enrollmentTerms').EnrollmentTermsInput & {
   method: 'qr' | 'code';
   value: string;
   course_id: number;
@@ -124,6 +124,27 @@ export interface RosterStudent {
   attendance_total: number;
   attendance_attended: number;
   attendance_rate: number | null;
+  /** An overdue bill under this teacher. Only sent to someone who may collect. */
+  overdue?: boolean;
+  /** An active 15-day billing exemption under this teacher (same audience as `overdue`). */
+  exempted?: boolean;
+  /** Where that exemption came from: screen · door_scan · kiosk · manual_checkin (null = older grant). */
+  exemption_source?: string | null;
+  exemption_expires_at?: string | null;
+}
+
+/** One 15-day exemption on a student's profile, newest first (founder 2026-10-04). */
+export interface StudentExemption {
+  id: number;
+  granted_at: string | null;
+  expires_at: string | null;
+  active: boolean;
+  revoked: boolean;
+  source: string | null;
+  source_label: string;
+  granted_by: string | null;
+  /** The session it was granted at — a manual check-in only. */
+  session: { id: string; course_name: string | null; scheduled_at: string | null } | null;
 }
 
 export interface TeacherCourse {
@@ -169,6 +190,8 @@ export interface StudentCourse {
   name: string | null;
   enrollment_id?: number;
   cycle?: CycleProgress;
+  /** This cycle's bill as it stands (strings with 2 decimals). `prior_paid` = settled before the teacher joined. */
+  cycle_invoice?: { id: number; amount: string; paid: string; prior_paid: string; remaining: string; status: string } | null;
   backfill_days?: BackfillDay[];
   /** Which day each session number of the current cycle fell / falls on — for the position picker. */
   timeline_positions?: { n: number; date: string | null; label: string | null; is_past: boolean }[];
@@ -197,10 +220,32 @@ export interface StudentParent {
 
 export interface StudentAttendanceRow {
   id: number;
+  /** The session this record belongs to (older servers omit it). */
+  session_id?: string | null;
   course_name: string | null;
   date: string | null;
   status: string;
   method: string | null;
+}
+
+/** A recent session the profile can record against, with this student's record in it. */
+export interface QuickSession {
+  id: string;
+  course_name: string | null;
+  scheduled_at: string | null;
+  date: string | null;
+  time: string | null;
+  duration_minutes: number | null;
+  status: string;
+  is_exam: boolean;
+  sheet_expected: boolean;
+  sheet_max_mark: number | null;
+  attendance: {
+    status: 'present' | 'late' | 'absent' | 'excused' | 'not_recorded';
+    checked_in_at: string | null;
+    mark: number | null;
+    sheet_marked: boolean;
+  };
 }
 
 export interface StudentDetail {
@@ -210,6 +255,8 @@ export interface StudentDetail {
   grade_name: string | null;
   courses: StudentCourse[];
   parents: StudentParent[];
+  /** Today + the last 14 days of this student's sessions, recordable from the profile (older servers omit it). */
+  quick_sessions?: QuickSession[];
   parent_number_notice?: boolean;
   parent_number_notice_message?: string | null;
   /**
@@ -231,6 +278,8 @@ export interface StudentDetail {
     overdue_amount: string;
     override_active: boolean;
     override_expires_at: string | null;
+    /** Every exemption granted to this student under this teacher, newest first. */
+    exemptions?: StudentExemption[];
     /** Teacher-wide 15-day-allowance switch. */
     allowance_enabled?: boolean;
     /** This student is blocked from the 15-day allowance under this teacher. */

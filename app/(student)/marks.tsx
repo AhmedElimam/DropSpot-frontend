@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,17 +14,19 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
+import { formatNumber } from '@/utils/format';
 
 type TabKey = 'grades' | 'exams';
 
-const cardStyle = {
+const cardStyle = () => ({
   backgroundColor: colors.surface,
   borderRadius: radius.xl,
   borderWidth: 1,
   borderColor: colors.border,
   padding: spacing.xl,
   ...shadows.sm,
-} as const;
+} as const);
 
 // The student's OWN marks — mirrors the parent child-detail grades + exams tabs,
 // but scoped to the logged-in student's id (both endpoints authorize self-access).
@@ -59,27 +62,20 @@ export default function StudentMarksScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-            <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginStart: spacing.sm }}>{t('common.back')}</Text>
-          </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.white, letterSpacing: -0.5 }}>
-            {t('reports.my_marks')}
-          </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: spacing.xs }}>
-            {t('reports.my_marks_sub')}
-          </Text>
-        </LinearGradient>
+        <PageHero
+          title={t('reports.my_marks')}
+          subtitle={t('reports.my_marks_sub')}
+          onBack
+          stats={[
+            { value: `${formatNumber(avgGrade)}%`, label: t('quiz.avg_score') },
+            { value: formatNumber(grades?.length ?? 0), label: t('reports.grades') },
+            { value: formatNumber(exams?.length ?? 0), label: t('reports.exam_results') },
+          ]}
+        />
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 4 }}>
@@ -104,7 +100,7 @@ export default function StudentMarksScreen() {
           </View>
 
           {activeTab === 'grades' && (
-            <View style={cardStyle}>
+            <View style={cardStyle()}>
               <Text style={[textPresets.h3, { marginBottom: spacing.md }]}>{t('reports.grades')}</Text>
               {gradesLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -150,7 +146,7 @@ export default function StudentMarksScreen() {
           )}
 
           {activeTab === 'exams' && (
-            <View style={cardStyle}>
+            <View style={cardStyle()}>
               <Text style={[textPresets.h3, { marginBottom: spacing.md }]}>{t('reports.exam_results')}</Text>
               {examsLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />

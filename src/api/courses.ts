@@ -49,8 +49,11 @@ export interface CourseDetail {
   booklet_is_down_payment?: boolean;
   min_sessions_per_cycle: number;
   max_sessions_per_cycle: number;
-  // Location / phone check-in (automated)
+  // Location / phone check-in
   has_location: boolean;
+  /** The teacher's switch (on by default). Older servers omit it → treat as on. */
+  phone_checkin_enabled?: boolean;
+  /** Location set AND the switch on. */
   phone_checkin_active: boolean;
   latitude: number | null;
   longitude: number | null;
@@ -66,6 +69,7 @@ export interface CourseSettingsPayload {
   /** Rename the course (schedule master). Grade is not editable. */
   name?: string;
   radius_horizontal_meters?: number;
+  phone_checkin_enabled?: boolean;
   allow_session_swap?: boolean;
   sheet_expected_by_default?: boolean;
   sheet_max_mark?: number | null;
@@ -107,6 +111,8 @@ export interface CreateCoursePayload {
   /** Optional venue — a label for organising courses; never a check-in anchor. */
   teacher_location_id?: string | number | null;
   radius_horizontal_meters?: number;
+  /** Phone (geofence) check-in switch — on when omitted. */
+  phone_checkin_enabled?: boolean;
   description?: string;
   slots?: { day_of_week: number; start_time: string; end_time: string }[];
   // Per-course session-swap permission (default on).
@@ -151,6 +157,19 @@ export async function updateCourseSettings(id: string | number, payload: CourseS
 
 export async function updateCourseLocation(id: string | number, payload: LocationPayload): Promise<CourseDetail> {
   const { data } = await client.post(`/teacher/courses/${id}/location`, payload);
+  return (data.data ?? data) as CourseDetail;
+}
+
+export interface ScheduleEditPayload {
+  day_of_week: number;
+  start_time: string; // HH:mm, 24h
+  end_time: string;
+  capacity?: number | null;
+}
+
+/** Change a slot's day / time / capacity; untouched upcoming sessions move with it. */
+export async function updateCourseSchedule(courseId: string | number, scheduleId: string | number, payload: ScheduleEditPayload): Promise<CourseDetail> {
+  const { data } = await client.patch(`/teacher/courses/${courseId}/schedules/${scheduleId}`, payload);
   return (data.data ?? data) as CourseDetail;
 }
 

@@ -91,7 +91,7 @@ export function ComposeThreadSheet({ visible, grades, settings, limits, onClose,
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg + insets.bottom, gap: spacing.lg }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg + insets.bottom, gap: spacing.lg }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {/* Kind */}
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               {(['question', 'note'] as const).map((k) => {

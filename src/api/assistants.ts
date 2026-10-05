@@ -58,6 +58,14 @@ export async function toggleAssistant(id: number): Promise<void> {
 }
 
 /**
+ * End the relationship (or withdraw a pending invitation). Their account and past
+ * records stay; access to this teacher ends at once. Inviting again brings them back.
+ */
+export async function removeAssistant(id: number): Promise<void> {
+  await client.delete(`/assistants/${id}`);
+}
+
+/**
  * WHERE an assistant works. `all_venues: true` covers venues added later, so it clears
  * the specific list rather than snapshotting it. Outside their venues an assistant sees
  * no students, no dues, and can collect nothing.

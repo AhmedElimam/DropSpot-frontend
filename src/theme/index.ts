@@ -1,74 +1,41 @@
+import { Platform } from 'react-native';
 import { fonts } from './typography';
+import { gradientSets, palettes, type GradientSet, type Palette, type Scheme } from './palettes';
 export { fonts } from './typography';
+export type { Palette, Scheme } from './palettes';
 
 /**
- * Sanad design language — "سند" (support · a documented record).
+ * Sanad design language — "سند" (support · a documented record), now in two schemes
+ * (src/theme/palettes.ts): "Mist" by day and "Midnight" (navy + neon) by night.
  *
- * Warm-paper canvas, deep ink-indigo authority, one apricot accent used
- * sparingly. High contrast and a generous type scale for older parents on
- * mid-range Android outdoors. Every legacy token name is preserved so existing
- * screens keep compiling while they are re-skinned onto the new palette.
+ * `colors` and `gradients` are LIVE objects: `applyScheme()` rewrites their values in place,
+ * so the ~4,000 inline `colors.x` reads across the app pick up the scheme on their next
+ * render without a hook in every file. What forces that render is the root layout, which
+ * re-keys the navigation tree on a scheme change (react-navigation's StaticContainer would
+ * otherwise keep every mounted screen exactly as it was). `shadows` and `textPresets` are
+ * getters for the same reason — a value captured at import time would stay on one scheme.
+ *
+ * Every legacy token name is preserved so existing screens keep compiling.
  */
-export const colors = {
-  // Brand — ink indigo (authority, records, trust)
-  primary: '#34419B',
-  primaryLight: '#ECEEF9',
-  primaryDark: '#1E2657',
-  // Secondary kept as an indigo sibling (no more purple)
-  secondary: '#4A57B5',
-  secondaryLight: '#ECEEF9',
-  // The single warm accent — apricot. Use rarely, for the most human moment.
-  accent: '#E7913A',
-  accentLight: '#FBEDDB',
+export const colors: Palette = { ...palettes.light };
+export const gradients: GradientSet = { ...gradientSets.light };
 
-  // Semantic — deliberately muted so state reads without shouting
-  success: '#1F9366',
-  successLight: '#E2F1EA',
-  successDark: '#17734F',
-  successText: '#14603F',
-  warning: '#B27C10',
-  warningLight: '#F6EBD1',
-  warningDark: '#8A6109',
-  warningText: '#6B4A05',
-  danger: '#CB3A4C',
-  dangerLight: '#F7E0E3',
-  dangerDark: '#A82C3C',
-  dangerText: '#7C1F2B',
-  info: '#34419B',
-  infoLight: '#ECEEF9',
-  infoText: '#26306E',
+let scheme: Scheme = 'light';
 
-  white: '#FFFFFF',
-  // Warm paper canvas — chosen, not a default clinical grey
-  background: '#F4F1EB',
-  surface: '#FFFFFF',
-  border: '#E7E1D5',
-  borderLight: '#EFEBE2',
+/** Switch every live token to `next`. Idempotent; returns whether anything changed. */
+export function applyScheme(next: Scheme): boolean {
+  const changed = next !== scheme;
+  scheme = next;
+  Object.assign(colors, palettes[next]);
+  Object.assign(gradients, gradientSets[next]);
+  return changed;
+}
 
-  // Ink text ramp
-  textPrimary: '#1A2140',
-  textSecondary: '#55607A',
-  textTertiary: '#939AB0',
-  textInverse: '#FFFFFF',
+export function currentScheme(): Scheme {
+  return scheme;
+}
 
-  overlay: 'rgba(26, 33, 64, 0.5)',
-  overlayLight: 'rgba(26, 33, 64, 0.3)',
-  whatsapp: '#25D366',
-
-  // --- New Sanad semantic tokens (additive) ---
-  paper: '#F4F1EB',
-  surfaceSunken: '#FAF8F3',
-  borderStrong: '#D8D1C2',
-  ink: '#1A2140',
-  inkSoft: '#55607A',
-  inkFaint: '#939AB0',
-  brand: '#34419B',
-  brandDeep: '#1E2657',
-  brandTint: '#ECEEF9',
-  accentWarm: '#E7913A',
-  accentWarmTint: '#FBEDDB',
-  onAccent: '#231303',
-} as const;
+export const isDark = () => scheme === 'dark';
 
 export const spacing = {
   xs: 4,
@@ -92,75 +59,73 @@ export const radius = {
 } as const;
 
 /**
- * Elevation — neutral ink shadows, softer and calmer than the old indigo glow.
- * Keys are unchanged (sm/md/lg/glow) so existing consumers keep working.
+ * Elevation — neutral ink shadows by day; by night a deeper drop (the surface is already
+ * the lighter navy, so the shadow only has to separate card from canvas). Keys are
+ * unchanged (sm/md/lg/glow) so existing consumers keep working.
+ *
+ * ANDROID GETS NO SHADOW, ON PURPOSE (2026-09-22).
+ * `shadowColor/Offset/Opacity/Radius` are iOS-only — Android ignores them and reads
+ * `elevation` alone. Every elevated view on Android is promoted to its OWN render layer
+ * whose shadow is rasterised each time it is drawn, and the cost is per view, not per
+ * pixel of shadow: `elevation: 1` on a list row is nearly as expensive as `elevation: 8`.
+ * These presets are spread into 81 places — cards, rows, headers, badges — so a roster
+ * or a session list was asking an entry-level GPU for dozens of extra layers on every
+ * frame it scrolled. That is GPU time and heat, and it is the largest single graphics
+ * cost in the app on the devices that complained (Redmi Note 11S and older, slow
+ * scrolling + heat).
+ *
+ * The trade is visual: on Android, cards are FLAT. They stay legible because `surface`
+ * is lighter than `background` and most cards already carry a 1px border. iOS is
+ * untouched. To put the shadows back, set ANDROID_ELEVATION to true.
  */
-export const shadows = {
-  sm: {
-    shadowColor: '#1A2140',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  md: {
-    shadowColor: '#1A2140',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  lg: {
-    shadowColor: '#1A2140',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  // Used by the bottom tab bar — a soft lift, no coloured glow
-  glow: {
-    shadowColor: '#1A2140',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-} as const;
+const ANDROID_ELEVATION = false;
+const el = (n: number) => (Platform.OS === 'android' && !ANDROID_ELEVATION ? {} : { elevation: n });
 
-/**
- * Gradients — restrained. `primary` is a grounded indigo (used by filled
- * buttons); `hero` is the deep-ink header band. No indigo→purple.
- */
-export const gradients = {
-  primary: ['#3A46A8', '#2E3A93'] as const,
-  accent: ['#E7913A', '#D97B22'] as const,
-  success: ['#1F9366', '#17734F'] as const,
-  warm: ['#E7913A', '#D97B22'] as const,
-  surface: ['#FFFFFF', '#FAF8F3'] as const,
-  // Deep-ink hero band for screen headers
-  hero: ['#232C6B', '#1A2147', '#171C3B'] as const,
-} as const;
+type Shadow = { shadowColor: string; shadowOffset: { width: number; height: number }; shadowOpacity: number; shadowRadius: number; elevation?: number };
+const shadow = (height: number, opacity: number, blur: number, elevation: number): Shadow => ({
+  shadowColor: colors.shadow,
+  shadowOffset: { width: 0, height },
+  shadowOpacity: isDark() ? Math.min(0.6, opacity * 3) : opacity,
+  shadowRadius: blur,
+  ...el(elevation),
+});
+
+export const shadows = {
+  get sm(): Shadow { return shadow(1, 0.06, 3, 1); },
+  get md(): Shadow { return shadow(4, 0.08, 12, 3); },
+  get lg(): Shadow { return shadow(10, 0.12, 24, 8); },
+  // Used by the bottom tab bar — a soft lift by day; by night the neon breathes under it.
+  get glow(): Shadow {
+    return isDark()
+      ? { shadowColor: colors.neon, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.22, shadowRadius: 16, ...el(8) }
+      : shadow(-2, 0.06, 12, 8);
+  },
+};
 
 export const nav = {
+  /** Space a TAB screen leaves for the floating tab bar. */
   bottomHeight: 88,
+  /** End-of-page breathing room on a PUSHED screen — it has no tab bar under it (2026-10-04). */
+  pageEnd: 16,
 } as const;
 
 /**
  * Type scale — Cairo. Base body raised to 17 for elderly legibility; headings
- * step 18 → 34. Every preset resolves its colour through the ink ramp above.
+ * step 18 → 34. Every preset resolves its colour through the ink ramp above, live.
  */
+type Preset = { fontFamily: string; fontSize: number; lineHeight: number; color: string; letterSpacing?: number };
 export const textPresets = {
-  display: { fontFamily: fonts.bold, fontSize: 34, lineHeight: 44, color: colors.textPrimary, letterSpacing: -0.6 },
-  h1: { fontFamily: fonts.bold, fontSize: 28, lineHeight: 38, color: colors.textPrimary, letterSpacing: -0.4 },
-  h2: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 32, color: colors.textPrimary, letterSpacing: -0.2 },
-  h3: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 28, color: colors.textPrimary },
-  subtitle: { fontFamily: fonts.medium, fontSize: 18, lineHeight: 26, color: colors.textPrimary },
+  get display(): Preset { return { fontFamily: fonts.bold, fontSize: 34, lineHeight: 44, color: colors.textPrimary, letterSpacing: -0.6 }; },
+  get h1(): Preset { return { fontFamily: fonts.bold, fontSize: 28, lineHeight: 38, color: colors.textPrimary, letterSpacing: -0.4 }; },
+  get h2(): Preset { return { fontFamily: fonts.bold, fontSize: 24, lineHeight: 32, color: colors.textPrimary, letterSpacing: -0.2 }; },
+  get h3(): Preset { return { fontFamily: fonts.bold, fontSize: 20, lineHeight: 28, color: colors.textPrimary }; },
+  get subtitle(): Preset { return { fontFamily: fonts.medium, fontSize: 18, lineHeight: 26, color: colors.textPrimary }; },
   // Parent-facing body text: 17px minimum (elderly-usability rule)
-  body: { fontFamily: fonts.regular, fontSize: 17, lineHeight: 26, color: colors.textPrimary },
-  bodySmall: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: colors.textSecondary },
-  caption: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.textTertiary },
-  label: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: colors.textSecondary },
-} as const;
+  get body(): Preset { return { fontFamily: fonts.regular, fontSize: 17, lineHeight: 26, color: colors.textPrimary }; },
+  get bodySmall(): Preset { return { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: colors.textSecondary }; },
+  get caption(): Preset { return { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.textTertiary }; },
+  get label(): Preset { return { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: colors.textSecondary }; },
+};
 
 // Minimum touch target (parent app rule: 44pt iOS / 48dp Android)
 export const touchTarget = { minHeight: 48, minWidth: 48 } as const;

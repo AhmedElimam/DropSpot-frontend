@@ -1,4 +1,5 @@
 import client from './client';
+import type { EnrollmentTermsInput } from './enrollmentTerms';
 import { extractAttrs } from './utils';
 import type { AuthResponse } from '@/types/user';
 
@@ -84,7 +85,8 @@ export async function getInvitationOptions(): Promise<InvitationOptions> {
   return (data.data ?? data) as InvitationOptions;
 }
 
-export interface CreateInvitationPayload {
+/** The shared enrolment terms (position, دفعة, booklet) ride along — see src/api/enrollmentTerms.ts. */
+export interface CreateInvitationPayload extends EnrollmentTermsInput {
   parent_phone?: string;
   student_phone?: string;
   course_id: number;
@@ -93,14 +95,6 @@ export interface CreateInvitationPayload {
   invited_student_name?: string;
   dedupe_decision?: 'new' | 'link';
   link_student_id?: number;
-  down_payment_amount?: number | null;
-  /**
-   * Amount the family already handed over at invitation time. Seeds paid_amount on
-   * the booking charge, so the family's app shows the remainder rather than the full
-   * دفعة. Must not exceed down_payment_amount (the API rejects it with 422).
-   */
-  down_payment_paid?: number | null;
-  booking_secures?: BookingSecures;
   /** Confirm enrolling a linked student whose saved grade differs from the course. */
   accept_grade_mismatch?: boolean;
 }

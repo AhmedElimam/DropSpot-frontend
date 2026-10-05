@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,15 +13,17 @@ import { Icon } from '@/components/ui/Icon';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PageHero } from '@/components/ui/PageHero';
+import { SectionHead } from '@/components/ui/SectionHead';
 
-const cardStyle = {
+const cardStyle = () => ({
   backgroundColor: colors.surface,
   borderRadius: radius.xxl,
   borderWidth: 1,
   borderColor: colors.border,
   padding: spacing.lg,
   ...shadows.sm,
-} as const;
+} as const);
 
 function sessionTime(iso?: string): string {
   if (!iso) return '';
@@ -46,25 +49,11 @@ export default function TodayScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl }}
-        >
-          <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-            <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginStart: spacing.sm }}>{t('common.back')}</Text>
-          </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff' }}>{t('today.title')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
-            {t('today.subtitle')}
-          </Text>
-        </LinearGradient>
+        <PageHero title={t('today.title')} subtitle={t('today.subtitle')} onBack compact />
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg }}>
           {isLoading ? (
@@ -83,9 +72,9 @@ export default function TodayScreen() {
 function ChildToday({ child, t }: { child: FeedChild; t: (k: string) => string }) {
   return (
     <View style={{ gap: spacing.md }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginStart: spacing.xs }}>{child.name}</Text>
+      <SectionHead icon="child" color={colors.brand} title={child.name} />
       {child.teachers.map((teacher) => (
-        <View key={teacher.teacher_id} style={cardStyle}>
+        <View key={teacher.teacher_id} style={cardStyle()}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
             <Icon name="teacher" size={16} color={colors.textSecondary} outline />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>{teacher.teacher_name ?? ''}</Text>

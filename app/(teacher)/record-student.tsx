@@ -12,23 +12,18 @@ import { colors, spacing, radius, control, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { isArabicName, isEgyptPhone } from '@/utils/validators';
-import { getInvitationOptions, type InvitationCourseOption, type BookingSecures } from '@/api/invitation';
+import { getInvitationOptions, type InvitationCourseOption } from '@/api/invitation';
+import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
 import { recordStudent, orderCardsForNewlyAdded, type DedupeMatch, type RecordStudentPayload, type ParentRelationship, type ExistingStudentOffer } from '@/api/studentRecord';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
-const SECURES: { key: BookingSecures; label: string }[] = [
-  { key: 'session', label: 'الحصص' },
-  { key: 'booklet', label: 'الملزمة' },
-  { key: 'flat', label: 'حجز مبدئي' },
-];
-
-const label = { fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.xs } as const;
-const field = {
+const label = () => ({ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.xs } as const);
+const field = () => ({
   fontFamily: fonts.regular, fontSize: 17, minHeight: control.minHeight,
   backgroundColor: colors.surfaceSunken, borderRadius: radius.lg,
   paddingHorizontal: spacing.lg, paddingVertical: 14, color: colors.textPrimary,
   textAlign: 'right' as const, borderWidth: 1.5,
-};
+});
 
 export default function RecordStudent() {
   const insets = useSafeAreaInsets();
@@ -49,19 +44,9 @@ export default function RecordStudent() {
   const [parentPhone, setParentPhone] = useState('');
   const [parentName, setParentName] = useState('');
   const [relationship, setRelationship] = useState<ParentRelationship | null>(null);
-  // Booking down-payment (دفعة) — per-student, seeded from the teacher's default.
-  const [bookingOn, setBookingOn] = useState(false);
-  const [secures, setSecures] = useState<BookingSecures | null>(null);
-  // How many sessions a session-secured دفعة buys. Only meaningful for 'session' — a flat
-  // deposit or a booklet is not measured in sessions, so the server stores null for those.
-  const [bookingSessions, setBookingSessions] = useState('');
-  // Booklet (ملزمة) — offered only where the teacher offers booklets AND the course prices
-  // one. ONE switch: the booklet is raised either way (the teacher-wide sweep would raise it
-  // regardless), so the only real question is whether the family has already paid. Records
-  // money taken at the desk rather than collecting it now.
-  const [bookletPaid, setBookletPaid] = useState(false);
-  const [downPayment, setDownPayment] = useState('');
-  const [downPaid, setDownPaid] = useState('');
+  // The enrolment terms (position in the month, دفعة, booklet) — the one sheet every door
+  // shows; seeded from the teacher's defaults for the chosen course.
+  const terms = useEnrollmentTerms(courseId);
   const [saving, setSaving] = useState(false);
   const [count, setCount] = useState(0);
   const [enrollmentIds, setEnrollmentIds] = useState<number[]>([]);
@@ -76,16 +61,18 @@ export default function RecordStudent() {
 
   const nameError = name.trim() !== '' && !isArabicName(name);
   const phoneError = parentPhone.trim() !== '' && !isEgyptPhone(parentPhone);
-  // The student's own phone — required: they sign in with it when the app launches.
+  // The student's own phone — OPTIONAL for now (founder 2026-10-04): empty is fine, a typed
+  // number must be valid. When given, the student signs in with it.
   const studentPhoneError = studentPhone.trim() !== '' && !isEgyptPhone(studentPhone);
   const sameAsParentError =
     studentPhone.trim() !== '' && parentPhone.trim() !== '' && studentPhone.trim() === parentPhone.trim();
   const canSubmit =
     courseId != null &&
     isArabicName(name.trim()) &&
-    isEgyptPhone(studentPhone.trim()) &&
+    (studentPhone.trim() === '' || isEgyptPhone(studentPhone.trim())) &&
     isEgyptPhone(parentPhone.trim()) &&
     !sameAsParentError &&
+    !terms.overpaid &&
     !saving;
 
   function afterCreated(enrollmentId: number | null) {
@@ -96,10 +83,8 @@ export default function RecordStudent() {
     setParentPhone('');
     setParentName('');
     setRelationship(null);
-    // Keep the booking toggle + secures across students of the same course; only the
-    // per-student amounts reset.
-    setDownPayment('');
-    setDownPaid('');
+    // Keep the per-course answers (position, دفعة on/off, secures); drop the per-student money.
+    terms.resetPerStudent();
     setFlash(`تم إضافة ${count + 1} طالب`);
     setTimeout(() => setFlash(null), 1800);
     nameRef.current?.focus();
@@ -107,27 +92,13 @@ export default function RecordStudent() {
 
   async function submit(decision?: 'new' | 'link', linkStudentId?: number) {
     if (courseId == null) return;
-    // Down-payment: OFF → explicit waive (send null); ON with an amount → that amount;
-    // ON but blank → omit so the teacher's default applies.
-    const dpProvided = !bookingOn || downPayment.trim() !== '';
     const payload: RecordStudentPayload = {
       student_name: name.trim(),
-      student_phone: studentPhone.trim(),
+      ...(studentPhone.trim() ? { student_phone: studentPhone.trim() } : {}),
       parent_phone: parentPhone.trim(),
       ...(parentName.trim() ? { parent_name: parentName.trim() } : {}),
       ...(relationship ? { relationship } : {}),
-      ...(dpProvided
-        ? {
-            down_payment_amount: !bookingOn || downPayment.trim() === '' ? null : Number(downPayment),
-            down_payment_paid: !bookingOn || downPaid.trim() === '' ? null : Number(downPaid),
-            booking_secures: secures ?? options?.default_secures,
-            booklet_paid: bookletPaid,
-            booking_sessions:
-              !bookingOn || (secures ?? options?.default_secures) !== 'session' || bookingSessions.trim() === ''
-                ? null
-                : Number(bookingSessions),
-          }
-        : {}),
+      ...terms.payload(),
       course_id: courseId,
       ...(decision ? { dedupe_decision: decision } : {}),
       ...(linkStudentId ? { link_student_id: linkStudentId } : {}),
@@ -219,7 +190,7 @@ export default function RecordStudent() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: insets.top + spacing.md, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xxl }} keyboardShouldPersistTaps="handled">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingTop: insets.top + spacing.md, paddingBottom: nav.pageEnd + insets.bottom + spacing.xxl }} keyboardShouldPersistTaps="handled">
         {/* Header + running count */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
           <TouchableOpacity onPress={() => router.back()}><Icon name="forward" size={26} color={colors.textSecondary} /></TouchableOpacity>
@@ -230,7 +201,7 @@ export default function RecordStudent() {
         </View>
 
         {/* Course picker (choose once) */}
-        <Text style={label}>المقرر</Text>
+        <Text style={label()}>المقرر</Text>
         {eligible.length === 0 ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, marginBottom: spacing.lg }}>لا توجد مقررات لها مواعيد. أضِف موعدًا للمقرر أولًا.</Text>
         ) : (
@@ -238,7 +209,7 @@ export default function RecordStudent() {
             {eligible.map((c: InvitationCourseOption) => {
               const selected = c.id === courseId;
               return (
-                <TouchableOpacity key={c.id} onPress={() => { setCourseId(c.id); setBookingOn(!!options?.requires_down_payment); setSecures(options?.default_secures ?? null); }} activeOpacity={0.85}
+                <TouchableOpacity key={c.id} onPress={() => setCourseId(c.id)} activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: selected ? colors.brandTint : colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1.5, borderColor: selected ? colors.brand : 'transparent' }}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}</Text>
@@ -254,60 +225,60 @@ export default function RecordStudent() {
         {courseId != null && (
           <>
             {/* Student name */}
-            <Text style={label}>اسم الطالب</Text>
+            <Text style={label()}>اسم الطالب</Text>
             <TextInput
               ref={nameRef}
               value={name}
               onChangeText={setName}
               placeholder="الاسم الكامل"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: spacing.xs, borderColor: nameError ? colors.danger : (name ? colors.brand : colors.borderStrong) }}
+              style={{ ...field(), marginBottom: spacing.xs, borderColor: nameError ? colors.danger : (name ? colors.brand : colors.borderStrong) }}
               returnKeyType="next"
             />
             {nameError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>يرجى إدخال الاسم بالعربية</Text> : <View style={{ height: spacing.md }} />}
 
             {/* Student's own phone — their login handle when the app launches */}
-            <Text style={label}>رقم هاتف الطالب</Text>
+            <Text style={label()}>رقم هاتف الطالب <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}>(اختياري)</Text></Text>
             <TextInput
               value={studentPhone}
               onChangeText={setStudentPhone}
               placeholder="01xxxxxxxxx"
               placeholderTextColor={colors.textTertiary}
               keyboardType="phone-pad"
-              style={{ ...field, marginBottom: spacing.xs, borderColor: (studentPhoneError || sameAsParentError) ? colors.danger : (studentPhone ? colors.brand : colors.borderStrong) }}
+              style={{ ...field(), marginBottom: spacing.xs, borderColor: (studentPhoneError || sameAsParentError) ? colors.danger : (studentPhone ? colors.brand : colors.borderStrong) }}
               returnKeyType="next"
             />
             {sameAsParentError
               ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>رقم الطالب لا يمكن أن يطابق رقم ولي الأمر</Text>
               : studentPhoneError
                 ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>رقم هاتف غير صحيح</Text>
-                : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>يسجّل الطالب الدخول بهذا الرقم عند إطلاق التطبيق.</Text>}
+                : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>إن وُجد، يسجّل الطالب الدخول به. يمكن تركه فارغًا.</Text>}
 
             {/* Parent phone — the activation anchor */}
-            <Text style={label}>رقم ولي الأمر</Text>
+            <Text style={label()}>رقم ولي الأمر</Text>
             <TextInput
               value={parentPhone}
               onChangeText={setParentPhone}
               placeholder="01xxxxxxxxx"
               placeholderTextColor={colors.textTertiary}
               keyboardType="phone-pad"
-              style={{ ...field, marginBottom: spacing.xs, borderColor: phoneError ? colors.danger : (parentPhone ? colors.brand : colors.borderStrong) }}
+              style={{ ...field(), marginBottom: spacing.xs, borderColor: phoneError ? colors.danger : (parentPhone ? colors.brand : colors.borderStrong) }}
               onSubmitEditing={() => canSubmit && submit()}
             />
             <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>سيُستخدم هذا الرقم لتنشيط حساب الطالب لاحقًا.</Text>
 
             {/* Parent name — OPTIONAL (the parent can set/modify it at setup). */}
-            <Text style={label}>اسم ولي الأمر (اختياري)</Text>
+            <Text style={label()}>اسم ولي الأمر (اختياري)</Text>
             <TextInput
               value={parentName}
               onChangeText={setParentName}
               placeholder="الاسم الكامل"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
+              style={{ ...field(), marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
             />
 
             {/* Relationship — OPTIONAL, tap to toggle. */}
-            <Text style={label}>صلة القرابة (اختياري)</Text>
+            <Text style={label()}>صلة القرابة (اختياري)</Text>
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
               {([['father', 'أب'], ['mother', 'أم'], ['guardian', 'ولي أمر']] as const).map(([value, ar]) => {
                 const active = relationship === value;
@@ -328,80 +299,8 @@ export default function RecordStudent() {
               })}
             </View>
 
-            {/* Booking down-payment (دفعة) — per-student, seeded from the teacher default. */}
-            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
-                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>دفعة الحجز</Text>
-                <Switch value={bookingOn} onValueChange={setBookingOn} trackColor={{ true: colors.brand, false: colors.border }} />
-              </View>
-              {bookingOn ? (
-                <View style={{ marginTop: spacing.md }}>
-                  <Text style={label}>يؤمّن الحجز</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
-                    {SECURES.map((s) => {
-                      const active = (secures ?? options?.default_secures) === s.key;
-                      return (
-                        <TouchableOpacity key={s.key} onPress={() => setSecures(s.key)} activeOpacity={0.8}
-                          style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: active ? colors.brand : colors.borderStrong, backgroundColor: active ? colors.brandTint : colors.surface }}>
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.brand : colors.textSecondary }}>{s.label}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                  {/* The mid-course case: a student joining mid-month pays for the sessions
-                      that are LEFT, so the count is part of the price, not a note on the
-                      receipt. Shown only for a session-secured دفعة — a flat deposit has no
-                      session count and offering one would invite a meaningless number. */}
-                  {(secures ?? options?.default_secures) === 'session' ? (
-                    <>
-                      <Text style={label}>عدد الحصص</Text>
-                      <TextInput
-                        value={bookingSessions}
-                        onChangeText={(v) => setBookingSessions(v.replace(/[^0-9]/g, ''))}
-                        keyboardType="number-pad"
-                        placeholder="مثال: 3"
-                        placeholderTextColor={colors.textTertiary}
-                        style={{ ...field, marginBottom: spacing.xs }}
-                      />
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>
-                        {course?.per_session_price != null && bookingSessions.trim() !== ''
-                          ? `${Number(course.per_session_price) * Number(bookingSessions)} ج.م بسعر الحصة ${course.per_session_price}`
-                          : 'كم حصة تغطّيها هذه الدفعة — للطالب المنضمّ في منتصف الشهر.'}
-                      </Text>
-                    </>
-                  ) : null}
-                  <Text style={label}>قيمة الدفعة</Text>
-                  <TextInput value={downPayment} onChangeText={(v) => setDownPayment(v.replace(/[^0-9.]/g, ''))} keyboardType="numeric"
-                    placeholder={course?.booking_price != null ? String(course.booking_price) : 'المبلغ'} placeholderTextColor={colors.textTertiary}
-                    style={{ ...field, marginBottom: spacing.xs }} />
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>اتركها فارغة لاستخدام السعر الافتراضي.</Text>
-                  <Text style={label}>المدفوع الآن (اختياري)</Text>
-                  <TextInput value={downPaid} onChangeText={(v) => setDownPaid(v.replace(/[^0-9.]/g, ''))} keyboardType="numeric"
-                    placeholder="0" placeholderTextColor={colors.textTertiary} style={{ ...field, marginBottom: spacing.xs }} />
-                </View>
-              ) : null}
-            </View>
-
-            {/* Booklet (ملزمة). Shown only when the teacher-wide switch is on AND this course
-                prices a booklet — an empty toggle is worse than no toggle. The second switch
-                records that the family already paid at the desk, so the booklet never appears
-                as a due the teacher then collects from themselves. */}
-            {options?.offers_booklets && (course?.booklet_price ?? 0) > 0 ? (
-              <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
-                  <View style={{ flex: 1 }}>
-                    {/* The LABEL carries the answer, so the switch needs no second control. */}
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: bookletPaid ? colors.success : colors.textPrimary }}>
-                      {bookletPaid ? 'تم تحصيل الملزمة' : 'لم تُحصَّل الملزمة'}
-                    </Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: 2 }}>
-                      {`${course?.booklet_price} ج.م — تُسجَّل على الطالب في الحالتين`}
-                    </Text>
-                  </View>
-                  <Switch value={bookletPaid} onValueChange={setBookletPaid} trackColor={{ true: colors.success, false: colors.border }} />
-                </View>
-              </View>
-            ) : null}
+            {/* شروط التسجيل — the same sheet every door shows. */}
+            <EnrollmentTermsSheet terms={terms} />
 
             {/* Save */}
             <TouchableOpacity onPress={() => submit()} disabled={!canSubmit} activeOpacity={0.85}
@@ -411,8 +310,8 @@ export default function RecordStudent() {
             </TouchableOpacity>
 
             {flash ? (
-              <View style={{ marginTop: spacing.md, backgroundColor: '#e7f7ee', borderRadius: radius.lg, padding: spacing.md, alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#0f7a48' }}>✅ {flash}</Text>
+              <View style={{ marginTop: spacing.md, backgroundColor: colors.successLight, borderRadius: radius.lg, padding: spacing.md, alignItems: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.successText }}>✅ {flash}</Text>
               </View>
             ) : null}
 

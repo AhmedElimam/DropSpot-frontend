@@ -1,16 +1,31 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
+import { formatNumber } from '@/utils/format';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { FilterChips } from '@/components/ui/FilterChips';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { getTeacherInsights, getInsightsPdfUrl, type TeacherInsights, type TrendDay, type InsightsRangeKey } from '@/api/insights';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { openRemotePdf } from '@/utils/openPdf';
+
+const VENUE_KEY = 'insights_venue_filter';
+
+function CashLine({ label, value, tint }: { label: string; value: string; tint?: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 3 }}>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: tint ?? colors.textPrimary }}>{value}</Text>
+    </View>
+  );
+}
 
 /**
  * Shown before the first response arrives, so the period bar is never a blank strip.
@@ -36,18 +51,68 @@ export default function InsightsScreen() {
   // The chosen period drives the query key, so switching it refetches rather than
   // re-labelling stale numbers.
   const [range, setRange] = useState<InsightsRangeKey>('month');
+  // Venue filter (venues addendum §4): 'all', a venue id, or 'general'. Persisted between
+  // visits — a teacher who manages one centre closely will look at it most.
+  //
+  // The saved venue is read BEFORE the first fetch (`venueReady`). It used to arrive a beat
+  // after the screen opened: the page fetched "all", then refetched the saved venue — and
+  // if the teacher had already tapped a chip in between, the late read overwrote the tap.
+  const [venue, setVenueState] = useState<'all' | 'general' | number>('all');
+  const [venueReady, setVenueReady] = useState(false);
+  const touchedRef = useRef(false);
+  useEffect(() => {
+    SecureStore.getItemAsync(VENUE_KEY).then((v) => {
+      if (!v || touchedRef.current) return;
+      setVenueState(v === 'general' ? 'general' : v === 'all' ? 'all' : Number(v) || 'all');
+    }).catch(() => {}).finally(() => setVenueReady(true));
+  }, []);
+  const setVenue = (v: 'all' | 'general' | number) => {
+    touchedRef.current = true;
+    setVenueReady(true);
+    setVenueState(v);
+    SecureStore.setItemAsync(VENUE_KEY, String(v)).catch(() => {});
+  };
+  const venueParam = venue === 'all' ? undefined : venue;
   const [exporting, setExporting] = useState(false);
   const q = useQuery({
-    queryKey: ['teacher-insights', range],
-    queryFn: () => getTeacherInsights({ range }),
+    queryKey: ['teacher-insights', range, venue],
+    queryFn: () => getTeacherInsights({ range, venue: venueParam }),
+    enabled: venueReady,
     // Keep the previous period on screen while the new one loads, so switching periods
-    // reads as the numbers changing rather than the page emptying.
+    // reads as the numbers changing rather than the page emptying. It is dimmed and a
+    // spinner sits by the title meanwhile, so old figures never pass for new ones.
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
   const d = q.data;
+  const switching = q.isPlaceholderData && q.isFetching;
   const { refreshing, onRefresh } = usePullRefresh(q.refetch);
 
-  const money = (v: number) => `${Math.round(v).toLocaleString('en-US')} ${t('insights.egp')}`;
+  // The venue chips outlive a failed fetch: they used to come only from the latest
+  // response, so one error emptied the page AND took away the chips needed to step back.
+  const venuesRef = useRef<{ id: number; name: string | null }[]>([]);
+  const perVenueRef = useRef(false);
+  if (d?.venues) venuesRef.current = d.venues;
+  if (d?.cash_settings) perVenueRef.current = !!d.cash_settings.per_venue;
+  const venueList = venuesRef.current;
+
+  // A saved venue that no longer exists (deleted, or another teacher's) falls back to
+  // "all" instead of silently filtering by a chip that isn't there.
+  useEffect(() => {
+    if (!d?.venues) return;
+    if (typeof venue === 'number' && !d.venues.some((v) => v.id === venue)) setVenue('all');
+    if (venue === 'general' && !d.cash_settings?.per_venue) setVenue('all');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d?.venues, d?.cash_settings?.per_venue, venue]);
+
+  const venueOptions = useMemo(() => [
+    { key: 'all' as const, label: t('insights.venue_all') },
+    ...venueList.map((v) => ({ key: v.id as 'all' | 'general' | number, label: v.name ?? '' })),
+    ...(perVenueRef.current ? [{ key: 'general' as const, label: t('insights.venue_general') }] : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [venueList, perVenueRef.current, t]);
+
+  const money = (v: number) => `${formatNumber(Math.round(v))} ${t('insights.egp')}`;
   const presets = d?.presets?.length ? d.presets : FALLBACK_PRESETS;
   const rangeLabel = d?.range?.label ?? presets.find((p) => p.key === range)?.label ?? '';
 
@@ -57,7 +122,7 @@ export default function InsightsScreen() {
     if (exporting) return;
     setExporting(true);
     try {
-      const url = await getInsightsPdfUrl({ range });
+      const url = await getInsightsPdfUrl({ range, venue: venueParam });
       if (!url) throw new Error('no url');
       await openRemotePdf(url, `تحليلات-${rangeLabel || range}`);
     } catch {
@@ -73,14 +138,17 @@ export default function InsightsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('insights.title')}</Text>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('insights.title')}</Text>
+          {switching ? <ActivityIndicator size="small" color={colors.brand} /> : null}
+        </View>
         <TouchableOpacity
           onPress={exportPdf}
-          disabled={exporting || !d}
+          disabled={exporting || !d || switching}
           style={{
             flexDirection: 'row', alignItems: 'center', gap: 6,
             paddingHorizontal: spacing.md, height: 40, borderRadius: 12,
-            backgroundColor: colors.brand + '18', opacity: exporting || !d ? 0.5 : 1,
+            backgroundColor: colors.brand + '18', opacity: exporting || !d || switching ? 0.5 : 1,
           }}
         >
           {exporting ? (
@@ -92,50 +160,35 @@ export default function InsightsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Period bar — every number below answers the question this row is asking. */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        // alignItems 'center' + a non-shrinking chip: without them RTL measures the
-        // Arabic label narrow, wraps it, and the second line is clipped by the chip.
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.sm, alignItems: 'center' }}
-        style={{ flexGrow: 0 }}
-      >
-        {presets.map((p) => {
-          const active = p.key === range;
-          return (
-            <TouchableOpacity
-              key={p.key}
-              onPress={() => setRange(p.key)}
-              style={{
-                flexShrink: 0,
-                paddingHorizontal: spacing.md, paddingVertical: 8, borderRadius: 999,
-                borderWidth: 1,
-                borderColor: active ? colors.brand : colors.border,
-                backgroundColor: active ? colors.brand : colors.surface,
-              }}
-            >
-              <Text
-                numberOfLines={1}
-                style={{ fontFamily: fonts.bold, fontSize: 13, lineHeight: 20, color: active ? '#FFFFFF' : colors.textSecondary }}
-              >
-                {p.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      {/* The two filter rows, spaced so a thumb can't land on the wrong one. */}
+      <View style={{ gap: spacing.sm, paddingBottom: spacing.sm }}>
+        {/* Period bar — every number below answers the question this row is asking. */}
+        <FilterChips options={presets} value={range} onChange={setRange} />
 
-      {q.isLoading ? (
+        {/* Venue filter — every figure below follows it, including the cash block. */}
+        {venueList.length > 0 ? (
+          <FilterChips options={venueOptions} value={venue} onChange={setVenue} tone="soft" icon="gps" />
+        ) : null}
+      </View>
+
+      {q.isLoading || !venueReady ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : !d ? (
-        <View style={{ alignItems: 'center', marginTop: spacing.xxl }}>
+        <View style={{ alignItems: 'center', marginTop: spacing.xxl, paddingHorizontal: spacing.lg }}>
           <Icon name="reports" size={40} color={colors.textTertiary} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginTop: spacing.md }}>{t('insights.no_data')}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginTop: spacing.md, textAlign: 'center' }}>
+            {q.isError ? t('insights.load_failed') : t('insights.no_data')}
+          </Text>
+          {q.isError ? (
+            <TouchableOpacity onPress={() => q.refetch()} style={{ marginTop: spacing.md, paddingHorizontal: spacing.lg, height: 40, borderRadius: radius.full, backgroundColor: colors.brandTint, justifyContent: 'center' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('common.retry')}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
+        <ScrollView showsVerticalScrollIndicator={false}
+          style={{ opacity: switching ? 0.45 : 1 }}
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
           {/* Attendance */}
@@ -183,6 +236,40 @@ export default function InsightsScreen() {
             <StatsCard label={t('insights.overdue')} value={money(d.financial.overdue)} color={colors.danger} bgColor={colors.danger + '18'} />
             <StatsCard label={t('insights.new_students_period')} value={d.growth.new_students} color={colors.brand} bgColor={colors.brand + '18'} />
           </Row>
+          {/* Paid before the teacher joined the system — beside collected, never inside it. */}
+          {(d.financial.settled_before_joining ?? 0) > 0 ? (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, marginTop: spacing.xs, marginHorizontal: spacing.lg }}>
+              {t('insights.settled_before_joining', { amount: money(d.financial.settled_before_joining ?? 0) })}
+            </Text>
+          ) : null}
+
+          {/* Collected vs actual (addendum §5). "Actual" only for reconciled weeks; unreconciled
+              weeks are listed apart with the actual UNKNOWN — never zero, never = collected. */}
+          {d.cash ? (
+            <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('insights.cash_title')}</Text>
+              {d.cash.reconciled.weeks === 0 && d.cash.unreconciled.weeks === 0 ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{t('insights.cash_none')}</Text>
+              ) : null}
+              {d.cash.reconciled.weeks > 0 ? (
+                <View style={{ marginBottom: spacing.sm }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.success }}>{t('insights.cash_reconciled_weeks', { count: d.cash.reconciled.weeks })}</Text>
+                  <CashLine label={t('insights.cash_collected')} value={money(d.cash.reconciled.collected)} />
+                  <CashLine label={t('insights.cash_actual')} value={money(d.cash.reconciled.actual)} />
+                  {d.cash.expenses_enabled ? <CashLine label={t('insights.cash_expenses')} value={money(d.cash.reconciled.expenses)} /> : null}
+                  <CashLine label={t('insights.cash_difference')} value={`${d.cash.reconciled.difference > 0 ? '+' : ''}${money(d.cash.reconciled.difference)}`} tint={d.cash.reconciled.difference === 0 ? colors.success : d.cash.reconciled.difference < 0 ? colors.danger : colors.warningDark} />
+                </View>
+              ) : null}
+              {d.cash.unreconciled.weeks > 0 ? (
+                <View>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.warningDark }}>{t('insights.cash_unreconciled_weeks', { count: d.cash.unreconciled.weeks })}</Text>
+                  <CashLine label={t('insights.cash_collected')} value={money(d.cash.unreconciled.collected)} />
+                  <CashLine label={t('insights.cash_actual')} value={t('insights.cash_unknown')} tint={colors.warningDark} />
+                  {d.cash.expenses_enabled ? <CashLine label={t('insights.cash_expenses')} value={money(d.cash.unreconciled.expenses)} /> : null}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </ScrollView>
       )}
     </View>

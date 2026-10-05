@@ -47,7 +47,7 @@ export default function CardOrderLinkScreen() {
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('card_order_link.title')}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginBottom: spacing.lg }}>
           {t('card_order_link.intro')}
         </Text>
@@ -62,7 +62,7 @@ export default function CardOrderLinkScreen() {
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textPrimary }} selectable>{minted.url}</Text>
             </View>
             <TouchableOpacity onPress={share} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md }}>
-              <Icon name="forward" size={18} color="#fff" />
+              <Icon name="send" size={18} color="#fff" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('card_order_link.share')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setMinted(null)} activeOpacity={0.85} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>

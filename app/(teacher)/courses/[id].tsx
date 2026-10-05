@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Switch, Alert, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, nav } from '@/theme/index';
-import { Icon } from '@/components/ui/Icon';
-import { formatTime12 } from '@/components/ui/TimePicker';
-import { Button } from '@/components/ui/Button';
-import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule, useDeleteCourse } from '@/hooks/useCourses';
 import { useQuery } from '@tanstack/react-query';
+import { fonts } from '@/theme/typography';
+import { colors, spacing, radius } from '@/theme/index';
+import { Icon } from '@/components/ui/Icon';
+import { TimePicker, formatTime12 } from '@/components/ui/TimePicker';
+import { SheetModal } from '@/components/ui/SheetModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '@/components/ui/Button';
+import { SelectField } from '@/components/ui/SelectField';
+import { FormScreen, FormCard, Field, Input, NumberInput, Stepper, SwitchRow, Banner, DayPicker, TimeRangeRow } from '@/components/ui/Form';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
+import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule, useUpdateSchedule, useDeleteCourse } from '@/hooks/useCourses';
 import { getCourseFormOptions } from '@/api/courses';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
+import { formatNumber } from '@/utils/format';
 import type { CourseSchedule } from '@/api/courses';
 
 // Matches Course::PREFERRED_ACCURACY_METERS — a worse GPS fix is flagged low-confidence.
@@ -20,7 +25,12 @@ const PREFERRED_ACCURACY = 20;
 
 export default function CourseDetailScreen() {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
+  // An assistant sees only what they can change (founder 2026-09-26): settings and slot
+  // removal need manage_courses, a new slot manage_sessions; the check-in anchor and
+  // deleting the course are the teacher's alone.
+  const { can, isAssistant } = useActiveAbilities();
+  const canCourses = can(ABILITY.MANAGE_COURSES);
+  const canSessions = can(ABILITY.MANAGE_SESSIONS);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: course, isLoading } = useCourseDetail(id);
   // Teacher's down-payment IS the booklet → a separate booking price doesn't apply.
@@ -29,10 +39,13 @@ export default function CourseDetailScreen() {
   const saveSettings = useUpdateCourseSettings(id);
   const saveLocation = useUpdateCourseLocation(id);
   const removeSlot = useRemoveSchedule(id);
+  const [editing, setEditing] = useState<CourseSchedule | null>(null);
+  const deleteCourse = useDeleteCourse(id);
 
   // Editable settings mirror the web edit form; seeded once the detail loads.
   const [name, setName] = useState('');
   const [radius_, setRadius] = useState(20);
+  const [geofence, setGeofence] = useState(true);
   const [allowSwap, setAllowSwap] = useState(true);
   const [sheetDefault, setSheetDefault] = useState(false);
   const [sheetMax, setSheetMax] = useState('');
@@ -40,14 +53,11 @@ export default function CourseDetailScreen() {
   const [cyclePrice, setCyclePrice] = useState('');
   const [bookletPrice, setBookletPrice] = useState('');
   const [bookingPrice, setBookingPrice] = useState('');
-  // Explicit on/off for the two optional charges (mirrors the web toggles); default
-  // on when the course already carries that price, off otherwise.
   const [hasBooklet, setHasBooklet] = useState(false);
   const [hasBooking, setHasBooking] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [seeded, setSeeded] = useState(false);
-  // Optional venue. The list is the same one the create form uses; when the teacher has
-  // no venues the field is not offered at all.
+  // Optional venue — the same list the create form uses; without venues the field is not offered.
   const [venueId, setVenueId] = useState<string | null>(null);
   const { data: formOptions } = useQuery({ queryKey: ['course-form-options'], queryFn: getCourseFormOptions, staleTime: 300_000 });
   const venues = formOptions?.venues ?? [];
@@ -56,6 +66,7 @@ export default function CourseDetailScreen() {
     if (course && !seeded) {
       setName(course.name ?? '');
       setRadius(course.radius_horizontal_meters ?? 20);
+      setGeofence(course.phone_checkin_enabled ?? true);
       setAllowSwap(course.allow_session_swap ?? true);
       setSheetDefault(course.sheet_expected_by_default);
       setSheetMax(course.sheet_max_mark != null ? String(course.sheet_max_mark) : '');
@@ -71,15 +82,13 @@ export default function CourseDetailScreen() {
   }, [course, seeded]);
 
   const onSaveSettings = () => {
-    if (!name.trim()) {
-      Alert.alert(t('common.error'), t('teacher.course_name_required'));
-      return;
-    }
+    if (!name.trim()) { Alert.alert(t('common.error'), t('teacher.course_name_required')); return; }
     saveSettings.mutate(
       {
         name: name.trim(),
         teacher_location_id: venueId,
         radius_horizontal_meters: radius_,
+        phone_checkin_enabled: geofence,
         allow_session_swap: allowSwap,
         sheet_expected_by_default: sheetDefault,
         sheet_max_mark: sheetMax.trim() ? Number(sheetMax.trim()) : null,
@@ -100,384 +109,242 @@ export default function CourseDetailScreen() {
     try {
       // 1) OS-level location services must be on.
       const enabled = await Location.hasServicesEnabledAsync();
-      if (!enabled) {
-        Alert.alert(t('teacher.location_services_off_title'), t('teacher.location_services_off_hint'));
-        return;
-      }
+      if (!enabled) { Alert.alert(t('teacher.location_services_off_title'), t('teacher.location_services_off_hint')); return; }
       // 2) App permission.
       const perm = await Location.requestForegroundPermissionsAsync();
-      if (perm.status !== 'granted') {
-        Alert.alert(t('teacher.location_denied_title'), t('teacher.location_denied_hint'));
-        return;
-      }
-      // 3) A fresh fix. 'High' (not 'Highest') is far more reliable INDOORS — a
-      //    classroom — where Highest can hang/throw. Fall back to the last known
-      //    fix so a slow GPS never blocks the teacher entirely.
+      if (perm.status !== 'granted') { Alert.alert(t('teacher.location_denied_title'), t('teacher.location_denied_hint')); return; }
+      // 3) A fresh fix. 'High' (not 'Highest') is far more reliable INDOORS — a classroom —
+      //    where Highest can hang/throw. Fall back to the last known fix so a slow GPS
+      //    never blocks the teacher entirely.
       let pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).catch(() => null);
-      if (!pos) {
-        pos = await Location.getLastKnownPositionAsync();
-      }
-      if (!pos) {
-        Alert.alert(t('teacher.location_no_fix_title'), t('teacher.location_no_fix_hint'));
-        return;
-      }
+      if (!pos) pos = await Location.getLastKnownPositionAsync();
+      if (!pos) { Alert.alert(t('teacher.location_no_fix_title'), t('teacher.location_no_fix_hint')); return; }
 
       const acc = pos.coords.accuracy ?? undefined;
       saveLocation.mutate(
+        { latitude: pos.coords.latitude, longitude: pos.coords.longitude, location_accuracy_meters: acc, location_source: acc != null && acc > PREFERRED_ACCURACY ? 'gps_low' : 'gps' },
         {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          location_accuracy_meters: acc,
-          location_source: acc != null && acc > PREFERRED_ACCURACY ? 'gps_low' : 'gps',
-        },
-        {
-          onSuccess: (fresh) =>
-            Alert.alert(
-              t('teacher.location_saved'),
-              fresh.location_low_confidence ? t('teacher.location_low_confidence') : t('teacher.phone_checkin_on'),
-            ),
+          onSuccess: (fresh) => Alert.alert(t('teacher.location_saved'), fresh.location_low_confidence ? t('teacher.location_low_confidence') : t('teacher.phone_checkin_on')),
           // Surface the server's own reason (validation / auth) instead of a generic line.
           onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.location_save_failed')),
         },
       );
     } catch (e: any) {
-      // Surface the real device error (e.g. a missing native module or disabled
-      // GPS) so a persistent failure is diagnosable rather than an opaque "error".
+      // Surface the real device error so a persistent failure is diagnosable.
       Alert.alert(t('common.error'), e?.message ? String(e.message) : t('teacher.location_capture_failed'));
     } finally {
       setCapturing(false);
     }
   };
 
-  const deleteCourse = useDeleteCourse(id);
-
-  // Hard-delete the whole course (schedule master). Server blocks it while active students
-  // remain (422). Irreversible.
+  // Hard-delete the whole course (schedule master). Server blocks it while active students remain (422).
   const confirmDeleteCourse = () => {
-    Alert.alert(
-      'حذف المقرر نهائيًا',
-      'سيُمحى المقرر وكل ما يخصه (المواعيد، الحصص، السجلات) نهائيًا. لا يمكن التراجع. غير متاح إن كان به طلاب نشطون.',
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: 'حذف نهائيًا',
-          style: 'destructive',
-          onPress: () =>
-            deleteCourse.mutate(undefined, {
-              onSuccess: () => router.back(),
-              onError: (e: any) =>
-                Alert.alert(t('common.error'), e?.response?.data?.message ?? 'تعذّر حذف المقرر'),
-            }),
-        },
-      ],
-    );
+    Alert.alert('حذف المقرر نهائيًا', 'سيُمحى المقرر وكل ما يخصه (المواعيد، الحصص، السجلات) نهائيًا. لا يمكن التراجع. غير متاح إن كان به طلاب نشطون.', [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: 'حذف نهائيًا', style: 'destructive', onPress: () => deleteCourse.mutate(undefined, { onSuccess: () => router.back(), onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? 'تعذّر حذف المقرر') }) },
+    ]);
   };
 
   const retireSlot = (slot: CourseSchedule) => {
-    Alert.alert(
-      t('teacher.retire_slot_title'),
-      `${slot.day_label} ${formatTime12(slot.start_time)}`,
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('teacher.retire_slot_confirm'),
-          style: 'destructive',
-          onPress: () =>
-            removeSlot.mutate(slot.id, {
-              onError: (e: any) =>
-                Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.retire_slot_failed')),
-            }),
-        },
-      ],
-    );
+    Alert.alert(t('teacher.retire_slot_title'), `${slot.day_label} ${formatTime12(slot.start_time)}`, [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('teacher.retire_slot_confirm'), style: 'destructive', onPress: () => removeSlot.mutate(slot.id, { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.retire_slot_failed')) }) },
+    ]);
   };
 
   if (isLoading || !course) {
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <FormScreen title={t('teacher.courses_title')} loading><View /></FormScreen>;
   }
 
   const located = course.has_location;
+  const venueOptions = [{ key: '', label: 'بدون مكان محدد' }, ...venues.map((v) => ({ key: v.id, label: v.address ? `${v.name} — ${v.address}` : v.name }))];
 
   return (
-    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="forward" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }} numberOfLines={1}>{course.name}</Text>
-          {course.grade_name ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{course.grade_name}</Text> : null}
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
-        {/* Location / phone check-in (automated) */}
-        <Section icon="location" title={t('teacher.location_section')} />
-        {onboarding?.active ? (
-          <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.brand, textAlign: 'right' }}>
-              {t('onboarding.location_hint')}
-            </Text>
+    <FormScreen title={course.name} subtitle={course.grade_name ?? undefined}>
+      {/* Where the phone check-in anchors — the card's colour IS the status. */}
+      {onboarding?.active ? <Banner tone="info" text={t('onboarding.location_hint')} /> : null}
+      <FormCard icon="location"
+        title={t(!geofence ? 'course_ui.geofence_off_title' : located ? 'teacher.phone_checkin_auto_on' : 'teacher.phone_checkin_off')}
+        hint={t(!geofence ? 'course_ui.geofence_off_card_hint' : located ? 'teacher.location_set_hint' : 'teacher.location_missing_hint')}
+        tint={!geofence ? colors.borderStrong : located ? colors.success : colors.warning}>
+        {canCourses ? (
+          <View style={{ marginBottom: spacing.md }}>
+            <SwitchRow title={t('course_ui.geofence_label')} hint={t(geofence ? 'course_ui.geofence_hint' : 'course_ui.geofence_off_hint')} value={geofence} onChange={setGeofence} first />
+            {geofence ? (
+              <Field label={t('teacher.radius_label')}>
+                <Stepper value={radius_} min={5} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
+              </Field>
+            ) : null}
           </View>
         ) : null}
-        <View style={{ backgroundColor: located ? colors.successLight : colors.warningLight, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <Icon name="location" size={20} color={located ? colors.success : colors.warning} />
-            <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
-              {located ? t('teacher.phone_checkin_auto_on') : t('teacher.phone_checkin_off')}
-            </Text>
-          </View>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 6 }}>
-            {located ? t('teacher.location_set_hint') : t('teacher.location_missing_hint')}
+        {located && course.latitude != null ? (
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary, writingDirection: 'ltr', textAlign: 'right' }}>
+            {course.latitude.toFixed(6)}, {course.longitude?.toFixed(6)}{course.location_accuracy_meters != null ? ` · ±${Math.round(course.location_accuracy_meters)}m` : ''}
           </Text>
-          {located && course.latitude != null ? (
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary, marginTop: 6 }}>
-              {course.latitude.toFixed(6)}, {course.longitude?.toFixed(6)}
-              {course.location_accuracy_meters != null ? ` · ±${Math.round(course.location_accuracy_meters)}m` : ''}
-            </Text>
-          ) : null}
-          {located && course.location_low_confidence ? (
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.warning, marginTop: 6 }}>
-              {t('teacher.location_low_confidence')}
-            </Text>
-          ) : null}
+        ) : null}
+        {located && course.location_low_confidence ? <Banner tone="warn" text={t('teacher.location_low_confidence')} style={{ marginTop: spacing.sm, marginBottom: 0 }} /> : null}
+        {!isAssistant ? (
           <View style={{ marginTop: spacing.md }}>
-            <Button
-              title={located ? t('teacher.recapture_location') : t('teacher.capture_location')}
-              onPress={captureLocation}
-              loading={capturing || saveLocation.isPending}
-              variant={located ? 'outline' : 'primary'}
-            />
+            <Button title={t(located ? 'teacher.recapture_location' : 'teacher.capture_location')} onPress={captureLocation} loading={capturing || saveLocation.isPending} variant={located ? 'outline' : 'primary'} />
           </View>
-        </View>
-
-        {/* Settings */}
-        <Section icon="settings" title={t('teacher.settings_section')} />
-
-        {/* Course name (rename the schedule master). Grade stays fixed. */}
-        <FieldLabel>{t('teacher.course_name_label')}</FieldLabel>
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder={t('teacher.course_name_label')}
-          placeholderTextColor={colors.textTertiary}
-          maxLength={255}
-          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}
-        />
-
-        {/* Venue — optional, offered only when the teacher has venues. A label for
-            organising courses and assistants; the check-in anchor below is separate. */}
-        <FieldLabel>مكان التدريس (اختياري)</FieldLabel>
-        {venues.length > 0 ? (
-          <VenueSelect
-            value={venueId}
-            options={[{ id: '', name: 'بدون مكان محدد' }, ...venues.map((v) => ({ id: v.id, name: v.address ? `${v.name} — ${v.address}` : v.name }))]}
-            onSelect={(id) => setVenueId(id || null)}
-          />
-        ) : (
-          <TouchableOpacity
-            onPress={() => router.push('/(teacher)/venues' as Href)}
-            activeOpacity={0.8}
-            style={{ minHeight: 48, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm }}
-          >
-            <Icon name="add" size={16} color={colors.brand} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>أضِف أماكن التدريس أولًا</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Radius stepper */}
-        <FieldLabel>{t('teacher.radius_label')}</FieldLabel>
-        <Stepper value={radius_} min={5} max={50} step={5} onChange={setRadius} suffix={t('teacher.meters')} />
-
-        {/* Session-swap permission toggle */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg }}>
-          <View style={{ flex: 1, paddingEnd: spacing.md }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('teacher.allow_swap_label')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('teacher.allow_swap_hint')}</Text>
-          </View>
-          <Switch value={allowSwap} onValueChange={setAllowSwap} trackColor={{ true: colors.brand }} />
-        </View>
-
-        {/* Sheet default toggle */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg }}>
-          <View style={{ flex: 1, paddingEnd: spacing.md }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('teacher.sheet_default_label')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('teacher.sheet_default_hint')}</Text>
-          </View>
-          <Switch value={sheetDefault} onValueChange={setSheetDefault} trackColor={{ true: colors.brand }} />
-        </View>
-
-        <FieldLabel>{t('teacher.sheet_max_label')}</FieldLabel>
-        <NumberInput value={sheetMax} onChangeText={setSheetMax} placeholder={t('teacher.optional')} />
-
-        {/* Billing */}
-        <FieldLabel>{t('teacher.per_cycle_label')}</FieldLabel>
-        <Stepper
-          value={perCycle ?? course.min_sessions_per_cycle}
-          min={course.min_sessions_per_cycle}
-          max={course.max_sessions_per_cycle}
-          step={1}
-          onChange={setPerCycle}
-          suffix={t('teacher.sessions_unit')}
-        />
-
-        <FieldLabel>{t('teacher.cycle_price_label')}</FieldLabel>
-        <NumberInput value={cyclePrice} onChangeText={setCyclePrice} placeholder={t('teacher.egp')} />
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>{t('teacher.booklet_price_label')}</Text>
-          <Switch value={hasBooklet} onValueChange={(v) => { setHasBooklet(v); if (!v) setBookletPrice(''); }} trackColor={{ true: colors.brand }} />
-        </View>
-        {hasBooklet ? (
-          <NumberInput value={bookletPrice} onChangeText={setBookletPrice} placeholder={t('teacher.egp')} />
         ) : null}
+      </FormCard>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>{t('teacher.booking_price_label')}</Text>
-          <Switch value={hasBooking && !bookletIsDownPayment} disabled={bookletIsDownPayment} onValueChange={(v) => { setHasBooking(v); if (!v) setBookingPrice(''); }} trackColor={{ true: colors.brand }} />
-        </View>
-        {bookletIsDownPayment ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t('teacher.booking_is_booklet')}</Text>
-        ) : hasBooking ? (
-          <NumberInput value={bookingPrice} onChangeText={setBookingPrice} placeholder={t('teacher.egp')} />
-        ) : null}
+      {canCourses ? (
+        <>
+          <FormCard icon="book" title={t('teacher.section_basics')}>
+            <Field label={t('teacher.course_name_label')} first>
+              <Input value={name} onChangeText={setName} placeholder={t('teacher.course_name_label')} maxLength={255} />
+            </Field>
+            <Field label="مكان التدريس" hint={t('form_ui.optional')}>
+              {venues.length > 0 ? (
+                <SelectField value={venueId ?? ''} options={venueOptions} placeholder="بدون مكان محدد" onChange={(v) => setVenueId(v || null)} />
+              ) : !isAssistant ? (
+                <TouchableOpacity onPress={() => router.push('/(teacher)/venues' as Href)} activeOpacity={0.8}
+                  style={{ minHeight: 48, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.brandTint }}>
+                  <Icon name="add" size={16} color={colors.brand} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>أضِف أماكن التدريس أولًا</Text>
+                </TouchableOpacity>
+              ) : null}
+            </Field>
+          </FormCard>
 
-        <View style={{ marginTop: spacing.xl }}>
-          <Button title={t('teacher.save_settings')} onPress={onSaveSettings} loading={saveSettings.isPending} variant="primary" />
-        </View>
+          <FormCard icon="attendance" title={t('teacher.settings_section')} tint={colors.accent}>
+            <SwitchRow first title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />
+            <SwitchRow title={t('teacher.sheet_default_label')} hint={t('teacher.sheet_default_hint')} value={sheetDefault} onChange={setSheetDefault} />
+            <Field label={t('teacher.sheet_max_label')} hint={t('form_ui.optional')}>
+              <NumberInput value={sheetMax} onChangeText={setSheetMax} decimals placeholder={t('teacher.optional')} />
+            </Field>
+          </FormCard>
 
-        {/* Weekly slots */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xxl, marginBottom: spacing.sm }}>
-          <Section icon="calendar" title={t('teacher.slots_section')} inline />
-          <TouchableOpacity
-            onPress={() => router.push('/(teacher)/schedule-new' as Href)}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 36, borderRadius: radius.full, backgroundColor: colors.brandTint }}
-          >
-            <Icon name="add" size={16} color={colors.brand} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.add_slot')}</Text>
+          <FormCard icon="money" title={t('teacher.billing_section')} tint={colors.success}>
+            <Field label={t('teacher.per_cycle_label')} first>
+              <Stepper value={perCycle ?? course.min_sessions_per_cycle} min={course.min_sessions_per_cycle} max={course.max_sessions_per_cycle} step={1} onChange={setPerCycle} suffix={t('teacher.sessions_unit')} />
+            </Field>
+            <Field label={t('teacher.cycle_price_label')}>
+              <NumberInput value={cyclePrice} onChangeText={setCyclePrice} decimals placeholder={t('teacher.egp')} suffix={t('teacher.egp')} />
+            </Field>
+            <SwitchRow title={t('teacher.booklet_price_label')} value={hasBooklet} onChange={(v) => { setHasBooklet(v); if (!v) setBookletPrice(''); }} />
+            {hasBooklet ? <View style={{ marginTop: spacing.sm }}><NumberInput value={bookletPrice} onChangeText={setBookletPrice} decimals placeholder={t('teacher.egp')} suffix={t('teacher.egp')} /></View> : null}
+            <SwitchRow title={t('teacher.booking_price_label')} hint={bookletIsDownPayment ? t('teacher.booking_is_booklet') : undefined}
+              value={hasBooking && !bookletIsDownPayment} disabled={bookletIsDownPayment} onChange={(v) => { setHasBooking(v); if (!v) setBookingPrice(''); }} />
+            {hasBooking && !bookletIsDownPayment ? <View style={{ marginTop: spacing.sm }}><NumberInput value={bookingPrice} onChangeText={setBookingPrice} decimals placeholder={t('teacher.egp')} suffix={t('teacher.egp')} /></View> : null}
+          </FormCard>
+
+          <View style={{ marginBottom: spacing.lg }}>
+            <Button title={t('teacher.save_settings')} onPress={onSaveSettings} loading={saveSettings.isPending} variant="primary" />
+          </View>
+        </>
+      ) : null}
+
+      {/* Weekly slots */}
+      <FormCard icon="calendar" title={t('teacher.slots_section')} tint={colors.accent}
+        action={canSessions ? (
+          <TouchableOpacity onPress={() => router.push('/(teacher)/schedule-new' as Href)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 34, borderRadius: radius.full, backgroundColor: colors.accentLight }}>
+            <Icon name="add" size={16} color={colors.accentText} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accentText }}>{t('teacher.add_slot')}</Text>
           </TouchableOpacity>
-        </View>
-
+        ) : undefined}>
         {course.schedules.length === 0 ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginVertical: spacing.md }}>{t('teacher.no_slots')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{t('teacher.no_slots')}</Text>
         ) : (
           course.schedules.map((slot) => (
-            <View key={slot.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+            <View key={slot.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: colors.accent, padding: spacing.md, marginBottom: spacing.sm }}>
+              <View style={{ width: 44, alignItems: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={1} adjustsFontSizeToFit>{slot.day_label}</Text>
+              </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{slot.day_label} · {formatTime12(slot.start_time)}–{formatTime12(slot.end_time)}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{formatTime12(slot.start_time)} – {formatTime12(slot.end_time)}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-                  {t('teacher.students_count', { count: slot.headcount })}
-                  {slot.capacity != null ? ` / ${slot.capacity}` : ''} · {t('teacher.upcoming_count', { count: slot.upcoming_count })}
+                  {t('form_ui.students_n', { n: formatNumber(slot.headcount) })}{slot.capacity != null ? ` / ${formatNumber(slot.capacity)}` : ''} · {t('teacher.upcoming_count', { count: slot.upcoming_count })}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => retireSlot(slot)} disabled={removeSlot.isPending} style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
-                <Icon name="trash" size={18} color={colors.danger} />
-              </TouchableOpacity>
+              {canCourses ? (
+                <TouchableOpacity onPress={() => setEditing(slot)} accessibilityRole="button" accessibilityLabel={t('teacher.edit_slot_title')}
+                  style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
+                  <Icon name="note" size={18} color={colors.brand} />
+                </TouchableOpacity>
+              ) : null}
+              {canCourses ? (
+                <TouchableOpacity onPress={() => retireSlot(slot)} disabled={removeSlot.isPending} accessibilityRole="button" accessibilityLabel={t('teacher.retire_slot_confirm')}
+                  style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
+                  {removeSlot.isPending && removeSlot.variables === slot.id ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="trash" size={18} color={colors.danger} />}
+                </TouchableOpacity>
+              ) : null}
             </View>
           ))
         )}
+      </FormCard>
 
-        {/* Danger zone — hard-delete the whole course (schedule master). */}
-        <View style={{ marginTop: spacing.xl, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger, marginBottom: 4 }}>منطقة الخطر</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginBottom: spacing.sm }}>
-            حذف المقرر نهائيًا يزيل مواعيده وحصصه وسجلّاته. لا يمكن التراجع. غير متاح إن كان به طلاب نشطون.
-          </Text>
-          <TouchableOpacity
-            onPress={confirmDeleteCourse}
-            disabled={deleteCourse.isPending}
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.lg, paddingVertical: spacing.md, opacity: deleteCourse.isPending ? 0.6 : 1 }}
-          >
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.danger }}>{deleteCourse.isPending ? '…جارٍ الحذف' : 'حذف المقرر نهائيًا'}</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <EditSlotSheet courseId={id} slot={editing} onClose={() => setEditing(null)} />
+
+      {/* Danger zone — hard-delete the whole course. Teacher only. */}
+      {!isAssistant ? (
+        <FormCard icon="warning" title="منطقة الخطر" hint="حذف المقرر نهائيًا يزيل مواعيده وحصصه وسجلّاته. لا يمكن التراجع. غير متاح إن كان به طلاب نشطون." tint={colors.danger} style={{ borderColor: colors.danger + '55' }}>
+          <Button title={deleteCourse.isPending ? '…جارٍ الحذف' : 'حذف المقرر نهائيًا'} onPress={confirmDeleteCourse} loading={deleteCourse.isPending} variant="destructive" />
+        </FormCard>
+      ) : null}
+    </FormScreen>
   );
 }
 
-// ---- small presentational helpers ----
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-function Section({ icon, title, inline }: { icon: any; title: string; inline?: boolean }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: inline ? 0 : spacing.xl, marginBottom: inline ? 0 : spacing.sm }}>
-      <Icon name={icon} size={18} color={colors.brand} />
-      <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{title}</Text>
-    </View>
-  );
-}
+/**
+ * Change a slot's day, time or capacity (founder 2026-10-04: «I cannot edit the time and day
+ * of the week»). Upcoming sessions nothing has touched move with it; held ones stay; the
+ * group's families are told — the server does all of that, this only asks.
+ */
+function EditSlotSheet({ courseId, slot, onClose }: { courseId: string; slot: CourseSchedule | null; onClose: () => void }) {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const update = useUpdateSchedule(courseId);
+  const [day, setDay] = useState(0);
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [capacity, setCapacity] = useState('');
 
-function FieldLabel({ children }: { children: string }) {
-  return <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm }}>{children}</Text>;
-}
+  useEffect(() => {
+    if (!slot) return;
+    setDay(slot.day_of_week);
+    setStart(slot.start_time);
+    setEnd(slot.end_time);
+    setCapacity(slot.capacity != null ? String(slot.capacity) : '');
+  }, [slot]);
 
-function NumberInput({ value, onChangeText, placeholder }: { value: string; onChangeText: (v: string) => void; placeholder?: string }) {
-  return (
-    <TextInput
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor={colors.textTertiary}
-      keyboardType="numeric"
-      style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}
-    />
-  );
-}
+  const orderBad = TIME_RE.test(start) && TIME_RE.test(end) && end <= start;
+  const ready = TIME_RE.test(start) && TIME_RE.test(end) && !orderBad;
 
-function Stepper({ value, min, max, step, onChange, suffix }: { value: number; min: number; max: number; step: number; onChange: (v: number) => void; suffix?: string }) {
-  const dec = () => onChange(Math.max(min, value - step));
-  const inc = () => onChange(Math.min(max, value + step));
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-      <TouchableOpacity onPress={dec} style={stepBtn}><Text style={stepTxt}>−</Text></TouchableOpacity>
-      <View style={{ minWidth: 90, alignItems: 'center' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{value}{suffix ? ` ${suffix}` : ''}</Text>
-      </View>
-      <TouchableOpacity onPress={inc} style={stepBtn}><Text style={stepTxt}>+</Text></TouchableOpacity>
-    </View>
-  );
-}
-
-const stepBtn = { width: 48, height: 48, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' } as const;
-const stepTxt = { fontFamily: fonts.bold, fontSize: 24, color: colors.brand } as const;
-
-/** A tap-to-open dropdown — the same shape the create form uses for grade/venue. */
-function VenueSelect({ value, options, onSelect }: { value: string | null; options: { id: string; name: string }[]; onSelect: (id: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const current = options.find((o) => o.id === (value ?? ''));
+  const save = () => {
+    if (!slot || !ready) return;
+    const cap = capacity.trim() ? Number(capacity.trim()) : null;
+    update.mutate(
+      { scheduleId: slot.id, payload: { day_of_week: day, start_time: start, end_time: end, capacity: cap && cap > 0 ? cap : null } },
+      {
+        onSuccess: () => { onClose(); Alert.alert('', t('teacher.edit_slot_done')); },
+        // A clash with another group names it — show the server's own sentence.
+        onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.edit_slot_failed')),
+      },
+    );
+  };
 
   return (
-    <View>
-      <TouchableOpacity
-        onPress={() => setOpen((v) => !v)}
-        activeOpacity={0.8}
-        accessibilityRole="button"
-        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: open ? colors.brand : colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-      >
-        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: current && current.id ? colors.textPrimary : colors.textTertiary }} numberOfLines={1}>
-          {current?.name ?? 'بدون مكان محدد'}
-        </Text>
-        <Icon name="down" size={16} color={colors.textTertiary} style={open ? { transform: [{ rotate: '180deg' }] } : undefined} />
-      </TouchableOpacity>
-      {open && (
-        <View style={{ marginTop: spacing.xs, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, overflow: 'hidden' }}>
-          {options.map((o) => (
-            <TouchableOpacity
-              key={o.id || 'none'}
-              onPress={() => { onSelect(o.id); setOpen(false); }}
-              activeOpacity={0.8}
-              style={{ paddingHorizontal: spacing.md, minHeight: 46, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: colors.border }}
-            >
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14.5, color: o.id === (value ?? '') ? colors.brand : colors.textPrimary }}>{o.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
+    <SheetModal visible={!!slot} onClose={onClose} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('teacher.edit_slot_title')}</Text>
+      <DayPicker value={day} onChange={setDay} tint={colors.accent} />
+      <Field label={t('teacher.schedule_start')} required>
+        <TimeRangeRow>
+          <View style={{ flex: 1 }}><TimePicker value={start || null} onChange={setStart} /></View>
+          <Text style={{ fontFamily: fonts.bold, color: colors.textTertiary }}>–</Text>
+          <View style={{ flex: 1 }}><TimePicker value={end || null} onChange={setEnd} invalid={orderBad} /></View>
+        </TimeRangeRow>
+      </Field>
+      {orderBad ? <Banner tone="danger" text={t('teacher.schedule_end_after')} style={{ marginTop: spacing.sm, marginBottom: 0 }} /> : null}
+      <Field label={t('teacher.schedule_capacity')}>
+        <NumberInput value={capacity} onChangeText={setCapacity} placeholder={t('teacher.optional')} maxLength={4} />
+      </Field>
+      <Banner tone="info" text={t('teacher.edit_slot_hint')} style={{ marginTop: spacing.md }} />
+      <Button title={t('teacher.edit_slot_save')} onPress={save} loading={update.isPending} disabled={!ready} variant="primary" />
+    </SheetModal>
   );
 }

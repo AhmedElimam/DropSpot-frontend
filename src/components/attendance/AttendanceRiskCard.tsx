@@ -5,38 +5,27 @@ import { Icon } from '@/components/ui/Icon';
 import type { AttendanceRisk } from '@/api/attendanceRisk';
 
 /**
- * A calm early warning that a run of consecutive unexcused absences has put an
- * enrollment at risk of the teacher removing the student. Deliberately actionable,
- * not alarming: it tells the family to excuse the absence or contact the teacher.
- * `showName` adds the child's name (parent view, multiple children).
+ * A calm early warning that a run of consecutive unexcused absences has put an enrollment
+ * at risk. One compact row (founder 2026-10-03): the course and count in the title, what to
+ * do in one line, the teacher as a tag. `showName` adds the child's name (parent view).
  */
 export function AttendanceRiskCard({ risk, showName }: { risk: AttendanceRisk; showName?: boolean }) {
   const { t } = useTranslation();
-
   return (
-    <View
-      style={{
-        backgroundColor: colors.warningLight, borderWidth: 1, borderColor: colors.warning,
-        borderRadius: radius.xl, padding: spacing.xl, borderStartWidth: 4, borderStartColor: colors.warning,
-        flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start',
-      }}
-    >
-      <Icon name="warning" size={22} color={colors.warningText} outline />
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.warningText }}>
-          {t('attendance.risk_title')}
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.warningLight, borderWidth: 1, borderColor: colors.warning, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderStartWidth: 4, borderStartColor: colors.warning, minHeight: 60 }}>
+      <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="warning" size={19} color={colors.warningText} outline />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.warningText }} numberOfLines={1}>
+          {t('attendance.risk_title')}{risk.course_name ? ` · ${risk.course_name}` : ''}
         </Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, color: colors.warningText, marginTop: 4 }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 18, color: colors.warningText, marginTop: 1 }} numberOfLines={2}>
           {showName
             ? t('attendance.risk_desc_parent', { name: risk.student_name ?? '', count: risk.absences, course: risk.course_name ?? '' })
             : t('attendance.risk_desc', { count: risk.absences, course: risk.course_name ?? '' })}
+          {risk.teacher_name ? ` · ${risk.teacher_name}` : ''}
         </Text>
-        {risk.teacher_name ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-            <Icon name="teacher" size={14} color={colors.warningText} outline style={{ marginEnd: 3 }} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.warningText }}>{risk.teacher_name}</Text>
-          </View>
-        ) : null}
       </View>
     </View>
   );

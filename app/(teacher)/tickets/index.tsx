@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,18 +22,18 @@ import { ReportsSheet, SettingsSheet } from '@/components/threads/ThreadSheets';
 import type { IconName } from '@/components/ui/Icon';
 
 // Left-edge accent per ticket state.
-const statusColors: Record<string, [string, string]> = {
+const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
   in_progress: [colors.warning, colors.warningDark],
   resolved: [colors.success, colors.successDark],
   closed: [colors.textTertiary, colors.textSecondary],
-};
+});
 
-const priorityColors: Record<string, string> = {
+const priorityColors = (): Record<string, string> => ({
   low: colors.success,
   medium: colors.warning,
   high: colors.danger,
-};
+});
 
 /**
  * The teacher's conversations, in one tab with two segments (founder 2026-09-13):
@@ -72,7 +73,7 @@ export default function TeacherConversations() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -82,10 +83,10 @@ export default function TeacherConversations() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: segmented ? spacing.xl : spacing.xl4 }}
         >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.white, letterSpacing: -0.5 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, letterSpacing: -0.5 }}>
             {segmented ? t('chat.conversations') : t('tickets.title')}
           </Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginTop: 4 }}>
             {showThreads
               ? t('threads.subtitle_teacher')
               : showChat
@@ -135,7 +136,7 @@ export default function TeacherConversations() {
               <EmptyState icon="tickets" title={t('tickets.empty')} />
             ) : (
               tickets.map((ticket) => {
-                const sc = statusColors[ticket.status] || statusColors.open;
+                const sc = statusColors()[ticket.status] || statusColors().open;
                 return (
                   <TouchableOpacity
                     key={ticket.id}
@@ -166,7 +167,7 @@ export default function TeacherConversations() {
 
                     <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.lg }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: priorityColors[ticket.priority] || colors.warning, marginEnd: 6 }} />
+                        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: priorityColors()[ticket.priority] || colors.warning, marginEnd: 6 }} />
                         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary }}>
                           {t(`tickets.priority_${ticket.priority}`)}
                         </Text>
@@ -212,11 +213,11 @@ function Segment({ label, icon, active, badge, onPress }: {
         ...shadows.sm,
       }}
     >
-      <Icon name={icon} size={18} color={active ? '#fff' : colors.textSecondary} outline={!active} />
-      <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: active ? '#fff' : colors.textSecondary }}>{label}</Text>
+      <Icon name={icon} size={18} color={active ? colors.onPrimary : colors.textSecondary} outline={!active} />
+      <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: active ? colors.onPrimary : colors.textSecondary }}>{label}</Text>
       {badge > 0 ? (
         <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: active ? 'rgba(255,255,255,0.28)' : colors.danger, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{badge > 99 ? '99+' : badge}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onPrimary }}>{badge > 99 ? '99+' : badge}</Text>
         </View>
       ) : null}
     </TouchableOpacity>

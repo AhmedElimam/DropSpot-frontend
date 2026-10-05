@@ -40,7 +40,7 @@ export function SessionCard({ session, onPress }: SessionCardProps) {
       accessibilityRole="button"
       accessibilityLabel={t('session.view_session', { course: session.course_name || '' })}
       style={{
-        backgroundColor: colors.white,
+        backgroundColor: colors.surface,
         borderRadius: radius.xl,
         padding: spacing.lg,
         marginBottom: spacing.md,

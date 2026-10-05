@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,20 +12,21 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
 
 // Left-edge accent per ticket state — mapped onto the Sanad ink/semantic ramp.
-const statusColors: Record<string, [string, string]> = {
+const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
   in_progress: [colors.warning, colors.warningDark],
   resolved: [colors.success, colors.successDark],
   closed: [colors.textTertiary, colors.textSecondary],
-};
+});
 
-const priorityColors: Record<string, string> = {
+const priorityColors = (): Record<string, string> => ({
   low: colors.success,
   medium: colors.warning,
   high: colors.danger,
-};
+});
 
 export default function TicketsList() {
   const { t } = useTranslation();
@@ -35,46 +37,13 @@ export default function TicketsList() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.xl4 }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.white, letterSpacing: -0.5 }}>
-                {t('tickets.title')}
-              </Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
-                {t('tickets.count', { count: tickets?.length ?? 0 })}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => router.push('/(parent)/tickets/create')}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              style={{
-                minHeight: 48,
-                justifyContent: 'center',
-                backgroundColor: 'rgba(255,255,255,0.12)',
-                borderRadius: radius.md,
-                paddingVertical: spacing.sm,
-                paddingHorizontal: spacing.lg,
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.16)',
-              }}
-            >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>+ {t('tickets.new')}</Text>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
+        <PageHero title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} action={{ icon: 'add', label: t('tickets.new'), onPress: () => router.push('/(parent)/tickets/create') }} />
 
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
           ) : isError ? (
@@ -88,7 +57,7 @@ export default function TicketsList() {
             />
           ) : (
             tickets.map((ticket) => {
-              const sc = statusColors[ticket.status] || statusColors.open;
+              const sc = statusColors()[ticket.status] || statusColors().open;
               return (
                 <TouchableOpacity
                   key={ticket.id}
@@ -129,7 +98,7 @@ export default function TicketsList() {
 
                   <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.lg }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: priorityColors[ticket.priority] || colors.warning, marginEnd: 6 }} />
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: priorityColors()[ticket.priority] || colors.warning, marginEnd: 6 }} />
                       <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary }}>
                         {t(`tickets.priority_${ticket.priority}`)}
                       </Text>

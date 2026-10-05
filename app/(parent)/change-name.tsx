@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { isArabicName } from '@/utils/validators';
 import { updateMyName, confirmMyName } from '@/api/profile';
+import { PageHero } from '@/components/ui/PageHero';
 
 /**
  * Tier A — a parent corrects their OWN display name. Direct self-edit (self-owned
@@ -29,10 +30,11 @@ export default function ChangeNameScreen() {
   const setSession = useAuthStore((s) => s.setSession);
   const isFirstLogin = useLocalSearchParams<{ first?: string }>().first === '1';
 
-  // Leaving the prompt means entering the app, not popping a screen off a stack.
+  // Leaving the prompt enters the app. The parent stack always has the tabs underneath
+  // (initialRouteName), so going back lands on Home on a first login too.
   const leave = () => {
-    if (isFirstLogin) router.replace('/(parent)');
-    else router.back();
+    if (router.canGoBack()) router.back();
+    else router.replace('/(parent)/(tabs)');
   };
 
   // Prefill from the current name: first token → first name, the rest → last name.
@@ -72,20 +74,11 @@ export default function ChangeNameScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-        {!isFirstLogin ? (
-          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="forward" size={22} color={colors.textPrimary} />
-          </TouchableOpacity>
-        ) : null}
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>
-          {isFirstLogin ? 'تأكيد اسمك' : 'تعديل الاسم'}
-        </Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHero title={isFirstLogin ? 'تأكيد اسمك' : 'تعديل الاسم'} onBack={!isFirstLogin} compact />
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg }}>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.lg, lineHeight: 22 }}>
             {isFirstLogin
               ? 'سجّلك معلّم أبنائك برقم هاتفك، واسمك مأخوذ من اسم ابنك. تأكّد أنه مكتوب صحيحًا — هكذا سيظهر لمعلّمي أبنائك.'

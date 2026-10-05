@@ -56,7 +56,7 @@ export default function NotificationPreferencesScreen() {
       {isLoading ? (
         <ActivityIndicator style={{ marginTop: spacing.xxl }} color={colors.brand} />
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.lg }}>
             <Row
               title="الإشعارات الفورية"

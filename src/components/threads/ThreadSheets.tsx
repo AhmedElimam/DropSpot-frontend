@@ -27,7 +27,7 @@ export function Sheet({ visible, title, onClose, children, busy }: { visible: bo
               <Icon name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg + insets.bottom, gap: spacing.md }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg + insets.bottom, gap: spacing.md }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {children}
           </ScrollView>
         </View>
@@ -36,10 +36,11 @@ export function Sheet({ visible, title, onClose, children, busy }: { visible: bo
   );
 }
 
-export const inputStyle = {
+// A function, not a constant: theme tokens are live and change with the phone's scheme.
+export const threadInputStyle = () => ({
   minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
   fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right' as const, backgroundColor: colors.surfaceSunken,
-};
+});
 
 /** A student reports another student's answer: a reason chip and an optional line. */
 export function ReportSheet({ visible, reasons, pending, onClose, onSubmit }: {
@@ -63,7 +64,7 @@ export function ReportSheet({ visible, reasons, pending, onClose, onSubmit }: {
           );
         })}
       </View>
-      <TextInput value={note} onChangeText={setNote} placeholder={t('threads.report_note')} placeholderTextColor={colors.textTertiary} maxLength={500} multiline style={[inputStyle, { minHeight: 72 }]} />
+      <TextInput value={note} onChangeText={setNote} placeholder={t('threads.report_note')} placeholderTextColor={colors.textTertiary} maxLength={500} multiline style={[threadInputStyle(), { minHeight: 72 }]} />
       <Button title={t('threads.report_send')} variant="destructive" onPress={() => reason && onSubmit(reason, note.trim())} disabled={!reason || pending} loading={pending} />
     </Sheet>
   );
@@ -77,7 +78,7 @@ export function TextSheet({ visible, title, placeholder, confirm, pending, onClo
   useEffect(() => { if (visible) setText(''); }, [visible]);
   return (
     <Sheet visible={visible} title={title} onClose={onClose} busy={pending}>
-      <TextInput value={text} onChangeText={setText} placeholder={placeholder} placeholderTextColor={colors.textTertiary} maxLength={160} multiline autoFocus style={[inputStyle, { minHeight: 72 }]} />
+      <TextInput value={text} onChangeText={setText} placeholder={placeholder} placeholderTextColor={colors.textTertiary} maxLength={160} multiline autoFocus style={[threadInputStyle(), { minHeight: 72 }]} />
       <Button title={confirm} onPress={() => onSubmit(text.trim())} disabled={pending} loading={pending} />
     </Sheet>
   );
@@ -113,7 +114,7 @@ export function AnswerSheet({ visible, threadId, maxSeconds, onClose, onDone }: 
     <>
       <Sheet visible={visible} title={t('threads.answer_title')} onClose={onClose} busy={busy}>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary, textAlign: 'right' }}>{t('threads.answer_hint')}</Text>
-        <TextInput value={body} onChangeText={setBody} placeholder={t('threads.answer_placeholder')} placeholderTextColor={colors.textTertiary} maxLength={4000} multiline style={[inputStyle, { minHeight: 110, textAlignVertical: 'top' }]} />
+        <TextInput value={body} onChangeText={setBody} placeholder={t('threads.answer_placeholder')} placeholderTextColor={colors.textTertiary} maxLength={4000} multiline style={[threadInputStyle(), { minHeight: 110, textAlignVertical: 'top' }]} />
         {clip ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.successLight }}>
             <Icon name="video" size={20} color={colors.successText} />

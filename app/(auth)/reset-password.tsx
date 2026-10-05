@@ -1,124 +1,101 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, gradients, control } from '@/theme/index';
+import { colors, spacing, radius } from '@/theme/index';
 import { useResetPassword, useForgotPassword } from '@/hooks/useAuth';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { Icon } from '@/components/ui/Icon';
-import { PasswordInput } from '@/components/ui/PasswordInput';
-import { AuthScaffold } from '@/components/auth/AuthScaffold';
+import { Button } from '@/components/ui/Button';
+import { AuthScaffold, AuthBanner } from '@/components/auth/AuthScaffold';
+import { AuthField } from '@/components/auth/AuthField';
+import { OtpInput } from '@/components/auth/OtpInput';
+import { PasswordStrength } from '@/components/auth/PasswordStrength';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
-const label = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm };
-const field = {
-  fontFamily: fonts.regular,
-  fontSize: 17,
-  minHeight: control.minHeight,
-  backgroundColor: colors.surfaceSunken,
-  borderRadius: radius.lg,
-  paddingHorizontal: spacing.lg,
-  paddingVertical: 14,
-  color: colors.textPrimary,
-  textAlign: 'right' as const,
-  borderWidth: 1.5,
-};
+const RESEND_COOLDOWN = 60;
 
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
+  const passwordRef = useRef<TextInput>(null);
 
   const reset = useResetPassword();
   const resend = useForgotPassword();
 
-  const canSubmit = code.length === 6 && password.length >= 6;
+  // The code was just sent (we arrived from the previous screen) → the countdown runs.
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
+
+  const canSubmit = code.length === 6 && password.length >= 6 && !reset.isPending;
 
   const handleReset = () => {
     if (!canSubmit || !phone) return;
     reset.mutate(
       { phone_number: phone, code, password },
       // Logged in on success → hand off to app/index.tsx which routes by role.
-      { onSuccess: () => router.replace('/') },
+      { onSuccess: () => router.replace(ROUTE_BY_ROLE) },
     );
+  };
+
+  const handleResend = () => {
+    if (cooldown > 0 || resend.isPending || !phone) return;
+    resend.mutate(phone, { onSuccess: () => { setCooldown(RESEND_COOLDOWN); setCode(''); reset.reset(); } });
   };
 
   return (
     <AuthScaffold
-      icon="lock"
+      onBack={() => router.back()}
       title={t('auth.reset_password_title')}
-      subtitle={phone ? `${t('auth.reset_desc')}\n${phone}` : t('auth.reset_desc')}
-      footer={
-        <TouchableOpacity style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => router.replace('/(auth)/login')}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.brand }}>{t('auth.back_to_login')}</Text>
-        </TouchableOpacity>
-      }
+      subtitle={t('auth.code_sent_to')}
     >
-      {reset.isError && (
-        <View style={{ backgroundColor: colors.dangerLight, padding: spacing.md, borderRadius: radius.md, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.danger }}>
-          <Icon name="warning" size={18} color={colors.danger} style={{ marginEnd: spacing.sm }} />
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.dangerText, flex: 1 }}>
-            {getFriendlyErrorMessage(reset.error)}
-          </Text>
+      {phone ? (
+        <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.md, marginBottom: spacing.xl }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{phone}</Text>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand, textDecorationLine: 'underline' }}>{t('auth.confirm_phone_edit')}</Text>
+          </TouchableOpacity>
         </View>
-      )}
+      ) : null}
 
-      <Text style={label}>{t('auth.otp_code')}</Text>
-      <TextInput
-        value={code}
-        onChangeText={(text) => setCode(text.replace(/[^0-9]/g, '').slice(0, 6))}
-        keyboardType="number-pad"
-        maxLength={6}
-        placeholder="123456"
-        placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.lg, textAlign: 'center', fontFamily: fonts.bold, fontSize: 26, letterSpacing: 10, borderColor: code.length === 6 ? colors.brand : colors.borderStrong }}
-      />
+      {reset.isError ? <AuthBanner tone="danger" text={getFriendlyErrorMessage(reset.error)} /> : null}
+      {resend.isSuccess && cooldown > RESEND_COOLDOWN - 5 ? <AuthBanner tone="success" text={t('auth.reset_code_sent')} /> : null}
 
-      <Text style={label}>{t('auth.new_password')}</Text>
-      <PasswordInput
+      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.sm, textAlign: 'right' }}>{t('auth.otp_code')}</Text>
+      <OtpInput value={code} onChange={(v) => { setCode(v); if (reset.isError) reset.reset(); }} onComplete={() => passwordRef.current?.focus()} error={reset.isError} />
+
+      <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, marginBottom: spacing.xl, flexWrap: 'wrap' }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary }}>{t('auth.didnt_receive')}</Text>
+        <TouchableOpacity onPress={handleResend} disabled={cooldown > 0 || resend.isPending} hitSlop={{ top: 8, bottom: 8 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: cooldown > 0 ? colors.textTertiary : colors.brand }}>
+            {resend.isPending ? t('common.loading') : cooldown > 0 ? t('auth.resend_in', { seconds: cooldown }) : t('auth.resend_code')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <AuthField
+        ref={passwordRef}
+        secure
+        label={t('auth.new_password')}
+        icon="lock"
         value={password}
         onChangeText={setPassword}
+        autoComplete="new-password"
+        textContentType="newPassword"
         placeholder="••••••••"
-        placeholderTextColor={colors.textTertiary}
-        style={{ ...field, marginBottom: spacing.xs, borderColor: password ? colors.brand : colors.borderStrong }}
+        hint={password ? undefined : t('setup.password_hint')}
+        returnKeyType="go"
+        onSubmitEditing={handleReset}
       />
-      <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.xxl }}>
-        {t('setup.password_hint')}
-      </Text>
+      <PasswordStrength password={password} />
 
-      <TouchableOpacity
-        onPress={handleReset}
-        disabled={!canSubmit || reset.isPending}
-        activeOpacity={0.85}
-        style={{ borderRadius: radius.lg, overflow: 'hidden', opacity: canSubmit ? 1 : 0.5 }}
-      >
-        <LinearGradient
-          colors={gradients.primary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{ minHeight: control.minHeight, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' }}
-        >
-          {reset.isPending ? (
-            <ActivityIndicator color={colors.textInverse} />
-          ) : (
-            <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textInverse, letterSpacing: 1 }}>
-              {t('auth.reset_button')}
-            </Text>
-          )}
-        </LinearGradient>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={{ alignSelf: 'center', minHeight: 44, justifyContent: 'center', marginTop: spacing.md }}
-        disabled={resend.isPending || !phone}
-        onPress={() => phone && resend.mutate(phone)}
-      >
-        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>
-          {resend.isSuccess ? t('auth.reset_code_sent') : t('auth.resend_code')}
-        </Text>
-      </TouchableOpacity>
+      <Button title={t('auth.reset_button')} onPress={handleReset} disabled={!canSubmit} loading={reset.isPending} />
     </AuthScaffold>
   );
 }

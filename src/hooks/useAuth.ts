@@ -10,6 +10,7 @@ import {
   changePassword as changePasswordApi,
 } from '@/api/auth';
 import { acceptStudentInvite } from '@/api/invitation';
+import { withTimeout, LOGIN_TIMEOUT_MS } from '@/api/withTimeout';
 
 export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
@@ -17,8 +18,10 @@ export function useLogin() {
   const qc = useQueryClient();
 
   return useMutation({
+    // Bounded: on a dead resolver the transport's timeout never fires and the button spun
+    // for minutes (src/api/withTimeout.ts). 25 s then the existing "took too long" message.
     mutationFn: (payload: { phone_number: string; password: string }) =>
-      loginApi(payload.phone_number, payload.password),
+      withTimeout(loginApi(payload.phone_number, payload.password), LOGIN_TIMEOUT_MS, 'login'),
     onSuccess: async (data) => {
       // A new auth context must not inherit the previous session's cached data
       // (e.g. the admin impersonation user-list, keyed on a process-global client).
@@ -120,10 +123,20 @@ export function useRegister() {
 
 export function useLogout() {
   const logout = useAuthStore((s) => s.logout);
+  const leaveImpersonation = useAuthStore((s) => s.leaveImpersonation);
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
+      // «تسجيل الخروج» means signed out — to the login page — impersonating or not (founder
+      // 2026-10-02). Inside an impersonation session leave it FIRST: that revokes the
+      // impersonation token while it is still the bearer and restores the admin's own
+      // session, so the sign-out below revokes the ADMIN's token (the impersonation token
+      // is refused for it in read-only mode). The banner's «خروج» is the way back to the
+      // picker without signing out.
+      if (useAuthStore.getState().impersonation?.active) {
+        await leaveImpersonation();
+      }
       await logout();
       // Drop every cached query so the next session starts clean (prevents a stale
       // admin-scoped list, e.g. impersonation users, surviving into re-login).

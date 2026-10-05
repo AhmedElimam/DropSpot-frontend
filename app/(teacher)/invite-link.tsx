@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Share, Alert, KeyboardAvoidingView, Switch, Image, ImageBackground } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Share, Alert, KeyboardAvoidingView, Switch, ImageBackground } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
+import { onWhite } from '@/theme/onWhite';
 import { Icon } from '@/components/ui/Icon';
 import { RichTextEditor, type RichTextEditorRef } from '@/components/RichTextEditor';
 import { useCourses } from '@/hooks/useCourses';
@@ -177,7 +179,7 @@ export default function InviteLink() {
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('invite_link.title')}</Text>
       </View>
 
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginBottom: spacing.lg }}>
           {t('invite_link.intro')}
         </Text>
@@ -192,7 +194,7 @@ export default function InviteLink() {
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textPrimary }} selectable>{minted.url}</Text>
             </View>
             <TouchableOpacity onPress={share} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md }}>
-              <Icon name="forward" size={18} color="#fff" />
+              <Icon name="send" size={18} color="#fff" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('invite_link.share')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { setMinted(null); setName(''); }} activeOpacity={0.85} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
@@ -266,11 +268,11 @@ export default function InviteLink() {
                       const innerCard = (
                         <View style={{ backgroundColor: '#fff', borderRadius: radius.lg, padding: spacing.md }}>
                           {tpl.booking_logo_url ? (
-                            <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 120, height: 54, resizeMode: 'contain', alignSelf: 'center', marginBottom: spacing.sm }} />
+                            <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 120, height: 54, alignSelf: 'center', marginBottom: spacing.sm }} contentFit="contain" />
                           ) : null}
                           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: brand, textAlign: 'center' }}>{(tpl.booking_title || '').trim() || 'حجز مكان'}</Text>
                           {(tpl.booking_intro || '').trim() ? (
-                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: 4 }}>{tpl.booking_intro}</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: onWhite.muted, textAlign: 'center', marginTop: 4 }}>{tpl.booking_intro}</Text>
                           ) : null}
                           <View style={{ backgroundColor: '#f3ecfd', borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.sm }}>
                             <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: brand, textAlign: 'center' }}>تسجيل الطالب في «المقرر»</Text>
@@ -292,7 +294,7 @@ export default function InviteLink() {
 
                     {/* Logo */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-                      {tpl.booking_logo_url ? <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 40, height: 40, borderRadius: 8, resizeMode: 'contain' }} /> : null}
+                      {tpl.booking_logo_url ? <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 40, height: 40, borderRadius: 8 }} contentFit="contain" /> : null}
                       <TouchableOpacity onPress={pickLogo} disabled={uploading} activeOpacity={0.85} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
                         <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{t('invite_link.upload_logo')}</Text>
                       </TouchableOpacity>
@@ -326,7 +328,7 @@ export default function InviteLink() {
                     {/* Background image (modern blurred) */}
                     <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('invite_link.bg_image')}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
-                      {tpl.booking_bg_image_url ? <Image source={{ uri: tpl.booking_bg_image_url }} style={{ width: 44, height: 44, borderRadius: 8, resizeMode: 'cover' }} /> : null}
+                      {tpl.booking_bg_image_url ? <Image source={{ uri: tpl.booking_bg_image_url }} style={{ width: 44, height: 44, borderRadius: 8 }} contentFit="cover" /> : null}
                       <TouchableOpacity onPress={pickBg} disabled={uploading} activeOpacity={0.85} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
                         <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{t('invite_link.upload_bg')}</Text>
                       </TouchableOpacity>

@@ -1,10 +1,14 @@
 import '../src/i18n';
-import { I18nManager, View, ActivityIndicator, Text, TextInput } from 'react-native';
+import { setQueryClient } from '@/lib/queryClientRef';
+import { I18nManager, View, ActivityIndicator, Text, TextInput, AppState, useColorScheme, type AppStateStatus } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { enableFreeze } from 'react-native-screens';
+import NetInfo from '@react-native-community/netinfo';
 
 // Hidden tab screens stop rendering. Every role's detail screens are registered as
 // `href: null` TAB routes (30 of them for a teacher), so each one visited in a session
@@ -13,15 +17,33 @@ import { enableFreeze } from 'react-native-screens';
 // founder: "slow routing"). With freeze on, an unfocused screen keeps its state but
 // renders nothing until it is shown again. `freezeOnBlur` is set per navigator.
 enableFreeze(true);
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// NetInfo's reachability probe runs an HTTP request to a Google endpoint on a timer:
+// with the library's DEFAULTS that is every 60s while online and every **5 SECONDS**
+// while offline, forever. On a weak Egyptian cellular link the phone therefore spends
+// its time waking the radio to a high-power state and failing, which is battery and
+// heat with no user-visible benefit (Redmi Note 11S reports, 2026-09-22). Nothing in
+// the app needs sub-minute reachability: the offline banner and the scan buffer both
+// tolerate a slower signal, and a real request failing is what actually drives them.
+NetInfo.configure({
+  reachabilityLongTimeout: 5 * 60 * 1000,
+  reachabilityShortTimeout: 60 * 1000,
+  reachabilityRequestTimeout: 10 * 1000,
+});
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '@/stores/authStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { SurveyModal } from '@/components/SurveyModal';
 import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
 import { TermsUpdateModal } from '@/components/auth/TermsUpdateModal';
 import { AppConfigGate } from '@/components/AppConfigGate';
+import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
+import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { colors } from '@/theme/index';
+import { shouldRefetchOnFocus } from '@/api/queryFocus';
 
 // RTL is now set natively at build time by the expo-localization plugin (see
 // app.config.ts), so the first launch on a clean install is already right-to-left.
@@ -45,6 +67,26 @@ type TextWithDefaults = typeof Text & { defaultProps?: { maxFontSizeMultiplier?:
 // Never let a rejected promise here become an unhandled rejection at startup.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+// React Query had NO app-state integration, and that is a battery and heat bug, not a
+// tuning preference. Its "is the app in the foreground?" check is a browser concept; with
+// nothing wired, `focusManager` answers TRUE FOREVER on a phone. So every `refetchInterval`
+// in the app — the unread badge every 30s, sessions and the today feed every 60s — kept
+// firing while the app sat in the user's POCKET, waking the cellular radio around the
+// clock. `refetchIntervalInBackground` defaults to false and was doing nothing, because
+// the app never reported itself backgrounded. Wiring AppState makes that default work:
+// polling stops on background and resumes on foreground.
+AppState.addEventListener('change', (status: AppStateStatus) => {
+  focusManager.setFocused(status === 'active');
+});
+
+// NOT wired on purpose: `onlineManager`. Telling React Query when the device is offline
+// would make it PAUSE queries and mutations instead of letting them run and fail — and
+// this app has 141 mutations plus a door-scanning flow whose whole offline design is
+// built on a request failing (the scanner buffers from its own `useOfflineStore` flag,
+// and screens surface an error the user can act on). Pausing them would turn a clear
+// failure into a spinner that never resolves, in exactly the patchy-signal venues where
+// the app is used. The radio saving is already taken by NetInfo.configure above.
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -65,13 +107,19 @@ const queryClient = new QueryClient({
       },
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
       staleTime: 30000,
+      // Returning to the app refreshes only data older than 2 minutes, not every stale query
+      // of every mounted screen at once (src/api/queryFocus.ts).
+      refetchOnWindowFocus: (query) => shouldRefetchOnFocus(query.state.dataUpdatedAt),
     },
   },
 });
+setQueryClient(queryClient);
 
 function HydrationGate({ children }: { children: React.ReactNode }) {
   const isLoading = useAuthStore((s) => s.isLoading);
   const hydrate = useAuthStore((s) => s.hydrate);
+  const themeReady = useThemeStore((s) => s.hydrated);
+  const system = useColorScheme();
   const [hydrationStarted, setHydrationStarted] = useState(false);
 
   useEffect(() => {
@@ -81,7 +129,41 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
     }
   }, [hydrate, hydrationStarted]);
 
-  if (isLoading) {
+  // The saved appearance choice, applied before the first screen paints. Keyed on
+  // `themeReady`, not on a "started" flag: hydrate() is idempotent, and if the store is ever
+  // recreated un-hydrated (Fast Refresh re-evaluating the theme modules did exactly that,
+  // leaving the gate on its spinner for good) the next render simply hydrates again.
+  useEffect(() => {
+    if (!themeReady) void useThemeStore.getState().hydrate(system);
+  }, [themeReady, system]);
+
+  // «حسب النظام»: follow the phone when it flips (sunset schedule, Control Centre).
+  useEffect(() => {
+    useThemeStore.getState().systemChanged(system);
+  }, [system]);
+
+  // The native splash stays up until THIS gate is ready — the saved login and appearance
+  // restored — so it hands over straight to the first real screen. It used to come down as
+  // soon as the fonts loaded, leaving a bare spinner page between the splash and the app
+  // (founder 2026-10-04). Both reads are local (SecureStore), so this is milliseconds; the
+  // root's five-second fallback still releases it if something hangs.
+  const ready = !isLoading && themeReady;
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
+
+  // The NATIVE root view's colour follows the scheme too: it is what shows behind a screen
+  // while it slides, a keyboard opens, or the app resumes — light on a navy app otherwise.
+  const scheme = useThemeStore((s) => s.scheme);
+  useEffect(() => {
+    if (themeReady) SystemUI.setBackgroundColorAsync(colors.background).catch(() => {});
+  }, [themeReady, scheme]);
+
+  // While a session is being swapped (entering/leaving impersonation), cover the app: the
+  // screens underneath would otherwise render one person's UI with the other's session.
+  const switching = useAuthStore((s) => s.switching);
+
+  if (isLoading || !themeReady) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -89,7 +171,17 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <SessionSwitchWatcher />
+      {switching ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : null}
+    </>
+  );
 }
 
 export default function RootLayout() {
@@ -100,6 +192,10 @@ export default function RootLayout() {
   });
 
   const [splashHidden, setSplashHidden] = useState(false);
+  // The scheme the live tokens carry. A change re-keys the navigation tree below: every
+  // mounted screen is rebuilt on the new palette (react-navigation's StaticContainer would
+  // otherwise keep them exactly as they were — an inline `colors.x` is read at render only).
+  const scheme = useThemeStore((s) => s.scheme);
 
   useEffect(() => {
     if (fontError) {
@@ -107,12 +203,12 @@ export default function RootLayout() {
     }
   }, [fontError]);
 
-  // Hide on fonts loaded OR on a font error — the old condition checked only
+  // Render on fonts loaded OR on a font error — the old condition checked only
   // `fontsLoaded`, so a font that failed to load left the splash on screen forever
-  // with a fully rendered, completely untouchable app underneath it.
+  // with a fully rendered, completely untouchable app underneath it. The splash itself
+  // comes down in HydrationGate, once the first real screen can paint.
   useEffect(() => {
     if ((fontsLoaded || fontError) && !splashHidden) {
-      SplashScreen.hideAsync().catch(() => {});
       setSplashHidden(true);
     }
   }, [fontsLoaded, fontError, splashHidden]);
@@ -138,11 +234,16 @@ export default function RootLayout() {
   }
 
   return (
+    // gesture-handler components (the notifications swipe) need this at the very root.
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
+        {/* Status bar icons follow the scheme: dark on the day mist, light on the night navy.
+            The auth screens, deep ink in both schemes, set their own while mounted. */}
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
         <HydrationGate>
           <AppConfigGate>
-          <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <View key={scheme} style={{ flex: 1, backgroundColor: colors.background }}>
             {/* Persistent impersonation banner sits above every screen. */}
             <ImpersonationBanner />
             <View style={{ flex: 1 }}>
@@ -158,10 +259,13 @@ export default function RootLayout() {
                 earlier version. Polls on open/foreground, because the flag otherwise
                 rides a 15-day access token. */}
             <TermsUpdateModal />
+            {/* «ما الجديد» — once per installed version, after the two above. */}
+            <WhatsNewModal />
           </View>
           </AppConfigGate>
         </HydrationGate>
       </SafeAreaProvider>
     </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -76,7 +76,7 @@ export function ChatReportsSheet({
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {loading ? (
               <ActivityIndicator color={colors.primary} style={{ paddingVertical: spacing.xl }} />
             ) : reports.length === 0 ? (

@@ -19,15 +19,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'drosspot',
-  // LIGHT-ONLY, deliberately. The app ships a single palette (src/theme) with no dark
-  // variants, so 'automatic' was a lie: it left AppCompat in MODE_NIGHT_FOLLOW_SYSTEM,
-  // and expo-system-ui then paints the ROOT VIEW Color.BLACK on a device in dark mode —
-  // which is the black seen behind the splash logo while JS boots. MODE_NIGHT_NO keeps
-  // it white. Revisit only when a real dark palette exists.
-  userInterfaceStyle: 'light',
+  // FOLLOWS THE PHONE (2026-10-04). It was forced to 'light' while the app had one
+  // palette; with the Mist / Midnight schemes it must not be — 'light' made iOS answer
+  // «light» forever, so «follow the phone» never saw dark mode. Native controls are pinned
+  // to the app's own choice by the theme store (Appearance.setColorScheme), so a light
+  // choice on a dark phone cannot give white-on-white text fields.
+  userInterfaceStyle: 'automatic',
   // Explicit window/root background so it can never fall back to a night-mode default.
-  // Matches the splash background below (one continuous colour from launch to first paint).
-  backgroundColor: '#FBFBFB',
+  // The app's own Mist background, and the splash's below: one colour from launch to the
+  // first screen. Its night twin (Midnight) comes from withAndroidNightWindowBackground on
+  // Android; iOS gets it from the root layout (SystemUI) once JS runs, behind the splash.
+  backgroundColor: '#F4F1EB',
   ios: {
     bundleIdentifier: 'com.drosspot.app',
     // App Store Connect rejects a re-used build number. CI stamps the run number via
@@ -41,6 +43,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // iPhone-only — we don't support iPad, so don't declare tablet support (otherwise
     // App Store Connect demands iPad screenshots / capabilities).
     supportsTablet: false,
+    // The home-screen icon is an Icon Composer document (assets/app.icon, named in app.json):
+    // iOS 26 renders it as real glass in the Clear and tinted styles, like Apple's own icons
+    // (founder 2026-10-04: a flat PNG looked out of place). Light = navy logo on white,
+    // dark = cream on navy, Clear/tinted = white logo. Xcode 26 also bakes the older-iOS PNGs
+    // from it. A plain `icon` here would override it.
+    icon: (config.ios as { icon?: unknown } | undefined)?.icon as never ?? './assets/images/icon.png',
     // App uses only standard/exempt encryption (HTTPS) — declaring this avoids
     // EAS prompting (and crashing) on ITSAppUsesNonExemptEncryption at build.
     config: {
@@ -127,8 +135,23 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     },
   ],
+  // NO R8 optimising mode (proguard-android-optimize.txt). 1.2.5 shipped it to clear Play's
+  // "optimisation isn't enabled" note, and LOGIN BROKE on every Android phone: the server
+  // answered 200, then a native call on the success path failed silently and the screen
+  // showed the generic error (reproduced on an API 36 emulator 2026-09-28; 1.2.4 on the same
+  // emulator logged in). R8 does not touch the JS, and no dependency changed between the two
+  // builds, so the optimiser is the cause. The Play note is advisory; a login that works is
+  // not. Re-enable only with the broken class identified and a keep rule for it, and only
+  // after the release APK has logged in on a real device.
   // Native Firebase — provides an FCM token on iOS (expo-notifications only yields an
   // APNs token there, which our direct-FCM backend can't target). Reads GoogleService-Info.plist.
+  // Android: hold the window at 60 Hz. 120 Hz budget panels (Redmi 14C) drew every frame
+  // twice as often on a chip no faster than a 60 Hz phone's — sustained heat for nothing an
+  // attendance app needs. Build-time (MainActivity), so it ships only in a native build.
+  ['./plugins/withAndroidRefreshRateCap', { maxHz: 60 }],
+  // Android: the window behind the app is navy at night too (see the plugin) — no light
+  // flash between the dark splash and the first screen.
+  ['./plugins/withAndroidNightWindowBackground', { color: '#080E26' }],
   // withRNFirebaseDisableSPM MUST come before the RNFirebase plugins so the Podfile global is set.
   './plugins/withRNFirebaseDisableSPM',
   '@react-native-firebase/app',
@@ -204,22 +227,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-splash-screen',
       {
+        // Follows the phone (2026-10-04): the logo on the app's own background in each mode,
+        // so the splash hands over to the first screen without a colour change.
+        //  - Both images are 700×700 with the SAME padding (logo ≈ 74% wide, centred). Android
+        //    12+ draws the splash logo inside a circle; the dark one used to be the edge-to-edge
+        //    brand-logo.png, larger than the light logo and cut by that circle.
+        //  - Colours = the Mist / Midnight `background` tokens (src/theme/palettes.ts).
         image: './assets/images/splash-icon.png',
         imageWidth: 160,
-        backgroundColor: '#FBFBFB',
-        // The dark variant is declared for ANDROID ONLY, on purpose. A cross-platform
-        // `dark` block makes expo-splash-screen force iOS to UIUserInterfaceStyle
-        // "Automatic", which quietly cancels `userInterfaceStyle: 'light'` above — and a
-        // light-only app following a dark-mode iPad renders unstyled TextInputs as white
-        // text on our near-white ground. Android needs its variant to pin
-        // values-night/colors.xml against OEM forced-dark; iOS does not.
-        android: {
-          image: './assets/images/splash-icon.png',
-          imageWidth: 160,
-          dark: {
-            image: './assets/images/splash-icon.png',
-            backgroundColor: '#FBFBFB',
-          },
+        backgroundColor: '#F4F1EB',
+        dark: {
+          image: './assets/images/splash-icon-dark.png',
+          backgroundColor: '#080E26',
         },
       },
     ],

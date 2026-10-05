@@ -11,6 +11,7 @@ import { colors, spacing, radius, gradients, control, shadows } from '@/theme/in
 import { useAuthStore, resolveRole } from '@/stores/authStore';
 import { refreshToken as refreshTokenApi } from '@/api/auth';
 import { Icon } from '@/components/ui/Icon';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 /**
  * Self-registration wall. A student who signed up on their own lands here until a
@@ -39,7 +40,7 @@ export default function NeedsTeacherScreen() {
       if (data.user?.needs_teacher_invitation) {
         setStillWaiting(true); // teacher hasn't added them yet
       } else {
-        router.replace('/' as Href);
+        router.replace(ROUTE_BY_ROLE);
       }
     },
   });
@@ -52,10 +53,10 @@ export default function NeedsTeacherScreen() {
         end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.xl, paddingBottom: spacing.xl, paddingHorizontal: spacing.lg, alignItems: 'center' }}
       >
-        <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
-          <Icon name="children" size={38} color="#fff" />
+        <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
+          <Icon name="children" size={38} color={colors.onHero} />
         </View>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: '#fff', textAlign: 'center' }}>{t('needs_teacher.title')}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.onHero, textAlign: 'center' }}>{t('needs_teacher.title')}</Text>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>

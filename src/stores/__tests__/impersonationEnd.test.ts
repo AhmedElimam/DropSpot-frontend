@@ -12,6 +12,12 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(async (k: string) => { delete store[k]; }),
 }));
 
+// The revoke and the server sign-out are network calls; count them, never make them.
+const mockStopImpersonation = jest.fn(async () => {});
+const mockLogoutRequest = jest.fn(async () => {});
+jest.mock('@/api/impersonation', () => ({ stopImpersonation: () => mockStopImpersonation() }));
+jest.mock('@/api/auth', () => ({ logout: () => mockLogoutRequest() }));
+
 import { useAuthStore } from '../authStore';
 
 const ADMIN = { id: 1, user_type_id: 1, first_name: 'مدير', last_name: 'النظام' };
@@ -19,6 +25,10 @@ const TEACHER = { id: 2, user_type_id: 3, first_name: 'أحمد', last_name: 'م
 
 beforeEach(() => {
   for (const k of Object.keys(store)) delete store[k];
+  mockStopImpersonation.mockReset();
+  mockStopImpersonation.mockImplementation(async () => {});
+  mockLogoutRequest.mockReset();
+  mockLogoutRequest.mockImplementation(async () => {});
   useAuthStore.setState({
     user: TEACHER as never, role: 'teacher', activeTeacherId: null,
     impersonation: { active: true, name: 'أحمد محمد', write: false },
@@ -64,5 +74,108 @@ describe('an impersonation session that expires', () => {
     store.imp_admin_token = 'admin-access';         // tokens but no profile blob
     await useAuthStore.getState().endImpersonationOrLogout();
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
+  });
+});
+
+describe('leaving impersonation (2026-09-29: the app crashed on «خروج» / logout)', () => {
+  const stash = () => {
+    store.access_token = 'impersonation-token';
+    store.imp_admin_token = 'admin-access';
+    store.imp_admin_refresh = 'admin-refresh';
+    store.imp_admin_user = JSON.stringify(ADMIN);
+  };
+
+  it('restores the admin exactly once when «خروج» and a burst of 401s arrive together', async () => {
+    stash();
+    const results = await Promise.all([
+      useAuthStore.getState().leaveImpersonation(),     // the banner
+      useAuthStore.getState().endImpersonationOrLogout(), // 401 #1
+      useAuthStore.getState().endImpersonationOrLogout(), // 401 #2
+      useAuthStore.getState().leaveImpersonation(),     // a double tap
+    ]);
+
+    expect(results[0]).toBe('admin');
+    expect(mockStopImpersonation).toHaveBeenCalledTimes(1);   // one revoke, not four
+    const s = useAuthStore.getState();
+    expect(s.role).toBe('admin');                          // never signed out by a loser of the race
+    expect(s.isAuthenticated).toBe(true);
+    expect(s.impersonation).toBeNull();
+    expect(s.switching).toBe(false);
+    expect(store.access_token).toBe('admin-access');
+  });
+
+  it('enters in one step: never the target with no impersonation flag', async () => {
+    useAuthStore.setState({ user: ADMIN as never, role: 'admin', impersonation: null });
+    const seen: Array<{ role: string | null; imp: boolean }> = [];
+    const unsub = useAuthStore.subscribe((st) => seen.push({ role: st.role, imp: !!st.impersonation?.active }));
+
+    await useAuthStore.getState().beginImpersonation(
+      { access: 'imp-access', refresh: '' }, TEACHER as never, { active: true, name: 'أحمد محمد', write: true },
+    );
+    unsub();
+
+    expect(seen.some((x) => x.role === 'teacher' && !x.imp)).toBe(false);
+    expect(useAuthStore.getState()).toMatchObject({ role: 'teacher', switching: false, impersonation: { active: true, write: true } });
+    expect(store.access_token).toBe('imp-access');
+  });
+
+  it('a QR hand-off with no admin behind it ends in a sign-out, revoked first', async () => {
+    store.access_token = 'impersonation-token';
+    expect(await useAuthStore.getState().leaveImpersonation()).toBe('login');
+    expect(mockStopImpersonation).toHaveBeenCalledTimes(1);
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+  });
+});
+
+
+describe('the exit must never wait on itself (2026-10-02: «loops until it crashes»)', () => {
+  // What the API client does when a request 401s and cannot be refreshed. Inside an exit
+  // the revoke and the server sign-out are the requests most likely to be refused — the
+  // impersonation token is dead by then — so their 401s used to re-enter the exit.
+  const sessionOver = () => useAuthStore.getState().endImpersonationOrLogout();
+  // Resolves 'hung' if the exit never settles — and never leaves a timer open.
+  const settles = async <T,>(p: Promise<T>): Promise<T | 'hung'> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([p, new Promise<'hung'>((resolve) => { timer = setTimeout(() => resolve('hung'), 1500); })]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  it('resolves when the server sign-out inside it is refused and runs the session-over path', async () => {
+    store.access_token = 'revoked-impersonation-token';           // no admin stash: a QR hand-off
+    mockLogoutRequest.mockImplementation(async () => { await sessionOver(); throw new Error('401'); });
+
+    const result = await settles(useAuthStore.getState().leaveImpersonation());
+
+    expect(result).toBe('login');
+    expect(useAuthStore.getState()).toMatchObject({ isAuthenticated: false, switching: false });
+  });
+
+  it('resolves when the revoke is refused the same way', async () => {
+    store.access_token = 'revoked-impersonation-token';
+    store.imp_admin_token = 'admin-access';
+    store.imp_admin_refresh = 'admin-refresh';
+    store.imp_admin_user = JSON.stringify(ADMIN);
+    mockStopImpersonation.mockImplementation(async () => { await sessionOver(); throw new Error('401'); });
+
+    const result = await settles(useAuthStore.getState().leaveImpersonation());
+
+    expect(result).toBe('admin');
+    expect(useAuthStore.getState()).toMatchObject({ role: 'admin', switching: false, impersonation: null });
+    expect(store.access_token).toBe('admin-access');
+    expect(mockStopImpersonation).toHaveBeenCalledTimes(1);          // one exit, not a re-entered second one
+  });
+
+  it('a session-over signal during a switch is a no-op, not a second switch', async () => {
+    store.access_token = 'impersonation-token';
+    store.imp_admin_token = 'admin-access';
+    store.imp_admin_user = JSON.stringify(ADMIN);
+    const exit = useAuthStore.getState().leaveImpersonation();
+    await sessionOver();                                           // returns at once
+    expect(await exit).toBe('admin');
+    expect(mockStopImpersonation).toHaveBeenCalledTimes(1);
+    expect(mockLogoutRequest).not.toHaveBeenCalled();              // the admin was never signed out
   });
 });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +13,8 @@ import { getReportDownloadUrl, type ReportCard } from '@/api/reports';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PageHero } from '@/components/ui/PageHero';
+import { formatNumber } from '@/utils/format';
 
 const pct = (v: ReportCard['overall_score']): string =>
   v === null || v === undefined || v === '' ? '—' : `${Math.round(Number(v))}%`;
@@ -52,27 +55,13 @@ export default function ReportCardsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: spacing.xl }}
-        >
-          <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-            <Icon name="forward" size={22} color="rgba(255,255,255,0.8)" />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginStart: spacing.sm }}>{t('common.back')}</Text>
-          </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff' }}>{t('reports.report_cards')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.72)', marginTop: 4 }}>
-            {t('reports.report_cards_sub')}
-          </Text>
-        </LinearGradient>
+        <PageHero title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')} onBack stats={[{ value: formatNumber(list.length), label: t('reports.report_cards') }]} />
 
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl4 }} />
           ) : list.length === 0 ? (

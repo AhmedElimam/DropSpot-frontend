@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -99,12 +100,12 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.lg }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <TouchableOpacity onPress={() => router.back()} accessibilityLabel={t('common.back')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="forward" size={24} color="#fff" />
+            <Icon name="forward" size={24} color={colors.onHero} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff', textAlign: 'right' }} numberOfLines={1}>{t('threads.title')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.onHero, textAlign: 'right' }} numberOfLines={1}>{t('threads.title')}</Text>
             {thread ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: 'rgba(255,255,255,0.72)', textAlign: 'right' }} numberOfLines={1}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.onHeroSoft, textAlign: 'right' }} numberOfLines={1}>
                 {thread.grade.name ?? ''} · {t('threads.by_teacher', { name: thread.teacher.name })}
               </Text>
             ) : null}
@@ -117,7 +118,7 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
               ])}
               style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Icon name="trash" size={20} color="rgba(255,255,255,0.85)" outline />
+              <Icon name="trash" size={20} color={colors.onHeroSoft} outline />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -130,6 +131,7 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
           <ErrorState onRetry={() => refetch()} />
         ) : (
           <ScrollView
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl }}
             keyboardShouldPersistTaps="handled"
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}

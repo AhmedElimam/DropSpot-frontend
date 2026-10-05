@@ -11,9 +11,10 @@ import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 import { PasswordInput } from '@/components/ui/PasswordInput';
+import { ROUTE_BY_ROLE } from '@/utils/routes';
 
-const label = { fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm };
-const field = {
+const label = () => ({ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm });
+const field = () => ({
   fontFamily: fonts.regular,
   fontSize: 17,
   minHeight: control.minHeight,
@@ -24,7 +25,7 @@ const field = {
   color: colors.textPrimary,
   textAlign: 'right' as const,
   borderWidth: 1.5,
-};
+});
 
 export default function ChangePasswordScreen() {
   const { t } = useTranslation();
@@ -58,7 +59,7 @@ export default function ChangePasswordScreen() {
             await setSession({ ...user, must_set_password: false }, role);
             // Route through the index gate (not straight to /(teacher)) so any
             // remaining first-open gate — e.g. Terms acceptance — is evaluated next.
-            router.replace('/' as Href);
+            router.replace(ROUTE_BY_ROLE);
           } else {
             router.back();
           }
@@ -76,11 +77,11 @@ export default function ChangePasswordScreen() {
         style={{ paddingTop: insets.top + spacing.md, paddingBottom: spacing.lg, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
       >
         {!isForced && (
-          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name="forward" size={22} color="#fff" />
+          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="forward" size={22} color={colors.onHero} />
           </TouchableOpacity>
         )}
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }}>{isForced ? t('onboarding.set_password_title') : t('auth.change_password')}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }}>{isForced ? t('onboarding.set_password_title') : t('auth.change_password')}</Text>
       </LinearGradient>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
@@ -100,34 +101,34 @@ export default function ChangePasswordScreen() {
               </View>
             )}
 
-            <Text style={label}>{t('auth.current_password')}</Text>
+            <Text style={label()}>{t('auth.current_password')}</Text>
             <PasswordInput
               value={current}
               onChangeText={setCurrent}
               placeholder="••••••••"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: spacing.lg, borderColor: current ? colors.brand : colors.borderStrong }}
+              style={{ ...field(), marginBottom: spacing.lg, borderColor: current ? colors.brand : colors.borderStrong }}
             />
 
-            <Text style={label}>{t('auth.new_password')}</Text>
+            <Text style={label()}>{t('auth.new_password')}</Text>
             <PasswordInput
               value={next}
               onChangeText={setNext}
               placeholder="••••••••"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: spacing.xs, borderColor: next ? colors.brand : colors.borderStrong }}
+              style={{ ...field(), marginBottom: spacing.xs, borderColor: next ? colors.brand : colors.borderStrong }}
             />
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.lg }}>
               {t('setup.password_hint')}
             </Text>
 
-            <Text style={label}>{t('auth.confirm_password')}</Text>
+            <Text style={label()}>{t('auth.confirm_password')}</Text>
             <PasswordInput
               value={confirm}
               onChangeText={setConfirm}
               placeholder="••••••••"
               placeholderTextColor={colors.textTertiary}
-              style={{ ...field, marginBottom: mismatch ? spacing.xs : spacing.xxl, borderColor: confirm ? (mismatch ? colors.danger : colors.success) : colors.borderStrong }}
+              style={{ ...field(), marginBottom: mismatch ? spacing.xs : spacing.xxl, borderColor: confirm ? (mismatch ? colors.danger : colors.success) : colors.borderStrong }}
             />
             {mismatch && (
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.xxl }}>

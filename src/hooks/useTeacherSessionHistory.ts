@@ -1,4 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert } from 'react-native';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import i18n from '@/i18n';
+import { useOfflineStore } from '@/stores/offlineStore';
+import { useAuthStore, stampTeacherId } from '@/stores/authStore';
+import { queueMark, getPendingMarksForSession } from '@/db/offlineMarks';
+import { applyPendingMarks, isNetworkFailure } from '@/db/marksSync';
+import { cacheSessionDetail, readCachedSessionDetail } from '@/db/sessionDetailCache';
+import { triggerAutoSync } from '@/db/autoSync';
+import { uuid } from '@/utils/uuid';
 import {
   getTeacherSessions,
   getSessionDetail,
@@ -20,14 +29,48 @@ export function useTeacherSessionHistory(status?: string) {
     queryKey: ['teacher-session-history', status ?? 'all'],
     queryFn: () => getTeacherSessions({ status: status || undefined }),
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * The session's roster. Online: the server's answer, written through to the phone's
+ * last-known copy. Offline (the request never reaches the server): that copy, flagged
+ * `offline`, so the sheet still opens and marks can be queued. Either way the marks still
+ * waiting in the offline queue are laid over the picture, so what the teacher tapped is
+ * what the teacher sees until the sync confirms it.
+ */
+/** Every session in a date window (inclusive YYYY-MM-DD) — the Sessions tab's week strip. */
+export function useTeacherSessionsWindow(from: string, to: string, enabled = true) {
+  return useQuery({
+    queryKey: ['teacher-session-history', 'window', from, to],
+    queryFn: () => getTeacherSessions({ from, to }),
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+    enabled,
   });
 }
 
 export function useSessionDetail(id?: string) {
   return useQuery({
     queryKey: ['teacher-session-detail', id],
-    queryFn: () => getSessionDetail(id!),
+    queryFn: async (): Promise<SessionDetail> => {
+      let detail: SessionDetail;
+      try {
+        detail = await getSessionDetail(id!);
+        void cacheSessionDetail(id!, detail);
+      } catch (e) {
+        if (!isNetworkFailure(e)) throw e;
+        const cached = await readCachedSessionDetail(id!);
+        if (!cached) throw e;
+        detail = { ...cached.detail, offline: true, cached_at: new Date(cached.at).toISOString() };
+      }
+      const pending = await getPendingMarksForSession(Number(id)).catch(() => []);
+      return applyPendingMarks(detail, pending);
+    },
     enabled: !!id,
+    // A cached answer is a real answer here; no point hammering a dead radio.
+    retry: (count, error) => !isNetworkFailure(error) && count < 2,
   });
 }
 
@@ -43,9 +86,49 @@ function useSyncSession(id?: string) {
 export function useSessionControls(id: string) {
   const sync = useSyncSession(id);
 
+  const qc = useQueryClient();
   const mark = useMutation({
-    mutationFn: (v: { studentId: number; status: 'present' | 'late' | 'absent' | 'excused' }) =>
-      markAttendance(id, v.studentId, v.status),
+    mutationFn: async (v: { studentId: number; status: 'present' | 'late' | 'absent' | 'excused' }): Promise<SessionDetail> => {
+      const online = useOfflineStore.getState().online;
+      if (online) {
+        try {
+          return await markAttendance(id, v.studentId, v.status);
+        } catch (e) {
+          // A student who owes this teacher (founder 2026-10-04): warn; confirming grants
+          // the 15-day exemption and marks. Cancelling leaves the sheet as it was.
+          if (overdueWarning(e)) {
+            const current = qc.getQueryData<SessionDetail>(['teacher-session-detail', id]);
+            const who = current?.attendees.find((a) => a.student_id === v.studentId) ?? current?.swap_ins?.find((a) => a.student_id === v.studentId);
+            if (await confirmOverdue(who?.name ?? null, (e as any).response.data)) {
+              return await markAttendance(id, v.studentId, v.status, true);
+            }
+            if (current) return current;
+            throw new Error('CANCELLED');
+          }
+          if (!isNetworkFailure(e)) throw e; // a server verdict (not enrolled, no allowance…) is shown, not queued
+        }
+      }
+      // No signal: queue the intent on this phone and show it as done-pending. The replay
+      // (autoSync) delivers it with the moment it was made; the server refuses it only if
+      // something newer landed meanwhile.
+      const current = qc.getQueryData<SessionDetail>(['teacher-session-detail', id]) ?? (await readCachedSessionDetail(id))?.detail;
+      const who = current?.attendees.find((a) => a.student_id === v.studentId) ?? current?.swap_ins?.find((a) => a.student_id === v.studentId);
+      await queueMark({
+        client_uuid: uuid(),
+        session_instance_id: Number(id),
+        student_id: v.studentId,
+        status: v.status,
+        marked_at: new Date().toISOString(),
+        teacher_id: stampTeacherId(useAuthStore.getState()),
+        student_name: who?.name ?? null,
+        course_name: current?.course_name ?? null,
+      });
+      void useOfflineStore.getState().refresh();
+      void triggerAutoSync();
+      if (!current) throw new Error('OFFLINE_QUEUED');
+      const pending = await getPendingMarksForSession(Number(id));
+      return applyPendingMarks({ ...current, offline: current.offline ?? !online }, pending);
+    },
     onSuccess: sync,
   });
   const cancel = useMutation({ mutationFn: () => cancelSession(id), onSuccess: sync });
@@ -71,5 +154,27 @@ export function usePauseSessions() {
   return useMutation({
     mutationFn: (v: { from: string; to: string }) => pauseSessions(v.from, v.to),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teacher-session-history'] }),
+  });
+}
+
+/** The server's «owes money» answer to a manual mark (402 BILLING_OVERDUE). */
+function overdueWarning(e: unknown): boolean {
+  const r = (e as { response?: { status?: number; data?: { code?: string } } })?.response;
+  return r?.status === 402 && r.data?.code === 'BILLING_OVERDUE';
+}
+
+/** The warning on a manual check-in of a student who owes: resolves true on «منح الاستثناء». */
+function confirmOverdue(name: string | null, data: { message?: string; errors?: { days?: number } }): Promise<boolean> {
+  const days = data?.errors?.days ?? 15;
+  return new Promise((resolve) => {
+    Alert.alert(
+      i18n.t('teacher.overdue_mark_title'),
+      [name, data?.message ?? i18n.t('teacher.overdue_mark_body', { days })].filter(Boolean).join('\n\n'),
+      [
+        { text: i18n.t('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
+        { text: i18n.t('teacher.overdue_mark_confirm', { days }), onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
   });
 }

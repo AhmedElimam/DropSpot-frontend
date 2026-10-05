@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Switch, RefreshControl, KeyboardAvoidingView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Switch, RefreshControl, KeyboardAvoidingView, Alert } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { router, Redirect, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +18,7 @@ import {
   useUpdateAbilities,
   useSetVenueScope,
   useToggleAssistant,
+  useRemoveAssistant,
 } from '@/hooks/useAssistants';
 import type { ManagedAssistant, AbilityDef } from '@/api/assistants';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -36,7 +38,26 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
   const updateAbilities = useUpdateAbilities();
   const setScope = useSetVenueScope();
   const toggle = useToggleAssistant();
+  const remove = useRemoveAssistant();
   const meta = STATUS_META[a.status] ?? STATUS_META.pending;
+  const isInvite = a.status === 'pending';
+
+  const confirmRemove = () => {
+    Alert.alert(
+      t(isInvite ? 'assistants.cancel_invite_title' : 'assistants.remove_title'),
+      isInvite ? t('assistants.cancel_invite_body') : t('assistants.remove_body', { name: a.name ?? '' }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t(isInvite ? 'assistants.cancel_invite' : 'assistants.remove'),
+          style: 'destructive',
+          onPress: () => remove.mutate(a.id, {
+            onError: (e) => Alert.alert(t('assistants.remove_failed'), apiMsg(e, t('assistants.remove_failed'))),
+          }),
+        },
+      ],
+    );
+  };
   const showInactive = a.status === 'accepted' && !a.is_active;
 
   const sharedWith = a.shared_with ?? 0;
@@ -161,6 +182,18 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
           );
         })}
       </View>
+
+      {/* End the relationship — quiet, at the foot of the card, always behind a confirm. */}
+      <TouchableOpacity
+        onPress={confirmRemove}
+        disabled={remove.isPending}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, marginTop: spacing.md, paddingVertical: 6 }}
+      >
+        {remove.isPending ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="trash" size={15} color={colors.danger} />}
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{t(isInvite ? 'assistants.cancel_invite' : 'assistants.remove')}</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -182,7 +215,7 @@ export default function TeacherAssistants() {
   const [createErr, setCreateErr] = useState<string | null>(null);
 
   // Assistant management is teacher-only; an assistant is bounced (backend also 403s).
-  if (role === 'assistant') return <Redirect href={'/(teacher)' as Href} />;
+  if (role === 'assistant') return <Redirect href={'/(teacher)/(tabs)' as Href} />;
 
   const catalog = data?.all_abilities ?? [];
   const takeaway = data?.takeaway_abilities ?? [];
@@ -223,10 +256,10 @@ export default function TeacherAssistants() {
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>المساعدون</Text>
       </View>
 
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false}
         // The tab bar floats over the content (position: absolute), so its height has to
         // be part of the padding or the last assistant card sits underneath it.
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >

@@ -1,5 +1,8 @@
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, TextInput } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,13 +43,17 @@ export default function ResolutionCenter() {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
 
+  // Only what this person can act on (founder 2026-09-26): family corrections need
+  // manage_students; the assistants' own reports wait for the teacher alone.
+  const { can, isAssistant } = useActiveAbilities();
+  const canManage = can(ABILITY.MANAGE_STUDENTS);
   const summary = useQuery({ queryKey: ['resolution-summary'], queryFn: getResolutionSummary });
   const excuses = useQuery({ queryKey: ['resolution-excuses'], queryFn: getPendingExcuses });
   const swaps = useQuery({ queryKey: ['resolution-swaps'], queryFn: getPendingSwaps });
   const candidates = useQuery({ queryKey: ['resolution-termination'], queryFn: getTerminationCandidates });
-  const editRequests = useQuery({ queryKey: ['resolution-edit-requests'], queryFn: getStudentEditRequests });
+  const editRequests = useQuery({ queryKey: ['resolution-edit-requests'], queryFn: getStudentEditRequests, enabled: canManage });
   // What the assistants filed — waits for the teacher before the admins see it.
-  const assistantReports = useQuery({ queryKey: ['resolution-assistant-reports'], queryFn: getAssistantReports });
+  const assistantReports = useQuery({ queryKey: ['resolution-assistant-reports'], queryFn: getAssistantReports, enabled: !isAssistant });
   const myTickets = useQuery({ queryKey: ['my-admin-tickets'], queryFn: getMyAdminTickets });
   const ticketCategories = useQuery({ queryKey: ['support-categories'], queryFn: getSupportCategories });
 
@@ -129,8 +136,8 @@ export default function ResolutionCenter() {
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.xl }}
+        <ScrollView showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
           {/* Summary tiles — 2×2 grid so the Arabic labels never crowd/overflow. */}
@@ -289,7 +296,7 @@ export default function ResolutionCenter() {
           ) : null}
 
           {/* Family name-correction requests (Tier B) — approve applies immediately */}
-          {editRequests.data && editRequests.data.length > 0 ? (
+          {canManage && editRequests.data && editRequests.data.length > 0 ? (
             <>
               <SectionTitle>طلبات تصحيح البيانات</SectionTitle>
               {editRequests.data.map((r: StudentEditReq) => (
@@ -324,9 +331,7 @@ export default function ResolutionCenter() {
       )}
 
       {/* Compose a message to the super-admin. */}
-      <Modal visible={composeOpen} transparent animationType="slide" onRequestClose={() => setComposeOpen(false)}>
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
+      <SheetModal visible={composeOpen} onClose={() => setComposeOpen(false)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.md }}>{t('resolution.contact_admin')}</Text>
 
             <View style={{ marginBottom: spacing.md }}>
@@ -355,9 +360,7 @@ export default function ResolutionCenter() {
             <TouchableOpacity onPress={() => setComposeOpen(false)} style={{ paddingVertical: spacing.sm, alignItems: 'center' }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </SheetModal>
     </View>
   );
 }

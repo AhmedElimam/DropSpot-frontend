@@ -9,9 +9,9 @@ import { TeacherTip } from '@/components/TeacherTip';
 export default function TeacherCollect() {
   const insets = useSafeAreaInsets();
 
-  // Open to an assistant exactly as to the teacher (founder 2026-09-05). The API is the
-  // gate — it requires the scan_attendance ability and scopes an assistant to their own
-  // venues — so there is no client-side check to get out of sync with it.
+  // Open to an assistant exactly as to the teacher (founder 2026-09-05), reached only with
+  // scan_attendance — the home card is hidden without it (founder 2026-09-26), matching
+  // the API, which requires it and scopes an assistant to their own venues.
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>

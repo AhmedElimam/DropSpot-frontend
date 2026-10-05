@@ -166,7 +166,7 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 /**
- * The three auth endpoints a 401 must NEVER be refreshed for.
+ * The endpoints a 401 must NEVER be refreshed for.
  *
  *  - /auth/login    a 401 is the wrong password, not an expired session.
  *  - /auth/refresh  refreshing the refresh call is the obvious infinite loop.
@@ -176,8 +176,14 @@ async function refreshAccessToken(): Promise<string | null> {
  *                   itself, hundreds of times a second (founder 2026-09-20). logout()'s own
  *                   try/catch could not stop it: the recursion is in the INTERCEPTOR, one
  *                   level above the call being caught.
+ *  - /impersonation/stop  refused = the token is already dead. Running the "session over"
+ *                   recovery for it deadlocked the exit from impersonation (founder
+ *                   2026-10-02, «loops until it crashes»): the recovery joins the in-flight
+ *                   leaveImpersonation(), which awaits this request, which awaits the recovery.
+ *  - /auth/verify-otp, /auth/reset-password  a wrong code is an answer, not an expired
+ *                   session: never «refresh» over it.
  */
-const NO_REFRESH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout'];
+const NO_REFRESH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout', '/impersonation/stop', '/auth/verify-otp', '/auth/reset-password'];
 
 /** Exported for the regression test — the rule, without the axios machinery around it. */
 export function shouldAttemptRefresh(status: number | undefined, url: string | undefined, alreadyRetried: boolean): boolean {

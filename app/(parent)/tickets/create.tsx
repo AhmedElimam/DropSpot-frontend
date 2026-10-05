@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, control } from '@/theme/index';
 import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { useChildren } from '@/hooks/useChildren';
 import { createTicket } from '@/api/tickets';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -21,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SuccessConfirmation } from '@/components/ui/SuccessConfirmation';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
 
 export default function CreateTicket() {
   const { t } = useTranslation();
@@ -82,29 +84,11 @@ export default function CreateTicket() {
         style={{ flex: 1 }}
         behavior="padding"
       >
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl4 }}
           keyboardShouldPersistTaps="handled"
         >
-          <LinearGradient
-            colors={gradients.hero}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              paddingHorizontal: spacing.lg,
-              paddingTop: spacing.xl4 + insets.top,
-              paddingBottom: spacing.xl4,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => router.back()} style={{ marginEnd: spacing.md }}>
-                <Icon name="forward" size={26} color="#fff" />
-              </TouchableOpacity>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff' }}>
-                {t('tickets.create')}
-              </Text>
-            </View>
-          </LinearGradient>
+          <PageHero title={t('tickets.create')} onBack compact />
 
           <View style={{ padding: spacing.lg, gap: spacing.lg }}>
             {/* Student + Teacher selection */}
@@ -136,7 +120,7 @@ export default function CreateTicket() {
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                         <View style={{ marginEnd: spacing.md }}>
-                          <Avatar name={child.name} size={44} />
+                          <Avatar name={child.name} seed={avatarSeed.student(child.student_id, child.name)} size={44} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>

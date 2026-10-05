@@ -56,3 +56,16 @@ describe('Android release optimisation (Google Play DEX check)', () => {
     }
   });
 });
+
+/**
+ * R8's OPTIMISING mode stays OFF. 1.2.5 turned it on (proguard-android-optimize.txt via a
+ * config plugin) and login failed on every Android phone: the request succeeded, then a
+ * native call on the success path failed silently. Play's "optimisation isn't enabled" is
+ * advisory. If someone re-adds it, this fails first.
+ */
+describe('Android release R8 optimising mode', () => {
+  it('is not registered as a plugin', () => {
+    const names = plugins.map((p) => (Array.isArray(p) ? p[0] : p));
+    expect(names.some((n) => String(n).includes('R8Optimize'))).toBe(false);
+  });
+});

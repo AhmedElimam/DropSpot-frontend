@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -22,13 +21,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
+import { useKeyboardShown } from '@/hooks/useKeyboardShown';
 
-const statusColors: Record<string, [string, string]> = {
+const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
   in_progress: [colors.warning, colors.warningDark],
   resolved: [colors.success, colors.successDark],
   closed: [colors.textTertiary, colors.textSecondary],
-};
+});
 
 // Teacher/assistant ticket thread. Status controls (resolve/close) are active for
 // staff (isParent === false). An assistant reply is audit-logged on-behalf-of the
@@ -37,6 +37,7 @@ export default function TeacherTicketDetail() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const keyboardShown = useKeyboardShown();
   const user = useAuthStore((s) => s.user);
   const { can } = useActiveAbilities();
   const { data: ticket, isLoading, refetch } = useTicket(id ?? '');
@@ -74,14 +75,16 @@ export default function TeacherTicketDetail() {
     );
   }
 
-  const sc = statusColors[ticket.status] || statusColors.open;
+  const sc = statusColors()[ticket.status] || statusColors().open;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior="padding"
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        // No navigation header sits above this screen — its own hero is inside — so there is
+        // nothing to offset. The old 90 was a header that no longer exists: empty space.
+        keyboardVerticalOffset={0}
       >
         <LinearGradient
           colors={gradients.hero}
@@ -91,13 +94,13 @@ export default function TeacherTicketDetail() {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
             <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', marginEnd: spacing.sm }}>
-              <Icon name="forward" size={26} color="#fff" />
+              <Icon name="forward" size={26} color={colors.onHero} />
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff' }} numberOfLines={1}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }} numberOfLines={1}>
                 {ticket.subject}
               </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>
                 {ticket.student_name}{ticket.parent_name ? ` · ${ticket.parent_name}` : ''}
               </Text>
             </View>
@@ -107,31 +110,32 @@ export default function TeacherTicketDetail() {
             <View
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 6,
-                backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)',
+                backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder,
                 borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md,
               }}
             >
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ticket.status === 'open' ? '#fff' : sc[0] }} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t(`tickets.status_${ticket.status}`)}</Text>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ticket.status === 'open' ? colors.onHero : sc[0] }} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t(`tickets.status_${ticket.status}`)}</Text>
             </View>
 
-            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+            {/* Changing status is part of reply_tickets («الرد على التذاكر وتغيير حالتها»). */}
+            {can(ABILITY.REPLY_TICKETS) && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
               <TouchableOpacity
                 onPress={() => handleStatusChange('resolved')}
                 activeOpacity={0.75}
-                style={{ minHeight: 34, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md }}
+                style={{ minHeight: 34, justifyContent: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('tickets.mark_resolved')}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('tickets.mark_resolved')}</Text>
               </TouchableOpacity>
             )}
 
-            {ticket.status === 'resolved' && (
+            {can(ABILITY.REPLY_TICKETS) && ticket.status === 'resolved' && (
               <TouchableOpacity
                 onPress={() => handleStatusChange('closed')}
                 activeOpacity={0.75}
-                style={{ minHeight: 34, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md }}
+                style={{ minHeight: 34, justifyContent: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('tickets.close')}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('tickets.close')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -184,16 +188,14 @@ export default function TeacherTicketDetail() {
           )}
         </ScrollView>
 
+        {/* Without reply_tickets there is no reply box and no "locked" notice — just the thread. */}
         {ticket.status !== 'closed' && !can(ABILITY.REPLY_TICKETS) ? (
-          <View style={{ padding: spacing.lg, paddingBottom: spacing.lg + insets.bottom, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <Icon name="lock" size={16} color={colors.textTertiary} />
-            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary }}>{t('teacher.no_reply_permission')}</Text>
-          </View>
+          <View style={{ height: insets.bottom }} />
         ) : ticket.status !== 'closed' ? (
           <View
             style={{
               flexDirection: 'row', alignItems: 'flex-end', padding: spacing.md,
-              paddingBottom: spacing.md + insets.bottom, backgroundColor: colors.surface,
+              paddingBottom: spacing.md + (keyboardShown ? 0 : insets.bottom), backgroundColor: colors.surface,
               borderTopWidth: 1, borderTopColor: colors.border, gap: spacing.sm,
             }}
           >

@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import {
-  View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator,
-  RefreshControl, Alert, KeyboardAvoidingView, Platform,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -11,6 +9,7 @@ import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { SelectField } from '@/components/ui/SelectField';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { PageHero } from '@/components/ui/PageHero';
 import {
   getSupportCategories, getMyAdminTickets, createAdminTicket, type AdminTicket,
 } from '@/api/adminTickets';
@@ -60,16 +59,11 @@ export function SupportCenter({ title }: { title: string }) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="forward" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{title}</Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <PageHero title={title} onBack={true} compact />
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false}
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.xxl }}
           keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
