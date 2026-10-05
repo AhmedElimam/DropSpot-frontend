@@ -13,7 +13,7 @@ const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
 
 // The same notched bar as the teacher and the parent, the app's emblem in the raised middle
 // (founder 2026-10-06 — it replaces the stock bar the student kept until now). The middle is
-// «سوا»: group chat and threads, a coming-soon screen until they open.
+// «مجموعاتي»: group chat and threads, a coming-soon screen until they open.
 const TAB_ORDER = ['index', 'check-in', 'chat', 'invoices', 'profile'] as const;
 const CENTER_TAB = 'chat';
 const labels: Record<string, string> = {
@@ -21,7 +21,8 @@ const labels: Record<string, string> = {
   'check-in': 'nav.check_in',
   chat: 'together.tab',
   invoices: 'nav.invoices',
-  profile: 'nav.profile',
+  // Short on purpose: «الملف الشخصي» ran into the screen edge on the five-tab bar.
+  profile: 'nav.profile_short',
 };
 
 const icons: Record<string, IconName> = {

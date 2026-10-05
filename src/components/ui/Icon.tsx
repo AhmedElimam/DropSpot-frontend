@@ -86,8 +86,11 @@ const ICON_MAP = {
   image: 'image',
   brush: 'brush',
   undo: 'arrow-undo',
-  // Threads («النقاشات») — also the student's «سوا» coming-soon tab.
+  // Threads («النقاشات») — also the student's «مجموعاتي» coming-soon tab.
   threads: 'chatbox-ellipses',
+  question: 'help-circle',
+  thumbUp: 'thumbs-up',
+  play: 'play',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;
