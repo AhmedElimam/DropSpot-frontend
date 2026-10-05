@@ -85,8 +85,9 @@ export default function ParentHome() {
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl + insets.top, paddingBottom: spacing.xl4 + spacing.lg }}
         >
           <HeaderBrandBar onBell={() => router.push('/(parent)/notifications')} unread={unread} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft }}>{t('home.welcome')}</Text>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, marginTop: 2 }} numberOfLines={1}>
+          {/* Greeting and name centred at the top (founder 2026-10-05). */}
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, textAlign: 'center' }}>{t('home.welcome')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, marginTop: 2, textAlign: 'center' }} numberOfLines={1}>
             {user?.name || 'ولي الأمر'}
           </Text>
 

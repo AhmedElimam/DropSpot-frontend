@@ -93,10 +93,11 @@ export default function StudentDashboard() {
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl + insets.top, paddingBottom: spacing.xl4 + spacing.xl }}
         >
           <HeaderBrandBar onBell={() => router.navigate('/(student)/notifications' as never)} unread={unread} />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>
+          {/* Name and date centred at the top (founder 2026-10-05). */}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero, textAlign: 'center' }}>
             {t('common.greeting', { name: firstName })}
           </Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>
             {formatDate(new Date())}
           </Text>
 

@@ -166,8 +166,9 @@ export default function TeacherHome() {
             onScan={canCash ? () => router.push('/(teacher)/scan' as Href) : undefined}
             scanBadge={offlineAttention}
           />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>{formatDayDate(new Date(now))}</Text>
+          {/* Name and date centred at the top (founder 2026-10-05). */}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero, textAlign: 'center' }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{formatDayDate(new Date(now))}</Text>
           <TeacherSwitcher />
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
             {[
