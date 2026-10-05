@@ -13,8 +13,8 @@ interface BrandMarkProps {
   /** Opt-in rounded white tile behind the mark. Default OFF — the in-app asset is
    *  the WHITE emblem, which reads directly on the dark hero with no background. */
   tile?: boolean;
-  /** Colour the emblem is tinted to. Defaults to the brand indigo (deep on the day mist,
-   *  pale on the night navy); the auth screens, deep ink in both schemes, pass white. */
+  /** Colour the emblem is tinted to. Defaults to `colors.logo`: the brand indigo by day,
+   *  silver by night; the auth screens, deep ink in both schemes, pass white. */
   tint?: string;
 }
 
@@ -30,7 +30,7 @@ export function BrandMark({ size = 44, tile = false, tint }: BrandMarkProps) {
   const logo = (
     <Image
       source={brandLogo}
-      style={{ height: logoHeight, width: Math.round(logoHeight * ASPECT), tintColor: tint ?? colors.brand }}
+      style={{ height: logoHeight, width: Math.round(logoHeight * ASPECT), tintColor: tint ?? colors.logo }}
       resizeMode="contain"
     />
   );

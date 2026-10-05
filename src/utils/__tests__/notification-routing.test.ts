@@ -3,6 +3,8 @@ import { notificationRouteFor } from '../notification-routing';
 describe('notificationRouteFor (feed + push taps)', () => {
   it('sends a teacher to the thing the notification is about', () => {
     expect(notificationRouteFor({ role: 'teacher', type: 'ticket_reply', data: { ticket_id: 7 } })).toBe('/(teacher)/tickets/7');
+    // A parent opening a ticket reaches the teacher too (2026-10-06), and opens it.
+    expect(notificationRouteFor({ role: 'teacher', type: 'ticket_new', data: { ticket_id: 9 } })).toBe('/(teacher)/tickets/9');
     expect(notificationRouteFor({ role: 'teacher', type: 'cash_review', data: { expense_id: 12, event: 'answered' } })).toBe('/(teacher)/expense-thread?id=12');
     expect(notificationRouteFor({ role: 'teacher', type: 'cash_gap', data: { reconciliation_id: 3 } })).toBe('/(teacher)/cash-review?id=3');
     expect(notificationRouteFor({ role: 'teacher', type: 'assistant_checkin_review', data: { session_instance_id: 44 } })).toBe('/(teacher)/sessions/44');

@@ -76,7 +76,8 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
   const { width } = useWindowDimensions();
   const height = BAR_HEIGHT + insets.bottom;
   const dark = isDark();
-  const onButton = dark ? colors.tabBar : '#FFFFFF';
+  // The glyph on the centre button: white on the day indigo, SILVER on the night navy.
+  const onButton = dark ? colors.logo : '#FFFFFF';
 
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: height + RAISE }}>
@@ -114,6 +115,9 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
                     height: BUTTON,
                     borderRadius: BUTTON / 2,
                     backgroundColor: colors.tabActive,
+                    // By night the button is the emblem's own: deep navy, a silver rim that turns
+                    // orange when the tab is open (silver on the orange fill would not read).
+                    ...(dark ? { backgroundColor: colors.logoButton, borderWidth: 2, borderColor: focused ? colors.tabActive : colors.logoRing } : null),
                     alignItems: 'center',
                     justifyContent: 'center',
                     opacity: focused ? 1 : 0.92,

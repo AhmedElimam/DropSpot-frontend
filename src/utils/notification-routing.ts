@@ -105,6 +105,8 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
     // ── phone / tickets ──
     case 'device_pending_scans':
       return '/(teacher)/reconcile';
+    // A parent opened a ticket (founder 2026-10-06), or replied on one.
+    case 'ticket_new':
     case 'ticket_reply': {
       const ticket = id(data, 'ticket_id');
       return ticket ? `/(teacher)/tickets/${ticket}` : '/(teacher)/tickets';

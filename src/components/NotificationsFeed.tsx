@@ -58,6 +58,7 @@ const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
   booking_request: { icon: 'add', tint: colors.brand },
   booking_request_result: { icon: 'success', tint: colors.success },
   ticket_reply: { icon: 'tickets', tint: colors.brand },
+  ticket_new: { icon: 'ticket', tint: colors.accent },
   admin_ticket: { icon: 'note', tint: colors.brand },
   admin_ticket_reply: { icon: 'note', tint: colors.brand },
   admin_ticket_resolved: { icon: 'success', tint: colors.success },

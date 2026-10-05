@@ -37,7 +37,7 @@ export function TogetherComingSoon() {
         <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ paddingTop: insets.top + spacing.xl, paddingBottom: spacing.xl4, paddingHorizontal: spacing.lg, alignItems: 'center' }}>
           <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, alignItems: 'center', justifyContent: 'center' }}>
-            <BrandMark size={30} tint={colors.onHero} />
+            <BrandMark size={30} />
           </View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, marginTop: spacing.sm }}>{t('together.title')}</Text>
           <Text style={{ fontFamily: fonts.medium, fontSize: 14.5, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{t('together.tagline')}</Text>
