@@ -17,6 +17,7 @@ export const ABILITY = {
   MARK_MANUAL: 'mark_attendance_manual',
   REPLY_TICKETS: 'reply_tickets',
   MANAGE_STUDENTS: 'manage_students',
+  EDIT_BILL_AMOUNT: 'edit_bill_amount',
   MANAGE_SESSIONS: 'manage_sessions',
   MANAGE_COURSES: 'manage_courses',
   REVIEW_PAYMENT_PROOFS: 'review_payment_proofs',

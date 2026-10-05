@@ -583,10 +583,10 @@ export default function StudentDetailScreen() {
             {/* «تصحيح قيمة فاتورة الدورة» — directly under the figure it corrects, and sized
                 like a real action rather than a chip: this is what a teacher reaches for with
                 a parent standing in front of them, after reading the amount above and finding
-                it wrong. The teacher, or an assistant with «إدارة الطلاب» (founder 2026-10-05; the
-                server tells the teacher). One button per billable enrolment, named by course, so a
-                student in two courses is never ambiguous about which bill moves. */}
-            {canManage ? (s.courses ?? []).filter((c) => c.enrollment_id && c.cycle?.has_cycle).map((c) => (
+                it wrong. The teacher, or an assistant holding «تعديل قيمة فاتورة الطالب» (founder
+                2026-10-05; on by default, the server tells the teacher). One button per billable
+                enrolment, named by course, so a student in two courses is never ambiguous. */}
+            {can(ABILITY.EDIT_BILL_AMOUNT) ? (s.courses ?? []).filter((c) => c.enrollment_id && c.cycle?.has_cycle).map((c) => (
               <TouchableOpacity
                 key={`fixamt-${c.enrollment_id}`}
                 onPress={() => { setAmountText(''); setAmountSessions(''); setAmountFor({ enrollmentId: c.enrollment_id!, courseName: c.name, current: null }); }}
