@@ -53,7 +53,13 @@ export default function ChildrenList() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <PageHero title={t('parent.my_children')} subtitle={t('common.children_count', { count: children.length })} />
+        {/* Teacher tickets sit on the hero as a small chip, like the scanner on the teacher home
+            (founder 2026-10-06) — one tap from the children list, not buried in the profile. */}
+        <PageHero
+          title={t('parent.my_children')}
+          subtitle={t('common.children_count', { count: children.length })}
+          action={{ icon: 'ticket', label: t('parent.tickets_chip'), accessibilityLabel: t('parent.teacher_tickets_title'), onPress: () => router.push('/(parent)/tickets') }}
+        />
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {children.map((child) => {
