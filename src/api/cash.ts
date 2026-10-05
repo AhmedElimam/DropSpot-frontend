@@ -54,7 +54,7 @@ export interface CashSettings extends CashSettingsLite {
   review_bulk_max?: number;
   /** Teacher switch: her screens say «مدام روز» (true) or «مديرة الحسابات». Assistants always see the name. */
   rose_named?: boolean;
-  /** Teacher switch: her 11 pm «ورقة النهارده» (today's sessions, attendance, overdue bills, collections, complaints) to the teacher and assistants. */
+  /** Teacher switch: her 11 am «ورقة النهارده» (today's sessions, venues, overdue bills, complaints) to the teacher and assistants. */
   rose_briefing_enabled?: boolean;
 }
 
