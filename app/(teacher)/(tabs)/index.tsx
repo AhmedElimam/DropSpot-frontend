@@ -58,6 +58,7 @@ export default function TeacherHome() {
   const { can, isAssistant } = useActiveAbilities();
   const canCash = can(ABILITY.SCAN);
   const canStudents = can(ABILITY.MANAGE_STUDENTS);
+  const canCancel = can(ABILITY.CANCEL_SESSIONS);
   const now = useMinuteClock();
   const rose = useRose();
 
@@ -108,7 +109,7 @@ export default function TeacherHome() {
   // nobody attended can be cancelled even after it ended (it leaves the billing cycle).
   const swipesFor = (s: TeacherSession): { action?: SwipeAction; leftAction: SwipeAction } => {
     const ended = s.status === 'completed' || sessionPhase(s, now) === 'done';
-    const cancellable = s.status !== 'cancelled' && (!ended || (s.checked_in_count ?? 1) === 0);
+    const cancellable = canCancel && s.status !== 'cancelled' && (!ended || (s.checked_in_count ?? 1) === 0);
     return {
       action: cancellable ? { icon: 'close', label: t('teacher.cancel_session'), color: colors.danger, onTrigger: () => confirmCancel(s) } : undefined,
       leftAction: { icon: 'attendance', label: t('sessions_tab.sheet'), color: colors.success, onTrigger: () => setRosterFor(s.id) },

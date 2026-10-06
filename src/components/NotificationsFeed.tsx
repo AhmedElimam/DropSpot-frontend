@@ -75,6 +75,7 @@ const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
   assistant_course_created: { icon: 'book', tint: colors.warning },
   assistant_schedule_created: { icon: 'calendar', tint: colors.warning },
   assistant_session_created: { icon: 'calendar', tint: colors.warning },
+  assistant_session_cancelled: { icon: 'close', tint: colors.danger },
   assistant_checkin_review: { icon: 'attendance', tint: colors.warning },
   assistant_action_review: { icon: 'money', tint: colors.warning },
   assistant_report_review: { icon: 'note', tint: colors.warning },

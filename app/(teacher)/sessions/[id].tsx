@@ -69,6 +69,8 @@ export default function SessionDetailScreen() {
   const { can } = useActiveAbilities();
   const canMark = can(ABILITY.MARK_MANUAL);
   const canScan = can(ABILITY.SCAN);
+  // An assistant without «إلغاء الحصص» never sees the button (founder 2026-10-06).
+  const canCancel = can(ABILITY.CANCEL_SESSIONS);
 
   const [selected, setSelected] = useState<SessionAttendee | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
@@ -432,6 +434,7 @@ export default function SessionDetailScreen() {
                 ) : null}
               </View>
 
+              {canCancel ? (
               <Button
                 title={s.is_cancelled ? t('teacher.restore_session') : t('teacher.cancel_session')}
                 onPress={doCancelRestore}
@@ -441,6 +444,7 @@ export default function SessionDetailScreen() {
                 // stays; one nobody attended can be cancelled, even after its time.
                 disabled={!s.is_cancelled && s.attendees.some((a) => a.status === 'present' || a.status === 'late')}
               />
+              ) : null}
             </View>
           ) : null}
       </SheetModal>

@@ -170,7 +170,7 @@ export default function TeacherManage() {
             {!isAssistant ? <HubRow tint={tint} icon="gps" title={t('manage.venues_title')} sub={t('manage.venues_sub')} onPress={() => router.push('/(teacher)/venues' as Href)} /> : null}
             {canSessions ? <HubRow tint={tint} icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} onPress={() => router.push('/(teacher)/exam-create' as Href)} /> : null}
             {!isAssistant && flags?.revise_mode && reviseOn !== false ? <HubRow tint={tint} icon="book" title={t('teacher.revision_mode_row')} sub={t('teacher.revision_mode_row_sub')} onPress={() => router.push('/(teacher)/revisions' as Href)} /> : null}
-            {canSessions ? <HubRow tint={tint} icon="clock" title={t('teacher.pause_period')} sub={t('teacher.pause_sub')} onPress={() => router.push('/(teacher)/pause' as Href)} /> : null}
+            {can(ABILITY.CANCEL_SESSIONS) ? <HubRow tint={tint} icon="clock" title={t('teacher.pause_period')} sub={t('teacher.pause_sub')} onPress={() => router.push('/(teacher)/pause' as Href)} /> : null}
             {canCourses ? <HubRow tint={tint} icon="calendar" title={t('teacher.merge_title')} sub={t('teacher.merge_sub')} onPress={() => router.push('/(teacher)/schedule-merge' as Href)} /> : null}
             {canCourses && ramadanOn ? <HubRow tint={tint} icon="clock" title={t('teacher.overrides_title')} sub={t('teacher.overrides_sub')} onPress={() => router.push('/(teacher)/schedule-overrides' as Href)} /> : null}
           </>
