@@ -86,6 +86,23 @@ export function formatDateTime(date: string | Date, options?: Intl.DateTimeForma
 }
 
 /** Arabic-Indic number formatting — the ONE place numerals are localised. */
+/**
+ * Text folded for searching a name: Arabic letter variants a person types interchangeably
+ * (أ/إ/آ → ا, ة → ه, ى → ي), tashkeel and tatweel dropped, Arabic digits to Latin, lower case.
+ * «احمد» finds «أحمد», «فاطمه» finds «فاطمة».
+ */
+export function foldForSearch(text: string | null | undefined): string {
+  return (text ?? '')
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** «father» → «الأب»: the parent's relationship as the server stores it, in Arabic. */
 export function relationshipLabel(rel: string | null | undefined): string {
   if (!rel) return '';

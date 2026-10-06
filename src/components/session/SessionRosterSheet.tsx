@@ -10,7 +10,7 @@ import { Avatar } from '@/components/layout/Avatar';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
-import { formatNumber } from '@/utils/format';
+import { formatNumber, foldForSearch } from '@/utils/format';
 import type { SessionAttendee } from '@/api/teacherSessions';
 
 type Status = 'present' | 'late' | 'absent' | 'excused';
@@ -67,6 +67,15 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
   const attendees = [...all].sort((a, b) => rank(a.student_id) - rank(b.student_id));
   const present = attendees.filter((a) => a.status === 'present' || a.status === 'late').length;
 
+  // Find a student in a long roster (founder 2026-10-06): by name — «احمد» finds «أحمد» — or
+  // by code. Filtering never reorders: the rows keep the order the sheet opened with.
+  const [search, setSearch] = useState('');
+  useEffect(() => { setSearch(''); }, [sessionId]);
+  const needle = foldForSearch(search);
+  const shown = needle
+    ? attendees.filter((a) => foldForSearch(a.name).includes(needle) || foldForSearch(a.student_code).includes(needle))
+    : attendees;
+
   // One student open at a time, with their drafts.
   const [openId, setOpenId] = useState<number | null>(null);
   const [gradeDraft, setGradeDraft] = useState('');
@@ -102,8 +111,25 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
       ) : attendees.length === 0 ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }}>{t('home.roster_empty')}</Text>
       ) : (
+        <>
+        {attendees.length > 3 ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, marginBottom: spacing.sm }}>
+            <Icon name="search" size={17} color={colors.textTertiary} />
+            <TextInput value={search} onChangeText={setSearch} placeholder="ابحث بالاسم أو الكود" placeholderTextColor={colors.textTertiary}
+              returnKeyType="search" autoCorrect={false} clearButtonMode="never"
+              style={{ flex: 1, height: 44, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right', paddingVertical: 0 }} />
+            {search ? (
+              <TouchableOpacity onPress={() => setSearch('')} hitSlop={10} accessibilityRole="button" accessibilityLabel="مسح البحث">
+                <Icon name="close" size={16} color={colors.textTertiary} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
+        {shown.length === 0 ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.lg }}>{`لا يوجد طالب باسم «${search.trim()}» في هذه الحصة`}</Text>
+        ) : null}
         <ScrollView style={{ maxHeight: height * 0.6 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {attendees.map((a) => {
+          {shown.map((a) => {
             const color = STATUS_COLOR()[a.status] ?? STATUS_COLOR().not_recorded;
             const open = openId === a.student_id;
             return (
@@ -177,6 +203,7 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
             );
           })}
         </ScrollView>
+        </>
       )}
 
       {sessionId ? (
