@@ -3,6 +3,7 @@ import { colors, spacing, radius } from '@/theme/index';
 import { fonts } from '@/theme/typography';
 import { Icon } from '@/components/ui/Icon';
 import { BrandMark } from '@/components/ui/BrandMark';
+import { TourTarget } from '@/tour/TourTarget';
 
 interface HeaderBrandBarProps {
   /** Tapping the notifications bell. */
@@ -43,15 +44,15 @@ export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scan
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
       {/* First child → visual RIGHT in RTL: the notifications bell, then (optionally) the scanner. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <TouchableOpacity onPress={onBell} accessibilityRole="button" accessibilityLabel="الإشعارات" style={iconButton()}>
+        <TourTarget id="header:bell"><TouchableOpacity onPress={onBell} accessibilityRole="button" accessibilityLabel="الإشعارات" style={iconButton()}>
           <Icon name="bell" size={22} color={colors.onHero} outline />
           {unread ? <Badge count={unread} /> : null}
-        </TouchableOpacity>
+        </TouchableOpacity></TourTarget>
         {onScan ? (
-          <TouchableOpacity onPress={onScan} accessibilityRole="button" accessibilityLabel="الكاميرا" style={iconButton()}>
+          <TourTarget id="header:scan"><TouchableOpacity onPress={onScan} accessibilityRole="button" accessibilityLabel="الكاميرا" style={iconButton()}>
             <Icon name="scan" size={22} color={colors.onHero} outline />
             {scanBadge ? <Badge count={scanBadge} /> : null}
-          </TouchableOpacity>
+          </TouchableOpacity></TourTarget>
         ) : null}
       </View>
 

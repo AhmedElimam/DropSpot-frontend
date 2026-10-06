@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { SupportContact } from '@/components/SupportContact';
 import { ThemeRow } from '@/components/ThemeRow';
+import { TourRow } from '@/tour/TourRow';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients, control } from '@/theme/index';
@@ -147,6 +148,7 @@ export default function ParentSettings() {
           </TouchableOpacity>
 
           <View style={{ marginBottom: spacing.md }}>
+            <TourRow home={'/(parent)/(tabs)' as Href} />
             <ThemeRow />
             <SupportContact href={'/(parent)/support' as Href} />
           </View>

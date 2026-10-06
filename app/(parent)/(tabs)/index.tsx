@@ -22,6 +22,7 @@ import { Avatar } from '@/components/layout/Avatar';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
+import { TourTarget } from '@/tour/TourTarget';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { ActionTile } from '@/components/ui/ShortcutTile';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -92,7 +93,7 @@ export default function ParentHome() {
           </Text>
 
           {kids.length > 0 ? (
-            <View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.sm }}>
+            <TourTarget id="home:stats"><View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.sm }}>
               {[
                 { k: 'kids', v: formatNumber(kids.length), l: t('home.children_section') },
                 { k: 'well', v: formatNumber(well), l: t('home.standing_good'), good: true },
@@ -103,14 +104,14 @@ export default function ParentHome() {
                   <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.onHeroSoft }} numberOfLines={1}>{x.l}</Text>
                 </View>
               ))}
-            </View>
+            </View></TourTarget>
           ) : null}
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           {/* The verdict card: one plain sentence about the household. */}
           {kids.length > 0 ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.md }}>
+            <TourTarget id="home:spotlight"><View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.md }}>
               <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: allWell ? colors.successLight : colors.warningLight, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name={allWell ? 'success' : 'warning'} size={26} color={allWell ? colors.success : colors.warningDark} />
               </View>
@@ -118,7 +119,7 @@ export default function ParentHome() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t(allWell ? 'home.all_well' : 'home.some_attention')}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{t('home.children_hint')}</Text>
               </View>
-            </View>
+            </View></TourTarget>
           ) : null}
 
           <View style={{ gap: spacing.md, marginTop: spacing.md }}>

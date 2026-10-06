@@ -17,6 +17,7 @@ import type { TeacherSession } from '@/api/teacher';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
+import { TourTarget } from '@/tour/TourTarget';
 import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
 import { PendingInvitations } from '@/components/teacher/PendingInvitations';
 import { HubRow } from '@/components/teacher/HubRow';
@@ -174,7 +175,7 @@ export default function TeacherHome() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero, textAlign: 'center' }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{formatDayDate(new Date(now))}</Text>
           <TeacherSwitcher />
-          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+          <TourTarget id="home:stats"><View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
             {[
               { k: 'sessions', v: formatNumber(sessions.length), l: t('home.stat_sessions') },
               { k: 'present', v: rosterToday > 0 ? `${formatNumber(presentToday)}/${formatNumber(rosterToday)}` : formatNumber(presentToday), l: t('home.stat_present') },
@@ -185,11 +186,12 @@ export default function TeacherHome() {
                 <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.onHeroSoft }} numberOfLines={1}>{x.l}</Text>
               </View>
             ))}
-          </View>
+          </View></TourTarget>
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           {/* Spotlight — the session that matters now. */}
+          <TourTarget id="home:spotlight">
           {sessionsQ.isLoading ? (
             <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.xl, alignItems: 'center', ...shadows.md }}>
               <ActivityIndicator color={colors.primary} />
@@ -211,11 +213,13 @@ export default function TeacherHome() {
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
           )}
+          </TourTarget>
 
           <PendingInvitations />
 
           {/* Shortcuts — four coloured, labelled buttons. */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.lg }}>
+          <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             {shortcuts.map((x) => (
               <TouchableOpacity key={x.key} onPress={x.onPress} activeOpacity={0.85} accessibilityRole="button" style={{ width: '24%', alignItems: 'center' }}>
                 <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: x.tint, alignItems: 'center', justifyContent: 'center' }}>
@@ -230,6 +234,7 @@ export default function TeacherHome() {
               </TouchableOpacity>
             ))}
           </View>
+          </TourTarget>
 
           {attention.length > 0 ? (
             <View style={{ marginTop: spacing.xl }}>

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, shadows, isDark } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { TourTarget } from '@/tour/TourTarget';
 
 /** The bar's own height, without the home indicator. Screens pad with `nav.bottomHeight`. */
 export const BAR_HEIGHT = 64;
@@ -109,6 +110,7 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
                 accessibilityLabel={label}
                 style={{ flex: 1, alignItems: 'center', marginTop: -RAISE }}
               >
+                <TourTarget id={`tab:${name}`} style={{ alignItems: 'center' }}>
                 <View
                   style={{
                     width: BUTTON,
@@ -130,6 +132,7 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
                 <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.bold, fontSize: 12, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 4, paddingHorizontal: 2 }}>
                   {label}
                 </Text>
+                </TourTarget>
               </Pressable>
             );
           }
@@ -144,12 +147,14 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
               accessibilityLabel={label}
               style={{ flex: 1, alignItems: 'center', paddingTop: 8 }}
             >
+              <TourTarget id={`tab:${name}`} style={{ alignItems: 'center', paddingHorizontal: 6 }}>
               <View style={{ opacity: focused ? 1 : 0.55, transform: [{ scale: focused ? 1.08 : 1 }] }}>
                 <Icon name={icons[name] || 'home'} size={24} color={focused ? colors.tabActive : colors.tabInactive} outline={!focused} />
               </View>
               <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.medium, fontSize: 12, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 2, paddingHorizontal: 2 }}>
                 {label}
               </Text>
+              </TourTarget>
             </Pressable>
           );
         })}

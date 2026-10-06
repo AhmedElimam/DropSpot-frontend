@@ -41,6 +41,7 @@ import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
 import { AppConfigGate } from '@/components/AppConfigGate';
 import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
+import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
 import { colors } from '@/theme/index';
 import { shouldRefetchOnFocus } from '@/api/queryFocus';
 
@@ -256,6 +257,8 @@ export default function RootLayout() {
             <TeacherOnboardingModal />
             {/* «ما الجديد» — once per installed version, after the two above. */}
             <WhatsNewModal />
+            {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}
+            <SpotlightOverlay />
           </View>
           </AppConfigGate>
         </HydrationGate>

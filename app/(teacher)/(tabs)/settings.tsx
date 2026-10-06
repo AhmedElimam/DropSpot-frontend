@@ -14,6 +14,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { SupportContact } from '@/components/SupportContact';
 import { ThemeRow } from '@/components/ThemeRow';
+import { TourRow } from '@/tour/TourRow';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
 import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
@@ -90,6 +91,7 @@ export default function TeacherSettings() {
           </Group>
 
           <SectionLabel text={t('common.section_app')} />
+          <TourRow home={'/(teacher)/(tabs)' as Href} />
           <ThemeRow />
           <Group>
             <Row icon="bell" tint={colors.accent} tintBg={colors.accentLight} label={t('teacher.notifications')} sub={t('teacher.notifications_hint')} onPress={() => Linking.openSettings()} />

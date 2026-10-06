@@ -20,6 +20,7 @@ import { formatDate, formatTime, formatNumber } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
+import { TourTarget } from '@/tour/TourTarget';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { ShortcutTile } from '@/components/ui/ShortcutTile';
@@ -101,7 +102,7 @@ export default function StudentDashboard() {
             {formatDate(new Date())}
           </Text>
 
-          <View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.sm }}>
+          <TourTarget id="home:stats"><View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.sm }}>
             {[
               { k: 'today', v: formatNumber(list.length), l: t('session.today_sessions') },
               { k: 'upcoming', v: formatNumber(list.filter((s) => s.status === 'scheduled').length), l: t('session.upcoming_sessions') },
@@ -112,11 +113,12 @@ export default function StudentDashboard() {
                 <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.onHeroSoft }} numberOfLines={1}>{x.l}</Text>
               </View>
             ))}
-          </View>
+          </View></TourTarget>
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           {/* Spotlight — the session that matters now, or a calm card when the day is done. */}
+          <TourTarget id="home:spotlight">
           {sessionsLoading ? (
             <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.xl, alignItems: 'center', ...shadows.md }}>
               <ActivityIndicator color={colors.primary} />
@@ -136,6 +138,7 @@ export default function StudentDashboard() {
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
           )}
+          </TourTarget>
 
           <View style={{ gap: spacing.md, marginTop: spacing.md }}>
             <CardOrderBanner scope="student" />
@@ -149,9 +152,9 @@ export default function StudentDashboard() {
           </View>
 
           {/* Shortcuts — four coloured, labelled buttons. */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.lg }}>
+          <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             {shortcuts.map((x) => <ShortcutTile key={x.key} icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
-          </View>
+          </View></TourTarget>
 
           {/* My teachers — who teaches which course, and how attendance stands there. */}
           <View style={{ marginTop: spacing.xl }}>

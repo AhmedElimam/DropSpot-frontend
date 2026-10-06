@@ -18,6 +18,7 @@ import { Icon } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { SupportContact } from '@/components/SupportContact';
 import { ThemeRow } from '@/components/ThemeRow';
+import { TourRow } from '@/tour/TourRow';
 import { useQuery } from '@tanstack/react-query';
 import { getMyCardStatus } from '@/api/profile';
 import { PageHero } from '@/components/ui/PageHero';
@@ -252,6 +253,7 @@ export default function StudentProfile() {
           </View>
 
           <View style={{ marginBottom: spacing.md }}>
+            <TourRow home={'/(student)/(tabs)' as Href} />
             <ThemeRow />
             <SupportContact href={'/(student)/support' as Href} />
           </View>
