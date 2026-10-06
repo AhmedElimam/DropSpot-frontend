@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Redirect, Stack } from 'expo-router';
-import { View, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
+import { View, ActivityIndicator, AppState, Platform, type AppStateStatus } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
@@ -127,6 +127,13 @@ export default function TeacherLayout() {
     {isAuthenticated && role === 'teacher' ? <RelocationPrompt enabled /> : null}
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
+      {/* A student opened from a list: a native sheet over it (iOS form sheet, Android slide-up). */}
+      <Stack.Screen
+        name="student-sheet/[id]"
+        options={Platform.OS === 'ios'
+          ? { presentation: 'formSheet', sheetAllowedDetents: [0.94], sheetGrabberVisible: true, sheetCornerRadius: 26, contentStyle: { backgroundColor: colors.background } }
+          : { presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
     </Stack>
     </>
   );

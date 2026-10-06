@@ -1,12 +1,13 @@
 import { SheetModal } from '@/components/ui/SheetModal';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Alert } from 'react-native';
 import { FlatList, ScrollView } from '@/components/ui/Refreshable';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, type Href } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getStudentDetail } from '@/api/students';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, gradients } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -20,7 +21,6 @@ import { reverseStudentPayment } from '@/api/students';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { StudentProfileModal } from '@/components/teacher/StudentProfileModal';
 import { TeacherTip } from '@/components/TeacherTip';
 
 interface Target {
@@ -80,8 +80,18 @@ export default function TeacherPendingCollections() {
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   const [target, setTarget] = useState<Target | null>(null);
-  // Tapping a student opens them in a sheet over the list (founder 2026-10-06).
-  const [viewing, setViewing] = useState<number | null>(null);
+  // Tapping a student opens their profile as a native sheet over the list (founder
+  // 2026-10-06). The profile is fetched as the finger lifts, so the sheet usually rises with
+  // it already there; the list refreshes when the sheet goes away.
+  const openStudent = (studentId: number, name: string) => {
+    void qc.prefetchQuery({ queryKey: ['teacher-student', String(studentId)], queryFn: () => getStudentDetail(studentId), staleTime: 15_000 });
+    router.push({ pathname: '/(teacher)/student-sheet/[id]', params: { id: String(studentId), name } } as unknown as Href);
+  };
+  const seen = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (seen.current) void refetch();
+    seen.current = true;
+  }, [refetch]));
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -184,7 +194,7 @@ export default function TeacherPendingCollections() {
     return (
       <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: tone.stripe, padding: spacing.md, marginBottom: spacing.sm }}>
         {/* Who, and what they owe — the number is the headline. A tap opens the student. */}
-        <TouchableOpacity onPress={() => setViewing(s.student_id)} activeOpacity={0.7} accessibilityRole="button" accessibilityHint="عرض بيانات الطالب"
+        <TouchableOpacity onPress={() => openStudent(s.student_id, s.name)} activeOpacity={0.7} accessibilityRole="button" accessibilityHint="عرض بيانات الطالب"
           style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
           <GeneratedAvatar seed={avatarSeed.student(s.student_id)} size={42} label={s.name} />
           <View style={{ flex: 1 }}>
@@ -348,8 +358,6 @@ export default function TeacherPendingCollections() {
         bodyKey="onboarding.tip_billing_body"
         bulletKeys={['onboarding.tip_billing_b1', 'onboarding.tip_billing_b2']}
       />
-
-      <StudentProfileModal studentId={viewing} onClose={() => { setViewing(null); void refetch(); }} />
 
       {/* Collect modal — amount input, default = full remainder. */}
       <SheetModal visible={!!target} onClose={() => setTarget(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>

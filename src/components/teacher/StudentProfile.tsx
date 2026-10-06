@@ -23,7 +23,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory, type CorrectableBill } from '@/api/students';
 import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining } from '@/api/enrollments';
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBill, type BackfillDay } from '@/api/students';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { dayLabel, formatDayDate, formatNumber, relationshipLabel } from '@/utils/format';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -44,9 +44,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  * With `onClose` it is hosted in a modal: the hero's back closes it, and anything that
  * navigates away closes it first, so the next screen is not left underneath.
  */
-export function StudentProfile({ id, onClose }: { id: string; onClose?: () => void }) {
+export function StudentProfile({ id, onClose, sheet = false, initialName }: {
+  id: string; onClose?: () => void;
+  /** Hosted in a native sheet: no status bar above the hero, × instead of back, no pull-to-refresh (the pull dismisses). */
+  sheet?: boolean;
+  /** The name already on screen where the sheet was opened from — the hero shows it while the profile loads. */
+  initialName?: string;
+}) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const qc = useQueryClient();
   // Leave the profile for another screen: from a modal, close it first.
   const go = (href: Href) => { onClose?.(); router.push(href); };
   const { data: s, isLoading, refetch } = useStudentDetail(id);
@@ -87,6 +94,7 @@ export function StudentProfile({ id, onClose }: { id: string; onClose?: () => vo
     try {
       Alert.alert('تم', await collectTarget(id, collectFor, parsed.amount, s.billing));
       setCollectFor(null);
+      void qc.invalidateQueries({ queryKey: ['pending-collections'] });
     } catch (e: any) {
       Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر التحصيل');
     } finally {
@@ -418,10 +426,12 @@ export function StudentProfile({ id, onClose }: { id: string; onClose?: () => vo
           often they come, how often they do not, and what the family owes. The PDF export
           sits in the hero chip. */}
       <PageHero
-        title={s?.name ?? t('teacher.tab_students')}
+        title={s?.name ?? initialName ?? t('teacher.tab_students')}
         subtitle={s ? [s.grade_name ?? t('teacher.no_grade'), s.student_code].filter(Boolean).join(' · ') : undefined}
         avatar={s ? avatarSeed.student(s.id, s.name ?? '—') : undefined}
         onBack={onClose ?? true}
+        closeIcon={sheet}
+        inset={sheet ? spacing.md : undefined}
         action={s && canExport ? { icon: 'download', label: exporting ? '…' : 'PDF', onPress: exportPerformance, accessibilityLabel: t('teacher.performance_export') } : undefined}
         stats={s ? [
           { value: formatNumber(s.attendance_stats.attended), label: t('teacher.stat_attended') },
@@ -440,7 +450,7 @@ export function StudentProfile({ id, onClose }: { id: string; onClose?: () => vo
           style={{ marginTop: -spacing.xl4 }}
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={sheet ? undefined : <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {/* The student's OWN number — their login credential, and who a teacher rings when
               the parent does not answer. Shown with who (if anyone) has proved it, because an

@@ -27,7 +27,7 @@ export interface HeroStat {
  *
  * Draws through the hero tokens, so it is ink on paper by day and white on navy by night.
  */
-export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, stats, children, compact = false }: {
+export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, stats, children, compact = false, inset, closeIcon = false }: {
   title: string;
   subtitle?: string;
   /** The person's avatar seed (see `avatarSeed`) — drawn as their generated character. */
@@ -42,6 +42,10 @@ export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, s
   children?: ReactNode;
   /** No overlap allowance at the bottom (the content starts flush under the hero). */
   compact?: boolean;
+  /** Top inset to use instead of the status bar's — a hero inside a sheet starts below it. */
+  inset?: number;
+  /** Draw the back chip as a close (×): the page is a sheet that is dismissed, not popped. */
+  closeIcon?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -53,7 +57,7 @@ export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, s
       colors={gradients.hero}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.md, paddingBottom: compact ? spacing.lg : spacing.xl4 + spacing.lg }}
+      style={{ paddingHorizontal: spacing.lg, paddingTop: (inset ?? insets.top) + spacing.md, paddingBottom: compact ? spacing.lg : spacing.xl4 + spacing.lg }}
     >
       {hasRow ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
@@ -61,7 +65,7 @@ export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, s
             <TouchableOpacity onPress={back} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.back')}
               style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, alignItems: 'center', justifyContent: 'center' }}>
               {/* RTL: "back" points to the right. */}
-              <Icon name="forward" size={22} color={colors.onHero} />
+              <Icon name={closeIcon ? 'close' : 'forward'} size={closeIcon ? 20 : 22} color={colors.onHero} />
             </TouchableOpacity>
           ) : <View style={{ width: 40 }} />}
           {action ? (
