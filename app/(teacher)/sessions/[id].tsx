@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextIn
 import { FlatList, ScrollView } from '@/components/ui/Refreshable';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
@@ -168,7 +169,7 @@ export default function SessionDetailScreen() {
   const doCancelRestore = () => {
     if (!s) return;
     if (s.is_cancelled) {
-      controls.restore.mutate();
+      controls.restore.mutate(undefined, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) });
     } else {
       // A session whose time has passed and nobody attended was not given: cancelling it takes it
       // out of the students' billing cycle and clears its automatic absences (founder 2026-10-06).
@@ -177,7 +178,11 @@ export default function SessionDetailScreen() {
         { text: t('common.cancel'), style: 'cancel' },
         { text: t('teacher.cancel_session_confirm'), style: 'destructive', onPress: () => {
           setSettingsOpen(false);
-          controls.cancel.mutate(undefined, { onSuccess: (d) => { if (d?.notice) Alert.alert(t('teacher.cancel_session_title'), d.notice); } });
+          controls.cancel.mutate(undefined, {
+            onSuccess: (d) => { if (d?.notice) Alert.alert(t('teacher.cancel_session_title'), d.notice); },
+            // A refused cancel must say so — it used to fail silently and look done (founder 2026-10-06).
+            onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+          });
         } },
       ]);
     }
