@@ -20,7 +20,7 @@ import { reverseStudentPayment } from '@/api/students';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { StudentQuickSheet } from '@/components/teacher/StudentQuickSheet';
+import { StudentProfileModal } from '@/components/teacher/StudentProfileModal';
 import { TeacherTip } from '@/components/TeacherTip';
 
 interface Target {
@@ -349,7 +349,7 @@ export default function TeacherPendingCollections() {
         bulletKeys={['onboarding.tip_billing_b1', 'onboarding.tip_billing_b2']}
       />
 
-      <StudentQuickSheet studentId={viewing} onClose={() => { setViewing(null); void refetch(); }} />
+      <StudentProfileModal studentId={viewing} onClose={() => { setViewing(null); void refetch(); }} />
 
       {/* Collect modal — amount input, default = full remainder. */}
       <SheetModal visible={!!target} onClose={() => setTarget(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>

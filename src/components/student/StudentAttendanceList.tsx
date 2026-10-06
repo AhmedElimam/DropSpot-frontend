@@ -106,10 +106,10 @@ const RecordableRow = memo(function RecordableRow({ session, rec, live, canMark,
 });
 
 /** A record with no recordable session behind it (e.g. the session was cancelled): read-only, opens its sheet. */
-const HistoryRow = memo(function HistoryRow({ r }: { r: StudentAttendanceRow }) {
+const HistoryRow = memo(function HistoryRow({ r, beforeNavigate }: { r: StudentAttendanceRow; beforeNavigate?: () => void }) {
   const { t } = useTranslation();
   const color = STATUS_COLOR()[r.status] ?? STATUS_COLOR().not_recorded;
-  const open = r.session_id ? () => router.push(`/(teacher)/sessions/${r.session_id}` as Href) : undefined;
+  const open = r.session_id ? () => { beforeNavigate?.(); router.push(`/(teacher)/sessions/${r.session_id}` as Href); } : undefined;
   return (
     <TouchableOpacity onPress={open} disabled={!open} activeOpacity={0.85}
       style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: color, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 60 }}>
@@ -142,9 +142,9 @@ function markStudent(
 }
 
 /** The session sheet's student modal, for one session of this student: 4 marks + the sheet / exam mark. */
-function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded, onClose }: {
+function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded, onClose, beforeNavigate }: {
   session: QuickSession; rec: Record_; studentId: number; canMark: boolean; isAssistant: boolean;
-  onRecorded: (sessionId: string, patch: Partial<Record_>) => void; onClose: () => void;
+  onRecorded: (sessionId: string, patch: Partial<Record_>) => void; onClose: () => void; beforeNavigate?: () => void;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -186,7 +186,7 @@ function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded
                 {dayLabel(session.scheduled_at)}{session.time ? ` · ${session.time}` : ''}{kind === 'quiz_exam' ? ` · ${t('teacher.type_quiz_exam')}` : ''}
               </Text>
             </View>
-            <TouchableOpacity onPress={() => { onClose(); router.push(`/(teacher)/sessions/${session.id}` as Href); }} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+            <TouchableOpacity onPress={() => { onClose(); beforeNavigate?.(); router.push(`/(teacher)/sessions/${session.id}` as Href); }} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('sessions_tab.sheet')}</Text>
               <Icon name="back" size={14} color={colors.brand} />
             </TouchableOpacity>
@@ -255,10 +255,12 @@ function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded
  * did not send as sessions (a cancelled session) stay read-only and open their session. Writes go through the session
  * sheet's own controls, so offline marks queue and replay the same way.
  */
-export function StudentAttendanceList({ studentId, sessions, history, canMark, isAssistant = false, onChanged }: {
+export function StudentAttendanceList({ studentId, sessions, history, canMark, isAssistant = false, onChanged, beforeNavigate }: {
   studentId: number; sessions: QuickSession[]; history: StudentAttendanceRow[]; canMark: boolean;
   /** An assistant is told that changing a recorded status goes to the teacher for review. */
   isAssistant?: boolean; onChanged: () => void;
+  /** Called before opening a session — the profile hosted in a modal closes itself first. */
+  beforeNavigate?: () => void;
 }) {
   const { t } = useTranslation();
   const now = useMinuteClock();
@@ -292,14 +294,14 @@ export function StudentAttendanceList({ studentId, sessions, history, canMark, i
         <RecordableRow key={s.id} session={s} rec={recOf(s)} live={sessionPhase(s, now) === 'live'} canMark={canMark}
           studentId={studentId} onOpen={onOpen} onRecorded={onRecorded} />
       ))}
-      {olderShown.map((r) => <HistoryRow key={r.id} r={r} />)}
+      {olderShown.map((r) => <HistoryRow key={r.id} r={r} beforeNavigate={beforeNavigate} />)}
       {!showAll && hidden > 0 ? (
         <TouchableOpacity onPress={() => setShowAll(true)} style={{ paddingVertical: spacing.md, alignItems: 'center' }} accessibilityRole="button">
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('quick_record.show_all', { n: formatNumber(sessions.length + older.length) })}</Text>
         </TouchableOpacity>
       ) : null}
       {open ? (
-        <RecordSheet session={open} rec={recOf(open)} studentId={studentId} canMark={canMark} isAssistant={isAssistant} onRecorded={onRecorded} onClose={() => setOpenId(null)} />
+        <RecordSheet session={open} rec={recOf(open)} studentId={studentId} canMark={canMark} isAssistant={isAssistant} onRecorded={onRecorded} onClose={() => setOpenId(null)} beforeNavigate={beforeNavigate} />
       ) : null}
     </View>
   );

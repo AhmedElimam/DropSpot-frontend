@@ -86,6 +86,12 @@ export function formatDateTime(date: string | Date, options?: Intl.DateTimeForma
 }
 
 /** Arabic-Indic number formatting — the ONE place numerals are localised. */
+/** «father» → «الأب»: the parent's relationship as the server stores it, in Arabic. */
+export function relationshipLabel(rel: string | null | undefined): string {
+  if (!rel) return '';
+  return ({ father: 'الأب', mother: 'الأم', guardian: 'الوصي', other: 'ولي الأمر' } as Record<string, string>)[rel.trim().toLowerCase()] ?? rel;
+}
+
 export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
   return nf(options).format(value);
 }
