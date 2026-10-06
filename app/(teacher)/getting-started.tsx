@@ -43,7 +43,7 @@ export default function GettingStarted() {
       items: [
         { icon: 'add', titleKey: 'onboarding.gs_invite_title', bodyKey: 'onboarding.tip_invitation_body', done: tips?.invitation, go: '/(teacher)/enroll' as Href },
         { icon: 'scan', titleKey: 'onboarding.gs_attendance_title', bodyKey: 'onboarding.tip_attendance_body', done: tips?.attendance, go: '/(teacher)/scan' as Href },
-        { icon: 'money', titleKey: 'onboarding.gs_billing_title', bodyKey: 'onboarding.tip_billing_body', done: tips?.billing, go: '/(teacher)/collect' as Href },
+        { icon: 'money', titleKey: 'onboarding.gs_billing_title', bodyKey: 'onboarding.tip_billing_body', done: tips?.billing, go: '/(teacher)/pending-collections' as Href },
         { icon: 'reports', titleKey: 'onboarding.gs_reports_title', bodyKey: 'onboarding.tip_reports_body', done: tips?.reports, go: '/(teacher)/resolution' as Href },
       ],
     },

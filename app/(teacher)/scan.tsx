@@ -562,7 +562,7 @@ export default function TeacherScan() {
       {/* Header: session / revision / payment context */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, backgroundColor: payMode ? 'rgba(11,59,52,0.86)' : revisionMode ? 'rgba(76,29,149,0.82)' : 'rgba(23,28,59,0.72)', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <TouchableOpacity
-          onPress={() => (router.canGoBack() ? router.back() : router.replace((payMode ? '/(teacher)/collect' : revisionMode ? '/(teacher)/revisions' : '/(teacher)/(tabs)') as Href))}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace((payMode ? '/(teacher)/pending-collections' : revisionMode ? '/(teacher)/revisions' : '/(teacher)/(tabs)') as Href))}
           accessibilityRole="button"
           accessibilityLabel={t('teacher.switch_session')}
           style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}

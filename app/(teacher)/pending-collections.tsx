@@ -20,6 +20,8 @@ import { reverseStudentPayment } from '@/api/students';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { StudentQuickSheet } from '@/components/teacher/StudentQuickSheet';
+import { TeacherTip } from '@/components/TeacherTip';
 
 interface Target {
   studentId: number;
@@ -78,6 +80,8 @@ export default function TeacherPendingCollections() {
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   const [target, setTarget] = useState<Target | null>(null);
+  // Tapping a student opens them in a sheet over the list (founder 2026-10-06).
+  const [viewing, setViewing] = useState<number | null>(null);
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -179,11 +183,15 @@ export default function TeacherPendingCollections() {
 
     return (
       <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: tone.stripe, padding: spacing.md, marginBottom: spacing.sm }}>
-        {/* Who, and what they owe — the number is the headline. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        {/* Who, and what they owe — the number is the headline. A tap opens the student. */}
+        <TouchableOpacity onPress={() => setViewing(s.student_id)} activeOpacity={0.7} accessibilityRole="button" accessibilityHint="عرض بيانات الطالب"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
           <GeneratedAvatar seed={avatarSeed.student(s.student_id)} size={42} label={s.name} />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
+              <Icon name="back" size={13} color={colors.textTertiary} />
+            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
               <View style={{ backgroundColor: tone.bg, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: tone.fg }}>{t(tone.label)}</Text>
@@ -195,7 +203,7 @@ export default function TeacherPendingCollections() {
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: r.state === 'settled' ? colors.successText : tone.fg }}>{formatEGP(r.state === 'settled' ? r.paid : r.remaining)}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t(r.state === 'settled' ? 'collections.paid' : 'collections.remaining')}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* One line per due: what it is, how much of it is in, and the actions. */}
         {lines.map((l) => {
@@ -317,13 +325,31 @@ export default function TeacherPendingCollections() {
           keyExtractor={(r) => String(r.s.student_id)}
           renderItem={renderStudent}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl, flexGrow: 1 }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl + 64, flexGrow: 1 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
           ListEmptyComponent={rows.length
             ? <EmptyState icon="search" title={t('collections.empty_filter')} />
             : <EmptyState icon="money" title={t('collections.empty')} />}
         />
       )}
+
+      {/* One page, two ways in (founder 2026-10-06: «a page made for two tabs is a bit much»):
+          the list above, and — always in reach of the thumb — scanning the card. */}
+      <TouchableOpacity onPress={() => router.push('/(teacher)/scan?payKind=all' as Href)} activeOpacity={0.9} accessibilityRole="button"
+        style={{ position: 'absolute', bottom: insets.bottom + spacing.lg, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 54, paddingHorizontal: spacing.xl, borderRadius: radius.full, backgroundColor: colors.brand, shadowColor: '#000', shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
+        <Icon name="scan" size={22} color="#fff" />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: '#fff' }}>امسح البطاقة للتحصيل</Text>
+      </TouchableOpacity>
+
+      <TeacherTip
+        tip="billing"
+        icon="money"
+        titleKey="onboarding.tip_billing_title"
+        bodyKey="onboarding.tip_billing_body"
+        bulletKeys={['onboarding.tip_billing_b1', 'onboarding.tip_billing_b2']}
+      />
+
+      <StudentQuickSheet studentId={viewing} onClose={() => { setViewing(null); void refetch(); }} />
 
       {/* Collect modal — amount input, default = full remainder. */}
       <SheetModal visible={!!target} onClose={() => setTarget(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>

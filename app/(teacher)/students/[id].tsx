@@ -11,6 +11,7 @@ import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Badge } from '@/components/ui/Badge';
 import { PageHero } from '@/components/ui/PageHero';
+import { StudentDuesCard, CollectForm, collectTarget, parseCollectAmount, type CollectTarget } from '@/components/teacher/StudentDues';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StudentAttendanceList } from '@/components/student/StudentAttendanceList';
@@ -64,32 +65,17 @@ export default function StudentDetailScreen() {
   // and editable, because a family often pays part at the door. Same server path as the
   // kiosk (paid_at, receipt, drawer, oversight, audit). Teacher, or an assistant with
   // scan_attendance — the server refuses anyone else.
-  type CollectTarget = { kind: 'bill' | 'booklet' | 'booking' | 'all'; chargeId?: number; label: string; remaining: number };
   const [collectFor, setCollectFor] = useState<CollectTarget | null>(null);
   const [collectAmount, setCollectAmount] = useState('');
   const [collectBusy, setCollectBusy] = useState(false);
   const openCollect = (target: CollectTarget) => { setCollectAmount(String(target.remaining)); setCollectFor(target); };
   const submitCollect = async () => {
-    if (!collectFor) return;
-    const amount = Number(collectAmount.replace(/[^\d.]/g, ''));
-    if (!Number.isFinite(amount) || amount <= 0 || amount > collectFor.remaining + 0.001) {
-      Alert.alert('', `أدخل مبلغًا بين 1 و ${formatNumber(collectFor.remaining)} ج.م.`);
-      return;
-    }
+    if (!collectFor || !s) return;
+    const parsed = parseCollectAmount(collectAmount, collectFor);
+    if ('error' in parsed) { Alert.alert('', parsed.error); return; }
     setCollectBusy(true);
     try {
-      if (collectFor.kind === 'all') {
-        // Everything owed, bills first (oldest due first on the server), then booklets, then the دفعة.
-        const kinds = (['bill', 'booklet', 'booking'] as const).filter((k) => Number(s?.billing.pending?.[k] ?? 0) > 0);
-        for (const k of kinds) await collectStudentCharge(id, k);
-        Alert.alert('تم', `تم تحصيل ${formatNumber(collectFor.remaining)} ج.م. سيصل الإيصال لولي الأمر.`);
-      } else {
-        const partial = amount < collectFor.remaining - 0.001;
-        const r = await collectStudentCharge(id, collectFor.kind, collectFor.chargeId, partial ? amount : undefined);
-        Alert.alert('تم', Number(r.remaining) > 0
-          ? `تم تحصيل ${formatNumber(Number(r.collected))} ج.م — المتبقّي ${formatNumber(Number(r.remaining))} ج.م.`
-          : `تم تحصيل ${r.what} (${formatNumber(Number(r.collected))} ج.م). سيصل الإيصال لولي الأمر.`);
-      }
+      Alert.alert('تم', await collectTarget(id, collectFor, parsed.amount, s.billing));
       setCollectFor(null);
     } catch (e: any) {
       Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر التحصيل');
@@ -544,74 +530,7 @@ export default function StudentDetailScreen() {
                 by its month, each ملزمة, the booking دفعة — with «تحصيل» on the row and
                 «تحصيل الكل» under them. Red when something is overdue, amber when owed, green
                 when clear. */}
-            {(() => {
-              const b = s.billing;
-              const bills = b.bills ?? [];
-              const booklets = b.booklets ?? [];
-              const booking = b.booking && Number(b.booking.remaining) > 0 ? b.booking : null;
-              const owed = Number(b.pending_total ?? 0);
-              const tone = b.has_overdue ? colors.danger : b.has_pending ? colors.warning : colors.success;
-              const toneBg = b.has_overdue ? colors.dangerLight : b.has_pending ? colors.warningLight : colors.successLight;
-              const count = bills.length + booklets.length + (booking ? 1 : 0);
-              const row = (key: string, icon: 'money' | 'book' | 'card', title: string, sub: string | null, remaining: number, overdue: boolean, target: CollectTarget) => (
-                <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border }}>
-                  <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: overdue ? colors.dangerLight : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name={icon} size={17} color={overdue ? colors.danger : colors.textSecondary} outline />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }} numberOfLines={1}>{title}</Text>
-                      {overdue ? <Badge label={t('teacher.billing_overdue')} variant="danger" size="sm" /> : null}
-                    </View>
-                    {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 }} numberOfLines={1}>{sub}</Text> : null}
-                  </View>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: overdue ? colors.danger : colors.textPrimary }}>{`${formatNumber(remaining)} ج.م`}</Text>
-                  {canCollect ? (
-                    <TouchableOpacity onPress={() => openCollect(target)} accessibilityRole="button" activeOpacity={0.85}
-                      style={{ backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 7, paddingHorizontal: spacing.md }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#fff' }}>تحصيل</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              );
-              return (
-                <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: b.has_pending ? tone : colors.border, overflow: 'hidden', ...shadows.sm }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, backgroundColor: toneBg }}>
-                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name="money" size={24} color={tone} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{b.has_pending ? t('teacher.billing_pending') : t('teacher.billing_clear')}</Text>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 26, lineHeight: 32, color: tone }}>{b.has_pending ? `${formatNumber(owed)} ج.م` : '✓'}</Text>
-                      {b.has_overdue ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>{`${t('teacher.billing_overdue')} · ${formatNumber(Number(b.overdue_amount))} ج.م`}</Text> : null}
-                      {b.override_active ? (
-                        <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
-                          <Badge label={t('teacher.billing_override_active')} variant="info" size="sm" />
-                          {b.override_expires_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('teacher.override_until', { date: formatDayDate(b.override_expires_at) })}</Text> : null}
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                  {count > 0 ? (
-                    <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
-                      {bills.map((x) => row(`bill-${x.id}`, 'money', x.month ? `فاتورة ${x.month}` : 'فاتورة الدورة', [x.course, Number(x.paid) > 0 ? `مدفوع ${formatNumber(Number(x.paid))} من ${formatNumber(Number(x.amount))}` : null].filter(Boolean).join(' · ') || null,
-                        Number(x.remaining), x.overdue, { kind: 'bill', chargeId: x.id, label: x.month ? `فاتورة ${x.month}${x.course ? ` — ${x.course}` : ''}` : `فاتورة ${x.course ?? ''}`, remaining: Number(x.remaining) }))}
-                      {booklets.map((x) => row(`booklet-${x.id}`, 'book', `ملزمة ${x.course ?? ''}`, x.partial ? `متبقٍّ من ${formatNumber(Number(x.original))}` : null,
-                        Number(x.remaining), false, { kind: 'booklet', chargeId: x.id, label: `ملزمة ${x.course ?? ''}`, remaining: Number(x.remaining) }))}
-                      {booking ? row('booking', 'card', 'دفعة الحجز', booking.secures ? `تؤمّن ${booking.secures}` : null,
-                        Number(booking.remaining), false, { kind: 'booking', label: 'دفعة الحجز', remaining: Number(booking.remaining) }) : null}
-                      {canCollect && count > 1 ? (
-                        <TouchableOpacity onPress={() => openCollect({ kind: 'all', label: 'كل المستحقّات', remaining: owed })} accessibilityRole="button" activeOpacity={0.85}
-                          style={{ marginTop: spacing.sm, marginBottom: spacing.xs, minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.success, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
-                          <Icon name="success" size={18} color="#fff" />
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{`تحصيل الكل · ${formatNumber(owed)} ج.م`}</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                  ) : null}
-                </View>
-              );
-            })()}
+            <StudentDuesCard billing={s.billing} canCollect={canCollect} onCollect={openCollect} />
 
             {/* «تصحيح قيمة فاتورة الدورة» — directly under the figure it corrects, and sized
                 like a real action rather than a chip: this is what a teacher reaches for with
@@ -908,31 +827,7 @@ export default function StudentDetailScreen() {
                 <Icon name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>
-              {`المستحقّ ${formatNumber(collectFor?.remaining ?? 0)} ج.م${collectFor?.kind === 'all' ? '' : ' — عدّل المبلغ إن دفع جزءًا'}`}
-            </Text>
-            <TextInput
-              value={collectAmount}
-              onChangeText={setCollectAmount}
-              editable={collectFor?.kind !== 'all'}
-              keyboardType="numeric"
-              placeholder="المبلغ بالجنيه"
-              placeholderTextColor={colors.textTertiary}
-              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 52, fontFamily: fonts.bold, fontSize: 22, color: collectFor?.kind === 'all' ? colors.textSecondary : colors.textPrimary, textAlign: 'center', backgroundColor: collectFor?.kind === 'all' ? colors.surfaceSunken : colors.surface }}
-            />
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.sm }}>
-              يُرسَل إيصال لولي الأمر، ويدخل المبلغ خزنتك ويُحتسب في التقارير المالية الآن.
-            </Text>
-            <TouchableOpacity
-              onPress={submitCollect}
-              disabled={collectBusy}
-              accessibilityRole="button"
-              style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.success, justifyContent: 'center', alignItems: 'center' }}
-            >
-              {collectBusy ? <ActivityIndicator color="#fff" /> : (
-                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>تم التحصيل</Text>
-              )}
-            </TouchableOpacity>
+            {collectFor ? <CollectForm target={collectFor} amount={collectAmount} onAmount={setCollectAmount} busy={collectBusy} onSubmit={submitCollect} /> : null}
       </SheetModal>
 
       {/* Correct the bills of one course: a card per month — the amount, how many sessions it

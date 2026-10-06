@@ -145,7 +145,7 @@ export default function TeacherHome() {
 
   const shortcuts: { key: string; icon: IconName; label: string; color: string; tint: string; badge?: number; onPress: () => void }[] = [
     canStudents && { key: 'add', icon: 'add' as IconName, label: t('add_student.title'), color: colors.brand, tint: colors.brandTint, onPress: () => setAddOpen(true) },
-    canCash && { key: 'collect', icon: 'money' as IconName, label: t('home.collect'), color: colors.success, tint: colors.successLight, onPress: () => router.push('/(teacher)/collect' as Href) },
+    canCash && { key: 'collect', icon: 'money' as IconName, label: t('home.collect'), color: colors.success, tint: colors.successLight, onPress: () => router.push('/(teacher)/pending-collections' as Href) },
     canCash && { key: 'rose', icon: 'note' as IconName, label: rose.name, color: colors.accent, tint: colors.accentLight, badge: cashAttention, onPress: () => router.push('/(teacher)/cash-reconcile' as Href) },
     !isAssistant
       ? { key: 'insights', icon: 'reports' as IconName, label: t('home.insights_short'), color: colors.info, tint: colors.infoLight, onPress: () => router.push('/(teacher)/insights' as Href) }
