@@ -10,7 +10,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Badge } from '@/components/ui/Badge';
-import { Avatar } from '@/components/layout/Avatar';
+import { PageHero } from '@/components/ui/PageHero';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StudentAttendanceList } from '@/components/student/StudentAttendanceList';
@@ -21,18 +21,9 @@ import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useAuthStore } from '@/stores/authStore';
 import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory, type CorrectableBill } from '@/api/students';
 import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining } from '@/api/enrollments';
-import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBooklet, type BackfillDay } from '@/api/students';
+import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBill, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { dayLabel, formatDayDate } from '@/utils/format';
-
-function StatTile({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center' }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 22, color }}>{value}</Text>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{label}</Text>
-    </View>
-  );
-}
+import { dayLabel, formatDayDate, formatNumber } from '@/utils/format';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -67,26 +58,45 @@ export default function StudentDetailScreen() {
       },
     ]);
   };
-  // «تم تحصيل الملزمة» straight from the profile. Same server path as the kiosk (paid_at,
-  // receipt, oversight, audit), so the insights are right the same second. Teacher or an
-  // assistant with scan_attendance — the server refuses anyone else.
-  const [collecting, setCollecting] = useState<number | null>(null);
-  const collectBooklet = (b: PendingBooklet) => {
-    Alert.alert(
-      'تحصيل الملزمة',
-      `تأكيد تحصيل ملزمة «${b.course ?? ''}» بقيمة ${b.remaining} ${t('teacher.egp')}؟\n\nسيُرسَل إيصال لولي الأمر ويُحتسب المبلغ في التقارير المالية.`,
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: 'تم التحصيل', onPress: async () => {
-            setCollecting(b.id);
-            try { await collectStudentCharge(id, 'booklet', b.id); await refetch(); }
-            catch (e: any) { Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر التحصيل'); }
-            finally { setCollecting(null); }
-          },
-        },
-      ],
-    );
+  // Collecting straight from the profile (founder 2026-10-06: «teacher and assistant can
+  // collect pending collection from profile details»). One sheet for any charge — a bill by
+  // its month, a ملزمة, the booking دفعة, or everything at once — with the amount prefilled
+  // and editable, because a family often pays part at the door. Same server path as the
+  // kiosk (paid_at, receipt, drawer, oversight, audit). Teacher, or an assistant with
+  // scan_attendance — the server refuses anyone else.
+  type CollectTarget = { kind: 'bill' | 'booklet' | 'booking' | 'all'; chargeId?: number; label: string; remaining: number };
+  const [collectFor, setCollectFor] = useState<CollectTarget | null>(null);
+  const [collectAmount, setCollectAmount] = useState('');
+  const [collectBusy, setCollectBusy] = useState(false);
+  const openCollect = (target: CollectTarget) => { setCollectAmount(String(target.remaining)); setCollectFor(target); };
+  const submitCollect = async () => {
+    if (!collectFor) return;
+    const amount = Number(collectAmount.replace(/[^\d.]/g, ''));
+    if (!Number.isFinite(amount) || amount <= 0 || amount > collectFor.remaining + 0.001) {
+      Alert.alert('', `أدخل مبلغًا بين 1 و ${formatNumber(collectFor.remaining)} ج.م.`);
+      return;
+    }
+    setCollectBusy(true);
+    try {
+      if (collectFor.kind === 'all') {
+        // Everything owed, bills first (oldest due first on the server), then booklets, then the دفعة.
+        const kinds = (['bill', 'booklet', 'booking'] as const).filter((k) => Number(s?.billing.pending?.[k] ?? 0) > 0);
+        for (const k of kinds) await collectStudentCharge(id, k);
+        Alert.alert('تم', `تم تحصيل ${formatNumber(collectFor.remaining)} ج.م. سيصل الإيصال لولي الأمر.`);
+      } else {
+        const partial = amount < collectFor.remaining - 0.001;
+        const r = await collectStudentCharge(id, collectFor.kind, collectFor.chargeId, partial ? amount : undefined);
+        Alert.alert('تم', Number(r.remaining) > 0
+          ? `تم تحصيل ${formatNumber(Number(r.collected))} ج.م — المتبقّي ${formatNumber(Number(r.remaining))} ج.م.`
+          : `تم تحصيل ${r.what} (${formatNumber(Number(r.collected))} ج.م). سيصل الإيصال لولي الأمر.`);
+      }
+      setCollectFor(null);
+    } catch (e: any) {
+      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر التحصيل');
+    } finally {
+      await refetch();
+      setCollectBusy(false);
+    }
   };
   const { can, isAssistant } = useActiveAbilities();
   const canManage = can(ABILITY.MANAGE_STUDENTS);
@@ -407,14 +417,23 @@ export default function StudentDetailScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name="forward" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }} numberOfLines={1}>{s?.name ?? t('teacher.tab_students')}</Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Ink hero: who, and the three numbers a teacher wants before anything else — how
+          often they come, how often they do not, and what the family owes. The PDF export
+          sits in the hero chip. */}
+      <PageHero
+        title={s?.name ?? t('teacher.tab_students')}
+        subtitle={s ? [s.grade_name ?? t('teacher.no_grade'), s.student_code].filter(Boolean).join(' · ') : undefined}
+        avatar={s ? avatarSeed.student(s.id, s.name ?? '—') : undefined}
+        onBack
+        action={s && canExport ? { icon: 'download', label: exporting ? '…' : 'PDF', onPress: exportPerformance, accessibilityLabel: t('teacher.performance_export') } : undefined}
+        stats={s ? [
+          { value: formatNumber(s.attendance_stats.attended), label: t('teacher.stat_attended') },
+          { value: formatNumber(s.attendance_stats.absent), label: t('teacher.stat_absent'), warn: s.attendance_stats.absent > 0 },
+          { value: s.billing.has_pending ? formatNumber(Number(s.billing.pending_total ?? 0)) : '٠', label: 'مستحق ج.م', warn: !!s.billing.has_pending },
+        ] : undefined}
+        compact={!s}
+      />
 
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
@@ -422,35 +441,35 @@ export default function StudentDetailScreen() {
         <EmptyState icon="child" title={t('teacher.student_not_found')} />
       ) : (
         <ScrollView
+          style={{ marginTop: -spacing.xl4 }}
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          {/* Summary */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>
-            <Avatar name={s.name ?? '—'} seed={avatarSeed.student(s.id, s.name ?? '—')} size={56} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{s.name ?? '—'}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-                {s.grade_name ?? t('teacher.no_grade')}{s.student_code ? ` · ${s.student_code}` : ''}
-              </Text>
-              {/* The student's OWN number — their login credential, and who a teacher rings
-                  when the parent does not answer. Shown with who (if anyone) has proved it,
-                  because an unproved number here is the one that propagates to every other
-                  teacher this student studies with. */}
-              {s.phone ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4, flexWrap: 'wrap' }}>
-                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${s.phone}`)} accessibilityRole="button">
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand, writingDirection: 'ltr' }}>{s.phone}</Text>
-                  </TouchableOpacity>
-                  <Badge
-                    label={s.phone_verified ? t('teacher.number_verified') : s.phone_vouched ? t('teacher.number_vouched') : t('teacher.number_unproved')}
-                    variant={s.phone_verified ? 'success' : s.phone_vouched ? 'info' : 'warning'}
-                    size="sm"
-                  />
-                </View>
-              ) : null}
-            </View>
+          {/* The student's OWN number — their login credential, and who a teacher rings when
+              the parent does not answer. Shown with who (if anyone) has proved it, because an
+              unproved number here is the one that propagates to every other teacher. */}
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, ...shadows.sm }}>
+            {s.phone ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
+                <TouchableOpacity onPress={() => Linking.openURL(`tel:${s.phone}`)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="call" size={18} color={colors.success} />
+                  </View>
+                  <View>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textSecondary }}>رقم الطالب</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, writingDirection: 'ltr' }}>{s.phone}</Text>
+                  </View>
+                </TouchableOpacity>
+                <Badge
+                  label={s.phone_verified ? t('teacher.number_verified') : s.phone_vouched ? t('teacher.number_vouched') : t('teacher.number_unproved')}
+                  variant={s.phone_verified ? 'success' : s.phone_vouched ? 'info' : 'warning'}
+                  size="sm"
+                />
+              </View>
+            ) : (
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>لا رقم للطالب — يُتواصل مع ولي الأمر.</Text>
+            )}
           </View>
 
           {/* A student who studies with another teacher too, whose number nobody has proved.
@@ -491,108 +510,108 @@ export default function StudentDetailScreen() {
             </View>
           ) : null}
 
-          {/* Export performance PDF — needs export_reports (a takeaway file). */}
-          {canExport ? (
-          <TouchableOpacity
-            onPress={exportPerformance}
-            disabled={exporting}
-            accessibilityRole="button"
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.primary, paddingVertical: spacing.md }}
-          >
-            {exporting ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Icon name="download" size={18} color={colors.primary} />
-            )}
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>
-              {exporting ? t('teacher.performance_exporting') : t('teacher.performance_export')}
-            </Text>
-          </TouchableOpacity>
-          ) : null}
-
-          {/* Request a name/phone correction — goes to super-admin review (no direct edit) */}
-          {canManage ? (
-            <TouchableOpacity
-              onPress={() => setEditOpen(true)}
-              accessibilityRole="button"
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: spacing.md }}
-            >
-              <Icon name="note" size={18} color={colors.textSecondary} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>طلب تعديل الاسم/الرقم</Text>
-            </TouchableOpacity>
-          ) : null}
-
-          {/* Report an incident about the student → super-admin review (teacher, or assistant with report_incidents) */}
-          {canReport ? (
-            <TouchableOpacity
-              onPress={() => setReportOpen(true)}
-              accessibilityRole="button"
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: spacing.md }}
-            >
-              <Icon name="warning" size={18} color={colors.danger} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.danger }}>الإبلاغ عن حادثة</Text>
-            </TouchableOpacity>
-          ) : null}
-
-
-          {/* Remove a terminated student from the roster now (before the 7-day grace) */}
-          {canManage && s.can_remove_from_roster ? (
-            <TouchableOpacity
-              onPress={confirmRemoveFromRoster}
-              accessibilityRole="button"
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: spacing.md }}
-            >
-              <Icon name="person-remove" size={18} color={colors.textSecondary} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>إزالة من القائمة</Text>
-            </TouchableOpacity>
-          ) : null}
-
-          {/* Attendance summary */}
-          <Section title={t('teacher.attendance_summary')}>
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <StatTile label={t('teacher.stat_attended')} value={s.attendance_stats.attended} color={colors.success} />
-              <StatTile label={t('teacher.stat_absent')} value={s.attendance_stats.absent} color={colors.danger} />
-              <StatTile label={t('teacher.stat_excused')} value={s.attendance_stats.excused} color={colors.info} />
-              <StatTile label={t('teacher.stat_total')} value={s.attendance_stats.total} color={colors.textPrimary} />
+          {/* Quieter actions, one row: a name/phone correction request, an incident report,
+              removing a terminated student. Only what this person may do is drawn. */}
+          {canManage || canReport || (canManage && s.can_remove_from_roster) ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md }}>
+              {canManage ? (
+                <TouchableOpacity onPress={() => setEditOpen(true)} accessibilityRole="button" activeOpacity={0.85}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+                  <Icon name="note" size={16} color={colors.textSecondary} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>طلب تعديل الاسم/الرقم</Text>
+                </TouchableOpacity>
+              ) : null}
+              {canReport ? (
+                <TouchableOpacity onPress={() => setReportOpen(true)} accessibilityRole="button" activeOpacity={0.85}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+                  <Icon name="warning" size={16} color={colors.danger} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger }}>الإبلاغ عن حادثة</Text>
+                </TouchableOpacity>
+              ) : null}
+              {canManage && s.can_remove_from_roster ? (
+                <TouchableOpacity onPress={confirmRemoveFromRoster} accessibilityRole="button" activeOpacity={0.85}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+                  <Icon name="person-remove" size={16} color={colors.textSecondary} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>إزالة من القائمة</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
-          </Section>
+          ) : null}
 
           {/* Billing */}
           <Section title={t('teacher.billing_section')}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: s.billing.has_overdue ? colors.danger : (s.billing.has_pending ? colors.warning : colors.border), padding: spacing.lg }}>
-              <Icon name="money" size={24} color={s.billing.has_overdue ? colors.danger : (s.billing.has_pending ? colors.warning : colors.success)} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: s.billing.has_overdue ? colors.danger : colors.textPrimary }}>
-                  {s.billing.has_pending
-                    ? `${t('teacher.billing_pending')} · ${s.billing.pending_total} ${t('teacher.egp')}`
-                    : t('teacher.billing_clear')}
-                </Text>
-                {s.billing.has_pending && s.billing.pending ? (
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-                    {[
-                      Number(s.billing.pending.bill) > 0 ? `${t('teacher.due_bill')}: ${s.billing.pending.bill}` : null,
-                      Number(s.billing.pending.booklet) > 0 ? `${t('teacher.due_booklet')}: ${s.billing.pending.booklet}` : null,
-                      Number(s.billing.pending.booking) > 0 ? `${t('teacher.due_booking')}: ${s.billing.pending.booking}` : null,
-                    ].filter(Boolean).join('   ·   ')}
-                  </Text>
-                ) : null}
-                {s.billing.has_overdue ? (
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger, marginTop: 2 }}>
-                    {`${t('teacher.billing_overdue')} · ${s.billing.overdue_amount} ${t('teacher.egp')}`}
-                  </Text>
-                ) : null}
-                {s.billing.override_active ? (
-                  <View style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
-                    <Badge label={t('teacher.billing_override_active')} variant="info" size="sm" />
-                    {s.billing.override_expires_at ? (
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>
-                        {t('teacher.override_until', { date: formatDayDate(s.billing.override_expires_at) })}
-                      </Text>
-                    ) : null}
+            {/* The dues card: the total in one glance, then every charge by name — each bill
+                by its month, each ملزمة, the booking دفعة — with «تحصيل» on the row and
+                «تحصيل الكل» under them. Red when something is overdue, amber when owed, green
+                when clear. */}
+            {(() => {
+              const b = s.billing;
+              const bills = b.bills ?? [];
+              const booklets = b.booklets ?? [];
+              const booking = b.booking && Number(b.booking.remaining) > 0 ? b.booking : null;
+              const owed = Number(b.pending_total ?? 0);
+              const tone = b.has_overdue ? colors.danger : b.has_pending ? colors.warning : colors.success;
+              const toneBg = b.has_overdue ? colors.dangerLight : b.has_pending ? colors.warningLight : colors.successLight;
+              const count = bills.length + booklets.length + (booking ? 1 : 0);
+              const row = (key: string, icon: 'money' | 'book' | 'card', title: string, sub: string | null, remaining: number, overdue: boolean, target: CollectTarget) => (
+                <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border }}>
+                  <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: overdue ? colors.dangerLight : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name={icon} size={17} color={overdue ? colors.danger : colors.textSecondary} outline />
                   </View>
-                ) : null}
-              </View>
-            </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }} numberOfLines={1}>{title}</Text>
+                      {overdue ? <Badge label={t('teacher.billing_overdue')} variant="danger" size="sm" /> : null}
+                    </View>
+                    {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 }} numberOfLines={1}>{sub}</Text> : null}
+                  </View>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: overdue ? colors.danger : colors.textPrimary }}>{`${formatNumber(remaining)} ج.م`}</Text>
+                  {canCollect ? (
+                    <TouchableOpacity onPress={() => openCollect(target)} accessibilityRole="button" activeOpacity={0.85}
+                      style={{ backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 7, paddingHorizontal: spacing.md }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#fff' }}>تحصيل</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              );
+              return (
+                <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: b.has_pending ? tone : colors.border, overflow: 'hidden', ...shadows.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, backgroundColor: toneBg }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="money" size={24} color={tone} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{b.has_pending ? t('teacher.billing_pending') : t('teacher.billing_clear')}</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 26, lineHeight: 32, color: tone }}>{b.has_pending ? `${formatNumber(owed)} ج.م` : '✓'}</Text>
+                      {b.has_overdue ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>{`${t('teacher.billing_overdue')} · ${formatNumber(Number(b.overdue_amount))} ج.م`}</Text> : null}
+                      {b.override_active ? (
+                        <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
+                          <Badge label={t('teacher.billing_override_active')} variant="info" size="sm" />
+                          {b.override_expires_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('teacher.override_until', { date: formatDayDate(b.override_expires_at) })}</Text> : null}
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                  {count > 0 ? (
+                    <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
+                      {bills.map((x) => row(`bill-${x.id}`, 'money', x.month ? `فاتورة ${x.month}` : 'فاتورة الدورة', [x.course, Number(x.paid) > 0 ? `مدفوع ${formatNumber(Number(x.paid))} من ${formatNumber(Number(x.amount))}` : null].filter(Boolean).join(' · ') || null,
+                        Number(x.remaining), x.overdue, { kind: 'bill', chargeId: x.id, label: x.month ? `فاتورة ${x.month}${x.course ? ` — ${x.course}` : ''}` : `فاتورة ${x.course ?? ''}`, remaining: Number(x.remaining) }))}
+                      {booklets.map((x) => row(`booklet-${x.id}`, 'book', `ملزمة ${x.course ?? ''}`, x.partial ? `متبقٍّ من ${formatNumber(Number(x.original))}` : null,
+                        Number(x.remaining), false, { kind: 'booklet', chargeId: x.id, label: `ملزمة ${x.course ?? ''}`, remaining: Number(x.remaining) }))}
+                      {booking ? row('booking', 'card', 'دفعة الحجز', booking.secures ? `تؤمّن ${booking.secures}` : null,
+                        Number(booking.remaining), false, { kind: 'booking', label: 'دفعة الحجز', remaining: Number(booking.remaining) }) : null}
+                      {canCollect && count > 1 ? (
+                        <TouchableOpacity onPress={() => openCollect({ kind: 'all', label: 'كل المستحقّات', remaining: owed })} accessibilityRole="button" activeOpacity={0.85}
+                          style={{ marginTop: spacing.sm, marginBottom: spacing.xs, minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.success, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
+                          <Icon name="success" size={18} color="#fff" />
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{`تحصيل الكل · ${formatNumber(owed)} ج.م`}</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })()}
 
             {/* «تصحيح قيمة فاتورة الدورة» — directly under the figure it corrects, and sized
                 like a real action rather than a chip: this is what a teacher reaches for with
@@ -672,34 +691,6 @@ export default function StudentDetailScreen() {
                 <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>
                   سعر الملزمة محدّد في المقرر، لكن الملازم غير مفعّلة في إعداداتك. فعّلها من صفحة الفواتير على الويب ليظهر زر «تم تحصيل الملزمة» هنا.
                 </Text>
-              </View>
-            ) : null}
-
-            {/* «تم تحصيل الملزمة» — one button per ملزمة still owed (teacher / assistant with scan). */}
-            {canCollect && (s.billing.booklets ?? []).length > 0 ? (
-              <View style={{ marginTop: spacing.md }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>ملازم مستحقّة</Text>
-                {(s.billing.booklets ?? []).map((b) => (
-                  <View key={`booklet-${b.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
-                    <Icon name="book" size={18} color={colors.textSecondary} outline />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{`ملزمة ${b.course ?? ''}`}</Text>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-                        {`${b.remaining} ${t('teacher.egp')}`}{b.partial ? ` · متبقٍّ من ${b.original}` : ''}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => collectBooklet(b)}
-                      disabled={collecting === b.id}
-                      accessibilityRole="button"
-                      activeOpacity={0.85}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: spacing.md, opacity: collecting === b.id ? 0.6 : 1 }}
-                    >
-                      {collecting === b.id ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="success" size={14} color="#fff" />}
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>تم تحصيل الملزمة</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
               </View>
             ) : null}
 
@@ -908,6 +899,42 @@ export default function StudentDetailScreen() {
 
       {/* Transfer picker: move this enrollment to another of the teacher's courses. */}
       {/* «الطالب على الحصة N» — pick the number, see the day it fell on. */}
+      {/* Collect: what, how much (editable — part-payment at the door is normal), and what
+          follows (receipt, drawer, reports). */}
+      <SheetModal visible={!!collectFor} onClose={() => !collectBusy && setCollectFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{`تحصيل — ${collectFor?.label ?? ''}`}</Text>
+              <TouchableOpacity onPress={() => !collectBusy && setCollectFor(null)} hitSlop={10}>
+                <Icon name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>
+              {`المستحقّ ${formatNumber(collectFor?.remaining ?? 0)} ج.م${collectFor?.kind === 'all' ? '' : ' — عدّل المبلغ إن دفع جزءًا'}`}
+            </Text>
+            <TextInput
+              value={collectAmount}
+              onChangeText={setCollectAmount}
+              editable={collectFor?.kind !== 'all'}
+              keyboardType="numeric"
+              placeholder="المبلغ بالجنيه"
+              placeholderTextColor={colors.textTertiary}
+              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 52, fontFamily: fonts.bold, fontSize: 22, color: collectFor?.kind === 'all' ? colors.textSecondary : colors.textPrimary, textAlign: 'center', backgroundColor: collectFor?.kind === 'all' ? colors.surfaceSunken : colors.surface }}
+            />
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.sm }}>
+              يُرسَل إيصال لولي الأمر، ويدخل المبلغ خزنتك ويُحتسب في التقارير المالية الآن.
+            </Text>
+            <TouchableOpacity
+              onPress={submitCollect}
+              disabled={collectBusy}
+              accessibilityRole="button"
+              style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.success, justifyContent: 'center', alignItems: 'center' }}
+            >
+              {collectBusy ? <ActivityIndicator color="#fff" /> : (
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>تم التحصيل</Text>
+              )}
+            </TouchableOpacity>
+      </SheetModal>
+
       {/* Correct the bills of one course: a card per month — the amount, how many sessions it
           buys, how much of it is paid — prefilled as the bill stands, so the one wrong number
           is the only thing to type. */}

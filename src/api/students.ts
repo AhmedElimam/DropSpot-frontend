@@ -292,6 +292,10 @@ export interface StudentDetail {
     pending?: { bill: string; booklet: string; booking: string };
     /** One entry per ملزمة still owed, so the profile can offer collection per charge. */
     booklets?: PendingBooklet[];
+    /** One entry per bill still owed, by month — collected from the profile by its id. */
+    bills?: PendingBill[];
+    /** The booking دفعة still owed, with what it secures. */
+    booking?: { remaining: string; paid: string; secures: string | null } | null;
     /** A course has a booklet price but the teacher-wide booklets switch is off (set on the web /invoices page). */
     booklets_disabled_hint?: boolean;
     /** Collected charges the teacher can CANCEL (per-charge). Empty for assistants. */
@@ -338,6 +342,17 @@ export async function reverseStudentPayment(
  * kiosk and the collections list (paid_at, receipt, oversight, audit) — so the insights
  * are right the same second. Teacher, or an assistant with scan_attendance (403 otherwise).
  */
+export interface PendingBill {
+  id: number;
+  course: string | null;
+  month: string | null;
+  amount: string;
+  paid: string;
+  remaining: string;
+  due_date: string | null;
+  overdue: boolean;
+}
+
 export async function collectStudentCharge(
   studentId: string | number,
   kind: 'bill' | 'booklet' | 'booking',
