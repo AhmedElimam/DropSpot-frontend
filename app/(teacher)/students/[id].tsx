@@ -20,7 +20,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useAuthStore } from '@/stores/authStore';
 import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory, type CorrectableBill } from '@/api/students';
-import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining, type CorrectionMode } from '@/api/enrollments';
+import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining } from '@/api/enrollments';
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBooklet, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
@@ -104,42 +104,46 @@ export default function StudentDetailScreen() {
     setBackfillPicked([]);
     setBackfillFor({ enrollmentId: c.enrollment_id, courseName: c.name, days: c.backfill_days ?? [] });
   };
-  // Restating the FIGURE, when the position is already right but the price is not — the
-  // 400-that-should-be-100 the teacher could not fix from anywhere in the product. Teacher
-  // only (money), so it is hidden from an assistant rather than offered and then refused.
-  const [amountFor, setAmountFor] = useState<{ enrollmentId: number; courseName: string | null; current: number | null; bills: CorrectableBill[] } | null>(null);
-  // Which bill is being corrected, when the course has more than one open (2026-10-06, STU-0226).
-  const [amountBill, setAmountBill] = useState<number | null>(null);
-  const [amountText, setAmountText] = useState('');
-  const [amountSessions, setAmountSessions] = useState('');
-  // How the bill is corrected (founder 2026-10-06: «adjust only part of it»).
-  const [amountMode, setAmountMode] = useState<CorrectionMode>('discount');
+  // Correcting the bills of one course, one plain statement per month: how much, for how
+  // many sessions, and how much of it is paid (founder 2026-10-06: «the assistants got lost»
+  // in modes and pickers). The bill itself is edited; the server refuses what it must.
+  type BillRow = {
+    invoiceId: number | null; month: string | null; sessions: number; threshold: number; neverRan: boolean; overdue: boolean;
+    amount: string; sessionsText: string; paid: string; origAmount: number | null; origPaid: number;
+  };
+  const [amountFor, setAmountFor] = useState<{ enrollmentId: number; courseName: string | null; rows: BillRow[] } | null>(null);
   const [amountBusy, setAmountBusy] = useState(false);
+  const setBillRow = (idx: number, patch: Partial<BillRow>) =>
+    setAmountFor((f) => (f ? { ...f, rows: f.rows.map((r, k) => (k === idx ? { ...r, ...patch } : r)) } : f));
   const submitAmount = async () => {
     if (!amountFor) return;
     const num = (t: string) => Number(t.replace(/[^\d.]/g, ''));
-    const value = num(amountText);
-    const sessions = amountSessions.trim() === '' ? null : Number(amountSessions.replace(/[^\d]/g, ''));
-    if (amountMode === 'sessions' ? !(sessions && sessions > 0) : (!Number.isFinite(value) || value < 0 || (amountMode === 'discount' && value <= 0))) {
-      Alert.alert('', amountMode === 'sessions' ? 'أدخل عدد الحصص.' : 'أدخل مبلغًا صحيحًا.');
-      return;
+    // Only the months that were touched are sent.
+    const changed = amountFor.rows.filter((r) => {
+      const paid = r.paid.trim() === '' ? null : num(r.paid);
+      return r.sessionsText.trim() !== '' || r.origAmount == null || Math.abs(num(r.amount) - r.origAmount) > 0.009 || (paid != null && Math.abs(paid - r.origPaid) > 0.009);
+    });
+    if (changed.length === 0) { setAmountFor(null); return; }
+    for (const r of changed) {
+      const a = num(r.amount);
+      if (!Number.isFinite(a) || a <= 0) { Alert.alert('', r.month ? `أدخل مبلغًا صحيحًا لفاتورة ${r.month}.` : 'أدخل مبلغًا صحيحًا.'); return; }
     }
     setAmountBusy(true);
     try {
-      const invoiceId = amountBill;
-      const r = await setCycleAmount(amountFor.enrollmentId, amountMode === 'discount'
-        ? { mode: 'discount', discount: value, invoiceId }
-        : amountMode === 'sessions'
-          ? { mode: 'sessions', sessions, invoiceId }
-          : { mode: 'total', amount: value, sessions: sessions && sessions > 0 ? sessions : null, invoiceId });
+      for (const r of changed) {
+        await setCycleAmount(amountFor.enrollmentId, {
+          amount: num(r.amount),
+          sessions: r.sessionsText.trim() === '' ? null : Number(r.sessionsText.replace(/[^\d]/g, '')),
+          paid: r.paid.trim() === '' ? null : num(r.paid),
+          invoiceId: r.invoiceId,
+        });
+      }
       setAmountFor(null);
-      setAmountText('');
-      setAmountSessions('');
-      await refetch();
-      Alert.alert('تم', r.invoice ? `قيمة فاتورة الدورة الآن ${r.invoice.amount} ج.م.` : 'تم تصحيح قيمة الفاتورة.');
+      Alert.alert('تم', changed.length === 1 ? 'تم تصحيح الفاتورة.' : `تم تصحيح ${changed.length} فواتير.`);
     } catch (e: any) {
-      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر تصحيح المبلغ');
+      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر تصحيح الفاتورة');
     } finally {
+      await refetch();
       setAmountBusy(false);
     }
   };
@@ -601,11 +605,17 @@ export default function StudentDetailScreen() {
                 key={`fixamt-${c.enrollment_id}`}
                 onPress={() => {
                   const bills = c.correctable_bills ?? [];
-                  // An older month still owed is usually the one being disputed — offer it first.
-                  const first = bills.find((b) => !b.current) ?? bills[0];
-                  setAmountText(''); setAmountSessions(''); setAmountMode('discount');
-                  setAmountBill(first ? first.invoice_id : null);
-                  setAmountFor({ enrollmentId: c.enrollment_id!, courseName: c.name, current: first ? first.amount : (c.cycle_invoice ? Number(c.cycle_invoice.amount) : null), bills });
+                  // Every month still open to a correction, oldest first, as it stands now.
+                  const rows: BillRow[] = bills.length > 0
+                    ? [...bills].reverse().map((b) => ({
+                      invoiceId: b.invoice_id, month: b.month, sessions: b.sessions ?? 0, threshold: b.threshold ?? 0, neverRan: !!b.never_ran, overdue: !b.current,
+                      amount: String(b.amount), sessionsText: '', paid: String(b.paid), origAmount: b.amount, origPaid: b.paid,
+                    }))
+                    : [{
+                      invoiceId: null, month: null, sessions: 0, threshold: 0, neverRan: false, overdue: false,
+                      amount: c.cycle_invoice ? String(Number(c.cycle_invoice.amount)) : '', sessionsText: '', paid: '0', origAmount: null, origPaid: 0,
+                    }];
+                  setAmountFor({ enrollmentId: c.enrollment_id!, courseName: c.name, rows });
                 }}
                 accessibilityRole="button"
                 activeOpacity={0.85}
@@ -623,8 +633,8 @@ export default function StudentDetailScreen() {
                 <Icon name="money" size={20} color="#fff" />
                 <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: '#fff' }} numberOfLines={1}>
                   {(s.courses ?? []).filter((x) => x.enrollment_id && x.cycle?.has_cycle).length > 1
-                    ? `تصحيح قيمة الفاتورة — ${c.name ?? ''}`
-                    : 'تصحيح قيمة الفاتورة'}
+                    ? `تصحيح الفواتير — ${c.name ?? ''}`
+                    : 'تصحيح الفواتير'}
                 </Text>
                 <Icon name="back" size={18} color="rgba(255,255,255,0.85)" />
               </TouchableOpacity>
@@ -898,100 +908,65 @@ export default function StudentDetailScreen() {
 
       {/* Transfer picker: move this enrollment to another of the teacher's courses. */}
       {/* «الطالب على الحصة N» — pick the number, see the day it fell on. */}
-      {/* Restate the cycle's bill. One number, stated plainly, with what happens to the old
-          invoice said out loud — a teacher correcting money should never have to guess
-          whether the previous figure survived. */}
+      {/* Correct the bills of one course: a card per month — the amount, how many sessions it
+          buys, how much of it is paid — prefilled as the bill stands, so the one wrong number
+          is the only thing to type. */}
       <SheetModal visible={!!amountFor} onClose={() => !amountBusy && setAmountFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>
-                {`تصحيح قيمة الفاتورة — ${amountFor?.courseName ?? ''}`}
+                {`تصحيح الفواتير — ${amountFor?.courseName ?? ''}`}
               </Text>
               <TouchableOpacity onPress={() => !amountBusy && setAmountFor(null)} hitSlop={10}>
                 <Icon name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            {(amountFor?.bills.length ?? 0) > 1 ? (
-              <>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>أي فاتورة؟</Text>
-                <View style={{ gap: spacing.xs, marginBottom: spacing.md }}>
-                  {amountFor!.bills.map((b) => {
-                    const on = amountBill === b.invoice_id;
-                    return (
-                      <TouchableOpacity key={b.invoice_id} onPress={() => { setAmountBill(b.invoice_id); setAmountFor((f) => (f ? { ...f, current: b.amount } : f)); }} accessibilityRole="radio" accessibilityState={{ selected: on }}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44, borderRadius: radius.lg, borderWidth: on ? 2 : 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surfaceSunken, paddingHorizontal: spacing.md }}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: on ? colors.brand : colors.textPrimary }}>{b.month ?? '—'}</Text>
-                          {b.threshold ? (
-                            <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: b.never_ran ? colors.dangerText : colors.textSecondary }}>
-                              {b.never_ran ? `حضر ${b.sessions ?? 0}/${b.threshold} — مقرر لم يبدأ؟` : `حضر ${b.sessions ?? 0}/${b.threshold}`}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }}>{`${Math.round(b.amount)} ج.م`}</Text>
-                        {!b.current ? <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.dangerText }}>متأخرة</Text> : null}
-                      </TouchableOpacity>
-                    );
-                  })}
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginBottom: spacing.md }}>
+              لكل شهر: المبلغ، وعن كم حصة، وكم دُفع منه حتى الآن. تُعدَّل الفاتورة نفسها — لا تصدر فاتورة جديدة ولا تبقى فاتورة ملغاة.
+            </Text>
+            {(amountFor?.rows ?? []).map((r, idx) => {
+              const field = (label: string, value: string, onChange: (v: string) => void, keyboard: 'numeric' | 'number-pad', placeholder?: string) => (
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textSecondary, marginBottom: 3 }}>{label}</Text>
+                  <TextInput
+                    value={value}
+                    onChangeText={onChange}
+                    keyboardType={keyboard}
+                    placeholder={placeholder}
+                    placeholderTextColor={colors.textTertiary}
+                    style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.sm, minHeight: 44, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'center', backgroundColor: colors.surface }}
+                  />
                 </View>
-              </>
-            ) : amountFor?.current != null ? (
-              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>
-                {`فاتورة الدورة الحالية: ${Math.round(amountFor.current)} ج.م`}
-              </Text>
-            ) : null}
-            {/* Three ways to correct — this student's bill only, never the course's price. */}
-            <View style={{ flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md }}>
-              {([['discount', 'خصم مبلغ'], ['sessions', 'عدد حصص أقل'], ['total', 'مبلغ جديد']] as [CorrectionMode, string][]).map(([m, label]) => {
-                const on = amountMode === m;
-                return (
-                  <TouchableOpacity key={m} onPress={() => { setAmountMode(m); setAmountText(''); setAmountSessions(''); }} accessibilityRole="radio" accessibilityState={{ selected: on }}
-                    style={{ flex: 1, minHeight: 40, borderRadius: radius.lg, borderWidth: on ? 2 : 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary }} numberOfLines={1} adjustsFontSizeToFit>{label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            {amountMode !== 'sessions' ? (
-              <TextInput
-                value={amountText}
-                onChangeText={setAmountText}
-                keyboardType="numeric"
-                placeholder={amountMode === 'discount' ? 'قيمة الخصم بالجنيه — مثال: 50' : 'المبلغ الصحيح بالجنيه'}
-                placeholderTextColor={colors.textTertiary}
-                style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 48, fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary, textAlign: 'right' }}
-              />
-            ) : null}
-            {amountMode !== 'discount' ? (
-              <>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: amountMode === 'total' ? spacing.md : 0, marginBottom: 4 }}>
-                  {amountMode === 'sessions' ? 'عدد الحصص التي يدفعها' : 'عن كم حصة؟ (اختياري)'}
-                </Text>
-                <TextInput
-                  value={amountSessions}
-                  onChangeText={setAmountSessions}
-                  keyboardType="number-pad"
-                  placeholder="مثال: 6"
-                  placeholderTextColor={colors.textTertiary}
-                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 48, fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary, textAlign: 'right' }}
-                />
-              </>
-            ) : null}
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.sm }}>
-              {amountMode === 'discount'
-                ? 'يُخصم من فاتورة الدورة الحالية لهذا الطالب فقط.'
-                : amountMode === 'sessions'
-                  ? 'تُحسب الفاتورة بسعر الحصة في المقرر × هذا العدد، لهذا الطالب فقط.'
-                  : 'تصبح فاتورة الدورة لهذا الطالب بهذا المبلغ.'}
-              {' تبقى الفاتورة القديمة في السجل، ولا يقلّ المبلغ عمّا حصّلته منه بالفعل.'}
+              );
+              return (
+                <View key={r.invoiceId ?? 'open'} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, padding: spacing.md, marginBottom: spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+                    <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }}>{r.month ?? 'فاتورة الدورة الحالية'}</Text>
+                    {r.threshold ? (
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: r.neverRan ? colors.dangerText : colors.textSecondary }}>
+                        {r.neverRan ? `حضر ${r.sessions}/${r.threshold} — مقرر لم يبدأ؟` : `حضر ${r.sessions}/${r.threshold}`}
+                      </Text>
+                    ) : null}
+                    {r.overdue ? <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.dangerText }}>متأخرة</Text> : null}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                    {field('المبلغ (ج.م)', r.amount, (v) => setBillRow(idx, { amount: v }), 'numeric')}
+                    {field('عن كم حصة', r.sessionsText, (v) => setBillRow(idx, { sessionsText: v }), 'number-pad', r.threshold ? String(r.threshold) : '—')}
+                    {field('المدفوع منه', r.paid, (v) => setBillRow(idx, { paid: v }), 'numeric')}
+                  </View>
+                </View>
+              );
+            })}
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.xs }}>
+              ما تزيده في «المدفوع» يُسجَّل مدفوعًا دون أن يدخل خزنة. لتقليل المدفوع ألغِ التحصيل من سجل المدفوعات، لا من هنا.
             </Text>
             <TouchableOpacity
               onPress={submitAmount}
-              disabled={amountBusy || (amountMode === 'sessions' ? amountSessions.trim() === '' : amountText.trim() === '')}
+              disabled={amountBusy}
               accessibilityRole="button"
-              style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: (amountMode === 'sessions' ? amountSessions.trim() === '' : amountText.trim() === '') ? colors.border : colors.brand, justifyContent: 'center', alignItems: 'center' }}
+              style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.brand, justifyContent: 'center', alignItems: 'center' }}
             >
               {amountBusy ? <ActivityIndicator color="#fff" /> : (
-                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>حفظ التصحيح</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>حفظ</Text>
               )}
             </TouchableOpacity>
       </SheetModal>

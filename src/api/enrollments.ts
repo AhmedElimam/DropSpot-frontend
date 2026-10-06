@@ -62,22 +62,22 @@ export async function setCyclePosition(
  * not — a part-session, a discount, a number agreed with the family. Teacher only; the
  * previous invoice is cancelled beside the new one rather than edited.
  */
-/** How the bill is corrected (2026-10-06): an amount off it, fewer sessions, or the amount itself. */
-export type CorrectionMode = 'discount' | 'sessions' | 'total';
-
+/**
+ * One plain statement about a bill (founder 2026-10-06): how much, for how many sessions, and
+ * how much of it is paid. The bill itself is edited — nothing new issued, nothing cancelled.
+ */
 export async function setCycleAmount(
   enrollmentId: number,
-  correction: { mode: CorrectionMode; amount?: number; discount?: number; sessions?: number | null; invoiceId?: number | null },
+  bill: { amount: number; sessions?: number | null; paid?: number | null; invoiceId?: number | null },
 ): Promise<{ invoice: { id: number; amount: number; paid_amount: number; status: string } | null }> {
-  const { mode, amount, discount, sessions, invoiceId } = correction;
   const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/cycle-amount`, {
-    mode,
-    ...(mode === 'total' && amount !== undefined ? { amount } : {}),
-    ...(mode === 'discount' && discount !== undefined ? { discount } : {}),
-    // For «fewer sessions» it IS the correction; for a stated amount it is the label on the line.
-    ...(sessions ? { sessions } : {}),
+    amount: bill.amount,
+    // Written onto the bill's line so the figure says WHAT it buys.
+    ...(bill.sessions ? { sessions: bill.sessions } : {}),
+    // What the family has paid so far; more than is recorded gets recorded, less is refused.
+    ...(bill.paid != null ? { paid: bill.paid } : {}),
     // Which bill — an older month's included; absent = the open cycle's.
-    ...(invoiceId ? { invoice_id: invoiceId } : {}),
+    ...(bill.invoiceId ? { invoice_id: bill.invoiceId } : {}),
   });
   return data.data ?? data;
 }
