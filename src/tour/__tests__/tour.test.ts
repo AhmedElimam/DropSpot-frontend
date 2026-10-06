@@ -56,11 +56,13 @@ describe('nextShowable', () => {
 describe('geometry', () => {
   const win = { width: 390, height: 844 };
 
-  it('pads the hole and clamps it to the window', () => {
-    const h = holeFor({ x: 380, y: 10, width: 40, height: 40 }, win);
-    expect(h.x).toBe(372);
-    expect(h.x + h.width).toBeLessThanOrEqual(win.width - 4);
+  it('pads the hole, and slides one at the edge back inside the window', () => {
+    const h = holeFor({ x: 300, y: 10, width: 40, height: 40 }, win);
+    expect(h).toMatchObject({ x: 292, y: 4, width: 56, height: 56 });
     expect(h.rx).toBeLessThanOrEqual(18);
+    const edge = holeFor({ x: 380, y: 10, width: 40, height: 40 }, win);
+    expect(edge.x + edge.width).toBeLessThanOrEqual(win.width - 4);
+    expect(edge.width).toBe(56);
   });
 
   it('puts the card below the hole when there is room, above it otherwise', () => {
