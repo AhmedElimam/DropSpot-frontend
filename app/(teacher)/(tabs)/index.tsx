@@ -85,13 +85,15 @@ export default function TeacherHome() {
   // confirmation), left → right shows its «كشف الحضور» in a sheet.
   const qc = useQueryClient();
   const [rosterFor, setRosterFor] = useState<string | null>(null);
-  const confirmCancel = (s: { id: string; course_name?: string | null }) => {
-    Alert.alert(t('teacher.cancel_session_title'), [s.course_name, t('teacher.cancel_session_hint')].filter(Boolean).join('\n\n'), [
+  const confirmCancel = (s: { id: string; course_name?: string | null; status?: string; scheduled_at?: string | null; duration_minutes?: number | null }) => {
+    const past = s.status === 'completed' || sessionPhase(s as TeacherSession, now) === 'done';
+    Alert.alert(t('teacher.cancel_session_title'), [s.course_name, t(past ? 'teacher.cancel_past_session_hint' : 'teacher.cancel_session_hint')].filter(Boolean).join('\n\n'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('teacher.cancel_session_confirm'), style: 'destructive', onPress: async () => {
           try {
-            await cancelSession(s.id);
+            const d = await cancelSession(s.id);
+            if (d?.notice) Alert.alert(t('teacher.cancel_session_title'), d.notice);
             qc.invalidateQueries({ queryKey: ['teacher-session-detail', s.id] });
             qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
             await sessionsQ.refetch();
@@ -102,10 +104,11 @@ export default function TeacherHome() {
       },
     ]);
   };
-  // Only a session that has not ended and is not already cancelled can be cancelled; the
-  // server refuses a completed one, so the swipe is not offered there.
+  // The server's rule (2026-10-06): a session anyone was checked into happened and stays; one
+  // nobody attended can be cancelled even after it ended (it leaves the billing cycle).
   const swipesFor = (s: TeacherSession): { action?: SwipeAction; leftAction: SwipeAction } => {
-    const cancellable = s.status !== 'cancelled' && s.status !== 'completed' && sessionPhase(s, now) !== 'done';
+    const ended = s.status === 'completed' || sessionPhase(s, now) === 'done';
+    const cancellable = s.status !== 'cancelled' && (!ended || (s.checked_in_count ?? 1) === 0);
     return {
       action: cancellable ? { icon: 'close', label: t('teacher.cancel_session'), color: colors.danger, onTrigger: () => confirmCancel(s) } : undefined,
       leftAction: { icon: 'attendance', label: t('sessions_tab.sheet'), color: colors.success, onTrigger: () => setRosterFor(s.id) },

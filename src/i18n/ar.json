@@ -1626,6 +1626,7 @@
     "sheet_awaited": "بانتظار الشريحة",
     "cancel_session_title": "إلغاء الحصة؟",
     "cancel_session_hint": "لن تُسجَّل حصة في هذا اليوم. يمكنك إعادتها لاحقًا.",
+    "cancel_past_session_hint": "لم تُعطَ هذه الحصة؟ ستُلغى وتخرج من دورة الفاتورة لطلابها، ويُمسح الغياب التلقائي فيها. يمكنك إعادتها لاحقًا.",
     "cancel_session_confirm": "إلغاء الحصة",
     "cancel_session": "إلغاء الحصة",
     "restore_session": "إعادة الحصة",

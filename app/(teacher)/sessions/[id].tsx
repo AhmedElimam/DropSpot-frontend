@@ -170,9 +170,15 @@ export default function SessionDetailScreen() {
     if (s.is_cancelled) {
       controls.restore.mutate();
     } else {
-      Alert.alert(t('teacher.cancel_session_title'), t('teacher.cancel_session_hint'), [
+      // A session whose time has passed and nobody attended was not given: cancelling it takes it
+      // out of the students' billing cycle and clears its automatic absences (founder 2026-10-06).
+      const past = s.is_completed || phase === 'done';
+      Alert.alert(t('teacher.cancel_session_title'), t(past ? 'teacher.cancel_past_session_hint' : 'teacher.cancel_session_hint'), [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: t('teacher.cancel_session_confirm'), style: 'destructive', onPress: () => { setSettingsOpen(false); controls.cancel.mutate(); } },
+        { text: t('teacher.cancel_session_confirm'), style: 'destructive', onPress: () => {
+          setSettingsOpen(false);
+          controls.cancel.mutate(undefined, { onSuccess: (d) => { if (d?.notice) Alert.alert(t('teacher.cancel_session_title'), d.notice); } });
+        } },
       ]);
     }
   };
@@ -426,9 +432,9 @@ export default function SessionDetailScreen() {
                 onPress={doCancelRestore}
                 variant={s.is_cancelled ? 'success' : 'destructive'}
                 loading={controls.cancel.isPending || controls.restore.isPending}
-                // The server's rule (2026-10-05): no cancelling once the session has ended — by
-                // the clock, not the status, which an hourly job sets — or once anyone is checked in.
-                disabled={!s.is_cancelled && (s.is_completed || phase === 'done' || s.attendees.some((a) => a.status === 'present' || a.status === 'late'))}
+                // The server's rule (2026-10-06): a session anyone was checked into happened and
+                // stays; one nobody attended can be cancelled, even after its time.
+                disabled={!s.is_cancelled && s.attendees.some((a) => a.status === 'present' || a.status === 'late')}
               />
             </View>
           ) : null}

@@ -52,6 +52,8 @@ export interface SwapInAttendee extends SessionAttendee {
 
 export interface SessionDetail {
   id: string;
+  /** Set on a cancel the server could not fully take out of billing (a paid next invoice). */
+  notice?: string | null;
   course_id: number | null;
   course_name: string | null;
   scheduled_at: string | null;
@@ -173,7 +175,10 @@ export async function markAttendance(
 
 export async function cancelSession(sessionId: string | number): Promise<SessionDetail> {
   const { data } = await client.post(`/teacher/sessions/${sessionId}/cancel`);
-  return detail(data);
+  // A past session leaves the billing cycle; for a student whose NEXT invoice is already paid the
+  // server keeps their cycle as it was and says so (meta.billing_held_student_ids).
+  const held = (data?.meta?.billing_held_student_ids ?? []) as number[];
+  return { ...detail(data), notice: held.length ? (data?.message ?? null) : null };
 }
 
 export async function restoreSession(sessionId: string | number): Promise<SessionDetail> {
