@@ -505,4 +505,9 @@ export interface CorrectableBill {
   /** The open month's bill (else an older month's still owed). */
   current: boolean;
   month: string | null;
+  /** Sessions attended out of the cycle's length — «حضر ٠/٨» tells a course that never ran apart. */
+  sessions?: number;
+  threshold?: number;
+  /** Open cycle, nothing attended in 3+ weeks: probably a bill for a course that never ran. */
+  never_ran?: boolean;
 }

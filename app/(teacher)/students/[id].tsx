@@ -919,7 +919,14 @@ export default function StudentDetailScreen() {
                     return (
                       <TouchableOpacity key={b.invoice_id} onPress={() => { setAmountBill(b.invoice_id); setAmountFor((f) => (f ? { ...f, current: b.amount } : f)); }} accessibilityRole="radio" accessibilityState={{ selected: on }}
                         style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44, borderRadius: radius.lg, borderWidth: on ? 2 : 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surfaceSunken, paddingHorizontal: spacing.md }}>
-                        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: on ? colors.brand : colors.textPrimary }}>{b.month ?? '—'}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: on ? colors.brand : colors.textPrimary }}>{b.month ?? '—'}</Text>
+                          {b.threshold ? (
+                            <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: b.never_ran ? colors.dangerText : colors.textSecondary }}>
+                              {b.never_ran ? `حضر ${b.sessions ?? 0}/${b.threshold} — مقرر لم يبدأ؟` : `حضر ${b.sessions ?? 0}/${b.threshold}`}
+                            </Text>
+                          ) : null}
+                        </View>
                         <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }}>{`${Math.round(b.amount)} ج.م`}</Text>
                         {!b.current ? <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.dangerText }}>متأخرة</Text> : null}
                       </TouchableOpacity>
