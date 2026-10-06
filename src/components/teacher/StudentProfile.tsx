@@ -26,6 +26,45 @@ import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { dayLabel, formatDayDate, formatNumber, relationshipLabel } from '@/utils/format';
 
+/** One person to call: who, the number with who has proved it, call (and report, for a parent). */
+function ContactRow({ icon, label, name, phone, badge, empty, onCall, onFlag, divider = false }: {
+  icon: 'child' | 'profile'; label: string; name: string | null; phone: string | null;
+  badge: { label: string; variant: 'success' | 'info' | 'warning' | 'danger' } | null;
+  empty: string; onCall?: () => void; onFlag?: () => void; divider?: boolean;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderTopWidth: divider ? 1 : 0, borderTopColor: colors.borderLight }}>
+      <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: icon === 'child' ? colors.brandTint : colors.accentLight, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={icon} size={19} color={icon === 'child' ? colors.brand : colors.accent} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textSecondary }} numberOfLines={1}>{label}</Text>
+        {name ? <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{name}</Text> : null}
+        {phone ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: name ? 1 : 0 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: name ? 13 : 15, color: name ? colors.textSecondary : colors.textPrimary, writingDirection: 'ltr' }}>{phone}</Text>
+            {badge ? <Badge label={badge.label} variant={badge.variant} size="sm" /> : null}
+          </View>
+        ) : (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>{empty}</Text>
+        )}
+      </View>
+      {onFlag ? (
+        <TouchableOpacity onPress={onFlag} accessibilityRole="button" accessibilityLabel="الإبلاغ عن الرقم"
+          style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name="warning" size={17} color={colors.danger} />
+        </TouchableOpacity>
+      ) : null}
+      {onCall ? (
+        <TouchableOpacity onPress={onCall} accessibilityRole="button" accessibilityLabel="اتصال"
+          style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: colors.successLight, justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name="call" size={20} color={colors.success} />
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={{ marginTop: spacing.xl }}>
@@ -453,30 +492,53 @@ export function StudentProfile({ id, onClose, sheet = false, initialName }: {
           showsVerticalScrollIndicator={false}
           refreshControl={sheet ? undefined : <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          {/* The student's OWN number — their login credential, and who a teacher rings when
-              the parent does not answer. Shown with who (if anyone) has proved it, because an
-              unproved number here is the one that propagates to every other teacher. */}
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, ...shadows.sm }}>
-            {s.phone ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
-                <TouchableOpacity onPress={() => Linking.openURL(`tel:${s.phone}`)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name="call" size={18} color={colors.success} />
-                  </View>
-                  <View>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textSecondary }}>رقم الطالب</Text>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, writingDirection: 'ltr' }}>{s.phone}</Text>
-                  </View>
-                </TouchableOpacity>
-                <Badge
-                  label={s.phone_verified ? t('teacher.number_verified') : s.phone_vouched ? t('teacher.number_vouched') : t('teacher.number_unproved')}
-                  variant={s.phone_verified ? 'success' : s.phone_vouched ? 'info' : 'warning'}
-                  size="sm"
-                />
+          {/* Who to call, at the top (founder 2026-10-06: the parents' section moved up beside the
+              student's number). The student's OWN number is their login credential and the one a
+              teacher rings when the parent does not answer; each number says who (if anyone) has
+              proved it, because an unproved number propagates to every other teacher. */}
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.lg, paddingVertical: spacing.xs, ...shadows.sm }}>
+            <ContactRow
+              icon="child"
+              label="الطالب"
+              name={null}
+              phone={s.phone ?? null}
+              badge={s.phone ? {
+                label: s.phone_verified ? t('teacher.number_verified') : s.phone_vouched ? t('teacher.number_vouched') : t('teacher.number_unproved'),
+                variant: s.phone_verified ? 'success' : s.phone_vouched ? 'info' : 'warning',
+              } : null}
+              empty="لا رقم للطالب — يُتواصل مع ولي الأمر."
+              onCall={s.phone ? () => Linking.openURL(`tel:${s.phone}`) : undefined}
+            />
+            {s.parents.map((p, i) => (
+              <ContactRow
+                key={`parent-${p.id ?? i}`}
+                divider
+                icon="profile"
+                label={[relationshipLabel(p.relationship) || 'ولي الأمر', p.is_primary ? t('teacher.primary_parent') : null].filter(Boolean).join(' · ')}
+                name={p.name}
+                phone={p.phone}
+                // §7: an answered OTP, a teacher's word, or nothing — three claims that never share a badge.
+                badge={p.number_flagged
+                  ? { label: t('teacher.number_fake'), variant: 'danger' }
+                  : p.phone_verified
+                    ? { label: t('teacher.number_verified'), variant: 'success' }
+                    : p.number_vouched
+                      ? { label: t('teacher.number_vouched'), variant: 'info' }
+                      : { label: t('teacher.number_unproved'), variant: 'warning' }}
+                empty={t('teacher.no_phone')}
+                onCall={p.phone ? () => callParent(p.phone!, p.name) : undefined}
+                // Report this number as fake/misleading → (assistant: teacher review first →) super-admin review.
+                onFlag={canReport && !p.number_flagged ? () => setFlagFor({ id: p.id, name: p.name ?? '—' }) : undefined}
+              />
+            ))}
+            {s.parent_number_notice ? (
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm }}>
+                <Icon name="call" size={16} color={colors.dangerText} />
+                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.dangerText }}>
+                  {s.parent_number_notice_message ?? t('teacher.number_fake')}
+                </Text>
               </View>
-            ) : (
-              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>لا رقم للطالب — يُتواصل مع ولي الأمر.</Text>
-            )}
+            ) : null}
           </View>
 
           {/* A student who studies with another teacher too, whose number nobody has proved.
@@ -706,124 +768,116 @@ export function StudentProfile({ id, onClose, sheet = false, initialName }: {
             ) : null}
           </Section>
 
-          {/* Courses — one row per enrollment with clearly LABELED actions (transfer to
-              another of the teacher's courses / terminate). Previously these were tiny
-              unlabeled icons inside a pill and were hard to find. */}
+          {/* Courses — a card per enrolment (founder 2026-10-06: «the course part needs love; the
+              attendance doesn't look tappable»): where the cycle stands as a bar of sessions (tap
+              to correct the position), attendance in three numbers, the paper register as a real
+              button, and transfer / terminate at the foot. */}
           {s.courses.length > 0 ? (
             <Section title={t('teacher.student_courses')}>
-              <View style={{ gap: spacing.sm }}>
-                {s.courses.map((c) => (
-                  <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
-                    <Icon name="book" size={16} color={colors.brand} outline />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>{c.name ?? '—'}</Text>
-                      {/* «حضر ٤ من ٦ · الحصة ٧ / ٨» — what the cycle counted vs. what the student
-                          was in the room for. Carried sessions (before the student was on the
-                          system) are left out of the denominator. */}
-                      {c.cycle?.has_cycle ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
-                          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: c.cycle.held > 0 && c.cycle.attended < c.cycle.held ? colors.warning : colors.textSecondary }}>
-                            {`حضر ${c.cycle.attended} من ${c.cycle.held}`}
-                            {c.cycle.absent > 0 ? ` · غاب ${c.cycle.absent}` : ''}
-                            {c.cycle.carried > 0 ? ` · انضم من الحصة ${c.cycle.carried + 1}` : ''}
-                            {' · '}
-                          </Text>
-                          <TouchableOpacity
-                            disabled={!canManage || !c.enrollment_id}
-                            onPress={() => setPositionFor({ enrollmentId: c.enrollment_id!, courseName: c.name, position: c.cycle!.position, threshold: c.cycle!.threshold, positions: c.timeline_positions ?? [] })}
-                            accessibilityRole="button"
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: canManage ? 6 : 0, paddingVertical: 1, borderRadius: radius.full, backgroundColor: canManage ? colors.brandTint : 'transparent' }}
-                          >
-                            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: canManage ? colors.brand : colors.textSecondary }}>{`الحصة ${c.cycle.position} / ${c.cycle.threshold}`}</Text>
-                            {canManage ? <Icon name="note" size={12} color={colors.brand} /> : null}
+              <View style={{ gap: spacing.md }}>
+                {s.courses.map((c) => {
+                  const cy = c.cycle?.has_cycle ? c.cycle : null;
+                  const unrecorded = (c.backfill_days ?? []).filter((d) => d.recorded == null).length;
+                  const canPosition = canManage && !!c.enrollment_id && !!cy;
+                  const openPosition = () => setPositionFor({ enrollmentId: c.enrollment_id!, courseName: c.name, position: cy!.position, threshold: cy!.threshold, positions: c.timeline_positions ?? [] });
+                  return (
+                    <View key={c.id} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, overflow: 'hidden', ...shadows.sm }}>
+                      {/* Name */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, paddingBottom: spacing.md }}>
+                        <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+                          <Icon name="book" size={20} color={colors.brand} />
+                        </View>
+                        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={2}>{c.name ?? '—'}</Text>
+                      </View>
+
+                      {cy ? (
+                        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
+                          {/* Where the cycle stands: a bar of the cycle's sessions, the current one marked. */}
+                          <TouchableOpacity onPress={openPosition} disabled={!canPosition} activeOpacity={0.8} accessibilityRole="button"
+                            accessibilityLabel={`الحصة ${cy.position} من ${cy.threshold}`}
+                            style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
+                              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>موقعه في الدورة</Text>
+                              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{`الحصة ${formatNumber(cy.position)} من ${formatNumber(cy.threshold)}`}</Text>
+                              {canPosition ? (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginStart: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2 }}>
+                                  <Icon name="note" size={12} color={colors.brand} />
+                                  <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.brand }}>تعديل</Text>
+                                </View>
+                              ) : null}
+                            </View>
+                            <View style={{ flexDirection: 'row', gap: 3 }}>
+                              {Array.from({ length: Math.max(1, cy.threshold) }).map((_, i) => {
+                                const n = i + 1;
+                                const before = n <= cy.carried;
+                                const done = n < cy.position;
+                                const now = n === cy.position;
+                                return (
+                                  <View key={i} style={{ flex: 1, height: 8, borderRadius: 4,
+                                    backgroundColor: before ? colors.border : done ? colors.brand : now ? colors.accent : colors.surface,
+                                    borderWidth: done || now || before ? 0 : 1, borderColor: colors.border }} />
+                                );
+                              })}
+                            </View>
+                            {cy.carried > 0 ? (
+                              <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 6 }}>{`انضم من الحصة ${formatNumber(cy.carried + 1)} — ما قبلها لا يُحسب عليه`}</Text>
+                            ) : null}
                           </TouchableOpacity>
+
+                          {/* Attendance in this cycle, in three numbers. */}
+                          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                            {[
+                              { v: cy.attended, l: 'حضر', fg: colors.successText, bg: colors.successLight },
+                              { v: cy.absent, l: 'غاب', fg: cy.absent > 0 ? colors.dangerText : colors.textSecondary, bg: cy.absent > 0 ? colors.dangerLight : colors.surfaceSunken },
+                              { v: cy.held, l: 'حصص عُقدت', fg: colors.textPrimary, bg: colors.surfaceSunken },
+                            ].map((x) => (
+                              <View key={x.l} style={{ flex: 1, backgroundColor: x.bg, borderRadius: radius.lg, paddingVertical: spacing.sm, alignItems: 'center' }}>
+                                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: x.fg }}>{formatNumber(x.v)}</Text>
+                                <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textSecondary }}>{x.l}</Text>
+                              </View>
+                            ))}
+                          </View>
                         </View>
                       ) : null}
-                      {canMarkManual && c.enrollment_id && (c.backfill_days ?? []).some((d) => d.recorded == null) ? (
-                        <TouchableOpacity onPress={() => openBackfill(c)} accessibilityRole="button" activeOpacity={0.8} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brand }}>
-                            {`تسجيل حضور سابق (${(c.backfill_days ?? []).filter((d) => d.recorded == null).length} يوم بلا سجل)`}
-                          </Text>
+
+                      {/* The paper register: days held with no record for this student. */}
+                      {canMarkManual && c.enrollment_id && unrecorded > 0 ? (
+                        <TouchableOpacity onPress={() => openBackfill(c)} accessibilityRole="button" activeOpacity={0.85}
+                          style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, paddingHorizontal: spacing.md }}>
+                          <Icon name="calendar" size={18} color={colors.brand} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>تسجيل حضور سابق</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{`${formatNumber(unrecorded)} يوم بلا سجل — من الدفتر الورقي`}</Text>
+                          </View>
+                          <Icon name="back" size={16} color={colors.brand} />
                         </TouchableOpacity>
                       ) : null}
-                    </View>
-                    {c.enrollment_id && canManage ? (
-                      <TouchableOpacity
-                        onPress={() => setTransferFor({ enrollmentId: c.enrollment_id!, courseId: c.id, courseName: c.name })}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('teacher.transfer_title')}
-                        activeOpacity={0.85}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.sm }}
-                      >
-                        <Icon name="transfer" size={16} color={colors.brand} />
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('teacher.transfer_action')}</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    {c.enrollment_id && canManage ? (
-                      <TouchableOpacity
-                        onPress={() => confirmTerminate(c.name, c.enrollment_id)}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('teacher.terminate_title')}
-                        activeOpacity={0.85}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.dangerLight, borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.sm }}
-                      >
-                        <Icon name="trash" size={14} color={colors.danger} />
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>{t('teacher.terminate_action')}</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                ))}
-              </View>
-            </Section>
-          ) : null}
 
-          {/* Parents */}
-          {s.parents.length > 0 ? (
-            <Section title={t('teacher.student_parents')}>
-              {s.parent_number_notice ? (
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm }}>
-                  <Icon name="call" size={18} color={colors.dangerText} />
-                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.dangerText }}>
-                    {s.parent_number_notice_message ?? t('teacher.number_fake')}
-                  </Text>
-                </View>
-              ) : null}
-              {s.parents.map((p, i) => (
-                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{p.name ?? '—'}</Text>
-                      {p.is_primary ? <Badge label={t('teacher.primary_parent')} variant="success" size="sm" /> : null}
-                      {/* §7: an answered OTP, a teacher's word, or nothing — three different
-                          claims that must never share a badge. */}
-                      {p.number_flagged ? (
-                        <Badge label={t('teacher.number_fake')} variant="danger" size="sm" />
-                      ) : p.phone_verified ? (
-                        <Badge label={t('teacher.number_verified')} variant="success" size="sm" />
-                      ) : p.number_vouched ? (
-                        <Badge label={t('teacher.number_vouched')} variant="info" size="sm" />
-                      ) : (
-                        <Badge label={t('teacher.number_unproved')} variant="warning" size="sm" />
-                      )}
+                      {/* Transfer / terminate. */}
+                      {c.enrollment_id && canManage ? (
+                        <View style={{ flexDirection: 'row', gap: spacing.sm, padding: spacing.lg, paddingTop: spacing.md }}>
+                          <TouchableOpacity
+                            onPress={() => setTransferFor({ enrollmentId: c.enrollment_id!, courseId: c.id, courseName: c.name })}
+                            accessibilityRole="button" accessibilityLabel={t('teacher.transfer_title')} activeOpacity={0.85}
+                            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42, backgroundColor: colors.brandTint, borderRadius: radius.lg }}
+                          >
+                            <Icon name="transfer" size={16} color={colors.brand} />
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.transfer_action')}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => confirmTerminate(c.name, c.enrollment_id)}
+                            accessibilityRole="button" accessibilityLabel={t('teacher.terminate_title')} activeOpacity={0.85}
+                            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42, backgroundColor: colors.dangerLight, borderRadius: radius.lg }}
+                          >
+                            <Icon name="trash" size={15} color={colors.danger} />
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{t('teacher.terminate_action')}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : <View style={{ height: spacing.lg }} />}
                     </View>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
-                      {relationshipLabel(p.relationship)}{p.phone ? ` · ${p.phone}` : ` · ${t('teacher.no_phone')}`}
-                    </Text>
-                  </View>
-                  {p.phone ? (
-                    <TouchableOpacity onPress={() => callParent(p.phone!, p.name)} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.successLight, justifyContent: 'center', alignItems: 'center' }}>
-                      <Icon name="call" size={20} color={colors.success} />
-                    </TouchableOpacity>
-                  ) : null}
-                  {/* Report this parent's number as fake/misleading → (assistant: teacher review first →) super-admin review */}
-                  {canReport && !p.number_flagged ? (
-                    <TouchableOpacity onPress={() => setFlagFor({ id: p.id, name: p.name ?? '—' })} accessibilityRole="button"
-                                      style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
-                      <Icon name="warning" size={18} color={colors.danger} />
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              ))}
+                  );
+                })}
+              </View>
             </Section>
           ) : null}
 
