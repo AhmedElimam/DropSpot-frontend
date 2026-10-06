@@ -67,15 +67,17 @@ export type CorrectionMode = 'discount' | 'sessions' | 'total';
 
 export async function setCycleAmount(
   enrollmentId: number,
-  correction: { mode: CorrectionMode; amount?: number; discount?: number; sessions?: number | null },
+  correction: { mode: CorrectionMode; amount?: number; discount?: number; sessions?: number | null; invoiceId?: number | null },
 ): Promise<{ invoice: { id: number; amount: number; paid_amount: number; status: string } | null }> {
-  const { mode, amount, discount, sessions } = correction;
+  const { mode, amount, discount, sessions, invoiceId } = correction;
   const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/cycle-amount`, {
     mode,
     ...(mode === 'total' && amount !== undefined ? { amount } : {}),
     ...(mode === 'discount' && discount !== undefined ? { discount } : {}),
     // For «fewer sessions» it IS the correction; for a stated amount it is the label on the line.
     ...(sessions ? { sessions } : {}),
+    // Which bill — an older month's included; absent = the open cycle's.
+    ...(invoiceId ? { invoice_id: invoiceId } : {}),
   });
   return data.data ?? data;
 }

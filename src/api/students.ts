@@ -192,6 +192,8 @@ export interface StudentCourse {
   cycle?: CycleProgress;
   /** This cycle's bill as it stands (strings with 2 decimals). `prior_paid` = settled before the teacher joined. */
   cycle_invoice?: { id: number; amount: string; paid: string; prior_paid: string; remaining: string; status: string } | null;
+  /** Bills still open to a correction — this month's and an older month's still owed (2026-10-06). */
+  correctable_bills?: CorrectableBill[];
   backfill_days?: BackfillDay[];
   /** Which day each session number of the current cycle fell / falls on — for the position picker. */
   timeline_positions?: { n: number; date: string | null; label: string | null; is_past: boolean }[];
@@ -490,4 +492,17 @@ export async function submitChildNameCorrection(
   payload: { first_name?: string; last_name?: string; reason: string },
 ): Promise<void> {
   await client.post(`/parent/children/${studentId}/edit-request`, payload);
+}
+
+/** A cycle bill the teacher may correct, named by its month. */
+export interface CorrectableBill {
+  invoice_id: number;
+  cycle_id: number;
+  amount: number;
+  paid: number;
+  remaining: number;
+  status: string;
+  /** The open month's bill (else an older month's still owed). */
+  current: boolean;
+  month: string | null;
 }

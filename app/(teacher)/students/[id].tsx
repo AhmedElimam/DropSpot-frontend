@@ -19,7 +19,7 @@ import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useAuthStore } from '@/stores/authStore';
-import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory } from '@/api/students';
+import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory, type CorrectableBill } from '@/api/students';
 import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining, type CorrectionMode } from '@/api/enrollments';
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBooklet, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -107,7 +107,9 @@ export default function StudentDetailScreen() {
   // Restating the FIGURE, when the position is already right but the price is not — the
   // 400-that-should-be-100 the teacher could not fix from anywhere in the product. Teacher
   // only (money), so it is hidden from an assistant rather than offered and then refused.
-  const [amountFor, setAmountFor] = useState<{ enrollmentId: number; courseName: string | null; current: number | null } | null>(null);
+  const [amountFor, setAmountFor] = useState<{ enrollmentId: number; courseName: string | null; current: number | null; bills: CorrectableBill[] } | null>(null);
+  // Which bill is being corrected, when the course has more than one open (2026-10-06, STU-0226).
+  const [amountBill, setAmountBill] = useState<number | null>(null);
   const [amountText, setAmountText] = useState('');
   const [amountSessions, setAmountSessions] = useState('');
   // How the bill is corrected (founder 2026-10-06: «adjust only part of it»).
@@ -124,11 +126,12 @@ export default function StudentDetailScreen() {
     }
     setAmountBusy(true);
     try {
+      const invoiceId = amountBill;
       const r = await setCycleAmount(amountFor.enrollmentId, amountMode === 'discount'
-        ? { mode: 'discount', discount: value }
+        ? { mode: 'discount', discount: value, invoiceId }
         : amountMode === 'sessions'
-          ? { mode: 'sessions', sessions }
-          : { mode: 'total', amount: value, sessions: sessions && sessions > 0 ? sessions : null });
+          ? { mode: 'sessions', sessions, invoiceId }
+          : { mode: 'total', amount: value, sessions: sessions && sessions > 0 ? sessions : null, invoiceId });
       setAmountFor(null);
       setAmountText('');
       setAmountSessions('');
@@ -596,7 +599,14 @@ export default function StudentDetailScreen() {
             {can(ABILITY.EDIT_BILL_AMOUNT) ? (s.courses ?? []).filter((c) => c.enrollment_id && c.cycle?.has_cycle).map((c) => (
               <TouchableOpacity
                 key={`fixamt-${c.enrollment_id}`}
-                onPress={() => { setAmountText(''); setAmountSessions(''); setAmountMode('discount'); setAmountFor({ enrollmentId: c.enrollment_id!, courseName: c.name, current: c.cycle_invoice ? Number(c.cycle_invoice.amount) : null }); }}
+                onPress={() => {
+                  const bills = c.correctable_bills ?? [];
+                  // An older month still owed is usually the one being disputed — offer it first.
+                  const first = bills.find((b) => !b.current) ?? bills[0];
+                  setAmountText(''); setAmountSessions(''); setAmountMode('discount');
+                  setAmountBill(first ? first.invoice_id : null);
+                  setAmountFor({ enrollmentId: c.enrollment_id!, courseName: c.name, current: first ? first.amount : (c.cycle_invoice ? Number(c.cycle_invoice.amount) : null), bills });
+                }}
                 accessibilityRole="button"
                 activeOpacity={0.85}
                 style={{
@@ -900,7 +910,24 @@ export default function StudentDetailScreen() {
                 <Icon name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            {amountFor?.current != null ? (
+            {(amountFor?.bills.length ?? 0) > 1 ? (
+              <>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>أي فاتورة؟</Text>
+                <View style={{ gap: spacing.xs, marginBottom: spacing.md }}>
+                  {amountFor!.bills.map((b) => {
+                    const on = amountBill === b.invoice_id;
+                    return (
+                      <TouchableOpacity key={b.invoice_id} onPress={() => { setAmountBill(b.invoice_id); setAmountFor((f) => (f ? { ...f, current: b.amount } : f)); }} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44, borderRadius: radius.lg, borderWidth: on ? 2 : 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surfaceSunken, paddingHorizontal: spacing.md }}>
+                        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: on ? colors.brand : colors.textPrimary }}>{b.month ?? '—'}</Text>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }}>{`${Math.round(b.amount)} ج.م`}</Text>
+                        {!b.current ? <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.dangerText }}>متأخرة</Text> : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            ) : amountFor?.current != null ? (
               <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>
                 {`فاتورة الدورة الحالية: ${Math.round(amountFor.current)} ج.م`}
               </Text>
