@@ -185,6 +185,14 @@ export interface BackfillDay {
   before_enrolment: boolean;
 }
 
+/** One month of attendance from before the app. */
+export interface PriorMonth {
+  month: string; // YYYY-MM
+  label: string;
+  attended: number;
+  held: number | null;
+}
+
 export interface StudentCourse {
   id: number;
   name: string | null;
@@ -194,6 +202,8 @@ export interface StudentCourse {
   cycle_invoice?: { id: number; amount: string; paid: string; prior_paid: string; remaining: string; status: string } | null;
   /** Bills still open to a correction — this month's and an older month's still owed (2026-10-06). */
   correctable_bills?: CorrectableBill[];
+  /** Attendance from before the app, counted per month («سبتمبر · ٨ حصص»). History only. */
+  prior_months?: PriorMonth[];
   backfill_days?: BackfillDay[];
   /** Which day each session number of the current cycle fell / falls on — for the position picker. */
   timeline_positions?: { n: number; date: string | null; label: string | null; is_past: boolean }[];
@@ -273,7 +283,7 @@ export interface StudentDetail {
   phone_vouched?: boolean;
   /** Teacher can remove this TERMINATED (dropped, still-visible) student from the roster now. */
   can_remove_from_roster?: boolean;
-  attendance_stats: { total: number; attended: number; absent: number; excused: number };
+  attendance_stats: { total: number; attended: number; absent: number; excused: number; prior_attended?: number; prior_held?: number };
   attendance: StudentAttendanceRow[];
   billing: {
     has_overdue: boolean;

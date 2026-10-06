@@ -2,7 +2,7 @@
   "expo": {
     "name": "دروس سبوت",
     "slug": "DrosSpot",
-    "version": "1.2.6",
+    "version": "1.2.7",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -23,7 +23,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "30",
+      "buildNumber": "31",
       "icon": "./assets/app.icon"
     },
     "android": {
@@ -35,7 +35,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 31,
+      "versionCode": 32,
       "edgeToEdgeEnabled": true
     },
     "web": {

@@ -62,6 +62,14 @@ export async function setCyclePosition(
  * not — a part-session, a discount, a number agreed with the family. Teacher only; the
  * previous invoice is cancelled beside the new one rather than edited.
  */
+/** Attendance from before the app, as a count for one month; attended 0 removes the month. */
+export async function setPriorMonth(enrollmentId: number, month: string, attended: number, held?: number | null) {
+  const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/prior-months`, {
+    month, attended, ...(held != null ? { held } : {}),
+  });
+  return (data.data ?? data) as { months: { month: string; label: string; attended: number; held: number | null }[] };
+}
+
 /**
  * One plain statement about a bill (founder 2026-10-06): how much, for how many sessions, and
  * how much of it is paid. The bill itself is edited — nothing new issued, nothing cancelled.

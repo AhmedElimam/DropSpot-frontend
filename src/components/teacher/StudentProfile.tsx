@@ -21,8 +21,8 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useAuthStore } from '@/stores/authStore';
 import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory, type CorrectableBill } from '@/api/students';
-import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining } from '@/api/enrollments';
-import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBill, type BackfillDay } from '@/api/students';
+import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining, setPriorMonth } from '@/api/enrollments';
+import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBill, type BackfillDay, type PriorMonth } from '@/api/students';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { dayLabel, formatDayDate, formatNumber, relationshipLabel } from '@/utils/format';
 
@@ -152,6 +152,57 @@ export function StudentProfile({ id, onClose, sheet = false, initialName }: {
   const [backfillFor, setBackfillFor] = useState<{ enrollmentId: number; courseName: string | null; days: BackfillDay[] } | null>(null);
   const [backfillPicked, setBackfillPicked] = useState<(number | string)[]>([]);
   const [backfillBusy, setBackfillBusy] = useState(false);
+
+  // Attendance from before the app, counted per month (founder 2026-10-06: «a teacher joined in
+  // October; the student has attended since September — say how many sessions each month»).
+  // History only: it adds to the totals and shows on the course; no cycle or bill moves.
+  const [priorMonthsFor, setPriorMonthsFor] = useState<{ enrollmentId: number; courseName: string | null; months: PriorMonth[] } | null>(null);
+  const [pmMonth, setPmMonth] = useState<string>('');
+  const [pmAttended, setPmAttended] = useState('');
+  const [pmHeld, setPmHeld] = useState('');
+  const [pmBusy, setPmBusy] = useState(false);
+  const recentMonths = (() => {
+    const out: { key: string; label: string }[] = [];
+    const d = new Date();
+    for (let i = 0; i < 12; i++) {
+      const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
+      out.push({ key: `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`, label: m.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' }) });
+    }
+    return out;
+  })();
+  const openPriorMonths = (c: { enrollment_id?: number; name: string | null; prior_months?: PriorMonth[] }) => {
+    if (!c.enrollment_id) return;
+    const first = recentMonths[1] ?? recentMonths[0];
+    const existing = (c.prior_months ?? []).find((m) => m.month === first.key);
+    setPmMonth(first.key);
+    setPmAttended(existing ? String(existing.attended) : '');
+    setPmHeld(existing?.held != null ? String(existing.held) : '');
+    setPriorMonthsFor({ enrollmentId: c.enrollment_id, courseName: c.name, months: c.prior_months ?? [] });
+  };
+  const pickPriorMonth = (key: string) => {
+    setPmMonth(key);
+    const existing = (priorMonthsFor?.months ?? []).find((m) => m.month === key);
+    setPmAttended(existing ? String(existing.attended) : '');
+    setPmHeld(existing?.held != null ? String(existing.held) : '');
+  };
+  const savePriorMonth = async (remove = false) => {
+    if (!priorMonthsFor || !pmMonth) return;
+    const attended = remove ? 0 : Number(pmAttended.replace(/[^\d]/g, ''));
+    const held = pmHeld.trim() === '' ? null : Number(pmHeld.replace(/[^\d]/g, ''));
+    if (!remove && (!Number.isFinite(attended) || attended < 1 || attended > 40)) { Alert.alert('', 'اكتب عدد الحصص التي حضرها في الشهر (١ إلى ٤٠).'); return; }
+    if (!remove && held != null && held < attended) { Alert.alert('', 'الحصص التي حضرها لا تزيد عن الحصص التي عُقدت.'); return; }
+    setPmBusy(true);
+    try {
+      const r = await setPriorMonth(priorMonthsFor.enrollmentId, pmMonth, attended, remove ? null : held);
+      setPriorMonthsFor((f) => (f ? { ...f, months: r.months } : f));
+      if (remove) { setPmAttended(''); setPmHeld(''); }
+      await refetch();
+    } catch (e: any) {
+      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر الحفظ');
+    } finally {
+      setPmBusy(false);
+    }
+  };
   const openBackfill = (c: { enrollment_id?: number; name: string | null; backfill_days?: BackfillDay[] }) => {
     if (!c.enrollment_id) return;
     setBackfillPicked([]);
@@ -853,6 +904,38 @@ export function StudentProfile({ id, onClose, sheet = false, initialName }: {
                         </TouchableOpacity>
                       ) : null}
 
+                      {/* Attendance from before the app, per month. */}
+                      {(c.prior_months ?? []).length > 0 || (canMarkManual && c.enrollment_id) ? (
+                        <View style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, backgroundColor: colors.accentLight, borderRadius: radius.lg, padding: spacing.md }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                            <Icon name="clock" size={16} color={colors.accent} />
+                            <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }}>قبل التطبيق</Text>
+                            {canMarkManual && c.enrollment_id ? (
+                              <TouchableOpacity onPress={() => openPriorMonths(c)} accessibilityRole="button" activeOpacity={0.85}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 5 }}>
+                                <Icon name="add" size={13} color={colors.accent} />
+                                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.accent }}>{(c.prior_months ?? []).length ? 'تعديل' : 'أضف شهرًا'}</Text>
+                              </TouchableOpacity>
+                            ) : null}
+                          </View>
+                          {(c.prior_months ?? []).length > 0 ? (
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm }}>
+                              {(c.prior_months ?? []).map((m) => (
+                                <View key={m.month} style={{ backgroundColor: colors.surface, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4 }}>
+                                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textPrimary }}>
+                                    {`${m.label} · ${m.held != null ? `${formatNumber(m.attended)} من ${formatNumber(m.held)}` : `${formatNumber(m.attended)} حصة`}`}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          ) : (
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: 4 }}>
+                              لو كان يحضر معك قبل التطبيق، سجّل عدد حصص كل شهر — يُضاف لحضوره ولا يغيّر أي فاتورة.
+                            </Text>
+                          )}
+                        </View>
+                      ) : null}
+
                       {/* Transfer / terminate. */}
                       {c.enrollment_id && canManage ? (
                         <View style={{ flexDirection: 'row', gap: spacing.sm, padding: spacing.lg, paddingTop: spacing.md }}>
@@ -1037,6 +1120,62 @@ export function StudentProfile({ id, onClose, sheet = false, initialName }: {
               })}
             </ScrollView>
             {positionBusy ? <ActivityIndicator style={{ marginTop: spacing.md }} color={colors.brand} /> : null}
+      </SheetModal>
+
+      {/* Attendance before the app: pick a month, say how many sessions he attended (and, if
+          known, how many the class held). Keyboard-aware: the numbers stay above the keyboard. */}
+      <SheetModal visible={!!priorMonthsFor} onClose={() => !pmBusy && setPriorMonthsFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{`حضور قبل التطبيق — ${priorMonthsFor?.courseName ?? ''}`}</Text>
+              <TouchableOpacity onPress={() => !pmBusy && setPriorMonthsFor(null)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
+            </View>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, marginBottom: spacing.md }}>
+              لكل شهر كان يحضر فيه معك قبل التطبيق: كم حصة حضر. يُضاف إلى حضوره ويظهر على المقرر، ولا يغيّر الدورة ولا أي فاتورة.
+            </Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, marginBottom: 6 }}>الشهر</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 6, paddingBottom: 2 }} style={{ marginBottom: spacing.md, flexGrow: 0 }}>
+              {recentMonths.map((m) => {
+                const on = pmMonth === m.key;
+                const saved = (priorMonthsFor?.months ?? []).find((x) => x.month === m.key);
+                return (
+                  <TouchableOpacity key={m.key} onPress={() => pickPriorMonth(m.key)} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                    style={{ paddingHorizontal: spacing.md, height: 38, justifyContent: 'center', borderRadius: radius.full, borderWidth: on ? 2 : 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surfaceSunken }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: on ? colors.brand : colors.textSecondary }}>{saved ? `${m.label} ✓` : m.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, marginBottom: 4 }}>حضر كم حصة</Text>
+                <TextInput value={pmAttended} onChangeText={setPmAttended} keyboardType="number-pad" placeholder="مثال: ٨" placeholderTextColor={colors.textTertiary}
+                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, height: 50, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center', backgroundColor: colors.surface }} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, marginBottom: 4 }}>من كم حصة عُقدت (اختياري)</Text>
+                <TextInput value={pmHeld} onChangeText={setPmHeld} keyboardType="number-pad" placeholder="—" placeholderTextColor={colors.textTertiary}
+                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, height: 50, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center', backgroundColor: colors.surface }} />
+              </View>
+            </View>
+            <TouchableOpacity onPress={() => savePriorMonth(false)} disabled={pmBusy || pmAttended.trim() === ''} accessibilityRole="button"
+              style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: pmAttended.trim() === '' ? colors.border : colors.brand, justifyContent: 'center', alignItems: 'center' }}>
+              {pmBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>حفظ الشهر</Text>}
+            </TouchableOpacity>
+            {(priorMonthsFor?.months ?? []).some((m) => m.month === pmMonth) ? (
+              <TouchableOpacity onPress={() => savePriorMonth(true)} disabled={pmBusy} hitSlop={8} style={{ alignSelf: 'center', paddingVertical: spacing.sm, marginTop: 2 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.dangerText }}>حذف هذا الشهر</Text>
+              </TouchableOpacity>
+            ) : null}
+            {(priorMonthsFor?.months ?? []).length > 0 ? (
+              <View style={{ marginTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderLight, paddingTop: spacing.sm, gap: 4 }}>
+                {(priorMonthsFor?.months ?? []).map((m) => (
+                  <TouchableOpacity key={m.month} onPress={() => pickPriorMonth(m.month)} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{m.label}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{m.held != null ? `${formatNumber(m.attended)} من ${formatNumber(m.held)}` : `${formatNumber(m.attended)} حصة`}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
       </SheetModal>
 
       {/* The paper register — past days of one course, tick who came. */}
