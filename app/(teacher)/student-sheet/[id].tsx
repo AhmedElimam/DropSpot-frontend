@@ -1,6 +1,8 @@
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { InlineSheetHost } from '@/components/ui/SheetModal';
 import { colors } from '@/theme/index';
 import { StudentProfile } from '@/components/teacher/StudentProfile';
 
@@ -16,10 +18,16 @@ import { StudentProfile } from '@/components/teacher/StudentProfile';
 export default function StudentSheet() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
   return (
-    <SafeAreaProvider>
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <StudentProfile id={id} sheet initialName={name} onClose={() => (router.canGoBack() ? router.back() : undefined)} />
-      </View>
-    </SafeAreaProvider>
+    // The profile's own sheets (collect, correct, past attendance, paid before joining…) draw
+    // inside this page sheet, not as a second native modal iOS may refuse to present.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <InlineSheetHost>
+          <View style={{ flex: 1, backgroundColor: colors.background }}>
+            <StudentProfile id={id} sheet initialName={name} onClose={() => (router.canGoBack() ? router.back() : undefined)} />
+          </View>
+        </InlineSheetHost>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

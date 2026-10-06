@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Modal, Pressable, Keyboard, Platform, ScrollView, TextInput, View, useWindowDimensions, type KeyboardEvent, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Modal, Pressable, Keyboard, Platform, ScrollView, StyleSheet, TextInput, View, useWindowDimensions, type KeyboardEvent, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,19 @@ interface SheetModalProps {
   handle?: boolean;
   /** Dim colour behind the sheet. */
   backdropColor?: string;
+}
+
+/**
+ * Inside a screen that is itself a native modal (the student profile opened as a page sheet
+ * over the collections list), a sheet must not be a second RN Modal: iOS may refuse to present
+ * it from a controller that is already presented, and the button that opens it then does
+ * nothing (founder 2026-10-06: «past sessions / paid before joining — the button is clickable
+ * but nothing shows»). Wrap such a screen in <InlineSheetHost>; its sheets draw as an overlay
+ * inside the screen instead — same look, same drag, same keyboard handling.
+ */
+const InlineSheets = createContext(false);
+export function InlineSheetHost({ children }: { children: ReactNode }) {
+  return <InlineSheets.Provider value>{children}</InlineSheets.Provider>;
 }
 
 const DISMISS_DISTANCE = 96;
@@ -57,6 +70,7 @@ export function keyboardLift(overlap: number, baseHeight: number, currentHeight:
  */
 export function SheetModal({ visible, onClose, children, avoidKeyboard = false, style, handle = true, backdropColor = colors.overlay }: SheetModalProps) {
   const insets = useSafeAreaInsets();
+  const inline = useContext(InlineSheets);
   const { height } = useWindowDimensions();
   // Rendered while the close animation runs, then unmounted.
   const [mounted, setMounted] = useState(visible);
@@ -170,7 +184,7 @@ export function SheetModal({ visible, onClose, children, avoidKeyboard = false, 
   const room = boxHeight - lifted - insets.top - (keyboardUp ? spacing.md : spacing.xl);
 
   return (
-    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={close}>
+    <Host inline={inline} onRequestClose={close}>
       <Animated.View onLayout={avoidKeyboard ? onBoxLayout : undefined} style={[{ flex: 1, justifyContent: 'flex-end' }, avoidKeyboard ? boxStyle : null]}>
         <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: backdropColor }, dimStyle]} />
         <Pressable style={{ flex: 1 }} onPress={close} accessibilityRole="button" accessibilityLabel="إغلاق" />
@@ -206,6 +220,12 @@ export function SheetModal({ visible, onClose, children, avoidKeyboard = false, 
           </Animated.View>
         </GestureDetector>
       </Animated.View>
-    </Modal>
+    </Host>
   );
+}
+
+/** A real Modal normally; an overlay over the current screen inside an InlineSheetHost. */
+function Host({ inline, onRequestClose, children }: { inline: boolean; onRequestClose: () => void; children: ReactNode }) {
+  if (inline) return <View style={[StyleSheet.absoluteFill, { zIndex: 1000, elevation: 1000 }]}>{children}</View>;
+  return <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onRequestClose}>{children}</Modal>;
 }
