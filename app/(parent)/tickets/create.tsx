@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, control } from '@/theme/index';
@@ -29,8 +29,10 @@ export default function CreateTicket() {
   const insets = useSafeAreaInsets();
   const { data: children } = useChildren();
 
-  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
-  const [selectedTeacherId, setSelectedTeacherId] = useState<number | null>(null);
+  // Opened from a teacher's card: the child and the teacher come already chosen.
+  const params = useLocalSearchParams<{ child?: string; teacher?: string }>();
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(params.child ?? null);
+  const [selectedTeacherId, setSelectedTeacherId] = useState<number | null>(params.teacher ? Number(params.teacher) : null);
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
 
