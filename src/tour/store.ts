@@ -18,6 +18,10 @@ export interface TourStep {
   body: string;
   /** The centred card's button label key (welcome / done cards). */
   cta?: string;
+  /** Where the card's button goes (the done card's «أنشئ مقررك»); the tour ends first. */
+  href?: Href;
+  /** Roles this step is not for (an assistant does not create courses). */
+  notFor?: string[];
 }
 
 export interface TourDef { id: string; steps: TourStep[] }
@@ -64,9 +68,10 @@ export const useTourStore = create<TourState>((set, get) => ({
  * with a target nobody registered is skipped (an assistant without the scanner, a parent with
  * no child yet); targetless cards always show.
  */
-export function nextShowable(steps: TourStep[], targets: Record<string, TargetRect>, from: number, dir: 1 | -1 = 1): number | null {
+export function nextShowable(steps: TourStep[], targets: Record<string, TargetRect>, from: number, dir: 1 | -1 = 1, role?: string | null): number | null {
   for (let i = from + dir; i >= 0 && i < steps.length; i += dir) {
     const s = steps[i];
+    if (role && s.notFor?.includes(role)) continue;
     if (!s.target || targets[s.target]) return i;
     // A routed step's target appears only once its screen is open: keep it and let the
     // overlay wait for the measurement (it gives up after a moment and moves on).

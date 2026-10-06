@@ -19,7 +19,9 @@ import { tourForRole } from './tours';
 import { holeFor, placeCard, onScreen, HOLE_RADIUS, type Hole } from './geometry';
 
 const ARect = Animated.createAnimatedComponent(Rect);
-const SPRING = { damping: 22, stiffness: 190, mass: 0.9 };
+// A slow, calm glide between stops (founder 2026-10-06: «the frames between steps a quite slow»).
+const SPRING = { damping: 26, stiffness: 70, mass: 1.1 };
+const CARD_SPRING = { damping: 24, stiffness: 95, mass: 1 };
 /** How long a routed step waits for its target before it is skipped. */
 const WAIT_FOR_TARGET_MS = 1800;
 /** A new account: the tour starts by itself within this many days of sign-up. */
@@ -116,10 +118,10 @@ function Runner() {
   }, [role, user, stop]);
 
   const advance = useCallback((dir: 1 | -1 = 1) => {
-    const next = nextShowable(steps, useTourStore.getState().targets, step, dir);
+    const next = nextShowable(steps, useTourStore.getState().targets, step, dir, role);
     if (next === null) { if (dir === 1) finish(); return; }
     goTo(next);
-  }, [steps, step, goTo, finish]);
+  }, [steps, step, goTo, finish, role]);
 
   // A spotlit step whose target never shows up (scrolled away, not on this build): move on.
   useEffect(() => {
@@ -167,13 +169,13 @@ function Runner() {
   const cardTop = useSharedValue(win.height / 2 - 90);
   useEffect(() => {
     const top = centred || !placed ? Math.max(insets.top + 24, (win.height - cardH) / 2) : placed.top;
-    cardTop.value = withSpring(top, SPRING);
+    cardTop.value = withSpring(top, CARD_SPRING);
   }, [centred, placed?.top, cardH, win.height, insets.top, cardTop]);
   const cardStyle = useAnimatedStyle(() => ({ top: cardTop.value }));
 
   const spotSteps = steps.filter((s) => s.target).length;
   const spotIndex = steps.slice(0, step + 1).filter((s) => s.target).length;
-  const last = nextShowable(steps, targets, step, 1) === null;
+  const last = nextShowable(steps, targets, step, 1, role) === null;
   const waiting = !!current?.target && !visibleRect;
 
   if (!current) return null;
@@ -214,7 +216,7 @@ function Runner() {
             <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 23, color: colors.textSecondary, marginTop: 6, textAlign: centred ? 'center' : 'right' }}>{t(current.body)}</Text>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg }}>
-              <Pressable onPress={() => advance(1)} accessibilityRole="button"
+              <Pressable onPress={() => { if (current.href) { finish(); router.push(current.href); } else advance(1); }} accessibilityRole="button"
                 style={({ pressed }) => ({ flex: 1, minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, opacity: pressed ? 0.85 : 1 })}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: colors.onPrimary }}>
                   {current.cta ? t(current.cta) : last ? t('tour.finish') : t('tour.next')}
@@ -228,9 +230,9 @@ function Runner() {
                 </Pressable>
               ) : null}
             </View>
-            {!last ? (
+            {!last || current.href ? (
               <Pressable onPress={finish} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'center', paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginTop: 2 }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.textTertiary }}>{t(step === 0 ? 'tour.later' : 'tour.skip')}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.textTertiary }}>{t(current.href ? 'tour.later_short' : step === 0 ? 'tour.later' : 'tour.skip')}</Text>
               </Pressable>
             ) : null}
             {waiting ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, textAlign: 'center', marginTop: 4 }}>{t('tour.opening')}</Text> : null}

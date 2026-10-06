@@ -16,7 +16,19 @@ describe('tour scripts', () => {
     }
     // Two minutes: a handful of stops, not a manual.
     expect(tour.steps.length).toBeGreaterThanOrEqual(8);
-    expect(tour.steps.length).toBeLessThanOrEqual(12);
+    expect(tour.steps.length).toBeLessThanOrEqual(13);
+  });
+
+  it('ends the teacher tour on «create your course», and the assistant tour without it', () => {
+    const steps = TEACHER_TOUR.steps;
+    const targets = Object.fromEntries(steps.filter((s) => s.target).map((s) => [s.target!, { x: 0, y: 0, width: 10, height: 10 }]));
+    const lastTeacher = nextShowable(steps, targets, steps.length - 3, 1, 'teacher')!;
+    expect(steps[lastTeacher].href).toBe('/(teacher)/courses/create');
+    expect(nextShowable(steps, targets, lastTeacher, 1, 'teacher')).toBeNull();
+    const lastAssistant = nextShowable(steps, targets, steps.length - 3, 1, 'assistant')!;
+    expect(steps[lastAssistant].href).toBeUndefined();
+    expect(steps[lastAssistant].title).toBe('tour.teacher.assistant_done_title');
+    expect(nextShowable(steps, targets, lastAssistant, 1, 'assistant')).toBeNull();
   });
 
   it('serves assistants with the teacher script and nobody else with anything', () => {

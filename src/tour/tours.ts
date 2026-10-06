@@ -7,7 +7,7 @@ import type { TourDef, TourStep } from './store';
  * card. Target ids are the `<TourTarget id>`s on the screens; a step whose target is not
  * there (an assistant without the scanner) is skipped.
  */
-const card = (title: string, body: string, cta: string): TourStep => ({ title, body, cta });
+const card = (title: string, body: string, cta: string, extra: Partial<TourStep> = {}): TourStep => ({ title, body, cta, ...extra });
 const spot = (target: string, title: string, body: string, route?: Href): TourStep => ({ target, title, body, route });
 
 const T = '/(teacher)/(tabs)' as Href;
@@ -24,7 +24,11 @@ export const TEACHER_TOUR: TourDef = {
     spot('tab:manage', 'tour.teacher.manage_title', 'tour.teacher.manage_body', '/(teacher)/(tabs)/manage' as Href),
     spot('tab:students', 'tour.teacher.students_title', 'tour.teacher.students_body', '/(teacher)/(tabs)/students' as Href),
     spot('tab:settings', 'tour.teacher.settings_title', 'tour.teacher.settings_body', '/(teacher)/(tabs)/settings' as Href),
-    spot('tab:index', 'tour.teacher.done_title', 'tour.teacher.done_body', T),
+    spot('tab:index', 'tour.teacher.home_again_title', 'tour.teacher.home_again_body', T),
+    // The first thing to do, with the button that does it (founder 2026-10-06: «show at the
+    // end that you start with the schedule and a course»). Not for an assistant.
+    card('tour.teacher.done_title', 'tour.teacher.done_body', 'tour.teacher.done_cta', { href: '/(teacher)/courses/create' as Href, notFor: ['assistant'] }),
+    card('tour.teacher.assistant_done_title', 'tour.teacher.assistant_done_body', 'tour.finish', { notFor: ['teacher'] }),
   ],
 };
 
