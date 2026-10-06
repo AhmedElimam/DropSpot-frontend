@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
@@ -138,7 +138,7 @@ export default function ParentHome() {
 
           {/* Children */}
           <View style={{ marginTop: spacing.xl }}>
-            <SectionHead icon="children" color={colors.brand} title={t('home.children_section')} />
+            <SectionHead icon="children" color={colors.brand} title={t('home.children_section')} action={t('notifications.view_all')} onAction={() => router.push('/(parent)/children' as Href)} />
             {childrenLoading ? (
               <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl }} />
             ) : (

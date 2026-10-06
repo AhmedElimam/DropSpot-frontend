@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
+import { colors, spacing, radius, textPresets, shadows, gradients } from '@/theme/index';
 import { useChildren } from '@/hooks/useChildren';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,7 +49,7 @@ export default function ChildrenList() {
   return (
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
@@ -58,6 +58,7 @@ export default function ChildrenList() {
         <PageHero
           title={t('parent.my_children')}
           subtitle={t('common.children_count', { count: children.length })}
+          onBack
           action={{ icon: 'ticket', label: t('parent.tickets_chip'), accessibilityLabel: t('parent.teacher_tickets_title'), onPress: () => router.push('/(parent)/tickets') }}
         />
 

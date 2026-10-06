@@ -127,7 +127,7 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
     // A decided complaint: a payment one lands on the invoices; attendance / grade ones on
     // the children list (the decision names no child to open directly).
     case 'complaint_decided':
-      return data?.type === 'payment' ? '/(parent)/(tabs)/invoices' : '/(parent)/(tabs)/children';
+      return data?.type === 'payment' ? '/(parent)/(tabs)/invoices' : '/(parent)/children';
     case 'payment_received':
     case 'invoice':
     case 'invoice_new':

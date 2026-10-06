@@ -48,12 +48,12 @@ export function TogetherComingSoon() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl, gap: spacing.xl }}>
-          <Section icon="chat" title={t('together.chat_title')} body={t('together.chat_body')}>
+          <ComingSoonSection icon="chat" title={t('together.chat_title')} body={t('together.chat_body')}>
             <ChatSample />
-          </Section>
-          <Section icon="threads" title={t('together.threads_title')} body={t('together.threads_body')}>
+          </ComingSoonSection>
+          <ComingSoonSection icon="threads" title={t('together.threads_title')} body={t('together.threads_body')}>
             <ThreadSample />
-          </Section>
+          </ComingSoonSection>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 20, color: colors.textTertiary, textAlign: 'center' }}>{t('together.footnote')}</Text>
         </View>
       </ScrollView>
@@ -62,7 +62,7 @@ export function TogetherComingSoon() {
 }
 
 /** A feature: its name and one line in sharp text, then its sample out of focus, marked «قريبًا». */
-function Section({ icon, title, body, children }: { icon: IconName; title: string; body: string; children: ReactNode }) {
+export function ComingSoonSection({ icon, title, body, children }: { icon: IconName; title: string; body: string; children: ReactNode }) {
   const { t } = useTranslation();
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', ...shadows.sm }}>
