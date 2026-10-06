@@ -27,7 +27,7 @@ export interface HeroStat {
  *
  * Draws through the hero tokens, so it is ink on paper by day and white on navy by night.
  */
-export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, stats, children, compact = false, inset, closeIcon = false }: {
+export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, stats, children, compact = false, inset, closeIcon = false, grabber = false }: {
   title: string;
   subtitle?: string;
   /** The person's avatar seed (see `avatarSeed`) — drawn as their generated character. */
@@ -46,6 +46,8 @@ export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, s
   inset?: number;
   /** Draw the back chip as a close (×): the page is a sheet that is dismissed, not popped. */
   closeIcon?: boolean;
+  /** A small handle at the top: this page is a sheet you can swipe down. */
+  grabber?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -59,6 +61,7 @@ export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, s
       end={{ x: 1, y: 1 }}
       style={{ paddingHorizontal: spacing.lg, paddingTop: (inset ?? insets.top) + spacing.md, paddingBottom: compact ? spacing.lg : spacing.xl4 + spacing.lg }}
     >
+      {grabber ? <View style={{ position: 'absolute', top: 6, alignSelf: 'center', width: 38, height: 5, borderRadius: 3, backgroundColor: colors.onHeroChipBorder }} /> : null}
       {hasRow ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
           {back ? (

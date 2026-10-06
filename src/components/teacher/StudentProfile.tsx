@@ -431,6 +431,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName }: {
         avatar={s ? avatarSeed.student(s.id, s.name ?? '—') : undefined}
         onBack={onClose ?? true}
         closeIcon={sheet}
+        grabber={sheet}
         inset={sheet ? spacing.md : undefined}
         action={s && canExport ? { icon: 'download', label: exporting ? '…' : 'PDF', onPress: exportPerformance, accessibilityLabel: t('teacher.performance_export') } : undefined}
         stats={s ? [

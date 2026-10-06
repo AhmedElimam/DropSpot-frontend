@@ -127,11 +127,14 @@ export default function TeacherLayout() {
     {isAuthenticated && role === 'teacher' ? <RelocationPrompt enabled /> : null}
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
-      {/* A student opened from a list: a native sheet over it (iOS form sheet, Android slide-up). */}
+      {/* A student opened from a list: a native page sheet over it (iOS), a slide-up on Android.
+          Not a form sheet with detents: its pan swallowed the profile's scrolling and left a
+          gap under the sheet (founder 2026-10-06). The page sheet reaches the bottom edge,
+          scrolls normally, and closes with the system swipe once the content is at its top. */}
       <Stack.Screen
         name="student-sheet/[id]"
         options={Platform.OS === 'ios'
-          ? { presentation: 'formSheet', sheetAllowedDetents: [0.94], sheetGrabberVisible: true, sheetCornerRadius: 26, contentStyle: { backgroundColor: colors.background } }
+          ? { presentation: 'modal', contentStyle: { backgroundColor: colors.background } }
           : { presentation: 'modal', animation: 'slide_from_bottom' }}
       />
     </Stack>
