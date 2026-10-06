@@ -62,15 +62,19 @@ export async function setCyclePosition(
  * not — a part-session, a discount, a number agreed with the family. Teacher only; the
  * previous invoice is cancelled beside the new one rather than edited.
  */
+/** How the bill is corrected (2026-10-06): an amount off it, fewer sessions, or the amount itself. */
+export type CorrectionMode = 'discount' | 'sessions' | 'total';
+
 export async function setCycleAmount(
   enrollmentId: number,
-  amount: number,
-  sessions?: number | null,
+  correction: { mode: CorrectionMode; amount?: number; discount?: number; sessions?: number | null },
 ): Promise<{ invoice: { id: number; amount: number; paid_amount: number; status: string } | null }> {
+  const { mode, amount, discount, sessions } = correction;
   const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/cycle-amount`, {
-    amount,
-    // Written onto the invoice line so the figure says WHAT it buys. Optional — a
-    // correction is not always about sessions.
+    mode,
+    ...(mode === 'total' && amount !== undefined ? { amount } : {}),
+    ...(mode === 'discount' && discount !== undefined ? { discount } : {}),
+    // For «fewer sessions» it IS the correction; for a stated amount it is the label on the line.
     ...(sessions ? { sessions } : {}),
   });
   return data.data ?? data;

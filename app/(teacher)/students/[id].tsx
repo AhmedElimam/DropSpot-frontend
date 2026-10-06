@@ -20,7 +20,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useAuthStore } from '@/stores/authStore';
 import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory } from '@/api/students';
-import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining } from '@/api/enrollments';
+import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining, type CorrectionMode } from '@/api/enrollments';
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBooklet, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { dayLabel, formatDayDate } from '@/utils/format';
@@ -110,18 +110,25 @@ export default function StudentDetailScreen() {
   const [amountFor, setAmountFor] = useState<{ enrollmentId: number; courseName: string | null; current: number | null } | null>(null);
   const [amountText, setAmountText] = useState('');
   const [amountSessions, setAmountSessions] = useState('');
+  // How the bill is corrected (founder 2026-10-06: «adjust only part of it»).
+  const [amountMode, setAmountMode] = useState<CorrectionMode>('discount');
   const [amountBusy, setAmountBusy] = useState(false);
   const submitAmount = async () => {
     if (!amountFor) return;
-    const value = Number(amountText.replace(/[^\d.]/g, ''));
-    if (!Number.isFinite(value) || value < 0) {
-      Alert.alert('', 'أدخل مبلغًا صحيحًا.');
+    const num = (t: string) => Number(t.replace(/[^\d.]/g, ''));
+    const value = num(amountText);
+    const sessions = amountSessions.trim() === '' ? null : Number(amountSessions.replace(/[^\d]/g, ''));
+    if (amountMode === 'sessions' ? !(sessions && sessions > 0) : (!Number.isFinite(value) || value < 0 || (amountMode === 'discount' && value <= 0))) {
+      Alert.alert('', amountMode === 'sessions' ? 'أدخل عدد الحصص.' : 'أدخل مبلغًا صحيحًا.');
       return;
     }
     setAmountBusy(true);
     try {
-      const sessions = amountSessions.trim() === '' ? null : Number(amountSessions.replace(/[^\d]/g, ''));
-      const r = await setCycleAmount(amountFor.enrollmentId, value, sessions && sessions > 0 ? sessions : null);
+      const r = await setCycleAmount(amountFor.enrollmentId, amountMode === 'discount'
+        ? { mode: 'discount', discount: value }
+        : amountMode === 'sessions'
+          ? { mode: 'sessions', sessions }
+          : { mode: 'total', amount: value, sessions: sessions && sessions > 0 ? sessions : null });
       setAmountFor(null);
       setAmountText('');
       setAmountSessions('');
@@ -589,7 +596,7 @@ export default function StudentDetailScreen() {
             {can(ABILITY.EDIT_BILL_AMOUNT) ? (s.courses ?? []).filter((c) => c.enrollment_id && c.cycle?.has_cycle).map((c) => (
               <TouchableOpacity
                 key={`fixamt-${c.enrollment_id}`}
-                onPress={() => { setAmountText(''); setAmountSessions(''); setAmountFor({ enrollmentId: c.enrollment_id!, courseName: c.name, current: null }); }}
+                onPress={() => { setAmountText(''); setAmountSessions(''); setAmountMode('discount'); setAmountFor({ enrollmentId: c.enrollment_id!, courseName: c.name, current: c.cycle_invoice ? Number(c.cycle_invoice.amount) : null }); }}
                 accessibilityRole="button"
                 activeOpacity={0.85}
                 style={{
@@ -893,38 +900,64 @@ export default function StudentDetailScreen() {
                 <Icon name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginBottom: spacing.md }}>
-              تُلغى الفاتورة الحالية وتُصدر فاتورة جديدة بهذا المبلغ. تبقى القديمة في السجل للمراجعة،
-              ولا يمكن أن يقلّ المبلغ عمّا حصّلته من الطالب بالفعل. عدد الحصص يُكتب على الفاتورة نفسها،
-              فيوضّح التقرير لاحقًا مقابل ماذا كان المبلغ.
+            {amountFor?.current != null ? (
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>
+                {`فاتورة الدورة الحالية: ${Math.round(amountFor.current)} ج.م`}
+              </Text>
+            ) : null}
+            {/* Three ways to correct — this student's bill only, never the course's price. */}
+            <View style={{ flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.md }}>
+              {([['discount', 'خصم مبلغ'], ['sessions', 'عدد حصص أقل'], ['total', 'مبلغ جديد']] as [CorrectionMode, string][]).map(([m, label]) => {
+                const on = amountMode === m;
+                return (
+                  <TouchableOpacity key={m} onPress={() => { setAmountMode(m); setAmountText(''); setAmountSessions(''); }} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                    style={{ flex: 1, minHeight: 40, borderRadius: radius.lg, borderWidth: on ? 2 : 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary }} numberOfLines={1} adjustsFontSizeToFit>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {amountMode !== 'sessions' ? (
+              <TextInput
+                value={amountText}
+                onChangeText={setAmountText}
+                keyboardType="numeric"
+                placeholder={amountMode === 'discount' ? 'قيمة الخصم بالجنيه — مثال: 50' : 'المبلغ الصحيح بالجنيه'}
+                placeholderTextColor={colors.textTertiary}
+                style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 48, fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary, textAlign: 'right' }}
+              />
+            ) : null}
+            {amountMode !== 'discount' ? (
+              <>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: amountMode === 'total' ? spacing.md : 0, marginBottom: 4 }}>
+                  {amountMode === 'sessions' ? 'عدد الحصص التي يدفعها' : 'عن كم حصة؟ (اختياري)'}
+                </Text>
+                <TextInput
+                  value={amountSessions}
+                  onChangeText={setAmountSessions}
+                  keyboardType="number-pad"
+                  placeholder="مثال: 6"
+                  placeholderTextColor={colors.textTertiary}
+                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 48, fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary, textAlign: 'right' }}
+                />
+              </>
+            ) : null}
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.sm }}>
+              {amountMode === 'discount'
+                ? 'يُخصم من فاتورة الدورة الحالية لهذا الطالب فقط.'
+                : amountMode === 'sessions'
+                  ? 'تُحسب الفاتورة بسعر الحصة في المقرر × هذا العدد، لهذا الطالب فقط.'
+                  : 'تصبح فاتورة الدورة لهذا الطالب بهذا المبلغ.'}
+              {' تبقى الفاتورة القديمة في السجل، ولا يقلّ المبلغ عمّا حصّلته منه بالفعل.'}
             </Text>
-            <TextInput
-              value={amountText}
-              onChangeText={setAmountText}
-              keyboardType="numeric"
-              placeholder="المبلغ بالجنيه"
-              placeholderTextColor={colors.textTertiary}
-              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 48, fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary, textAlign: 'right' }}
-            />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: spacing.md, marginBottom: 4 }}>
-              عن كم حصة؟ (اختياري)
-            </Text>
-            <TextInput
-              value={amountSessions}
-              onChangeText={setAmountSessions}
-              keyboardType="number-pad"
-              placeholder="مثال: 2"
-              placeholderTextColor={colors.textTertiary}
-              style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 48, fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary, textAlign: 'right' }}
-            />
             <TouchableOpacity
               onPress={submitAmount}
-              disabled={amountBusy || amountText.trim() === ''}
+              disabled={amountBusy || (amountMode === 'sessions' ? amountSessions.trim() === '' : amountText.trim() === '')}
               accessibilityRole="button"
-              style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: amountText.trim() === '' ? colors.border : colors.brand, justifyContent: 'center', alignItems: 'center' }}
+              style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: (amountMode === 'sessions' ? amountSessions.trim() === '' : amountText.trim() === '') ? colors.border : colors.brand, justifyContent: 'center', alignItems: 'center' }}
             >
               {amountBusy ? <ActivityIndicator color="#fff" /> : (
-                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>حفظ المبلغ</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>حفظ التصحيح</Text>
               )}
             </TouchableOpacity>
       </SheetModal>
