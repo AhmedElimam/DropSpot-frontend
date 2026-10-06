@@ -32,10 +32,12 @@ interface TourState {
   measureTick: number;
   tour: TourDef | null;
   step: number;
+  /** The first tour, the server's call: it cannot be skipped. A replay can. */
+  mandatory: boolean;
   register: (id: string, rect: TargetRect) => void;
   unregister: (id: string) => void;
   remeasure: () => void;
-  start: (tour: TourDef) => void;
+  start: (tour: TourDef, opts?: { mandatory?: boolean }) => void;
   goTo: (step: number) => void;
   stop: () => void;
 }
@@ -48,6 +50,7 @@ export const useTourStore = create<TourState>((set, get) => ({
   measureTick: 0,
   tour: null,
   step: 0,
+  mandatory: false,
   register: (id, rect) => {
     if (same(get().targets[id], rect)) return;
     set((s) => ({ targets: { ...s.targets, [id]: rect } }));
@@ -58,9 +61,9 @@ export const useTourStore = create<TourState>((set, get) => ({
     return { targets: rest };
   }),
   remeasure: () => set((s) => ({ measureTick: s.measureTick + 1 })),
-  start: (tour) => set({ tour, step: 0 }),
+  start: (tour, opts) => set({ tour, step: 0, mandatory: !!opts?.mandatory }),
   goTo: (step) => set({ step }),
-  stop: () => set({ tour: null, step: 0 }),
+  stop: () => set({ tour: null, step: 0, mandatory: false }),
 }));
 
 /**

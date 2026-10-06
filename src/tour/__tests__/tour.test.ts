@@ -1,5 +1,5 @@
 import ar from '../../i18n/ar.json';
-import { nextShowable } from '../store';
+import { nextShowable, useTourStore } from '../store';
 import { holeFor, placeCard, onScreen } from '../geometry';
 import { TEACHER_TOUR, PARENT_TOUR, STUDENT_TOUR, tourForRole } from '../tours';
 
@@ -38,6 +38,18 @@ describe('tour scripts', () => {
     expect(tourForRole('student')).toBe(STUDENT_TOUR);
     expect(tourForRole('super_admin')).toBeNull();
     expect(tourForRole(null)).toBeNull();
+  });
+});
+
+describe('store', () => {
+  it('starts mandatory only when asked, and forgets it on stop', () => {
+    useTourStore.getState().start(TEACHER_TOUR, { mandatory: true });
+    expect(useTourStore.getState().mandatory).toBe(true);
+    useTourStore.getState().stop();
+    expect(useTourStore.getState().mandatory).toBe(false);
+    useTourStore.getState().start(TEACHER_TOUR);
+    expect(useTourStore.getState().mandatory).toBe(false);
+    useTourStore.getState().stop();
   });
 });
 
