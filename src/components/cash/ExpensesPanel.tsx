@@ -6,13 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
-import { formatShortDate, formatDate, formatDateTime, formatNumber } from '@/utils/format';
+import { formatShortDate, formatDate, formatDateTime, formatNumber, relativeDay } from '@/utils/format';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SheetModal } from '@/components/ui/SheetModal';
-import { RoseStamp } from '@/components/rose/RoseStamp';
+import { RoseStamp, RosePortrait } from '@/components/rose/RoseStamp';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useRose } from '@/hooks/useRose';
@@ -41,72 +41,99 @@ const REVIEW_TINT = (): Record<string, string> => ({ pending: colors.textTertiar
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
 
-const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, perVenue, canAssign, onDelete, onAssign }: { e: Expense; showLogger: boolean; canDelete: boolean; perVenue: boolean; canAssign: boolean; onDelete: (e: Expense) => void; onAssign: (e: Expense) => void }) {
-  const { t } = useTranslation();
-  const venueLabel = !perVenue ? null : e.venue_kind === 'venue' ? e.venue?.name : e.venue_kind === 'general' ? t('expenses.general') : t('expenses.unassigned');
+/** Each category has its own picture and colour, so a glance tells coffee from rent. */
+const CAT = (): Record<string, { glyph: string; tint: string }> => ({
+  coffee: { glyph: '☕', tint: colors.warning },
+  breakfast: { glyph: '🥪', tint: colors.accent },
+  bills: { glyph: '🧾', tint: colors.info },
+  transport: { glyph: '🚕', tint: colors.warningDark },
+  supplies: { glyph: '✏️', tint: colors.brand },
+  printing: { glyph: '🖨️', tint: colors.brand },
+  rent: { glyph: '🏠', tint: colors.success },
+  other: { glyph: '📦', tint: colors.textTertiary },
+});
+const catOf = (key: string) => CAT()[key] ?? CAT().other;
+
+/** A small rounded tag under a row: state, conversation, place. */
+function Tag({ icon, text, tint, onPress }: { icon?: 'tickets' | 'location' | 'warning' | 'clock'; text: string; tint: string; onPress?: () => void }) {
   return (
-    <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: e.is_late ? colors.warning : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+    <TouchableOpacity disabled={!onPress} onPress={onPress} activeOpacity={0.8} hitSlop={4}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.full, backgroundColor: tint + '1A' }}>
+      {icon ? <Icon name={icon} size={12} color={tint} /> : null}
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: tint }} numberOfLines={1}>{text}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/**
+ * One expense, one clear line (founder 2026-10-07: «the positioning of texts is messy and
+ * confusing»): the category's picture · what it was (category, then the note) · the amount
+ * on the far side. Who logged it and «late» sit small under the name; the review state, the
+ * conversation, the place and delete live on a tag line underneath — only when there is one.
+ */
+const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, perVenue, canAssign, onDelete, onAssign, first }: { e: Expense; showLogger: boolean; canDelete: boolean; perVenue: boolean; canAssign: boolean; onDelete: (e: Expense) => void; onAssign: (e: Expense) => void; first: boolean }) {
+  const { t } = useTranslation();
+  const cat = catOf(String(e.category));
+  const venueLabel = !perVenue ? null : e.venue_kind === 'venue' ? e.venue?.name : e.venue_kind === 'general' ? t('expenses.general') : t('expenses.unassigned');
+  const meta = [
+    showLogger && !e.logged_by.is_me ? t('expenses.logged_by', { name: e.logged_by.name }) : null,
+    e.is_late && e.logged_at ? t('expenses.logged_on', { when: formatDateTime(e.logged_at) }) : null,
+  ].filter(Boolean).join(' · ');
+  const state = e.review_status && e.review_status !== 'accepted' ? e.review_status : null;
+  const hasTags = !!state || e.messages_count > 0 || e.review_status === 'questioned' || !!venueLabel || canDelete || e.is_late;
+
+  return (
+    <View style={{ paddingVertical: spacing.md, borderTopWidth: first ? 0 : 1, borderTopColor: colors.borderLight }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brand + '18', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="money" size={20} color={colors.brand} />
+        <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: cat.tint + '1F', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 20 }}>{cat.glyph}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{money(e.amount)} {t('insights.egp')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>· {e.category_label}</Text>
-            {e.is_late ? (
-              <View style={{ backgroundColor: colors.warning + '22', borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.warningDark }}>{t('expenses.late')}</Text>
-              </View>
-            ) : null}
-          </View>
-          {e.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }} numberOfLines={2}>{e.note}</Text> : null}
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
-            {e.is_late
-              ? `${t('expenses.late_marker', { date: formatDate(e.expense_date, { day: 'numeric', month: 'long' }) })}${e.logged_at ? ` · ${formatDateTime(e.logged_at)}` : ''}`
-              : formatShortDate(e.expense_date)}
-            {showLogger && !e.logged_by.is_me ? ` · ${t('expenses.logged_by', { name: e.logged_by.name })}` : ''}
-          </Text>
-          {/* Weekly review state — the assistant sees their own; the teacher reviews from «مراجعة الأسبوع». */}
-          {e.review_status && e.review_status !== 'accepted' ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-              <View style={{ backgroundColor: REVIEW_TINT()[e.review_status] + '22', borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: REVIEW_TINT()[e.review_status] }}>{t(`review.state_${e.review_status}`)}</Text>
-              </View>
-              {e.review_status === 'rejected' && e.reject_reason_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger }}>{e.reject_reason_label}{e.reject_note ? ` — ${e.reject_note}` : ''}</Text> : null}
-            </View>
-          ) : null}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{e.category_label}</Text>
+          {e.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.textSecondary, marginTop: 1 }} numberOfLines={2}>{e.note}</Text> : null}
+          {meta ? <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 2 }} numberOfLines={1}>{meta}</Text> : null}
+        </View>
+        {/* The amount, always on the far side, the same place in every row. */}
+        <View style={{ alignItems: 'flex-end', minWidth: 64 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{money(e.amount)}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t('insights.egp')}</Text>
+        </View>
+        {/* Accepted in the weekly review: in her book. */}
+        {e.review_status === 'accepted' ? <RoseStamp ink="navy" size={34} /> : null}
+      </View>
+
+      {hasTags ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm, paddingStart: 42 + spacing.md }}>
+          {e.is_late ? <Tag icon="clock" text={t('expenses.late')} tint={colors.warningDark} /> : null}
+          {state ? <Tag text={t(`review.state_${state}`)} tint={REVIEW_TINT()[state]} /> : null}
           {e.messages_count > 0 || e.review_status === 'questioned' ? (
-            <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/expense-thread', params: { id: String(e.id) } } as Href)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, alignSelf: 'flex-start' }}>
-              <Icon name="tickets" size={13} color={colors.brand} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('review.thread', { count: e.messages_count })}</Text>
-            </TouchableOpacity>
+            <Tag icon="tickets" text={t('review.thread', { count: e.messages_count })} tint={colors.brand}
+              onPress={() => router.push({ pathname: '/(teacher)/expense-thread', params: { id: String(e.id) } } as Href)} />
           ) : null}
           {venueLabel ? (
-            <TouchableOpacity disabled={!canAssign} onPress={() => onAssign(e)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, alignSelf: 'flex-start' }}>
-              <Icon name="location" size={13} color={e.venue_kind === 'unassigned' ? colors.warningDark : colors.textTertiary} />
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: e.venue_kind === 'unassigned' ? colors.warningDark : colors.textTertiary }}>{venueLabel}{canAssign ? ` · ${t('expenses.assign_venue')}` : ''}</Text>
+            <Tag icon="location" text={`${venueLabel}${canAssign ? ` · ${t('expenses.assign_venue')}` : ''}`} tint={e.venue_kind === 'unassigned' ? colors.warningDark : colors.textSecondary}
+              onPress={canAssign ? () => onAssign(e) : undefined} />
+          ) : null}
+          {canDelete ? (
+            <TouchableOpacity onPress={() => onDelete(e)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('expenses.delete')}
+              style={{ marginStart: 'auto', width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSunken }}>
+              <Icon name="trash" size={15} color={colors.textTertiary} />
             </TouchableOpacity>
           ) : null}
         </View>
-        {/* Accepted in the weekly review: in her book. */}
-        {e.review_status === 'accepted' ? <RoseStamp ink="navy" size={30} /> : null}
-        {canDelete ? (
-          <TouchableOpacity onPress={() => onDelete(e)} hitSlop={8} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="trash" size={18} color={colors.textTertiary} />
-          </TouchableOpacity>
-        ) : null}
-      </View>
+      ) : null}
+      {state === 'rejected' && e.reject_reason_label ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger, marginTop: 4, paddingStart: 42 + spacing.md }}>{e.reject_reason_label}{e.reject_note ? ` — ${e.reject_note}` : ''}</Text>
+      ) : null}
     </View>
   );
 });
 
-function Chip({ on, label, onPress, tone = 'brand' }: { on: boolean; label: string; onPress: () => void; tone?: 'brand' | 'success' }) {
-  const tint = tone === 'success' ? colors.success : colors.brand;
+function Chip({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ selected: on }}
-      style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? tint : colors.border, backgroundColor: on ? tint + '18' : colors.surface }}>
-      <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? (tone === 'success' ? colors.successDark : colors.brand) : colors.textPrimary }}>{label}</Text>
+      style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface }}>
+      <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -259,73 +286,106 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
   const items = data?.items ?? [];
   const egp = t('insights.egp');
 
+  // The week's entries by day, newest day first — each day a heading with its own total.
+  const days = useMemo(() => {
+    const m = new Map<string, Expense[]>();
+    for (const e of items) {
+      const k = e.expense_date.slice(0, 10);
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(e);
+    }
+    return [...m.entries()].sort((x, y) => (x[0] < y[0] ? 1 : -1)).map(([day, rows]) => ({ day, rows, total: rows.reduce((n, e) => n + e.amount, 0) }));
+  }, [items]);
+  const dayTitle = (day: string) => relativeDay(`${day}T12:00:00`) ?? formatDate(`${day}T12:00:00`, { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const arrow = (icon: 'forward' | 'back', onPress: () => void, disabled: boolean, label: string) => (
+    <TouchableOpacity onPress={onPress} disabled={disabled} hitSlop={8} accessibilityRole="button" accessibilityLabel={label}
+      style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : 1 }}>
+      <Icon name={icon} size={18} color={colors.brand} />
+    </TouchableOpacity>
+  );
+
   const content = (
     <>
-        {trace ? (
-          <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('expenses.trace_title')}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{formatShortDate(trace.from)} – {formatShortDate(trace.to)}{trace.category ? ` · ${data?.categories.find((c) => c.key === trace.category)?.label ?? ''}` : ''}</Text>
+        {/* The summary: which week, its total, and the one button. */}
+        <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
+          {trace ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('expenses.trace_title')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{formatShortDate(trace.from)} – {formatShortDate(trace.to)}{trace.category ? ` · ${data?.categories.find((c) => c.key === trace.category)?.label ?? ''}` : ''}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setTrace(null)} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: colors.brand }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('expenses.trace_clear')}</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => setTrace(null)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.full, borderWidth: 1, borderColor: colors.brand }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('expenses.trace_clear')}</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-        {/* Week switcher: Friday → Thursday. */}
-        {!trace ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
-          <TouchableOpacity onPress={() => setWeekDay((d) => new Date(d.getTime() - 7 * DAY_MS))} hitSlop={8} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="forward" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
-            {isCurrentWeek ? t('expenses.this_week') : data ? t('expenses.week_label', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : ''}
+          ) : (
+            // RTL: the previous week is on the right («forward» ›), the next on the left.
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              {arrow('forward', () => setWeekDay((d) => new Date(d.getTime() - 7 * DAY_MS)), false, t('expenses.prev_week'))}
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{isCurrentWeek ? t('expenses.this_week') : t('expenses.past_week')}</Text>
+                {data ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 1 }}>{t('expenses.week_label', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) })}</Text> : null}
+              </View>
+              {arrow('back', () => setWeekDay((d) => new Date(d.getTime() + 7 * DAY_MS)), isCurrentWeek, t('expenses.next_week'))}
+            </View>
+          )}
+
+          <View style={{ height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.md }} />
+
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'center' }}>{t('expenses.total_label')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 30, color: colors.textPrimary, textAlign: 'center', marginTop: 2 }}>
+            {money(data?.total ?? 0)}<Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary }}> {egp}</Text>
           </Text>
-          <TouchableOpacity disabled={isCurrentWeek} onPress={() => setWeekDay((d) => new Date(d.getTime() + 7 * DAY_MS))} hitSlop={8} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', opacity: isCurrentWeek ? 0.3 : 1 }}>
-            <Icon name="back" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
-        ) : null}
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, textAlign: 'center', marginTop: 2 }}>
+            {data?.own_only ? t('expenses.own_only_hint') : t('expenses.count', { count: formatNumber(items.length) })}
+          </Text>
 
-        {!enabled ? (
-          <View style={{ backgroundColor: colors.warning + '14', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.warning, padding: spacing.lg, marginBottom: spacing.lg }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('expenses.disabled_title')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('expenses.disabled_hint')}</Text>
-          </View>
-        ) : null}
-
-        {/* The week in one number, and the one button. The form is a sheet (see below). */}
-        <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md, ...shadows.sm }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{trace ? t('expenses.trace_title') : t('expenses.week_total')}</Text>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary, marginTop: 2 }}>{money(data?.total ?? 0)} <Text style={{ fontSize: 14, color: colors.textSecondary }}>{egp}</Text></Text>
-            {data?.own_only ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 2 }}>{t('expenses.own_only_hint')}</Text> : null}
-          </View>
-          {enabled ? (
+          {!enabled ? (
+            <View style={{ backgroundColor: colors.warning + '14', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.warning, padding: spacing.md, marginTop: spacing.md }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, textAlign: 'center' }}>{t('expenses.disabled_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2, textAlign: 'center' }}>{t('expenses.disabled_hint')}</Text>
+            </View>
+          ) : (
             <TouchableOpacity onPress={() => openComposer()} activeOpacity={0.85} accessibilityRole="button"
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brand }}>
-              <Icon name="add" size={18} color="#fff" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('expenses.compose')}</Text>
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 48, borderRadius: radius.lg, backgroundColor: colors.brand, marginTop: spacing.md }}>
+              <Icon name="add" size={19} color="#fff" />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('expenses.compose')}</Text>
             </TouchableOpacity>
-          ) : null}
+          )}
         </View>
 
-        {/* Quick add — what this person logs often. One tap prefills the sheet. */}
+        {/* Quick add — what this person logs often; one tap opens the sheet filled in. */}
         {enabled && (data?.quick_add.length ?? 0) > 0 ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
-            {(data?.quick_add ?? []).map((q) => (
-              <Chip key={`${q.category}:${q.amount}`} on tone="success" label={`${q.note ?? q.label} · ${money(q.amount)}`} onPress={() => openComposer({ amount: q.amount, category: q.category, note: q.note })} />
-            ))}
+          <View style={{ marginBottom: spacing.lg }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('expenses.quick_add_title')}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              {(data?.quick_add ?? []).map((q) => (
+                <TouchableOpacity key={`${q.category}:${q.amount}`} activeOpacity={0.85} accessibilityRole="button"
+                  onPress={() => openComposer({ amount: q.amount, category: q.category, note: q.note })}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingStart: 8, paddingEnd: 12, paddingVertical: 6, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+                  <Text style={{ fontSize: 16 }}>{catOf(q.category).glyph}</Text>
+                  <View>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{q.note ?? q.label}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary }}>{money(q.amount)} {egp}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         ) : null}
 
+        {/* What she remembers is due — her suggestion, the person's tap. */}
         {(data?.recurring.length ?? 0) > 0 && enabled ? (
-          <View style={{ backgroundColor: colors.brand + '10', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand + '44', padding: spacing.md, marginBottom: spacing.md }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.xs }}>{t('expenses.recurring_title', { rose: rose.name })}</Text>
-            {(data?.recurring ?? []).map((r) => (
-              <View key={r.key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs }}>
+          <View style={{ backgroundColor: colors.brand + '0F', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand + '33', padding: spacing.md, marginBottom: spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs }}>
+              {rose.named ? <RosePortrait size={30} nod={false} /> : <Icon name="note" size={16} color={colors.brand} />}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }}>{t('expenses.recurring_title', { rose: rose.name })}</Text>
+            </View>
+            {(data?.recurring ?? []).map((r, i) => (
+              <View key={r.key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingTop: spacing.sm, marginTop: i === 0 ? 0 : spacing.sm, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.brand + '22' }}>
                 <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, lineHeight: 22 }}>{r.text}</Text>
-                <TouchableOpacity onPress={() => confirmRecurring(r)} disabled={logRecurring.isPending} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.full, backgroundColor: colors.brand }}>
+                <TouchableOpacity onPress={() => confirmRecurring(r)} disabled={logRecurring.isPending} style={{ paddingHorizontal: 14, height: 36, justifyContent: 'center', borderRadius: radius.full, backgroundColor: colors.brand }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('expenses.recurring_log')}</Text>
                 </TouchableOpacity>
               </View>
@@ -334,18 +394,30 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
         ) : null}
 
         {perVenue && (data?.unassigned_count ?? 0) > 0 ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.sm }}>{t('expenses.unassigned_hint', { count: data?.unassigned_count })}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.warning + '14', borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.lg }}>
+            <Icon name="location" size={16} color={colors.warningDark} />
+            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.warningDark }}>{t('expenses.unassigned_hint', { count: data?.unassigned_count })}</Text>
+          </View>
         ) : null}
 
-        {/* The week's entries — the page. */}
-        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{trace ? t('expenses.trace_title') : t('expenses.list_title')}</Text>
+        {/* The entries, by day. */}
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : items.length === 0 ? (
           <EmptyState icon="money" title={t('expenses.none')} message={t('expenses.none_hint', { rose: rose.name })} />
         ) : (
-          items.map((e) => (
-            <ExpenseRow key={e.id} e={e} showLogger={!isAssistant} canDelete={e.logged_by.is_me && !e.locked && (!isAssistant || e.review_status === 'pending')} perVenue={perVenue} canAssign={!isAssistant} onDelete={confirmDelete} onAssign={pickVenue} />
+          days.map(({ day, rows, total }) => (
+            <View key={day} style={{ marginBottom: spacing.lg }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm, paddingHorizontal: spacing.xs }}>
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{dayTitle(day)}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{money(total)} {egp}</Text>
+              </View>
+              <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, ...shadows.sm }}>
+                {rows.map((e, i) => (
+                  <ExpenseRow key={e.id} e={e} first={i === 0} showLogger={!isAssistant} canDelete={e.logged_by.is_me && !e.locked && (!isAssistant || e.review_status === 'pending')} perVenue={perVenue} canAssign={!isAssistant} onDelete={confirmDelete} onAssign={pickVenue} />
+                ))}
+              </View>
+            </View>
           ))
         )}
     </>
@@ -374,7 +446,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
           {(data?.categories ?? []).map((c) => {
             const on = c.key === category;
-            return <Chip key={c.key} on={on} onPress={() => { categoryTouched.current = true; setCategory(c.key); }} label={`${c.label}${suggested === c.key && on && !categoryTouched.current ? ` · ${t('expenses.category_suggested', { rose: rose.name })}` : ''}`} />;
+            return <Chip key={c.key} on={on} onPress={() => { categoryTouched.current = true; setCategory(c.key); }} label={`${catOf(c.key).glyph} ${c.label}${suggested === c.key && on && !categoryTouched.current ? ` · ${t('expenses.category_suggested', { rose: rose.name })}` : ''}`} />;
           })}
         </View>
         {perVenue ? (

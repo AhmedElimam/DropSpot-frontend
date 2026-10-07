@@ -2102,7 +2102,13 @@
     "quick_add_title": "تسجيل سريع",
     "category_suggested": "اقتراح {{rose}}",
     "compose": "سجّل مصروف",
-    "list_title": "مصاريف الأسبوع"
+    "list_title": "مصاريف الأسبوع",
+    "total_label": "إجمالي مصاريف الأسبوع",
+    "count": "عدد المصاريف: {{count}}",
+    "past_week": "أسبوع سابق",
+    "prev_week": "الأسبوع السابق",
+    "next_week": "الأسبوع التالي",
+    "logged_on": "اتسجّل {{when}}"
   },
   "cash": {
     "title_short": "مدام روز",
