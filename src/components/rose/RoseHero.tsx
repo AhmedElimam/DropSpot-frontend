@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/Icon';
 import { formatNumber } from '@/utils/format';
 import { useRose } from '@/hooks/useRose';
 import { RoseLive } from './RoseLive';
+import type { RoseActivity } from './RoseProps';
 import type { RoseSheet } from '@/api/cash';
 import { ExportPill } from './RoseExport';
 
@@ -31,12 +32,14 @@ const CHIP_BORDER = 'rgba(255,255,255,0.22)';
 const PORTRAIT = 148;
 
 export function RoseHero({
-  greeting, sub, sheet, onBack, onSettings, onExportAll, exportingAll = false, onExportSheet, exportingSheet = false, children,
+  greeting, sub, sheet, activity = 'cash', onBack, onSettings, onExportAll, exportingAll = false, onExportSheet, exportingSheet = false, children,
 }: {
   greeting: string;
   sub: string;
   /** «ورقة النهارده»; null / nothing to say = no sheet block. */
   sheet: RoseSheet | null;
+  /** The tab on screen — what she holds (her ledger, a sheet, the stamp). */
+  activity?: RoseActivity;
   onBack: () => void;
   onSettings?: () => void;
   /** «تصدير PDF» of her whole desk (the top bar) and of today's sheet (under it). */
@@ -85,7 +88,7 @@ export function RoseHero({
         <View style={{ alignItems: 'center', marginTop: -spacing.lg }}>
           {/* No halo behind her (founder 2026-10-07): the frame sits straight on the navy. */}
           <Animated.View style={floatStyle}>
-            <RoseLive size={PORTRAIT} talking={talking} />
+            <RoseLive size={PORTRAIT} talking={talking} activity={activity} />
           </Animated.View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: ON, marginTop: spacing.xs }}>{rose.name}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: ON_SOFT }}>{t('cash.screen_title')}</Text>

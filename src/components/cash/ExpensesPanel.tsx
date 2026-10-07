@@ -412,12 +412,10 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
         ) : items.length === 0 ? (
           <EmptyState icon="money" title={t('expenses.none')} message={t('expenses.none_hint', { rose: rose.name })} />
         ) : (
-          days.map(({ day, rows, total }) => (
+          days.map(({ day, rows }) => (
             <View key={day} style={{ marginBottom: spacing.lg }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm, paddingHorizontal: spacing.xs }}>
-                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{dayTitle(day)}</Text>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{money(total)} {egp}</Text>
-              </View>
+              {/* The day only, on the left (founder 2026-10-08: the day's total beside it repeated the rows' own amounts). */}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'left', marginBottom: spacing.sm, paddingHorizontal: spacing.xs }}>{dayTitle(day)}</Text>
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, ...shadows.sm }}>
                 {rows.map((e, i) => (
                   <ExpenseRow key={e.id} e={e} first={i === 0} showLogger={!isAssistant} canDelete={e.logged_by.is_me && !e.locked && (!isAssistant || e.review_status === 'pending')} perVenue={perVenue} canAssign={!isAssistant} onDelete={confirmDelete} onAssign={pickVenue} />
