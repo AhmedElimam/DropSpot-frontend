@@ -179,7 +179,8 @@ export default function TeacherHome() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero, textAlign: 'center' }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{formatDayDate(new Date(now))}</Text>
           <TeacherSwitcher />
-          <TourTarget id="home:stats"><View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+          {/* The gap sits OUTSIDE the measured box, so the hole stops at the tiles and leaves the date line alone. */}
+          <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>
             {[
               { k: 'sessions', v: formatNumber(sessions.length), l: t('home.stat_sessions') },
               { k: 'present', v: rosterToday > 0 ? `${formatNumber(presentToday)}/${formatNumber(rosterToday)}` : formatNumber(presentToday), l: t('home.stat_present') },

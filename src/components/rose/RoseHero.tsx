@@ -8,13 +8,13 @@ import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { formatNumber } from '@/utils/format';
 import { useRose } from '@/hooks/useRose';
-import { RosePortrait } from './RoseStamp';
+import { RoseLive } from './RoseLive';
 
 /**
  * The top of مدام روز's desk, as in her story videos (founder 2026-10-07: «her frame
  * character takes the upper section and looks bigger, like the video»): deep navy in both
  * schemes, her framed portrait large and centred — the Dros Spot crown on its rim — breathing
- * gently, her name under it, and a speech bubble pointing up at her with what she says now:
+ * gently and alive (RoseLive: eyes, blinks, lips, hoops, reactions), her name under it, and a speech bubble pointing up at her with what she says now:
  * the greeting (typed out, as in the video), the week or the season, and «ورقة النهارده».
  *
  * A teacher who switched her name off gets the same navy band with the bubble only — no
@@ -24,9 +24,9 @@ const ON = '#FFFFFF';
 const ON_SOFT = 'rgba(255,255,255,0.72)';
 const CHIP = 'rgba(255,255,255,0.12)';
 const CHIP_BORDER = 'rgba(255,255,255,0.22)';
-const GOLD_GLOW = 'rgba(232,190,104,0.16)';
 
-const PORTRAIT = 172;
+// A little smaller than the first cut (founder 2026-10-07), still the band's centre.
+const PORTRAIT = 148;
 
 export function RoseHero({
   greeting, sub, sheet, onBack, onSettings, children,
@@ -44,6 +44,7 @@ export function RoseHero({
   const rose = useRose();
   const [open, setOpen] = useState(false);
   const typed = useTyped(greeting);
+  const talking = typed.length < greeting.length;
 
   // A slow breath: she floats a few points up and back, forever, so the desk feels occupied.
   const float = useSharedValue(0);
@@ -71,10 +72,9 @@ export function RoseHero({
 
       {rose.named ? (
         <View style={{ alignItems: 'center', marginTop: -spacing.lg }}>
-          {/* The glow behind the frame, as on the video's navy. */}
-          <View style={{ position: 'absolute', top: 6, width: PORTRAIT + 36, height: PORTRAIT + 36, borderRadius: (PORTRAIT + 36) / 2, backgroundColor: GOLD_GLOW }} />
+          {/* No halo behind her (founder 2026-10-07): the frame sits straight on the navy. */}
           <Animated.View style={floatStyle}>
-            <RosePortrait size={PORTRAIT} large />
+            <RoseLive size={PORTRAIT} talking={talking} />
           </Animated.View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: ON, marginTop: spacing.xs }}>{rose.name}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: ON_SOFT }}>{t('cash.screen_title')}</Text>

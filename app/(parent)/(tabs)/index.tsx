@@ -96,7 +96,7 @@ export default function ParentHome() {
           </Text>
 
           {kids.length > 0 ? (
-            <TourTarget id="home:stats"><View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.sm }}>
+            <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>
               {[
                 { k: 'kids', v: formatNumber(kids.length), l: t('home.children_section') },
                 { k: 'well', v: formatNumber(well), l: t('home.standing_good'), good: true },

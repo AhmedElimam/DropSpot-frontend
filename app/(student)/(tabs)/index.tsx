@@ -105,7 +105,7 @@ export default function StudentDashboard() {
             {formatDate(new Date())}
           </Text>
 
-          <TourTarget id="home:stats"><View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.sm }}>
+          <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>
             {[
               { k: 'today', v: formatNumber(list.length), l: t('session.today_sessions') },
               { k: 'upcoming', v: formatNumber(list.filter((s) => s.status === 'scheduled').length), l: t('session.upcoming_sessions') },

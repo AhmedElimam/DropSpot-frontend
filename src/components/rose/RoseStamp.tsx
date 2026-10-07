@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows, spacing } from '@/theme/index';
 import { useRose } from '@/hooks/useRose';
+import { reactRose } from './RoseLive';
 
 /**
  * مدام روز's marks in the app (founder 2026-10-07: «put her stamps on operations as we're
@@ -116,6 +117,8 @@ export function useStampBurst(): { burst: (ink: StampInk, text: string) => boole
   const burst = useCallback((ink: StampInk, text: string) => {
     if (!rose.named) return false;
     setB({ ink, text, key: Date.now() });
+    // She reacts to her own stamp landing, wherever her live portrait is on screen.
+    reactRose();
     return true;
   }, [rose.named]);
   const done = useCallback(() => setB(null), []);
