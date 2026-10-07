@@ -87,8 +87,12 @@ export function RoseHero({
       <View style={{ marginTop: spacing.md }}>
         <View style={{ alignSelf: 'center', width: 0, height: 0, borderLeftWidth: 11, borderRightWidth: 11, borderBottomWidth: 11, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: colors.surface }} />
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, ...shadows.md }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.brand, minHeight: 28 }}>{typed}</Text>
-          {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{sub}</Text> : null}
+          {/* Centred (founder 2026-10-07). The untyped rest is drawn transparent, so the line
+              keeps its full width while it types and the centred text never shifts. */}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.brand, minHeight: 28, textAlign: 'center' }}>
+            {typed}<Text style={{ color: 'transparent' }}>{greeting.slice(typed.length)}</Text>
+          </Text>
+          {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2, textAlign: 'center' }}>{sub}</Text> : null}
           {/* «ورقة النهارده»: the day as she wrote it. Three lines by default; the rest on a tap. */}
           {sheet.length > 0 ? (
             <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>

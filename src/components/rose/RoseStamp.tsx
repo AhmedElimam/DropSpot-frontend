@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows, spacing } from '@/theme/index';
 import { useRose } from '@/hooks/useRose';
+import { useThemeStore } from '@/stores/themeStore';
 import { reactRose } from './RoseLive';
 
 /**
@@ -32,6 +33,11 @@ export const ROSE_PORTRAIT_LARGE = require('../../../assets/images/rose/madam-ro
 /** Her crest's shield — her LOGO at small sizes (≤ 56 pt): her notifications, her notes. */
 export const ROSE_SHIELD = require('../../../assets/images/rose/rose-shield-128.webp');
 
+// By night the navy ink sat on navy cards and vanished (founder 2026-10-07). The stamp is ONE
+// ink with alpha, so expo-image's tintColor re-inks it whole: a pale moonlit blue for the cash
+// book, a brighter red for the complaints book. By day the original inks stay untouched.
+const NIGHT_INK: Record<StampInk, string> = { navy: '#B9C4F4', red: '#F2647A' };
+
 const LAND = { damping: 11, stiffness: 190, mass: 0.8 };
 const NOD = { damping: 9, stiffness: 150, mass: 0.9 };
 
@@ -44,6 +50,7 @@ export function RoseStamp({ ink = 'navy', size = 48, animate = false, tilt = -8,
   style?: StyleProp<ViewStyle>;
 }) {
   const rose = useRose();
+  const night = useThemeStore((st) => st.scheme) === 'dark';
   const scale = useSharedValue(animate ? 1.9 : 1);
   const opacity = useSharedValue(animate ? 0 : 0.92);
   useEffect(() => {
@@ -57,7 +64,7 @@ export function RoseStamp({ ink = 'navy', size = 48, animate = false, tilt = -8,
   if (!rose.named) return null;
   return (
     <Animated.View style={[{ width: size, height: size }, st, style]} pointerEvents="none" accessibilityRole="image" accessibilityLabel={`ختم ${rose.name}`}>
-      <Image source={STAMP[ink]} style={StyleSheet.absoluteFill} contentFit="contain" />
+      <Image source={STAMP[ink]} style={StyleSheet.absoluteFill} contentFit="contain" tintColor={night ? NIGHT_INK[ink] : undefined} />
     </Animated.View>
   );
 }
