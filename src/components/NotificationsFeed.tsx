@@ -18,6 +18,18 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SwipeRow } from '@/components/ui/SwipeRow';
 import { timeAgo, formatNumber } from '@/utils/format';
 import { notificationCategory, type NotificationCategory } from '@/utils/notificationCategory';
+import { RoseShield } from '@/components/rose/RoseStamp';
+import { useRose } from '@/hooks/useRose';
+
+/**
+ * Hers: every message the server sends in مدام روز's voice carries `data.rose` (cash prompts,
+ * nudges, the 11 am sheet, expense reminders, observations, complaints routed through her);
+ * the types below are hers whatever their payload. Such a row wears her LOGO — the crest's
+ * shield — instead of a type icon (founder 2026-10-07).
+ */
+const ROSE_TYPES: ReadonlySet<string> = new Set(['rose_briefing', 'cash_insight', 'expense_reminder', 'cash_reconciliation']);
+export const isRoseNotification = (n: Pick<Notification, 'type' | 'data'>): boolean =>
+  ROSE_TYPES.has(n.type) || (n.data != null && typeof n.data === 'object' && 'rose' in n.data && n.data.rose != null);
 
 /** Icon + tint by type, so a glance tells money from attendance from مدام روز. */
 const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
@@ -126,8 +138,11 @@ const FeedRow = memo(function FeedRow({
   onToggleRead: (n: Notification) => void;
 }) {
   const { t } = useTranslation();
+  const rose = useRose();
   const look = LOOK()[n.type] ?? { icon: 'bell' as IconName, tint: colors.brand };
   const unread = !n.is_read;
+  // Her logo only while her name is on: a teacher who switched it off reads «مديرة الحسابات» with the plain icon.
+  const hers = rose.named && isRoseNotification(n);
   return (
     <SwipeRow
       style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm }}
@@ -146,9 +161,15 @@ const FeedRow = memo(function FeedRow({
           padding: spacing.lg,
         }}
       >
-        <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: unread ? look.tint : look.tint + '1A', justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name={look.icon} size={22} color={unread ? '#fff' : look.tint} />
-        </View>
+        {hers ? (
+          <View style={{ width: 44, height: 48, justifyContent: 'center', alignItems: 'center' }}>
+            <RoseShield size={46} />
+          </View>
+        ) : (
+          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: unread ? look.tint : look.tint + '1A', justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name={look.icon} size={22} color={unread ? '#fff' : look.tint} />
+          </View>
+        )}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={{ flex: 1, fontFamily: unread ? fonts.bold : fonts.medium, fontSize: 15, color: unread ? colors.textPrimary : colors.textSecondary }} numberOfLines={2}>{n.title}</Text>

@@ -26,6 +26,10 @@ const STAMP: Record<StampInk, number> = {
   red: require('../../../assets/images/rose/rose-stamp-red.webp'),
 };
 export const ROSE_PORTRAIT = require('../../../assets/images/rose/madam-rose.webp');
+/** 600 px — for the large frame on her desk (the 300 px one blurs above ~100 pt on a 3× screen). */
+export const ROSE_PORTRAIT_LARGE = require('../../../assets/images/rose/madam-rose-600.webp');
+/** Her crest's shield — her LOGO at small sizes (≤ 56 pt): her notifications, her notes. */
+export const ROSE_SHIELD = require('../../../assets/images/rose/rose-shield-128.webp');
 
 const LAND = { damping: 11, stiffness: 190, mass: 0.8 };
 const NOD = { damping: 9, stiffness: 150, mass: 0.9 };
@@ -58,7 +62,7 @@ export function RoseStamp({ ink = 'navy', size = 48, animate = false, tilt = -8,
 }
 
 /** Her portrait, with the small nod she gives when a screen opens (the tour's own motion). */
-export function RosePortrait({ size = 64, nod = true, style }: { size?: number; nod?: boolean; style?: StyleProp<ViewStyle> }) {
+export function RosePortrait({ size = 64, nod = true, large = false, style }: { size?: number; nod?: boolean; large?: boolean; style?: StyleProp<ViewStyle> }) {
   const rose = useRose();
   const s = useSharedValue(nod ? 0.84 : 1);
   useEffect(() => {
@@ -67,9 +71,15 @@ export function RosePortrait({ size = 64, nod = true, style }: { size?: number; 
   const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }, { rotate: `${(1 - s.value) * -36}deg` }] }));
   return (
     <Animated.View style={[{ width: size, height: size }, st, style]}>
-      <Image source={ROSE_PORTRAIT} style={StyleSheet.absoluteFill} contentFit="contain" accessibilityLabel={rose.name} />
+      <Image source={large || size > 100 ? ROSE_PORTRAIT_LARGE : ROSE_PORTRAIT} style={StyleSheet.absoluteFill} contentFit="contain" accessibilityLabel={rose.name} />
     </Animated.View>
   );
+}
+
+/** Her logo: the crest's shield, still. */
+export function RoseShield({ size = 44, style }: { size?: number; style?: StyleProp<ViewStyle> }) {
+  const rose = useRose();
+  return <Image source={ROSE_SHIELD} style={[{ width: size, height: size }, style as object]} contentFit="contain" accessibilityLabel={rose.name} />;
 }
 
 /**

@@ -3,7 +3,6 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, Switch } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +17,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ExpensesPanel } from '@/components/cash/ExpensesPanel';
 import { RoseComplaintsPanel } from '@/components/cash/RoseComplaintsPanel';
 import { RoseStamp, RosePortrait, useStampBurst } from '@/components/rose/RoseStamp';
+import { RoseHero, RoseHeroCard } from '@/components/rose/RoseHero';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useRose } from '@/hooks/useRose';
 import { useComplaints } from '@/hooks/useComplaints';
@@ -541,6 +541,12 @@ function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
   );
 }
 
+/**
+ * ملاحظاتها — each note as a memo from her desk (founder 2026-10-07: «show her on her notes,
+ * and her stamps»): her portrait beside it, the note in a bubble, her navy stamp in its
+ * corner — it is written in her book. The notes stay facts about categories, venues and
+ * trends (CashInsightsService); the stamp signs the memo, it does not grade anyone.
+ */
 function Observations({ items }: { items: Observation[] }) {
   const { t } = useTranslation();
   const rose = useRose();
@@ -548,16 +554,25 @@ function Observations({ items }: { items: Observation[] }) {
   if (items.length === 0) return <EmptyState icon="info" title={t('cash.notes_none')} message={t('cash.notes_none_hint', { rose: rose.name })} />;
   return (
     <View>
-      {items.map((o) => (
-        <TouchableOpacity key={o.key} onPress={() => open(o)} activeOpacity={0.85}
-          style={{ backgroundColor: o.type === 'streak' ? colors.success + '14' : colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: o.type === 'streak' ? colors.success : colors.border, padding: spacing.lg, marginBottom: spacing.sm, ...shadows.sm }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, lineHeight: 24 }}>{o.text}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
-            <Icon name="search" size={13} color={colors.brand} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('cash.observation_open')}</Text>
+      {items.map((o, i) => {
+        const streak = o.type === 'streak';
+        return (
+          <View key={o.key} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.md }}>
+            {rose.named ? <RosePortrait size={40} nod={i === 0} style={{ marginTop: 2 }} /> : null}
+            <TouchableOpacity onPress={() => open(o)} activeOpacity={0.85} accessibilityRole="button"
+              style={{ flex: 1, backgroundColor: streak ? colors.success + '14' : colors.surface, borderRadius: radius.xl, borderTopStartRadius: rose.named ? 6 : radius.xl, borderWidth: 1, borderColor: streak ? colors.success : colors.border, padding: spacing.lg, paddingEnd: rose.named ? spacing.xl + spacing.lg : spacing.lg, ...shadows.sm }}>
+              {rose.named ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.accent, marginBottom: 2 }}>{rose.name}</Text> : null}
+              <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, lineHeight: 24 }}>{o.text}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                <Icon name="search" size={13} color={colors.brand} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('cash.observation_open')}</Text>
+              </View>
+              {/* Her mark on the memo, in the corner — as on her sheets on the landing page. */}
+              <RoseStamp ink="navy" size={46} tilt={-12} style={{ position: 'absolute', top: spacing.sm, end: spacing.sm }} />
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -809,7 +824,6 @@ export default function CashReconcileScreen() {
   const { refreshing, onRefresh } = usePullRefresh(refetch, insightsQ.refetch, monthQ.refetch, sheetQ.refetch, complaintsQ.refetch);
   const ins = insightsQ.data;
   const sheet = sheetQ.data?.lines ?? [];
-  const [sheetOpen, setSheetOpen] = useState(false);
   const { burst, burstNode } = useStampBurst();
   // The drawer whose count just landed in her book — its card gets the thump, once.
   const [freshStamp, setFreshStamp] = useState<number | null>(null);
@@ -866,74 +880,30 @@ export default function CashReconcileScreen() {
       {/* The notch strip, in the hero's own colours. The list scrolls BELOW it, so the sticky
           segments stop under the status bar instead of sliding beneath the notch with the
           page under the clock (founder 2026-10-04). */}
-      <LinearGradient colors={[gradients.hero[0], gradients.hero[1]]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: insets.top }} />
+      <View style={{ height: insets.top, backgroundColor: gradients.auth[0] }} />
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.onHero} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFFFFF" />}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[1]}
       >
-        {/* Hero: her greeting, the week, the gear — SHORT, so the segments sit in the first screen. */}
-        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xl }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
-            <TouchableOpacity onPress={() => router.back()} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="forward" size={22} color={colors.onHero} />
-            </TouchableOpacity>
-            {/* Her portrait beside her name — the hero stays as short as before, so the segments
-                (and the expenses behind them) keep their place in the first screen. */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              {rose.named ? <RosePortrait size={48} /> : null}
-              <View style={{ alignItems: rose.named ? 'flex-start' : 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.onHero }}>{rose.name}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft }}>{t('cash.screen_title')}</Text>
-              </View>
-            </View>
-            {data?.role === 'teacher' ? (
-              <TouchableOpacity onPress={() => setSettingsOpen(true)} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="settings" size={20} color={colors.onHero} outline />
-              </TouchableOpacity>
-            ) : <View style={{ width: 40 }} />}
-          </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{ins?.context?.greeting ?? ''}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>
-            {ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
-          </Text>
-          {/* «ورقة النهارده»: the day as she wrote it — sessions, the door, the money, what waits.
-              Three lines by default; the rest on a tap. Facts, no verdicts (RoseBriefingService). */}
-          {!isPast && sheet.length > 0 ? (
-            <View style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.onHeroChipBorder, padding: spacing.md, marginTop: spacing.md }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <Icon name="calendar" size={15} color={colors.onHero} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('cash.sheet_title')}</Text>
-              </View>
-              {(sheetOpen ? sheet : sheet.slice(0, 3)).map((line, i) => (
-                <Text key={i} style={{ fontFamily: i === 0 ? fonts.bold : fonts.regular, fontSize: 13, lineHeight: 21, color: colors.onHero }}>{line}</Text>
-              ))}
-              {sheet.length > 3 ? (
-                <TouchableOpacity onPress={() => setSheetOpen((o) => !o)} hitSlop={6} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero, textDecorationLine: 'underline' }}>{sheetOpen ? t('cash.sheet_less') : t('cash.sheet_more', { count: formatNumber(sheet.length) })}</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          ) : null}
+        {/* Her band (founder 2026-10-07: «her frame takes the upper section, bigger, like the
+            video»): the framed portrait large on navy, her bubble with the greeting and today's
+            sheet. The segments under it stay sticky, so switching never means scrolling back up. */}
+        <RoseHero
+          greeting={ins?.context?.greeting ?? ''}
+          sub={ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
+          sheet={isPast ? [] : sheet}
+          onBack={() => router.back()}
+          onSettings={data?.role === 'teacher' ? () => setSettingsOpen(true) : undefined}
+        >
           {isPast ? (
-            <TouchableOpacity onPress={() => { setPeriod('week'); setWeekOffset(0); setSegment('week'); }} activeOpacity={0.85}
-              style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.onHeroChipBorder, padding: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <Icon name="calendar" size={22} color={colors.onHero} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onHero }}>{t('cash.viewing_past')}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2 }}>{t('cash.back_to_now')}</Text>
-              </View>
-              <Icon name="back" size={18} color={colors.onHero} />
-            </TouchableOpacity>
+            <RoseHeroCard icon="calendar" title={t('cash.viewing_past')} sub={t('cash.back_to_now')} chevron onPress={() => { setPeriod('week'); setWeekOffset(0); setSegment('week'); }} />
           ) : isError ? (
-            <TouchableOpacity onPress={() => refetch()} style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, padding: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <Icon name="refresh" size={20} color={colors.onHero} />
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.onHero }}>{t('cash.load_failed')}</Text>
-            </TouchableOpacity>
+            <RoseHeroCard icon="refresh" title={t('cash.load_failed')} onPress={() => refetch()} />
           ) : null}
-        </LinearGradient>
+        </RoseHero>
 
         {/* Segments — sticky, so switching never means scrolling back up. */}
         <View style={{ backgroundColor: colors.background, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
@@ -1002,6 +972,7 @@ export default function CashReconcileScreen() {
             <View>
               {introSeen === false ? (
                 <View style={{ backgroundColor: colors.accentLight, borderRadius: radius.xl, padding: spacing.lg, marginBottom: spacing.md }}>
+                  {rose.named ? <RosePortrait size={56} style={{ marginBottom: spacing.xs }} /> : null}
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.intro_line1', { rose: rose.name })}</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4, lineHeight: 22 }}>{t('cash.intro_line2')}</Text>
                   <TouchableOpacity onPress={dismissIntro} style={{ alignSelf: 'flex-start', marginTop: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.full, backgroundColor: colors.accent }}>
