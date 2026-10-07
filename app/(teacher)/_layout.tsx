@@ -125,7 +125,13 @@ export default function TeacherLayout() {
     <>
     {/* Relocation prompt — teachers only (assistants never edit geofence anchors). */}
     {isAuthenticated && role === 'teacher' ? <RelocationPrompt enabled /> : null}
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    // freezeOnBlur off for THIS stack (founder 2026-10-08: «a stutter in the middle of the back
+    // gesture»). enableFreeze(true) in app/_layout made every native-stack screen freeze when
+    // covered, so the tabs under a pushed screen sat frozen and the swipe back thawed them
+    // mid-gesture — React flushed the whole covered screen's pending renders inside the
+    // transition. The screen underneath now stays live (one or two screens deep, not the 30
+    // hidden tabs the freeze was for — those keep their own `freeze_hidden_tabs` switch).
+    <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
       {/* A student opened from a list: a native page sheet over it (iOS), a slide-up on Android.
           Not a form sheet with detents: its pan swallowed the profile's scrolling and left a
