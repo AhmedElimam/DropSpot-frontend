@@ -39,6 +39,7 @@ import { formatNumber, formatDayDate } from '@/utils/format';
 import { pickCurrentSession, goToScan } from '@/utils/sessionNav';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useRose } from '@/hooks/useRose';
+import { RosePortrait } from '@/components/rose/RoseStamp';
 import { useComplaints } from '@/hooks/useComplaints';
 
 function greetingKey(now: number): string {
@@ -226,7 +227,7 @@ export default function TeacherHome() {
             {shortcuts.map((x) => (
               <TouchableOpacity key={x.key} onPress={x.onPress} activeOpacity={0.85} accessibilityRole="button" style={{ width: '24%', alignItems: 'center' }}>
                 <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: x.tint, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={x.icon} size={26} color={x.color} />
+                  {x.key === 'rose' && rose.named ? <RosePortrait size={50} nod={false} /> : <Icon name={x.icon} size={26} color={x.color} />}
                   {x.badge ? (
                     <View style={{ position: 'absolute', top: -4, end: -4, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.background }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{x.badge}</Text>
@@ -242,7 +243,7 @@ export default function TeacherHome() {
           {attention.length > 0 ? (
             <View style={{ marginTop: spacing.xl }}>
               <SectionHead icon="warning" color={colors.warning} title={t('home.needs_you')} />
-              {attention.map((a) => <HubRow key={a.key} icon={a.icon} title={a.title} sub={a.sub} badge={a.badge} onPress={() => router.push(a.href as Href)} />)}
+              {attention.map((a) => <HubRow key={a.key} icon={a.icon} title={a.title} sub={a.sub} badge={a.badge} onPress={() => router.push(a.href as Href)} leading={a.key === 'cash' && rose.named ? <RosePortrait size={42} nod={false} /> : undefined} />)}
             </View>
           ) : null}
 

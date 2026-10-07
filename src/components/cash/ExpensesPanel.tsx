@@ -11,6 +11,8 @@ import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { SheetModal } from '@/components/ui/SheetModal';
+import { RoseStamp } from '@/components/rose/RoseStamp';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useRose } from '@/hooks/useRose';
@@ -23,8 +25,15 @@ import { getExpenses, addExpense, deleteExpense, assignExpenseVenue, suggestCate
  * whoever typed it and stamped with when — the server marks an entry LATE when its week
  * (Friday→Thursday) had already closed, and shows both dates.
  *
+ * Layout (founder 2026-10-07: «the inputs take a huge chunk of the page, people cannot see
+ * the expenses down and get confused that the page has a bottom section»): the LIST is the
+ * page. The week's total and one «سجّل مصروف» button sit at the top; the form itself lives
+ * in a sheet that slides up over the list and closes when the entry is saved. The quick-add
+ * chips (her memory of what this person logs) stay on the page — one tap prefills the sheet.
+ *
  * An assistant sees only what they logged themselves (server-enforced); the teacher sees
- * everything, each row naming who logged it.
+ * everything, each row naming who logged it. An entry the teacher accepted in the weekly
+ * review carries her small navy stamp — it is in her book.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -80,6 +89,8 @@ const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, perVenue
             </TouchableOpacity>
           ) : null}
         </View>
+        {/* Accepted in the weekly review: in her book. */}
+        {e.review_status === 'accepted' ? <RoseStamp ink="navy" size={30} /> : null}
         {canDelete ? (
           <TouchableOpacity onPress={() => onDelete(e)} hitSlop={8} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="trash" size={18} color={colors.textTertiary} />
@@ -89,6 +100,20 @@ const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, perVenue
     </View>
   );
 });
+
+function Chip({ on, label, onPress, tone = 'brand' }: { on: boolean; label: string; onPress: () => void; tone?: 'brand' | 'success' }) {
+  const tint = tone === 'success' ? colors.success : colors.brand;
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ selected: on }}
+      style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? tint : colors.border, backgroundColor: on ? tint + '18' : colors.surface }}>
+      <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? (tone === 'success' ? colors.successDark : colors.brand) : colors.textPrimary }}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const FieldLabel = ({ children }: { children: string }) => (
+  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{children}</Text>
+);
 
 /**
  * The expense ledger as a PANEL: embedded inside مدام روز's hub (no header, no keyboard
@@ -113,6 +138,8 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
   const { data, isLoading, refetch } = useQuery({ queryKey: ['expenses', weekKey, trace], queryFn: () => getExpenses(weekKey, undefined, trace) });
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
+  // The composer — a sheet over the list, so the list is never pushed below the fold.
+  const [composerOpen, setComposerOpen] = useState(false);
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>('coffee');
   const [note, setNote] = useState('');
@@ -155,6 +182,17 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
     return () => clearTimeout(h);
   }, [note]);
 
+  const openComposer = (prefill?: { amount: number; category: string; note?: string | null }) => {
+    if (prefill) {
+      setAmount(String(prefill.amount));
+      categoryTouched.current = true;
+      setCategory(prefill.category);
+      setNote(prefill.note ?? '');
+    }
+    setComposerOpen(true);
+  };
+  const closeComposer = () => setComposerOpen(false);
+
   const logRecurring = useMutation({
     mutationFn: (r: RecurringSuggestion) => addExpense({
       amount: r.prefill.amount, category: r.prefill.category, note: r.prefill.note ?? undefined,
@@ -177,7 +215,8 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
       ...(perVenue ? (venueChoice === 'general' ? { is_general: true } : { teacher_location_id: venueChoice as number | null }) : {}),
     }),
     onSuccess: () => {
-      setAmount(''); setNote('');
+      setAmount(''); setNote(''); categoryTouched.current = false;
+      setComposerOpen(false);
       qc.invalidateQueries({ queryKey: ['expenses'] });
       qc.invalidateQueries({ queryKey: ['cash-reconciliation'] });
     },
@@ -218,6 +257,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
   const amountNum = Number(amount);
   const canAdd = !!data && enabled && Number.isFinite(amountNum) && amountNum > 0 && !add.isPending && (!perVenue || venueChoice !== null);
   const items = data?.items ?? [];
+  const egp = t('insights.egp');
 
   const content = (
     <>
@@ -234,7 +274,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
         ) : null}
         {/* Week switcher: Friday → Thursday. */}
         {!trace ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
           <TouchableOpacity onPress={() => setWeekDay((d) => new Date(d.getTime() - 7 * DAY_MS))} hitSlop={8} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="forward" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -254,95 +294,36 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
           </View>
         ) : null}
 
-        {/* Quick add. */}
-        {enabled ? (
-        <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('expenses.add_title')}</Text>
-          {(data?.quick_add.length ?? 0) > 0 ? (
-            <>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{t('expenses.quick_add_title')}</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
-                {(data?.quick_add ?? []).map((q) => (
-                  <TouchableOpacity key={`${q.category}:${q.amount}`} activeOpacity={0.8}
-                    onPress={() => { setAmount(String(q.amount)); categoryTouched.current = true; setCategory(q.category); setNote(q.note ?? ''); }}
-                    style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: colors.success, backgroundColor: colors.success + '14' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.successDark }}>{q.note ?? q.label} · {money(q.amount)}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          ) : null}
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('expenses.amount')}</Text>
-          <TextInput
-            value={amount}
-            onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))}
-            keyboardType="decimal-pad"
-            placeholder="0"
-            placeholderTextColor={colors.textTertiary}
-            style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', marginBottom: spacing.md }}
-          />
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{t('expenses.category')}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
-            {(data?.categories ?? []).map((c) => {
-              const on = c.key === category;
-              return (
-                <TouchableOpacity key={c.key} onPress={() => { categoryTouched.current = true; setCategory(c.key); }} activeOpacity={0.8}
-                  style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface }}>
-                  <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{c.label}{suggested === c.key && on && !categoryTouched.current ? ` · ${t('expenses.category_suggested', { rose: rose.name })}` : ''}</Text>
-                </TouchableOpacity>
-              );
-            })}
+        {/* The week in one number, and the one button. The form is a sheet (see below). */}
+        <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md, ...shadows.sm }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{trace ? t('expenses.trace_title') : t('expenses.week_total')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary, marginTop: 2 }}>{money(data?.total ?? 0)} <Text style={{ fontSize: 14, color: colors.textSecondary }}>{egp}</Text></Text>
+            {data?.own_only ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 2 }}>{t('expenses.own_only_hint')}</Text> : null}
           </View>
-          {perVenue ? (
-            <>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{t('expenses.venue')}</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
-                {[...venues.map((v) => ({ key: v.id as number | 'general', label: v.name ?? '' })), { key: 'general' as const, label: t('expenses.general') }].map((c) => {
-                  const on = venueChoice === c.key;
-                  return (
-                    <TouchableOpacity key={String(c.key)} onPress={() => setVenueChoice(c.key)} activeOpacity={0.8}
-                      style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface }}>
-                      <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{c.label}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              {venueChoice === null ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.sm }}>{t('expenses.venue_required')}</Text> : null}
-            </>
+          {enabled ? (
+            <TouchableOpacity onPress={() => openComposer()} activeOpacity={0.85} accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brand }}>
+              <Icon name="add" size={18} color="#fff" />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('expenses.compose')}</Text>
+            </TouchableOpacity>
           ) : null}
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{t('expenses.note')}</Text>
-          <TextInput
-            value={note}
-            onChangeText={setNote}
-            placeholder={t('expenses.note_placeholder')}
-            placeholderTextColor={colors.textTertiary}
-            maxLength={500}
-            style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', marginBottom: spacing.md }}
-          />
-          {isCurrentWeek ? (
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: spacing.md }}>
-              {(['today', 'yesterday'] as const).map((k) => {
-                const on = dayChoice === k;
-                return (
-                  <TouchableOpacity key={k} onPress={() => setDayChoice(k)} activeOpacity={0.8}
-                    style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface }}>
-                    <Text style={{ fontFamily: on ? fonts.bold : fonts.regular, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{t(`expenses.${k}`)}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ) : data ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.md }}>{t('expenses.past_week_date', { date: formatShortDate(data.week.end) })}</Text>
-          ) : null}
-          <Button title={t('expenses.add')} onPress={() => add.mutate()} disabled={!canAdd} loading={add.isPending} />
         </View>
+
+        {/* Quick add — what this person logs often. One tap prefills the sheet. */}
+        {enabled && (data?.quick_add.length ?? 0) > 0 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
+            {(data?.quick_add ?? []).map((q) => (
+              <Chip key={`${q.category}:${q.amount}`} on tone="success" label={`${q.note ?? q.label} · ${money(q.amount)}`} onPress={() => openComposer({ amount: q.amount, category: q.category, note: q.note })} />
+            ))}
+          </View>
         ) : null}
 
         {(data?.recurring.length ?? 0) > 0 && enabled ? (
-          <View style={{ backgroundColor: colors.brand + '10', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand + '44', padding: spacing.lg, marginBottom: spacing.lg }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('expenses.recurring_title', { rose: rose.name })}</Text>
+          <View style={{ backgroundColor: colors.brand + '10', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand + '44', padding: spacing.md, marginBottom: spacing.md }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.xs }}>{t('expenses.recurring_title', { rose: rose.name })}</Text>
             {(data?.recurring ?? []).map((r) => (
-              <View key={r.key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+              <View key={r.key} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs }}>
                 <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, lineHeight: 22 }}>{r.text}</Text>
                 <TouchableOpacity onPress={() => confirmRecurring(r)} disabled={logRecurring.isPending} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.full, backgroundColor: colors.brand }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('expenses.recurring_log')}</Text>
@@ -356,13 +337,8 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.sm }}>{t('expenses.unassigned_hint', { count: data?.unassigned_count })}</Text>
         ) : null}
 
-        {/* The week's entries. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary }}>{trace ? t('expenses.trace_title') : t('expenses.week_total')}</Text>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{money(data?.total ?? 0)} {t('insights.egp')}</Text>
-        </View>
-        {data?.own_only ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('expenses.own_only_hint')}</Text> : null}
-
+        {/* The week's entries — the page. */}
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{trace ? t('expenses.trace_title') : t('expenses.list_title')}</Text>
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : items.length === 0 ? (
@@ -375,9 +351,67 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
     </>
   );
 
+  // The form: amount, one tap on a category, the rest optional. Over the list, gone when saved.
+  const composer = (
+    <SheetModal visible={composerOpen} onClose={closeComposer} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom, maxHeight: '90%' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('expenses.add_title')}</Text>
+        <TouchableOpacity onPress={closeComposer} hitSlop={8}><Icon name="close" size={22} color={colors.textTertiary} /></TouchableOpacity>
+      </View>
+      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <FieldLabel>{t('expenses.amount')}</FieldLabel>
+        <TextInput
+          value={amount}
+          onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))}
+          keyboardType="decimal-pad"
+          autoFocus
+          placeholder="0"
+          placeholderTextColor={colors.textTertiary}
+          accessibilityLabel={t('expenses.amount')}
+          style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'center', marginBottom: spacing.md, backgroundColor: colors.surfaceSunken }}
+        />
+        <FieldLabel>{t('expenses.category')}</FieldLabel>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
+          {(data?.categories ?? []).map((c) => {
+            const on = c.key === category;
+            return <Chip key={c.key} on={on} onPress={() => { categoryTouched.current = true; setCategory(c.key); }} label={`${c.label}${suggested === c.key && on && !categoryTouched.current ? ` · ${t('expenses.category_suggested', { rose: rose.name })}` : ''}`} />;
+          })}
+        </View>
+        {perVenue ? (
+          <>
+            <FieldLabel>{t('expenses.venue')}</FieldLabel>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
+              {[...venues.map((v) => ({ key: v.id as number | 'general', label: v.name ?? '' })), { key: 'general' as const, label: t('expenses.general') }].map((c) => (
+                <Chip key={String(c.key)} on={venueChoice === c.key} label={c.label} onPress={() => setVenueChoice(c.key)} />
+              ))}
+            </View>
+            {venueChoice === null ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.sm }}>{t('expenses.venue_required')}</Text> : null}
+          </>
+        ) : null}
+        <FieldLabel>{t('expenses.note')}</FieldLabel>
+        <TextInput
+          value={note}
+          onChangeText={setNote}
+          placeholder={t('expenses.note_placeholder')}
+          placeholderTextColor={colors.textTertiary}
+          maxLength={500}
+          style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', marginBottom: spacing.md }}
+        />
+        {isCurrentWeek ? (
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: spacing.md }}>
+            {(['today', 'yesterday'] as const).map((k) => <Chip key={k} on={dayChoice === k} label={t(`expenses.${k}`)} onPress={() => setDayChoice(k)} />)}
+          </View>
+        ) : data ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.md }}>{t('expenses.past_week_date', { date: formatShortDate(data.week.end) })}</Text>
+        ) : null}
+        <Button title={t('expenses.add')} onPress={() => add.mutate()} disabled={!canAdd} loading={add.isPending} />
+      </ScrollView>
+    </SheetModal>
+  );
+
   // Embedded in مدام روز's hub the OUTER screen scrolls and pulls to refresh; nesting a
   // second vertical ScrollView would fight it, so the panel is a plain View there.
-  if (embedded) return <View style={{ paddingBottom: spacing.md }}>{content}</View>;
+  if (embedded) return <View style={{ paddingBottom: spacing.md }}>{content}{composer}</View>;
 
   const body = (
     <ScrollView
@@ -399,6 +433,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('expenses.title')}</Text>
       </View>
       {body}
+      {composer}
     </KeyboardAvoidingView>
   );
 }

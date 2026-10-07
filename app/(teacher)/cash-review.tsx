@@ -12,6 +12,8 @@ import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { useRose } from '@/hooks/useRose';
+import { RoseStamp, useStampBurst } from '@/components/rose/RoseStamp';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
   getWeeklyReview, decideExpense, bulkAccept, flagReview, closeWeek, addCorrection,
@@ -167,6 +169,8 @@ export default function CashReviewScreen() {
   const rid = Number(id);
   const { data, isLoading, refetch } = useQuery({ queryKey: ['cash-review', rid], queryFn: () => getWeeklyReview(rid), enabled: rid > 0 });
   const { refreshing, onRefresh } = usePullRefresh(refetch);
+  const rose = useRose();
+  const { burst, burstNode } = useStampBurst();
   const [filter, setFilter] = useState<Filter>('all');
   const [countFlag, setCountFlag] = useState('');
   const [collectionFlag, setCollectionFlag] = useState('');
@@ -197,7 +201,7 @@ export default function CashReviewScreen() {
     onError,
   });
   const flag = useMutation({ mutationFn: (p: Parameters<typeof flagReview>[1]) => flagReview(rid, p), onSuccess: () => { setCountFlag(''); setCollectionFlag(''); invalidate(); }, onError });
-  const close = useMutation({ mutationFn: () => closeWeek(rid), onSuccess: () => { invalidate(); Alert.alert(t('review.closed')); }, onError });
+  const close = useMutation({ mutationFn: () => closeWeek(rid), onSuccess: () => { invalidate(); if (!burst('navy', t('cash.stamp_closed', { rose: rose.name }))) Alert.alert(t('review.closed')); }, onError });
   const correct = useMutation({ mutationFn: () => addCorrection(rid, Number(corrAmount), corrNote.trim()), onSuccess: () => { setCorrAmount(''); setCorrNote(''); invalidate(); Alert.alert(t('review.correction_saved')); }, onError });
 
   const confirmClose = () => {
@@ -259,9 +263,13 @@ export default function CashReviewScreen() {
           </View>
 
           {data.closed ? (
-            <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('review.closed')}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('review.closed_hint')}</Text>
+            <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('review.closed')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('review.closed_hint')}</Text>
+              </View>
+              {/* Closed = in her book. */}
+              <RoseStamp ink="navy" size={52} />
             </View>
           ) : null}
           {!isTeacher ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.md }}>{t('review.readonly_hint')}</Text> : null}
@@ -359,6 +367,7 @@ export default function CashReviewScreen() {
           ) : null}
         </ScrollView>
       )}
+      {burstNode}
     </KeyboardAvoidingView>
   );
 }

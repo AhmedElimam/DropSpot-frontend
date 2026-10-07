@@ -16,22 +16,29 @@ import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ExpensesPanel } from '@/components/cash/ExpensesPanel';
+import { RoseComplaintsPanel } from '@/components/cash/RoseComplaintsPanel';
+import { RoseStamp, RosePortrait, useStampBurst } from '@/components/rose/RoseStamp';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useRose } from '@/hooks/useRose';
+import { useComplaints } from '@/hooks/useComplaints';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
-  getCashReconciliation, respondReconciliation, setOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights,
+  getCashReconciliation, respondReconciliation, setOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights, getRoseSheet,
   type AssistantCashView, type TeacherCashView, type Drawer, type TeacherDrawer, type Handover, type ReconciliationResult, type ReconciliationStatus, type VenueRef, type Observation, type CashView,
 } from '@/api/cash';
 
 /**
- * مدام روز — مديرة الحسابات. ONE screen, no hopping:
+ * مدام روز — her DESK (founder 2026-10-07: «she has more than the cash keeping now»). ONE
+ * screen, no hopping:
  *
- *   hero      her greeting, the week, a gear for settings
+ *   hero      her portrait and greeting, the week, «ورقة النهارده» (today's sheet, read on
+ *             demand from the same tables as her 11 am push), a gear for settings
  *   now       the single thing that needs this person right now — the assistant's count
  *             (answered right here), or the teacher's confirmations and reviews
- *   segments  الأسبوع · المصاريف · ملاحظاتها — everything else, in place
+ *   segments  الخزنة · المصاريف · الاعتراضات · ملاحظاتها — everything else, in place
  *   sheets    handover and settings slide up over the screen instead of leaving it
+ *   stamps    her navy stamp on what is in her cash book (a balanced count, a confirmed
+ *             handover, a closed week), thumping onto the card the moment it lands
  *
  * The maths, the voice rules and who-sees-what are unchanged: the server decides the
  * shape (`role`), figures are computed there, and an assistant's payload carries only
@@ -40,7 +47,7 @@ import {
 
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
 const INTRO_KEY = 'cash_intro_seen_v1';
-type Segment = 'week' | 'expenses' | 'notes';
+type Segment = 'week' | 'expenses' | 'complaints' | 'notes';
 
 const RESULT_TINT = (): Record<ReconciliationResult, string> => ({
   deficit: colors.danger, balanced: colors.success, surplus: colors.warning, unknown: colors.textTertiary,
@@ -279,10 +286,12 @@ function OpeningEntry({ d, onSaved }: { d: Drawer; onSaved: () => void }) {
 }
 
 /** One drawer, light: who · where, the two figures, the verdict, one button. */
-function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDrawer; name?: string; isTeacher: boolean; onChanged: () => void }) {
+function DrawerCard({ d, name, isTeacher, onChanged, freshStamp = false }: { d: Drawer | TeacherDrawer; name?: string; isTeacher: boolean; onChanged: () => void; freshStamp?: boolean }) {
   const { t } = useTranslation();
   const answered = d.registry !== null;
   const tint = d.result && d.result !== 'unknown' && answered ? RESULT_TINT()[d.result] : colors.border;
+  // In her book: the count balanced, or the week is closed. `freshStamp` = it happened just now → the thump.
+  const stamped = (answered && d.status === 'confirmed') || !!d.closed_at;
   const reviewWaiting = d.review_pending ?? 0;
   const openReview = () => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(d.id) } } as Href);
 
@@ -293,6 +302,7 @@ function DrawerCard({ d, name, isTeacher, onChanged }: { d: Drawer | TeacherDraw
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{[name, d.venue?.name].filter(Boolean).join(' · ') || t('cash.week_of', { start: formatShortDate(d.week_start), end: formatShortDate(d.week_end) })}</Text>
           {name ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('cash.week_of', { start: formatShortDate(d.week_start), end: formatShortDate(d.week_end) })}</Text> : null}
         </View>
+        {stamped ? <RoseStamp ink="navy" size={44} animate={freshStamp} style={{ marginEnd: spacing.xs }} /> : null}
         <ResultPill d={d} />
       </View>
       <BigPair
@@ -403,7 +413,8 @@ const HandoverRow = memo(function HandoverRow({ h, onReview }: { h: Handover; on
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: onReview ? colors.warning : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{money(h.amount)} {t('insights.egp')}{h.assistant_name ? ` · ${h.assistant_name}` : ''}</Text>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{money(h.amount)} {t('insights.egp')}{h.assistant_name ? ` · ${h.assistant_name}` : ''}</Text>
+        {h.status === 'confirmed' ? <RoseStamp ink="navy" size={38} style={{ marginEnd: spacing.xs }} /> : null}
         <Pill tint={tint} text={t(`cash.handover_${h.status}`)} />
       </View>
       <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>
@@ -675,6 +686,7 @@ function Calm({ text, sub }: { text: string; sub?: string }) {
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{text}</Text>
         {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{sub}</Text> : null}
       </View>
+      <RoseStamp ink="navy" size={48} />
     </View>
   );
 }
@@ -757,7 +769,7 @@ function MonthView({ m, onOpenWeek }: { m: CashMonth; onOpenWeek: (weekStart: st
           style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
-              {t('cash.week_of', { start: formatShortDate(w.week_start), end: formatShortDate(w.week_end) })}{w.closed ? ' 🔒' : ''}
+              {t('cash.week_of', { start: formatShortDate(w.week_start), end: formatShortDate(w.week_end) })}
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
               {t('cash.month_week_line', { collected: money(w.collected), expenses: money(w.expenses), counted: money(w.counted), drawers: money(w.drawers) })}
@@ -768,6 +780,7 @@ function MonthView({ m, onOpenWeek }: { m: CashMonth; onOpenWeek: (weekStart: st
               </Text>
             ) : null}
           </View>
+          {w.closed ? <RoseStamp ink="navy" size={36} /> : null}
           <Icon name="back" size={18} color={colors.textTertiary} />
         </TouchableOpacity>
       ))}
@@ -790,8 +803,16 @@ export default function CashReconcileScreen() {
   const monthQ = useQuery({ queryKey: ['cash-month', monthKey], queryFn: () => getCashMonth(monthKey), enabled: period === 'month' });
   const isPast = period === 'month' || weekOffset > 0;
   const insightsQ = useQuery({ queryKey: ['cash-insights'], queryFn: getCashInsights });
-  const { refreshing, onRefresh } = usePullRefresh(refetch, insightsQ.refetch, monthQ.refetch);
+  // «ورقة النهارده» — read now, in this reader's scope; nothing stored, no push spent.
+  const sheetQ = useQuery({ queryKey: ['rose-sheet'], queryFn: getRoseSheet, staleTime: 60_000 });
+  const complaintsQ = useComplaints('pending');
+  const { refreshing, onRefresh } = usePullRefresh(refetch, insightsQ.refetch, monthQ.refetch, sheetQ.refetch, complaintsQ.refetch);
   const ins = insightsQ.data;
+  const sheet = sheetQ.data?.lines ?? [];
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const { burst, burstNode } = useStampBurst();
+  // The drawer whose count just landed in her book — its card gets the thump, once.
+  const [freshStamp, setFreshStamp] = useState<number | null>(null);
   const [segment, setSegment] = useState<Segment>('week');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
@@ -810,27 +831,33 @@ export default function CashReconcileScreen() {
   };
   const review = useMutation({
     mutationFn: ({ id, d }: { id: number; d: 'confirm' | 'reject' }) => reviewHandover(id, d),
-    onSuccess: invalidate,
+    onSuccess: (_, { d }) => { invalidate(); if (d === 'confirm') burst('navy', t('cash.stamp_handover', { rose: rose.name })); },
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
   const onDone = (d: Drawer) => {
     invalidate();
-    if (d.status === 'confirmed') Alert.alert(t('cash.balanced_persona'));
-    else if (d.status === 'awaiting_opening') Alert.alert(t('cash.awaiting_opening'));
+    if (d.status === 'confirmed') {
+      // Balanced: her stamp lands — the flash, then the card keeps it. Her sentence stays the same.
+      setFreshStamp(d.id);
+      if (!burst('navy', t('cash.balanced_persona'))) Alert.alert(t('cash.balanced_persona'));
+    } else if (d.status === 'awaiting_opening') Alert.alert(t('cash.awaiting_opening'));
     else if (d.result === 'surplus') Alert.alert(t('cash.surplus_plain', { amount: money(Math.abs(d.difference ?? 0)) }), t('cash.surplus_question'));
     else Alert.alert(t('cash.deficit_plain', { amount: money(Math.abs(d.difference ?? 0)) }));
   };
   const onHandover = (s: Handover['status']) => {
     setHandoverOpen(false); invalidate();
+    if (s === 'confirmed' && burst('navy', t('cash.handover_saved_confirmed'))) return;
     Alert.alert(s === 'confirmed' ? t('cash.handover_saved_confirmed') : t('cash.handover_saved_pending'));
   };
 
   const expensesOn = data?.settings.expenses_enabled !== false;
+  const complaintsPending = complaintsQ.data?.counts.pending ?? 0;
   const segments = useMemo(() => ([
-    { key: 'week' as Segment, label: t('cash.seg_week'), icon: 'money' as const },
-    ...(expensesOn ? [{ key: 'expenses' as Segment, label: t('expenses.title'), icon: 'note' as const }] : []),
+    { key: 'week' as Segment, label: t('cash.seg_week'), icon: 'money' as const, badge: 0 },
+    ...(expensesOn ? [{ key: 'expenses' as Segment, label: t('expenses.title'), icon: 'note' as const, badge: 0 }] : []),
+    { key: 'complaints' as Segment, label: t('cash.seg_complaints'), icon: 'tickets' as const, badge: complaintsPending },
     { key: 'notes' as Segment, label: t('cash.seg_notes'), icon: 'star' as const, badge: ins?.enabled ? ins.observations.length : 0 },
-  ]), [t, expensesOn, ins]);
+  ]), [t, expensesOn, ins, complaintsPending]);
 
   const teacherHandovers = data?.role === 'teacher' ? data.pending_handovers : [];
 
@@ -853,9 +880,14 @@ export default function CashReconcileScreen() {
             <TouchableOpacity onPress={() => router.back()} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="forward" size={22} color={colors.onHero} />
             </TouchableOpacity>
-            <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.onHero }}>{rose.name}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft }}>{t('cash.screen_title')}</Text>
+            {/* Her portrait beside her name — the hero stays as short as before, so the segments
+                (and the expenses behind them) keep their place in the first screen. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              {rose.named ? <RosePortrait size={48} /> : null}
+              <View style={{ alignItems: rose.named ? 'flex-start' : 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.onHero }}>{rose.name}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft }}>{t('cash.screen_title')}</Text>
+              </View>
             </View>
             {data?.role === 'teacher' ? (
               <TouchableOpacity onPress={() => setSettingsOpen(true)} hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
@@ -867,9 +899,27 @@ export default function CashReconcileScreen() {
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>
             {ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
           </Text>
+          {/* «ورقة النهارده»: the day as she wrote it — sessions, the door, the money, what waits.
+              Three lines by default; the rest on a tap. Facts, no verdicts (RoseBriefingService). */}
+          {!isPast && sheet.length > 0 ? (
+            <View style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.onHeroChipBorder, padding: spacing.md, marginTop: spacing.md }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Icon name="calendar" size={15} color={colors.onHero} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('cash.sheet_title')}</Text>
+              </View>
+              {(sheetOpen ? sheet : sheet.slice(0, 3)).map((line, i) => (
+                <Text key={i} style={{ fontFamily: i === 0 ? fonts.bold : fonts.regular, fontSize: 13, lineHeight: 21, color: colors.onHero }}>{line}</Text>
+              ))}
+              {sheet.length > 3 ? (
+                <TouchableOpacity onPress={() => setSheetOpen((o) => !o)} hitSlop={6} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero, textDecorationLine: 'underline' }}>{sheetOpen ? t('cash.sheet_less') : t('cash.sheet_more', { count: formatNumber(sheet.length) })}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
           {isPast ? (
             <TouchableOpacity onPress={() => { setPeriod('week'); setWeekOffset(0); setSegment('week'); }} activeOpacity={0.85}
-              style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.onHeroChipBorder, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.onHeroChipBorder, padding: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
               <Icon name="calendar" size={22} color={colors.onHero} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onHero }}>{t('cash.viewing_past')}</Text>
@@ -878,7 +928,7 @@ export default function CashReconcileScreen() {
               <Icon name="back" size={18} color={colors.onHero} />
             </TouchableOpacity>
           ) : isError ? (
-            <TouchableOpacity onPress={() => refetch()} style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <TouchableOpacity onPress={() => refetch()} style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.xl, padding: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
               <Icon name="refresh" size={20} color={colors.onHero} />
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.onHero }}>{t('cash.load_failed')}</Text>
             </TouchableOpacity>
@@ -891,10 +941,11 @@ export default function CashReconcileScreen() {
             {segments.map((s) => {
               const on = segment === s.key;
               return (
-                <TouchableOpacity key={s.key} onPress={() => setSegment(s.key)} activeOpacity={0.9}
-                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, borderRadius: radius.full, backgroundColor: on ? colors.surface : 'transparent', ...(on ? shadows.sm : {}) }}>
-                  <Icon name={s.icon} size={16} color={on ? colors.brand : colors.textTertiary} outline={!on} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary }}>{s.label}</Text>
+                <TouchableOpacity key={s.key} onPress={() => setSegment(s.key)} activeOpacity={0.9} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, height: 40, paddingHorizontal: 4, borderRadius: radius.full, backgroundColor: on ? colors.surface : 'transparent', ...(on ? shadows.sm : {}) }}>
+                  {/* Four segments share the strip: only the active one spends width on its icon. */}
+                  {on ? <Icon name={s.icon} size={16} color={colors.brand} /> : null}
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary, flexShrink: 1 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{s.label}</Text>
                   {s.badge ? (
                     <View style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{money(s.badge)}</Text>
@@ -939,12 +990,14 @@ export default function CashReconcileScreen() {
                       <NowCard data={data} onDone={onDone} onOpenHandovers={() => setHandoverOpen(true)} onCountOwn={() => setSegment('week')} />
                     </View>
                   ) : null}
-                  <WeekSegment data={data} onChanged={invalidate} onOpenHandover={() => setHandoverOpen(true)} />
+                  <WeekSegment data={data} onChanged={invalidate} onOpenHandover={() => setHandoverOpen(true)} freshStamp={freshStamp} />
                 </>
               )}
             </View>
           ) : segment === 'expenses' ? (
             <ExpensesPanel embedded />
+          ) : segment === 'complaints' ? (
+            <RoseComplaintsPanel />
           ) : (
             <View>
               {introSeen === false ? (
@@ -987,12 +1040,13 @@ export default function CashReconcileScreen() {
       <Sheet open={settingsOpen} onClose={() => setSettingsOpen(false)} title={t('cash.settings_title')}>
         {data?.role === 'teacher' ? <SettingsBody v={data} onChanged={invalidate} /> : null}
       </Sheet>
+      {burstNode}
     </View>
   );
 }
 
 /** الأسبوع: the drawers, then handovers, then (teacher) the running totals. */
-function WeekSegment({ data, onChanged, onOpenHandover }: { data: CashView; onChanged: () => void; onOpenHandover: () => void }) {
+function WeekSegment({ data, onChanged, onOpenHandover, freshStamp }: { data: CashView; onChanged: () => void; onOpenHandover: () => void; freshStamp: number | null }) {
   const { t } = useTranslation();
   const egp = t('insights.egp');
   const isTeacher = data.role === 'teacher';
@@ -1011,7 +1065,7 @@ function WeekSegment({ data, onChanged, onOpenHandover }: { data: CashView; onCh
     return (
       <View>
         {shown.length === 0 && v.unanswered.length === 0 ? <EmptyState icon="success" title={t('cash.no_prompt')} message={t('cash.no_prompt_hint')} /> : null}
-        {shown.map((d) => <DrawerCard key={d.id} d={d} isTeacher={false} onChanged={onChanged} />)}
+        {shown.map((d) => <DrawerCard key={d.id} d={d} isTeacher={false} onChanged={onChanged} freshStamp={d.id === freshStamp} />)}
         {v.collections ? <CollectionsList events={v.collections} byKind={v.collected_by_kind} own /> : null}
         {handoverButton}
         {v.handovers.map((h) => <HandoverRow key={h.id} h={h} />)}
@@ -1052,7 +1106,7 @@ function WeekSegment({ data, onChanged, onOpenHandover }: { data: CashView; onCh
         v.drawers.map((d) => d.is_teacher_drawer && d.registry === null && !d.closed_at
           // The teacher counts their OWN drawer in place — the same card an assistant answers.
           ? <PromptCard key={d.id} row={d} onDone={() => onChanged()} />
-          : <DrawerCard key={d.id} d={d} name={d.name} isTeacher onChanged={onChanged} />)
+          : <DrawerCard key={d.id} d={d} name={d.name} isTeacher onChanged={onChanged} freshStamp={d.id === freshStamp} />)
       )}
 
       {v.collections ? <CollectionsList events={v.collections} byKind={v.collected_breakdown?.by_kind} own={false} /> : null}

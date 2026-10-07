@@ -207,7 +207,8 @@
       "mark_range": "اكتب درجة بين 0 و{{max}}",
       "mark_min": "اكتب درجة صحيحة (0 أو أكثر)",
       "pending_count": "{{n}} اعتراض على الدرجة قيد المراجعة"
-    }
+    },
+    "stamp_decided": "اتسجّل القرار في دفتر {{rose}}"
   },
   "common": {
     "close": "إغلاق",
@@ -2099,12 +2100,14 @@
     "recurring_confirm_title": "تسجيل المصروف",
     "recurring_confirm_hint": "هيتسجّل {{amount}} ج.م ({{category}}) بتاريخ اليوم. تمام؟",
     "quick_add_title": "تسجيل سريع",
-    "category_suggested": "اقتراح {{rose}}"
+    "category_suggested": "اقتراح {{rose}}",
+    "compose": "سجّل مصروف",
+    "list_title": "مصاريف الأسبوع"
   },
   "cash": {
     "title_short": "مدام روز",
     "title": "مدام روز مديرة الحسابات",
-    "manage_sub": "بتحفظ المصاريف والتسليمات وحساب الخزنة كل أسبوع",
+    "manage_sub": "الخزنة والمصاريف والاعتراضات وورقة النهارده — في مكتب واحد",
     "manage_sub_assistant": "حساب اللي حصّلته الأسبوع ده",
     "banner_pending": "{{rose}} مستنية حساب الأسبوع",
     "banner_pending_sub": "حصّلت {{amount}} ج.م — هل المبلغ في الخزنة؟",
@@ -2267,7 +2270,7 @@
     "setting_insight_pushes": "إشعارات الملاحظات في اليوم",
     "prefilled_hint": "المتوقع في الخزنة {{amount}} ج.م — ده اللي موجود؟",
     "details": "التفاصيل",
-    "seg_week": "الأسبوع",
+    "seg_week": "الخزنة",
     "seg_notes": "ملاحظاتها",
     "now_title": "محتاج منك دلوقتي",
     "now_handovers": "{{count}} تسليم بانتظار تأكيدك",
@@ -2276,7 +2279,21 @@
     "calm_assistant": "كله تمام — مفيش حاجة مستنياك",
     "calm_teacher": "كله تمام — مفيش حاجة مستنياك",
     "notes_none": "مفيش ملاحظات لسه",
-    "notes_none_hint": "{{rose}} بتلاحظ مع الوقت: التصنيفات، الأماكن، والأسابيع المظبوطة."
+    "notes_none_hint": "{{rose}} بتلاحظ مع الوقت: التصنيفات، الأماكن، والأسابيع المظبوطة.",
+    "seg_complaints": "الاعتراضات",
+    "desk_sub": "الخزنة · المصاريف · الاعتراضات · ورقة النهارده",
+    "sheet_title": "ورقة النهارده",
+    "sheet_more": "عرض الكل ({{count}})",
+    "sheet_less": "عرض أقل",
+    "complaints_line": "{{rose}} بتسجّل كل اعتراض زي ما وصل — والقرار ليك.",
+    "complaints_pending_title": "مستني قرار",
+    "complaints_review_title": "قرارات المساعد مستنية مراجعتك",
+    "complaints_recent": "آخر القرارات في دفترها",
+    "complaints_open": "افتح الاعتراضات",
+    "complaints_none": "مفيش اعتراضات مستنية",
+    "stamp_handover": "اتسجّل الاستلام في دفتر {{rose}}",
+    "stamp_closed": "اتقفل الأسبوع في دفتر {{rose}}",
+    "in_book": "في دفتر {{rose}}"
   },
   "review": {
     "title": "مراجعة الأسبوع",

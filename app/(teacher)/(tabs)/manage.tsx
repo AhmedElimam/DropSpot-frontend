@@ -13,6 +13,7 @@ import { formatNumber } from '@/utils/format';
 import { colors, spacing, radius, nav, gradients } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HubRow } from '@/components/teacher/HubRow';
+import { RosePortrait } from '@/components/rose/RoseStamp';
 import { AddStudentSheet } from '@/components/teacher/AddStudentSheet';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -204,7 +205,8 @@ export default function TeacherManage() {
             {canCash ? (
               <HubRow tint={tint} icon="note" title={cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title}
                 sub={cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : isAssistant ? t('cash.manage_sub_assistant') : t('cash.manage_sub')}
-                badge={cashAttention} loud={!!cashPending} onPress={() => router.push('/(teacher)/cash-reconcile' as Href)} />
+                badge={cashAttention} loud={!!cashPending} onPress={() => router.push('/(teacher)/cash-reconcile' as Href)}
+                leading={rose.named ? <RosePortrait size={44} nod={false} /> : undefined} />
             ) : null}
             {canCash ? <HubRow tint={tint} icon="money" title={t('manage.pending_collections')} sub={t('manage.pending_collections_sub')} onPress={() => router.push('/(teacher)/pending-collections' as Href)} /> : null}
             {canCash && expensesOn ? <HubRow tint={tint} icon="note" title={t('expenses.title')} sub={t('expenses.manage_sub')} onPress={() => router.push('/(teacher)/expenses' as Href)} /> : null}

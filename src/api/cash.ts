@@ -90,6 +90,19 @@ export interface CashInsights {
   observations: Observation[];
 }
 
+/** «ورقة النهارده» as her desk reads it now: today's sessions, the door, the money, what waits — in this reader's scope. Empty lines = nothing to say. */
+export interface RoseSheet {
+  date: string;
+  lines: string[];
+  name: string;
+}
+
+export async function getRoseSheet(): Promise<RoseSheet> {
+  const { data } = await client.get('/teacher/cash/briefing');
+  const d = data.data ?? {};
+  return { date: String(d.date ?? ''), lines: Array.isArray(d.lines) ? d.lines.map(String) : [], name: String(d.name ?? '') };
+}
+
 export async function getCashInsights(): Promise<CashInsights> {
   const { data } = await client.get('/teacher/cash/insights');
   return data.data as CashInsights;

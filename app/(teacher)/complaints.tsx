@@ -17,6 +17,8 @@ import { useComplaints, useComplaintDecision } from '@/hooks/useComplaints';
 import { useAuthStore } from '@/stores/authStore';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { AnnotatedPhoto } from '@/components/complaints/AnnotatedPhoto';
+import { RoseStamp, useStampBurst } from '@/components/rose/RoseStamp';
+import { useRose } from '@/hooks/useRose';
 import { cleanMarkInput, formatMark, parseMarkInput } from '@/utils/markInput';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatDate, formatNumber, timeAgo } from '@/utils/format';
@@ -48,6 +50,10 @@ export default function ComplaintsScreen() {
   const q = useComplaints(bucket);
   const { refreshing, onRefresh } = usePullRefresh(q.refetch);
   const { approve, reject, review } = useComplaintDecision();
+  // A decision lands in مدام روز's book: her red stamp flashes, whichever way it went (founder 2026-10-07).
+  const rose = useRose();
+  const { burst, burstNode } = useStampBurst();
+  const stamped = () => { burst('red', t('complaints.stamp_decided', { rose: rose.name })); };
   const [rejecting, setRejecting] = useState<Complaint | null>(null);
   const [note, setNote] = useState('');
   // Approving a grade complaint: the corrected mark, prefilled with what was asked for.
@@ -91,13 +97,13 @@ export default function ComplaintsScreen() {
     Alert.alert(
       t('complaints.approve'),
       c.type === 'attendance' ? t('complaints.approve_confirm_attendance', { claim: claimLabel }) : t('complaints.approve_confirm_payment'),
-      [{ text: t('common.cancel'), style: 'cancel' }, { text: t('complaints.approve'), onPress: () => approve.mutate({ id: c.id }, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) }) }],
+      [{ text: t('common.cancel'), style: 'cancel' }, { text: t('complaints.approve'), onPress: () => approve.mutate({ id: c.id }, { onSuccess: stamped, onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) }) }],
     );
   };
   const sendReject = () => {
     if (!rejecting) return;
     reject.mutate({ id: rejecting.id, note: note.trim() || undefined }, {
-      onSuccess: () => { setRejecting(null); setNote(''); },
+      onSuccess: () => { setRejecting(null); setNote(''); stamped(); },
       onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
     });
   };
@@ -115,7 +121,7 @@ export default function ComplaintsScreen() {
   const sendGrade = () => {
     if (!grading || !canApproveMark || markValue === null) return;
     approve.mutate({ id: grading.id, mark: markValue }, {
-      onSuccess: () => { setGrading(null); setMarkText(''); },
+      onSuccess: () => { setGrading(null); setMarkText(''); stamped(); },
       onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
     });
   };
@@ -134,7 +140,7 @@ export default function ComplaintsScreen() {
   const sendPayment = () => {
     if (!paying || !canApprovePay || payValue === null || !payMethod) return;
     approve.mutate({ id: paying.id, amount: payValue, method: payMethod, received_by: payMethod === 'cash' ? payReceiver ?? undefined : undefined }, {
-      onSuccess: () => { setPaying(null); setPayText(''); },
+      onSuccess: () => { setPaying(null); setPayText(''); stamped(); },
       onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
     });
   };
@@ -312,6 +318,7 @@ export default function ComplaintsScreen() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>{t('complaints.approve_payment_confirm', { amount: payValue !== null ? formatEGP(payValue) : '—' })}</Text>
         </TouchableOpacity>
       </SheetModal>
+      {burstNode}
     </View>
   );
 }
@@ -388,6 +395,8 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
 
       {decided ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, flexWrap: 'wrap' }}>
+          {/* In her book — recorded, whichever way it went. */}
+          <RoseStamp ink="red" size={40} />
           <View style={{ backgroundColor: statusTone.bg, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: statusTone.fg }}>{t(`complaints.status_${c.status}`)}</Text>
           </View>
