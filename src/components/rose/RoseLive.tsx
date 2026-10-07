@@ -22,9 +22,10 @@ import { RoseProps, type RoseActivity } from './RoseProps';
  *
  *   always     eyes glance on their own; blinks at irregular intervals (each eye its own lid);
  *              hoops swing out of step; lips move while she `talking`
- *   idle       every 6–12 s one expression: a smile · brows up · a wink · a thinking look
- *              (eyes up, one brow raised, lips pressed) · a nod · a slow sleepy blink · and, at
- *              most once in 40 s, a yawn (mouth opens wide, eyes squeeze, she leans back)
+ *   idle       every 6–12 s one expression: a smile · brows up · a thinking look (eyes up,
+ *              one brow raised, lips pressed) · a nod · a slow sleepy blink · drowsing (eyes
+ *              sink half shut, head droops, then she perks up) · and, at most once in 40 s, a
+ *              yawn (mouth opens wide, eyes squeeze, she leans back). Never a wink.
  *   at work    `activity` puts something in her hands (RoseProps) — and she reads it: her eyes
  *              keep going down to the ledger, the sheet, the slip
  *   react      a tap, or `reactRose()` from anywhere (a stamp landing): brows up, a double
@@ -52,8 +53,9 @@ const CHIN = { x: 200, y: 392 };
 const GLANCES: [number, number][] = [[0, 0], [-2.4, 0.8], [0, 0], [2, 0.4], [0, 1.4], [0, 0], [-1.6, 1.2], [2.2, 0]];
 const AT_WORK: [number, number][] = [[0, 2.2], [0.6, 2.4], [0, 2.2], [-0.8, 2.3], [0, 0], [0, 2.2], [1.6, 0.4]];
 
-type Expression = 'smile' | 'brows' | 'wink' | 'think' | 'nod' | 'sleepy' | 'yawn';
-const POOL: Expression[] = ['smile', 'smile', 'smile', 'brows', 'brows', 'wink', 'think', 'think', 'nod', 'nod', 'sleepy', 'yawn'];
+// No wink (founder 2026-10-08: «no winking — just feeling sleepy or something»).
+type Expression = 'smile' | 'brows' | 'think' | 'nod' | 'sleepy' | 'drowsy' | 'yawn';
+const POOL: Expression[] = ['smile', 'smile', 'smile', 'brows', 'think', 'think', 'nod', 'nod', 'sleepy', 'sleepy', 'drowsy', 'drowsy', 'yawn'];
 
 const BASE = require('../../../assets/images/rose/madam-rose-live-base.webp');
 
@@ -164,11 +166,25 @@ export function RoseLive({ size, talking = false, activity = 'cash', style }: { 
         hold(browR, 1, 180, 700, 300);
         hold(wide, 1, 180, 700, 300);
         break;
-      case 'wink':
-        blinkR.value = withSequence(withTiming(1, { duration: 120 }), withDelay(260, withTiming(0, { duration: 180 })));
-        hold(smile, 1, 160, 600, 300);
-        hold(browL, 0.5, 160, 600, 300);
+      case 'drowsy': {
+        // Lids sink half shut and the head droops … then she catches herself: a quick blink, brows up.
+        const sink = (v: SharedValue<number>) => {
+          v.value = withSequence(
+            withTiming(0.55, { duration: 1100, easing: ease }),
+            withDelay(900, withTiming(0.7, { duration: 400, easing: ease })),
+            withTiming(0, { duration: 160 }),
+            withTiming(1, { duration: 110 }),
+            withTiming(0, { duration: 150 }),
+          );
+        };
+        sink(blinkL);
+        sink(blinkR);
+        tilt.value = withSequence(withTiming(2, { duration: 1500, easing: ease }), withDelay(900, withSpring(0, { damping: 8, stiffness: 170 })));
+        gy.value = withTiming(1.2, { duration: 900 });
+        browL.value = withDelay(2400, withSequence(withTiming(1, { duration: 140 }), withDelay(450, withTiming(0, { duration: 300 }))));
+        browR.value = withDelay(2400, withSequence(withTiming(1, { duration: 140 }), withDelay(450, withTiming(0, { duration: 300 }))));
         break;
+      }
       case 'think':
         gx.value = withTiming(-2.2, { duration: 260 });
         gy.value = withTiming(-1.8, { duration: 260 });
@@ -195,7 +211,7 @@ export function RoseLive({ size, talking = false, activity = 'cash', style }: { 
         break;
       }
     }
-  }, [smile, browL, browR, wide, blinkR, gx, gy, press, tilt, blinkBoth, yawn, blinkL]);
+  }, [smile, browL, browR, wide, gx, gy, press, tilt, blinkBoth, yawn, blinkL, blinkR]);
 
   useEffect(() => {
     if (!alive) return;
