@@ -23,6 +23,7 @@ import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
 import { PendingInvitations } from '@/components/teacher/PendingInvitations';
 import { HubRow } from '@/components/teacher/HubRow';
 import { AddStudentSheet } from '@/components/teacher/AddStudentSheet';
+import { ScheduleToolsSheet } from '@/components/teacher/ScheduleToolsSheet';
 import { SessionCard, sessionPhase, type SessionCardData } from '@/components/session/TeacherSessionCard';
 import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { SessionRosterSheet } from '@/components/session/SessionRosterSheet';
@@ -85,6 +86,7 @@ export default function TeacherHome() {
   const openTickets = (ticketsQ.data ?? []).filter((x) => x.status === 'open').length;
   const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch);
   const [addOpen, setAddOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   // Swipe on a session card (founder 2026-10-04): right → left cancels it (after a
   // confirmation), left → right shows its «كشف الحضور» in a sheet.
   const qc = useQueryClient();
@@ -146,14 +148,21 @@ export default function TeacherHome() {
   ].filter(Boolean) as { key: string; icon: IconName; title: string; sub: string; badge: number; href: string }[];
   const attentionTotal = attention.reduce((n, a) => n + a.badge, 0);
 
-  const shortcuts: { key: string; icon: IconName; label: string; color: string; tint: string; badge?: number; onPress: () => void }[] = [
+  // Five shortcuts, مدام روز in the middle (founder 2026-10-08), her portrait bare — no tile.
+  const sideShortcuts = [
     canStudents && { key: 'add', icon: 'add' as IconName, label: t('add_student.title'), color: colors.brand, tint: colors.brandTint, onPress: () => setAddOpen(true) },
     canCash && { key: 'collect', icon: 'money' as IconName, label: t('home.collect'), color: colors.success, tint: colors.successLight, onPress: () => router.push('/(teacher)/pending-collections' as Href) },
-    canCash && { key: 'rose', icon: 'note' as IconName, label: rose.name, color: colors.accent, tint: colors.accentLight, badge: cashAttention, onPress: () => router.push('/(teacher)/cash-reconcile' as Href) },
+    // The scheduling tools in a sheet, like «إضافة طالب».
+    { key: 'schedule', icon: 'calendar' as IconName, label: t('home.schedule_short'), color: colors.accent, tint: colors.accentLight, onPress: () => setScheduleOpen(true) },
     !isAssistant
       ? { key: 'insights', icon: 'reports' as IconName, label: t('home.insights_short'), color: colors.info, tint: colors.infoLight, onPress: () => router.push('/(teacher)/insights' as Href) }
       : { key: 'students', icon: 'children' as IconName, label: t('teacher.tab_students'), color: colors.info, tint: colors.infoLight, onPress: () => router.push('/(teacher)/students' as Href) },
-  ].filter(Boolean) as never;
+  ].filter(Boolean) as { key: string; icon: IconName; label: string; color: string; tint: string; badge?: number; onPress: () => void }[];
+  const roseShortcut = canCash ? { key: 'rose', icon: 'note' as IconName, label: rose.name, color: colors.accent, tint: colors.accentLight, badge: cashAttention, onPress: () => router.push('/(teacher)/cash-reconcile' as Href) } : null;
+  const shortcuts = roseShortcut
+    ? [...sideShortcuts.slice(0, Math.ceil(sideShortcuts.length / 2)), roseShortcut, ...sideShortcuts.slice(Math.ceil(sideShortcuts.length / 2))]
+    : sideShortcuts;
+  const tileWidth = shortcuts.length >= 5 ? '19.5%' : '24%';
 
   const firstName = (user?.name ?? '').split(' ')[0];
 
@@ -222,13 +231,13 @@ export default function TeacherHome() {
 
           <PendingInvitations />
 
-          {/* Shortcuts — four coloured, labelled buttons. */}
+          {/* Shortcuts — coloured, labelled buttons; مدام روز in the middle, bare. */}
           <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             {shortcuts.map((x) => (
-              <TouchableOpacity key={x.key} onPress={x.onPress} activeOpacity={0.85} accessibilityRole="button" style={{ width: '24%', alignItems: 'center' }}>
-                <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: x.tint, alignItems: 'center', justifyContent: 'center' }}>
-                  {x.key === 'rose' && rose.named ? <RosePortrait size={50} nod={false} /> : <Icon name={x.icon} size={26} color={x.color} />}
+              <TouchableOpacity key={x.key} onPress={x.onPress} activeOpacity={0.85} accessibilityRole="button" style={{ width: tileWidth, alignItems: 'center' }}>
+                <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: x.key === 'rose' && rose.named ? 'transparent' : x.tint, alignItems: 'center', justifyContent: 'center' }}>
+                  {x.key === 'rose' && rose.named ? <RosePortrait size={64} /> : <Icon name={x.icon} size={26} color={x.color} />}
                   {x.badge ? (
                     <View style={{ position: 'absolute', top: -4, end: -4, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.background }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{x.badge}</Text>
@@ -263,6 +272,7 @@ export default function TeacherHome() {
         </View>
       </ScrollView>
       <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} />
+      <ScheduleToolsSheet visible={scheduleOpen} onClose={() => setScheduleOpen(false)} />
       <SessionRosterSheet sessionId={rosterFor} onClose={() => setRosterFor(null)} onOpenFull={(id) => { setRosterFor(null); openSheet({ id }); }} />
     </View>
   );
