@@ -1,7 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
@@ -160,20 +161,72 @@ const FACT = (): Record<string, { icon: 'warning' | 'success' | 'money' | 'note'
  * and attendance once it has ended — then each fact on its own row with its icon. Three
  * sessions show; the rest on a tap. An older server sends only `lines`: those, one per row.
  */
-function SheetList({ sheet, open, onToggle, onExport, exporting }: { sheet: RoseSheet; open: boolean; onToggle: () => void; onExport?: () => void; exporting: boolean }) {
+const SEEN_KEY = 'rose_sheet_seen_day';
+const AUTO_FOLD_MS = 10_000;
+const FOLD = { duration: 440, easing: Easing.inOut(Easing.cubic) };
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+/**
+ * Folding (founder 2026-10-08: «auto-minimise today's sheet after ~10 s; after that it is
+ * minimised by default when entering her page — per day — and can be toggled, animated and
+ * smooth»): the FIRST visit of the day opens it, and it folds itself away 10 s later unless
+ * the person has touched it; every later visit that day starts folded. A tap on its heading
+ * opens or folds it at any time. The body slides on its measured height with a fade; the
+ * heading keeps a one-line summary, so a folded sheet still says what the day is.
+ */
+function useSheetFold() {
+  const [open, setOpen] = useState(false);
+  const touched = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const p = useSharedValue(0);
+  useEffect(() => {
+    let live = true;
+    AsyncStorage.getItem(SEEN_KEY).then((seen) => {
+      if (!live || touched.current) return;
+      const d = today();
+      if (seen === d) return; // already seen today → stays folded
+      setOpen(true);
+      AsyncStorage.setItem(SEEN_KEY, d).catch(() => {});
+      timer.current = setTimeout(() => { if (!touched.current) setOpen(false); }, AUTO_FOLD_MS);
+    }).catch(() => {});
+    return () => { live = false; if (timer.current) clearTimeout(timer.current); };
+  }, []);
+  useEffect(() => { p.value = withTiming(open ? 1 : 0, FOLD); }, [open, p]);
+  const toggle = () => { touched.current = true; if (timer.current) clearTimeout(timer.current); setOpen((o) => !o); };
+  return { open, toggle, p };
+}
+
+function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet: RoseSheet; open: boolean; onToggle: () => void; onExport?: () => void; exporting: boolean }) {
   const { t } = useTranslation();
   const sessions = sheet.sessions;
   const right = { textAlign: 'right' as const };
+  const open = all;
+  const fold = useSheetFold();
+  // The body's natural height, measured off-flow; the visible height eases between 0 and it.
+  const h = useSharedValue(0);
+  const body = useAnimatedStyle(() => ({ height: h.value * fold.p.value, opacity: fold.p.value }));
+  const chevron = useAnimatedStyle(() => ({ transform: [{ rotate: `${180 * fold.p.value}deg` }] }));
 
   return (
     <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Icon name="calendar" size={16} color={colors.accent} />
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.sheet_title')}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <TouchableOpacity onPress={fold.toggle} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ expanded: fold.open }} accessibilityLabel={t('cash.sheet_title')}
+          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: colors.accent + '1F', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="calendar" size={16} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, ...right }}>{t('cash.sheet_title')}</Text>
+            {sheet.head ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, ...right }} numberOfLines={fold.open ? 3 : 1}>{sheet.head}</Text> : null}
+          </View>
+          <Animated.View style={chevron}><Icon name="down" size={18} color={colors.textTertiary} /></Animated.View>
+        </TouchableOpacity>
         {onExport ? <ExportPill onPress={onExport} busy={exporting} /> : null}
       </View>
-      {sheet.head ? <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: 2, ...right }}>{sheet.head}</Text> : null}
 
+      <Animated.View style={[{ overflow: 'hidden' }, body]}>
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }}
+          onLayout={(e) => { const nh = e.nativeEvent.layout.height; h.value = h.value === 0 ? nh : withTiming(nh, { duration: 260 }); }}>
       {sessions ? (
         <>
           {(open ? sessions : sessions.slice(0, 3)).map((x, i) => (
@@ -221,10 +274,13 @@ function SheetList({ sheet, open, onToggle, onExport, exporting }: { sheet: Rose
           ) : null}
         </>
       ) : (
-        sheet.lines.map((line, i) => (
-          <Text key={i} style={{ fontFamily: i === 0 ? fonts.bold : fonts.regular, fontSize: 13.5, lineHeight: 22, color: colors.textSecondary, ...right }}>{line}</Text>
+        sheet.lines.slice(sheet.head ? 1 : 0).map((line, i) => (
+          <Text key={i} style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 22, color: colors.textSecondary, ...right }}>{line}</Text>
         ))
       )}
+          <View style={{ height: spacing.xs }} />
+        </View>
+      </Animated.View>
     </View>
   );
 }
