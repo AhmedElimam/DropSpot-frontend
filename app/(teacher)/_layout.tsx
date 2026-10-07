@@ -135,7 +135,9 @@ export default function TeacherLayout() {
         name="student-sheet/[id]"
         options={Platform.OS === 'ios'
           ? { presentation: 'modal', contentStyle: { backgroundColor: colors.background } }
-          : { presentation: 'modal', animation: 'slide_from_bottom' }}
+          // Android has no native page sheet: a transparent screen that draws its own, below
+          // the status bar, with a drag to close (founder 2026-10-07: under the notch, no swipe).
+          : { presentation: 'transparentModal', animation: 'none', contentStyle: { backgroundColor: 'transparent' } }}
       />
     </Stack>
     </>

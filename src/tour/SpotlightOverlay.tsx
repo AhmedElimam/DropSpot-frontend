@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
-import Svg, { Defs, Mask, Rect } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import Animated, { useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { router, usePathname } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -18,14 +18,17 @@ import { getTourStatus, completeTour } from '@/api/tour';
 import { useTourStore, nextShowable } from './store';
 import { tourSeen, markTourSeen } from './seen';
 import { tourForRole } from './tours';
-import { holeFor, placeCard, onScreen, HOLE_RADIUS, type Hole } from './geometry';
+import { holeFor, placeCard, onScreen, toFrame, holePath, stackDim, HOLE_RADIUS, type Hole, type Frame } from './geometry';
 
 const ARect = Animated.createAnimatedComponent(Rect);
+const APath = Animated.createAnimatedComponent(Path);
 // A slow, calm glide between stops (founder 2026-10-06: «the frames between steps a quite slow»).
 const SPRING = { damping: 26, stiffness: 70, mass: 1.1 };
 const CARD_SPRING = { damping: 24, stiffness: 95, mass: 1 };
 /** How long a routed step waits for its target before it is skipped. */
 const WAIT_FOR_TARGET_MS = 1800;
+/** When targets measure again after a step opens: a slow phone may still be sliding the screen in at 400 ms. */
+const REMEASURE_MS = [80, 350, 800, 1500];
 
 // Screens that must be finished first, and the door — never a spotlight mid-scan.
 const BLOCKING_PREFIXES = [
@@ -95,11 +98,33 @@ function Runner() {
   const qc = useQueryClient();
   const role = useAuthStore((s) => s.role);
   const user = useAuthStore((s) => s.user);
-  const { tour, step, targets, mandatory, goTo, stop, remeasure } = useTourStore();
+  // Narrow subscriptions: every TourTarget on screen re-registers as it lays out, and the
+  // overlay must not redraw for a target it is not showing.
+  const tour = useTourStore((s) => s.tour);
+  const step = useTourStore((s) => s.step);
+  const mandatory = useTourStore((s) => s.mandatory);
+  const goTo = useTourStore((s) => s.goTo);
+  const stop = useTourStore((s) => s.stop);
+  const remeasure = useTourStore((s) => s.remeasure);
   const steps = tour!.steps;
   const current = steps[step];
-  const rect = current?.target ? targets[current.target] : undefined;
-  const visibleRect = rect && onScreen(rect, win) ? rect : undefined;
+  const rawRect = useTourStore((s) => (current?.target ? s.targets[current.target] : undefined));
+  const last = useTourStore((s) => nextShowable(steps, s.targets, step, 1, role) === null);
+
+  // The overlay's own frame in the window, measured the same way the targets are — never
+  // assumed to be the window (Android phones differ by status bar, notch, navigation bar).
+  const rootRef = useRef<View>(null);
+  const [frame, setFrame] = useState<Frame>({ x: 0, y: 0, width: win.width, height: win.height });
+  const measureRoot = useCallback(() => {
+    rootRef.current?.measureInWindow((x, y, width, height) => {
+      if (width > 0 && height > 0) {
+        setFrame((f) => (f.x === x && f.y === y && f.width === width && f.height === height ? f : { x, y, width, height }));
+      }
+    });
+  }, []);
+  const area = useMemo(() => ({ width: frame.width, height: frame.height }), [frame.width, frame.height]);
+  const rect = useMemo(() => (rawRect ? toFrame(rawRect, frame) : undefined), [rawRect, frame]);
+  const visibleRect = rect && onScreen(rect, area) ? rect : undefined;
 
   // Open the step's screen, then ask every target to measure itself again.
   const routed = useRef<number>(-1);
@@ -109,10 +134,9 @@ function Runner() {
       routed.current = step;
       try { router.navigate(current.route); } catch { /* already there, or gone: the measurement decides */ }
     }
-    const t1 = setTimeout(remeasure, 80);
-    const t2 = setTimeout(remeasure, 400);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [step, current, remeasure]);
+    const timers = REMEASURE_MS.map((ms) => setTimeout(() => { remeasure(); measureRoot(); }, ms));
+    return () => timers.forEach(clearTimeout);
+  }, [step, current, remeasure, measureRoot]);
 
   const finish = useCallback(() => {
     if (role && user) {
@@ -133,14 +157,17 @@ function Runner() {
     if (!current?.target || visibleRect) return;
     const t1 = setTimeout(() => {
       const r = useTourStore.getState().targets[current.target!];
-      if (!r || !onScreen(r, win)) advance(1);
+      if (!r || !onScreen(toFrame(r, frame), area)) advance(1);
     }, WAIT_FOR_TARGET_MS);
     return () => clearTimeout(t1);
-  }, [current, visibleRect, advance, win]);
+  }, [current, visibleRect, advance, frame, area]);
 
   // ── the hole, animated ──
   const hx = useSharedValue(win.width / 2);
   const hy = useSharedValue(win.height / 2);
+  const W = useSharedValue(win.width);
+  const H = useSharedValue(win.height);
+  useEffect(() => { W.value = area.width; H.value = area.height; }, [area, W, H]);
   const hw = useSharedValue(0);
   const hh = useSharedValue(0);
   const hr = useSharedValue(HOLE_RADIUS);
@@ -149,7 +176,7 @@ function Runner() {
   useEffect(() => { dim.value = withTiming(1, { duration: 260 }); }, [dim]);
   useEffect(() => {
     if (visibleRect) {
-      const h = holeFor(visibleRect, win);
+      const h = holeFor(visibleRect, area);
       setHole(h);
       hx.value = withSpring(h.x, SPRING); hy.value = withSpring(h.y, SPRING);
       hw.value = withSpring(h.width, SPRING); hh.value = withSpring(h.height, SPRING);
@@ -157,12 +184,12 @@ function Runner() {
     } else {
       // A centred card, or a target not yet measured: the hole closes to a point mid-screen.
       setHole(null);
-      hx.value = withSpring(win.width / 2, SPRING); hy.value = withSpring(win.height / 2, SPRING);
+      hx.value = withSpring(area.width / 2, SPRING); hy.value = withSpring(area.height / 2, SPRING);
       hw.value = withSpring(0, SPRING); hh.value = withSpring(0, SPRING);
     }
-  }, [visibleRect, win, hx, hy, hw, hh, hr]);
+  }, [visibleRect, area, hx, hy, hw, hh, hr]);
 
-  const holeProps = useAnimatedProps(() => ({ x: hx.value, y: hy.value, width: hw.value, height: hh.value, rx: hr.value, ry: hr.value }));
+  const holeProps = useAnimatedProps(() => ({ d: holePath(W.value, H.value, hx.value, hy.value, hw.value, hh.value, hr.value) }));
   const ringProps = useAnimatedProps(() => ({ x: hx.value - 3, y: hy.value - 3, width: hw.value + 6, height: hh.value + 6, rx: hr.value + 3, ry: hr.value + 3, opacity: hw.value > 0 ? 1 : 0 }));
   const dimStyle = useAnimatedStyle(() => ({ opacity: dim.value }));
 
@@ -170,17 +197,16 @@ function Runner() {
   const [cardH, setCardH] = useState(180);
   const onCardLayout = (e: LayoutChangeEvent) => setCardH(e.nativeEvent.layout.height);
   const centred = !current?.target;
-  const placed = hole ? placeCard(hole, cardH, win, insets) : null;
+  const placed = hole ? placeCard(hole, cardH, area, insets) : null;
   const cardTop = useSharedValue(win.height / 2 - 90);
   useEffect(() => {
-    const top = centred || !placed ? Math.max(insets.top + 24, (win.height - cardH) / 2) : placed.top;
+    const top = centred || !placed ? Math.max(insets.top + 24, (area.height - cardH) / 2) : placed.top;
     cardTop.value = withSpring(top, CARD_SPRING);
-  }, [centred, placed?.top, cardH, win.height, insets.top, cardTop]);
+  }, [centred, placed?.top, cardH, area.height, insets.top, cardTop]);
   const cardStyle = useAnimatedStyle(() => ({ top: cardTop.value }));
 
   const spotSteps = steps.filter((s) => s.target).length;
   const spotIndex = steps.slice(0, step + 1).filter((s) => s.target).length;
-  const last = nextShowable(steps, targets, step, 1, role) === null;
   const waiting = !!current?.target && !visibleRect;
   // The first tour cannot be skipped (founder 2026-10-06); a replay can.
   const canSkip = !mandatory;
@@ -188,17 +214,11 @@ function Runner() {
   if (!current) return null;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="auto">
+    <View ref={rootRef} collapsable={false} onLayout={measureRoot} style={StyleSheet.absoluteFill} pointerEvents="auto">
       <Animated.View style={[StyleSheet.absoluteFill, dimStyle]}>
-        <Svg width={win.width} height={win.height} style={StyleSheet.absoluteFill}>
-          <Defs>
-            <Mask id="spot">
-              <Rect x={0} y={0} width={win.width} height={win.height} fill="#fff" />
-              <ARect animatedProps={holeProps} fill="#000" />
-            </Mask>
-          </Defs>
-          <Rect x={0} y={0} width={win.width} height={win.height} fill={colors.overlay} mask="url(#spot)" />
-          <Rect x={0} y={0} width={win.width} height={win.height} fill="rgba(0,0,0,0.28)" mask="url(#spot)" />
+        <Svg width={area.width} height={area.height} style={StyleSheet.absoluteFill}>
+          {/* The theme's dim plus a little black, filled once around the hole. */}
+          <APath animatedProps={holeProps} fill={stackDim(colors.overlay, 0.28)} fillRule="evenodd" />
           <ARect animatedProps={ringProps} fill="none" stroke={colors.accent} strokeWidth={2.5} />
         </Svg>
         {/* Tapping the dim moves on — the quickest way through for someone who already knows. */}

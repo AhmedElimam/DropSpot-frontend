@@ -103,3 +103,29 @@ describe('geometry', () => {
     expect(onScreen({ x: 0, y: -80, width: 50, height: 50 }, win)).toBe(false);
   });
 });
+
+describe('spotlight on any phone (founder 2026-10-07: wrong position, slow on Xiaomi)', () => {
+  const { toFrame, holePath, stackDim } = require('../geometry');
+
+  it('moves a window-measured target into the overlay\'s own coordinates', () => {
+    // An overlay that starts 24 px down (a status bar the window counts and the overlay does not).
+    expect(toFrame({ x: 10, y: 124, width: 50, height: 40 }, { x: 0, y: 24, width: 390, height: 820 }))
+      .toEqual({ x: 10, y: 100, width: 50, height: 40 });
+  });
+
+  it('draws the dim as one even-odd path: the screen, then the rounded hole', () => {
+    const d = holePath(390, 844, 20, 100, 120, 60, 18);
+    expect(d.startsWith('M0 0H390V844H0Z')).toBe(true);
+    expect(d).toContain('M38 100H122A18 18 0 0 1 140 118');
+    // A closed hole is just the screen.
+    expect(holePath(390, 844, 195, 422, 0, 0, 18)).toBe('M0 0H390V844H0Z');
+    // The corner never exceeds half the hole.
+    expect(holePath(390, 844, 0, 0, 20, 10, 18)).toContain('A5 5');
+  });
+
+  it('stacks the theme dim and the extra black into one colour', () => {
+    // Day: rgba(26,33,64,.5) then black .28 → alpha .64, colour scaled by .5625.
+    expect(stackDim('rgba(26, 33, 64, 0.5)', 0.28)).toBe('rgba(15, 19, 36, 0.64)');
+    expect(stackDim('#123456', 0.28)).toBe('#123456');
+  });
+});

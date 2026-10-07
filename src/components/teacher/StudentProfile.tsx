@@ -6,6 +6,7 @@ import { openRemotePdf } from '@/utils/openPdf';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GestureDetector, type GestureType } from 'react-native-gesture-handler';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -83,10 +84,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  * With `onClose` it is hosted in a modal: the hero's back closes it, and anything that
  * navigates away closes it first, so the next screen is not left underneath.
  */
-export function StudentProfile({ id, onClose, sheet = false, initialName }: {
+export function StudentProfile({ id, onClose, sheet = false, initialName, heroGesture }: {
   id: string; onClose?: () => void;
   /** Hosted in a native sheet: no status bar above the hero, × instead of back, no pull-to-refresh (the pull dismisses). */
   sheet?: boolean;
+  /** Android's sheet: dragging the hero down closes it (the scroll below keeps its own gesture). */
+  heroGesture?: GestureType;
   /** The name already on screen where the sheet was opened from — the hero shows it while the profile loads. */
   initialName?: string;
 }) {
@@ -510,27 +513,35 @@ export function StudentProfile({ id, onClose, sheet = false, initialName }: {
     );
   };
 
+  const hero = (
+    <PageHero
+      title={s?.name ?? initialName ?? t('teacher.tab_students')}
+      subtitle={s ? [s.grade_name ?? t('teacher.no_grade'), s.student_code].filter(Boolean).join(' · ') : undefined}
+      avatar={s ? avatarSeed.student(s.id, s.name ?? '—') : undefined}
+      onBack={onClose ?? true}
+      closeIcon={sheet}
+      grabber={sheet}
+      inset={sheet ? spacing.md : undefined}
+      action={s && canExport ? { icon: 'download', label: exporting ? '…' : 'PDF', onPress: exportPerformance, accessibilityLabel: t('teacher.performance_export') } : undefined}
+      stats={s ? [
+        { value: formatNumber(s.attendance_stats.attended), label: t('teacher.stat_attended') },
+        { value: formatNumber(s.attendance_stats.absent), label: t('teacher.stat_absent'), warn: s.attendance_stats.absent > 0 },
+        { value: s.billing.has_pending ? formatNumber(Number(s.billing.pending_total ?? 0)) : '٠', label: 'مستحق ج.م', warn: !!s.billing.has_pending },
+      ] : undefined}
+      compact={!s}
+    />
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Ink hero: who, and the three numbers a teacher wants before anything else — how
           often they come, how often they do not, and what the family owes. The PDF export
           sits in the hero chip. */}
-      <PageHero
-        title={s?.name ?? initialName ?? t('teacher.tab_students')}
-        subtitle={s ? [s.grade_name ?? t('teacher.no_grade'), s.student_code].filter(Boolean).join(' · ') : undefined}
-        avatar={s ? avatarSeed.student(s.id, s.name ?? '—') : undefined}
-        onBack={onClose ?? true}
-        closeIcon={sheet}
-        grabber={sheet}
-        inset={sheet ? spacing.md : undefined}
-        action={s && canExport ? { icon: 'download', label: exporting ? '…' : 'PDF', onPress: exportPerformance, accessibilityLabel: t('teacher.performance_export') } : undefined}
-        stats={s ? [
-          { value: formatNumber(s.attendance_stats.attended), label: t('teacher.stat_attended') },
-          { value: formatNumber(s.attendance_stats.absent), label: t('teacher.stat_absent'), warn: s.attendance_stats.absent > 0 },
-          { value: s.billing.has_pending ? formatNumber(Number(s.billing.pending_total ?? 0)) : '٠', label: 'مستحق ج.م', warn: !!s.billing.has_pending },
-        ] : undefined}
-        compact={!s}
-      />
+      {heroGesture ? (
+        <GestureDetector gesture={heroGesture}>
+          <View collapsable={false}>{hero}</View>
+        </GestureDetector>
+      ) : hero}
 
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />

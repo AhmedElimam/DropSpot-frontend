@@ -41,3 +41,46 @@ export function placeCard(hole: Hole, cardHeight: number, win: { height: number 
 export function onScreen(r: TargetRect, win: { width: number; height: number }): boolean {
   return r.y >= -4 && r.y + r.height <= win.height + 4 && r.x >= -4 && r.x + r.width <= win.width + 4;
 }
+
+/** The overlay's own place in the window — measured, never assumed to be (0, 0) at window size. */
+export interface Frame { x: number; y: number; width: number; height: number }
+
+/**
+ * A target measured in window coordinates, moved into the overlay's coordinates. On Android the
+ * window and the overlay disagree by the status bar, a notch or the navigation bar depending on
+ * the phone (founder 2026-10-07: «doesn't spotlight the right position» on some devices);
+ * measuring both the same way and subtracting cancels whatever the difference is.
+ */
+export function toFrame(r: TargetRect, frame: Frame): TargetRect {
+  return { x: r.x - frame.x, y: r.y - frame.y, width: r.width, height: r.height };
+}
+
+/**
+ * The dim as ONE path: the whole screen with the hole cut out (even-odd). It replaces an SVG
+ * mask, which Android redraws in software on every frame of the glide — the slowness on
+ * MediaTek Xiaomi phones (founder 2026-10-07). Same picture, a fraction of the work.
+ */
+export function holePath(W: number, H: number, x: number, y: number, w: number, h: number, rx: number): string {
+  'worklet';
+  const outer = `M0 0H${W}V${H}H0Z`;
+  if (w < 1 || h < 1) return outer;
+  const r = Math.max(0, Math.min(rx, w / 2, h / 2));
+  return `${outer}M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + h}`
+    + `H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`;
+}
+
+/**
+ * The two dim layers (the theme's overlay, then black at `extra`) as one colour, so the screen is
+ * filled once instead of twice. `rgba(r,g,b,a)` in, `rgba(...)` out.
+ */
+export function stackDim(overlay: string, extra: number): string {
+  const m = overlay.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+))?\s*\)/);
+  if (!m) return overlay;
+  const [r, g, b] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const a1 = m[4] === undefined ? 1 : Number(m[4]);
+  // Over any background B: (B(1-a1) + C·a1)(1-e) = B(1-a) + C'·a.
+  const a = 1 - (1 - a1) * (1 - extra);
+  const k = (a1 * (1 - extra)) / a;
+  const c = (v: number) => Math.round(v * k);
+  return `rgba(${c(r)}, ${c(g)}, ${c(b)}, ${Math.round(a * 1000) / 1000})`;
+}
