@@ -491,16 +491,52 @@ function HandoverSheetBody({ venues, perVenue, assistants, onSaved }: { venues: 
 
 // ───────────────────────── settings & notes ─────────────────────────
 
+/** The app's switch: brand when on, the theme's border when off, white thumb — both schemes. */
+function RoseSwitch({ value, onChange, disabled }: { value: boolean; onChange: (on: boolean) => void; disabled?: boolean }) {
+  return <Switch value={value} onValueChange={onChange} disabled={disabled} trackColor={{ true: colors.brand, false: colors.border }} thumbColor="#FFFFFF" ios_backgroundColor={colors.border} />;
+}
+
+type SwitchKey = 'expenses_enabled' | 'expenses_per_venue' | 'expense_reminder_enabled' | 'insights_enabled' | 'rose_named' | 'rose_briefing_enabled';
+
+/**
+ * Her settings (founder 2026-10-08: «the toggles don't match the system colour, and they're
+ * slow»). A switch flips the moment it is touched (its own state, independent of the others —
+ * no more waiting for the server, and no more every switch locked while one saves); the
+ * answer is merged into the cached cash views instead of reloading the whole desk. Only a
+ * change that reshapes the desk (expenses on/off, per-venue) refreshes it. A refused change
+ * flips back with the server's sentence.
+ */
 function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => void }) {
   const { t } = useTranslation();
   const rose = useRose();
+  const qc = useQueryClient();
   const [tol, setTol] = useState(String(v.settings.tolerance));
   const [bulkMax, setBulkMax] = useState(String(v.settings.review_bulk_max ?? 500));
+  const [local, setLocal] = useState<Partial<Record<SwitchKey | 'insight_pushes_per_day', boolean | number>>>({});
+  const merge = (settings: Awaited<ReturnType<typeof updateCashSettings>>) => {
+    qc.setQueriesData({ queryKey: ['cash-reconciliation'] }, (old: unknown) => {
+      const o = old as { settings?: object } | undefined;
+      return o && o.settings ? { ...o, settings: { ...o.settings, ...settings } } : old;
+    });
+  };
   const save = useMutation({
     mutationFn: (patch: Parameters<typeof updateCashSettings>[0]) => updateCashSettings(patch),
-    onSuccess: onChanged,
+    onSuccess: merge,
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
+  const flip = (key: SwitchKey, value: boolean) => {
+    setLocal((l) => ({ ...l, [key]: value }));
+    updateCashSettings({ [key]: value }).then((settings) => {
+      merge(settings);
+      if (key === 'expenses_enabled' || key === 'expenses_per_venue') onChanged();
+      else if (key === 'insights_enabled') qc.invalidateQueries({ queryKey: ['cash-insights'] });
+    }).catch((e) => {
+      setLocal((l) => ({ ...l, [key]: !value }));
+      Alert.alert(t('common.error'), getFriendlyErrorMessage(e));
+    });
+  };
+  const on = (key: SwitchKey, server: boolean) => (local[key] as boolean | undefined) ?? server;
+  const pushes = (local.insight_pushes_per_day as number | undefined) ?? v.settings.insight_pushes_per_day ?? 1;
   const row = { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight };
   const label = (title: string, hint?: string) => (
     <View style={{ flex: 1, paddingEnd: spacing.md }}>
@@ -514,22 +550,22 @@ function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
   );
   return (
     <View>
-      <View style={row}>{label(t('cash.setting_expenses'), t('cash.setting_expenses_hint'))}<Switch value={v.settings.expenses_enabled} onValueChange={(on) => save.mutate({ expenses_enabled: on })} disabled={save.isPending} /></View>
-      <View style={row}>{label(t('cash.setting_per_venue'), t('cash.setting_per_venue_hint'))}<Switch value={v.settings.per_venue} onValueChange={(on) => save.mutate({ expenses_per_venue: on })} disabled={save.isPending || v.venues.length === 0} /></View>
-      {v.settings.expenses_enabled ? (
-        <View style={row}>{label(t('cash.setting_reminder'), t('cash.setting_reminder_hint', { rose: rose.name }))}<Switch value={v.settings.expense_reminder_enabled !== false} onValueChange={(on) => save.mutate({ expense_reminder_enabled: on })} disabled={save.isPending} /></View>
+      <View style={row}>{label(t('cash.setting_expenses'), t('cash.setting_expenses_hint'))}<RoseSwitch value={on('expenses_enabled', v.settings.expenses_enabled)} onChange={(x) => flip('expenses_enabled', x)} /></View>
+      <View style={row}>{label(t('cash.setting_per_venue'), t('cash.setting_per_venue_hint'))}<RoseSwitch value={on('expenses_per_venue', v.settings.per_venue)} onChange={(x) => flip('expenses_per_venue', x)} disabled={v.venues.length === 0} /></View>
+      {on('expenses_enabled', v.settings.expenses_enabled) ? (
+        <View style={row}>{label(t('cash.setting_reminder'), t('cash.setting_reminder_hint', { rose: rose.name }))}<RoseSwitch value={on('expense_reminder_enabled', v.settings.expense_reminder_enabled !== false)} onChange={(x) => flip('expense_reminder_enabled', x)} /></View>
       ) : null}
-      <View style={row}>{label(t('cash.setting_insights', { rose: rose.name }), t('cash.setting_insights_hint'))}<Switch value={v.settings.insights_enabled !== false} onValueChange={(on) => save.mutate({ insights_enabled: on })} disabled={save.isPending} /></View>
-      <View style={row}>{label(t('cash.setting_rose_name'), t('cash.setting_rose_name_hint'))}<Switch value={v.settings.rose_named !== false} onValueChange={(on) => save.mutate({ rose_named: on })} disabled={save.isPending} /></View>
-      <View style={row}>{label(t('cash.setting_briefing', { rose: rose.name }), t('cash.setting_briefing_hint'))}<Switch value={v.settings.rose_briefing_enabled !== false} onValueChange={(on) => save.mutate({ rose_briefing_enabled: on })} disabled={save.isPending} /></View>
-      {v.settings.insights_enabled !== false ? (
+      <View style={row}>{label(t('cash.setting_insights', { rose: rose.name }), t('cash.setting_insights_hint'))}<RoseSwitch value={on('insights_enabled', v.settings.insights_enabled !== false)} onChange={(x) => flip('insights_enabled', x)} /></View>
+      <View style={row}>{label(t('cash.setting_rose_name'), t('cash.setting_rose_name_hint'))}<RoseSwitch value={on('rose_named', v.settings.rose_named !== false)} onChange={(x) => flip('rose_named', x)} /></View>
+      <View style={row}>{label(t('cash.setting_briefing', { rose: rose.name }), t('cash.setting_briefing_hint'))}<RoseSwitch value={on('rose_briefing_enabled', v.settings.rose_briefing_enabled !== false)} onChange={(x) => flip('rose_briefing_enabled', x)} /></View>
+      {on('insights_enabled', v.settings.insights_enabled !== false) ? (
         <View style={row}>{label(t('cash.setting_insight_pushes'))}
           <View style={{ flexDirection: 'row', gap: 6 }}>
             {[0, 1, 2, 3].map((n) => {
-              const on = (v.settings.insight_pushes_per_day ?? 1) === n;
+              const sel = pushes === n;
               return (
-                <TouchableOpacity key={n} onPress={() => save.mutate({ insight_pushes_per_day: n })} style={{ width: 34, height: 30, borderRadius: radius.md, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand + '18' : colors.surface, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textPrimary }}>{money(n)}</Text>
+                <TouchableOpacity key={n} onPress={() => { setLocal((l) => ({ ...l, insight_pushes_per_day: n })); save.mutate({ insight_pushes_per_day: n }); }} style={{ width: 34, height: 30, borderRadius: radius.md, borderWidth: 1, borderColor: sel ? colors.brand : colors.border, backgroundColor: sel ? colors.brand + '18' : colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: sel ? colors.brand : colors.textPrimary }}>{money(n)}</Text>
                 </TouchableOpacity>
               );
             })}

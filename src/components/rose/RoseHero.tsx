@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, LayoutAnimation } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -163,7 +163,16 @@ const FACT = (): Record<string, { icon: 'warning' | 'success' | 'money' | 'note'
  */
 const SEEN_KEY = 'rose_sheet_seen_day';
 const AUTO_FOLD_MS = 10_000;
-const FOLD = { duration: 440, easing: Easing.inOut(Easing.cubic) };
+// One native layout pass (Core Animation / the Android animator) moves the sheet AND everything
+// under it together — animating `height` frame by frame re-laid out the whole page each frame
+// and stuttered (founder 2026-10-08: «not smooth, and slow»).
+const FOLD_MS = 240;
+const FOLD_ANIM = {
+  duration: FOLD_MS,
+  create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+  update: { type: LayoutAnimation.Types.easeInEaseOut },
+  delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+};
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 /**
@@ -185,14 +194,20 @@ function useSheetFold() {
       if (!live || touched.current) return;
       const d = today();
       if (seen === d) return; // already seen today → stays folded
+      LayoutAnimation.configureNext(FOLD_ANIM);
       setOpen(true);
       AsyncStorage.setItem(SEEN_KEY, d).catch(() => {});
-      timer.current = setTimeout(() => { if (!touched.current) setOpen(false); }, AUTO_FOLD_MS);
+      timer.current = setTimeout(() => { if (!touched.current) { LayoutAnimation.configureNext(FOLD_ANIM); setOpen(false); } }, AUTO_FOLD_MS);
     }).catch(() => {});
     return () => { live = false; if (timer.current) clearTimeout(timer.current); };
   }, []);
-  useEffect(() => { p.value = withTiming(open ? 1 : 0, FOLD); }, [open, p]);
-  const toggle = () => { touched.current = true; if (timer.current) clearTimeout(timer.current); setOpen((o) => !o); };
+  useEffect(() => { p.value = withTiming(open ? 1 : 0, { duration: FOLD_MS, easing: Easing.out(Easing.cubic) }); }, [open, p]);
+  const toggle = () => {
+    touched.current = true;
+    if (timer.current) clearTimeout(timer.current);
+    LayoutAnimation.configureNext(FOLD_ANIM);
+    setOpen((o) => !o);
+  };
   return { open, toggle, p };
 }
 
@@ -202,9 +217,6 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
   const right = { textAlign: 'right' as const };
   const open = all;
   const fold = useSheetFold();
-  // The body's natural height, measured off-flow; the visible height eases between 0 and it.
-  const h = useSharedValue(0);
-  const body = useAnimatedStyle(() => ({ height: h.value * fold.p.value, opacity: fold.p.value }));
   const chevron = useAnimatedStyle(() => ({ transform: [{ rotate: `${180 * fold.p.value}deg` }] }));
 
   return (
@@ -217,16 +229,15 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, ...right }}>{t('cash.sheet_title')}</Text>
-            {sheet.head ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, ...right }} numberOfLines={fold.open ? 3 : 1}>{sheet.head}</Text> : null}
+            {sheet.head ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, ...right }} numberOfLines={2}>{sheet.head}</Text> : null}
           </View>
           <Animated.View style={chevron}><Icon name="down" size={18} color={colors.textTertiary} /></Animated.View>
         </TouchableOpacity>
         {onExport ? <ExportPill onPress={onExport} busy={exporting} /> : null}
       </View>
 
-      <Animated.View style={[{ overflow: 'hidden' }, body]}>
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0 }}
-          onLayout={(e) => { const nh = e.nativeEvent.layout.height; h.value = h.value === 0 ? nh : withTiming(nh, { duration: 260 }); }}>
+      {fold.open ? (
+        <View>
       {sessions ? (
         <>
           {(open ? sessions : sessions.slice(0, 3)).map((x, i) => (
@@ -253,7 +264,7 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
             </View>
           ))}
           {sessions.length > 3 ? (
-            <TouchableOpacity onPress={onToggle} hitSlop={6} style={{ alignSelf: 'center', marginTop: spacing.sm }}>
+            <TouchableOpacity onPress={() => { LayoutAnimation.configureNext(FOLD_ANIM); onToggle(); }} hitSlop={6} style={{ alignSelf: 'center', marginTop: spacing.sm }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{open ? t('cash.sheet_less') : t('cash.sheet_more', { count: formatNumber(sessions.length) })}</Text>
             </TouchableOpacity>
           ) : null}
@@ -280,7 +291,7 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
       )}
           <View style={{ height: spacing.xs }} />
         </View>
-      </Animated.View>
+      ) : null}
     </View>
   );
 }
