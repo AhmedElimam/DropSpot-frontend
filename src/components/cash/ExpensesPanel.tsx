@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { RoseStamp, RosePortrait } from '@/components/rose/RoseStamp';
+import { ExportPill } from '@/components/rose/RoseExport';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useRose } from '@/hooks/useRose';
@@ -147,7 +148,7 @@ const FieldLabel = ({ children }: { children: string }) => (
  * wrapper — the hub provides both) or standalone on the /expenses route, which deep
  * links and observation traces still open.
  */
-export function ExpensesPanel({ embedded = false, initialTrace = null }: { embedded?: boolean; initialTrace?: ExpenseTrace | null }) {
+export function ExpensesPanel({ embedded = false, initialTrace = null, onExport, exporting = false }: { embedded?: boolean; initialTrace?: ExpenseTrace | null; onExport?: (week: string) => void; exporting?: boolean }) {
   const { t } = useTranslation();
   const rose = useRose();
   const insets = useSafeAreaInsets();
@@ -307,6 +308,11 @@ export function ExpensesPanel({ embedded = false, initialTrace = null }: { embed
 
   const content = (
     <>
+        {onExport && !trace ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}>
+            <ExportPill busy={exporting} onPress={() => onExport(weekKey)} />
+          </View>
+        ) : null}
         {/* The summary: which week, its total, and the one button. */}
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
           {trace ? (

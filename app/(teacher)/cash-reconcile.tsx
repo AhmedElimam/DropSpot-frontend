@@ -18,6 +18,7 @@ import { ExpensesPanel } from '@/components/cash/ExpensesPanel';
 import { RoseComplaintsPanel } from '@/components/cash/RoseComplaintsPanel';
 import { RoseStamp, RosePortrait, useStampBurst } from '@/components/rose/RoseStamp';
 import { RoseHero, RoseHeroCard } from '@/components/rose/RoseHero';
+import { useRoseExport, ExportPill } from '@/components/rose/RoseExport';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useRose } from '@/hooks/useRose';
 import { useComplaints } from '@/hooks/useComplaints';
@@ -829,6 +830,9 @@ export default function CashReconcileScreen() {
   const ins = insightsQ.data;
   const sheet = sheetQ.data ?? null;
   const { burst, burstNode } = useStampBurst();
+  // «تصدير PDF»: the whole desk from the top bar, each section from its own corner.
+  const { busy: exporting, exportPdf } = useRoseExport();
+  const weekParam = weekOffset > 0 ? { week: weekDay } : {};
   // The drawer whose count just landed in her book — its card gets the thump, once.
   const [freshStamp, setFreshStamp] = useState<number | null>(null);
   const [segment, setSegment] = useState<Segment>('week');
@@ -901,6 +905,10 @@ export default function CashReconcileScreen() {
           sheet={isPast ? null : sheet}
           onBack={() => router.back()}
           onSettings={data?.role === 'teacher' ? () => setSettingsOpen(true) : undefined}
+          onExportAll={() => exportPdf('all', weekParam)}
+          exportingAll={exporting === 'all'}
+          onExportSheet={() => exportPdf('sheet')}
+          exportingSheet={exporting === 'sheet'}
         >
           {isPast ? (
             <RoseHeroCard icon="calendar" title={t('cash.viewing_past')} sub={t('cash.back_to_now')} chevron onPress={() => { setPeriod('week'); setWeekOffset(0); setSegment('week'); }} />
@@ -936,6 +944,10 @@ export default function CashReconcileScreen() {
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : segment === 'week' ? (
             <View>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}>
+                <ExportPill busy={exporting === 'week' || exporting === 'month'}
+                  onPress={() => (period === 'month' ? exportPdf('month', { month: monthKey }) : exportPdf('week', weekParam))} />
+              </View>
               <PeriodBar
                 period={period}
                 label={period === 'month'
@@ -969,11 +981,19 @@ export default function CashReconcileScreen() {
               )}
             </View>
           ) : segment === 'expenses' ? (
-            <ExpensesPanel embedded />
+            <ExpensesPanel embedded onExport={(week) => exportPdf('expenses', { week })} exporting={exporting === 'expenses'} />
           ) : segment === 'complaints' ? (
-            <RoseComplaintsPanel />
+            <View>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}>
+                <ExportPill busy={exporting === 'complaints'} onPress={() => exportPdf('complaints')} />
+              </View>
+              <RoseComplaintsPanel />
+            </View>
           ) : (
             <View>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}>
+                <ExportPill busy={exporting === 'notes'} onPress={() => exportPdf('notes')} />
+              </View>
               {introSeen === false ? (
                 <View style={{ backgroundColor: colors.accentLight, borderRadius: radius.xl, padding: spacing.lg, marginBottom: spacing.md }}>
                   {rose.named ? <RosePortrait size={56} style={{ marginBottom: spacing.xs }} /> : null}

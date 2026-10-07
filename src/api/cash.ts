@@ -120,6 +120,15 @@ export async function getRoseSheet(): Promise<RoseSheet> {
   };
 }
 
+/** Her desk as a PDF: the whole of it, or one section, for the week / month on screen. */
+export type RoseReportSection = 'all' | 'week' | 'month' | 'expenses' | 'complaints' | 'notes' | 'sheet';
+export async function getRoseReportUrl(params: { section: RoseReportSection; week?: string; month?: string }): Promise<string> {
+  const { data } = await client.get('/teacher/cash/report-url', { params });
+  const url = data?.data?.url;
+  if (!url) throw new Error('no url');
+  return String(url);
+}
+
 export async function getCashInsights(): Promise<CashInsights> {
   const { data } = await client.get('/teacher/cash/insights');
   return data.data as CashInsights;

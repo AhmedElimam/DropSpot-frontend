@@ -2302,7 +2302,18 @@
     "in_book": "في دفتر {{rose}}",
     "sheet_exam": "امتحان",
     "sheet_present": "{{n}} حضور",
-    "sheet_absent": "{{n}} غياب"
+    "sheet_absent": "{{n}} غياب",
+    "export_pdf": "PDF",
+    "export_all": "تصدير مكتب مدام روز PDF",
+    "export_failed": "تعذّر تجهيز ملف الـ PDF — حاول مرة أخرى.",
+    "export_file": "مدام-روز",
+    "export_name_all": "المكتب",
+    "export_name_week": "الخزنة",
+    "export_name_month": "الشهر",
+    "export_name_expenses": "المصاريف",
+    "export_name_complaints": "الاعتراضات",
+    "export_name_notes": "الملاحظات",
+    "export_name_sheet": "ورقة-النهارده"
   },
   "review": {
     "title": "مراجعة الأسبوع",

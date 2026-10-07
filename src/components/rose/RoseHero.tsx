@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { formatNumber } from '@/utils/format';
 import { useRose } from '@/hooks/useRose';
 import { RoseLive } from './RoseLive';
 import type { RoseSheet } from '@/api/cash';
+import { ExportPill } from './RoseExport';
 
 /**
  * The top of مدام روز's desk, as in her story videos (founder 2026-10-07: «her frame
@@ -30,7 +31,7 @@ const CHIP_BORDER = 'rgba(255,255,255,0.22)';
 const PORTRAIT = 148;
 
 export function RoseHero({
-  greeting, sub, sheet, onBack, onSettings, children,
+  greeting, sub, sheet, onBack, onSettings, onExportAll, exportingAll = false, onExportSheet, exportingSheet = false, children,
 }: {
   greeting: string;
   sub: string;
@@ -38,6 +39,11 @@ export function RoseHero({
   sheet: RoseSheet | null;
   onBack: () => void;
   onSettings?: () => void;
+  /** «تصدير PDF» of her whole desk (the top bar) and of today's sheet (under it). */
+  onExportAll?: () => void;
+  exportingAll?: boolean;
+  onExportSheet?: () => void;
+  exportingSheet?: boolean;
   /** Cards under the bubble (viewing a past period, a load error). */
   children?: ReactNode;
 }) {
@@ -57,10 +63,10 @@ export function RoseHero({
   }, [float]);
   const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: float.value }] }));
 
-  const square = (icon: 'forward' | 'settings', onPress: () => void, label: string) => (
-    <TouchableOpacity onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={label}
+  const square = (icon: 'forward' | 'settings' | 'download', onPress: () => void, label: string, busy = false) => (
+    <TouchableOpacity onPress={onPress} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={label}
       style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: CHIP, alignItems: 'center', justifyContent: 'center' }}>
-      <Icon name={icon} size={icon === 'forward' ? 22 : 20} color={ON} outline={icon === 'settings'} />
+      {busy ? <ActivityIndicator size="small" color={ON} /> : <Icon name={icon} size={icon === 'forward' ? 22 : 20} color={ON} outline={icon === 'settings'} />}
     </TouchableOpacity>
   );
 
@@ -68,7 +74,11 @@ export function RoseHero({
     <LinearGradient colors={[...gradients.auth]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xl }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         {square('forward', onBack, t('common.back'))}
-        {onSettings ? square('settings', onSettings, t('cash.settings_title')) : <View style={{ width: 40 }} />}
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          {onExportAll ? square('download', onExportAll, t('cash.export_all'), exportingAll) : null}
+          {onSettings ? square('settings', onSettings, t('cash.settings_title')) : null}
+          {!onExportAll && !onSettings ? <View style={{ width: 40 }} /> : null}
+        </View>
       </View>
 
       {rose.named ? (
@@ -94,7 +104,7 @@ export function RoseHero({
             {typed}<Text style={{ color: 'transparent' }}>{greeting.slice(typed.length)}</Text>
           </Text>
           {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2, textAlign: 'center' }}>{sub}</Text> : null}
-          {sheet && sheet.lines.length > 0 ? <SheetList sheet={sheet} open={open} onToggle={() => setOpen((o) => !o)} /> : null}
+          {sheet && sheet.lines.length > 0 ? <SheetList sheet={sheet} open={open} onToggle={() => setOpen((o) => !o)} onExport={onExportSheet} exporting={exportingSheet} /> : null}
         </View>
       </View>
 
@@ -147,7 +157,7 @@ const FACT = (): Record<string, { icon: 'warning' | 'success' | 'money' | 'note'
  * and attendance once it has ended — then each fact on its own row with its icon. Three
  * sessions show; the rest on a tap. An older server sends only `lines`: those, one per row.
  */
-function SheetList({ sheet, open, onToggle }: { sheet: RoseSheet; open: boolean; onToggle: () => void }) {
+function SheetList({ sheet, open, onToggle, onExport, exporting }: { sheet: RoseSheet; open: boolean; onToggle: () => void; onExport?: () => void; exporting: boolean }) {
   const { t } = useTranslation();
   const sessions = sheet.sessions;
   const right = { textAlign: 'right' as const };
@@ -156,7 +166,8 @@ function SheetList({ sheet, open, onToggle }: { sheet: RoseSheet; open: boolean;
     <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <Icon name="calendar" size={16} color={colors.accent} />
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.sheet_title')}</Text>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.sheet_title')}</Text>
+        {onExport ? <ExportPill onPress={onExport} busy={exporting} /> : null}
       </View>
       {sheet.head ? <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: 2, ...right }}>{sheet.head}</Text> : null}
 
