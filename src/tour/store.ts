@@ -24,7 +24,12 @@ export interface TourStep {
   notFor?: string[];
 }
 
-export interface TourDef { id: string; steps: TourStep[] }
+export interface TourDef {
+  id: string;
+  steps: TourStep[];
+  /** Who presents the tour on its cards. 'rose' = مدام روز, the teacher side's guide (founder 2026-10-07). */
+  narrator?: 'rose';
+}
 
 /** The focused screen's scroll view, so a step can bring its target into view. */
 export interface TourScroller { scrollBy: (dy: number) => void }

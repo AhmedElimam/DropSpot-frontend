@@ -11,8 +11,11 @@ const card = (title: string, body: string, cta: string, extra: Partial<TourStep>
 const spot = (target: string, title: string, body: string, route?: Href): TourStep => ({ target, title, body, route });
 
 const T = '/(teacher)/(tabs)' as Href;
+// The teacher side is presented by مدام روز in her own voice (founder 2026-10-07: «increase her
+// influence … she's the one explaining — teacher side only»). Facts, never approval; never «AI».
 export const TEACHER_TOUR: TourDef = {
   id: 'teacher',
+  narrator: 'rose',
   steps: [
     card('tour.teacher.welcome_title', 'tour.teacher.welcome_body', 'tour.start'),
     spot('home:stats', 'tour.teacher.stats_title', 'tour.teacher.stats_body', T),

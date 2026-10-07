@@ -10,6 +10,8 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { BrandMark } from '@/components/ui/BrandMark';
+import { Image } from 'expo-image';
+import { useRose } from '@/hooks/useRose';
 import { useAuthStore } from '@/stores/authStore';
 import { usePendingSurvey } from '@/hooks/useSurvey';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
@@ -25,6 +27,12 @@ const APath = Animated.createAnimatedComponent(Path);
 // A slow, calm glide between stops (founder 2026-10-06: «the frames between steps a quite slow»).
 const SPRING = { damping: 26, stiffness: 70, mass: 1.1 };
 const CARD_SPRING = { damping: 24, stiffness: 95, mass: 1 };
+// مدام روز's nod as each step opens — her own small motion; the hole's glide is untouched.
+const NOD_SPRING = { damping: 9, stiffness: 150, mass: 0.9 };
+const ROSE = require('../../assets/images/rose/madam-rose.webp');
+/** Her portrait on a centred card / a spotlight card; half of it rises above the card. */
+const ROSE_BIG = 104;
+const ROSE_SMALL = 58;
 /** How long a routed step waits for its target before it is skipped. */
 const WAIT_FOR_TARGET_MS = 1800;
 /** When targets measure again after a step opens: a slow phone may still be sliding the screen in at 400 ms. */
@@ -108,6 +116,16 @@ function Runner() {
   const remeasure = useTourStore((s) => s.remeasure);
   const steps = tour!.steps;
   const current = steps[step];
+  // The teacher side's tour is presented by مدام روز (her name as this person's screens show it).
+  const narrated = tour!.narrator === 'rose';
+  const rose = useRose();
+  const nod = useSharedValue(1);
+  useEffect(() => {
+    if (!narrated) return;
+    nod.value = 0.84;
+    nod.value = withSpring(1, NOD_SPRING);
+  }, [step, narrated, nod]);
+  const nodStyle = useAnimatedStyle(() => ({ transform: [{ scale: nod.value }, { rotate: `${(1 - nod.value) * -36}deg` }] }));
   const rawRect = useTourStore((s) => (current?.target ? s.targets[current.target] : undefined));
   const last = useTourStore((s) => nextShowable(steps, s.targets, step, 1, role) === null);
 
@@ -243,9 +261,28 @@ function Runner() {
         {/* Tapping the dim moves on — the quickest way through for someone who already knows. */}
         <Pressable style={StyleSheet.absoluteFill} onPress={() => advance(1)} accessibilityLabel={t('tour.next')} />
 
-        <Animated.View onLayout={onCardLayout} style={[{ position: 'absolute', left: spacing.lg, right: spacing.lg }, cardStyle]}>
+        <Animated.View onLayout={onCardLayout} style={[{ position: 'absolute', left: spacing.lg, right: spacing.lg, paddingTop: narrated ? (centred ? ROSE_BIG : ROSE_SMALL) / 2 : 0 }, cardStyle]}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, ...shadows.md }}>
-            {centred ? (
+            {narrated ? (
+              centred ? (
+                // Her name under her portrait — she is the one speaking.
+                <View style={{ alignItems: 'center', marginTop: ROSE_BIG / 2 - spacing.sm, marginBottom: spacing.md }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{rose.name}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textTertiary }}>{t('tour.narrator_role')}</Text>
+                </View>
+              ) : (
+                <View style={{ marginBottom: spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: ROSE_SMALL / 2, paddingStart: ROSE_SMALL + spacing.sm, marginTop: -spacing.xs }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{rose.name}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
+                    {Array.from({ length: spotSteps }).map((_, i) => (
+                      <View key={i} style={{ height: 4, flex: i < spotIndex ? 1.6 : 1, borderRadius: 2, backgroundColor: i < spotIndex ? colors.accent : colors.border }} />
+                    ))}
+                  </View>
+                </View>
+              )
+            ) : centred ? (
               <View style={{ alignItems: 'center', marginBottom: spacing.md }}>
                 <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
                   <BrandMark size={34} tint={colors.brand} />
@@ -258,8 +295,8 @@ function Runner() {
                 ))}
               </View>
             )}
-            <Text style={{ fontFamily: fonts.bold, fontSize: centred ? 22 : 17.5, lineHeight: centred ? 30 : 25, color: colors.textPrimary, textAlign: centred ? 'center' : 'right' }}>{t(current.title)}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 23, color: colors.textSecondary, marginTop: 6, textAlign: centred ? 'center' : 'right' }}>{t(current.body)}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: centred ? 22 : 17.5, lineHeight: centred ? 30 : 25, color: colors.textPrimary, textAlign: centred ? 'center' : 'right' }}>{t(current.title, { rose: rose.name })}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 23, color: colors.textSecondary, marginTop: 6, textAlign: centred ? 'center' : 'right' }}>{t(current.body, { rose: rose.name })}</Text>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg }}>
               <Pressable onPress={() => { if (current.href) { finish(); router.push(current.href); } else advance(1); }} accessibilityRole="button"
@@ -283,6 +320,14 @@ function Runner() {
             ) : null}
             {waiting ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, textAlign: 'center', marginTop: 4 }}>{t('tour.opening')}</Text> : null}
           </View>
+          {narrated ? (
+            // A full-width row does the placing (centre / start = the right in RTL); the portrait nods inside it.
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: centred ? 'center' : 'flex-start', paddingHorizontal: spacing.lg }}>
+              <Animated.View style={[{ width: centred ? ROSE_BIG : ROSE_SMALL, height: centred ? ROSE_BIG : ROSE_SMALL }, nodStyle]}>
+                <Image source={ROSE} style={{ width: '100%', height: '100%' }} contentFit="contain" accessibilityLabel={rose.name} />
+              </Animated.View>
+            </View>
+          ) : null}
         </Animated.View>
       </Animated.View>
     </View>

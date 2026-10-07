@@ -149,4 +149,12 @@ describe('a scrolled home on replay (founder 2026-10-07)', () => {
   it('leaves a target already in view alone', () => {
     expect(scrollNeeded({ x: 16, y: 200, width: 358, height: 90 }, area, top, bottom)).toBe(0);
   });
+
+  // Founder 2026-10-07: مدام روز presents the teacher side's tour, in her own voice; the
+  // parent and student tours stay as they were.
+  it('is presented by مدام روز on the teacher side only', () => {
+    expect(TEACHER_TOUR.narrator).toBe('rose');
+    expect(PARENT_TOUR.narrator).toBeUndefined();
+    expect(STUDENT_TOUR.narrator).toBeUndefined();
+  });
 });
