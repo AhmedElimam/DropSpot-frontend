@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { TourTarget } from '@/tour/TourTarget';
+import { useTourScroll } from '@/tour/useTourScroll';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { ShortcutTile } from '@/components/ui/ShortcutTile';
@@ -78,11 +79,13 @@ export default function StudentDashboard() {
     { key: 'marks', icon: 'reports' as const, label: t('nav.marks'), color: colors.info, tint: colors.infoLight, onPress: () => router.navigate('/(student)/marks') },
   ];
 
+  const tourScroll = useTourScroll();
   return (
     // Container painted the hero color so a top overscroll reveals the header tone,
     // not the page background (which looked like an ugly gap).
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
+        {...tourScroll}
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}

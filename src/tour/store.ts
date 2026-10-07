@@ -26,6 +26,9 @@ export interface TourStep {
 
 export interface TourDef { id: string; steps: TourStep[] }
 
+/** The focused screen's scroll view, so a step can bring its target into view. */
+export interface TourScroller { scrollBy: (dy: number) => void }
+
 interface TourState {
   targets: Record<string, TargetRect>;
   /** Bumped when the tour wants every target measured again (after a navigation). */
@@ -34,6 +37,10 @@ interface TourState {
   step: number;
   /** The first tour, the server's call: it cannot be skipped. A replay can. */
   mandatory: boolean;
+  /** The scroll view of the screen in focus (a home screen), with the token of who set it. */
+  scroller: { owner: object; api: TourScroller } | null;
+  setScroller: (owner: object, api: TourScroller) => void;
+  clearScroller: (owner: object) => void;
   register: (id: string, rect: TargetRect) => void;
   unregister: (id: string) => void;
   remeasure: () => void;
@@ -51,6 +58,11 @@ export const useTourStore = create<TourState>((set, get) => ({
   tour: null,
   step: 0,
   mandatory: false,
+  scroller: null,
+  setScroller: (owner, api) => set({ scroller: { owner, api } }),
+  // Only the screen that set it may clear it: a blur that lands after the next focus must
+  // not wipe the new screen's scroller.
+  clearScroller: (owner) => { if (get().scroller?.owner === owner) set({ scroller: null }); },
   register: (id, rect) => {
     if (same(get().targets[id], rect)) return;
     set((s) => ({ targets: { ...s.targets, [id]: rect } }));

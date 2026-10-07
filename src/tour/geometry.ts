@@ -84,3 +84,17 @@ export function stackDim(overlay: string, extra: number): string {
   const c = (v: number) => Math.round(v * k);
   return `rgba(${c(r)}, ${c(g)}, ${c(b)}, ${Math.round(a * 1000) / 1000})`;
 }
+
+/**
+ * How far to scroll so a target sits fully in view — below the status bar and above the tab
+ * bar — or 0 when it already does. Negative scrolls up. Founder 2026-10-07: a home scrolled a
+ * little, then the tour replayed, left the first stops above the screen.
+ */
+export function scrollNeeded(r: TargetRect, area: { height: number }, top: number, bottom: number): number {
+  const MARGIN = 16;
+  const minY = top + MARGIN;
+  const maxY = area.height - bottom - MARGIN;
+  if (r.y < minY) return r.y - minY;
+  if (r.y + r.height > maxY) return Math.min(r.y - minY, r.y + r.height - maxY);
+  return 0;
+}

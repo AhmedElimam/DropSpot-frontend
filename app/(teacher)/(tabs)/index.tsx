@@ -18,6 +18,7 @@ import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { TourTarget } from '@/tour/TourTarget';
+import { useTourScroll } from '@/tour/useTourScroll';
 import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
 import { PendingInvitations } from '@/components/teacher/PendingInvitations';
 import { HubRow } from '@/components/teacher/HubRow';
@@ -155,9 +156,11 @@ export default function TeacherHome() {
 
   const firstName = (user?.name ?? '').split(' ')[0];
 
+  const tourScroll = useTourScroll();
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
+        {...tourScroll}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}

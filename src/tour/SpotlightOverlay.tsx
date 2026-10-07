@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, shadows } from '@/theme/index';
+import { colors, spacing, radius, shadows, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { useAuthStore } from '@/stores/authStore';
@@ -18,7 +18,7 @@ import { getTourStatus, completeTour } from '@/api/tour';
 import { useTourStore, nextShowable } from './store';
 import { tourSeen, markTourSeen } from './seen';
 import { tourForRole } from './tours';
-import { holeFor, placeCard, onScreen, toFrame, holePath, stackDim, HOLE_RADIUS, type Hole, type Frame } from './geometry';
+import { holeFor, placeCard, onScreen, toFrame, holePath, stackDim, scrollNeeded, HOLE_RADIUS, type Hole, type Frame } from './geometry';
 
 const ARect = Animated.createAnimatedComponent(Rect);
 const APath = Animated.createAnimatedComponent(Path);
@@ -151,6 +151,25 @@ function Runner() {
     if (next === null) { if (dir === 1) finish(); return; }
     goTo(next);
   }, [steps, step, goTo, finish, role]);
+
+  // A target scrolled away (the home scrolled a little before a replay, founder 2026-10-07):
+  // scroll the screen until it sits between the status bar and the tab bar, then measure again.
+  // The tab bar's own buttons are fixed — never scroll for them. Twice at most per step.
+  const scrolls = useRef({ step: -1, count: 0 });
+  useEffect(() => {
+    const id = current?.target;
+    if (!id || id.startsWith('tab:') || !rect) return;
+    const dy = scrollNeeded(rect, area, insets.top, nav.bottomHeight + insets.bottom);
+    if (Math.abs(dy) < 4) return;
+    if (scrolls.current.step !== step) scrolls.current = { step, count: 0 };
+    if (scrolls.current.count >= 2) return;
+    const scroller = useTourStore.getState().scroller;
+    if (!scroller) return;
+    scrolls.current.count += 1;
+    scroller.api.scrollBy(dy);
+    const timers = [320, 650].map((ms) => setTimeout(remeasure, ms));
+    return () => timers.forEach(clearTimeout);
+  }, [current, step, rect, area, insets.top, insets.bottom, remeasure]);
 
   // A spotlit step whose target never shows up (scrolled away, not on this build): move on.
   useEffect(() => {

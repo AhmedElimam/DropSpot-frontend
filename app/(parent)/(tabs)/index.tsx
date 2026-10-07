@@ -23,6 +23,7 @@ import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { TourTarget } from '@/tour/TourTarget';
+import { useTourScroll } from '@/tour/useTourScroll';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { ActionTile } from '@/components/ui/ShortcutTile';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,9 +73,11 @@ export default function ParentHome() {
   const allWell = kids.length > 0 && well === kids.length;
   const attention = (billingAlerts?.length ?? 0) + (risks?.length ?? 0);
 
+  const tourScroll = useTourScroll();
   return (
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
+        {...tourScroll}
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}

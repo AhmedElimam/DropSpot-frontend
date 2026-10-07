@@ -129,3 +129,24 @@ describe('spotlight on any phone (founder 2026-10-07: wrong position, slow on Xi
     expect(stackDim('#123456', 0.28)).toBe('#123456');
   });
 });
+
+describe('a scrolled home on replay (founder 2026-10-07)', () => {
+  const { scrollNeeded } = require('../geometry');
+  const area = { height: 844 };
+  const top = 47; const bottom = 88 + 34;
+
+  it('scrolls up to a target hidden above the status bar', () => {
+    // 200 px scrolled: the stats now sit at y = -60.
+    expect(scrollNeeded({ x: 16, y: -60, width: 358, height: 90 }, area, top, bottom)).toBe(-60 - (top + 16));
+  });
+
+  it('scrolls down to one behind the tab bar, never past its top', () => {
+    expect(scrollNeeded({ x: 16, y: 700, width: 358, height: 80 }, area, top, bottom)).toBe(700 + 80 - (844 - bottom - 16));
+    // Taller than the room: its top lands under the status bar, not above the screen.
+    expect(scrollNeeded({ x: 16, y: 600, width: 358, height: 900 }, area, top, bottom)).toBe(600 - (top + 16));
+  });
+
+  it('leaves a target already in view alone', () => {
+    expect(scrollNeeded({ x: 16, y: 200, width: 358, height: 90 }, area, top, bottom)).toBe(0);
+  });
+});
