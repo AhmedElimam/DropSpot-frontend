@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/Icon';
 import { formatNumber } from '@/utils/format';
 import { useRose } from '@/hooks/useRose';
 import { RoseLive } from './RoseLive';
+import type { RoseSheet } from '@/api/cash';
 
 /**
  * The top of مدام روز's desk, as in her story videos (founder 2026-10-07: «her frame
@@ -33,8 +34,8 @@ export function RoseHero({
 }: {
   greeting: string;
   sub: string;
-  /** «ورقة النهارده» lines; empty = no sheet block. */
-  sheet: string[];
+  /** «ورقة النهارده»; null / nothing to say = no sheet block. */
+  sheet: RoseSheet | null;
   onBack: () => void;
   onSettings?: () => void;
   /** Cards under the bubble (viewing a past period, a load error). */
@@ -93,23 +94,7 @@ export function RoseHero({
             {typed}<Text style={{ color: 'transparent' }}>{greeting.slice(typed.length)}</Text>
           </Text>
           {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2, textAlign: 'center' }}>{sub}</Text> : null}
-          {/* «ورقة النهارده»: the day as she wrote it. Three lines by default; the rest on a tap. */}
-          {sheet.length > 0 ? (
-            <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <Icon name="calendar" size={15} color={colors.accent} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('cash.sheet_title')}</Text>
-              </View>
-              {(open ? sheet : sheet.slice(0, 3)).map((line, i) => (
-                <Text key={i} style={{ fontFamily: i === 0 ? fonts.bold : fonts.regular, fontSize: 13.5, lineHeight: 22, color: i === 0 ? colors.textPrimary : colors.textSecondary }}>{line}</Text>
-              ))}
-              {sheet.length > 3 ? (
-                <TouchableOpacity onPress={() => setOpen((o) => !o)} hitSlop={6} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{open ? t('cash.sheet_less') : t('cash.sheet_more', { count: formatNumber(sheet.length) })}</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          ) : null}
+          {sheet && sheet.lines.length > 0 ? <SheetList sheet={sheet} open={open} onToggle={() => setOpen((o) => !o)} /> : null}
         </View>
       </View>
 
@@ -146,4 +131,94 @@ function useTyped(text: string): string {
     return () => clearInterval(id);
   }, [text]);
   return text.slice(0, n);
+}
+
+const FACT = (): Record<string, { icon: 'warning' | 'success' | 'money' | 'note' | 'eye'; tint: string }> => ({
+  dues: { icon: 'warning', tint: colors.danger },
+  dues_clear: { icon: 'success', tint: colors.success },
+  collected: { icon: 'money', tint: colors.success },
+  complaints: { icon: 'note', tint: colors.accent },
+  review: { icon: 'eye', tint: colors.brand },
+});
+
+/**
+ * «ورقة النهارده», listed (founder 2026-10-08: «make it listed and organised»): her opening
+ * line, then one row per session — the time in its own pill, what and which grade, where,
+ * and attendance once it has ended — then each fact on its own row with its icon. Three
+ * sessions show; the rest on a tap. An older server sends only `lines`: those, one per row.
+ */
+function SheetList({ sheet, open, onToggle }: { sheet: RoseSheet; open: boolean; onToggle: () => void }) {
+  const { t } = useTranslation();
+  const sessions = sheet.sessions;
+  const right = { textAlign: 'right' as const };
+
+  return (
+    <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Icon name="calendar" size={16} color={colors.accent} />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('cash.sheet_title')}</Text>
+      </View>
+      {sheet.head ? <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: 2, ...right }}>{sheet.head}</Text> : null}
+
+      {sessions ? (
+        <>
+          {(open ? sessions : sessions.slice(0, 3)).map((x, i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm, padding: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }}>
+              <View style={{ minWidth: 62, paddingHorizontal: 8, height: 28, borderRadius: radius.md, backgroundColor: colors.brand + '1A', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }} numberOfLines={1}>{x.time}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, lineHeight: 20, color: colors.textPrimary, ...right }}>{x.title}</Text>
+                {x.venue ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                    <Icon name="location" size={12} color={colors.textTertiary} />
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>{x.venue}</Text>
+                  </View>
+                ) : null}
+                {x.exam || x.present !== null ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {x.exam ? <Pill text={t('cash.sheet_exam')} tint={colors.info} /> : null}
+                    {x.present !== null ? <Pill text={t('cash.sheet_present', { n: formatNumber(x.present) })} tint={colors.success} /> : null}
+                    {x.absent !== null && x.absent > 0 ? <Pill text={t('cash.sheet_absent', { n: formatNumber(x.absent) })} tint={colors.danger} /> : null}
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          ))}
+          {sessions.length > 3 ? (
+            <TouchableOpacity onPress={onToggle} hitSlop={6} style={{ alignSelf: 'center', marginTop: spacing.sm }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{open ? t('cash.sheet_less') : t('cash.sheet_more', { count: formatNumber(sessions.length) })}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {(sheet.facts ?? []).length > 0 ? (
+            <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+              {(sheet.facts ?? []).map((f, i) => {
+                const look = FACT()[f.kind] ?? { icon: 'note' as const, tint: colors.textSecondary };
+                return (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: look.tint + '1A', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name={look.icon} size={15} color={look.tint} />
+                    </View>
+                    <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textPrimary, ...right }}>{f.text}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+        </>
+      ) : (
+        sheet.lines.map((line, i) => (
+          <Text key={i} style={{ fontFamily: i === 0 ? fonts.bold : fonts.regular, fontSize: 13.5, lineHeight: 22, color: colors.textSecondary, ...right }}>{line}</Text>
+        ))
+      )}
+    </View>
+  );
+}
+
+function Pill({ text, tint }: { text: string; tint: string }) {
+  return (
+    <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.full, backgroundColor: tint + '1A' }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: tint }}>{text}</Text>
+    </View>
+  );
 }

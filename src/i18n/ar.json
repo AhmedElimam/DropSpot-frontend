@@ -2289,7 +2289,7 @@
     "seg_complaints": "الاعتراضات",
     "desk_sub": "الخزنة · المصاريف · الاعتراضات · ورقة النهارده",
     "sheet_title": "ورقة النهارده",
-    "sheet_more": "عرض الكل ({{count}})",
+    "sheet_more": "كل الحصص ({{count}})",
     "sheet_less": "عرض أقل",
     "complaints_line": "{{rose}} بتسجّل كل اعتراض زي ما وصل — والقرار ليك.",
     "complaints_pending_title": "مستني قرار",
@@ -2299,7 +2299,10 @@
     "complaints_none": "مفيش اعتراضات مستنية",
     "stamp_handover": "اتسجّل الاستلام في دفتر {{rose}}",
     "stamp_closed": "اتقفل الأسبوع في دفتر {{rose}}",
-    "in_book": "في دفتر {{rose}}"
+    "in_book": "في دفتر {{rose}}",
+    "sheet_exam": "امتحان",
+    "sheet_present": "{{n}} حضور",
+    "sheet_absent": "{{n}} غياب"
   },
   "review": {
     "title": "مراجعة الأسبوع",

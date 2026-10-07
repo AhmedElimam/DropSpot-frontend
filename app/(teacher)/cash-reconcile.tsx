@@ -560,15 +560,19 @@ function Observations({ items }: { items: Observation[] }) {
           <View key={o.key} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.md }}>
             {rose.named ? <RosePortrait size={40} nod={i === 0} style={{ marginTop: 2 }} /> : null}
             <TouchableOpacity onPress={() => open(o)} activeOpacity={0.85} accessibilityRole="button"
-              style={{ flex: 1, backgroundColor: streak ? colors.success + '14' : colors.surface, borderRadius: radius.xl, borderTopStartRadius: rose.named ? 6 : radius.xl, borderWidth: 1, borderColor: streak ? colors.success : colors.border, padding: spacing.lg, paddingEnd: rose.named ? spacing.xl + spacing.lg : spacing.lg, ...shadows.sm }}>
-              {rose.named ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.accent, marginBottom: 2 }}>{rose.name}</Text> : null}
-              <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, lineHeight: 24 }}>{o.text}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
-                <Icon name="search" size={13} color={colors.brand} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('cash.observation_open')}</Text>
+              style={{ flex: 1, backgroundColor: streak ? colors.success + '14' : colors.surface, borderRadius: radius.xl, borderTopStartRadius: rose.named ? 6 : radius.xl, borderWidth: 1, borderColor: streak ? colors.success : colors.border, padding: spacing.lg, ...shadows.sm }}>
+              {/* Her name on the right, nothing over it (founder 2026-10-08). */}
+              {rose.named ? <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent, marginBottom: 2, textAlign: 'right' }}>{rose.name}</Text> : null}
+              <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, lineHeight: 24, textAlign: 'right' }}>{o.text}</Text>
+              {/* The foot of the memo: «شوف التفاصيل», and her stamp at the bottom corner. */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Icon name="search" size={13} color={colors.brand} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('cash.observation_open')}</Text>
+                </View>
+                <View style={{ flex: 1 }} />
+                <RoseStamp ink="navy" size={44} tilt={-12} />
               </View>
-              {/* Her mark on the memo, in the corner — as on her sheets on the landing page. */}
-              <RoseStamp ink="navy" size={46} tilt={-12} style={{ position: 'absolute', top: spacing.sm, end: spacing.sm }} />
             </TouchableOpacity>
           </View>
         );
@@ -823,7 +827,7 @@ export default function CashReconcileScreen() {
   const complaintsQ = useComplaints('pending');
   const { refreshing, onRefresh } = usePullRefresh(refetch, insightsQ.refetch, monthQ.refetch, sheetQ.refetch, complaintsQ.refetch);
   const ins = insightsQ.data;
-  const sheet = sheetQ.data?.lines ?? [];
+  const sheet = sheetQ.data ?? null;
   const { burst, burstNode } = useStampBurst();
   // The drawer whose count just landed in her book — its card gets the thump, once.
   const [freshStamp, setFreshStamp] = useState<number | null>(null);
@@ -894,7 +898,7 @@ export default function CashReconcileScreen() {
         <RoseHero
           greeting={ins?.context?.greeting ?? ''}
           sub={ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
-          sheet={isPast ? [] : sheet}
+          sheet={isPast ? null : sheet}
           onBack={() => router.back()}
           onSettings={data?.role === 'teacher' ? () => setSettingsOpen(true) : undefined}
         >
