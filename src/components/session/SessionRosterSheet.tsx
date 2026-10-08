@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Avatar } from '@/components/layout/Avatar';
@@ -47,6 +48,7 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
 }) {
   const { t } = useTranslation();
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { can } = useActiveAbilities();
   const canMark = can(ABILITY.MARK_MANUAL);
   const q = useSessionDetail(sessionId ?? undefined);
@@ -128,7 +130,10 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
         {shown.length === 0 ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.lg }}>{`لا يوجد طالب باسم «${search.trim()}» في هذه الحصة`}</Text>
         ) : null}
-        <ScrollView style={{ maxHeight: height * 0.6 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* The list takes what the sheet has left — title, search, the «open the full sheet»
+            button and the sheet's own margins (≈300 pt) — not a flat 60 % of the screen, which
+            overflowed the sheet and slid the bottom under its margin (founder 2026-10-08). */}
+        <ScrollView style={{ maxHeight: Math.max(200, Math.min(height * 0.6, height - insets.top - insets.bottom - 300)) }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {shown.map((a) => {
             const color = STATUS_COLOR()[a.status] ?? STATUS_COLOR().not_recorded;
             const open = openId === a.student_id;
