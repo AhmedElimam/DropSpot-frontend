@@ -141,7 +141,7 @@ const FeedRow = memo(function FeedRow({
   const rose = useRose();
   const look = LOOK()[n.type] ?? { icon: 'bell' as IconName, tint: colors.brand };
   const unread = !n.is_read;
-  // Her logo only while her name is on: a teacher who switched it off reads «مديرة الحسابات» with the plain icon.
+  // Her logo only while her name is on: a teacher who switched it off reads «المساعدة الشخصية» with the plain icon.
   const hers = rose.named && isRoseNotification(n);
   return (
     <SwipeRow

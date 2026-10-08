@@ -13,6 +13,7 @@ import { RoseLive } from './RoseLive';
 import type { RoseActivity } from './RoseProps';
 import type { RoseSheet } from '@/api/cash';
 import { ExportPill } from './RoseExport';
+import { SheetDetail, type SheetDetailTarget } from './SheetDetail';
 
 /**
  * The top of مدام روز's desk, as in her story videos (founder 2026-10-07: «her frame
@@ -217,6 +218,8 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
   const right = { textAlign: 'right' as const };
   const open = all;
   const fold = useSheetFold();
+  // Every line opens what stands behind it (founder 2026-10-08).
+  const [detail, setDetail] = useState<SheetDetailTarget | null>(null);
   const chevron = useAnimatedStyle(() => ({ transform: [{ rotate: `${180 * fold.p.value}deg` }] }));
 
   return (
@@ -241,7 +244,8 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
       {sessions ? (
         <>
           {(open ? sessions : sessions.slice(0, 3)).map((x, i) => (
-            <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm, padding: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }}>
+            <TouchableOpacity key={i} onPress={() => setDetail({ type: 'session', session: x })} activeOpacity={0.8} accessibilityRole="button" accessibilityHint="التفاصيل"
+              style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm, padding: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }}>
               <View style={{ minWidth: 62, paddingHorizontal: 8, height: 28, borderRadius: radius.md, backgroundColor: colors.brand + '1A', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }} numberOfLines={1}>{x.time}</Text>
               </View>
@@ -261,7 +265,8 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
                   </View>
                 ) : null}
               </View>
-            </View>
+              <Icon name="back" size={14} color={colors.textTertiary} style={{ alignSelf: 'center' }} />
+            </TouchableOpacity>
           ))}
           {sessions.length > 3 ? (
             <TouchableOpacity onPress={() => { LayoutAnimation.configureNext(FOLD_ANIM); onToggle(); }} hitSlop={6} style={{ alignSelf: 'center', marginTop: spacing.sm }}>
@@ -273,12 +278,14 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
               {(sheet.facts ?? []).map((f, i) => {
                 const look = FACT()[f.kind] ?? { icon: 'note' as const, tint: colors.textSecondary };
                 return (
-                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <TouchableOpacity key={i} onPress={() => setDetail({ type: 'fact', kind: f.kind, text: f.text, items: f.items })} activeOpacity={0.8} accessibilityRole="button" accessibilityHint="التفاصيل"
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 4 }}>
                     <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: look.tint + '1A', alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name={look.icon} size={15} color={look.tint} />
                     </View>
                     <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textPrimary, ...right }}>{f.text}</Text>
-                  </View>
+                    <Icon name="back" size={14} color={colors.textTertiary} />
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -292,6 +299,7 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
           <View style={{ height: spacing.xs }} />
         </View>
       ) : null}
+      <SheetDetail target={detail} onClose={() => setDetail(null)} />
     </View>
   );
 }

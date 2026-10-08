@@ -52,7 +52,7 @@ export interface CashSettings extends CashSettingsLite {
   insights_enabled?: boolean;
   insight_pushes_per_day?: number;
   review_bulk_max?: number;
-  /** Teacher switch: her screens say «مدام روز» (true) or «مديرة الحسابات». Assistants always see the name. */
+  /** Teacher switch: her screens say «مدام روز» (true) or «المساعدة الشخصية». Assistants always see the name. */
   rose_named?: boolean;
   /** Teacher switch: her 11 am «ورقة النهارده» (today's sessions, venues, overdue bills, complaints) to the teacher and assistants. */
   rose_briefing_enabled?: boolean;
@@ -91,7 +91,8 @@ export interface CashInsights {
 }
 
 /** «ورقة النهارده» as her desk reads it now: today's sessions, the door, the money, what waits — in this reader's scope. Empty lines = nothing to say. */
-export interface RoseSheetSession { time: string; title: string; venue: string | null; exam: boolean; present: number | null; absent: number | null }
+export interface RoseSheetSession { id?: number; time: string; title: string; venue: string | null; exam: boolean; present: number | null; absent: number | null }
+export interface RoseSheetItem { title: string; sub: string; amount: number | null; student_id: number | null }
 export type RoseSheetFactKind = 'dues' | 'dues_clear' | 'collected' | 'complaints' | 'review';
 export interface RoseSheet {
   date: string;
@@ -100,7 +101,8 @@ export interface RoseSheet {
   /** The same sheet in pieces (server ≥ 2026-10-08) — absent on an older server: fall back to `lines`. */
   head?: string;
   sessions?: RoseSheetSession[];
-  facts?: { kind: RoseSheetFactKind | string; text: string }[];
+  /** Each fact, and (server ≥ 2026-10-08) what stands behind it — for the tap on her desk. */
+  facts?: { kind: RoseSheetFactKind | string; text: string; items?: RoseSheetItem[] }[];
 }
 
 export async function getRoseSheet(): Promise<RoseSheet> {
@@ -112,11 +114,17 @@ export async function getRoseSheet(): Promise<RoseSheet> {
     name: String(d.name ?? ''),
     head: typeof d.head === 'string' ? d.head : undefined,
     sessions: Array.isArray(d.sessions) ? d.sessions.map((x: any) => ({
-      time: String(x.time ?? ''), title: String(x.title ?? ''), venue: x.venue ? String(x.venue) : null, exam: !!x.exam,
+      id: x.id != null ? Number(x.id) : undefined, time: String(x.time ?? ''), title: String(x.title ?? ''), venue: x.venue ? String(x.venue) : null, exam: !!x.exam,
       present: x.present === null || x.present === undefined ? null : Number(x.present),
       absent: x.absent === null || x.absent === undefined ? null : Number(x.absent),
     })) : undefined,
-    facts: Array.isArray(d.facts) ? d.facts.map((x: any) => ({ kind: String(x.kind ?? ''), text: String(x.text ?? '') })) : undefined,
+    facts: Array.isArray(d.facts) ? d.facts.map((x: any) => ({
+      kind: String(x.kind ?? ''), text: String(x.text ?? ''),
+      items: Array.isArray(x.items) ? x.items.map((i: any) => ({
+        title: String(i.title ?? ''), sub: String(i.sub ?? ''),
+        amount: i.amount == null ? null : Number(i.amount), student_id: i.student_id == null ? null : Number(i.student_id),
+      })) : undefined,
+    })) : undefined,
   };
 }
 

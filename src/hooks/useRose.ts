@@ -4,7 +4,7 @@ import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 
 /**
  * How the accounts persona is named on THIS person's screens (founder 2026-10-02): a
- * teacher may switch her name off — her screens then say «مديرة الحسابات» — while an
+ * teacher may switch her name off — her screens then say «المساعدة الشخصية» — while an
  * assistant always sees «مدام روز» and has no control over it. Strings that mention her
  * take `{{rose}}` and pass `name`; the screen title has its own two forms.
  */
