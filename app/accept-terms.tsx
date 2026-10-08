@@ -67,14 +67,14 @@ export default function AcceptTermsScreen() {
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, lineHeight: 24, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.lg }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, lineHeight: 24, color: colors.textPrimary, marginBottom: spacing.lg }}>
             {intro}
           </Text>
 
           {bullets.map((line, i) => (
             <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.md }}>
               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand, marginTop: 9 }} />
-              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 23, color: colors.textSecondary, textAlign: 'right' }}>
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 23, color: colors.textSecondary }}>
                 {line}
               </Text>
             </View>

@@ -91,11 +91,11 @@ export default function ChangePhoneScreen() {
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl }}>
         {step === 'intro' ? (
           <>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 26, color: colors.textSecondary, textAlign: 'right' }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 26, color: colors.textSecondary }}>
               {t('auth.change_phone_intro')}
             </Text>
             <Primary label={t('auth.change_phone_send_old')} onPress={() => start.mutate()} />
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textTertiary, textAlign: 'right', marginTop: spacing.xl }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textTertiary, marginTop: spacing.xl }}>
               {t('auth.change_phone_lost')}
             </Text>
           </>
@@ -103,7 +103,7 @@ export default function ChangePhoneScreen() {
 
         {step === 'verify_old' ? (
           <>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.md }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.md }}>
               {t('auth.change_phone_old_sent', { phone: maskedOld })}
             </Text>
             <TextInput value={oldCode} onChangeText={(v) => setOldCode(onlyDigits(v, 6))} keyboardType="number-pad" placeholder="------" placeholderTextColor={colors.textTertiary} style={field()} />
@@ -113,7 +113,7 @@ export default function ChangePhoneScreen() {
 
         {step === 'enter_new' ? (
           <>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.md }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.md }}>
               {t('auth.change_phone_new_label')}
             </Text>
             <TextInput value={newPhone} onChangeText={(v) => setNewPhone(onlyDigits(v, 15))} keyboardType="phone-pad" placeholder="01000000000" placeholderTextColor={colors.textTertiary} style={{ ...field(), letterSpacing: 1, writingDirection: 'ltr' }} />
@@ -123,7 +123,7 @@ export default function ChangePhoneScreen() {
 
         {step === 'verify_new' ? (
           <>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.md }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.md }}>
               {t('auth.change_phone_new_sent', { phone: maskedNew })}
             </Text>
             <TextInput value={newCode} onChangeText={(v) => setNewCode(onlyDigits(v, 6))} keyboardType="number-pad" placeholder="------" placeholderTextColor={colors.textTertiary} style={field()} />

@@ -47,7 +47,7 @@ export function PhoneConfirmModal({
             <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: colors.warningLight ?? colors.brandTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
               <Icon name="warning" size={28} color={colors.warning} />
             </View>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.textPrimary, textAlign: 'right' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.textPrimary }}>
               {t('auth.confirm_phone_title')}
             </Text>
 
@@ -58,7 +58,7 @@ export function PhoneConfirmModal({
               </Text>
             </View>
 
-            <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, textAlign: 'right', marginTop: spacing.md }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, marginTop: spacing.md }}>
               {t('auth.parent_phone_warning')}
             </Text>
           </View>

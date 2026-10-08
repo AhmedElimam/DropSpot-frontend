@@ -85,10 +85,10 @@ export default function ChangeNameScreen() {
               : 'عدّل اسمك كما يظهر لمعلّمي أبنائك. يُطبَّق فورًا.'}
           </Text>
 
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>الاسم الأول *</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>الاسم الأول *</Text>
           <TextInput value={first} onChangeText={setFirst} placeholder="الاسم الأول" placeholderTextColor={colors.textTertiary} style={input} />
 
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>الاسم الأخير</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>الاسم الأخير</Text>
           <TextInput value={last} onChangeText={setLast} placeholder="اترك فارغًا إن لم يوجد" placeholderTextColor={colors.textTertiary} style={input} />
 
           <TouchableOpacity onPress={onSave} disabled={save.isPending} activeOpacity={0.85}

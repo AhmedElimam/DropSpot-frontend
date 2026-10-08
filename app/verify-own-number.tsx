@@ -125,12 +125,12 @@ export default function VerifyOwnNumberScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.lg }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginBottom: spacing.lg }}>
               {t('own_number.hint')}
             </Text>
 
             {!!masked && !editing && (
-              <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.lg }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.lg }}>
                 {t('own_number.sent_to')} <Text style={{ fontFamily: fonts.bold }}>{masked}</Text>
               </Text>
             )}
@@ -138,13 +138,13 @@ export default function VerifyOwnNumberScreen() {
             {err && (
               <View style={{ backgroundColor: colors.dangerLight, padding: spacing.md, borderRadius: radius.md, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderWidth: 1, borderColor: colors.danger }}>
                 <Icon name="warning" size={18} color={colors.danger} />
-                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.danger, textAlign: 'right' }}>{getFriendlyErrorMessage(err)}</Text>
+                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.danger }}>{getFriendlyErrorMessage(err)}</Text>
               </View>
             )}
 
             {editing ? (
               <>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.sm }}>{t('own_number.new_number_label')}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('own_number.new_number_label')}</Text>
                 <TextInput
                   value={newPhone}
                   onChangeText={setNewPhone}
@@ -167,7 +167,7 @@ export default function VerifyOwnNumberScreen() {
               </>
             ) : (
               <>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.sm }}>{t('own_number.code_label')}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('own_number.code_label')}</Text>
                 <TextInput
                   ref={codeRef}
                   value={code}

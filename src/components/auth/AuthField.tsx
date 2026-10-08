@@ -42,7 +42,7 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
 
   return (
     <View style={[{ marginBottom: spacing.lg }, containerStyle]}>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: 6, textAlign: 'right' }}>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: 6 }}>
         {label}
       </Text>
       <View
@@ -99,10 +99,10 @@ export const AuthField = forwardRef<TextInput, AuthFieldProps>(function AuthFiel
       {error ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
           <Icon name="error" size={15} color={colors.danger} />
-          <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.danger, textAlign: 'right' }}>{error}</Text>
+          <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.danger }}>{error}</Text>
         </View>
       ) : hint ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.textTertiary, marginTop: 6, textAlign: 'right' }}>{hint}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.textTertiary, marginTop: 6 }}>{hint}</Text>
       ) : null}
     </View>
   );

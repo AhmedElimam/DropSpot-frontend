@@ -1,0 +1,23 @@
+diff --git a/node_modules/react-native/Libraries/Text/Text.js b/node_modules/react-native/Libraries/Text/Text.js
+index b08b8f3..c31c158 100644
+--- a/node_modules/react-native/Libraries/Text/Text.js
++++ b/node_modules/react-native/Libraries/Text/Text.js
+@@ -167,6 +167,18 @@ const TextImpl: component(
+     }
+   }
+ 
++  // DrosSpot is an Arabic app: every paragraph reads right-to-left unless its style says
++  // otherwise. iOS otherwise takes the direction from the first letter, so a line that opens
++  // with an English word or a code ran left-to-right. (Android lays text out from the layout
++  // direction, which the app forces to RTL.)
++  if (
++    Platform.OS === 'ios' &&
++    (processedStyle == null || processedStyle.writingDirection == null)
++  ) {
++    // $FlowFixMe[incompatible-type]
++    _style = [_style, {writingDirection: 'rtl'}];
++  }
++
+   const _nativeID = id ?? nativeID;
+ 
+   const hasTextAncestor = useContext(TextAncestorContext);

@@ -64,13 +64,13 @@ export default function RequestNameCorrectionScreen() {
               : 'اطلب تصحيح اسمك. يراجع معلّمك الطلب قبل تطبيقه — لن يتغيّر شيء حتى يعتمده.'}
           </Text>
 
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>الاسم الأول</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>الاسم الأول</Text>
           <TextInput value={first} onChangeText={setFirst} placeholder="اترك فارغًا إن لم يتغيّر" placeholderTextColor={colors.textTertiary} style={input} />
 
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>الاسم الأخير</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>الاسم الأخير</Text>
           <TextInput value={last} onChangeText={setLast} placeholder="اترك فارغًا إن لم يتغيّر" placeholderTextColor={colors.textTertiary} style={input} />
 
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>سبب التصحيح *</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>سبب التصحيح *</Text>
           <TextInput value={reason} onChangeText={setReason} multiline placeholder="مثال: خطأ إملائي في الاسم" placeholderTextColor={colors.textTertiary}
             style={[input, { minHeight: 84, textAlignVertical: 'top' }]} />
 

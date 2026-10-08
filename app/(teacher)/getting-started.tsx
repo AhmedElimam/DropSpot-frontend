@@ -59,13 +59,13 @@ export default function GettingStarted() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.lg }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginBottom: spacing.lg }}>
           {t('onboarding.getting_started_intro')}
         </Text>
 
         {groups.map((g) => (
           <View key={g.title} style={{ marginBottom: spacing.lg }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.md }}>{g.title}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginBottom: spacing.md }}>{g.title}</Text>
             {g.items.map((item) => (
               <TouchableOpacity
                 key={item.titleKey}
@@ -78,10 +78,10 @@ export default function GettingStarted() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}>{t(item.titleKey)}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t(item.titleKey)}</Text>
                     {item.done ? <Icon name="success" size={16} color={colors.success} /> : null}
                   </View>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, color: colors.textSecondary, textAlign: 'right', marginTop: 4 }}>{t(item.bodyKey)}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, color: colors.textSecondary, marginTop: 4 }}>{t(item.bodyKey)}</Text>
                 </View>
                 {item.go ? <Icon name="back" size={18} color={colors.textTertiary} /> : null}
               </TouchableOpacity>

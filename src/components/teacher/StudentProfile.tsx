@@ -1201,7 +1201,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 { label: 'رقم الهاتف', value: editPhone, set: setEditPhone, kb: 'phone-pad' as const },
               ].map((f) => (
                 <View key={f.label} style={{ marginBottom: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>{f.label}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{f.label}</Text>
                   <TextInput
                     value={f.value}
                     onChangeText={f.set}
@@ -1212,7 +1212,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 </View>
               ))}
               <View style={{ marginBottom: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>سبب التعديل *</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>سبب التعديل *</Text>
                 <TextInput
                   value={editReason}
                   onChangeText={setEditReason}
@@ -1245,7 +1245,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
             </Text>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.md }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>نوع البلاغ</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>نوع البلاغ</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
                 {([['behavioral', 'سلوكي'], ['communication', 'تواصل'], ['attendance_discipline', 'انضباط'], ['other', 'أخرى']] as [IncidentType, string][]).map(([val, label]) => (
                   <TouchableOpacity key={val} onPress={() => setReportType(val)} activeOpacity={0.85}
@@ -1255,7 +1255,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 ))}
               </View>
 
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>وصف الحادثة *</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>وصف الحادثة *</Text>
               <TextInput value={reportDesc} onChangeText={setReportDesc} multiline placeholder="اكتب وصفًا واضحًا (20 حرفًا على الأقل)" placeholderTextColor={colors.textTertiary}
                 style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md, minHeight: 96, textAlignVertical: 'top', fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.md }} />
 
@@ -1270,7 +1270,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
 
               {reportSafety ? (
                 <View style={{ marginBottom: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs, textAlign: 'right' }}>نوع الخطر *</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>نوع الخطر *</Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
                     {([['weapon', 'سلاح'], ['physical_violence', 'عنف جسدي'], ['other_immediate_danger', 'خطر مباشر آخر']] as [SafetyCategory, string][]).map(([val, label]) => (
                       <TouchableOpacity key={val} onPress={() => setReportSafetyCat(val)} activeOpacity={0.85}

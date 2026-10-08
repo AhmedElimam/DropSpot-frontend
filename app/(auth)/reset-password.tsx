@@ -67,7 +67,7 @@ export default function ResetPasswordScreen() {
       {reset.isError ? <AuthBanner tone="danger" text={getFriendlyErrorMessage(reset.error)} /> : null}
       {resend.isSuccess && cooldown > RESEND_COOLDOWN - 5 ? <AuthBanner tone="success" text={t('auth.reset_code_sent')} /> : null}
 
-      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.sm, textAlign: 'right' }}>{t('auth.otp_code')}</Text>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('auth.otp_code')}</Text>
       <OtpInput value={code} onChange={(v) => { setCode(v); if (reset.isError) reset.reset(); }} onComplete={() => passwordRef.current?.focus()} error={reset.isError} />
 
       <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, marginBottom: spacing.xl, flexWrap: 'wrap' }}>

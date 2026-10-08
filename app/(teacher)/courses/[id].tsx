@@ -178,7 +178,7 @@ export default function CourseDetailScreen() {
           </View>
         ) : null}
         {located && course.latitude != null ? (
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary, writingDirection: 'ltr', textAlign: 'right' }}>
+          <Text style={{ alignSelf: 'flex-start', fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary, writingDirection: 'ltr' }}>
             {course.latitude.toFixed(6)}, {course.longitude?.toFixed(6)}{course.location_accuracy_meters != null ? ` · ±${Math.round(course.location_accuracy_meters)}m` : ''}
           </Text>
         ) : null}

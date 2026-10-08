@@ -61,7 +61,7 @@ export default function NeedsTeacherScreen() {
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 26, color: colors.textSecondary, textAlign: 'right' }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 26, color: colors.textSecondary }}>
             {t('needs_teacher.message')}
           </Text>
 
@@ -84,7 +84,7 @@ export default function NeedsTeacherScreen() {
           {stillWaiting && (
             <View style={{ flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.warningLight ?? colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.lg }}>
               <Icon name="clock" size={16} color={colors.warning} style={{ marginTop: 2 }} />
-              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'right' }}>
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>
                 {t('needs_teacher.still_waiting')}
               </Text>
             </View>
