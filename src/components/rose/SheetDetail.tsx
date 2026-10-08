@@ -27,6 +27,10 @@ import { useRoseDialog } from './RoseDialog';
  *   a fact     her sentence, then one card per student: who, what for (each bill, how long
  *              overdue; the complaint, who filed it, what it says), where they come today —
  *              each card opening the student; a total; the one action the fact calls for.
+ *
+ * Text alignment is left NATURAL on purpose: under the app's forced RTL, React Native on iOS
+ * swaps an explicit 'right' to the LEFT (RCTAttributedTextUtils), which is what put these
+ * sheets' text on the wrong side (founder 2026-10-08).
  */
 export type SheetDetailTarget =
   | { type: 'session'; session: RoseSheetSession }
@@ -119,7 +123,7 @@ function SessionBody({ s, go, ask, tell, onDone }: {
             </View>
           ) : null}
         </View>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 18, lineHeight: 27, color: colors.textPrimary, marginTop: spacing.md, textAlign: 'right' }}>{s.title}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 18, lineHeight: 27, color: colors.textPrimary, marginTop: spacing.md }}>{s.title}</Text>
         {s.venue ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 }}>
             <Icon name="location" size={14} color={colors.textTertiary} />
@@ -180,7 +184,7 @@ function FactBody({ kind, text, items, go }: { kind: string; text: string; items
       </View>
       {/* Her sentence. */}
       <View style={{ marginTop: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderStartWidth: 3, borderStartColor: look.tint, padding: spacing.md }}>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, lineHeight: 21, color: colors.textPrimary, textAlign: 'right' }}>{text}</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, lineHeight: 21, color: colors.textPrimary }}>{text}</Text>
       </View>
 
       {list.length > 0 ? (
@@ -193,8 +197,8 @@ function FactBody({ kind, text, items, go }: { kind: string; text: string; items
                   <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: look.tint }}>{(i.title || '؟').trim().charAt(0)}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }} numberOfLines={1}>{i.title}</Text>
-                  {i.sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1, textAlign: 'right' }} numberOfLines={1}>{i.sub}</Text> : null}
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{i.title}</Text>
+                  {i.sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 }} numberOfLines={1}>{i.sub}</Text> : null}
                 </View>
                 {i.amount != null ? (
                   <View style={{ paddingHorizontal: 10, height: 28, borderRadius: radius.full, backgroundColor: (kind === 'dues' ? colors.danger : colors.success) + '1A', justifyContent: 'center' }}>
@@ -207,7 +211,7 @@ function FactBody({ kind, text, items, go }: { kind: string; text: string; items
                   {(i.lines ?? []).map((l, k) => (
                     <View key={k} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
                       <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: look.tint, marginTop: 8 }} />
-                      <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'right' }}>{l}</Text>
+                      <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>{l}</Text>
                     </View>
                   ))}
                 </View>
@@ -222,13 +226,13 @@ function FactBody({ kind, text, items, go }: { kind: string; text: string; items
           ))}
           {sum > 0 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary, textAlign: 'right' }}>الإجمالي</Text>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>الإجمالي</Text>
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{`${formatNumber(sum)} ج.م`}</Text>
             </View>
           ) : null}
         </ScrollView>
       ) : items === undefined && kind !== 'dues_clear' ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.md, textAlign: 'right' }}>التفاصيل هتظهر بعد تحديث الخادم.</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.md }}>التفاصيل هتظهر بعد تحديث الخادم.</Text>
       ) : null}
 
       {look.action ? (

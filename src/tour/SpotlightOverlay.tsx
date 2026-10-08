@@ -295,8 +295,8 @@ function Runner() {
                 ))}
               </View>
             )}
-            <Text style={{ fontFamily: fonts.bold, fontSize: centred ? 22 : 17.5, lineHeight: centred ? 30 : 25, color: colors.textPrimary, textAlign: centred ? 'center' : 'right' }}>{t(current.title, { rose: rose.name })}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 23, color: colors.textSecondary, marginTop: 6, textAlign: centred ? 'center' : 'right' }}>{t(current.body, { rose: rose.name })}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: centred ? 22 : 17.5, lineHeight: centred ? 30 : 25, color: colors.textPrimary, textAlign: centred ? 'center' : 'auto' }}>{t(current.title, { rose: rose.name })}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 23, color: colors.textSecondary, marginTop: 6, textAlign: centred ? 'center' : 'auto' }}>{t(current.body, { rose: rose.name })}</Text>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg }}>
               <Pressable onPress={() => { if (current.href) { finish(); router.push(current.href); } else advance(1); }} accessibilityRole="button"

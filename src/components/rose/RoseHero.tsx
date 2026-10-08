@@ -215,7 +215,8 @@ function useSheetFold() {
 function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet: RoseSheet; open: boolean; onToggle: () => void; onExport?: () => void; exporting: boolean }) {
   const { t } = useTranslation();
   const sessions = sheet.sessions;
-  const right = { textAlign: 'right' as const };
+  // Natural alignment = the right side under the app's RTL (an explicit 'right' is swapped to the left on iOS).
+  const right = {};
   const open = all;
   const fold = useSheetFold();
   // Every line opens what stands behind it (founder 2026-10-08).

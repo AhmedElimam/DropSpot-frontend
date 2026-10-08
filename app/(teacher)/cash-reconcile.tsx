@@ -602,8 +602,9 @@ function Observations({ items }: { items: Observation[] }) {
             <TouchableOpacity onPress={() => open(o)} activeOpacity={0.85} accessibilityRole="button"
               style={{ flex: 1, backgroundColor: streak ? colors.success + '14' : colors.surface, borderRadius: radius.xl, borderTopStartRadius: rose.named ? 6 : radius.xl, borderWidth: 1, borderColor: streak ? colors.success : colors.border, padding: spacing.lg, ...shadows.sm }}>
               {/* Her name on the left, nothing over it (founder 2026-10-08). */}
-              {rose.named ? <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent, marginBottom: 2, textAlign: 'left' }}>{rose.name}</Text> : null}
-              <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, lineHeight: 24, textAlign: 'right' }}>{o.text}</Text>
+              {/* On the LEFT as asked: under RTL, iOS swaps an explicit 'right' to the left side. */}
+              {rose.named ? <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.accent, marginBottom: 2, textAlign: 'right' }}>{rose.name}</Text> : null}
+              <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, lineHeight: 24 }}>{o.text}</Text>
               {/* The foot of the memo: «شوف التفاصيل», and her stamp at the bottom corner. */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
