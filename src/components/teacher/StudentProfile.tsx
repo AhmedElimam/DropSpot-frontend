@@ -16,6 +16,7 @@ import { StudentDuesCard, CollectForm, collectTarget, parseCollectAmount, type C
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StudentAttendanceList } from '@/components/student/StudentAttendanceList';
+import { PriorMonthSheet } from '@/components/teacher/PriorMonthSheet';
 import { useStudentDetail } from '@/hooks/useStudents';
 import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -155,6 +156,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   const [backfillFor, setBackfillFor] = useState<{ enrollmentId: number; courseName: string | null; days: BackfillDay[] } | null>(null);
   const [backfillPicked, setBackfillPicked] = useState<(number | string)[]>([]);
   const [backfillBusy, setBackfillBusy] = useState(false);
+  // «تسجيل شهر سابق»: a month before joining — its sessions and its fee, owed now.
+  const [priorBillFor, setPriorBillFor] = useState<{ enrollmentId: number; courseName: string | null } | null>(null);
 
   // Attendance from before the app, counted per month (founder 2026-10-06: «a teacher joined in
   // October; the student has attended since September — say how many sessions each month»).
@@ -915,6 +918,20 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                         </TouchableOpacity>
                       ) : null}
 
+                      {/* A month before joining, recorded whole: its sessions and its fee, owed now
+                          (founder 2026-10-08). Money → who may manage students. */}
+                      {canManage && c.enrollment_id ? (
+                        <TouchableOpacity onPress={() => setPriorBillFor({ enrollmentId: c.enrollment_id!, courseName: c.name })} accessibilityRole="button" activeOpacity={0.85}
+                          style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.warningDark, paddingHorizontal: spacing.md }}>
+                          <Icon name="invoices" size={18} color={colors.warningDark} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.warningDark }}>تسجيل شهر سابق</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>حصص شهر قبل الانضمام وفاتورته المستحقة</Text>
+                          </View>
+                          <Icon name="back" size={16} color={colors.warningDark} />
+                        </TouchableOpacity>
+                      ) : null}
+
                       {/* Attendance from before the app, per month. */}
                       {(c.prior_months ?? []).length > 0 || (canMarkManual && c.enrollment_id) ? (
                         <View style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, backgroundColor: colors.accentLight, borderRadius: radius.lg, padding: spacing.md }}>
@@ -989,6 +1006,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       {/* «الطالب على الحصة N» — pick the number, see the day it fell on. */}
       {/* Collect: what, how much (editable — part-payment at the door is normal), and what
           follows (receipt, drawer, reports). */}
+      <PriorMonthSheet target={priorBillFor} onClose={() => setPriorBillFor(null)} onSaved={() => { void refetch(); }} />
       <SheetModal visible={!!collectFor} onClose={() => !collectBusy && setCollectFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{`تحصيل — ${collectFor?.label ?? ''}`}</Text>

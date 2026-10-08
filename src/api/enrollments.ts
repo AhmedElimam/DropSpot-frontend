@@ -118,3 +118,23 @@ function extract(item: any): Enrollment {
     teacher: a.teacher,
   };
 }
+
+// ── «تسجيل شهر سابق»: a month before the student joined — its sessions and its fee, owed now ──
+export interface PriorBillingDay { id: number | string; date: string; label: string; time: string; recorded: string | null }
+export interface PriorBillingMonth {
+  month: string;
+  label: string;
+  days: PriorBillingDay[];
+  invoice: { id: number; number: string; amount: string; paid: string; remaining: string; status: string } | null;
+  suggested_amount: string | null;
+}
+
+export async function getPriorBillingMonths(enrollmentId: number): Promise<{ months: PriorBillingMonth[]; course: { id: number; name: string | null; cycle_price: string | null } }> {
+  const { data } = await client.get(`/teacher/enrollments/${enrollmentId}/prior-billing-months`);
+  return data.data ?? data;
+}
+
+export async function recordPriorBillingMonth(enrollmentId: number, payload: { month: string; session_ids: (number | string)[]; amount?: number }): Promise<{ month: PriorBillingMonth; created: number; billed: boolean; message: string }> {
+  const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/prior-billing-months`, payload);
+  return { ...(data.data ?? data), message: String(data.message ?? '') };
+}
