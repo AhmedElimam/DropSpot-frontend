@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { RoseStamp, RosePortrait } from '@/components/rose/RoseStamp';
 import { ExportPill } from '@/components/rose/RoseExport';
+import { useRoseDialog } from '@/components/rose/RoseDialog';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useRose } from '@/hooks/useRose';
@@ -154,6 +155,8 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const { isAssistant } = useActiveAbilities();
+  // Her questions in her own popup (founder 2026-10-08), not the system alert.
+  const { ask, dialog } = useRoseDialog();
 
   // Which week is on screen: any day inside it. Today = the current week.
   const [weekDay, setWeekDay] = useState<Date>(() => new Date());
@@ -231,10 +234,12 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
   });
   // She asks; the person confirms. The tap is the decision (v2 Part A §1).
   const confirmRecurring = (r: RecurringSuggestion) => {
-    Alert.alert(t('expenses.recurring_confirm_title'), t('expenses.recurring_confirm_hint', { amount: money(r.prefill.amount), category: data?.categories.find((c) => c.key === r.prefill.category)?.label ?? r.prefill.category }), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('expenses.recurring_log'), onPress: () => logRecurring.mutate(r) },
-    ]);
+    void ask({
+      title: t('expenses.recurring_confirm_title'),
+      message: t('expenses.recurring_confirm_hint', { amount: money(r.prefill.amount), category: data?.categories.find((c) => c.key === r.prefill.category)?.label ?? r.prefill.category }),
+      confirm: t('expenses.recurring_log'),
+      cancel: t('common.cancel'),
+    }).then((ok) => { if (ok) logRecurring.mutate(r); });
   };
 
   const add = useMutation({
@@ -276,11 +281,14 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
   }, [t, venues, assign]);
 
   const confirmDelete = useCallback((e: Expense) => {
-    Alert.alert(t('expenses.delete_confirm_title'), t('expenses.delete_confirm_hint', { amount: money(e.amount), category: e.category_label }), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('expenses.delete'), style: 'destructive', onPress: () => remove.mutate(e.id) },
-    ]);
-  }, [t, remove]);
+    void ask({
+      title: t('expenses.delete_confirm_title'),
+      message: t('expenses.delete_confirm_hint', { amount: money(e.amount), category: e.category_label }),
+      confirm: t('expenses.delete'),
+      cancel: t('common.cancel'),
+      danger: true,
+    }).then((ok) => { if (ok) remove.mutate(e.id); });
+  }, [t, remove, ask]);
 
   const amountNum = Number(amount);
   const canAdd = !!data && enabled && Number.isFinite(amountNum) && amountNum > 0 && !add.isPending && (!perVenue || venueChoice !== null);
@@ -487,7 +495,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
 
   // Embedded in مدام روز's hub the OUTER screen scrolls and pulls to refresh; nesting a
   // second vertical ScrollView would fight it, so the panel is a plain View there.
-  if (embedded) return <View style={{ paddingBottom: spacing.md }}>{content}{composer}</View>;
+  if (embedded) return <View style={{ paddingBottom: spacing.md }}>{content}{composer}{dialog}</View>;
 
   const body = (
     <ScrollView
@@ -510,6 +518,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
       </View>
       {body}
       {composer}
+      {dialog}
     </KeyboardAvoidingView>
   );
 }

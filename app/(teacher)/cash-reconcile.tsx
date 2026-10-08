@@ -19,6 +19,7 @@ import { RoseComplaintsPanel } from '@/components/cash/RoseComplaintsPanel';
 import { RoseStamp, RosePortrait, useStampBurst } from '@/components/rose/RoseStamp';
 import { RoseHero, RoseHeroCard } from '@/components/rose/RoseHero';
 import { useRoseExport, ExportPill } from '@/components/rose/RoseExport';
+import { useRoseDialog } from '@/components/rose/RoseDialog';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useRose } from '@/hooks/useRose';
 import { useComplaints } from '@/hooks/useComplaints';
@@ -266,11 +267,12 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
 
 function OpeningEntry({ d, onSaved }: { d: Drawer; onSaved: () => void }) {
   const { t } = useTranslation();
+  const { tell, dialog } = useRoseDialog();
   const [amount, setAmount] = useState('');
   const n = Number(amount);
   const save = useMutation({
     mutationFn: () => setOpeningBalance(d.id, n),
-    onSuccess: () => { Alert.alert(t('cash.opening_saved')); onSaved(); },
+    onSuccess: () => { void tell(t('cash.opening_saved')); onSaved(); },
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
   return (
@@ -282,6 +284,7 @@ function OpeningEntry({ d, onSaved }: { d: Drawer; onSaved: () => void }) {
           style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 8, textAlign: 'right', backgroundColor: colors.surface }} />
         <Button title={t('common.save')} onPress={() => save.mutate()} disabled={amount === '' || !Number.isFinite(n)} loading={save.isPending} />
       </View>
+      {dialog}
     </View>
   );
 }
@@ -868,6 +871,8 @@ export default function CashReconcileScreen() {
   const { burst, burstNode } = useStampBurst();
   // «تصدير PDF»: the whole desk from the top bar, each section from its own corner.
   const { busy: exporting, exportPdf } = useRoseExport();
+  // Her confirmations and what she reports back, in her own popup (founder 2026-10-08).
+  const { ask, tell, dialog } = useRoseDialog();
   const weekParam = weekOffset > 0 ? { week: weekDay } : {};
   // The drawer whose count just landed in her book — its card gets the thump, once.
   const [freshStamp, setFreshStamp] = useState<number | null>(null);
@@ -897,15 +902,15 @@ export default function CashReconcileScreen() {
     if (d.status === 'confirmed') {
       // Balanced: her stamp lands — the flash, then the card keeps it. Her sentence stays the same.
       setFreshStamp(d.id);
-      if (!burst('navy', t('cash.balanced_persona'))) Alert.alert(t('cash.balanced_persona'));
-    } else if (d.status === 'awaiting_opening') Alert.alert(t('cash.awaiting_opening'));
-    else if (d.result === 'surplus') Alert.alert(t('cash.surplus_plain', { amount: money(Math.abs(d.difference ?? 0)) }), t('cash.surplus_question'));
-    else Alert.alert(t('cash.deficit_plain', { amount: money(Math.abs(d.difference ?? 0)) }));
+      if (!burst('navy', t('cash.balanced_persona'))) void tell(t('cash.balanced_persona'));
+    } else if (d.status === 'awaiting_opening') void tell(t('cash.awaiting_opening'));
+    else if (d.result === 'surplus') void tell(t('cash.surplus_plain', { amount: money(Math.abs(d.difference ?? 0)) }), t('cash.surplus_question'));
+    else void tell(t('cash.deficit_plain', { amount: money(Math.abs(d.difference ?? 0)) }));
   };
   const onHandover = (s: Handover['status']) => {
     setHandoverOpen(false); invalidate();
     if (s === 'confirmed' && burst('navy', t('cash.handover_saved_confirmed'))) return;
-    Alert.alert(s === 'confirmed' ? t('cash.handover_saved_confirmed') : t('cash.handover_saved_pending'));
+    void tell(s === 'confirmed' ? t('cash.handover_saved_confirmed') : t('cash.handover_saved_pending'));
   };
 
   const expensesOn = data?.settings.expenses_enabled !== false;
@@ -1049,12 +1054,23 @@ export default function CashReconcileScreen() {
 
       {/* Handovers: the assistant records one; the teacher confirms the pending ones or records a receipt. */}
       <Sheet open={handoverOpen} onClose={() => setHandoverOpen(false)} title={t('cash.handovers')}>
+        {handoverOpen ? dialog : null}
         {data?.role === 'teacher' ? (
           <View>
             {teacherHandovers.length > 0 ? (
               <View style={{ marginBottom: spacing.md }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.handover_pending_title')}</Text>
-                {teacherHandovers.map((h) => <HandoverRow key={h.id} h={h} onReview={(x, d) => review.mutate({ id: x.id, d })} />)}
+                {teacherHandovers.map((h) => <HandoverRow key={h.id} h={h} onReview={(x, d) => {
+                  if (d === 'confirm') { review.mutate({ id: x.id, d }); return; }
+                  // «لم أستلم» keeps the money on the assistant's drawer — she asks first.
+                  void ask({
+                    title: t('cash.handover_reject_q', { amount: money(x.amount) }),
+                    message: t('cash.handover_reject_hint', { name: x.assistant_name ?? '' }),
+                    confirm: t('cash.handover_reject'),
+                    cancel: t('common.cancel'),
+                    danger: true,
+                  }).then((ok) => { if (ok) review.mutate({ id: x.id, d }); });
+                }} />)}
               </View>
             ) : null}
             {data.assistants.length > 0 ? (
@@ -1073,6 +1089,7 @@ export default function CashReconcileScreen() {
         {data?.role === 'teacher' ? <SettingsBody v={data} onChanged={invalidate} /> : null}
       </Sheet>
       {burstNode}
+      {handoverOpen ? null : dialog}
     </View>
   );
 }

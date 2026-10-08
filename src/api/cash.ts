@@ -91,8 +91,8 @@ export interface CashInsights {
 }
 
 /** «ورقة النهارده» as her desk reads it now: today's sessions, the door, the money, what waits — in this reader's scope. Empty lines = nothing to say. */
-export interface RoseSheetSession { id?: number; time: string; title: string; venue: string | null; exam: boolean; present: number | null; absent: number | null }
-export interface RoseSheetItem { title: string; sub: string; amount: number | null; student_id: number | null }
+export interface RoseSheetSession { id?: number; ended?: boolean; checked_in?: number; status?: string | null; time: string; title: string; venue: string | null; exam: boolean; present: number | null; absent: number | null }
+export interface RoseSheetItem { title: string; sub: string; amount: number | null; student_id: number | null; lines?: string[] }
 export type RoseSheetFactKind = 'dues' | 'dues_clear' | 'collected' | 'complaints' | 'review';
 export interface RoseSheet {
   date: string;
@@ -114,7 +114,8 @@ export async function getRoseSheet(): Promise<RoseSheet> {
     name: String(d.name ?? ''),
     head: typeof d.head === 'string' ? d.head : undefined,
     sessions: Array.isArray(d.sessions) ? d.sessions.map((x: any) => ({
-      id: x.id != null ? Number(x.id) : undefined, time: String(x.time ?? ''), title: String(x.title ?? ''), venue: x.venue ? String(x.venue) : null, exam: !!x.exam,
+      id: x.id != null ? Number(x.id) : undefined, ended: x.ended == null ? undefined : !!x.ended,
+      checked_in: x.checked_in == null ? undefined : Number(x.checked_in), status: x.status ?? null, time: String(x.time ?? ''), title: String(x.title ?? ''), venue: x.venue ? String(x.venue) : null, exam: !!x.exam,
       present: x.present === null || x.present === undefined ? null : Number(x.present),
       absent: x.absent === null || x.absent === undefined ? null : Number(x.absent),
     })) : undefined,
@@ -123,6 +124,7 @@ export async function getRoseSheet(): Promise<RoseSheet> {
       items: Array.isArray(x.items) ? x.items.map((i: any) => ({
         title: String(i.title ?? ''), sub: String(i.sub ?? ''),
         amount: i.amount == null ? null : Number(i.amount), student_id: i.student_id == null ? null : Number(i.student_id),
+        lines: Array.isArray(i.lines) ? i.lines.map(String) : undefined,
       })) : undefined,
     })) : undefined,
   };

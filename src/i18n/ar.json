@@ -2314,7 +2314,9 @@
     "export_name_expenses": "المصاريف",
     "export_name_complaints": "الاعتراضات",
     "export_name_notes": "الملاحظات",
-    "export_name_sheet": "ورقة-النهارده"
+    "export_name_sheet": "ورقة-النهارده",
+    "handover_reject_q": "{{amount}} ج.م ماوصلتش؟",
+    "handover_reject_hint": "المبلغ هيفضل محسوب على خزنة {{name}} لحد ما يتسلّم فعلًا."
   },
   "review": {
     "title": "مراجعة الأسبوع",
