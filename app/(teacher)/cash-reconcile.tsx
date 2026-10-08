@@ -23,6 +23,7 @@ import { useRoseDialog } from '@/components/rose/RoseDialog';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useRose } from '@/hooks/useRose';
 import { useArrived } from '@/hooks/useArrived';
+import { useTutorials } from '@/hooks/useTutorials';
 import { useComplaints } from '@/hooks/useComplaints';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
@@ -858,6 +859,7 @@ export default function CashReconcileScreen() {
   // face, the segment's cards) mount once it has arrived (founder 2026-10-08: «slow on click
   // from the homepage to her tab» on mid-range phones).
   const arrived = useArrived();
+  const roseVideo = (useTutorials().data ?? []).some((c) => c.key === 'rose');
   const hold = useRoseHold();
   // Period filter (founder 2026-09-25): this week by default; step back through past weeks or months.
   const [period, setPeriod] = useState<'week' | 'month'>('week');
@@ -1097,6 +1099,15 @@ export default function CashReconcileScreen() {
 
       <Sheet open={settingsOpen} onClose={() => setSettingsOpen(false)} title={t('cash.settings_title')}>
         {data?.role === 'teacher' ? <SettingsBody v={data} onChanged={invalidate} /> : null}
+        {/* Her chapter of «شروحات», a tap away from her own settings. */}
+        {data?.role === 'teacher' && roseVideo ? (
+          <TouchableOpacity onPress={() => { setSettingsOpen(false); router.push('/(teacher)/tutorial/rose' as Href); }} accessibilityRole="button"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.accentLight }}>
+            <Icon name="play" size={18} color={colors.accent} />
+            <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('tutorials.rose_link')}</Text>
+            <Icon name="back" size={16} color={colors.textTertiary} />
+          </TouchableOpacity>
+        ) : null}
       </Sheet>
       {burstNode}
       {handoverOpen ? null : dialog}

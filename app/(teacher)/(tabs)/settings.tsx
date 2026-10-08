@@ -116,6 +116,10 @@ export default function TeacherSettings() {
               />
             ) : null}
             <Row icon="star" tint={colors.warningDark} tintBg={colors.warningLight} label={t('whats_new.title')} sub={t('whats_new.all')} onPress={() => router.push('/whats-new' as Href)} />
+            {/* «شروحات» — the teacher's how-to videos (assistants: none yet). */}
+            {!isAssistant ? (
+              <Row icon="play" tint={colors.accent} tintBg={colors.accentLight} label={t('tutorials.title')} sub={t('tutorials.row_sub')} onPress={() => router.push('/(teacher)/tutorials' as Href)} />
+            ) : null}
             {/* The setup guide is the teacher's: every step in it is theirs to take. */}
             {!isAssistant ? (
               <Row icon="help" tint={colors.info} tintBg={colors.infoLight} label={t('onboarding.getting_started_row')} sub={t('onboarding.getting_started_row_sub')} onPress={() => router.push('/(teacher)/getting-started' as Href)} />
