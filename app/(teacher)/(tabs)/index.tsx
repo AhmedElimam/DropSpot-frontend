@@ -41,6 +41,7 @@ import { pickCurrentSession, goToScan } from '@/utils/sessionNav';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useRose } from '@/hooks/useRose';
 import { RosePortrait } from '@/components/rose/RoseStamp';
+import { RoseCalling } from '@/components/rose/RoseCalling';
 import { useComplaints } from '@/hooks/useComplaints';
 
 function greetingKey(now: number): string {
@@ -237,7 +238,8 @@ export default function TeacherHome() {
             {shortcuts.map((x) => (
               <TouchableOpacity key={x.key} onPress={x.onPress} activeOpacity={0.85} accessibilityRole="button" style={{ width: tileWidth, alignItems: 'center' }}>
                 <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: x.key === 'rose' && rose.named ? 'transparent' : x.tint, alignItems: 'center', justifyContent: 'center' }}>
-                  {x.key === 'rose' && rose.named ? <RosePortrait size={64} /> : <Icon name={x.icon} size={26} color={x.color} />}
+                  {/* مدام روز waves when something is waiting on her desk (founder 2026-10-08). */}
+                  {x.key === 'rose' && rose.named ? <RoseCalling size={64} calling={!!x.badge} /> : <Icon name={x.icon} size={26} color={x.color} />}
                   {x.badge ? (
                     <View style={{ position: 'absolute', top: -4, end: -4, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.background }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{x.badge}</Text>
