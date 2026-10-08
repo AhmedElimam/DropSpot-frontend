@@ -17,11 +17,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ExpensesPanel } from '@/components/cash/ExpensesPanel';
 import { RoseComplaintsPanel } from '@/components/cash/RoseComplaintsPanel';
 import { RoseStamp, RosePortrait, useStampBurst } from '@/components/rose/RoseStamp';
-import { RoseHero, RoseHeroCard } from '@/components/rose/RoseHero';
+import { RoseHero, RoseHeroCard, useRoseHold } from '@/components/rose/RoseHero';
 import { useRoseExport, ExportPill } from '@/components/rose/RoseExport';
 import { useRoseDialog } from '@/components/rose/RoseDialog';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useRose } from '@/hooks/useRose';
+import { useArrived } from '@/hooks/useArrived';
 import { useComplaints } from '@/hooks/useComplaints';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
@@ -853,6 +854,11 @@ export default function CashReconcileScreen() {
   const rose = useRose();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
+  // The page slides in light — her still portrait, the segments — and the heavy parts (her live
+  // face, the segment's cards) mount once it has arrived (founder 2026-10-08: «slow on click
+  // from the homepage to her tab» on mid-range phones).
+  const arrived = useArrived();
+  const hold = useRoseHold();
   // Period filter (founder 2026-09-25): this week by default; step back through past weeks or months.
   const [period, setPeriod] = useState<'week' | 'month'>('week');
   const [weekOffset, setWeekOffset] = useState(0);
@@ -937,6 +943,7 @@ export default function CashReconcileScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[1]}
+        {...hold.scrollProps}
       >
         {/* Her band (founder 2026-10-07: «her frame takes the upper section, bigger, like the
             video»): the framed portrait large on navy, her bubble with the greeting and today's
@@ -946,6 +953,8 @@ export default function CashReconcileScreen() {
           sub={ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
           sheet={isPast ? null : sheet}
           activity={segment === 'week' ? 'cash' : segment}
+          live={arrived}
+          hold={hold}
           onBack={() => router.back()}
           onSettings={data?.role === 'teacher' ? () => setSettingsOpen(true) : undefined}
           onExportAll={() => exportPdf('all', weekParam)}
@@ -983,7 +992,7 @@ export default function CashReconcileScreen() {
         </View>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
-          {isLoading || !data ? (
+          {!arrived || isLoading || !data ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : segment === 'week' ? (
             <View>

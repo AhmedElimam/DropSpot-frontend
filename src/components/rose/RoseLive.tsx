@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import Svg, { G, Ellipse, Circle, Path } from 'react-native-svg';
@@ -31,7 +31,10 @@ import { RoseProps, type RoseActivity } from './RoseProps';
  *   react      a tap, or `reactRose()` from anywhere (a stamp landing): brows up, a double
  *              blink, eyes to you, a hop, hoops jiggle, a smile
  *
- * Everything stops while the screen is not focused; nothing moves under reduced motion.
+ * Everything stops while the screen is not focused, while `paused` (the page is scrolling, or
+ * she is scrolled out of sight), and under reduced motion. On a mid-range Android every frame
+ * she moves is a commit of the whole page (founder 2026-10-08: «slow, and the phone heats up
+ * scrolling her tab») — so she only moves while she can be seen and the page is still.
  */
 
 // The artwork's frame: the 400-unit drawing, medallion scaled 0.9 around (200, 212).
@@ -68,12 +71,12 @@ export function reactRose(): void {
 
 const ease = Easing.inOut(Easing.quad);
 
-export function RoseLive({ size, talking = false, activity = 'cash', style }: { size: number; talking?: boolean; activity?: RoseActivity; style?: StyleProp<ViewStyle> }) {
+export const RoseLive = memo(function RoseLive({ size, talking = false, paused = false, activity = 'cash', style }: { size: number; talking?: boolean; paused?: boolean; activity?: RoseActivity; style?: StyleProp<ViewStyle> }) {
   const rose = useRose();
   const focused = useIsFocused();
   const still = useReducedMotion();
   const k = size / 400;
-  const alive = focused && !still;
+  const alive = focused && !still && !paused;
   const working = activity !== 'cash';
 
   const gx = useSharedValue(0);
@@ -92,6 +95,7 @@ export function RoseLive({ size, talking = false, activity = 'cash', style }: { 
   const jig = useSharedValue(0);
   const hop = useSharedValue(1);
   const tilt = useSharedValue(0);
+  const float = useSharedValue(0);
 
   const blinkBoth = useCallback((twice = false, slow = false) => {
     const d = slow ? [420, 520] : [120, 170];
@@ -130,6 +134,13 @@ export function RoseLive({ size, talking = false, activity = 'cash', style }: { 
     next();
     return () => clearTimeout(t);
   }, [alive, talking, working, gx, gy]);
+
+  // A slow breath: she floats a few points up and back, so the desk feels occupied.
+  useEffect(() => {
+    if (!alive) { cancelAnimation(float); return; }
+    float.value = withRepeat(withTiming(-5, { duration: 2200, easing: Easing.inOut(Easing.sin) }), -1, true);
+    return () => { cancelAnimation(float); };
+  }, [alive, float]);
 
   // Hoops swing, out of step.
   useEffect(() => {
@@ -266,7 +277,7 @@ export function RoseLive({ size, talking = false, activity = 'cash', style }: { 
   const mouth = useAnimatedStyle(() => ({ opacity: yawn.value > 0.02 ? 1 : 0, transform: [{ scaleX: 0.5 + 0.5 * yawn.value }, { scaleY: Math.max(0.05, yawn.value) }] }));
   const hoopLs = useAnimatedStyle(() => ({ transform: [{ rotate: `${7 * hopL.value + 16 * jig.value}deg` }] }));
   const hoopRs = useAnimatedStyle(() => ({ transform: [{ rotate: `${7 * hopR.value - 16 * jig.value}deg` }] }));
-  const whole = useAnimatedStyle(() => ({ transform: [{ scale: hop.value }, { rotate: `${tilt.value}deg` }, { scaleY: 1 + 0.025 * yawn.value }] }));
+  const whole = useAnimatedStyle(() => ({ transform: [{ translateY: float.value }, { scale: hop.value }, { rotate: `${tilt.value}deg` }, { scaleY: 1 + 0.025 * yawn.value }] }));
 
   const layer = (children: React.ReactNode, st: object, origin: object) => (
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, origin, st]}>
@@ -320,4 +331,4 @@ export function RoseLive({ size, talking = false, activity = 'cash', style }: { 
       </Animated.View>
     </Pressable>
   );
-}
+});

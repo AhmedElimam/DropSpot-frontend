@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, LayoutAnimation } from 'react-native';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, LayoutAnimation, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
@@ -10,6 +10,7 @@ import { Icon } from '@/components/ui/Icon';
 import { formatNumber } from '@/utils/format';
 import { useRose } from '@/hooks/useRose';
 import { RoseLive } from './RoseLive';
+import { RosePortrait } from './RoseStamp';
 import type { RoseActivity } from './RoseProps';
 import type { RoseSheet } from '@/api/cash';
 import { ExportPill } from './RoseExport';
@@ -34,7 +35,7 @@ const CHIP_BORDER = 'rgba(255,255,255,0.22)';
 const PORTRAIT = 148;
 
 export function RoseHero({
-  greeting, sub, sheet, activity = 'cash', onBack, onSettings, onExportAll, exportingAll = false, onExportSheet, exportingSheet = false, children,
+  greeting, sub, sheet, activity = 'cash', live = true, hold, onBack, onSettings, onExportAll, exportingAll = false, onExportSheet, exportingSheet = false, children,
 }: {
   greeting: string;
   sub: string;
@@ -42,6 +43,11 @@ export function RoseHero({
   sheet: RoseSheet | null;
   /** The tab on screen — what she holds (her ledger, a sheet, the stamp). */
   activity?: RoseActivity;
+  /** False while the page is still sliding in: her still portrait, nothing typed yet — the
+   *  live face (a dozen vector layers) mounts once the screen has arrived. */
+  live?: boolean;
+  /** From useRoseHold: the page is scrolling, or she is out of sight — she holds still. */
+  hold?: RoseHold;
   onBack: () => void;
   onSettings?: () => void;
   /** «تصدير PDF» of her whole desk (the top bar) and of today's sheet (under it). */
@@ -55,18 +61,9 @@ export function RoseHero({
   const { t } = useTranslation();
   const rose = useRose();
   const [open, setOpen] = useState(false);
-  const typed = useTyped(greeting);
-  const talking = typed.length < greeting.length;
-
-  // A slow breath: she floats a few points up and back, forever, so the desk feels occupied.
-  const float = useSharedValue(0);
-  useEffect(() => {
-    float.value = withRepeat(withSequence(
-      withTiming(-5, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
-      withTiming(0, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
-    ), -1, false);
-  }, [float]);
-  const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: float.value }] }));
+  // Only the greeting line re-renders while it types; the hero hears when she starts and stops.
+  const [talking, setTalking] = useState(false);
+  const paused = useSyncExternalStore(hold?.subscribe ?? noSubscribe, hold?.get ?? never);
 
   const square = (icon: 'forward' | 'settings' | 'download', onPress: () => void, label: string, busy = false) => (
     <TouchableOpacity onPress={onPress} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={label}
@@ -76,7 +73,7 @@ export function RoseHero({
   );
 
   return (
-    <LinearGradient colors={[...gradients.auth]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xl }}>
+    <LinearGradient onLayout={hold?.onHeroLayout} colors={[...gradients.auth]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xl }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         {square('forward', onBack, t('common.back'))}
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -89,9 +86,7 @@ export function RoseHero({
       {rose.named ? (
         <View style={{ alignItems: 'center', marginTop: -spacing.lg }}>
           {/* No halo behind her (founder 2026-10-07): the frame sits straight on the navy. */}
-          <Animated.View style={floatStyle}>
-            <RoseLive size={PORTRAIT} talking={talking} activity={activity} />
-          </Animated.View>
+          {live ? <RoseLive size={PORTRAIT} talking={talking} paused={paused} activity={activity} /> : <RosePortrait size={PORTRAIT} nod={false} />}
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: ON, marginTop: spacing.xs }}>{rose.name}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: ON_SOFT }}>{t('cash.screen_title')}</Text>
         </View>
@@ -105,9 +100,7 @@ export function RoseHero({
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, ...shadows.md }}>
           {/* Centred (founder 2026-10-07). The untyped rest is drawn transparent, so the line
               keeps its full width while it types and the centred text never shifts. */}
-          <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.brand, minHeight: 28, textAlign: 'center' }}>
-            {typed}<Text style={{ color: 'transparent' }}>{greeting.slice(typed.length)}</Text>
-          </Text>
+          <TypedGreeting text={greeting} start={live} onTalking={setTalking} />
           {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2, textAlign: 'center' }}>{sub}</Text> : null}
           {sheet && sheet.lines.length > 0 ? <SheetList sheet={sheet} open={open} onToggle={() => setOpen((o) => !o)} onExport={onExportSheet} exporting={exportingSheet} /> : null}
         </View>
@@ -116,6 +109,67 @@ export function RoseHero({
       {children}
     </LinearGradient>
   );
+}
+
+const noSubscribe = () => () => {};
+const never = () => false;
+
+export interface RoseHold {
+  get: () => boolean;
+  subscribe: (l: () => void) => () => void;
+  onHeroLayout: (e: LayoutChangeEvent) => void;
+  /** Spread on the page's ScrollView. */
+  scrollProps: {
+    onScrollBeginDrag: () => void;
+    onScrollEndDrag: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+    onMomentumScrollBegin: () => void;
+    onMomentumScrollEnd: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  };
+}
+
+/**
+ * She holds still while the page under her moves, and stays still once she is scrolled out of
+ * sight (founder 2026-10-08: «the phone heats up while scrolling her tab»): on Android every
+ * frame she moves re-commits the page, and a scroll is the worst moment to add that. Only the
+ * hero listens — the page itself does not re-render when a scroll starts or stops.
+ */
+export function useRoseHold(): RoseHold {
+  const heroH = useRef(0);
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (settle.current) clearTimeout(settle.current); }, []);
+  return useMemo(() => {
+    let held = false;
+    let scrolling = false;
+    let out = false;
+    const listeners = new Set<() => void>();
+    const apply = () => {
+      const next = scrolling || out;
+      if (next !== held) { held = next; listeners.forEach((l) => l()); }
+    };
+    const rest = (y: number) => {
+      scrolling = false;
+      // Out of sight once the band's lower part has gone under the sticky segments.
+      out = heroH.current > 0 && y > heroH.current - 80;
+      apply();
+    };
+    const cancelSettle = () => { if (settle.current) { clearTimeout(settle.current); settle.current = null; } };
+    return {
+      get: () => held,
+      subscribe: (l) => { listeners.add(l); return () => { listeners.delete(l); }; },
+      onHeroLayout: (e) => { heroH.current = e.nativeEvent.layout.height; },
+      scrollProps: {
+        onScrollBeginDrag: () => { cancelSettle(); scrolling = true; apply(); },
+        // A fling goes on into momentum; a plain lift ends here (momentum never starts).
+        onScrollEndDrag: (e) => {
+          const y = e.nativeEvent.contentOffset.y;
+          cancelSettle();
+          settle.current = setTimeout(() => rest(y), 160);
+        },
+        onMomentumScrollBegin: cancelSettle,
+        onMomentumScrollEnd: (e) => { cancelSettle(); rest(e.nativeEvent.contentOffset.y); },
+      },
+    };
+  }, []);
 }
 
 /** A card on her navy band (past period, load error): white on a translucent chip. */
@@ -133,19 +187,28 @@ export function RoseHeroCard({ icon, title, sub, onPress, chevron = false }: { i
   );
 }
 
-/** Her greeting typed out once, as in the videos (~28 ms a letter); a new text starts over. */
-function useTyped(text: string): string {
+/**
+ * Her greeting typed out once, as in the videos (~28 ms a letter); a new text starts over.
+ * Its own component, so each letter re-renders this one line — not her face and the sheet.
+ * The untyped rest is drawn transparent: the centred line keeps its width and never shifts.
+ */
+function TypedGreeting({ text, start, onTalking }: { text: string; start: boolean; onTalking: (talking: boolean) => void }) {
   const [n, setN] = useState(0);
   useEffect(() => {
     setN(0);
-    if (!text) return;
+    if (!text || !start) return;
+    onTalking(true);
     const id = setInterval(() => setN((k) => {
-      if (k >= text.length) { clearInterval(id); return k; }
+      if (k >= text.length) { clearInterval(id); onTalking(false); return k; }
       return k + 1;
     }), 28);
-    return () => clearInterval(id);
-  }, [text]);
-  return text.slice(0, n);
+    return () => { clearInterval(id); onTalking(false); };
+  }, [text, start, onTalking]);
+  return (
+    <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.brand, minHeight: 28, textAlign: 'center' }}>
+      {text.slice(0, n)}<Text style={{ color: 'transparent' }}>{text.slice(n)}</Text>
+    </Text>
+  );
 }
 
 const FACT = (): Record<string, { icon: 'warning' | 'success' | 'money' | 'note' | 'eye'; tint: string }> => ({
