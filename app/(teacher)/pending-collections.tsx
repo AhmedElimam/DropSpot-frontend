@@ -17,7 +17,9 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { formatEGP } from '@/utils/currency';
 import { BillingYearSheet, type BillingYearTarget } from '@/components/teacher/BillingYearSheet';
-import { getPendingCollections, collectFromRoster, cancelDueFromRoster, type RosterStudent, type CollectKind } from '@/api/pendingCollections';
+import { getPendingCollections, collectFromRoster, cancelDueFromRoster, type RosterStudent, type RosterBillItem, type CollectKind } from '@/api/pendingCollections';
+import { setCycleAmount } from '@/api/enrollments';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import { reverseStudentPayment } from '@/api/students';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -30,7 +32,15 @@ interface Target {
   kind: CollectKind;
   label: string;
   remaining: number;
+  /** A bill's own invoices — the ones still owed can be corrected before collecting. */
+  items?: RosterBillItem[];
 }
+
+const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+const monthName = (ym?: string | null) => (ym ? MONTHS[Number(ym.slice(5, 7)) - 1] ?? null : null);
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+type BillEdit = { amount: string; sessions: string };
 
 type State = 'overdue' | 'due' | 'settled';
 type Filter = 'owing' | 'overdue' | 'settled' | 'all';
@@ -70,7 +80,9 @@ export default function TeacherPendingCollections() {
   const { data: flags } = useFeatureFlags();
   // Undoing a payment and cancelling a due are the teacher's; the server refuses every
   // assistant, so they never see those buttons (founder 2026-09-26).
-  const { isAssistant } = useActiveAbilities();
+  const { isAssistant, can } = useActiveAbilities();
+  // Correcting a bill while collecting is the bill-edit ability's, like everywhere else.
+  const canEditBill = can('edit_bill_amount');
   const canCancelDue = !!flags?.cancel_pending_due && !isAssistant;
   const canReverse = !isAssistant;
 
@@ -94,28 +106,74 @@ export default function TeacherPendingCollections() {
     if (seen.current) void refetch();
     seen.current = true;
   }, [refetch]));
-  const [amount, setAmount] = useState('');
+  const [amountTyped, setAmount] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // «عدّل وحصّل» (founder 2026-10-09: «adjust payment and for how many sessions … on
+  // collecting»): the bill's still-owed invoices, each with its amount and sessions open to
+  // correct right here. The correction edits that same bill (cycle-amount), then the money
+  // is taken — one sheet, no trip to the student's page first.
+  const [edits, setEdits] = useState<Record<number, BillEdit>>({});
+  const editable = useMemo(
+    () => (canEditBill && target?.kind === 'bill' ? (target.items ?? []).filter((i) => i.remaining > 0.001 && i.enrollment_id) : []),
+    [canEditBill, target],
+  );
 
   const openCollect = (tg: Target) => {
     setTarget(tg);
-    setAmount(String(tg.remaining));
+    setAmount(null);
+    setEdits(Object.fromEntries((tg.items ?? []).map((i) => [i.invoice_id, { amount: String(round2(i.amount)), sessions: i.sessions ? String(i.sessions) : '' }])));
   };
+
+  // What is owed once the corrections are in: each edited invoice's new figure less what is
+  // already paid on it, in place of its old remainder.
+  const owed = useMemo(() => {
+    if (!target) return 0;
+    return round2(editable.reduce((n, i) => {
+      const a = Number(edits[i.invoice_id]?.amount);
+      return Number.isFinite(a) && a > 0 ? n - i.remaining + Math.max(0, a - i.paid) : n;
+    }, target.remaining));
+  }, [target, editable, edits]);
+  // The amount to collect follows the bill until the person types their own.
+  const amount = amountTyped ?? String(owed);
+
+  const changedLines = () => editable.filter((i) => {
+    const e = edits[i.invoice_id];
+    return e && (Number(e.amount) !== round2(i.amount) || (Number(e.sessions) || 0) !== (i.sessions ?? 0));
+  });
 
   const submit = async () => {
     if (!target) return;
     const amt = Number(amount);
     if (!(amt > 0)) return;
+    const changes = changedLines();
+    for (const i of changes) {
+      const a = Number(edits[i.invoice_id].amount);
+      if (!(a > 0)) return Alert.alert('', t('collections.bill_amount_required'));
+      if (a + 0.01 < i.paid) return Alert.alert('', t('collections.bill_below_paid', { amount: formatEGP(i.paid) }));
+    }
     setBusy(true);
     try {
-      const res = await collectFromRoster(target.studentId, target.kind, amt);
+      for (const i of changes) {
+        const e = edits[i.invoice_id];
+        const s = Number(e.sessions);
+        await setCycleAmount(i.enrollment_id as number, { amount: Number(e.amount), sessions: s > 0 ? s : null, invoiceId: i.invoice_id });
+      }
+    } catch (e) {
+      setBusy(false);
+      await qc.invalidateQueries({ queryKey: ['pending-collections'] });
+      return Alert.alert(t('common.error'), getFriendlyErrorMessage(e));
+    }
+    try {
+      const res = await collectFromRoster(target.studentId, target.kind, Math.min(amt, owed > 0 ? owed : amt));
       await qc.invalidateQueries({ queryKey: ['pending-collections'] });
       setTarget(null);
       Alert.alert('', res.remaining && Number(res.remaining) > 0
         ? t('collections.collected_partial', { amount: res.amount, remaining: res.remaining })
         : t('collections.collected_full'));
     } catch {
-      Alert.alert(t('common.error'), t('collections.collect_failed'));
+      await qc.invalidateQueries({ queryKey: ['pending-collections'] });
+      if (changes.length) setTarget(null);
+      Alert.alert(t('common.error'), t(changes.length ? 'collections.bill_saved_collect_failed' : 'collections.collect_failed'));
     } finally {
       setBusy(false);
     }
@@ -236,7 +294,7 @@ export default function TeacherPendingCollections() {
                 </View>
                 {l.remaining > 0 ? (
                   <TouchableOpacity
-                    onPress={() => openCollect({ studentId: s.student_id, name: s.name, kind: l.kind, label: l.collectLabel, remaining: l.remaining })}
+                    onPress={() => openCollect({ studentId: s.student_id, name: s.name, kind: l.kind, label: l.collectLabel, remaining: l.remaining, items: l.kind === 'bill' ? s.bill?.items : undefined })}
                     activeOpacity={0.85} accessibilityRole="button"
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 36, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: colors.success }}>
                     <Icon name="money" size={15} color="#fff" />
@@ -379,22 +437,40 @@ export default function TeacherPendingCollections() {
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>{target?.name}</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{formatEGP(target?.remaining ?? 0)}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{formatEGP(owed)}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t('collections.remaining')}</Text>
               </View>
             </View>
+
+            {editable.map((i) => {
+              const e = edits[i.invoice_id] ?? { amount: '', sessions: '' };
+              const set = (patch: Partial<BillEdit>) => setEdits((m) => ({ ...m, [i.invoice_id]: { ...e, ...patch } }));
+              const title = [i.course, monthName(i.month)].filter(Boolean).join(' · ');
+              return (
+                <View key={i.invoice_id} style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
+                  {title ? <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginBottom: spacing.sm }}>{title}</Text> : null}
+                  <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                    <BillField label={t('collections.bill_amount')} value={e.amount} onChange={(v) => set({ amount: v.replace(/[^0-9.]/g, '') })} />
+                    <BillField label={t('collections.bill_sessions')} value={e.sessions} onChange={(v) => set({ sessions: v.replace(/[^0-9]/g, '') })} />
+                  </View>
+                  {i.paid > 0.001 ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 6 }}>{t('collections.bill_paid_part', { amount: formatEGP(i.paid) })}</Text> : null}
+                </View>
+              );
+            })}
+            {editable.length ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: -spacing.xs, marginBottom: spacing.md }}>{t('collections.bill_edit_hint')}</Text> : null}
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <TextInput
                 value={amount}
                 onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))}
                 keyboardType="numeric"
+                selectTextOnFocus
                 style={{ flex: 1, height: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, paddingHorizontal: spacing.md, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center' }}
               />
-              {[{ label: t('collections.full'), v: target?.remaining ?? 0 }, { label: t('collections.half'), v: Math.round((target?.remaining ?? 0) / 2) }].map((q) => {
+              {[{ label: t('collections.full'), v: owed, follow: true }, { label: t('collections.half'), v: Math.round(owed / 2), follow: false }].map((q) => {
                 const on = Number(amount) === q.v;
                 return (
-                  <TouchableOpacity key={q.label} onPress={() => setAmount(String(q.v))}
+                  <TouchableOpacity key={q.label} onPress={() => setAmount(q.follow ? null : String(q.v))}
                     style={{ paddingHorizontal: spacing.md, height: 52, justifyContent: 'center', borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, backgroundColor: on ? colors.brand : 'transparent' }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? '#fff' : colors.brand }}>{q.label}</Text>
                   </TouchableOpacity>
@@ -416,6 +492,17 @@ export default function TeacherPendingCollections() {
             </TouchableOpacity>
       </SheetModal>
       <BillingYearSheet target={yearFor} onClose={() => setYearFor(null)} />
+    </View>
+  );
+}
+
+/** A small labelled number box for correcting a bill inside the collect sheet. */
+function BillField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{label}</Text>
+      <TextInput value={value} onChangeText={onChange} keyboardType="numeric" selectTextOnFocus
+        style={{ height: 44, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderStrong, paddingHorizontal: spacing.md, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, textAlign: 'center' }} />
     </View>
   );
 }

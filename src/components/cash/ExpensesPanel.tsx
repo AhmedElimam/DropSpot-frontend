@@ -422,9 +422,8 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
         ) : (
           days.map(({ day, rows }) => (
             <View key={day} style={{ marginBottom: spacing.lg }}>
-              {/* The day only, on the left (founder 2026-10-08: the day's total beside it repeated the rows' own amounts). */}
-              {/* On the LEFT as asked: under RTL, iOS swaps an explicit 'right' to the left side. */}
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.sm, paddingHorizontal: spacing.xs }}>{dayTitle(day)}</Text>
+              {/* The day only (founder 2026-10-08: the day's total beside it repeated the rows' own amounts), on the right like all Arabic text (founder 2026-10-09). */}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.sm, paddingHorizontal: spacing.xs }}>{dayTitle(day)}</Text>
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, ...shadows.sm }}>
                 {rows.map((e, i) => (
                   <ExpenseRow key={e.id} e={e} first={i === 0} showLogger={!isAssistant} canDelete={e.logged_by.is_me && !e.locked && (!isAssistant || e.review_status === 'pending')} perVenue={perVenue} canAssign={!isAssistant} onDelete={confirmDelete} onAssign={pickVenue} />
