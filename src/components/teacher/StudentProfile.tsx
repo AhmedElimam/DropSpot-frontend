@@ -17,6 +17,7 @@ import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StudentAttendanceList } from '@/components/student/StudentAttendanceList';
 import { PriorMonthSheet } from '@/components/teacher/PriorMonthSheet';
+import { BillingYearSheet, type BillingYearTarget } from '@/components/teacher/BillingYearSheet';
 import { useStudentDetail } from '@/hooks/useStudents';
 import { useSetStudentAllowanceBlock } from '@/hooks/useOverrides';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -158,6 +159,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   const [backfillBusy, setBackfillBusy] = useState(false);
   // «تسجيل شهر سابق»: a month before joining — its sessions and its fee, owed now.
   const [priorBillFor, setPriorBillFor] = useState<{ enrollmentId: number; courseName: string | null } | null>(null);
+  // «السنة»: the course's year, month by month — bills, sessions, and what each month allows.
+  const [yearFor, setYearFor] = useState<BillingYearTarget | null>(null);
 
   // Attendance from before the app, counted per month (founder 2026-10-06: «a teacher joined in
   // October; the student has attended since September — say how many sessions each month»).
@@ -871,6 +874,19 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                         </TouchableOpacity>
                       ) : null}
 
+                      {/* The year of this course, month by month (founder 2026-10-08). */}
+                      {c.enrollment_id ? (
+                        <TouchableOpacity onPress={() => setYearFor({ studentId: Number(s.id), name: s.name, enrollmentId: c.enrollment_id! })} accessibilityRole="button" activeOpacity={0.85}
+                          style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, paddingHorizontal: spacing.md }}>
+                          <Icon name="calendar" size={18} color={colors.brand} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>تقويم السنة</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>كل شهر: فاتورته وحصصه — وتعديلها</Text>
+                          </View>
+                          <Icon name="back" size={16} color={colors.brand} />
+                        </TouchableOpacity>
+                      ) : null}
+
                       {/* A month before joining, recorded whole: its sessions and its fee, owed now
                           (founder 2026-10-08). Money → who may manage students. */}
                       {canManage && c.enrollment_id ? (
@@ -928,6 +944,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       {/* Collect: what, how much (editable — part-payment at the door is normal), and what
           follows (receipt, drawer, reports). */}
       <PriorMonthSheet target={priorBillFor} onClose={() => setPriorBillFor(null)} onSaved={() => { void refetch(); }} />
+      <BillingYearSheet target={yearFor} onClose={() => { setYearFor(null); void refetch(); }} />
       <SheetModal visible={!!collectFor} onClose={() => !collectBusy && setCollectFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{`تحصيل — ${collectFor?.label ?? ''}`}</Text>

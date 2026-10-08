@@ -16,6 +16,7 @@ import { formatNumber } from '@/utils/format';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { formatEGP } from '@/utils/currency';
+import { BillingYearSheet, type BillingYearTarget } from '@/components/teacher/BillingYearSheet';
 import { getPendingCollections, collectFromRoster, cancelDueFromRoster, type RosterStudent, type CollectKind } from '@/api/pendingCollections';
 import { reverseStudentPayment } from '@/api/students';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
@@ -80,6 +81,7 @@ export default function TeacherPendingCollections() {
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   const [target, setTarget] = useState<Target | null>(null);
+  const [yearFor, setYearFor] = useState<BillingYearTarget | null>(null);
   // Tapping a student opens their profile as a native sheet over the list (founder
   // 2026-10-06). The profile is fetched as the finger lifts, so the sheet usually rises with
   // it already there; the list refreshes when the sheet goes away.
@@ -265,6 +267,13 @@ export default function TeacherPendingCollections() {
             </View>
           );
         })}
+        {/* «السنة»: the student's months — which month each bill is, edit it, bill a missing one. */}
+        <TouchableOpacity onPress={() => setYearFor({ studentId: s.student_id, name: s.name })} hitSlop={6} accessibilityRole="button"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+          <Icon name="calendar" size={15} color={colors.brand} />
+          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>السنة والفواتير — شهر بشهر</Text>
+          <Icon name="back" size={14} color={colors.brand} />
+        </TouchableOpacity>
       </View>
     );
   };
@@ -406,6 +415,7 @@ export default function TeacherPendingCollections() {
               <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.close')}</Text>
             </TouchableOpacity>
       </SheetModal>
+      <BillingYearSheet target={yearFor} onClose={() => setYearFor(null)} />
     </View>
   );
 }
