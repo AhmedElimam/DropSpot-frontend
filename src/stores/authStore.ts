@@ -271,6 +271,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
       await SecureStore.deleteItemAsync('imp_admin_token');
       await SecureStore.deleteItemAsync('imp_admin_refresh');
       await SecureStore.deleteItemAsync('imp_admin_user');
+      // The screens' saved data (src/lib/queryPersist.ts) goes too: the next person to sign in
+      // on this phone must never open onto the last one's students.
+      try {
+        const { forgetPersistedQueries } = await import('@/lib/queryPersist');
+        await forgetPersistedQueries();
+      } catch {
+        // best-effort
+      }
       set({ user: null, role: null, activeTeacherId: null, impersonation: null, isAuthenticated: false });
     },
 

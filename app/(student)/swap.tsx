@@ -100,7 +100,7 @@ export default function SwapRequestScreen() {
               />
             ) : upcomingLoading ? (
               <ActivityIndicator color={colors.primary} />
-            ) : upcomingError ? (
+            ) : upcomingError && !upcoming ? (
               <ErrorState onRetry={() => refetchUpcoming()} />
             ) : !upcoming || upcoming.length === 0 ? (
               <EmptyState icon="calendar" title={t('swap.no_upcoming')} />

@@ -30,7 +30,7 @@ export default function ChildrenList() {
     );
   }
 
-  if (isError) {
+  if (isError && !children) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ErrorState onRetry={() => refetch()} />

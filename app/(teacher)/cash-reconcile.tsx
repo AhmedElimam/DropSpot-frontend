@@ -965,7 +965,7 @@ export default function CashReconcileScreen() {
         >
           {isPast ? (
             <RoseHeroCard icon="calendar" title={t('cash.viewing_past')} sub={t('cash.back_to_now')} chevron onPress={() => { setPeriod('week'); setWeekOffset(0); setSegment('week'); }} />
-          ) : isError ? (
+          ) : isError && !data ? (
             <RoseHeroCard icon="refresh" title={t('cash.load_failed')} onPress={() => refetch()} />
           ) : null}
         </RoseHero>

@@ -389,7 +389,7 @@ export default function TeacherPendingCollections() {
 
       {isLoading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={colors.brand} /></View>
-      ) : isError ? (
+      ) : isError && !data ? (
         <ErrorState onRetry={() => refetch()} />
       ) : (
         <FlatList showsVerticalScrollIndicator={false}

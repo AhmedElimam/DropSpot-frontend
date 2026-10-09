@@ -136,7 +136,7 @@ export default function InvitePhone() {
   if (isLoading) {
     return <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={colors.brand} /></View>;
   }
-  if (isError) {
+  if (isError && !options) {
     return <View style={{ flex: 1, backgroundColor: colors.background }}><ErrorState onRetry={() => refetch()} /></View>;
   }
 

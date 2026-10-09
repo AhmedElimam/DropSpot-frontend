@@ -46,7 +46,7 @@ export default function TicketsList() {
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
-          ) : isError ? (
+          ) : isError && !tickets ? (
             <ErrorState onRetry={() => refetch()} />
           ) : !tickets?.length ? (
             <EmptyState

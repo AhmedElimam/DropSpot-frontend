@@ -58,7 +58,7 @@ export default function ExamCreateScreen() {
       </FormCard>
 
       <FormCard icon="book" title={t('teacher.exam_create_pick_slot')} required>
-        {isError ? (
+        {isError && !slots ? (
           <TouchableOpacity onPress={() => refetch()} activeOpacity={0.8}><Banner tone="danger" text={t('teacher.exam_create_load_failed')} style={{ marginBottom: 0 }} /></TouchableOpacity>
         ) : (slots ?? []).length === 0 ? (
           <Banner tone="warn" text={t('teacher.exam_create_empty')} style={{ marginBottom: 0 }} />

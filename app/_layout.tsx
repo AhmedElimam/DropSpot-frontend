@@ -30,7 +30,11 @@ NetInfo.configure({
   reachabilityShortTimeout: 60 * 1000,
   reachabilityRequestTimeout: 10 * 1000,
 });
-import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
+import { QueryClient, focusManager } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { persistOptions } from '@/lib/queryPersist';
+import { PERSIST_MAX_AGE_MS } from '@/lib/queryPersistRules';
+import { OfflinePill } from '@/components/OfflinePill';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '@/stores/authStore';
@@ -107,6 +111,10 @@ const queryClient = new QueryClient({
       },
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
       staleTime: 30000,
+      // The cache is also kept on disk (src/lib/queryPersist.ts) so screens open offline with
+      // their last data. A query dropped from memory is dropped from disk at the next save, so
+      // memory must keep it as long as the disk does (the React Query persistence rule).
+      gcTime: PERSIST_MAX_AGE_MS,
       // Returning to the app refreshes only data older than 2 minutes, not every stale query
       // of every mounted screen at once (src/api/queryFocus.ts).
       refetchOnWindowFocus: (query) => shouldRefetchOnFocus(query.state.dataUpdatedAt),
@@ -236,7 +244,7 @@ export default function RootLayout() {
   return (
     // gesture-handler components (the notifications swipe) need this at the very root.
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <SafeAreaProvider>
         {/* Status bar icons follow the scheme: dark on the day mist, light on the night navy.
             The auth screens, deep ink in both schemes, set their own while mounted. */}
@@ -259,11 +267,13 @@ export default function RootLayout() {
             <WhatsNewModal />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}
             <SpotlightOverlay />
+            {/* «بدون إنترنت» — a few seconds when the connection drops, then out of the way. */}
+            <OfflinePill />
           </View>
           </AppConfigGate>
         </HydrationGate>
       </SafeAreaProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
     </GestureHandlerRootView>
   );
 }

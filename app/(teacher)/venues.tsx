@@ -54,7 +54,7 @@ export default function TeacherVenues() {
       [{ text: 'إلغاء', style: 'cancel' }, { text: 'احذف', style: 'destructive', onPress: () => remove.mutate(v.id) }]);
   };
 
-  if (isError) return <ErrorState onRetry={refetch} />;
+  if (isError && !data) return <ErrorState onRetry={refetch} />;
   const venues = data?.locations ?? [];
   const pool = data?.assignable_assistants ?? [];
   const canSave = name.trim().length > 0 && !save.isPending;

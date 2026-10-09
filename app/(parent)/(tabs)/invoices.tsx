@@ -66,7 +66,7 @@ export default function InvoicesPage() {
     );
   }
 
-  if (isError) {
+  if (isError && !invoices) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ErrorState onRetry={() => refetch()} />

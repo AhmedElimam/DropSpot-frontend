@@ -48,7 +48,7 @@ export default function TeacherTicketsList() {
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
-          ) : isError ? (
+          ) : isError && !tickets ? (
             <ErrorState onRetry={() => refetch()} />
           ) : !tickets?.length ? (
             <EmptyState icon="tickets" title={t('tickets.empty')} />

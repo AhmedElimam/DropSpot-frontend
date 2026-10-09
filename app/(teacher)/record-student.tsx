@@ -184,7 +184,7 @@ export default function RecordStudent() {
   if (isLoading) {
     return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}><ActivityIndicator color={colors.brand} /></View>;
   }
-  if (isError) {
+  if (isError && !options) {
     return <ErrorState onRetry={refetch} />;
   }
 
