@@ -7,6 +7,7 @@ import Animated, {
 import { useIsFocused } from '@react-navigation/native';
 import { colors } from '@/theme/index';
 import { RosePortrait } from './RoseStamp';
+import { RoseSleeping } from './RoseSleeping';
 
 /**
  * مدام روز on the home shortcut, CALLING you when something is waiting on her desk (founder
@@ -109,7 +110,8 @@ export function RoseCalling({ size, calling }: { size: number; calling: boolean 
       {calling ? (
         <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: clipLeft, top: clipTop, width: 2 * CLIP.r * k, height: 2 * CLIP.r * k, borderRadius: CLIP.r * k, borderWidth: 3, borderColor: colors.accent }, ringSt]} />
       ) : null}
-      <RosePortrait size={size} nod={false} />
+      {/* An empty desk: she dozes (founder 2026-10-09). Something waiting: awake, and calling. */}
+      {calling ? <RosePortrait size={size} nod={false} /> : <RoseSleeping size={size} />}
       {calling ? (
         <View pointerEvents="none" style={{ position: 'absolute', left: clipLeft, top: clipTop, width: 2 * CLIP.r * k, height: 2 * CLIP.r * k, borderRadius: CLIP.r * k, overflow: 'hidden' }}>
           <Animated.View style={[{ position: 'absolute', left: -clipLeft, top: -clipTop, width: size, height: size, transformOrigin: [ELBOW.x * k, ELBOW.y * k, 0] }, armSt]}>
