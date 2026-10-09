@@ -116,7 +116,7 @@ export function BillingYearSheet({ target, onClose }: { target: BillingYearTarge
               style={{ width: 40, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface }}>
               <Icon name="forward" size={18} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{formatNumber(year)}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{formatNumber(year, { useGrouping: false })}</Text>
             <TouchableOpacity onPress={() => { setYear((y) => y + 1); setPicked(null); }} disabled={year >= new Date().getFullYear() + 1} accessibilityRole="button" accessibilityLabel="السنة التالية"
               style={{ width: 40, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, opacity: year >= new Date().getFullYear() + 1 ? 0.4 : 1 }}>
               <Icon name="back" size={18} color={colors.textPrimary} />
@@ -184,7 +184,7 @@ function MonthTile({ m, on, onPress }: { m: YearMonth; on: boolean; onPress: () 
 }
 
 function MonthPanel({ data, m, onChanged, onPrior }: { data: BillingYear; m: YearMonth; onChanged: () => Promise<void>; onPrior: () => void }) {
-  const title = `${m.label} ${formatNumber(Number(m.month.slice(0, 4)))}`;
+  const title = `${m.label} ${formatNumber(Number(m.month.slice(0, 4)), { useGrouping: false })}`;
   const past = m.month < `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   return (
     <View style={{ marginTop: spacing.lg, backgroundColor: colors.background, borderRadius: radius.xl, padding: spacing.md, borderWidth: 1, borderColor: colors.borderLight }}>
