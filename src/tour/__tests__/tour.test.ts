@@ -14,9 +14,13 @@ describe('tour scripts', () => {
       expect(has(s.body)).toBe(true);
       if (s.cta) expect(has(s.cta)).toBe(true);
     }
-    // Two minutes: a handful of stops, not a manual.
-    expect(tour.steps.length).toBeGreaterThanOrEqual(8);
-    expect(tour.steps.length).toBeLessThanOrEqual(13);
+    // Two minutes: a handful of stops, not a manual — counted as each viewer sees it (the
+    // teacher and the assistant each get their own ending, and only teachers see the videos).
+    for (const role of [null, 'teacher', 'assistant']) {
+      const seen = tour.steps.filter((s) => !role || !s.notFor?.includes(role)).length - (role ? 0 : tour.steps.filter((s) => s.notFor?.length).length);
+      expect(seen).toBeGreaterThanOrEqual(8);
+      expect(seen).toBeLessThanOrEqual(13);
+    }
   });
 
   it('ends the teacher tour on «create your course», and the assistant tour without it', () => {

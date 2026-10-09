@@ -8,7 +8,7 @@ import type { TourDef, TourStep } from './store';
  * there (an assistant without the scanner) is skipped.
  */
 const card = (title: string, body: string, cta: string, extra: Partial<TourStep> = {}): TourStep => ({ title, body, cta, ...extra });
-const spot = (target: string, title: string, body: string, route?: Href): TourStep => ({ target, title, body, route });
+const spot = (target: string, title: string, body: string, route?: Href, extra: Partial<TourStep> = {}): TourStep => ({ target, title, body, route, ...extra });
 
 const T = '/(teacher)/(tabs)' as Href;
 // The teacher side is presented by مدام روز in her own voice (founder 2026-10-07: «increase her
@@ -27,6 +27,10 @@ export const TEACHER_TOUR: TourDef = {
     spot('tab:manage', 'tour.teacher.manage_title', 'tour.teacher.manage_body', '/(teacher)/(tabs)/manage' as Href),
     spot('tab:students', 'tour.teacher.students_title', 'tour.teacher.students_body', '/(teacher)/(tabs)/students' as Href),
     spot('tab:settings', 'tour.teacher.settings_title', 'tour.teacher.settings_body', '/(teacher)/(tabs)/settings' as Href),
+    // «شروحات التطبيق» — down the settings page, so the page hands its scroll to the tour
+    // (useTourScroll) and the row is brought into view. Routed, so stepping BACK to it from
+    // the home never aims at the hidden settings tab. Teachers only: assistants have no videos.
+    spot('settings:tutorials', 'tour.teacher.tutorials_title', 'tour.teacher.tutorials_body', '/(teacher)/(tabs)/settings' as Href, { notFor: ['assistant'] }),
     spot('tab:index', 'tour.teacher.home_again_title', 'tour.teacher.home_again_body', T),
     // The first thing to do, with the button that does it (founder 2026-10-06: «show at the
     // end that you start with the schedule and a course»). Not for an assistant.

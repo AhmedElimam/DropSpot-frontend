@@ -15,6 +15,8 @@ import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { SupportContact } from '@/components/SupportContact';
 import { ThemeRow } from '@/components/ThemeRow';
 import { TourRow } from '@/tour/TourRow';
+import { TourTarget } from '@/tour/TourTarget';
+import { useTourScroll } from '@/tour/useTourScroll';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
 import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
@@ -41,9 +43,11 @@ export default function TeacherSettings() {
   const { data: flags } = useFeatureFlags();
   const setRevise = useSetReviseMode();
 
+  // The tour scrolls this page to reach «شروحات التطبيق» further down (founder 2026-10-09).
+  const tourScroll = useTourScroll();
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+      <ScrollView {...tourScroll} contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
@@ -118,7 +122,9 @@ export default function TeacherSettings() {
             <Row icon="star" tint={colors.warningDark} tintBg={colors.warningLight} label={t('whats_new.title')} sub={t('whats_new.all')} onPress={() => router.push('/whats-new' as Href)} />
             {/* «شروحات» — the teacher's how-to videos (assistants: none yet). */}
             {!isAssistant ? (
-              <Row icon="play" tint={colors.accent} tintBg={colors.accentLight} label={t('tutorials.title')} sub={t('tutorials.row_sub')} onPress={() => router.push('/(teacher)/tutorials' as Href)} />
+              <TourTarget id="settings:tutorials">
+                <Row icon="play" tint={colors.accent} tintBg={colors.accentLight} label={t('tutorials.title')} sub={t('tutorials.row_sub')} onPress={() => router.push('/(teacher)/tutorials' as Href)} />
+              </TourTarget>
             ) : null}
             {/* The setup guide is the teacher's: every step in it is theirs to take. */}
             {!isAssistant ? (

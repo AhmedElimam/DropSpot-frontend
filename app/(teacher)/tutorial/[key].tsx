@@ -34,8 +34,7 @@ import type { Tutorial } from '@/api/tutorials';
  * Secured on the phone as well as on the server (the stream is AES-128 with a per-viewer key):
  * screenshots and recordings are blocked while this screen is open (black on Android, hidden
  * on iOS), the app switcher shows a blur, no AirPlay/casting or picture-in-picture, playback
- * stops when the app leaves the screen, and a watermark with this teacher's code wanders over
- * the picture.
+ * stops when the app leaves the screen. (No watermark — founder 2026-10-09.)
  */
 const SPEEDS = [1, 1.5, 2] as const;
 const GOLD = '#C9A227';
@@ -168,8 +167,6 @@ function Player({ chapter, insets, onClose }: { chapter: Tutorial; insets: { top
         </View>
       </GestureDetector>
 
-      <Watermark code={chapter.mark} />
-
       {/* While scrubbing: the time, big, in the middle — and nothing else in the way. */}
       {scrubbing ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' }}>
@@ -288,16 +285,3 @@ function CloseButton({ onPress, top, label }: { onPress: () => void; top: number
   );
 }
 
-/** «drosspot.app · CODE» drifting over the picture every few seconds — a crop cannot remove it. */
-function Watermark({ code }: { code?: string }) {
-  const [pos, setPos] = useState({ top: 18, start: 10 });
-  useEffect(() => {
-    const id = setInterval(() => setPos({ top: 10 + Math.random() * 70, start: 4 + Math.random() * 46 }), 6000);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <Text pointerEvents="none" style={{ position: 'absolute', top: `${pos.top}%`, start: `${pos.start}%`, fontFamily: fonts.bold, fontSize: 11, color: 'rgba(255,255,255,0.45)', writingDirection: 'ltr', ...SHADOW }}>
-      {`drosspot.app${code ? ` · ${code}` : ''}`}
-    </Text>
-  );
-}

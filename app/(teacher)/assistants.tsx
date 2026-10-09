@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Switch, RefreshControl, KeyboardAvoidingView, Alert } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, Redirect, type Href } from 'expo-router';
@@ -21,6 +21,8 @@ import {
   useRemoveAssistant,
 } from '@/hooks/useAssistants';
 import type { ManagedAssistant, AbilityDef } from '@/api/assistants';
+import { assistantRank, type AssistantRank } from '@/utils/assistantRank';
+import { RankBadge, RecruitCelebration } from '@/components/teacher/AssistantRank';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 const STATUS_META: Record<string, { key: string; variant: BadgeVariant }> = {
@@ -96,6 +98,10 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
             <Badge label={showInactive ? t('assistants.status_inactive') : t(meta.key)} variant={showInactive ? 'default' : meta.variant} size="sm" />
           </View>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginTop: 2 }}>{a.phone ?? ''}</Text>
+          {/* The rank their permissions earn — it moves as abilities are granted or taken back. */}
+          <View style={{ marginTop: spacing.sm }}>
+            <RankBadge rank={assistantRank(a.abilities, catalog.map((c) => c.key))} />
+          </View>
         </View>
         {/* Active toggle only meaningful once the assistant accepted. */}
         {a.status === 'accepted' ? (
@@ -213,6 +219,20 @@ export default function TeacherAssistants() {
   const [cPhone, setCPhone] = useState('');
   const [cPass, setCPass] = useState('');
   const [createErr, setCreateErr] = useState<string | null>(null);
+  // The recruit moment: who just joined (or was invited), shown over the screen.
+  const [joined, setJoined] = useState<{ name: string; phone: string | null; rank: AssistantRank; invited: boolean } | null>(null);
+  const endJoined = useCallback(() => setJoined(null), []);
+  const celebrate = async (id: number, invited: boolean, fallback: { name: string; phone: string }) => {
+    const fresh = await refetch();
+    const row = fresh.data?.assistants.find((x) => x.id === id);
+    const keys = (fresh.data?.all_abilities ?? []).map((c) => c.key);
+    setJoined({
+      name: row?.name || fallback.name,
+      phone: row?.phone || fallback.phone || null,
+      rank: assistantRank(row?.abilities ?? ['scan_attendance', 'report_incidents', 'edit_bill_amount'], keys),
+      invited,
+    });
+  };
 
   // Assistant management is teacher-only; an assistant is bounced (backend also 403s).
   if (role === 'assistant') return <Redirect href={'/(teacher)/(tabs)' as Href} />;
@@ -224,8 +244,9 @@ export default function TeacherAssistants() {
   const submitInvite = () => {
     if (phone.trim().length < 6) return;
     setInviteErr(null);
-    invite.mutate(phone.trim(), {
-      onSuccess: () => setPhone(''),
+    const typed = phone.trim();
+    invite.mutate(typed, {
+      onSuccess: (r) => { setPhone(''); void celebrate(r.id, true, { name: 'مساعدك الجديد', phone: typed }); },
       onError: (e) => setInviteErr(apiMsg(e, 'تعذّرت الدعوة')),
     });
   };
@@ -236,7 +257,11 @@ export default function TeacherAssistants() {
     create.mutate(
       { first_name: cFirst.trim(), phone_number: cPhone.trim(), password: cPass },
       {
-        onSuccess: () => { setCFirst(''); setCPhone(''); setCPass(''); setShowCreate(false); },
+        onSuccess: (r) => {
+          const fallback = { name: cFirst.trim(), phone: cPhone.trim() };
+          setCFirst(''); setCPhone(''); setCPass(''); setShowCreate(false);
+          void celebrate(r.id, false, fallback);
+        },
         onError: (e) => setCreateErr(apiMsg(e, 'تعذّر الإنشاء')),
       },
     );
@@ -292,7 +317,10 @@ export default function TeacherAssistants() {
           </View>
         ) : null}
 
-        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginBottom: spacing.md }}>مساعدوك</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>مساعدوك</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textTertiary, marginTop: 2, marginBottom: spacing.md }}>
+          رتبة كل مساعد من صلاحياته: الباب، ثم المكتب، ثم إدارة الشغل — ومن معه كل الصلاحيات هو اليد اليمنى.
+        </Text>
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : !data?.assistants.length ? (
@@ -301,6 +329,7 @@ export default function TeacherAssistants() {
           data.assistants.map((a) => <AssistantCard key={a.id} a={a} catalog={catalog} takeaway={takeaway} venues={venues} />)
         )}
       </ScrollView>
+      <RecruitCelebration who={joined} onDone={endJoined} />
     </KeyboardAvoidingView>
   );
 }
