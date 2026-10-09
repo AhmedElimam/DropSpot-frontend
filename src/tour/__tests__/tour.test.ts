@@ -177,3 +177,19 @@ describe('pinning a target while the tour scrolls it into view', () => {
     now.mockRestore();
   });
 });
+
+describe('the page a step belongs on', () => {
+  it('rides on the last route before it, so stepping back reopens the right screen', () => {
+    const { routeFor } = jest.requireActual('../store') as typeof import('../store');
+    const s = TEACHER_TOUR.steps;
+    const bell = s.findIndex((x) => x.target === 'header:bell');
+    const sessions = s.findIndex((x) => x.target === 'tab:sessions');
+    expect(bell).toBeGreaterThan(0);
+    expect(bell).toBeLessThan(sessions);
+    // The bell names no route of its own: it belongs on the home, where the stats stop sent us.
+    expect(s[bell].route).toBeUndefined();
+    expect(routeFor(s, bell)).toBe('/(teacher)/(tabs)');
+    expect(routeFor(s, sessions)).toBe('/(teacher)/(tabs)/sessions');
+    expect(routeFor(s, 0)).toBeUndefined();
+  });
+});

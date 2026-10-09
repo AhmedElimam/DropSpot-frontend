@@ -95,6 +95,19 @@ export const useTourStore = create<TourState>((set, get) => ({
 }));
 
 /**
+ * The screen a step belongs on: its own route, or the last route set before it. Most of a
+ * screen's stops name no route (they ride on the first one that opened it), so stepping BACK
+ * into them from another tab used to leave the wrong page up — and spotlight a target that
+ * only looked present because its tab stays mounted underneath (founder 2026-10-09).
+ */
+export function routeFor(steps: TourStep[], index: number): TourStep['route'] {
+  for (let i = index; i >= 0; i--) {
+    if (steps[i]?.route) return steps[i].route;
+  }
+  return undefined;
+}
+
+/**
  * The next step that can be shown from `from` in `dir`, or null when the tour is over. A step
  * with a target nobody registered is skipped (an assistant without the scanner, a parent with
  * no child yet); targetless cards always show.

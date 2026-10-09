@@ -17,7 +17,7 @@ import { usePendingSurvey } from '@/hooks/useSurvey';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import { useWhatsNew } from '@/hooks/useReleaseNotes';
 import { getTourStatus, completeTour } from '@/api/tour';
-import { useTourStore, nextShowable } from './store';
+import { useTourStore, nextShowable, routeFor } from './store';
 import { tourSeen, markTourSeen } from './seen';
 import { tourForRole } from './tours';
 import { holeFor, placeCard, onScreen, toFrame, holePath, stackDim, scrollNeeded, HOLE_RADIUS, type Hole, type Frame } from './geometry';
@@ -150,13 +150,16 @@ function Runner() {
   const routed = useRef<number>(-1);
   useEffect(() => {
     if (!current) return;
-    if (current.route && routed.current !== step) {
+    // The step's screen — its own route or the one it rides on — so going back from another
+    // tab reopens the right page before anything is spotlit.
+    const route = current.route ?? (current.target ? routeFor(steps, step) : undefined);
+    if (route && routed.current !== step) {
       routed.current = step;
-      try { router.navigate(current.route); } catch { /* already there, or gone: the measurement decides */ }
+      try { router.navigate(route); } catch { /* already there, or gone: the measurement decides */ }
     }
     const timers = REMEASURE_MS.map((ms) => setTimeout(() => { remeasure(); measureRoot(); }, ms));
     return () => timers.forEach(clearTimeout);
-  }, [step, current, remeasure, measureRoot]);
+  }, [step, steps, current, remeasure, measureRoot]);
 
   const finish = useCallback(() => {
     if (role && user) {
