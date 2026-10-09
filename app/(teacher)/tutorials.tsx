@@ -59,7 +59,7 @@ export default function TutorialsScreen() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.accent }}>{t('tutorials.chapter', { n: formatNumber(c.number) })}</Text>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, marginTop: 2 }}>{c.title}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2, lineHeight: 20 }}>{c.sub}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 4 }}>{t('tutorials.size', { mb: formatNumber(c.mb) })}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 4 }}>{c.seconds ? `${formatNumber(Math.floor(c.seconds / 60))}:${formatNumber(c.seconds % 60, { minimumIntegerDigits: 2 })}` : t('tutorials.size', { mb: formatNumber(c.mb) })}</Text>
               </View>
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>

@@ -34,7 +34,7 @@ export default function TutorialPlayer() {
         {chapter ? <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: '#FFFFFF' }} numberOfLines={1}>{chapter.title}</Text> : null}
       </View>
       {chapter ? (
-        <Player url={chapter.url} bottom={insets.bottom} />
+        <Player url={chapter.url} hls={!!chapter.hls} bottom={insets.bottom} />
       ) : isLoading ? (
         <ActivityIndicator size="large" color="#FFFFFF" style={{ marginTop: spacing.xxl }} />
       ) : (
@@ -46,8 +46,10 @@ export default function TutorialPlayer() {
   );
 }
 
-function Player({ url, bottom }: { url: string; bottom: number }) {
-  const player = useVideoPlayer(url, (p) => {
+// The chapter streams ENCRYPTED (AES-128 HLS, a per-viewer key from the server — founder
+// 2026-10-09); its link carries no «.m3u8», so the player is told what it is.
+function Player({ url, hls, bottom }: { url: string; hls: boolean; bottom: number }) {
+  const player = useVideoPlayer(hls ? { uri: url, contentType: 'hls' } : url, (p) => {
     p.muted = false;
     p.play();
   });

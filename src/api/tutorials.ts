@@ -6,8 +6,12 @@ export interface Tutorial {
   number: number;
   title: string;
   sub: string;
-  url: string;
+  url: string; // the encrypted HLS stream, signed for this user
+  hls?: boolean;
   poster: string | null;
+  page?: string | null; // the chapter's public watch page — the link to share
+  minutes?: number;
+  seconds?: number; // the video's length
   mb: number;
 }
 
