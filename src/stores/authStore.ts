@@ -273,7 +273,11 @@ export const useAuthStore = create<AuthState>((set, get) => {
       await SecureStore.deleteItemAsync('imp_admin_user');
       // The screens' saved data (src/lib/queryPersist.ts) goes too: the next person to sign in
       // on this phone must never open onto the last one's students.
+      // Memory first: a sign-out the server forced (expired session) never passes through the
+      // hooks that clear the cache, and whatever stayed in memory would be saved straight back.
       try {
+        const { getQueryClient } = await import('@/lib/queryClientRef');
+        getQueryClient()?.clear();
         const { forgetPersistedQueries } = await import('@/lib/queryPersist');
         await forgetPersistedQueries();
       } catch {
