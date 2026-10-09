@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { memo, useEffect, useState } from 'react';
+import { AppState, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 import Animated, {
-  Easing, cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withTiming,
+  Easing, cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming,
 } from 'react-native-reanimated';
 import { useIsFocused } from '@react-navigation/native';
 import { fonts } from '@/theme/typography';
@@ -12,18 +12,20 @@ import { useRose } from '@/hooks/useRose';
 /**
  * مدام روز asleep at her desk (founder 2026-10-09: «on the home page, if there's nothing on
  * Madam Rose's desk, make the animation of sleep»). Her eyes closed, her brows soft, breathing
- * slowly with her head a touch to the side, and «Z z z» drifting up beside her.
+ * evenly with her head a touch to the side, and «Z z z» drifting up beside her now and then.
  *
  * Drawn as ONE still picture — her live base (madam-rose-live-base.webp, the portrait minus
  * eyes, brows, lips and earrings) with the sleeping face over it in the same 400-unit frame
- * as RoseLive — so the only motion is two cheap UI-thread loops (the breath and the Z's). That
- * matters on the home: the full rig is what heated MediaTek phones (2026-10-08). Both loops
- * stop when the home is not in front of you or the phone asks for less motion.
+ * as RoseLive, her head already resting to one side. The only motion is a puff of three small
+ * «Z» every six seconds (opacity + transform on the UI thread, ~2 s), and nothing in between:
+ * the full rig is what heated MediaTek phones (2026-10-08), and the founder wants no heat, lag
+ * or glitch from her. Off-screen, backgrounded or under reduced motion, nothing runs.
  */
 const BASE = require('../../../assets/images/rose/madam-rose-live-base.webp');
 const FRAME = 'translate(200 212) scale(0.9) translate(-200 -200)';
 const CHIN = { x: 200, y: 392 };
 const INK = '#1A1F38';
+const PUFF_EVERY_MS = 6000;
 
 function Face() {
   return (
@@ -52,15 +54,19 @@ function Face() {
   );
 }
 
-/** One «Z», rising and fading on its own beat. */
-function Zee({ delay, size, x, run }: { delay: number; size: number; x: number; run: boolean }) {
-  const p = useSharedValue(0);
+/**
+ * One «Z». It rises and fades once per puff, then rests at zero opacity — nothing animates
+ * between puffs.
+ */
+function Zee({ puff, delay, size, x }: { puff: number; delay: number; size: number; x: number }) {
+  const p = useSharedValue(1);
   useEffect(() => {
-    if (!run) { cancelAnimation(p); p.value = 0; return; }
-    p.value = withDelay(delay, withRepeat(withTiming(1, { duration: 2400, easing: Easing.out(Easing.quad) }), -1, false));
-  }, [run, delay, p]);
+    if (puff === 0) { cancelAnimation(p); p.value = 1; return; }
+    p.value = 0;
+    p.value = withDelay(delay, withTiming(1, { duration: 1700, easing: Easing.out(Easing.quad) }));
+  }, [puff, delay, p]);
   const st = useAnimatedStyle(() => ({
-    opacity: p.value < 0.15 ? p.value / 0.15 : 1 - (p.value - 0.15) / 0.85,
+    opacity: p.value >= 1 ? 0 : p.value < 0.15 ? p.value / 0.15 : 1 - (p.value - 0.15) / 0.85,
     transform: [{ translateY: -size * 1.6 * p.value }, { translateX: size * 0.5 * p.value }, { scale: 0.7 + 0.5 * p.value }],
   }));
   return (
@@ -70,37 +76,56 @@ function Zee({ delay, size, x, run }: { delay: number; size: number; x: number; 
   );
 }
 
+/**
+ * Her sleeping picture — drawn once and never again: memoised, so a puff of «Z» (a state
+ * change in the parent) does not redraw the image or the SVG.
+ */
+const StillFace = memo(function StillFace({ size }: { size: number }) {
+  const k = size / 400;
+  return (
+    // Her head already resting to one side — still. Scaling the picture every frame was the costly part.
+    <View style={{ width: size, height: size, transformOrigin: [CHIN.x * k, CHIN.y * k, 0], transform: [{ rotate: '-4deg' }] }}>
+      <Image source={BASE} style={StyleSheet.absoluteFill} contentFit="contain" />
+      <Svg width={size} height={size} viewBox="0 0 400 400" style={StyleSheet.absoluteFill}>
+        <Face />
+      </Svg>
+    </View>
+  );
+});
+
 export function RoseSleeping({ size }: { size: number }) {
   const rose = useRose();
   const focused = useIsFocused();
   const still = useReducedMotion();
-  const run = focused && !still;
-  const k = size / 400;
-
-  // The breath: a slow rise and fall, her head resting a little to one side.
-  const breath = useSharedValue(0);
+  // In the background the home can still count as focused (Android keeps JS timers running):
+  // only an app in front of you puffs.
+  const [active, setActive] = useState(AppState.currentState === 'active');
   useEffect(() => {
-    if (!run) { cancelAnimation(breath); breath.value = 0; return; }
-    breath.value = withRepeat(withTiming(1, { duration: 2100, easing: Easing.inOut(Easing.sin) }), -1, true);
-  }, [run, breath]);
-  const body = useAnimatedStyle(() => ({
-    transform: [{ rotate: '-4deg' }, { scale: 1 + 0.025 * breath.value }, { translateY: -1.2 * breath.value }],
-  }));
+    const sub = AppState.addEventListener('change', (st) => setActive(st === 'active'));
+    return () => sub.remove();
+  }, []);
+  const run = focused && active && !still;
+
+  // A puff of «Z z z» every few seconds — a burst, not a loop (founder 2026-10-09: «no heat
+  // or lagging or glitching»). Between puffs nothing on the home animates; off-screen, in the
+  // background or under reduced motion, nothing runs at all.
+  const [puff, setPuff] = useState(0);
+  useEffect(() => {
+    if (!run) { setPuff(0); return; }
+    setPuff((n) => n + 1);
+    const id = setInterval(() => setPuff((n) => n + 1), PUFF_EVERY_MS);
+    return () => clearInterval(id);
+  }, [run]);
 
   const z = Math.max(9, size * 0.17);
   return (
     <View style={{ width: size, height: size }} accessibilityLabel={`${rose.name} — نايمة`}>
-      <Animated.View style={[{ width: size, height: size, transformOrigin: [CHIN.x * k, CHIN.y * k, 0] }, body]}>
-        <Image source={BASE} style={StyleSheet.absoluteFill} contentFit="contain" />
-        <Svg width={size} height={size} viewBox="0 0 400 400" style={StyleSheet.absoluteFill}>
-          <Face />
-        </Svg>
-      </Animated.View>
+      <StillFace size={size} />
       {/* «Z z z» from just above her head, on the side her head leans to. */}
       <View pointerEvents="none" style={{ position: 'absolute', top: size * 0.06, end: -size * 0.1, width: size * 0.5, height: size * 0.4 }}>
-        <Zee run={run} delay={0} size={z * 0.75} x={size * 0.24} />
-        <Zee run={run} delay={800} size={z} x={size * 0.12} />
-        <Zee run={run} delay={1600} size={z * 1.2} x={0} />
+        <Zee puff={puff} delay={0} size={z * 0.75} x={size * 0.24} />
+        <Zee puff={puff} delay={450} size={z} x={size * 0.12} />
+        <Zee puff={puff} delay={900} size={z * 1.2} x={0} />
       </View>
     </View>
   );
