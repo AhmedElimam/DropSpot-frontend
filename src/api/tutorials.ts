@@ -12,11 +12,14 @@ export interface Tutorial {
   page?: string | null; // the chapter's public watch page — the link to share
   minutes?: number;
   seconds?: number; // the video's length
+  moments?: { t: number; text: string }[]; // «محطات الشرح» — each line Madam Rose says, and when
+  mark?: string; // this teacher's watermark code, floated over the picture
   mb: number;
 }
 
 /** The caller's role's chapters, in order — only those whose video is on the server. */
 export async function getTutorials(): Promise<Tutorial[]> {
   const { data } = await client.get('/tutorials');
-  return ((data?.data ?? data)?.tutorials ?? []) as Tutorial[];
+  const body = data?.data ?? data;
+  return ((body?.tutorials ?? []) as Tutorial[]).map((c) => ({ ...c, mark: body?.mark }));
 }

@@ -133,8 +133,10 @@ export default function TeacherLayout() {
     // hidden tabs the freeze was for — those keep their own `freeze_hidden_tabs` switch).
     <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
-      {/* A «شروحات» video plays full screen over whatever opened it. */}
-      <Stack.Screen name="tutorial/[key]" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: '#000' } }} />
+      {/* A «شروحات» video plays full screen over whatever opened it. Transparent, because the
+          player paints its own black and fades it as you swipe it down — the screen behind shows
+          through, like closing a TikTok video (founder 2026-10-09). */}
+      <Stack.Screen name="tutorial/[key]" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' }, gestureEnabled: false }} />
       {/* A student opened from a list: a native page sheet over it (iOS), a slide-up on Android.
           Not a form sheet with detents: its pan swallowed the profile's scrolling and left a
           gap under the sheet (founder 2026-10-06). The page sheet reaches the bottom edge,

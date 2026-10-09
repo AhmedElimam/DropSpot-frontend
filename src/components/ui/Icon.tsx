@@ -94,6 +94,10 @@ const ICON_MAP = {
   question: 'help-circle',
   thumbUp: 'thumbs-up',
   play: 'play',
+  // The «شروحات» player's own controls.
+  pause: 'pause',
+  redo: 'arrow-redo',
+  list: 'list',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;
