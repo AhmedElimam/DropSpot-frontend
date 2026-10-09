@@ -7,6 +7,8 @@ import { useOfflineStore } from '@/stores/offlineStore';
 import { initOfflineScans } from '@/db/offlineScans';
 import { initOfflineMarks } from '@/db/offlineMarks';
 import { prefetchTodayRosters } from '@/db/prefetchRosters';
+import { warmUpOfflineScreens } from '@/db/warmUp';
+import { initOutbox } from '@/db/outbox';
 import { triggerAutoSync } from '@/db/autoSync';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 import { registerForPushNotifications } from '@/utils/push-notifications';
@@ -41,7 +43,7 @@ export default function TeacherLayout() {
   useEffect(() => {
     if (!isAuthenticated) return;
     let active = true;
-    Promise.all([initOfflineScans(), initOfflineMarks()]).then(() => {
+    Promise.all([initOfflineScans(), initOfflineMarks(), initOutbox()]).then(() => {
       if (active) useOfflineStore.getState().refresh();
     });
     // Part 2: on open, enforce the date staleness guard and refresh the ACTIVE
@@ -50,7 +52,7 @@ export default function TeacherLayout() {
     // Today's rosters are pre-fetched after the schedule so the attendance sheet opens
     // offline for sessions the teacher never opened while connected.
     syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-      .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); });
+      .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); void warmUpOfflineScreens(); });
     let lastRefresh = { at: Date.now(), day: new Date().toDateString() };
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') {
@@ -64,7 +66,7 @@ export default function TeacherLayout() {
         if (due) lastRefresh = { at: Date.now(), day: today };
         // Refresh the cache first so auto-sync runs against fresh windows.
         syncScheduleCacheOnOpen(due && useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-          .finally(() => { void triggerAutoSync(); if (due) void prefetchTodayRosters(); });
+          .finally(() => { void triggerAutoSync(); if (due) { void prefetchTodayRosters(); void warmUpOfflineScreens(); } });
       }
     });
     return () => {
@@ -107,7 +109,11 @@ export default function TeacherLayout() {
       useOfflineStore.getState().setOnline(online);
       if (online && !wasOnline) void triggerAutoSync();
     });
-    return () => unsub();
+    // A weak link that answers again is the same moment: send what was parked meanwhile.
+    const unsubWeak = useOfflineStore.subscribe((s, prev) => {
+      if (prev.weak && !s.weak && s.pending > 0) void triggerAutoSync();
+    });
+    return () => { unsub(); unsubWeak(); };
   }, [isAuthenticated]);
 
   // Every hook above runs on EVERY render — the early returns live here, after them (an

@@ -139,7 +139,7 @@ export default function TeacherHome() {
   const scan = (s: SessionCardData) => goToScan(s as TeacherSession);
 
   const attention = [
-    offlineAttention > 0 && { key: 'sync', icon: 'warning' as IconName, title: pending > 0 ? t('teacher.pending_scans', { count: pending }) : t('teacher.rejected_title', { count: rejected }), sub: t('teacher.tap_to_reconcile'), badge: offlineAttention, href: '/(teacher)/reconcile' },
+    offlineAttention > 0 && { key: 'sync', icon: 'warning' as IconName, title: pending > 0 ? t('offline.pending_any', { count: pending }) : t('teacher.rejected_title', { count: rejected }), sub: t('teacher.tap_to_reconcile'), badge: offlineAttention, href: '/(teacher)/reconcile' },
     (phonesQ.data?.count ?? 0) > 0 && { key: 'phones', icon: 'phone' as IconName, title: t('home.phones_title'), sub: t('home.phones_sub', { count: phonesQ.data?.count ?? 0 }), badge: phonesQ.data?.count ?? 0, href: '/(teacher)/phone-confirmations' },
     (bookingQ.data?.length ?? 0) > 0 && { key: 'booking', icon: 'bell' as IconName, title: t('booking_requests.title'), sub: t('booking_requests.manage_sub'), badge: bookingQ.data?.length ?? 0, href: '/(teacher)/booking-requests' },
     cashAttention > 0 && { key: 'cash', icon: 'money' as IconName, title: cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title, sub: cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : t('home.cash_attention_sub'), badge: cashAttention, href: '/(teacher)/cash-reconcile' },

@@ -280,6 +280,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         getQueryClient()?.clear();
         const { forgetPersistedQueries } = await import('@/lib/queryPersist');
         await forgetPersistedQueries();
+        const { clearOutbox } = await import('@/db/outbox');
+        await clearOutbox();
       } catch {
         // best-effort
       }

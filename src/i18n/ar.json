@@ -1559,11 +1559,11 @@
     "saved_offline": "تم الحفظ بدون اتصال",
     "pending_scans": "{{count}} مسح بانتظار المزامنة",
     "tap_to_reconcile": "اضغط للمزامنة الآن",
-    "reconcile_title": "مزامنة المسح دون اتصال",
+    "reconcile_title": "المزامنة دون اتصال",
     "reconcile_subtitle": "اربط كل مجموعة بالحصة الصحيحة",
     "auto_synced_notice": "تم رفع {{count}} عملية مسح تلقائيًا",
     "nothing_pending": "لا يوجد شيء بانتظار المزامنة",
-    "nothing_pending_hint": "كل عمليات المسح متزامنة مع الخادم.",
+    "nothing_pending_hint": "كل ما سجّلته وصل إلى الخادم.",
     "scans_count": "{{count}} مسح",
     "pick_session_for_bucket": "اختر الحصة لهذه المجموعة",
     "suggested": "مقترح",
@@ -2590,5 +2590,36 @@
   "offline_pill": {
     "offline": "لا يوجد اتصال — المعروض آخر ما حُفظ على هاتفك",
     "back": "عاد الاتصال"
+  },
+  "offline": {
+    "queued": "تم الحفظ بدون اتصال — سيُرسل تلقائيًا عند عودة الاتصال",
+    "weak": "الاتصال ضعيف — المعروض آخر ما حُفظ، وما تسجّله الآن يُحفظ ويُرسل لاحقًا",
+    "pending_any": "{{count}} بانتظار المزامنة",
+    "actions_title": "إجراءات بانتظار الإرسال ({{count}})",
+    "actions_hint": "سُجّلت على هاتفك بدون اتصال وستُرسل تلقائيًا عند عودة الاتصال، بالترتيب.",
+    "sync_now": "إرسال الآن",
+    "rejected_actions_title": "إجراءات لم يقبلها الخادم ({{count}})",
+    "rejected_actions_hint": "رفض الخادم هذه الإجراءات عند الإرسال ولن تُعاد تلقائيًا. أعد المحاولة أو تجاهلها.",
+    "actions": {
+      "collect": "تحصيل",
+      "cancel_due": "إلغاء مستحق",
+      "session_sheet": "تعديل كشف الحصة",
+      "session_cancel": "إلغاء حصة",
+      "session_restore": "استعادة حصة",
+      "session_create": "إضافة حصة",
+      "decision": "قرار على طلب",
+      "notification": "تحديث إشعار",
+      "message": "رسالة",
+      "expense": "مصروف",
+      "student_note": "ملاحظة على طالب",
+      "allowance": "إذن دخول",
+      "record_student": "تسجيل طالب",
+      "invite": "دعوة طالب",
+      "enrollment": "تعديل اشتراك",
+      "course": "تعديل مجموعة",
+      "venue": "مكان تدريس",
+      "revision_mark": "علامة مراجعة",
+      "family_request": "طلب"
+    }
   }
 }

@@ -1,4 +1,8 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
+import { uuid } from '@/utils/uuid';
+import { bodyString, matchQueueRule, queuedLabel, syntheticQueuedResponse } from './offlineQueue';
+import { enqueueAction } from '@/db/outbox';
+import { useOfflineStore } from '@/stores/offlineStore';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
@@ -69,11 +73,11 @@ if (__DEV__) {
 const client = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-  // The API lives on a shared host that can be slow to warm on a cold cellular
-  // connection (common on Android/Samsung after the process is killed in the
-  // background). A tight 15s ceiling turned those warm-ups into hard failures →
-  // the reload screen on first load; 30s lets the first request through.
-  timeout: 30000,
+  // 15 s, not 30: on a weak link every screen and every button waited half a minute
+  // before admitting it (founder 2026-10-10: the demo stalled «loading» on a bad
+  // connection). The shared host's cold warm-up that once needed 30 s is covered by the
+  // query retry in app/_layout.tsx instead.
+  timeout: 15000,
 });
 
 client.interceptors.request.use(async (config) => {
@@ -111,8 +115,43 @@ client.interceptors.request.use(async (config) => {
   const appId = resolveAppId();
   if (appId) config.headers['X-App-Id'] = appId;
   config.headers['X-App-Platform'] = Platform.OS;
+
+  // Every write carries a one-time key: the server answers a repeat of the same key from
+  // memory instead of running it twice (a payment collected once, however many retries).
+  const method = (config.method ?? 'get').toLowerCase();
+  if (method !== 'get' && method !== 'head' && !config.headers['X-Idempotency-Key']) {
+    config.headers['X-Idempotency-Key'] = uuid();
+  }
+  // Actions that may wait on the phone (src/api/offlineQueue.ts). With no connection, or
+  // right after a request dropped, they are parked at once — no 15 s wait on a dead radio.
+  if (!config.__replay) {
+    const rule = matchQueueRule(method, config.url);
+    if (rule) {
+      config.__queueRule = rule;
+      const net = useOfflineStore.getState();
+      if (!net.online || net.weak) {
+        await parkRequest(config);
+        config.adapter = () => Promise.resolve(syntheticQueuedResponse(config));
+      }
+    }
+  }
   return config;
 });
+
+/** Store the request for replay and tell the person it is saved. */
+async function parkRequest(config: InternalAxiosRequestConfig): Promise<void> {
+  const body = bodyString(config.data);
+  const label = queuedLabel(config.__queueRule!, body);
+  await enqueueAction({
+    key: String(config.headers['X-Idempotency-Key']),
+    method: (config.method ?? 'post').toLowerCase(),
+    url: String(config.url),
+    body,
+    label,
+    teacher_id: useAuthStore.getState().activeTeacherId ?? null,
+  });
+  useOfflineStore.getState().noteQueued(label);
+}
 
 // Single-flight token refresh. When the access token has expired, an app open/resume
 // fires several requests at once and they ALL 401. Without a shared refresh, each one
@@ -137,7 +176,7 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshBase = getApiBaseOverride() ?? BUNDLED_API_URL;
   let data: any;
   try {
-    ({ data } = await axios.post(`${refreshBase}/auth/refresh`, { refresh_token: rt }, { timeout: 30000 }));
+    ({ data } = await axios.post(`${refreshBase}/auth/refresh`, { refresh_token: rt }, { timeout: 15000 }));
   } catch (e: any) {
     const status = e?.response?.status;
     // The server explicitly rejected the refresh token → session over.
@@ -166,9 +205,22 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 client.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    useOfflineStore.getState().noteNetworkOk();
+    return res;
+  },
   async (error) => {
     const original = error.config;
+    // No answer at all (offline, timeout, DNS): a dropout, not a verdict.
+    if (!error.response && original) {
+      useOfflineStore.getState().noteNetworkFailure();
+      // A queueable write that dropped is parked and reported as saved; a replay from the
+      // outbox is left to fail so the queue keeps it.
+      if (original.__queueRule && !original.__replay) {
+        await parkRequest(original);
+        return syntheticQueuedResponse(original);
+      }
+    }
     if (
       error.response?.status === 401 &&
       !original._retry &&

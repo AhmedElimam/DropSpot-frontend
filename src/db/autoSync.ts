@@ -7,6 +7,11 @@ import { getQueryClient } from '@/lib/queryClientRef';
 import { getFreshScheduleEntries, localDateKey, type ScheduleCacheEntry } from './scheduleCache';
 import { matchAutoSession } from './autoSyncMatch';
 import { useOfflineStore } from '@/stores/offlineStore';
+import { useAuthStore } from '@/stores/authStore';
+import client from '@/api/client';
+import { getPendingActions, deleteActions, markActionRejected } from './outbox';
+import { isNetworkFailure } from './marksSync';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 
 /**
  * Window-bounded AUTOMATIC offline sync (main spec). Only the UNAMBIGUOUS case is
@@ -31,7 +36,7 @@ function teacherKey(id: number | null): string {
  * failure → the scans stay buffered untouched for the next pass.
  */
 export async function runAutoSync(now: Date = new Date()): Promise<number> {
-  const marksSynced = await runMarkSync();
+  const marksSynced = (await runMarkSync()) + (await runOutboxSync());
   const pending = await getPendingScans();
   if (!pending.length) return marksSynced;
 
@@ -128,6 +133,48 @@ export async function runMarkSync(): Promise<number> {
     if (touched.size) void qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
   }
   return synced;
+}
+
+/**
+ * Replay the actions parked offline (src/db/outbox.ts), oldest first, each with the
+ * idempotency key it was first sent with. Accepted → dropped; a server refusal (4xx) →
+ * parked for a decision with the server's words; no answer, or a hiccup the server may
+ * resolve on its own (401 refresh, 409 in flight, 429, 5xx) → stop here and keep the
+ * order for the next pass. An assistant's action waits until the same teacher context is
+ * active again, like a buffered scan.
+ */
+export async function runOutboxSync(): Promise<number> {
+  const pending = await getPendingActions().catch(() => []);
+  if (!pending.length) return 0;
+  const activeTeacher = useAuthStore.getState().activeTeacherId ?? null;
+  let synced = 0;
+  for (const a of pending) {
+    if (a.teacher_id !== null && activeTeacher !== null && a.teacher_id !== activeTeacher) continue;
+    try {
+      await client.request({
+        method: a.method, url: a.url, data: a.body ? JSON.parse(a.body) : undefined,
+        headers: { 'X-Idempotency-Key': a.key }, __replay: true,
+      });
+      await deleteActions([a.id]);
+      synced++;
+    } catch (e) {
+      if (isNetworkFailure(e)) break;
+      const status = (e as { response?: { status?: number; data?: { message?: unknown } } }).response?.status ?? 0;
+      if (status === 401 || status === 408 || status === 409 || status === 429 || status >= 500) break;
+      const msg = (e as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+      await markActionRejected(a.id, typeof msg === 'string' && msg.trim() ? msg.trim() : getFriendlyErrorMessage(e));
+    }
+  }
+  // Whatever those actions changed, every screen re-asks for (mounted ones now, the rest when opened).
+  if (synced) void getQueryClient()?.invalidateQueries();
+  return synced;
+}
+
+/** The «إرسال الآن» button: one pass now, past the cool-down, never two at once. */
+export async function syncNow(): Promise<void> {
+  if (inFlight) return;
+  lastRunAt = 0;
+  await triggerAutoSync();
 }
 
 // --- Rate-limited trigger ---------------------------------------------------

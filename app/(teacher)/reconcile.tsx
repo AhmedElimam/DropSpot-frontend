@@ -19,6 +19,8 @@ import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { getPendingActions, getRejectedActions, type OutboxAction } from '@/db/outbox';
+import { PendingActionsSection, RejectedActionsSection } from '@/components/teacher/OutboxSections';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -37,6 +39,8 @@ export default function Reconcile() {
   const [buckets, setBuckets] = useState<ScanBucket[] | null>(null);
   const [rejected, setRejected] = useState<OfflineScan[]>([]);
   const [rejectedMarks, setRejectedMarks] = useState<OfflineMark[]>([]);
+  const [pendingActions, setPendingActions] = useState<OutboxAction[]>([]);
+  const [rejectedActions, setRejectedActions] = useState<OutboxAction[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [oldestPending, setOldestPending] = useState<string | null>(null);
   // Passive confirmation (§7): how many scans auto-sync uploaded since last dismissed.
@@ -51,14 +55,18 @@ export default function Reconcile() {
     // against the entry for ITS OWN stamped teacher_id (not the active one), so an
     // assistant's teacher-A scans never grade-check against teacher B's roster.
     const activeTeacherId = stampTeacherId(useAuthStore.getState());
-    const [pending, rej, entries, activeEntry, rejMarks] = await Promise.all([
+    const [pending, rej, entries, activeEntry, rejMarks, pendActs, rejActs] = await Promise.all([
       getPendingScans(),
       getRejectedScans(),
       getFreshScheduleEntries(),
       getFreshScheduleEntry(activeTeacherId),
       getRejectedMarks().catch(() => [] as OfflineMark[]),
+      getPendingActions().catch(() => [] as OutboxAction[]),
+      getRejectedActions().catch(() => [] as OutboxAction[]),
     ]);
     setRejectedMarks(rejMarks);
+    setPendingActions(pendActs);
+    setRejectedActions(rejActs);
     // Grade-aware bucketing (Part 1): a known grade change splits the bucket, same
     // as a teacher change. Falls back to time/teacher-only when no fresh cache.
     setBuckets(computeBuckets(pending, buildGradeResolver(entries)));
@@ -82,7 +90,7 @@ export default function Reconcile() {
     [oldestPending],
   );
 
-  const nothingLeft = buckets !== null && buckets.length === 0 && rejected.length === 0 && rejectedMarks.length === 0;
+  const nothingLeft = buckets !== null && buckets.length === 0 && rejected.length === 0 && rejectedMarks.length === 0 && pendingActions.length === 0 && rejectedActions.length === 0;
   // Prefer the live list; fall back to today's cached schedule when offline (§2).
   const effectiveSessions = sessions && sessions.length > 0 ? sessions : cachedSessions;
 
@@ -127,6 +135,8 @@ export default function Reconcile() {
 
           {rejected.length > 0 ? <RejectedSection scans={rejected} onChange={load} /> : null}
           {rejectedMarks.length > 0 ? <RejectedMarksSection marks={rejectedMarks} onChange={load} /> : null}
+          {rejectedActions.length > 0 ? <RejectedActionsSection actions={rejectedActions} onChange={load} /> : null}
+          {pendingActions.length > 0 ? <PendingActionsSection actions={pendingActions} onChange={load} /> : null}
 
           {buckets.map((bucket, i) => (
             <BucketCard

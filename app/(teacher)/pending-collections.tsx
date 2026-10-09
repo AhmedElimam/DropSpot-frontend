@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { formatEGP } from '@/utils/currency';
 import { BillingYearSheet, type BillingYearTarget } from '@/components/teacher/BillingYearSheet';
+import { isQueued } from '@/api/offlineQueue';
 import { getPendingCollections, collectFromRoster, cancelDueFromRoster, type RosterStudent, type RosterBillItem, type CollectKind } from '@/api/pendingCollections';
 import { setCycleAmount } from '@/api/enrollments';
 import { getFriendlyErrorMessage } from '@/utils/errors';
@@ -167,6 +168,7 @@ export default function TeacherPendingCollections() {
       const res = await collectFromRoster(target.studentId, target.kind, Math.min(amt, owed > 0 ? owed : amt));
       await qc.invalidateQueries({ queryKey: ['pending-collections'] });
       setTarget(null);
+      if (isQueued(res)) return Alert.alert('', res.message);
       Alert.alert('', res.remaining && Number(res.remaining) > 0
         ? t('collections.collected_partial', { amount: res.amount, remaining: res.remaining })
         : t('collections.collected_full'));

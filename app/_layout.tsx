@@ -103,9 +103,13 @@ const queryClient = new QueryClient({
       // again: the session is over (an impersonation token, for one, cannot be renewed at
       // all). Retrying held the screen on a spinner through the full 2s/4s/8s backoff —
       // per query, several at once — before the app finally admitted it was signed out.
+      // ...and a dropout (no answer at all) gets ONE more try, not three: with the 15 s
+      // ceiling in src/api/client.ts a screen with nothing cached now says so in ~30 s,
+      // not 90 (founder 2026-10-10). The cold-start blip the retries were for is one retry.
       retry: (failureCount, error) => {
         const status = (error as { response?: { status?: number } })?.response?.status;
         if (status === 401 || status === 403) return false;
+        if (status === undefined) return failureCount < 1;
 
         return failureCount < 3;
       },

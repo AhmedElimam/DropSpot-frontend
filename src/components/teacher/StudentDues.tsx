@@ -1,11 +1,13 @@
 import { View, Text, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Badge } from '@/components/ui/Badge';
 import { formatDayDate, formatNumber } from '@/utils/format';
 import { collectStudentCharge, type StudentDetail } from '@/api/students';
+import { isQueued } from '@/api/offlineQueue';
 
 /**
  * What a student owes and how to collect it — shared by the full profile and the quick
@@ -26,11 +28,14 @@ export async function collectTarget(studentId: string | number, target: CollectT
   if (target.kind === 'all') {
     // Everything owed, bills first (oldest due first on the server), then booklets, then the دفعة.
     const kinds = (['bill', 'booklet', 'booking'] as const).filter((k) => Number(billing.pending?.[k] ?? 0) > 0);
-    for (const k of kinds) await collectStudentCharge(studentId, k);
+    let queued = false;
+    for (const k of kinds) if (isQueued(await collectStudentCharge(studentId, k))) queued = true;
+    if (queued) return i18n.t('offline.queued');
     return `تم تحصيل ${formatNumber(target.remaining)} ج.م. سيصل الإيصال لولي الأمر.`;
   }
   const partial = amount < target.remaining - 0.001;
   const r = await collectStudentCharge(studentId, target.kind, target.chargeId, partial ? amount : undefined);
+  if (isQueued(r)) return r.message;
   return Number(r.remaining) > 0
     ? `تم تحصيل ${formatNumber(Number(r.collected))} ج.م — المتبقّي ${formatNumber(Number(r.remaining))} ج.م.`
     : `تم تحصيل ${r.what} (${formatNumber(Number(r.collected))} ج.م). سيصل الإيصال لولي الأمر.`;
