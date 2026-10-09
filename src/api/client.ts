@@ -124,7 +124,10 @@ client.interceptors.request.use(async (config) => {
   }
   // Actions that may wait on the phone (src/api/offlineQueue.ts). With no connection, or
   // right after a request dropped, they are parked at once — no 15 s wait on a dead radio.
-  if (!config.__replay) {
+  // Teacher and assistant only: their app is the one that replays the outbox (the teacher
+  // layout opens it and runs the sync). A parent's request parked here would never be sent.
+  const role = useAuthStore.getState().role;
+  if (!config.__replay && (role === 'teacher' || role === 'assistant')) {
     const rule = matchQueueRule(method, config.url);
     if (rule) {
       config.__queueRule = rule;

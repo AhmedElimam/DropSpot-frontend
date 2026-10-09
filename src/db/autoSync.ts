@@ -197,15 +197,18 @@ export async function triggerAutoSync(nowMs: number = Date.now()): Promise<void>
 
   inFlight = true;
   lastRunAt = nowMs;
+  let ok = false;
+  useOfflineStore.getState().setSyncing(true);
   try {
     const synced = await runAutoSync();
-    if (synced > 0) {
-      useOfflineStore.getState().bumpAutoSynced(synced);
-      await useOfflineStore.getState().refresh();
-    }
+    ok = true;
+    if (synced > 0) useOfflineStore.getState().bumpAutoSynced(synced);
+    // Always recount: what is left (or newly refused) shows on the header indicator.
+    await useOfflineStore.getState().refresh();
   } catch {
     // best-effort — a failed pass leaves everything buffered
   } finally {
     inFlight = false;
+    useOfflineStore.getState().setSyncing(false, ok);
   }
 }

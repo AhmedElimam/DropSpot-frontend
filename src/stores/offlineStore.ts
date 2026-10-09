@@ -23,6 +23,10 @@ interface OfflineState {
   weak: boolean;
   /** The last action parked offline — the pill at the top tells the person it is saved. */
   lastQueued: { label: string; at: number } | null;
+  /** A sync pass is sending right now (the header indicator turns its arrows meanwhile). */
+  syncing: boolean;
+  /** When the last sync pass finished talking to the server (ms), for «آخر مزامنة». */
+  lastSyncAt: number | null;
   // How many scans window-bounded auto-sync has uploaded since the teacher last
   // dismissed the notice (§7). Accumulates across runs; shown as a dismissible
   // passive confirmation. The records are audit-logged regardless, so dismissing
@@ -33,6 +37,7 @@ interface OfflineState {
   noteNetworkFailure: () => void;
   noteNetworkOk: () => void;
   noteQueued: (label: string) => void;
+  setSyncing: (syncing: boolean, finishedOk?: boolean) => void;
   bumpAutoSynced: (n: number) => void;
   dismissAutoSynced: () => void;
 }
@@ -46,6 +51,8 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
   online: true,
   weak: false,
   lastQueued: null,
+  syncing: false,
+  lastSyncAt: null,
   autoSynced: 0,
   refresh: async () => {
     try {
@@ -71,6 +78,7 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
     if (get().weak) set({ weak: false });
   },
   noteQueued: (label) => set((s) => ({ lastQueued: { label, at: Date.now() }, pending: s.pending + 1 })),
+  setSyncing: (syncing, finishedOk) => set(finishedOk ? { syncing, lastSyncAt: Date.now() } : { syncing }),
   bumpAutoSynced: (n) => set((s) => ({ autoSynced: s.autoSynced + n })),
   dismissAutoSynced: () => set({ autoSynced: 0 }),
 }));

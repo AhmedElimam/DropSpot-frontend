@@ -9,6 +9,8 @@ import { formatNumber } from '@/utils/format';
  * same X-Idempotency-Key it was first sent with, so the server runs it once even if the first
  * try did reach it and only the answer was lost.
  *
+ * Teacher and assistant only (src/api/client.ts): theirs is the app that sends the queue.
+ *
  * Not here on purpose: signing in and codes (an answer is the point), uploads (a photo is
  * too big to park), money going BACK (reversals, waivers — live, with the person present),
  * removing or terminating anyone, cash drawer closes, and the door scan + manual marks, which
@@ -51,7 +53,6 @@ export const QUEUE_RULES: QueueRule[] = [
   { method: 'post', path: new RegExp(`^/teacher/locations(/${N}/(toggle|assistants))?$`), label: 'venue' },
   { method: 'put', path: new RegExp(`^/teacher/locations/${N}$`), label: 'venue' },
   { method: 'post', path: new RegExp(`^/revisions/${N}/instances/${N}/mark$`), label: 'revision_mark' },
-  { method: 'post', path: new RegExp(`^/(absence-excuses|session-swaps|parents/complaints|students/complaints|parents/sibling-claims/${N}/(confirm|deny))$`), label: 'family_request' },
 ];
 
 /** The rule that lets this request wait offline, or null when it must be live. */
