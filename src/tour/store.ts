@@ -47,6 +47,13 @@ interface TourState {
   setScroller: (owner: object, api: TourScroller) => void;
   clearScroller: (owner: object) => void;
   register: (id: string, rect: TargetRect) => void;
+  /**
+   * While the tour scrolls a target into view, it puts the target where the scroll will
+   * leave it at once (so the spotlight glides there with the page) and ignores the target's
+   * own mid-scroll measurements until `ms` have passed.
+   */
+  pin: (id: string, rect: TargetRect, ms: number) => void;
+  pinned: { id: string; until: number } | null;
   unregister: (id: string) => void;
   remeasure: () => void;
   start: (tour: TourDef, opts?: { mandatory?: boolean }) => void;
@@ -68,7 +75,11 @@ export const useTourStore = create<TourState>((set, get) => ({
   // Only the screen that set it may clear it: a blur that lands after the next focus must
   // not wipe the new screen's scroller.
   clearScroller: (owner) => { if (get().scroller?.owner === owner) set({ scroller: null }); },
+  pinned: null,
+  pin: (id, rect, ms) => set((s) => ({ targets: { ...s.targets, [id]: rect }, pinned: { id, until: Date.now() + ms } })),
   register: (id, rect) => {
+    const p = get().pinned;
+    if (p && p.id === id && Date.now() < p.until) return;
     if (same(get().targets[id], rect)) return;
     set((s) => ({ targets: { ...s.targets, [id]: rect } }));
   },

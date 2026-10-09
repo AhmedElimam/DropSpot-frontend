@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import Animated, { useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
@@ -37,6 +37,8 @@ const ROSE_SMALL = 58;
 const WAIT_FOR_TARGET_MS = 1800;
 /** When targets measure again after a step opens: a slow phone may still be sliding the screen in at 400 ms. */
 const REMEASURE_MS = [80, 350, 800, 1500];
+// How long a tour-driven scroll takes to land; the scrolled target's own measurements wait for it.
+const SCROLL_SETTLE_MS = 650;
 
 // Screens that must be finished first, and the door — never a spotlight mid-scan.
 const BLOCKING_PREFIXES = [
@@ -170,13 +172,17 @@ function Runner() {
     goTo(next);
   }, [steps, step, goTo, finish, role]);
 
-  // A target scrolled away (the home scrolled a little before a replay, founder 2026-10-07):
-  // scroll the screen until it sits between the status bar and the tab bar, then measure again.
-  // The tab bar's own buttons are fixed — never scroll for them. Twice at most per step.
+  // A target scrolled away (the home scrolled a little before a replay, founder 2026-10-07; the
+  // settings row «شروحات التطبيق» further down, 2026-10-09): scroll the screen until it sits
+  // between the status bar and the tab bar. The target is PINNED where the scroll will leave it
+  // before the frame paints, so the spotlight glides straight there with the page instead of
+  // closing to a point and opening again (founder: «not smooth on the transition»); its own
+  // mid-scroll measurements are ignored until the scroll has landed, then it is measured for
+  // real. The tab bar's buttons are fixed — never scroll for them. Twice at most per step.
   const scrolls = useRef({ step: -1, count: 0 });
-  useEffect(() => {
+  useLayoutEffect(() => {
     const id = current?.target;
-    if (!id || id.startsWith('tab:') || !rect) return;
+    if (!id || id.startsWith('tab:') || !rect || !rawRect) return;
     const dy = scrollNeeded(rect, area, insets.top, nav.bottomHeight + insets.bottom);
     if (Math.abs(dy) < 4) return;
     if (scrolls.current.step !== step) scrolls.current = { step, count: 0 };
@@ -184,10 +190,11 @@ function Runner() {
     const scroller = useTourStore.getState().scroller;
     if (!scroller) return;
     scrolls.current.count += 1;
+    useTourStore.getState().pin(id, { ...rawRect, y: rawRect.y - dy }, SCROLL_SETTLE_MS);
     scroller.api.scrollBy(dy);
-    const timers = [320, 650].map((ms) => setTimeout(remeasure, ms));
+    const timers = [SCROLL_SETTLE_MS + 40, SCROLL_SETTLE_MS + 400].map((ms) => setTimeout(remeasure, ms));
     return () => timers.forEach(clearTimeout);
-  }, [current, step, rect, area, insets.top, insets.bottom, remeasure]);
+  }, [current, step, rect, rawRect, area, insets.top, insets.bottom, remeasure]);
 
   // A spotlit step whose target never shows up (scrolled away, not on this build): move on.
   useEffect(() => {

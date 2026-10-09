@@ -162,3 +162,18 @@ describe('a scrolled home on replay (founder 2026-10-07)', () => {
     expect(STUDENT_TOUR.narrator).toBeUndefined();
   });
 });
+
+describe('pinning a target while the tour scrolls it into view', () => {
+  it('holds the predicted spot against mid-scroll measurements, then takes real ones again', () => {
+    const now = jest.spyOn(Date, 'now');
+    now.mockReturnValue(1_000);
+    const { pin, register } = useTourStore.getState();
+    pin('settings:tutorials', { x: 16, y: 520, width: 360, height: 64 }, 650);
+    register('settings:tutorials', { x: 16, y: 780, width: 360, height: 64 }); // mid-scroll
+    expect(useTourStore.getState().targets['settings:tutorials'].y).toBe(520);
+    now.mockReturnValue(1_700);
+    register('settings:tutorials', { x: 16, y: 512, width: 360, height: 64 }); // landed
+    expect(useTourStore.getState().targets['settings:tutorials'].y).toBe(512);
+    now.mockRestore();
+  });
+});
