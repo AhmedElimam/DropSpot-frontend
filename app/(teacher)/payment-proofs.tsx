@@ -72,7 +72,7 @@ export default function PaymentProofsScreen() {
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
       <View style={{ flexDirection: 'row', gap: spacing.md }}>
         <TouchableOpacity onPress={() => setPreview(p.image_url)} activeOpacity={0.85}>
-          <Image source={{ uri: p.image_url }} style={{ width: 64, height: 64, borderRadius: radius.md, backgroundColor: colors.surfaceSunken }} contentFit="cover" recyclingKey={String(p.id)} />
+          <Image source={{ uri: p.image_url, cacheKey: `proof-${p.id}` }} style={{ width: 64, height: 64, borderRadius: radius.md, backgroundColor: colors.surfaceSunken }} contentFit="cover" recyclingKey={String(p.id)} />
           <View style={{ position: 'absolute', bottom: 2, insetInlineEnd: 2, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, padding: 2 }}>
             <Icon name="eye" size={12} color="#fff" />
           </View>

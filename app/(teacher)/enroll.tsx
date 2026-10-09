@@ -1,5 +1,6 @@
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useState, useCallback, useRef } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -99,6 +100,17 @@ export default function TeacherEnroll() {
     },
     [busy, review, done, course, isAssistant],
   );
+  // The camera only while this screen is in front (invite-phone pushes over it and the stack does
+  // not freeze), and ONE stable scan handler gated by a ref: toggling `onBarcodeScanned` makes
+  // Android rebuild the whole camera on every card (founder 2026-10-09: «light on all devices»).
+  const isFocused = useIsFocused();
+  const scanPausedRef = useRef(false);
+  const handleScanRef = useRef(handleScan);
+  handleScanRef.current = handleScan;
+  const onCameraScan = useCallback((e: Parameters<typeof handleScan>[0]) => {
+    if (scanPausedRef.current) return;
+    void handleScanRef.current(e);
+  }, []);
 
   const enroll = useMutation({
     mutationFn: (vars: { value: string; acceptGradeMismatch?: boolean }) =>
@@ -242,16 +254,19 @@ export default function TeacherEnroll() {
   }
 
   // ---- Step 2: scan + review ----
+  scanPausedRef.current = !!(busy || review || done);
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      <CameraView
-        style={{ flex: 1 }}
-        facing="back"
-        // QR first + a short list → reliable QR detection; Code128 keeps physical
-        // cards scannable (both symbologies encode the same credential).
-        barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128'] }}
-        onBarcodeScanned={busy || review || done ? undefined : handleScan}
-      />
+      {isFocused ? (
+        <CameraView
+          style={{ flex: 1 }}
+          facing="back"
+          // QR first + a short list → reliable QR detection; Code128 keeps physical
+          // cards scannable (both symbologies encode the same credential).
+          barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128'] }}
+          onBarcodeScanned={onCameraScan}
+        />
+      ) : <View style={{ flex: 1 }} />}
 
       {/* Top bar: chosen course + change */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, backgroundColor: 'rgba(23,28,59,0.72)', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>

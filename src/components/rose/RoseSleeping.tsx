@@ -5,7 +5,7 @@ import Svg, { Circle, G, Path } from 'react-native-svg';
 import Animated, {
   Easing, cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming,
 } from 'react-native-reanimated';
-import { useIsFocused } from '@react-navigation/native';
+import { useAmbientMotion } from '@/hooks/useAmbientMotion';
 import { fonts } from '@/theme/typography';
 import { useRose } from '@/hooks/useRose';
 
@@ -95,16 +95,8 @@ const StillFace = memo(function StillFace({ size }: { size: number }) {
 
 export function RoseSleeping({ size }: { size: number }) {
   const rose = useRose();
-  const focused = useIsFocused();
-  const still = useReducedMotion();
-  // In the background the home can still count as focused (Android keeps JS timers running):
-  // only an app in front of you puffs.
-  const [active, setActive] = useState(AppState.currentState === 'active');
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (st) => setActive(st === 'active'));
-    return () => sub.remove();
-  }, []);
-  const run = focused && active && !still;
+  // In front of you, app active, motion allowed (Android keeps JS timers running in the background).
+  const run = useAmbientMotion();
 
   // A puff of «Z z z» every few seconds — a burst, not a loop (founder 2026-10-09: «no heat
   // or lagging or glitching»). Between puffs nothing on the home animates; off-screen, in the

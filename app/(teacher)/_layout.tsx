@@ -28,6 +28,9 @@ export const unstable_settings = { initialRouteName: '(tabs)' };
  * Full-screen camera screens (scan, enroll) simply have no bar now — they are not tabs.
  */
 
+/** How often a return to the app may re-download today's schedule and the roster. */
+const SCHEDULE_REFRESH_MS = 10 * 60_000;
+
 export default function TeacherLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
@@ -48,12 +51,20 @@ export default function TeacherLayout() {
     // offline for sessions the teacher never opened while connected.
     syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
       .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); });
+    let lastRefresh = { at: Date.now(), day: new Date().toDateString() };
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') {
         useOfflineStore.getState().refresh();
+        // Every return still prunes stale days (local) and sends the buffered door scans. The
+        // network refresh — today's sessions AND the whole roster — runs at most every 10 min
+        // or when the day has changed: a teacher switching apps 20 times an hour paid for 60
+        // requests (founder 2026-10-09: «light on all devices»).
+        const today = new Date().toDateString();
+        const due = Date.now() - lastRefresh.at > SCHEDULE_REFRESH_MS || lastRefresh.day !== today;
+        if (due) lastRefresh = { at: Date.now(), day: today };
         // Refresh the cache first so auto-sync runs against fresh windows.
-        syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-          .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); });
+        syncScheduleCacheOnOpen(due && useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
+          .finally(() => { void triggerAutoSync(); if (due) void prefetchTodayRosters(); });
       }
     });
     return () => {

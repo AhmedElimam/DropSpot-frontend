@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Alert, type ViewStyle } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Alert, Platform, type ViewStyle } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -176,10 +176,19 @@ export default function TeacherScan() {
     }
   }, []);
 
+  // One feedback timer at a time, cleared on unmount: two overlapping ones let an old card's
+  // timer clear the next card's feedback (and `busy`) early.
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); }, []);
+  const clearFeedbackLater = useCallback(() => {
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = setTimeout(() => { feedbackTimer.current = null; setFeedback(null); setBusy(false); }, FEEDBACK_MS);
+  }, []);
+
   const flash = useCallback((success: boolean, message: string, studentName?: string | null, pending?: import('@/api/teacher').ScanPending | null) => {
     Vibration.vibrate(success ? 60 : [0, 120, 90, 120]);
     setFeedback({ success, message, student_name: studentName ?? null, pending: pending ?? null });
-    setTimeout(() => { setFeedback(null); setBusy(false); }, FEEDBACK_MS);
+    clearFeedbackLater();
   }, []);
 
   // `locked` pauses scanning too — while the scanner is locked no card is read.
@@ -367,7 +376,7 @@ export default function TeacherScan() {
           Vibration.vibrate(40);
           setFeedback({ success: true, message: t('teacher.saved_offline'), student_name: null });
         }
-        setTimeout(() => { setFeedback(null); setBusy(false); }, FEEDBACK_MS);
+        clearFeedbackLater();
       }
     },
     [paused, payMode, payKind, revisionMode, revisionId, revisionInstanceId, flash, t, online],
@@ -425,6 +434,18 @@ export default function TeacherScan() {
       flash(false, res.message || t('teacher.scan_failed'), (res.student && res.student.name) || null);
     }
   }, [payConfirm, payKind, payInput, payWhatLabel, flash, t]);
+  // ONE stable handler for the camera, gated by a ref. Passing `undefined` while paused (it used to
+  // be `paused ? undefined : handleScan`) flips the native barcode switch, and on Android that
+  // tears the whole camera down and builds it again — twice per scanned card, ~120 times a door
+  // session: a stall, a CPU spike, heat (founder 2026-10-09: «light on all devices»).
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  const handleScanRef = useRef(handleScan);
+  handleScanRef.current = handleScan;
+  const onCameraScan = useCallback((e: Parameters<typeof handleScan>[0]) => {
+    if (pausedRef.current) return;
+    handleScanRef.current(e);
+  }, []);
 
   const confirmExemption = useCallback(async () => {
     if (!overdueBlock) return;
@@ -540,9 +561,10 @@ export default function TeacherScan() {
           bulletKeys={['onboarding.tip_attendance_b1', 'onboarding.tip_attendance_b2']}
         />
       )}
-      {/* Mounted only while focused — leaving the screen unmounts it and frees the
-          camera (it no longer keeps rolling in the background). */}
-      {isFocused ? (
+      {/* Mounted only while focused — leaving the screen unmounts it and frees the camera. On
+          Android it is ALSO unmounted while idle or locked: `active` is iOS-only in expo-camera,
+          so there the sensor and the barcode analyser kept running on the desk (the heat). */}
+      {isFocused && (Platform.OS === 'ios' || cameraActive) ? (
         <CameraView
           style={{ flex: 1 }}
           active={cameraActive}
@@ -553,10 +575,10 @@ export default function TeacherScan() {
           // reliable (a long mixed list makes the scanner favour the wide barcode and
           // miss QR, especially a QR shown on a screen/PDF).
           barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128'] }}
-          onBarcodeScanned={paused ? undefined : handleScan}
+          onBarcodeScanned={onCameraScan}
         />
       ) : (
-        <View style={{ flex: 1 }} />
+        <View style={{ flex: 1, backgroundColor: '#000' }} />
       )}
 
       {/* Header: session / revision / payment context */}

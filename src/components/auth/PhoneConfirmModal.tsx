@@ -33,7 +33,13 @@ export function PhoneConfirmModal({
   useEffect(() => {
     if (!visible) return;
     setRemaining(delaySeconds);
-    const id = setInterval(() => setRemaining((r) => (r <= 1 ? 0 : r - 1)), 1000);
+    // Stops itself at zero instead of ticking every second until the modal closes.
+    let left = delaySeconds;
+    const id = setInterval(() => {
+      left -= 1;
+      setRemaining(Math.max(0, left));
+      if (left <= 0) clearInterval(id);
+    }, 1000);
     return () => clearInterval(id);
   }, [visible, delaySeconds]);
 

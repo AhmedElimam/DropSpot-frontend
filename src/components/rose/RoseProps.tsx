@@ -47,7 +47,8 @@ function Ledger({ k, alive }: { k: number; alive: boolean }) {
       flip.value = 1;
       flip.value = withSequence(withTiming(-1, { duration: 620, easing: Easing.inOut(Easing.cubic) }), withDelay(260, withTiming(-1, { duration: 1 })));
       // When it has landed, hide the turned leaf (the left page under it looks the same).
-      t = setTimeout(() => { shown.value = withTiming(0, { duration: 160 }); t = setTimeout(turn, 2600 + Math.random() * 1800); }, 900);
+      // A page every 6–9 s, not every 3–5: short bursts with stillness between (founder 2026-10-09: no heat).
+      t = setTimeout(() => { shown.value = withTiming(0, { duration: 160 }); t = setTimeout(turn, 5200 + Math.random() * 3000); }, 900);
     };
     t = setTimeout(turn, 1400);
     return () => clearTimeout(t);
@@ -95,11 +96,12 @@ function Notes({ k, alive }: { k: number; alive: boolean }) {
     const cycle = () => {
       w.value = 0;
       pull.value = withTiming(0, { duration: 420, easing: Easing.out(Easing.cubic) });
-      w.value = withDelay(500, withTiming(LINES.length, { duration: 4200, easing: Easing.linear }));
+      // A quick note (≈1.8 s), then it rests on the desk: ~3 s of motion in every ~8 s, not 5 in 7.
+      w.value = withDelay(500, withTiming(LINES.length, { duration: 1800, easing: Easing.linear }));
       t = setTimeout(() => {
         pull.value = withTiming(1, { duration: 380, easing: Easing.in(Easing.cubic) });
         t = setTimeout(cycle, 420);
-      }, 6200);
+      }, 7400);
     };
     cycle();
     return () => clearTimeout(t);
@@ -178,7 +180,7 @@ function StampDesk({ k, alive }: { k: number; alive: boolean }) {
       t = setTimeout(() => {
         slip.value = withTiming(1, { duration: 360, easing: Easing.in(Easing.cubic) });
         t = setTimeout(cycle, 400);
-      }, 3200);
+      }, 6800); // one stamp every ~7 s, not every 3.6
     };
     cycle();
     return () => clearTimeout(t);

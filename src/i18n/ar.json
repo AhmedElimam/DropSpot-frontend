@@ -2438,6 +2438,7 @@
   "session_ui": {
     "open_details": "تفاصيل الحصة",
     "upcoming": "قادمة",
+    "minutes": "{{n}} دقيقة",
     "present_of": "حضر {{n}} من {{of}}",
     "absent_n": "غاب {{n}}",
     "prev_week": "الأسبوع السابق",
@@ -2555,6 +2556,7 @@
     "exam_label": "امتحان",
     "sessions_count": "حصة مسجَّلة",
     "exams_count": "امتحان",
+    "minutes": "{{n}} دقيقة",
     "not_found": "لا تدرس عند هذا المعلم"
   },
   "schedule_tools": {

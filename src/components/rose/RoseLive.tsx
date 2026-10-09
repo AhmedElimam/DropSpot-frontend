@@ -6,7 +6,7 @@ import Animated, {
   Easing, cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import { useIsFocused } from '@react-navigation/native';
+import { useAmbientMotion } from '@/hooks/useAmbientMotion';
 import { useRose } from '@/hooks/useRose';
 import { RoseProps, type RoseActivity } from './RoseProps';
 
@@ -73,10 +73,10 @@ const ease = Easing.inOut(Easing.quad);
 
 export const RoseLive = memo(function RoseLive({ size, talking = false, paused = false, activity = 'cash', style }: { size: number; talking?: boolean; paused?: boolean; activity?: RoseActivity; style?: StyleProp<ViewStyle> }) {
   const rose = useRose();
-  const focused = useIsFocused();
   const still = useReducedMotion();
   const k = size / 400;
-  const alive = focused && !still && !paused;
+  // In front of you, app active, motion allowed, page still (founder 2026-10-09: light on every phone).
+  const alive = useAmbientMotion(paused);
   const working = activity !== 'cash';
 
   const gx = useSharedValue(0);
@@ -135,30 +135,38 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
     return () => clearTimeout(t);
   }, [alive, talking, working, gx, gy]);
 
-  // A slow breath: she floats a few points up and back, so the desk feels occupied.
+  // A breath, and her hoops swinging out of step — together, as ONE short burst every 6–9 s, then
+  // stillness. They used to loop forever and redraw her whole picture every frame while her page
+  // was open (the heat on MediaTek phones; founder 2026-10-09: «no heat or lagging»).
   useEffect(() => {
-    if (!alive) { cancelAnimation(float); return; }
-    float.value = withRepeat(withTiming(-5, { duration: 2200, easing: Easing.inOut(Easing.sin) }), -1, true);
-    return () => { cancelAnimation(float); };
-  }, [alive, float]);
-
-  // Hoops swing, out of step.
-  useEffect(() => {
-    if (!alive) { cancelAnimation(hopL); cancelAnimation(hopR); return; }
+    if (!alive) { cancelAnimation(float); cancelAnimation(hopL); cancelAnimation(hopR); float.value = withTiming(0); return; }
+    let t: ReturnType<typeof setTimeout>;
     const swing = (sv: SharedValue<number>, delay: number) => {
-      sv.value = -1;
-      sv.value = withDelay(delay, withRepeat(withTiming(1, { duration: 1750, easing: Easing.inOut(Easing.sin) }), -1, true));
+      sv.value = withDelay(delay, withSequence(
+        withTiming(1, { duration: 700, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-0.6, { duration: 900, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 700, easing: Easing.inOut(Easing.sin) }),
+      ));
     };
-    swing(hopL, 0);
-    swing(hopR, 850);
-    return () => { cancelAnimation(hopL); cancelAnimation(hopR); };
-  }, [alive, hopL, hopR]);
+    const burst = () => {
+      float.value = withSequence(
+        withTiming(-5, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
+      );
+      swing(hopL, 0);
+      swing(hopR, 350);
+      t = setTimeout(burst, 6000 + Math.random() * 3000);
+    };
+    t = setTimeout(burst, 900);
+    return () => { clearTimeout(t); cancelAnimation(float); cancelAnimation(hopL); cancelAnimation(hopR); };
+  }, [alive, float, hopL, hopR]);
 
-  // Lips while she talks.
+  // Lips while she talks — only while she can be seen; never left looping behind a blurred page.
   useEffect(() => {
-    if (talking && !still) talk.value = withRepeat(withTiming(1, { duration: 190, easing: ease }), -1, true);
-    else talk.value = withTiming(0, { duration: 120 });
-  }, [talking, still, talk]);
+    if (talking && alive) talk.value = withRepeat(withTiming(1, { duration: 190, easing: ease }), -1, true);
+    else { cancelAnimation(talk); talk.value = withTiming(0, { duration: 120 }); }
+    return () => cancelAnimation(talk);
+  }, [talking, alive, talk]);
 
   // One expression at a time.
   const lastYawn = useRef(0);

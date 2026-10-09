@@ -14,7 +14,8 @@ export function usePendingSurvey() {
     queryKey: ['pending-survey'],
     queryFn: getPendingSurvey,
     enabled: isAuthenticated && !impersonating,
-    staleTime: 0,
+    // A pending survey is checked at open and every 15 min — not on every return to the app.
+    staleTime: 15 * 60_000,
   });
 }
 

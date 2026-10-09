@@ -57,15 +57,17 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
   useEffect(() => {
     if (loading || timeLeft <= 0 || result) return;
 
+    // Time running out submits the answers given SO FAR. The timer used to call the
+    // `handleSubmit` captured when the quiz loaded — when `answers` was still empty — and from
+    // inside a state updater; it now calls the latest one, outside the updater.
+    let remaining = timeLeft;
     timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          handleSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
+      remaining -= 1;
+      setTimeLeft(Math.max(0, remaining));
+      if (remaining <= 0) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        void submitRef.current();
+      }
     }, 1000);
 
     return () => {
@@ -73,6 +75,8 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
     };
   }, [loading, result]);
 
+  // The latest submit (it closes over the latest answers), for the countdown above.
+  const submitRef = useRef<() => Promise<void> | void>(() => {});
   const currentQuestion = questions[currentIndex];
   const progress = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
   const answeredCount = Object.keys(answers).length;
@@ -109,6 +113,7 @@ export function QuizRunner({ quizId, studentId }: QuizRunnerProps) {
       setSubmitting(false);
     }
   }, [attemptId, submitting, answers, quiz, t]);
+  submitRef.current = handleSubmit;
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);

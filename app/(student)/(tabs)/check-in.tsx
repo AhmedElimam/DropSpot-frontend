@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
+import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useTodaySessions } from '@/hooks/useSessions';
 import { useCheckIn, useCoverageStats, useAttendanceRecords, useSubmitExcuse } from '@/hooks/useAttendance';
 import { useAuthStore } from '@/stores/authStore';
@@ -66,11 +67,8 @@ export default function CheckInTab() {
 
   const todaySessions = sessions ?? [];
   // A 30-second clock so «starts in N minutes» and the live bar move while the tab is open.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
+  // …only while the tab is in front of you (useMinuteClock pauses when hidden or backgrounded).
+  const now = useMinuteClock(30_000);
   // The session payload carries only the teacher's NAME; the student's teachers list has
   // the id (avatar seed) and the logo, so match on the name.
   const studentIdForTeachers = useAuthStore((st) => st.user?.student_id ?? null);

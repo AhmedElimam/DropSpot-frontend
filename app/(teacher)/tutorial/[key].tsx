@@ -108,7 +108,7 @@ function Player({ chapter, insets, onClose }: { chapter: Tutorial; insets: { top
   const player = useVideoPlayer(chapter.hls ? { uri: chapter.url, contentType: 'hls' } : chapter.url, (p) => {
     p.muted = false;
     p.loop = false;
-    p.timeUpdateEventInterval = 0.25;
+    p.timeUpdateEventInterval = 0.5; // the timeline and the moment line; 4×/s re-rendered the player for nothing
     p.allowsExternalPlayback = false; // no AirPlay
     p.play();
   });
@@ -215,7 +215,7 @@ function Player({ chapter, insets, onClose }: { chapter: Tutorial; insets: { top
 
       <SheetModal visible={showMoments} onClose={() => setShowMoments(false)} style={{ backgroundColor: '#11152E', paddingTop: spacing.md, paddingHorizontal: spacing.lg, maxHeight: '72%' }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#FFFFFF', marginBottom: spacing.sm }}>{t('tutorials.moments')}</Text>
-        <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.lg }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + spacing.lg }}>
           {moments.map((m, i) => (
             <TouchableOpacity key={i} onPress={() => { seekTo(m.t); setShowMoments(false); }} activeOpacity={0.8}
               style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start', paddingVertical: 10, paddingHorizontal: spacing.sm, borderRadius: radius.md, backgroundColor: i === nowIndex ? 'rgba(201,162,39,0.16)' : 'transparent' }}>

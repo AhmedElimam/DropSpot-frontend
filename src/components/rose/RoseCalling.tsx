@@ -4,9 +4,9 @@ import Svg, { G, Rect, Path } from 'react-native-svg';
 import Animated, {
   Easing, cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated';
-import { useIsFocused } from '@react-navigation/native';
 import { colors } from '@/theme/index';
 import { RosePortrait } from './RoseStamp';
+import { useAmbientMotion } from '@/hooks/useAmbientMotion';
 import { RoseSleeping } from './RoseSleeping';
 
 /**
@@ -22,6 +22,7 @@ import { RoseSleeping } from './RoseSleeping';
  * you or the phone asks for reduced motion.
  */
 const EVERY_MS = 6000;
+const SETTLED_EVERY_MS = 20000;
 const ELBOW = { x: 318, y: 392 };
 const TILT = -9;
 const CLIP = { x: 200, y: 211, r: 171 };
@@ -59,9 +60,8 @@ function Arm() {
 }
 
 export function RoseCalling({ size, calling }: { size: number; calling: boolean }) {
-  const focused = useIsFocused();
-  const still = useReducedMotion();
-  const live = calling && focused && !still;
+  // Only while she can be seen, the app is in front and motion is allowed (founder 2026-10-09).
+  const live = useAmbientMotion(!calling);
   const k = size / 400;
 
   const lift = useSharedValue(0); // 0 = down inside her frame … 1 = raised
@@ -88,9 +88,13 @@ export function RoseCalling({ size, calling }: { size: number; calling: boolean 
       ring.value = 0;
       ring.value = withDelay(200, withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) }));
     };
-    const first = setTimeout(burst, 700);
-    const every = setInterval(burst, EVERY_MS);
-    return () => { clearTimeout(first); clearInterval(every); };
+    // Three waves when you arrive, then one every 20 s: the call is made without her moving a
+    // third of the time the home is open (founder 2026-10-09: «light on all devices»).
+    let n = 0;
+    let t: ReturnType<typeof setTimeout>;
+    const next = () => { t = setTimeout(() => { burst(); n += 1; next(); }, n < 3 ? EVERY_MS : SETTLED_EVERY_MS); };
+    t = setTimeout(() => { burst(); n = 1; next(); }, 700);
+    return () => clearTimeout(t);
   }, [live, lift, wave, ring]);
 
   // The arm's layer is the full 400-square, offset inside the medallion clip; it pivots at the elbow.

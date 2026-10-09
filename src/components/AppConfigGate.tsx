@@ -21,6 +21,8 @@ import { storeLinksFor } from '@/utils/storeLinks';
  */
 const OTA_CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
 let lastOtaCheck = 0;
+let lastConfigSync = 0;
+const CONFIG_SYNC_EVERY_MS = 15 * 60_000;
 
 /** Open the first link the device accepts: the store app, else the web listing. */
 async function openFirst(urls: string[]): Promise<void> {
@@ -42,11 +44,14 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     useAppConfigStore.getState().hydrate().finally(() => { void syncAppConfig(); });
+    lastConfigSync = Date.now();
     void checkForOtaUpdate();
     lastOtaCheck = Date.now();
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s !== 'active') return;
-      void syncAppConfig();
+      // Flags, rules and the minimum version change rarely: once per 15 min on return is
+      // enough (it ran on every single return; founder 2026-10-09: «light on all devices»).
+      if (Date.now() - lastConfigSync >= CONFIG_SYNC_EVERY_MS) { lastConfigSync = Date.now(); void syncAppConfig(); }
       // An OTA check is a manifest fetch and, when one is waiting, a full bundle
       // download. Firing it on EVERY resume meant a teacher who switches apps twenty
       // times during a session paid for twenty of them. A release is not published
