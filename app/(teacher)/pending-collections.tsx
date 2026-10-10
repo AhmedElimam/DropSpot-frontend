@@ -17,6 +17,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { formatEGP } from '@/utils/currency';
 import { BillingYearSheet, type BillingYearTarget } from '@/components/teacher/BillingYearSheet';
+import { CollectSheet } from '@/components/teacher/CollectSheet';
 import { isQueued } from '@/api/offlineQueue';
 import { getPendingCollections, collectFromRoster, cancelDueFromRoster, type RosterStudent, type RosterBillItem, type CollectKind } from '@/api/pendingCollections';
 import { setCycleAmount } from '@/api/enrollments';
@@ -428,22 +429,18 @@ export default function TeacherPendingCollections() {
         bulletKeys={['onboarding.tip_billing_b1', 'onboarding.tip_billing_b2']}
       />
 
-      {/* Collect modal — amount input, default = full remainder. */}
-      <SheetModal visible={!!target} onClose={() => setTarget(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
-              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="money" size={24} color={colors.success} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{target?.label}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>{target?.name}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{formatEGP(owed)}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t('collections.remaining')}</Text>
-              </View>
-            </View>
-
+      {/* Collect sheet — shared with the student's page (CollectSheet); the bill corrections ride inside. */}
+      <CollectSheet
+        visible={!!target}
+        onClose={() => setTarget(null)}
+        title={target?.label ?? ''}
+        name={target?.name}
+        owed={owed}
+        amount={amountTyped}
+        onAmount={setAmount}
+        busy={busy}
+        onSubmit={submit}
+      >
             {editable.map((i) => {
               const e = edits[i.invoice_id] ?? { amount: '', sessions: '' };
               const set = (patch: Partial<BillEdit>) => setEdits((m) => ({ ...m, [i.invoice_id]: { ...e, ...patch } }));
@@ -460,39 +457,7 @@ export default function TeacherPendingCollections() {
               );
             })}
             {editable.length ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: -spacing.xs, marginBottom: spacing.md }}>{t('collections.bill_edit_hint')}</Text> : null}
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <TextInput
-                value={amount}
-                onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))}
-                keyboardType="numeric"
-                selectTextOnFocus
-                style={{ flex: 1, height: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, paddingHorizontal: spacing.md, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center' }}
-              />
-              {[{ label: t('collections.full'), v: owed, follow: true }, { label: t('collections.half'), v: Math.round(owed / 2), follow: false }].map((q) => {
-                const on = Number(amount) === q.v;
-                return (
-                  <TouchableOpacity key={q.label} onPress={() => setAmount(q.follow ? null : String(q.v))}
-                    style={{ paddingHorizontal: spacing.md, height: 52, justifyContent: 'center', borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, backgroundColor: on ? colors.brand : 'transparent' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? '#fff' : colors.brand }}>{q.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: spacing.sm }}>{t('collections.partial_hint')}</Text>
-
-            <TouchableOpacity
-              onPress={submit}
-              disabled={busy || !(Number(amount) > 0)}
-              activeOpacity={0.85}
-              style={{ marginTop: spacing.lg, minHeight: 48, borderRadius: radius.md, backgroundColor: Number(amount) > 0 ? colors.success : colors.border, justifyContent: 'center', alignItems: 'center' }}
-            >
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('collections.confirm')}</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setTarget(null)} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.close')}</Text>
-            </TouchableOpacity>
-      </SheetModal>
+      </CollectSheet>
       <BillingYearSheet target={yearFor} onClose={() => setYearFor(null)} />
     </View>
   );

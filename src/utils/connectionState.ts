@@ -15,9 +15,13 @@ export interface NetSnapshot {
   cellularGeneration?: string | null;
 }
 
+/** How the phone is connected — the icon follows it: Wi-Fi waves, or mobile-data bars. */
+export type ConnLink = 'wifi' | 'cellular' | 'none';
+
 export interface ConnView {
   state: ConnState;
-  /** Signal bars filled, 0–3. */
+  link: ConnLink;
+  /** Signal strength 0–3: waves lit on Wi-Fi, bars on mobile data. */
   bars: 0 | 1 | 2 | 3;
 }
 
@@ -27,12 +31,14 @@ export interface ConnView {
  * weak while a pass is sending — the person sees their saved actions leave.
  */
 export function connectionView(net: NetSnapshot, weakFlag: boolean, syncing: boolean): ConnView {
-  if (net.isConnected === false || net.isInternetReachable === false || net.type === 'none') return { state: 'offline', bars: 0 };
+  // Offline still remembers what it was on, so the crossed-out icon is the right one.
+  const link: ConnLink = net.type === 'cellular' ? 'cellular' : net.type === 'none' ? 'none' : 'wifi';
+  if (net.isConnected === false || net.isInternetReachable === false || net.type === 'none') return { state: 'offline', link, bars: 0 };
   const bars = linkBars(net);
-  if (syncing) return { state: 'syncing', bars };
-  if (weakFlag || bars <= 1) return { state: 'weak', bars: 1 };
+  if (syncing) return { state: 'syncing', link, bars };
+  if (weakFlag || bars <= 1) return { state: 'weak', link, bars: 1 };
 
-  return { state: 'online', bars };
+  return { state: 'online', link, bars };
 }
 
 function linkBars(net: NetSnapshot): 1 | 2 | 3 {

@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { fonts } from '@/theme/typography';
@@ -127,55 +127,6 @@ export function StudentDuesCard({ billing: b, canCollect, onCollect }: { billing
           ) : null}
         </View>
       ) : null}
-    </View>
-  );
-}
-
-/**
- * The collect form: how much (prefilled, editable — part-payment at the door is normal, with
- * «الكل» / «النصف» shortcuts) and what follows. Rendered inside a keyboard-aware SheetModal.
- */
-export function CollectForm({ target, amount, onAmount, busy, onSubmit }: {
-  target: CollectTarget; amount: string; onAmount: (v: string) => void; busy: boolean; onSubmit: () => void;
-}) {
-  const all = target.kind === 'all';
-  const quick = all ? [] : [{ label: 'الكل', v: target.remaining }, { label: 'النصف', v: Math.round(target.remaining / 2) }];
-  return (
-    <View>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>
-        {`المستحقّ ${formatNumber(target.remaining)} ج.م${all ? '' : ' — عدّل المبلغ إن دفع جزءًا'}`}
-      </Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <TextInput
-          value={amount}
-          onChangeText={(v) => onAmount(v.replace(/[^0-9.]/g, ''))}
-          editable={!all}
-          keyboardType="numeric"
-          placeholder="المبلغ بالجنيه"
-          placeholderTextColor={colors.textTertiary}
-          style={{ flex: 1, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radius.lg, paddingHorizontal: spacing.md, height: 52, fontFamily: fonts.bold, fontSize: 22, color: all ? colors.textSecondary : colors.textPrimary, textAlign: 'center', backgroundColor: all ? colors.surfaceSunken : colors.surface }}
-        />
-        {quick.map((q) => {
-          const on = Number(amount) === q.v;
-          return (
-            <TouchableOpacity key={q.label} onPress={() => onAmount(String(q.v))} accessibilityRole="button" accessibilityState={{ selected: on }}
-              style={{ paddingHorizontal: spacing.md, height: 52, justifyContent: 'center', borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, backgroundColor: on ? colors.brand : 'transparent' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? '#fff' : colors.brand }}>{q.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.sm }}>
-        يُرسَل إيصال لولي الأمر، ويدخل المبلغ خزنتك ويُحتسب في التقارير المالية الآن.
-      </Text>
-      <TouchableOpacity
-        onPress={onSubmit}
-        disabled={busy || !(Number(amount) > 0)}
-        accessibilityRole="button"
-        style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: Number(amount) > 0 ? colors.success : colors.border, justifyContent: 'center', alignItems: 'center' }}
-      >
-        {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>تم التحصيل</Text>}
-      </TouchableOpacity>
     </View>
   );
 }

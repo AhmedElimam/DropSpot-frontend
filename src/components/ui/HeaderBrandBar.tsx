@@ -38,8 +38,8 @@ function Badge({ count }: { count: number }) {
  * The shared top bar for every role's home hero: the brand logo on the visual
  * LEFT and the notifications bell on the visual RIGHT. The app is force-RTL, so a
  * plain `row` lays children right→left — the bell (first child) sits at the right,
- * the logo (last child) at the left, exactly as intended. The connection chip sits
- * last in the bell group, nearest the middle.
+ * the logo (last child) at the left, exactly as intended. The round connection status
+ * sits just inside the logo, so each side carries weight.
  */
 export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scanBadge = 0 }: HeaderBrandBarProps) {
   return (
@@ -56,12 +56,14 @@ export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scan
             {scanBadge ? <Badge count={scanBadge} /> : null}
           </TouchableOpacity></TourTarget>
         ) : null}
-        {/* The live connection chip: bars, «ضعيف», «بدون نت», sending — tap for the details. */}
-        <ConnectionStatus />
       </View>
 
-      {/* Last child → visual LEFT in RTL: the transparent brand logo. */}
-      <BrandMark size={logoSize} />
+      {/* Last child → visual LEFT in RTL: the live connection status just inside the brand logo
+          (first child of this row → its right, i.e. nearer the middle; the logo keeps the edge). */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <ConnectionStatus />
+        <BrandMark size={logoSize} />
+      </View>
     </View>
   );
 }

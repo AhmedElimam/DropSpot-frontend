@@ -12,7 +12,8 @@ import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Badge } from '@/components/ui/Badge';
 import { PageHero } from '@/components/ui/PageHero';
-import { StudentDuesCard, CollectForm, collectTarget, parseCollectAmount, type CollectTarget } from '@/components/teacher/StudentDues';
+import { StudentDuesCard, collectTarget, parseCollectAmount, type CollectTarget } from '@/components/teacher/StudentDues';
+import { CollectSheet } from '@/components/teacher/CollectSheet';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StudentAttendanceList } from '@/components/student/StudentAttendanceList';
@@ -127,12 +128,13 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   // kiosk (paid_at, receipt, drawer, oversight, audit). Teacher, or an assistant with
   // scan_attendance — the server refuses anyone else.
   const [collectFor, setCollectFor] = useState<CollectTarget | null>(null);
-  const [collectAmount, setCollectAmount] = useState('');
+  // null = the full remainder (follows «الكل»), like the collections list's sheet.
+  const [collectAmount, setCollectAmount] = useState<string | null>(null);
   const [collectBusy, setCollectBusy] = useState(false);
-  const openCollect = (target: CollectTarget) => { setCollectAmount(String(target.remaining)); setCollectFor(target); };
+  const openCollect = (target: CollectTarget) => { setCollectAmount(null); setCollectFor(target); };
   const submitCollect = async () => {
     if (!collectFor || !s) return;
-    const parsed = parseCollectAmount(collectAmount, collectFor);
+    const parsed = parseCollectAmount(collectAmount ?? String(collectFor.remaining), collectFor);
     if ('error' in parsed) { Alert.alert('', parsed.error); return; }
     setCollectBusy(true);
     try {
@@ -945,15 +947,19 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
           follows (receipt, drawer, reports). */}
       <PriorMonthSheet target={priorBillFor} onClose={() => setPriorBillFor(null)} onSaved={() => { void refetch(); }} />
       <BillingYearSheet target={yearFor} onClose={() => { setYearFor(null); void refetch(); }} />
-      <SheetModal visible={!!collectFor} onClose={() => !collectBusy && setCollectFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{`تحصيل — ${collectFor?.label ?? ''}`}</Text>
-              <TouchableOpacity onPress={() => !collectBusy && setCollectFor(null)} hitSlop={10}>
-                <Icon name="close" size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            {collectFor ? <CollectForm target={collectFor} amount={collectAmount} onAmount={setCollectAmount} busy={collectBusy} onSubmit={submitCollect} /> : null}
-      </SheetModal>
+      <CollectSheet
+        visible={!!collectFor}
+        onClose={() => setCollectFor(null)}
+        title={collectFor?.label ?? ''}
+        name={s?.name ?? undefined}
+        owed={collectFor?.remaining ?? 0}
+        amount={collectAmount}
+        onAmount={setCollectAmount}
+        locked={collectFor?.kind === 'all'}
+        busy={collectBusy}
+        onSubmit={submitCollect}
+        hint={collectFor?.kind === 'all' ? 'يُرسَل إيصال لولي الأمر، ويدخل المبلغ خزنتك ويُحتسب في التقارير المالية الآن.' : undefined}
+      />
 
       {/* Correct the bills of one course: a card per month — the amount, how many sessions it
           buys, how much of it is paid — prefilled as the bill stands, so the one wrong number
