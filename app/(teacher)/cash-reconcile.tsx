@@ -1042,6 +1042,18 @@ export default function CashReconcileScreen() {
                       <NowCard data={data} onDone={onDone} onOpenHandovers={() => setHandoverOpen(true)} onCountOwn={() => setSegment('week')} />
                     </View>
                   ) : null}
+                  {/* «تحصيلات الأسبوع»: who paid what this week, per student, filtered by kind. */}
+                  <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/cash-collections', params: weekOffset > 0 ? { week: weekDay } : {} } as never)} activeOpacity={0.85} accessibilityRole="button"
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.md, ...shadows.sm }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="children" size={22} color={colors.success} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.who_paid_title')}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }}>{t('cash.collections_entry_sub')}</Text>
+                    </View>
+                    <Icon name="back" size={18} color={colors.textTertiary} />
+                  </TouchableOpacity>
                   <WeekSegment data={data} onChanged={invalidate} onOpenHandover={() => setHandoverOpen(true)} freshStamp={freshStamp} />
                 </>
               )}

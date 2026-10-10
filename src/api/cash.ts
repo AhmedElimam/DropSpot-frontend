@@ -516,3 +516,47 @@ export async function getCashMonth(month: string): Promise<CashMonth> {
   const { data } = await client.get('/teacher/cash/month', { params: { month } });
   return data.data as CashMonth;
 }
+
+// ---- «تحصيلات الأسبوع»: who paid what this week, per student (GET /teacher/cash/collections) ----
+
+export type CollectionKind = 'bill' | 'booklet' | 'booking' | 'guest_pass';
+
+export interface CollectionItem {
+  kind: CollectionKind;
+  /** «فاتورة أكتوبر», «ملزمة · <group>», «حجز · <group>». */
+  label: string | null;
+  amount: number;
+  /** Given back from this charge inside the week (the amount is already net of it). */
+  reversed: number;
+  method: 'cash' | 'digital';
+  collected_at: string | null;
+  /** «أنت» for the teacher's own hand, else the assistant's name. */
+  collector: string | null;
+}
+
+export interface CollectionStudent {
+  /** null = the revision guests, who have no student account. */
+  student_id: number | null;
+  name: string;
+  total: number;
+  kinds: CollectionKind[];
+  last_at: string | null;
+  items: CollectionItem[];
+}
+
+export interface CollectionsWeek {
+  week: { start: string; end: string };
+  /** 'mine' for an assistant: only what they collected. */
+  scope: 'teacher' | 'mine';
+  total: number;
+  cash: number;
+  digital: number;
+  students_count: number;
+  by_kind: Record<CollectionKind, { amount: number; count: number; students: number }>;
+  students: CollectionStudent[];
+}
+
+export async function getCashCollections(weekDay?: string): Promise<CollectionsWeek> {
+  const { data } = await client.get('/teacher/cash/collections', { params: weekDay ? { week: weekDay } : undefined });
+  return data.data as CollectionsWeek;
+}

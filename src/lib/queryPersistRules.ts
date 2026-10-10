@@ -33,6 +33,7 @@ const DAY_RELATIVE = new Set([
 
 function isDayRelative(key: QueryKey): boolean {
   if (DAY_RELATIVE.has(String(key[0]))) return true;
+  if (key[0] === 'cash-collections' && key[1] === 'now') return true;
   return key[0] === 'sessions' && key[1] === 'today';
 }
 
