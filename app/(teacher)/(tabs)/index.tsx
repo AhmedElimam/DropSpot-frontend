@@ -188,6 +188,7 @@ export default function TeacherHome() {
             unread={unread}
             onScan={canCash ? () => router.push('/(teacher)/scan' as Href) : undefined}
             scanBadge={offlineAttention}
+            onSearch={() => router.push('/(teacher)/search' as Href)}
           />
           {/* Name and date centred at the top (founder 2026-10-05). */}
           <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero, textAlign: 'center' }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>

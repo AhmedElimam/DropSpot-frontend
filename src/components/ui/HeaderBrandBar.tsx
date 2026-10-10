@@ -19,6 +19,8 @@ interface HeaderBrandBarProps {
   onScan?: () => void;
   /** Badge on the scanner button: offline scans waiting to sync or to be decided. */
   scanBadge?: number;
+  /** «ابحث في التطبيق» — the feature search (teacher / assistant home). */
+  onSearch?: () => void;
 }
 
 // A function, not a constant: the hero tokens change with the scheme (light: ink on mist,
@@ -40,7 +42,7 @@ function Badge({ count }: { count: number }) {
  * the logo (last child) at the left, exactly as intended. (The connection status lives
  * under each home's greeting — ConnectionLine.)
  */
-export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scanBadge = 0 }: HeaderBrandBarProps) {
+export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scanBadge = 0, onSearch }: HeaderBrandBarProps) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
       {/* First child → visual RIGHT in RTL: the notifications bell, then (optionally) the scanner. */}
@@ -54,6 +56,11 @@ export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scan
             <Icon name="scan" size={22} color={colors.onHero} outline />
             {scanBadge ? <Badge count={scanBadge} /> : null}
           </TouchableOpacity></TourTarget>
+        ) : null}
+        {onSearch ? (
+          <TouchableOpacity onPress={onSearch} accessibilityRole="button" accessibilityLabel="ابحث في التطبيق" style={iconButton()}>
+            <Icon name="search" size={21} color={colors.onHero} outline />
+          </TouchableOpacity>
         ) : null}
       </View>
 

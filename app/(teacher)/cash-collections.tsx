@@ -4,8 +4,10 @@ import { FlatList, ScrollView } from '@/components/ui/Refreshable';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
-import { useDialogPersona } from '@/ui/dialog';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, useDialogPersona } from '@/ui/dialog';
+import { reverseStudentPayment } from '@/api/students';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -16,7 +18,7 @@ import { useRose } from '@/hooks/useRose';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { isNetworkFailure } from '@/db/marksSync';
 import { formatNumber, formatShortDate, formatTime, formatDayDate } from '@/utils/format';
-import { getCashCollections, type CollectionKind, type CollectionStudent } from '@/api/cash';
+import { getCashCollections, type CollectionItem, type CollectionKind, type CollectionStudent } from '@/api/cash';
 
 const KIND = (): Record<CollectionKind, { label: string; icon: IconName; tint: string }> => ({
   bill: { label: 'فواتير', icon: 'invoices', tint: colors.brand },
@@ -33,7 +35,12 @@ function isoDay(d: Date): string {
 }
 
 /** One student: who, what kinds, how much — tap to see each payment. */
-const StudentRow = memo(function StudentRow({ s, kind, open, onToggle }: { s: CollectionStudent; kind: CollectionKind | null; open: boolean; onToggle: () => void }) {
+const StudentRow = memo(function StudentRow({ s, kind, open, onToggle, onRefuse, busyKey }: {
+  s: CollectionStudent; kind: CollectionKind | null; open: boolean; onToggle: () => void;
+  /** Teacher only: reverse this payment (the student page's «إلغاء الدفع»). */
+  onRefuse?: (s: CollectionStudent, i: CollectionItem) => void;
+  busyKey: string | null;
+}) {
   const items = kind ? s.items.filter((i) => i.kind === kind) : s.items;
   const total = items.reduce((n, i) => n + i.amount, 0);
   const initial = s.name.trim().charAt(0) || '؟';
@@ -75,7 +82,16 @@ const StudentRow = memo(function StudentRow({ s, kind, open, onToggle }: { s: Co
                   </Text>
                   {i.reversed > 0 ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.dangerText, marginTop: 1 }}>{`أُعيد منه ${money(i.reversed)}`}</Text> : null}
                 </View>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{money(i.amount)}</Text>
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{money(i.amount)}</Text>
+                  {onRefuse && s.student_id && i.kind !== 'guest_pass' ? (
+                    <TouchableOpacity onPress={() => onRefuse(s, i)} disabled={busyKey !== null} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={`إلغاء دفع ${i.label ?? ''}`}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 3, height: 28, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.danger + '12', borderWidth: 1, borderColor: colors.danger + '55', opacity: busyKey !== null && busyKey !== `${s.student_id}:${i.kind}:${i.subject_id}` ? 0.5 : 1 }}>
+                      {busyKey === `${s.student_id}:${i.kind}:${i.subject_id}` ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="undo" size={12} color={colors.danger} />}
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.danger }}>إلغاء الدفع</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
               </View>
             );
           })}
@@ -103,6 +119,43 @@ export default function CashCollectionsScreen() {
   const [open, setOpen] = useState<string | null>(null);
 
   const query = useQuery({ queryKey: ['cash-collections', week ?? 'now'], queryFn: () => getCashCollections(week ?? undefined) });
+  const qc = useQueryClient();
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  // «إلغاء الدفع» — the student page's own reverse (teacher only, audited, the due comes back).
+  // Live only: money going back is never parked offline.
+  const refuse = (s: CollectionStudent, i: CollectionItem) => {
+    if (!s.student_id || i.kind === 'guest_pass') return;
+    const what = i.label ?? KIND()[i.kind].label;
+    Alert.alert(
+      t('cash.refuse_title', { name: s.name }),
+      t('cash.refuse_body', { what, amount: money(i.amount) }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('cash.refuse_confirm'), style: 'destructive', onPress: async () => {
+            const key = `${s.student_id}:${i.kind}:${i.subject_id}`;
+            setBusyKey(key);
+            try {
+              await reverseStudentPayment(s.student_id!, i.kind as 'bill' | 'booklet' | 'booking', i.subject_id);
+              await Promise.all([
+                qc.invalidateQueries({ queryKey: ['cash-collections'] }),
+                qc.invalidateQueries({ queryKey: ['cash-reconciliation'] }),
+                qc.invalidateQueries({ queryKey: ['pending-collections'] }),
+                qc.invalidateQueries({ queryKey: ['teacher-student', String(s.student_id)] }),
+                qc.invalidateQueries({ queryKey: ['cash-insights'] }),
+              ]);
+              Alert.alert(t('cash.refuse_done'), t('cash.refuse_done_body', { name: s.name }));
+            } catch (e) {
+              Alert.alert(t('common.error'), isNetworkFailure(e) ? t('cash.refuse_needs_connection') : getFriendlyErrorMessage(e));
+            } finally {
+              setBusyKey(null);
+            }
+          },
+        },
+      ],
+    );
+  };
   const { refreshing, onRefresh } = usePullRefresh(query.refetch);
   const d = query.data;
 
@@ -146,7 +199,7 @@ export default function CashCollectionsScreen() {
           keyExtractor={(s) => String(s.student_id ?? 'guests')}
           renderItem={({ item }) => {
             const key = String(item.student_id ?? 'guests');
-            return <StudentRow s={item} kind={kind} open={open === key} onToggle={() => setOpen(open === key ? null : key)} />;
+            return <StudentRow s={item} kind={kind} open={open === key} onToggle={() => setOpen(open === key ? null : key)} onRefuse={d.scope === 'teacher' ? refuse : undefined} busyKey={busyKey} />;
           }}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}

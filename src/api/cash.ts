@@ -523,6 +523,8 @@ export type CollectionKind = 'bill' | 'booklet' | 'booking' | 'guest_pass';
 
 export interface CollectionItem {
   kind: CollectionKind;
+  /** The charge (invoice / booklet / booking id) — what «إلغاء الدفع» reverses. */
+  subject_id: number;
   /** «فاتورة أكتوبر», «ملزمة · <group>», «حجز · <group>». */
   label: string | null;
   amount: number;

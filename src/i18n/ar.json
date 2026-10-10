@@ -2132,6 +2132,12 @@
     "logged_on": "اتسجّل {{when}}"
   },
   "cash": {
+    "refuse_title": "إلغاء دفع «{{name}}»؟",
+    "refuse_body": "سيُلغى دفع {{what}} ({{amount}}) ويعود المستحق على الطالب كما كان، ويخرج المبلغ من حساب الأسبوع. قد يكون إيصال قد وصل للأسرة.",
+    "refuse_confirm": "إلغاء الدفع",
+    "refuse_done": "تم إلغاء الدفع",
+    "refuse_done_body": "عاد المستحق على {{name}}، وتحدّثت الأرقام.",
+    "refuse_needs_connection": "إلغاء الدفع يحتاج اتصالًا — حاول عند عودة الاتصال.",
     "who_paid_title": "تحصيلات الأسبوع",
     "collections_entry_sub": "من دفع هذا الأسبوع، وماذا دفع كل طالب — فواتير وملازم وحجز",
     "collections_this_week": "هذا الأسبوع",
@@ -2696,5 +2702,22 @@
     "line_syncing": "جارٍ الإرسال…",
     "line_pending": "{{count}} بانتظار الإرسال",
     "line_synced": "آخر مزامنة {{age}}"
+  },
+  "app_search": {
+    "placeholder": "ابحث عن أي ميزة… «فلوس»، «غياب»، «مساعد»",
+    "clear": "مسح البحث",
+    "suggested": "الأكثر استخدامًا",
+    "results": "{{count}} نتيجة",
+    "none": "لا نتائج لـ «{{q}}»",
+    "none_hint": "جرّب كلمة أخرى — مثل «تحصيل» أو «حصص» أو «طلاب».",
+    "rose_title": "مدام روز — الخزنة والجرد",
+    "scan_title": "مسح الحضور على الباب",
+    "area_home": "الرئيسية",
+    "area_manage": "المتابعة",
+    "area_money": "الفلوس",
+    "area_students": "الطلاب",
+    "area_sessions": "الحصص والجدول",
+    "area_settings": "الإعدادات",
+    "area_help": "المساعدة"
   }
 }
