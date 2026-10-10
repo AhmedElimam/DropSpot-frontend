@@ -1,3 +1,4 @@
+import { track } from '@/lib/analytics';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
@@ -170,6 +171,7 @@ export default function TeacherPendingCollections() {
       const res = await collectFromRoster(target.studentId, target.kind, Math.min(amt, owed > 0 ? owed : amt));
       await qc.invalidateQueries({ queryKey: ['pending-collections'] });
       setTarget(null);
+      track('payment_collected', { kind: target.kind, value: Math.round(amt), currency: 'EGP', source: 'roster', offline: isQueued(res) });
       if (isQueued(res)) return Alert.alert('', res.message);
       Alert.alert('', res.remaining && Number(res.remaining) > 0
         ? t('collections.collected_partial', { amount: res.amount, remaining: res.remaining })

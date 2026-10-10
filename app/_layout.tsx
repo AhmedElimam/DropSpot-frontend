@@ -36,6 +36,7 @@ import { persistOptions } from '@/lib/queryPersist';
 import { PERSIST_MAX_AGE_MS } from '@/lib/queryPersistRules';
 import { OfflinePill } from '@/components/OfflinePill';
 import { DialogHost } from '@/ui/dialog';
+import { AnalyticsTracker } from '@/components/AnalyticsTracker';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '@/stores/authStore';
@@ -276,6 +277,8 @@ export default function RootLayout() {
             <OfflinePill />
             {/* The app's own popup in place of the system alert — one host for every screen. */}
             <DialogHost />
+            {/* Firebase Analytics: screens as route patterns, the role, off while impersonating. */}
+            <AnalyticsTracker />
           </View>
           </AppConfigGate>
         </HydrationGate>

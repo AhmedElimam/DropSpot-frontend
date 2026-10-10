@@ -1,3 +1,4 @@
+import { track } from '@/lib/analytics';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useState, useCallback, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
@@ -158,7 +159,8 @@ export default function TeacherEnroll() {
       }),
   });
 
-  const flashDone = (name: string) => {
+  const flashDone = (name: string, via?: 'card' | 'pre_card' | 'offline') => {
+    if (via) track('student_enrolled', { via });
     setReview(null);
     terms.resetPerStudent();
     setDone(name);
@@ -172,7 +174,7 @@ export default function TeacherEnroll() {
       const value = review.value;
       const run = (acceptGradeMismatch?: boolean) =>
         enroll.mutate({ value, acceptGradeMismatch }, {
-          onSuccess: () => flashDone(name),
+          onSuccess: () => flashDone(name, 'card'),
           onError: (e: any) => {
             // Grade-mismatch confirm: the student's saved grade differs from the
             // course's — ask, then re-enroll accepting the mismatch.
@@ -190,12 +192,12 @@ export default function TeacherEnroll() {
     } else if (review.kind === 'precard') {
       const name = review.student.name;
       confirmPre.mutate(review.invitationId, {
-        onSuccess: () => flashDone(name),
+        onSuccess: () => flashDone(name, 'pre_card'),
         onError: (e: any) => Alert.alert('', e?.response?.data?.message || 'تعذّر التسجيل'),
       });
     } else if (review.kind === 'offline') {
       enrollLater.mutate(review.value, {
-        onSuccess: () => flashDone(t('offline.qr_saved_done')),
+        onSuccess: () => flashDone(t('offline.qr_saved_done'), 'offline'),
         onError: (e: any) => Alert.alert('', e?.response?.data?.message || t('offline.qr_save_failed')),
       });
     }

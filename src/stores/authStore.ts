@@ -282,6 +282,8 @@ export const useAuthStore = create<AuthState>((set, get) => {
         await forgetPersistedQueries();
         const { clearOutbox } = await import('@/db/outbox');
         await clearOutbox();
+        const { resetAnalytics } = await import('@/lib/analytics');
+        resetAnalytics();
       } catch {
         // best-effort
       }

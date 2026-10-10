@@ -1,3 +1,4 @@
+import { track } from '@/lib/analytics';
 import { useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { FlatList } from '@/components/ui/Refreshable';
@@ -47,6 +48,7 @@ export default function SearchScreen() {
   const typing = q.trim().length >= 2;
 
   const open = (e: FeatureEntry) => {
+    track('feature_search_open', { feature: e.id, typed: q.trim().length >= 2, position: Math.max(0, results.findIndex((r) => r.entry.id === e.id)) });
     if (e.action === 'add_student') return setAddOpen(true);
     if (e.action === 'schedule') return setScheduleOpen(true);
     if (e.href) router.push(e.href as Href);

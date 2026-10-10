@@ -1,3 +1,4 @@
+import { track } from '@/lib/analytics';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { View, Text, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, TextInput } from 'react-native';
 import { Alert } from '@/ui/dialog';
@@ -140,6 +141,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
     setCollectBusy(true);
     try {
       Alert.alert('تم', await collectTarget(id, collectFor, parsed.amount, s.billing));
+      track('payment_collected', { kind: collectFor.kind, value: Math.round(parsed.amount), currency: 'EGP', source: 'profile' });
       setCollectFor(null);
       void qc.invalidateQueries({ queryKey: ['pending-collections'] });
     } catch (e: any) {

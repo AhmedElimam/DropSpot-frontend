@@ -1,3 +1,4 @@
+import { track } from '@/lib/analytics';
 import { memo, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { FlatList, ScrollView } from '@/components/ui/Refreshable';
@@ -138,6 +139,7 @@ export default function CashCollectionsScreen() {
             setBusyKey(key);
             try {
               await reverseStudentPayment(s.student_id!, i.kind as 'bill' | 'booklet' | 'booking', i.subject_id);
+              track('payment_reversed', { kind: i.kind, value: Math.round(i.amount), currency: 'EGP', source: 'week_collections' });
               await Promise.all([
                 qc.invalidateQueries({ queryKey: ['cash-collections'] }),
                 qc.invalidateQueries({ queryKey: ['cash-reconciliation'] }),

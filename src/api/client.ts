@@ -1,3 +1,4 @@
+import { track } from '@/lib/analytics';
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { uuid } from '@/utils/uuid';
 import { matchQueueRule, parkedBody, queuedLabel, syntheticQueuedResponse } from './offlineQueue';
@@ -154,6 +155,7 @@ async function parkRequest(config: InternalAxiosRequestConfig): Promise<void> {
     teacher_id: useAuthStore.getState().activeTeacherId ?? null,
   });
   useOfflineStore.getState().noteQueued(label);
+  track('offline_action_queued', { action: config.__queueRule!.label });
 }
 
 // Single-flight token refresh. When the access token has expired, an app open/resume

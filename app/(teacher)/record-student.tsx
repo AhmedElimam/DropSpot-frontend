@@ -1,3 +1,4 @@
+import { track } from '@/lib/analytics';
 import { useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, KeyboardAvoidingView, Platform, Switch } from 'react-native';
 import { Alert } from '@/ui/dialog';
@@ -109,6 +110,7 @@ export default function RecordStudent() {
       const res = await recordStudent(payload);
       setDedupe(null);
       setOwnStudent(null);
+      track('student_recorded', { via: 'fast', offline: isQueued(res), linked: !isQueued(res) && !!(res as { linked?: boolean }).linked });
       if (isQueued(res)) {
         // Parked on the phone: the server links or creates when the connection returns.
         afterCreated(null, t('offline.record_queued'));

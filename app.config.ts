@@ -131,7 +131,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         // framework module 'RNFBApp…'" and "'RCTConvert' must be imported from module before
         // required". Linking them statically drops the module wrapper so React headers compile
         // textually as normal. (Expo SDK 54+ prebuilt-core Podfile reads ios.forceStaticLinking.)
-        forceStaticLinking: ['RNFBApp', 'RNFBMessaging'],
+        forceStaticLinking: ['RNFBApp', 'RNFBMessaging', 'RNFBAnalytics'],
       },
     },
   ],

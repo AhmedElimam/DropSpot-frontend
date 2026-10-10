@@ -1,3 +1,4 @@
+import { track } from '@/lib/analytics';
 import { syncOfflineBatch } from '@/api/teacher';
 import { syncOfflineMarks } from '@/api/teacherSessions';
 import { getPendingScans, deleteScans, markScanRejected, type OfflineScan } from './offlineScans';
@@ -220,7 +221,10 @@ export async function triggerAutoSync(nowMs: number = Date.now()): Promise<void>
   try {
     const synced = await runAutoSync();
     ok = true;
-    if (synced > 0) useOfflineStore.getState().bumpAutoSynced(synced);
+    if (synced > 0) {
+      useOfflineStore.getState().bumpAutoSynced(synced);
+      track('offline_synced', { count: synced });
+    }
     // Always recount: what is left (or newly refused) shows on the header indicator.
     await useOfflineStore.getState().refresh();
   } catch {
