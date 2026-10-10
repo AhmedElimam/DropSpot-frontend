@@ -14,6 +14,7 @@ import { colors, spacing, radius, nav, shadows, gradients } from '@/theme/index'
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { isNetworkFailure } from '@/db/marksSync';
 import { ExpensesPanel } from '@/components/cash/ExpensesPanel';
 import { RoseComplaintsPanel } from '@/components/cash/RoseComplaintsPanel';
 import { RoseStamp, RosePortrait, useStampBurst } from '@/components/rose/RoseStamp';
@@ -866,7 +867,10 @@ export default function CashReconcileScreen() {
   const [monthOffset, setMonthOffset] = useState(0);
   const weekDay = useMemo(() => isoDay(addDays(new Date(), -7 * weekOffset)), [weekOffset]);
   const monthKey = useMemo(() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - monthOffset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }, [monthOffset]);
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['cash-reconciliation', weekOffset === 0 ? 'now' : weekDay], queryFn: () => getCashReconciliation(weekOffset === 0 ? undefined : weekDay) });
+  // The current week lives under the same key Home and «الإدارة» fetch it with, so a copy
+  // saved from either serves her desk offline (founder 2026-10-10: «madam rose offline
+  // doesn't save» — the old key «now» was hers alone).
+  const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: weekOffset === 0 ? ['cash-reconciliation'] : ['cash-reconciliation', weekDay], queryFn: () => getCashReconciliation(weekOffset === 0 ? undefined : weekDay) });
   const monthQ = useQuery({ queryKey: ['cash-month', monthKey], queryFn: () => getCashMonth(monthKey), enabled: period === 'month' });
   const isPast = period === 'month' || weekOffset > 0;
   const insightsQ = useQuery({ queryKey: ['cash-insights'], queryFn: getCashInsights });
@@ -993,8 +997,13 @@ export default function CashReconcileScreen() {
         </View>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
-          {!arrived || isLoading || !data ? (
+          {!arrived || isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
+          ) : !data ? (
+            // Nothing saved and no answer: say which, never a spinner that waits for nothing.
+            isNetworkFailure(error)
+              ? <EmptyState icon="warning" title={t('offline.not_saved_title')} message={t('offline.not_saved_rose', { rose: rose.name })} />
+              : <EmptyState icon="refresh" title={t('cash.load_failed')} />
           ) : segment === 'week' ? (
             <View>
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}>

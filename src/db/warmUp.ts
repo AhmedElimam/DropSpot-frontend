@@ -1,6 +1,6 @@
 import { getTeacherStudents, getTeacherCourses } from '@/api/students';
 import { getPendingCollections } from '@/api/pendingCollections';
-import { getRoseSheet } from '@/api/cash';
+import { getRoseSheet, getCashReconciliation, getCashInsights, getExpenses } from '@/api/cash';
 import { getTeacherSessions, getSessionDetail, type SessionsPage } from '@/api/teacherSessions';
 import { weekWindow, dayKey } from '@/utils/sessionDays';
 import { cacheSessionDetail, cachedSessionAge } from './sessionDetailCache';
@@ -16,9 +16,9 @@ const DETAIL_CAP = 20;
 
 /**
  * Warm the screens a teacher opens most — the students list, the groups, the collections
- * roster and مدام روز's sheet — so they open with no signal even if never visited since
+ * roster and مدام روز's desk — so they open with no signal even if never visited since
  * the last launch (the cache on disk, src/lib/queryPersist.ts, keeps what is fetched here).
- * Four requests, one after the other, skipped when fetched in the last ten minutes, then
+ * Seven small requests, one after the other, skipped when fetched in the last ten minutes, then
  * this week's sessions (warmUpSessions); runs
  * with the schedule refresh on open and every ten minutes of foreground returns. Silent on
  * any failure (an assistant without the ability simply gets a 403 that nothing shows).
@@ -46,6 +46,12 @@ export async function warmUpOfflineScreens(): Promise<void> {
     { key: ['teacher-courses'], fn: getTeacherCourses },
     { key: ['pending-collections'], fn: getPendingCollections },
     { key: ['rose-sheet'], fn: getRoseSheet },
+    // مدام روز's desk: this week's drawer view, her observations, this week's expenses —
+    // under the keys her page asks for (an assistant without the ability gets a silent 403).
+    // The expenses key's day is ExpensesPanel's `ymd(today)`, the same YYYY-MM-DD as dayKey.
+    { key: ['cash-reconciliation'], fn: () => getCashReconciliation() },
+    { key: ['cash-insights'], fn: getCashInsights },
+    { key: ['expenses', dayKey(new Date()), null], fn: () => getExpenses(dayKey(new Date()), undefined, null) },
   ];
   for (const j of jobs) {
     if (!useOfflineStore.getState().online) return;
