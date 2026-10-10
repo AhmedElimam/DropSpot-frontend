@@ -22,6 +22,7 @@ import { Avatar } from '@/components/layout/Avatar';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
+import { ConnectionLine } from '@/components/ui/ConnectionStatus';
 import { TourTarget } from '@/tour/TourTarget';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { SectionHead } from '@/components/ui/SectionHead';
@@ -94,6 +95,7 @@ export default function ParentHome() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, marginTop: 2, textAlign: 'center' }} numberOfLines={1}>
             {user?.name || 'ولي الأمر'}
           </Text>
+          <ConnectionLine style={{ marginTop: spacing.sm }} />
 
           {kids.length > 0 ? (
             <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>

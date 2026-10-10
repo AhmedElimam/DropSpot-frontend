@@ -2646,6 +2646,14 @@
     "minutes_ago": "منذ {{n}} دقيقة",
     "hours_ago": "منذ {{n}} ساعة",
     "send_now": "إرسال الآن",
-    "details": "عرض التفاصيل"
+    "details": "عرض التفاصيل",
+    "line_wifi": "متصل عبر Wi‑Fi",
+    "line_cellular": "متصل عبر بيانات الجوال",
+    "line_cellular_gen": "متصل عبر {{gen}}",
+    "line_weak": "اتصال ضعيف — ما تسجّله يُحفظ",
+    "line_offline": "بدون اتصال — تعمل من المحفوظ",
+    "line_syncing": "جارٍ الإرسال…",
+    "line_pending": "{{count}} بانتظار الإرسال",
+    "line_synced": "آخر مزامنة {{age}}"
   }
 }

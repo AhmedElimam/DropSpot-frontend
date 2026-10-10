@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
@@ -86,27 +86,33 @@ function tone(state: ConnState): string {
 }
 
 /**
- * The live connection badge in every home header, beside the logo (founder 2026-10-10:
- * «a live status of connection … a smart icon», then «do a wifi icon and put some love on
- * the positioning»). A round status, not another square button, so it reads as a state next
- * to the brand rather than a fourth action beside the bell and the camera.
+ * The live connection line under the greeting on every home (founder 2026-10-10: «a live
+ * status of connection … a smart icon», «put some love on it» — chosen spot: under the
+ * greeting, so it reads as part of the page, not as another button).
  *
- * - The icon follows the link: Wi-Fi waves on Wi-Fi, bars on mobile data, crossed out offline.
- * - Lit waves / bars = signal; colour = state (green good, amber weak, red offline).
- * - A corner mark: turning arrows while sending, else how many things wait to be sent.
- *
- * Tap: a sheet with the whole story and «إرسال الآن». Nothing animates unless sending.
+ * A quiet pill: the icon that matches the link (Wi-Fi waves, or mobile bars; lit = signal,
+ * colour = state, crossed out offline) and one short phrase. Staff also get the one thing
+ * worth knowing next — what is waiting to be sent, or when it last synced. Tap: the sheet
+ * with the whole story and «إرسال الآن». Nothing animates unless a pass is sending.
  */
-export function ConnectionStatus() {
+export function ConnectionLine({ style }: { style?: StyleProp<ViewStyle> }) {
   const { t } = useTranslation();
   const net = useNetInfo();
   const weak = useOfflineStore((s) => s.weak);
   const syncing = useOfflineStore((s) => s.syncing);
   const pending = useOfflineStore((s) => s.pending);
   const rejected = useOfflineStore((s) => s.rejected);
+  const lastSyncAt = useOfflineStore((s) => s.lastSyncAt);
   const role = useAuthStore((s) => s.role);
   const staff = role === 'teacher' || role === 'assistant';
   const [open, setOpen] = useState(false);
+  // «آخر مزامنة منذ ٥ دقائق» stays true: a re-render a minute, no animation.
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!staff) return;
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, [staff]);
 
   const details = (net.details ?? {}) as { strength?: number | null; cellularGeneration?: string | null };
   const view = connectionView(
@@ -114,8 +120,24 @@ export function ConnectionStatus() {
     weak, syncing,
   );
   const c = tone(view.state);
-  const waiting = staff ? pending + rejected : 0;
   const stateLine = describe(view.state, String(net.type), details.cellularGeneration ?? null, t);
+  const gen = details.cellularGeneration ? details.cellularGeneration.toUpperCase() : null;
+  const main = view.state === 'offline' ? t('connection.line_offline')
+    : view.state === 'weak' ? t('connection.line_weak')
+    : view.state === 'syncing' ? t('connection.line_syncing')
+    : view.link === 'cellular' ? (gen ? t('connection.line_cellular_gen', { gen }) : t('connection.line_cellular'))
+    : t('connection.line_wifi');
+
+  // The second detail, staff only: waiting first (it is what they can act on), else the last sync.
+  const waiting = pending + rejected;
+  let extra: string | null = null;
+  if (staff && view.state !== 'syncing') {
+    if (waiting > 0) extra = t('connection.line_pending', { count: waiting });
+    else {
+      const age = syncAge(lastSyncAt, now);
+      if (age.key !== 'never') extra = t('connection.line_synced', { age: t(`connection.${age.key}`, { n: age.n !== undefined ? formatNumber(age.n) : undefined }) });
+    }
+  }
   const calm = view.state === 'online';
 
   return (
@@ -123,26 +145,28 @@ export function ConnectionStatus() {
       <TouchableOpacity
         onPress={() => setOpen(true)}
         activeOpacity={0.8}
-        hitSlop={6}
+        hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={t('connection.a11y', { state: stateLine })}
-        style={{
-          width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center',
-          backgroundColor: colors.onHeroChip,
-          // Calm when all is well; the ring takes the state's colour only when it matters.
-          borderWidth: calm ? 1 : 1.5, borderColor: calm ? colors.onHeroChipBorder : c,
-        }}
+        style={[{
+          alignSelf: 'center', maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 7,
+          height: 30, paddingHorizontal: 12, borderRadius: 999,
+          backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: calm ? colors.onHeroChipBorder : c,
+        }, style]}
       >
-        <Glyph view={view} color={c} faint={colors.onHeroFaint} size={21} />
-        {view.state === 'syncing' ? (
-          <View style={{ position: 'absolute', bottom: -3, insetInlineEnd: -3, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
-            <SyncArrows color="#fff" spinning size={10} />
-          </View>
-        ) : waiting > 0 ? (
-          <View style={{ position: 'absolute', top: -4, insetInlineEnd: -4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: rejected > 0 ? colors.danger : colors.primary, borderWidth: 2, borderColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{waiting > 9 ? '9+' : formatNumber(waiting)}</Text>
-          </View>
-        ) : null}
+        {/* Words stay in the hero's own ink (amber text on the light hero does not read); the
+            icon and the ring carry the state's colour. */}
+        {view.state === 'syncing'
+          ? <SyncArrows color={c} spinning size={14} />
+          : <Glyph view={view} color={c} faint={colors.onHeroFaint} size={16} />}
+        <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: calm ? fonts.medium : fonts.bold, fontSize: 12.5, color: calm ? colors.onHeroSoft : colors.onHero }}>
+          {main}
+          {extra ? (
+            <Text style={{ fontFamily: waiting > 0 ? fonts.bold : fonts.regular, color: waiting > 0 ? (rejected > 0 ? colors.danger : colors.onHero) : colors.onHeroFaint }}>
+              {`  ·  ${extra}`}
+            </Text>
+          ) : null}
+        </Text>
       </TouchableOpacity>
 
       <ConnectionSheet visible={open} onClose={() => setOpen(false)} view={view} stateLine={stateLine} staff={staff} />

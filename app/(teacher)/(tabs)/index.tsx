@@ -17,6 +17,7 @@ import type { TeacherSession } from '@/api/teacher';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
+import { ConnectionLine } from '@/components/ui/ConnectionStatus';
 import { TourTarget } from '@/tour/TourTarget';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
@@ -188,6 +189,8 @@ export default function TeacherHome() {
           {/* Name and date centred at the top (founder 2026-10-05). */}
           <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero, textAlign: 'center' }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{formatDayDate(new Date(now))}</Text>
+          {/* Live connection: Wi-Fi / mobile / offline, and what waits to be sent — tap for details. */}
+          <ConnectionLine style={{ marginTop: spacing.sm }} />
           <TeacherSwitcher />
           {/* The gap sits OUTSIDE the measured box, so the hole stops at the tiles and leaves the date line alone. */}
           <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>

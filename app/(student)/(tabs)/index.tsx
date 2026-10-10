@@ -20,6 +20,7 @@ import { formatDate, formatTime, formatNumber } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
+import { ConnectionLine } from '@/components/ui/ConnectionStatus';
 import { TourTarget } from '@/tour/TourTarget';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -104,6 +105,7 @@ export default function StudentDashboard() {
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>
             {formatDate(new Date())}
           </Text>
+          <ConnectionLine style={{ marginTop: spacing.sm }} />
 
           <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>
             {[
