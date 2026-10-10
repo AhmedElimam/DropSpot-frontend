@@ -30,6 +30,16 @@ describe('feature search', () => {
     expect(top('مدام روز')).toBe('rose');
   });
 
+  it('finds editing and cancelling a payment by the words people use', () => {
+    expect(top('تعديل تحصيل')).toBe('edit_collection');
+    expect(top('تعديل الفاتوره')).toBe('edit_collection');
+    expect(top('الغاء دفع')).toBe('cancel_payment');
+    expect(top('استرجاع')).toBe('cancel_payment');
+    expect(top('refund')).toBe('cancel_payment');
+    expect(top('درجات')).toBe('sessions');
+    expect(top('سكرتيرة')).toBe('assistants');
+  });
+
   it('forgives a typo, a missing hamza or ta marbuta, and half a word', () => {
     expect(top('مصاريف')).toBe('expenses');
     expect(top('مصرو')).toBe('expenses');

@@ -1,8 +1,8 @@
 import { track } from '@/lib/analytics';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { FlatList } from '@/components/ui/Refreshable';
-import { router, type Href } from 'expo-router';
+import { router, useNavigation, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
@@ -32,25 +32,38 @@ export default function SearchScreen() {
   const [q, setQ] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  // The sheets mount the first time they are asked for, never during the screen's arrival.
+  const [sheetsMounted, setSheetsMounted] = useState({ add: false, schedule: false });
   const inputRef = useRef<TextInput>(null);
+  const navigation = useNavigation();
+
+  // Focus once the fade has ended — raising the keyboard mid-transition is what stuttered.
+  useEffect(() => {
+    let done = false;
+    const focus = () => { if (!done) { done = true; inputRef.current?.focus(); } };
+    const unsub = navigation.addListener('transitionEnd' as never, focus);
+    const fallback = setTimeout(focus, 350); // a platform that skips the event
+    return () => { unsub(); clearTimeout(fallback); };
+  }, [navigation]);
 
   const visible = useMemo(
     () => FEATURES.filter((f) => !f.show || f.show({ isAssistant, can, flags: flags as Record<string, unknown> | undefined })),
     [isAssistant, can, flags],
   );
-  const search = useMemo(() => buildSearch(visible, t), [visible, t]);
+  const typing = q.trim().length >= 2;
+  // The index is built on the first keystroke, not while the screen arrives.
+  const search = useMemo(() => (typing ? buildSearch(visible, t) : null), [typing, visible, t]);
   const results: Indexed[] = useMemo(() => {
-    if (q.trim().length >= 2) return search(q);
+    if (typing && search) return search(q);
     return SUGGESTED.map((id) => visible.find((f) => f.id === id)).filter(Boolean).map((e) => ({
       entry: e as FeatureEntry, title: t((e as FeatureEntry).titleKey), sub: (e as FeatureEntry).subKey ? t((e as FeatureEntry).subKey!) : '', n_title: '', n_sub: '', n_keywords: [],
     }));
-  }, [q, search, visible, t]);
-  const typing = q.trim().length >= 2;
+  }, [q, typing, search, visible, t]);
 
   const open = (e: FeatureEntry) => {
     track('feature_search_open', { feature: e.id, typed: q.trim().length >= 2, position: Math.max(0, results.findIndex((r) => r.entry.id === e.id)) });
-    if (e.action === 'add_student') return setAddOpen(true);
-    if (e.action === 'schedule') return setScheduleOpen(true);
+    if (e.action === 'add_student') { setSheetsMounted((m) => ({ ...m, add: true })); return setAddOpen(true); }
+    if (e.action === 'schedule') { setSheetsMounted((m) => ({ ...m, schedule: true })); return setScheduleOpen(true); }
     if (e.href) router.push(e.href as Href);
   };
 
@@ -67,7 +80,6 @@ export default function SearchScreen() {
             ref={inputRef}
             value={q}
             onChangeText={setQ}
-            autoFocus
             placeholder={t('app_search.placeholder')}
             placeholderTextColor={colors.textTertiary}
             returnKeyType="search"
@@ -126,8 +138,8 @@ export default function SearchScreen() {
           ) : null
         }
       />
-      <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} />
-      <ScheduleToolsSheet visible={scheduleOpen} onClose={() => setScheduleOpen(false)} />
+      {sheetsMounted.add ? <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} /> : null}
+      {sheetsMounted.schedule ? <ScheduleToolsSheet visible={scheduleOpen} onClose={() => setScheduleOpen(false)} /> : null}
     </View>
   );
 }

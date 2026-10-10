@@ -31,7 +31,9 @@ export const TEACHER_TOUR: TourDef = {
     // (useTourScroll) and the row is brought into view. Routed, so stepping BACK to it from
     // the home never aims at the hidden settings tab. Teachers only: assistants have no videos.
     spot('settings:tutorials', 'tour.teacher.tutorials_title', 'tour.teacher.tutorials_body', '/(teacher)/(tabs)/settings' as Href, { notFor: ['assistant'] }),
-    spot('tab:index', 'tour.teacher.home_again_title', 'tour.teacher.home_again_body', T),
+    // Back on the home, on the search beside the bell (founder 2026-10-10): the step that brings
+    // the teacher home now also shows where to find anything — the tour stays two minutes.
+    spot('header:search', 'tour.teacher.search_title', 'tour.teacher.search_body', T),
     // The first thing to do, with the button that does it (founder 2026-10-06: «show at the
     // end that you start with the schedule and a course»). Not for an assistant.
     card('tour.teacher.done_title', 'tour.teacher.done_body', 'tour.teacher.done_cta', { href: '/(teacher)/courses/create' as Href, notFor: ['assistant'] }),

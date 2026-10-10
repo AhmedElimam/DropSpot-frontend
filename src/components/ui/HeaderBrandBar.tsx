@@ -58,9 +58,9 @@ export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scan
           </TouchableOpacity></TourTarget>
         ) : null}
         {onSearch ? (
-          <TouchableOpacity onPress={onSearch} accessibilityRole="button" accessibilityLabel="ابحث في التطبيق" style={iconButton()}>
+          <TourTarget id="header:search"><TouchableOpacity onPress={onSearch} accessibilityRole="button" accessibilityLabel="ابحث في التطبيق" style={iconButton()}>
             <Icon name="search" size={21} color={colors.onHero} outline />
-          </TouchableOpacity>
+          </TouchableOpacity></TourTarget>
         ) : null}
       </View>
 

@@ -151,6 +151,10 @@ export default function TeacherLayout() {
     // hidden tabs the freeze was for — those keep their own `freeze_hidden_tabs` switch).
     <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
+      {/* Search fades in like an overlay: a slide-in pushed the screen while iOS raised the
+          keyboard for it, and the two animations together stuttered (founder 2026-10-10). The
+          field takes focus only once the fade has ended (app/(teacher)/search.tsx). */}
+      <Stack.Screen name="search" options={{ animation: 'fade', animationDuration: 160 }} />
       {/* A «شروحات» video plays full screen over whatever opened it. Transparent, because the
           player paints its own black and fades it as you swipe it down — the screen behind shows
           through, like closing a TikTok video (founder 2026-10-09). */}
