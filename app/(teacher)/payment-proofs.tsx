@@ -1,6 +1,7 @@
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 // expo-image decodes to the rendered size. The old Image decoded every proof screenshot at
 // full resolution (a 12 MP shot is ~48 MB as a bitmap) for a 64 px thumbnail — twenty proofs

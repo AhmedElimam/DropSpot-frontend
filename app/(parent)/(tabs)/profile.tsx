@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { SupportContact } from '@/components/SupportContact';

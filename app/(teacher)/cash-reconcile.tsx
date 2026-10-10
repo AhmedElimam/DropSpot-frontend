@@ -1,6 +1,8 @@
+import { useDialogPersona } from '@/ui/dialog';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { memo, useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Switch } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
@@ -851,6 +853,8 @@ function MonthView({ m, onOpenWeek }: { m: CashMonth; onOpenWeek: (weekStart: st
 }
 
 export default function CashReconcileScreen() {
+  // Every popup here is مدام روز's (the system alert replacement, src/ui/dialog.tsx).
+  useDialogPersona('rose');
   const { t } = useTranslation();
   const rose = useRose();
   const insets = useSafeAreaInsets();

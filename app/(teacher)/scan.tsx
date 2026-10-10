@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Alert, Platform, type ViewStyle } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, type ViewStyle } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';

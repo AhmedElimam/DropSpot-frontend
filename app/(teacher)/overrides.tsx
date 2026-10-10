@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { FlatList } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';

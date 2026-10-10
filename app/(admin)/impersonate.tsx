@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, Modal, FlatList, ActivityIndicator, Switch, Alert,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ActivityIndicator, Switch } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

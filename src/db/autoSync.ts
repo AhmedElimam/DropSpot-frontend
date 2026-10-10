@@ -12,6 +12,8 @@ import client from '@/api/client';
 import { getPendingActions, deleteActions, markActionRejected } from './outbox';
 import { isNetworkFailure } from './marksSync';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { Alert } from '@/ui/dialog';
+import i18n from '@/i18n';
 
 /**
  * Window-bounded AUTOMATIC offline sync (main spec). Only the UNAMBIGUOUS case is
@@ -151,12 +153,13 @@ export async function runOutboxSync(): Promise<number> {
   for (const a of pending) {
     if (a.teacher_id !== null && activeTeacher !== null && a.teacher_id !== activeTeacher) continue;
     try {
-      await client.request({
+      const res = await client.request({
         method: a.method, url: a.url, data: a.body ? JSON.parse(a.body) : undefined,
         headers: { 'X-Idempotency-Key': a.key }, __replay: true,
       });
       await deleteActions([a.id]);
       synced++;
+      if (/\/teacher\/students\/record$|\/students\/enroll-by-scan$/.test(a.url)) noteStudentFlag(res?.data?.data ?? res?.data);
     } catch (e) {
       if (isNetworkFailure(e)) break;
       const status = (e as { response?: { status?: number; data?: { message?: unknown } } }).response?.status ?? 0;
@@ -168,6 +171,21 @@ export async function runOutboxSync(): Promise<number> {
   // Whatever those actions changed, every screen re-asks for (mounted ones now, the rest when opened).
   if (synced) void getQueryClient()?.invalidateQueries();
   return synced;
+}
+
+/**
+ * A student recorded or scanned with no connection and matched to an existing account on
+ * replay may carry a confirmed report from another teacher — the popup the door would have
+ * shown (founder 2026-10-10). Said once, in the app's own popup, when the replay lands.
+ */
+function noteStudentFlag(body: unknown): void {
+  const b = body as { student_name?: string; report_notice?: boolean; report_notice_message?: string | null; report_flag?: { label: string; tooltip?: string | null } | null } | null;
+  if (!b || (!b.report_notice && !b.report_flag)) return;
+  const lines = [
+    b.report_flag ? `⚑ ${b.report_flag.label}${b.report_flag.tooltip ? ` — ${b.report_flag.tooltip}` : ''}` : null,
+    b.report_notice_message ?? (b.report_notice ? i18n.t('offline.synced_flag_notice') : null),
+  ].filter(Boolean);
+  Alert.alert(i18n.t('offline.synced_flag_title', { name: b.student_name ?? '' }), lines.join('\n\n'));
 }
 
 /** The «إرسال الآن» button: one pass now, past the cool-down, never two at once. */

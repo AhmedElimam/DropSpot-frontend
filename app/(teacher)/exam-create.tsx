@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { View, TouchableOpacity, Alert } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';

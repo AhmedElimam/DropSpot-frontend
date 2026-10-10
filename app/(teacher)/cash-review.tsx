@@ -1,5 +1,7 @@
+import { useDialogPersona } from '@/ui/dialog';
 import { memo, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, KeyboardAvoidingView } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -162,6 +164,8 @@ function ItemCard({ e, review, isTeacher, onDecided }: { e: Expense; review: Wee
 }
 
 export default function CashReviewScreen() {
+  // Every popup here is مدام روز's (the system alert replacement, src/ui/dialog.tsx).
+  useDialogPersona('rose');
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();

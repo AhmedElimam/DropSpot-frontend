@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import i18n from '@/i18n';
 import { useOfflineStore } from '@/stores/offlineStore';

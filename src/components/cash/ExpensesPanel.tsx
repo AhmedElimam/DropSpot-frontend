@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Alert, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, KeyboardAvoidingView } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';

@@ -1,5 +1,7 @@
+import { useDialogPersona } from '@/ui/dialog';
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +24,8 @@ import { getExpenseThread, replyToThread } from '@/api/cash';
  * assistant can open it (server-enforced).
  */
 export default function ExpenseThreadScreen() {
+  // Every popup here is مدام روز's (the system alert replacement, src/ui/dialog.tsx).
+  useDialogPersona('rose');
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();

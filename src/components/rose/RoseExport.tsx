@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { Text, TouchableOpacity, ActivityIndicator, Alert, type StyleProp, type ViewStyle } from 'react-native';
+import { Text, TouchableOpacity, ActivityIndicator, type StyleProp, type ViewStyle } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, radius } from '@/theme/index';

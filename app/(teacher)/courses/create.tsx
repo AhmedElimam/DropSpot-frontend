@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';

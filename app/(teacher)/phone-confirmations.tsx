@@ -1,6 +1,7 @@
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

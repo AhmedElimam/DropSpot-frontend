@@ -1,6 +1,7 @@
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { FlatList, ScrollView } from '@/components/ui/Refreshable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, type Href } from 'expo-router';

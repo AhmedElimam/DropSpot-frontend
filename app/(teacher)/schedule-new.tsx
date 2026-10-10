@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Text, Alert, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
