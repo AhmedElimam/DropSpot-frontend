@@ -14,6 +14,7 @@ import { RichTextEditor, type RichTextEditorRef } from '@/components/RichTextEdi
 import { useCourses } from '@/hooks/useCourses';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { mintInviteLink, type MintedInviteLink } from '@/api/invitation';
+import { isNetworkFailure } from '@/db/marksSync';
 import { getPaymentMethods, saveBookingTemplate, uploadBookingLinkImage, type BookingTemplate } from '@/api/paymentMethods';
 import { isArabicName } from '@/utils/validators';
 
@@ -158,7 +159,7 @@ export default function InviteLink() {
       const res = await mintInviteLink(courseId, name.trim() || undefined, { collectPayment, issueInvoice });
       setMinted(res);
     } catch (e: any) {
-      Alert.alert(t('common.error'), e?.response?.data?.message ?? t('invite_link.failed'));
+      Alert.alert(t('common.error'), e?.response?.data?.message ?? (isNetworkFailure(e) ? t('offline.need_connection_link') : t('invite_link.failed')));
     } finally {
       setBusy(false);
     }

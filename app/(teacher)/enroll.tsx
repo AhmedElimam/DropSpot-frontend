@@ -4,6 +4,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useOfflineStore } from '@/stores/offlineStore';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +23,7 @@ import {
   scanPreCard,
   confirmPreCard,
   cancelPreCard,
+  enrollByScan,
   type PreCardScanStudent,
 } from '@/api/preCardInvitation';
 import { TeacherTip } from '@/components/TeacherTip';
@@ -31,6 +33,8 @@ import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/E
 type Review =
   | { kind: 'match'; student: LookupStudent; value: string }
   | { kind: 'precard'; invitationId: number; student: PreCardScanStudent }
+  /** No connection: the value is parked with the course and the terms, enrolled on replay. */
+  | { kind: 'offline'; value: string }
   | { kind: 'miss' }
   | null;
 
@@ -64,6 +68,14 @@ export default function TeacherEnroll() {
       if (busy || review || done || !course) return;
       if (data === lastRef.current.code && now - lastRef.current.at < 2500) return;
       lastRef.current = { code: data, at: now };
+      // No connection (or one that is dropping): nothing to ask the server. Keep the value,
+      // take the terms, and let the replay sort out pre-card token vs card.
+      const net = useOfflineStore.getState();
+      if (!net.online || net.weak) {
+        Vibration.vibrate(50);
+        setReview({ kind: 'offline', value: data });
+        return;
+      }
       setBusy(true);
       try {
         // 1. Is this a parent-generated pre-card invitation token? (structurally
@@ -135,6 +147,16 @@ export default function TeacherEnroll() {
       }),
   });
 
+  const enrollLater = useMutation({
+    mutationFn: (value: string) =>
+      enrollByScan({
+        value,
+        course_id: course!.course_id,
+        academic_session_id: course!.academic_session_id,
+        ...terms.payload(),
+      }),
+  });
+
   const flashDone = (name: string) => {
     setReview(null);
     terms.resetPerStudent();
@@ -169,6 +191,11 @@ export default function TeacherEnroll() {
       confirmPre.mutate(review.invitationId, {
         onSuccess: () => flashDone(name),
         onError: (e: any) => Alert.alert('', e?.response?.data?.message || 'تعذّر التسجيل'),
+      });
+    } else if (review.kind === 'offline') {
+      enrollLater.mutate(review.value, {
+        onSuccess: () => flashDone(t('offline.qr_saved_done')),
+        onError: (e: any) => Alert.alert('', e?.response?.data?.message || t('offline.qr_save_failed')),
       });
     }
   };
@@ -325,8 +352,15 @@ export default function TeacherEnroll() {
                       <View style={{ alignSelf: 'flex-start', marginBottom: spacing.sm }}>
                         <Badge text="دعوة بواسطة ولي الأمر — قبل البطاقة" color={colors.brand} />
                       </View>
+                    ) : review.kind === 'offline' ? (
+                      <View style={{ alignSelf: 'flex-start', marginBottom: spacing.sm }}>
+                        <Badge text={t('offline.qr_saved_badge')} color={colors.warningDark} />
+                      </View>
                     ) : null}
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{review.student.name}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{review.kind === 'offline' ? t('offline.qr_saved_title') : review.student.name}</Text>
+                    {review.kind === 'offline' ? (
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textSecondary, marginTop: 4 }}>{t('offline.qr_saved_hint', { course: course?.course_name ?? '' })}</Text>
+                    ) : null}
                     {review.kind === 'precard' && review.student.grade ? (
                       <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>{review.student.grade}</Text>
                     ) : null}
@@ -342,8 +376,8 @@ export default function TeacherEnroll() {
                 </View>
                 {/* Cross-tenant disclosure: a confirmed report's colored flag (label +
                     color); legacy confirmed-without-flag falls back to the fixed notice. */}
-                {review.student.report_flag ? <FlagChip flag={review.student.report_flag} /> : null}
-                {review.student.report_notice && review.student.report_notice_message ? (
+                {review.kind !== 'offline' && review.student.report_flag ? <FlagChip flag={review.student.report_flag} /> : null}
+                {review.kind !== 'offline' && review.student.report_notice && review.student.report_notice_message ? (
                   <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: review.kind === 'precard' ? colors.warning : colors.danger, marginTop: spacing.md }}>
                     {review.student.report_notice_message}
                   </Text>
@@ -363,7 +397,7 @@ export default function TeacherEnroll() {
                   title="قبول وتسجيل"
                   variant="success"
                   onPress={accept}
-                  loading={enroll.isPending || confirmPre.isPending}
+                  loading={enroll.isPending || confirmPre.isPending || enrollLater.isPending}
                   disabled={terms.overpaid || terms.isLoading}
                   style={{ flex: 2 }}
                 />

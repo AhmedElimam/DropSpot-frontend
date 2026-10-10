@@ -21,6 +21,11 @@ export interface QueueRule {
   path: RegExp;
   /** Key under offline.actions in ar.json — the line shown on the sync screen. */
   label: string;
+  /**
+   * Rewrites the body as it is parked: what the server should do about questions nobody
+   * will be there to answer when the request finally arrives.
+   */
+  park?: (body: Record<string, unknown>) => Record<string, unknown>;
 }
 
 const N = '\\d+';
@@ -45,8 +50,14 @@ export const QUEUE_RULES: QueueRule[] = [
   { method: 'post', path: /^\/teacher\/expenses$/, label: 'expense' },
   { method: 'post', path: new RegExp(`^/teacher/students/${N}/(report|parent-unreachable|flag-parent-number|edit-request)$`), label: 'student_note' },
   { method: 'post', path: new RegExp(`^/(billing-overrides|teacher/allowance-setting|teacher/students/${N}/allowance-block)$`), label: 'allowance' },
-  { method: 'post', path: /^\/teacher\/students\/record(\/order-cards)?$/, label: 'record_student' },
-  { method: 'post', path: /^\/invitations(\/link)?$/, label: 'invite' },
+  // A door record replayed later: the «student already exists» popups are decided by the
+  // server's rules (dedupe_decision = auto) — a decision the teacher already made stays.
+  { method: 'post', path: /^\/teacher\/students\/record$/, label: 'record_student', park: (b) => (b.dedupe_decision ? b : { ...b, dedupe_decision: 'auto' }) },
+  { method: 'post', path: /^\/teacher\/students\/record\/order-cards$/, label: 'record_student' },
+  // A scanned QR / card with the course and the terms, enrolled on replay (pre-card token or card).
+  { method: 'post', path: /^\/students\/enroll-by-scan$/, label: 'qr_enroll' },
+  // A phone invitation can wait; minting a LINK cannot — the teacher needs the URL in hand.
+  { method: 'post', path: /^\/invitations$/, label: 'invite' },
   { method: 'post', path: new RegExp(`^/teacher/enrollments/${N}/(prior-months|prior-billing-months|settled-before-joining|cycle-position|cycle-amount|backfill-attendance|billing-year/(add|cancel))$`), label: 'enrollment' },
   { method: 'post', path: /^\/teacher\/(courses|schedules)$/, label: 'course' },
   { method: 'patch', path: new RegExp(`^/teacher/courses/${N}(/schedules/${N})?$`), label: 'course' },
@@ -70,13 +81,25 @@ export function bodyString(data: unknown): string | null {
   return typeof data === 'string' ? data : JSON.stringify(data);
 }
 
+/** The body to park: parsed if axios already serialised it, then the rule's rewrite. */
+export function parkedBody(rule: QueueRule, data: unknown): string | null {
+  if (!rule.park) return bodyString(data);
+  let obj: unknown = data;
+  if (typeof data === 'string') {
+    try { obj = JSON.parse(data); } catch { return data; }
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return bodyString(data);
+  return JSON.stringify(rule.park(obj as Record<string, unknown>));
+}
+
 /** «تحصيل · 300 ج.م» — the line on the sync screen. */
 export function queuedLabel(rule: QueueRule, body: string | null): string {
   let text = i18n.t(`offline.actions.${rule.label}`);
   try {
-    const parsed = body ? (JSON.parse(body) as { amount?: unknown }) : null;
+    const parsed = body ? (JSON.parse(body) as { amount?: unknown; student_name?: unknown }) : null;
     const amount = Number(parsed?.amount);
     if (Number.isFinite(amount) && amount > 0) text += ` · ${formatNumber(amount)} ج.م`;
+    if (typeof parsed?.student_name === 'string' && parsed.student_name.trim()) text += ` · ${parsed.student_name.trim()}`;
   } catch {
     // not JSON — the label alone
   }

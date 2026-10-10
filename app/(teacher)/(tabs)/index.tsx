@@ -140,14 +140,16 @@ export default function TeacherHome() {
   const scan = (s: SessionCardData) => goToScan(s as TeacherSession);
 
   const attention = [
-    offlineAttention > 0 && { key: 'sync', icon: 'warning' as IconName, title: pending > 0 ? t('offline.pending_any', { count: pending }) : t('teacher.rejected_title', { count: rejected }), sub: t('teacher.tap_to_reconcile'), badge: offlineAttention, href: '/(teacher)/reconcile' },
-    (phonesQ.data?.count ?? 0) > 0 && { key: 'phones', icon: 'phone' as IconName, title: t('home.phones_title'), sub: t('home.phones_sub', { count: phonesQ.data?.count ?? 0 }), badge: phonesQ.data?.count ?? 0, href: '/(teacher)/phone-confirmations' },
-    (bookingQ.data?.length ?? 0) > 0 && { key: 'booking', icon: 'bell' as IconName, title: t('booking_requests.title'), sub: t('booking_requests.manage_sub'), badge: bookingQ.data?.length ?? 0, href: '/(teacher)/booking-requests' },
-    cashAttention > 0 && { key: 'cash', icon: 'money' as IconName, title: cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title, sub: cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : t('home.cash_attention_sub'), badge: cashAttention, href: '/(teacher)/cash-reconcile' },
-    (actionsQ.data?.length ?? 0) > 0 && { key: 'actions', icon: 'eye' as IconName, title: t('assistant_actions.title'), sub: t('assistant_actions.manage_sub'), badge: actionsQ.data?.length ?? 0, href: '/(teacher)/assistant-actions' },
-    openTickets > 0 && { key: 'tickets', icon: 'tickets' as IconName, title: t('home.tickets_title'), sub: t('home.tickets_sub'), badge: openTickets, href: '/(teacher)/tickets' },
-    pendingComplaints > 0 && { key: 'complaints', icon: 'note' as IconName, title: t('home.complaints_title'), sub: t('home.complaints_sub', { count: pendingComplaints }), badge: pendingComplaints, href: '/(teacher)/complaints' },
-  ].filter(Boolean) as { key: string; icon: IconName; title: string; sub: string; badge: number; href: string }[];
+    offlineAttention > 0 && { key: 'sync', icon: (rejected > 0 ? 'error' : 'refresh') as IconName, short: rejected > 0 ? t('connection.rejected') : t('connection.pending'), tone: rejected > 0 ? 'danger' : 'warn', title: pending > 0 ? t('offline.pending_any', { count: pending }) : t('teacher.rejected_title', { count: rejected }), sub: t('teacher.tap_to_reconcile'), badge: offlineAttention, href: '/(teacher)/reconcile' },
+    (phonesQ.data?.count ?? 0) > 0 && { key: 'phones', icon: 'phone' as IconName, short: t('home.phones_title'), tone: 'warn', title: t('home.phones_title'), sub: t('home.phones_sub', { count: phonesQ.data?.count ?? 0 }), badge: phonesQ.data?.count ?? 0, href: '/(teacher)/phone-confirmations' },
+    (bookingQ.data?.length ?? 0) > 0 && { key: 'booking', icon: 'bell' as IconName, short: t('booking_requests.title'), tone: 'warn', title: t('booking_requests.title'), sub: t('booking_requests.manage_sub'), badge: bookingQ.data?.length ?? 0, href: '/(teacher)/booking-requests' },
+    cashAttention > 0 && { key: 'cash', icon: 'money' as IconName, short: rose.named ? rose.name : t('home.cash_short'), tone: 'warn', title: cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title, sub: cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : t('home.cash_attention_sub'), badge: cashAttention, href: '/(teacher)/cash-reconcile' },
+    (actionsQ.data?.length ?? 0) > 0 && { key: 'actions', icon: 'eye' as IconName, short: t('home.actions_short'), tone: 'warn', title: t('assistant_actions.title'), sub: t('assistant_actions.manage_sub'), badge: actionsQ.data?.length ?? 0, href: '/(teacher)/assistant-actions' },
+    openTickets > 0 && { key: 'tickets', icon: 'tickets' as IconName, short: t('home.tickets_short'), tone: 'warn', title: t('home.tickets_title'), sub: t('home.tickets_sub'), badge: openTickets, href: '/(teacher)/tickets' },
+    pendingComplaints > 0 && { key: 'complaints', icon: 'note' as IconName, short: t('home.complaints_title'), tone: 'warn', title: t('home.complaints_title'), sub: t('home.complaints_sub', { count: pendingComplaints }), badge: pendingComplaints, href: '/(teacher)/complaints' },
+  ].filter(Boolean) as { key: string; icon: IconName; short: string; tone: 'warn' | 'danger'; title: string; sub: string; badge: number; href: string }[];
+  // The one that needs a decision first, then by how much is waiting.
+  attention.sort((a, b) => (a.tone === b.tone ? b.badge - a.badge : a.tone === 'danger' ? -1 : 1));
   const attentionTotal = attention.reduce((n, a) => n + a.badge, 0);
 
   // Five shortcuts, مدام روز in the middle (founder 2026-10-08), her portrait bare — no tile.
@@ -255,10 +257,28 @@ export default function TeacherHome() {
           </View>
           </TourTarget>
 
+          {/* «يحتاج انتباهك»: a two-column grid of small chips (icon, short name, count)
+              instead of a full card per item — seven rows once ate half the page (founder
+              2026-10-10). The count in the hero's tile is the same number. */}
           {attention.length > 0 ? (
             <View style={{ marginTop: spacing.xl }}>
-              <SectionHead icon="warning" color={colors.warning} title={t('home.needs_you')} />
-              {attention.map((a) => <HubRow key={a.key} icon={a.icon} title={a.title} sub={a.sub} badge={a.badge} onPress={() => router.push(a.href as Href)} leading={a.key === 'cash' && rose.named ? <RosePortrait size={42} nod={false} /> : undefined} />)}
+              <SectionHead icon="warning" color={colors.warning} title={t('home.needs_you')} action={t('home.attention_count', { count: attentionTotal })} />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                {attention.map((a) => (
+                  <TouchableOpacity key={a.key} onPress={() => router.push(a.href as Href)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={`${a.title} — ${a.sub}`}
+                    style={{ width: '48.5%', minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: a.tone === 'danger' ? colors.danger : colors.border }}>
+                    {a.key === 'cash' && rose.named ? <RosePortrait size={30} nod={false} /> : (
+                      <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: (a.tone === 'danger' ? colors.danger : colors.warning) + '1F', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name={a.icon} size={16} color={a.tone === 'danger' ? colors.danger : colors.warningDark} />
+                      </View>
+                    )}
+                    <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 17, color: colors.textPrimary }} numberOfLines={2}>{a.short}</Text>
+                    <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: a.tone === 'danger' ? colors.danger : colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{a.badge > 99 ? '99+' : formatNumber(a.badge)}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           ) : null}
 

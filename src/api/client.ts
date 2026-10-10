@@ -1,6 +1,6 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { uuid } from '@/utils/uuid';
-import { bodyString, matchQueueRule, queuedLabel, syntheticQueuedResponse } from './offlineQueue';
+import { matchQueueRule, parkedBody, queuedLabel, syntheticQueuedResponse } from './offlineQueue';
 import { enqueueAction } from '@/db/outbox';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { Platform } from 'react-native';
@@ -143,7 +143,7 @@ client.interceptors.request.use(async (config) => {
 
 /** Store the request for replay and tell the person it is saved. */
 async function parkRequest(config: InternalAxiosRequestConfig): Promise<void> {
-  const body = bodyString(config.data);
+  const body = parkedBody(config.__queueRule!, config.data);
   const label = queuedLabel(config.__queueRule!, body);
   await enqueueAction({
     key: String(config.headers['X-Idempotency-Key']),

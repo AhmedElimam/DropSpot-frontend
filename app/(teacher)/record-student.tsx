@@ -14,6 +14,8 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { isArabicName, isEgyptPhone } from '@/utils/validators';
 import { getInvitationOptions, type InvitationCourseOption } from '@/api/invitation';
 import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
+import { useTranslation } from 'react-i18next';
+import { isQueued } from '@/api/offlineQueue';
 import { recordStudent, orderCardsForNewlyAdded, type DedupeMatch, type RecordStudentPayload, type ParentRelationship, type ExistingStudentOffer } from '@/api/studentRecord';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
@@ -26,6 +28,7 @@ const field = () => ({
 });
 
 export default function RecordStudent() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   // The home entry is hidden when the switch is off, but the route can still be reached
   // from history or a deep link — and the API would refuse anyway. Say so plainly rather
@@ -75,7 +78,7 @@ export default function RecordStudent() {
     !terms.overpaid &&
     !saving;
 
-  function afterCreated(enrollmentId: number | null) {
+  function afterCreated(enrollmentId: number | null, note?: string) {
     setCount((c) => c + 1);
     if (enrollmentId) setEnrollmentIds((ids) => [...ids, enrollmentId]);
     setName('');
@@ -85,8 +88,8 @@ export default function RecordStudent() {
     setRelationship(null);
     // Keep the per-course answers (position, دفعة on/off, secures); drop the per-student money.
     terms.resetPerStudent();
-    setFlash(`تم إضافة ${count + 1} طالب`);
-    setTimeout(() => setFlash(null), 1800);
+    setFlash(note ?? `تم إضافة ${count + 1} طالب`);
+    setTimeout(() => setFlash(null), note ? 3000 : 1800);
     nameRef.current?.focus();
   }
 
@@ -108,6 +111,11 @@ export default function RecordStudent() {
       const res = await recordStudent(payload);
       setDedupe(null);
       setOwnStudent(null);
+      if (isQueued(res)) {
+        // Parked on the phone: the server links or creates when the connection returns.
+        afterCreated(null, t('offline.record_queued'));
+        return;
+      }
       afterCreated(res.enrollment_id);
     } catch (e) {
       if (isAxiosError(e) && e.response?.status === 409 && e.response.data?.code === 'EXISTING_STUDENT') {

@@ -1,5 +1,5 @@
 import type { InternalAxiosRequestConfig } from 'axios';
-import { bodyString, isQueued, matchQueueRule, queuedLabel, syntheticQueuedResponse } from '../offlineQueue';
+import { bodyString, isQueued, matchQueueRule, parkedBody, queuedLabel, syntheticQueuedResponse } from '../offlineQueue';
 import { formatNumber } from '@/utils/format';
 
 jest.mock('@/i18n', () => ({ t: (k: string) => k }));
@@ -13,6 +13,8 @@ describe('matchQueueRule', () => {
     expect(matchQueueRule('patch', '/notifications/9/read')?.label).toBe('notification');
     expect(matchQueueRule('post', '/tickets/5/messages')?.label).toBe('message');
     expect(matchQueueRule('post', '/teacher/students/record')?.label).toBe('record_student');
+    expect(matchQueueRule('post', '/students/enroll-by-scan')?.label).toBe('qr_enroll');
+    expect(matchQueueRule('post', '/invitations')?.label).toBe('invite');
     expect(matchQueueRule('post', '/teacher/courses')?.label).toBe('course');
   });
 
@@ -23,6 +25,7 @@ describe('matchQueueRule', () => {
       ['post', '/teacher/enrollments/4/terminate'], ['delete', '/teacher/locations/2'], ['delete', '/assistants/3'],
       ['post', '/checkin/scan'], ['post', '/teacher/sessions/offline-marks'], ['post', '/teacher/sessions/8/mark'],
       ['post', '/teacher/cash/reconciliation/2/close'], ['get', '/teacher/students/4/collect'],
+      ['post', '/invitations/link'], ['post', '/pre-card-invitations/scan'], ['post', '/students/enroll-by-card'],
     ]) {
       expect(matchQueueRule(m, u)).toBeNull();
     }
@@ -30,6 +33,20 @@ describe('matchQueueRule', () => {
 
   it('ignores the host, the API prefix and the query string', () => {
     expect(matchQueueRule('post', 'https://drosspot.app/api/v1/teacher/expenses?x=1')?.label).toBe('expense');
+  });
+});
+
+describe('parkedBody', () => {
+  it('lets the server decide a parked door record, unless the teacher already did', () => {
+    const rule = matchQueueRule('post', '/teacher/students/record')!;
+    expect(JSON.parse(parkedBody(rule, { student_name: 'أحمد', course_id: 1 })!)).toEqual({ student_name: 'أحمد', course_id: 1, dedupe_decision: 'auto' });
+    expect(JSON.parse(parkedBody(rule, '{"student_name":"أحمد","dedupe_decision":"link","link_student_id":5}')!)).toMatchObject({ dedupe_decision: 'link' });
+    expect(parkedBody(matchQueueRule('post', '/students/enroll-by-scan')!, { value: 'x' })).toBe('{"value":"x"}');
+  });
+
+  it('names the student on the sync screen', () => {
+    const rule = matchQueueRule('post', '/teacher/students/record')!;
+    expect(queuedLabel(rule, parkedBody(rule, { student_name: 'أحمد محمد' }))).toBe('offline.actions.record_student · أحمد محمد');
   });
 });
 

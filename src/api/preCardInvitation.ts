@@ -66,3 +66,15 @@ export async function confirmPreCard(
 export async function cancelPreCard(invitationId: number): Promise<void> {
   await client.post(`/pre-card-invitations/${invitationId}/cancel`);
 }
+
+/**
+ * A scan with no connection: the value (pre-card token or card), the course and the terms
+ * go to the server as ONE request when the connection returns, which sorts out which it was
+ * and enrols (src/api/offlineQueue.ts parks it). Offline it answers «queued» at once.
+ */
+export async function enrollByScan(
+  payload: { value: string; course_id: number; academic_session_id: number; session_schedule_id?: number } & EnrollmentTermsInput,
+): Promise<{ enrollment_id?: number; student_id?: number; via?: 'pre_card' | 'card'; queued?: boolean }> {
+  const { data } = await client.post('/students/enroll-by-scan', payload);
+  return (data.data ?? data) as { enrollment_id?: number; student_id?: number; via?: 'pre_card' | 'card'; queued?: boolean };
+}
