@@ -1,6 +1,6 @@
 import { track } from '@/lib/analytics';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Keyboard } from 'react-native';
 import { FlatList } from '@/components/ui/Refreshable';
 import { router, useNavigation, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -37,13 +37,23 @@ export default function SearchScreen() {
   const inputRef = useRef<TextInput>(null);
   const navigation = useNavigation();
 
-  // Focus once the fade has ended — raising the keyboard mid-transition is what stuttered.
+  // The keyboard never moves while the screen does — two animations at once is what stuttered,
+  // both ways (founder 2026-10-10). It rises once the push has ended, and drops the instant a
+  // swipe back (or the back button) begins: UIKit's will-disappear arrives as transitionStart
+  // { closing: true } at the very start of the gesture.
   useEffect(() => {
     let done = false;
     const focus = () => { if (!done) { done = true; inputRef.current?.focus(); } };
-    const unsub = navigation.addListener('transitionEnd' as never, focus);
-    const fallback = setTimeout(focus, 350); // a platform that skips the event
-    return () => { unsub(); clearTimeout(fallback); };
+    const offEnd = navigation.addListener('transitionEnd' as never, (e: { data?: { closing?: boolean } }) => { if (!e?.data?.closing) focus(); });
+    const offStart = navigation.addListener('transitionStart' as never, (e: { data?: { closing?: boolean } }) => {
+      if (e?.data?.closing) {
+        done = true;
+        inputRef.current?.blur();
+        Keyboard.dismiss();
+      }
+    });
+    const fallback = setTimeout(focus, 450); // a platform that skips the event
+    return () => { offEnd(); offStart(); clearTimeout(fallback); };
   }, [navigation]);
 
   const visible = useMemo(
@@ -71,7 +81,7 @@ export default function SearchScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       {/* The field — focused on arrival, RTL, with a clear button. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+        <TouchableOpacity onPress={() => { inputRef.current?.blur(); Keyboard.dismiss(); router.back(); }} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Icon name="forward" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 48, paddingHorizontal: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.brand, ...shadows.sm }}>
