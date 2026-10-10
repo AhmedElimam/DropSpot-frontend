@@ -19,6 +19,7 @@ import { MarkRow, MarksHeader, type SessionKind } from '@/components/session/Ses
 import { sessionPhase } from '@/utils/sessionPhase';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
+import { isNetworkFailure } from '@/db/marksSync';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import type { SessionAttendee, SwapInAttendee } from '@/api/teacherSessions';
@@ -63,7 +64,7 @@ export default function SessionDetailScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: s, isLoading, refetch } = useSessionDetail(id);
+  const { data: s, isLoading, refetch, error } = useSessionDetail(id);
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const controls = useSessionControls(id!);
   const { can } = useActiveAbilities();
@@ -297,7 +298,10 @@ export default function SessionDetailScreen() {
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : !s ? (
-        <EmptyState icon="calendar" title={t('teacher.session_not_found')} />
+        // Offline and this sheet was never saved on the phone: say that, not «could not load».
+        isNetworkFailure(error)
+          ? <EmptyState icon="warning" title={t('offline.not_saved_title')} message={t('offline.not_saved_session')} />
+          : <EmptyState icon="calendar" title={t('teacher.session_not_found')} />
       ) : (
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <FlatList showsVerticalScrollIndicator={false}

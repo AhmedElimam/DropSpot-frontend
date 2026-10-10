@@ -16,6 +16,7 @@ import { SessionCard, type SessionCardData } from '@/components/session/TeacherS
 import { formatNumber, formatDayDate } from '@/utils/format';
 import { goToScan } from '@/utils/sessionNav';
 import { DAY_SHORT, dayKey as key, addDays, weekStart, phasesByDay } from '@/utils/sessionDays';
+import { isNetworkFailure } from '@/db/marksSync';
 import { DayMarker } from '@/components/session/DayMarker';
 import { SessionMonthPicker } from '@/components/session/SessionMonthPicker';
 import type { TeacherSession } from '@/api/teacher';
@@ -43,6 +44,9 @@ export default function TeacherSessions() {
   const from = key(days[0]);
   const to = key(days[6]);
   const q = useTeacherSessionsWindow(from, to);
+  // The week asked for has no saved copy and the server did not answer (a week never opened
+  // online, offline): what shows underneath is another week's placeholder or nothing.
+  const unsaved = q.isError && isNetworkFailure(q.error) && (!q.data || q.isPlaceholderData);
   const { refreshing, onRefresh } = usePullRefresh(q.refetch);
   const now = useMinuteClock();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -138,7 +142,16 @@ export default function TeacherSessions() {
           </View>
         }
         ListEmptyComponent={
-          q.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} /> : (
+          q.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} /> : unsaved ? (
+            // No answer and nothing saved for this week: say so, never «no sessions» (which reads as a fact).
+            <View style={{ alignItems: 'center', paddingTop: spacing.xl4, paddingHorizontal: spacing.xl }}>
+              <View style={{ width: 72, height: 72, borderRadius: 24, backgroundColor: colors.warningLight, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="warning" size={34} color={colors.warningDark} />
+              </View>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginTop: spacing.md }}>{t('offline.not_saved_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>{t('offline.not_saved_week')}</Text>
+            </View>
+          ) : (
             <View style={{ alignItems: 'center', paddingTop: spacing.xl4 }}>
               <View style={{ width: 72, height: 72, borderRadius: 24, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="calendar" size={34} color={colors.accent} />
