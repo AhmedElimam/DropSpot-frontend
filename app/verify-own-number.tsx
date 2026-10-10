@@ -172,7 +172,7 @@ export default function VerifyOwnNumberScreen() {
                   ref={codeRef}
                   value={code}
                   onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
-                  keyboardType="number-pad"
+                  keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="sms-otp"
                   maxLength={6}
                   placeholder="------"
                   placeholderTextColor={colors.textTertiary}

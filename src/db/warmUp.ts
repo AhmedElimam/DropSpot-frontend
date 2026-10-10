@@ -5,6 +5,7 @@ import { getTeacherSessions, getSessionDetail, type SessionsPage } from '@/api/t
 import { weekWindow, dayKey } from '@/utils/sessionDays';
 import { cacheSessionDetail, cachedSessionAge } from './sessionDetailCache';
 import { getQueryClient } from '@/lib/queryClientRef';
+import { InteractionManager } from 'react-native';
 import { useOfflineStore } from '@/stores/offlineStore';
 
 const FRESH_MS = 10 * 60 * 1000;
@@ -22,6 +23,21 @@ const DETAIL_CAP = 20;
  * with the schedule refresh on open and every ten minutes of foreground returns. Silent on
  * any failure (an assistant without the ability simply gets a 403 that nothing shows).
  */
+let warmTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Run the warm-up a little later, after the screen has settled — never while the first
+ * frames draw (founder 2026-10-10: nothing may stutter on a weak phone). Several asks in a
+ * row collapse into one run.
+ */
+export function scheduleWarmUp(delayMs: number): void {
+  if (warmTimer) clearTimeout(warmTimer);
+  warmTimer = setTimeout(() => {
+    warmTimer = null;
+    InteractionManager.runAfterInteractions(() => { void warmUpOfflineScreens(); });
+  }, delayMs);
+}
+
 export async function warmUpOfflineScreens(): Promise<void> {
   const qc = getQueryClient();
   if (!qc || !useOfflineStore.getState().online) return;
@@ -47,11 +63,14 @@ export async function warmUpOfflineScreens(): Promise<void> {
  * data for offline mode»): this week's list under the very key the tab asks for, then the
  * attendance sheet of every session from the start of the week up to today — newest first,
  * cancelled ones skipped, each at most once every 30 min (today's are also warmed by
- * prefetchTodayRosters). Sequential, silent on failure.
+ * prefetchTodayRosters) — the sheets on Wi-Fi only. Sequential, silent on failure.
  */
 async function warmUpSessions(): Promise<void> {
   const qc = getQueryClient();
   if (!qc || !useOfflineStore.getState().online) return;
+  // The list is small and always worth it; the sheets (one request each) wait for Wi-Fi.
+  // Today's own sheets still come on any link (prefetchTodayRosters).
+  const sheetsAllowed = useOfflineStore.getState().link === 'wifi';
   const today = new Date();
   const { from, to } = weekWindow(today);
   let page: SessionsPage | undefined;
@@ -64,6 +83,7 @@ async function warmUpSessions(): Promise<void> {
   } catch {
     return;
   }
+  if (!sheetsAllowed) return;
   const todayKey = dayKey(today);
   const due = (page?.items ?? [])
     .filter((s) => s.status !== 'cancelled' && (s.date ?? (s.scheduled_at ? dayKey(new Date(s.scheduled_at)) : '')) <= todayKey)

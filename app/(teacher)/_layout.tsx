@@ -7,7 +7,8 @@ import { useOfflineStore } from '@/stores/offlineStore';
 import { initOfflineScans } from '@/db/offlineScans';
 import { initOfflineMarks } from '@/db/offlineMarks';
 import { prefetchTodayRosters } from '@/db/prefetchRosters';
-import { warmUpOfflineScreens } from '@/db/warmUp';
+import { scheduleWarmUp } from '@/db/warmUp';
+import { pruneSessionDetailCache } from '@/db/sessionDetailCache';
 import { initOutbox } from '@/db/outbox';
 import { triggerAutoSync } from '@/db/autoSync';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
@@ -43,7 +44,7 @@ export default function TeacherLayout() {
   useEffect(() => {
     if (!isAuthenticated) return;
     let active = true;
-    Promise.all([initOfflineScans(), initOfflineMarks(), initOutbox()]).then(() => {
+    Promise.all([initOfflineScans(), initOfflineMarks(), initOutbox(), pruneSessionDetailCache()]).then(() => {
       if (active) useOfflineStore.getState().refresh();
     });
     // Part 2: on open, enforce the date staleness guard and refresh the ACTIVE
@@ -52,7 +53,7 @@ export default function TeacherLayout() {
     // Today's rosters are pre-fetched after the schedule so the attendance sheet opens
     // offline for sessions the teacher never opened while connected.
     syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-      .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); void warmUpOfflineScreens(); });
+      .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); scheduleWarmUp(5000); });
     let lastRefresh = { at: Date.now(), day: new Date().toDateString() };
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') {
@@ -66,7 +67,7 @@ export default function TeacherLayout() {
         if (due) lastRefresh = { at: Date.now(), day: today };
         // Refresh the cache first so auto-sync runs against fresh windows.
         syncScheduleCacheOnOpen(due && useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-          .finally(() => { void triggerAutoSync(); if (due) { void prefetchTodayRosters(); void warmUpOfflineScreens(); } });
+          .finally(() => { void triggerAutoSync(); if (due) { void prefetchTodayRosters(); scheduleWarmUp(2000); } });
       }
     });
     return () => {
@@ -106,7 +107,7 @@ export default function TeacherLayout() {
     const unsub = NetInfo.addEventListener((state) => {
       const online = !!state.isConnected && state.isInternetReachable !== false;
       const wasOnline = useOfflineStore.getState().online;
-      useOfflineStore.getState().setOnline(online);
+      useOfflineStore.getState().setOnline(online, state.type === 'wifi' ? 'wifi' : state.type === 'cellular' ? 'cellular' : 'other');
       if (online && !wasOnline) void triggerAutoSync();
     });
     // A weak link that answers again is the same moment: send what was parked meanwhile.

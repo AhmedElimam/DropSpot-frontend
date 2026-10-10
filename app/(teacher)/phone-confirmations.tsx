@@ -331,7 +331,7 @@ export default function PhoneConfirmationsScreen() {
                   <TextInput
                     value={otpCode}
                     onChangeText={setOtpCode}
-                    keyboardType="number-pad"
+                    keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="sms-otp"
                     maxLength={8}
                     placeholder="٦ أرقام"
                     placeholderTextColor={colors.textTertiary}

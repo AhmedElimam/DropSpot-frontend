@@ -14,6 +14,8 @@ interface OfflineState {
   rejected: number;
   /** NetInfo's word: an interface with a route out (the teacher layout keeps it current). */
   online: boolean;
+  /** What the link is: the heavy warm-up (a week of attendance sheets) runs on Wi-Fi only. */
+  link: 'wifi' | 'cellular' | 'other';
   /**
    * The link is there but requests are dropping: set by the API client when one gets no
    * answer, cleared by the next answer or after WEAK_MS. While weak, queueable actions are
@@ -33,7 +35,7 @@ interface OfflineState {
   // loses nothing.
   autoSynced: number;
   refresh: () => Promise<void>;
-  setOnline: (online: boolean) => void;
+  setOnline: (online: boolean, link?: 'wifi' | 'cellular' | 'other') => void;
   noteNetworkFailure: () => void;
   noteNetworkOk: () => void;
   noteQueued: (label: string) => void;
@@ -49,6 +51,7 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
   pending: 0,
   rejected: 0,
   online: true,
+  link: 'other',
   weak: false,
   lastQueued: null,
   syncing: false,
@@ -67,7 +70,7 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
       // DB not ready yet — leave the counts as-is.
     }
   },
-  setOnline: (online) => set({ online }),
+  setOnline: (online, link) => set(link ? { online, link } : { online }),
   noteNetworkFailure: () => {
     if (weakTimer) clearTimeout(weakTimer);
     weakTimer = setTimeout(() => { weakTimer = null; set({ weak: false }); }, WEAK_MS);
