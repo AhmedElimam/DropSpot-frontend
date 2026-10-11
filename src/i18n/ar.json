@@ -1494,6 +1494,9 @@
     "ticket_reason_required": "يرجى اختيار سبب المراسلة"
   },
   "teacher": {
+    "founding_member": "عضو مؤسس",
+    "stat_groups": "مجموعة",
+    "member_since": "عضو منذ",
     "scan_mode": "وضع المسح",
     "live_now": "جارية الآن",
     "position_of": "الحصة {{n}} من {{of}}",

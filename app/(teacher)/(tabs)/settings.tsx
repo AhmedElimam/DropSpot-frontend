@@ -21,6 +21,8 @@ import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
 import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useTeacherCourses, useTeacherStudents } from '@/hooks/useStudents';
+import { formatDate, formatNumber } from '@/utils/format';
 import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
 
 /**
@@ -41,6 +43,8 @@ export default function TeacherSettings() {
   const logout = useLogout();
   const isAssistant = user?.user_type_id === 6;
   const { data: reviseOn } = useReviseMode();
+  const { data: students } = useTeacherStudents();
+  const { data: courses } = useTeacherCourses();
   const { data: flags } = useFeatureFlags();
   const setRevise = useSetReviseMode();
 
@@ -57,21 +61,32 @@ export default function TeacherSettings() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xl }}
         >
+          {/* Who: the logo or the generated mark in a ring, the name, then role and number as
+              two quiet chips (founder 2026-10-11: «some UI love on the top part»). */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            {/* The teacher's own logo when they uploaded one, else their generated mark. */}
-            <View style={{ borderRadius: 22, overflow: 'hidden', ...shadows.sm }}>
-              {user?.logo_url ? (
-                <Image source={{ uri: user.logo_url }} style={{ width: 64, height: 64, backgroundColor: colors.surface }} contentFit="cover" accessibilityLabel={user?.name ?? ''} />
-              ) : (
-                <GeneratedAvatar seed={avatarSeed.user(user?.id, user?.name ?? '?')} size={64} square label={user?.name ?? ''} />
-              )}
+            <View style={{ padding: 3, borderRadius: 26, borderWidth: 2, borderColor: colors.onHeroChipBorder, backgroundColor: colors.onHeroChip }}>
+              <View style={{ borderRadius: 20, overflow: 'hidden', ...shadows.sm }}>
+                {user?.logo_url ? (
+                  <Image source={{ uri: user.logo_url }} style={{ width: 66, height: 66, backgroundColor: colors.surface }} contentFit="cover" accessibilityLabel={user?.name ?? ''} />
+                ) : (
+                  <GeneratedAvatar seed={avatarSeed.user(user?.id, user?.name ?? '?')} size={66} square label={user?.name ?? ''} />
+                )}
+              </View>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.onHero }} numberOfLines={1}>{user?.name ?? ''}</Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }} numberOfLines={1}>
-                {isAssistant ? t('teacher.role_assistant') : t('teacher.role_teacher')}
-                {user?.phone ? ` · ${user.phone}` : ''}
-              </Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 22, lineHeight: 30, color: colors.onHero }} numberOfLines={2}>{user?.name ?? ''}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <Icon name={isAssistant ? 'profile' : 'teacher'} size={13} color={colors.onHero} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }}>{isAssistant ? t('teacher.role_assistant') : t('teacher.role_teacher')}</Text>
+                </View>
+                {user?.phone ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Icon name="phone" size={13} color={colors.onHero} />
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.onHero }}>{user.phone}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
           </View>
           {user?.is_distinguished_member ? (
@@ -84,10 +99,26 @@ export default function TeacherSettings() {
             <Surface id="teacher.settings.member_badge">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, alignSelf: 'flex-start', backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: 'rgba(255,209,102,0.9)', paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999 }}>
               <Icon name="star" size={14} color="#FFD166" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.onHero }}>عضو مؤسس</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.onHero }}>{t('teacher.founding_member')}</Text>
             </View>
             </Surface>
           ) : null}
+          {/* The three numbers that describe this account: from the cached lists the home
+              already warms, so they show offline too and cost no new request of their own. */}
+          <Surface id="teacher.settings.profile_stats">
+          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+            {[
+              { value: students ? formatNumber(students.length) : '—', label: t('teacher.tab_students') },
+              { value: courses ? formatNumber(courses.length) : '—', label: t('teacher.stat_groups') },
+              { value: user?.created_at ? formatDate(user.created_at, { month: 'short', year: 'numeric' }) : '—', label: t('teacher.member_since') },
+            ].map((x) => (
+              <View key={x.label} style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.onHeroChipBorder, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 18, lineHeight: 24, color: colors.onHero }} numberOfLines={1} adjustsFontSizeToFit>{x.value}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.onHeroSoft }} numberOfLines={1}>{x.label}</Text>
+              </View>
+            ))}
+          </View>
+          </Surface>
         </LinearGradient>
         </Surface>
 

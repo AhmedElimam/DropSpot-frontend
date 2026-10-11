@@ -25,6 +25,7 @@ import { Icon } from '@/components/ui/Icon';
 import { TeacherTip } from '@/components/TeacherTip';
 import { PayDuesModal } from '@/components/teacher/PayDuesModal';
 import { Surface } from '@/ui/surfaces';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { ScanPending } from '@/api/teacher';
 
 /** True when a scanned student owes anything (bill / booklet(s) / booking). */
@@ -57,6 +58,10 @@ function bracket(pos: 'tl' | 'tr' | 'bl' | 'br'): ViewStyle {
 const FRAME_W = 250;
 const FRAME_H = 190;
 const FRAME_SLACK = 56;
+const WIN_W = Dimensions.get('window').width;
+const WIN_H = Dimensions.get('window').height;
+/** The shade outside the aiming box — still, cheap, and it makes the box the bright part. */
+const VIGNETTE = 'rgba(0,0,0,0.42)';
 
 type Pt = { x: number; y: number };
 
@@ -553,6 +558,9 @@ export default function TeacherScan() {
     );
   }
 
+  // The bracket colour says the mode without words: amber for money, lilac for a revision.
+  const frameTint = payMode ? colors.accentWarm : revisionMode ? '#C4B5FD' : '#FFFFFF';
+
   return (
     <Surface id="screen.teacher.scan" screen>
     <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -590,19 +598,28 @@ export default function TeacherScan() {
 
       {/* Header: session / revision / payment context */}
       <Surface id="teacher.scan.header">
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, backgroundColor: payMode ? 'rgba(11,59,52,0.86)' : revisionMode ? 'rgba(76,29,149,0.82)' : 'rgba(23,28,59,0.72)', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+      <LinearGradient
+        colors={payMode ? ['rgba(9,66,58,0.96)', 'rgba(9,66,58,0.55)'] : revisionMode ? ['rgba(66,24,132,0.96)', 'rgba(66,24,132,0.55)'] : ['rgba(13,18,48,0.96)', 'rgba(13,18,48,0.55)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
+      >
         <Surface id="teacher.scan.header.back_button">
         <TouchableOpacity
           onPress={() => (router.canGoBack() ? router.back() : router.replace((payMode ? '/(teacher)/pending-collections' : revisionMode ? '/(teacher)/revisions' : '/(teacher)/(tabs)') as Href))}
           accessibilityRole="button"
           accessibilityLabel={t('teacher.switch_session')}
-          style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
+          style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', justifyContent: 'center', alignItems: 'center' }}
         >
           <Icon name="forward" size={22} color="#fff" />
         </TouchableOpacity>
         </Surface>
+        {/* The mode, at a glance: a tinted chip with its own icon before the words. */}
+        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: payMode ? 'rgba(231,145,58,0.28)' : revisionMode ? 'rgba(196,181,253,0.28)' : 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name={payMode ? 'money' : revisionMode ? 'book' : 'scan'} size={20} color="#fff" />
+        </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, letterSpacing: 0.2, color: 'rgba(255,255,255,0.72)' }}>
             {payMode ? t('desk_ui.pay_mode_header') : revisionMode ? t('teacher.revision_scanning_for') : t('teacher.scanning_for')}
           </Text>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }} numberOfLines={1}>
@@ -633,34 +650,43 @@ export default function TeacherScan() {
             delayLongPress={700}
             accessibilityRole="button"
             accessibilityLabel={locked ? t('desk_ui.lock_release_hint') : t('desk_ui.lock_engage')}
-            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: locked ? '#b91c1c' : 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
+            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: locked ? '#b91c1c' : 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: locked ? '#dc2626' : 'rgba(255,255,255,0.22)', justifyContent: 'center', alignItems: 'center' }}
           >
             <Icon name="lock" size={20} color="#fff" />
           </TouchableOpacity>
           </Surface>
         ) : null}
         <Surface id="teacher.scan.header.torch_button">
-        <TouchableOpacity onPress={() => setTorch((v) => !v)} accessibilityRole="button" accessibilityLabel={t('teacher.torch')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: torch ? colors.accentWarm : 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
+        <TouchableOpacity onPress={() => setTorch((v) => !v)} accessibilityRole="button" accessibilityLabel={t('teacher.torch')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: torch ? colors.accentWarm : 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: torch ? colors.accentWarm : 'rgba(255,255,255,0.22)', justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="eye" size={22} color="#fff" />
         </TouchableOpacity>
         </Surface>
-      </View>
+      </LinearGradient>
       </Surface>
 
       {/* Scan frame + hint (hidden while the scanner is locked) */}
       {!locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup && !noSession && (
         <Surface id="teacher.scan.frame">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
-          <View style={{ width: 250, height: 190, borderRadius: 22, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)' }}>
-            <View style={bracket('tl')} />
-            <View style={bracket('tr')} />
-            <View style={bracket('bl')} />
-            <View style={bracket('br')} />
+          {/* A vignette around the aiming box — four still rectangles, no compositing — so the
+              card's spot is the bright part of the picture (founder 2026-10-11: «UI love on
+              the camera pages»). The box is where the scanner reads (FRAME_W/H). */}
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: (WIN_H - FRAME_H) / 2, backgroundColor: VIGNETTE }} />
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: (WIN_H - FRAME_H) / 2, backgroundColor: VIGNETTE }} />
+          <View style={{ position: 'absolute', left: 0, top: (WIN_H - FRAME_H) / 2, width: (WIN_W - FRAME_W) / 2, height: FRAME_H, backgroundColor: VIGNETTE }} />
+          <View style={{ position: 'absolute', right: 0, top: (WIN_H - FRAME_H) / 2, width: (WIN_W - FRAME_W) / 2, height: FRAME_H, backgroundColor: VIGNETTE }} />
+          <View style={{ width: FRAME_W, height: FRAME_H, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }}>
+            <View style={[bracket('tl'), { borderColor: frameTint }]} />
+            <View style={[bracket('tr'), { borderColor: frameTint }]} />
+            <View style={[bracket('bl'), { borderColor: frameTint }]} />
+            <View style={[bracket('br'), { borderColor: frameTint }]} />
           </View>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: '#fff', marginTop: spacing.lg, textAlign: 'center', paddingHorizontal: spacing.xl }}>
-            {busy ? t('teacher.checking') : t('teacher.point_camera')}
-          </Text>
-          {busy ? <ActivityIndicator color="#fff" style={{ marginTop: spacing.md }} /> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.xl, paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(13,18,48,0.62)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
+            {busy ? <ActivityIndicator color="#fff" size="small" /> : <Icon name={payMode ? 'money' : 'card'} size={16} color={frameTint} />}
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff', textAlign: 'center' }}>
+              {busy ? t('teacher.checking') : t('teacher.point_camera')}
+            </Text>
+          </View>
         </View>
         </Surface>
       )}
@@ -718,7 +744,7 @@ export default function TeacherScan() {
         <TouchableOpacity
           onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
-          style={{ position: 'absolute', bottom: insets.bottom + spacing.xxxl, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: revisionMode ? colors.accentWarm : 'rgba(255,255,255,0.16)', borderRadius: radius.full }}
+          style={{ position: 'absolute', bottom: insets.bottom + spacing.xxxl, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: revisionMode ? colors.accentWarm : 'rgba(13,18,48,0.62)', borderWidth: 1, borderColor: revisionMode ? colors.accentWarm : 'rgba(255,255,255,0.22)', borderRadius: radius.full }}
         >
           <Icon name={revisionMode ? 'card' : 'book'} size={18} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>
@@ -1075,15 +1101,19 @@ export default function TeacherScan() {
       {feedback ? (
         <Surface id="teacher.scan.feedback">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: feedback.success ? 'rgba(31,147,102,0.96)' : 'rgba(203,58,76,0.96)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }} pointerEvents="none">
-          <View style={{ width: 110, height: 110, borderRadius: 55, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name={feedback.success ? 'success' : 'warning'} size={64} color="#fff" />
+          <View style={{ width: 124, height: 124, borderRadius: 62, borderWidth: 3, borderColor: 'rgba(255,255,255,0.35)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: 'rgba(255,255,255,0.22)', justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name={feedback.success ? 'success' : 'warning'} size={60} color="#fff" />
+            </View>
           </View>
-          {feedback.student_name ? (
-            <Text style={{ fontFamily: fonts.bold, fontSize: 30, color: '#fff', textAlign: 'center', marginTop: spacing.lg }}>{feedback.student_name}</Text>
-          ) : null}
-          <Text style={{ fontFamily: fonts.medium, fontSize: 19, lineHeight: 28, color: '#fff', textAlign: 'center', marginTop: spacing.sm }}>
-            {feedback.message || (feedback.success ? t('teacher.checked_in') : t('teacher.scan_failed'))}
-          </Text>
+          <View style={{ alignSelf: 'stretch', marginTop: spacing.xl, paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, borderRadius: radius.xl, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
+            {feedback.student_name ? (
+              <Text style={{ fontFamily: fonts.bold, fontSize: 28, lineHeight: 36, color: '#fff', textAlign: 'center' }} numberOfLines={2}>{feedback.student_name}</Text>
+            ) : null}
+            <Text style={{ fontFamily: fonts.medium, fontSize: 18, lineHeight: 27, color: 'rgba(255,255,255,0.92)', textAlign: 'center', marginTop: feedback.student_name ? 4 : 0 }}>
+              {feedback.message || (feedback.success ? t('teacher.checked_in') : t('teacher.scan_failed'))}
+            </Text>
+          </View>
           {/* PASSIVE flags — a reminder only. No buttons; auto-dismisses with the flash.
               Collection happens later on the Pending Collections screen, never here. */}
           {feedback.success && feedback.pending && (feedback.pending.bill || !!feedback.pending.booklets?.length || feedback.pending.booking) ? (
