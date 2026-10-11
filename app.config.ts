@@ -159,6 +159,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   'expo-router',
   'expo-sqlite',
   'expo-secure-store',
+  // Periodic headless wake-up (src/background/refreshTask.ts): iOS gets the `processing`
+  // background mode + the permitted BGTaskScheduler identifier, Android its WorkManager.
+  'expo-background-task',
   // Bundle the custom notification tones into BOTH platforms (iOS app bundle +
   // Android res/raw). iOS references notify_ios by filename in the APNs payload;
   // Android plays notify_android via the 'drosspot-alerts' channel (push-notifications.ts).

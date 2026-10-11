@@ -25,11 +25,13 @@ export const queryPersister = createAsyncStoragePersister({
   deserialize: (raw) => dropOtherDays(JSON.parse(raw)),
 });
 
+/** A new app version may reshape what the screens expect: start that version clean. (The background refresh writes with the same stamp.) */
+export const persistBuster = Constants.expoConfig?.version ?? '0';
+
 export const persistOptions: PersistQueryClientProviderProps['persistOptions'] = {
   persister: queryPersister,
   maxAge: PERSIST_MAX_AGE_MS,
-  // A new app version may reshape what the screens expect: start that version clean.
-  buster: Constants.expoConfig?.version ?? '0',
+  buster: persistBuster,
   dehydrateOptions: { shouldDehydrateQuery: (q) => shouldPersistQuery(q) },
 };
 

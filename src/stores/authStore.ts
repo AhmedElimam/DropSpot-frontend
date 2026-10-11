@@ -280,6 +280,9 @@ export const useAuthStore = create<AuthState>((set, get) => {
         getQueryClient()?.clear();
         const { forgetPersistedQueries } = await import('@/lib/queryPersist');
         await forgetPersistedQueries();
+        // The phone stops waking for a session that is gone (src/background/refreshTask.ts).
+        const { unregisterBackgroundRefresh } = await import('@/background/refreshTask');
+        await unregisterBackgroundRefresh();
         const { clearOutbox } = await import('@/db/outbox');
         await clearOutbox();
         const { resetAnalytics } = await import('@/lib/analytics');

@@ -11,7 +11,7 @@ import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import type { TeacherSession } from '@/api/teacher';
 import { syncOfflineBatch } from '@/api/teacher';
 import { getPendingScans, getRejectedScans, deleteScan, requeueScan, type OfflineScan } from '@/db/offlineScans';
-import { getRejectedMarks, deleteMarks, requeueMark, type OfflineMark } from '@/db/offlineMarks';
+import { getPendingMarks, getRejectedMarks, deleteMarks, requeueMark, type OfflineMark } from '@/db/offlineMarks';
 import { computeBuckets, type ScanBucket } from '@/db/buckets';
 import { suggestSessionId, applyBatchResults } from '@/db/reconcile';
 import { getFreshScheduleEntries, getFreshScheduleEntry, buildGradeResolver } from '@/db/scheduleCache';
@@ -20,7 +20,8 @@ import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { getPendingActions, getRejectedActions, type OutboxAction } from '@/db/outbox';
-import { PendingActionsSection, RejectedActionsSection } from '@/components/teacher/OutboxSections';
+import { PendingActionsSection, PendingMarksSection, RejectedActionsSection } from '@/components/teacher/OutboxSections';
+import { backgroundLastRun } from '@/background/lastRun';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -38,7 +39,9 @@ export default function Reconcile() {
   const { data: sessions, refetch: refetchSessions } = useTeacherTodaySessions();
   const [buckets, setBuckets] = useState<ScanBucket[] | null>(null);
   const [rejected, setRejected] = useState<OfflineScan[]>([]);
+  const [pendingMarks, setPendingMarks] = useState<OfflineMark[]>([]);
   const [rejectedMarks, setRejectedMarks] = useState<OfflineMark[]>([]);
+  const [bgRunAt, setBgRunAt] = useState<number | null>(null);
   const [pendingActions, setPendingActions] = useState<OutboxAction[]>([]);
   const [rejectedActions, setRejectedActions] = useState<OutboxAction[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -55,16 +58,20 @@ export default function Reconcile() {
     // against the entry for ITS OWN stamped teacher_id (not the active one), so an
     // assistant's teacher-A scans never grade-check against teacher B's roster.
     const activeTeacherId = stampTeacherId(useAuthStore.getState());
-    const [pending, rej, entries, activeEntry, rejMarks, pendActs, rejActs] = await Promise.all([
+    const [pending, rej, entries, activeEntry, pendMarks, rejMarks, pendActs, rejActs, bgAt] = await Promise.all([
       getPendingScans(),
       getRejectedScans(),
       getFreshScheduleEntries(),
       getFreshScheduleEntry(activeTeacherId),
+      getPendingMarks().catch(() => [] as OfflineMark[]),
       getRejectedMarks().catch(() => [] as OfflineMark[]),
       getPendingActions().catch(() => [] as OutboxAction[]),
       getRejectedActions().catch(() => [] as OutboxAction[]),
+      backgroundLastRun(),
     ]);
+    setPendingMarks(pendMarks);
     setRejectedMarks(rejMarks);
+    setBgRunAt(bgAt);
     setPendingActions(pendActs);
     setRejectedActions(rejActs);
     // Grade-aware bucketing (Part 1): a known grade change splits the bucket, same
@@ -90,7 +97,8 @@ export default function Reconcile() {
     [oldestPending],
   );
 
-  const nothingLeft = buckets !== null && buckets.length === 0 && rejected.length === 0 && rejectedMarks.length === 0 && pendingActions.length === 0 && rejectedActions.length === 0;
+  const nothingLeft = buckets !== null && buckets.length === 0 && rejected.length === 0 && pendingMarks.length === 0 && rejectedMarks.length === 0 && pendingActions.length === 0 && rejectedActions.length === 0;
+  const rejectedTotal = rejected.length + rejectedMarks.length + rejectedActions.length;
   // Prefer the live list; fall back to today's cached schedule when offline (§2).
   const effectiveSessions = sessions && sessions.length > 0 ? sessions : cachedSessions;
 
@@ -128,14 +136,21 @@ export default function Reconcile() {
       {buckets === null ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl4 }} />
       ) : nothingLeft ? (
-        <EmptyState icon="success" title={t('teacher.nothing_pending')} message={t('teacher.nothing_pending_hint')} />
+        <View style={{ flex: 1 }}>
+          <EmptyState icon="success" title={t('teacher.nothing_pending')} message={t('teacher.nothing_pending_hint')} />
+          <BackgroundRunLine at={bgRunAt} />
+        </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom }} showsVerticalScrollIndicator={false}>
+          {/* The same sum the header badge shows, split by kind — so what is listed below is
+              visibly ALL of it (founder 2026-10-11: «doesn't fully show data»). */}
+          <OnPhoneStrip scans={pendingCount} marks={pendingMarks.length} actions={pendingActions.length} rejected={rejectedTotal} bgAt={bgRunAt} />
           {pendingCount > 0 ? <DurabilityBanner count={pendingCount} aging={aging} /> : null}
 
           {rejected.length > 0 ? <RejectedSection scans={rejected} onChange={load} /> : null}
           {rejectedMarks.length > 0 ? <RejectedMarksSection marks={rejectedMarks} onChange={load} /> : null}
           {rejectedActions.length > 0 ? <RejectedActionsSection actions={rejectedActions} onChange={load} /> : null}
+          {pendingMarks.length > 0 ? <PendingMarksSection marks={pendingMarks} onChange={load} /> : null}
           {pendingActions.length > 0 ? <PendingActionsSection actions={pendingActions} onChange={load} /> : null}
 
           {buckets.map((bucket, i) => (
@@ -150,6 +165,36 @@ export default function Reconcile() {
         </ScrollView>
       )}
     </View>
+  );
+}
+
+/** «على هاتفك: ٣ مسحات · علامتان · إجراء» — the badge's sum, by kind, and the last background pass. */
+function OnPhoneStrip({ scans, marks, actions, rejected, bgAt }: { scans: number; marks: number; actions: number; rejected: number; bgAt: number | null }) {
+  const { t } = useTranslation();
+  const parts = [
+    scans > 0 ? t('offline.on_phone_scans', { count: scans }) : null,
+    marks > 0 ? t('offline.on_phone_marks', { count: marks }) : null,
+    actions > 0 ? t('offline.on_phone_actions', { count: actions }) : null,
+    rejected > 0 ? t('offline.on_phone_rejected', { count: rejected }) : null,
+  ].filter(Boolean);
+  if (!parts.length) return null;
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md }}>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary, lineHeight: 20 }}>
+        {t('offline.on_phone')} {parts.join(' · ')}
+      </Text>
+      <BackgroundRunLine at={bgAt} inline />
+    </View>
+  );
+}
+
+/** When the phone last refreshed and sent on its own, in the background (src/background/refreshTask.ts). */
+function BackgroundRunLine({ at, inline }: { at: number | null; inline?: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, lineHeight: 18, marginTop: inline ? 2 : spacing.sm, textAlign: inline ? undefined : 'center', paddingHorizontal: inline ? 0 : spacing.lg }}>
+      {at ? t('offline.bg_last_run', { time: hhmm(new Date(at).toISOString()) }) : t('offline.bg_never')}
+    </Text>
   );
 }
 

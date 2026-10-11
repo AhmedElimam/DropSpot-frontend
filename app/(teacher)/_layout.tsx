@@ -12,6 +12,7 @@ import { pruneSessionDetailCache } from '@/db/sessionDetailCache';
 import { initOutbox } from '@/db/outbox';
 import { triggerAutoSync } from '@/db/autoSync';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
+import { registerBackgroundRefresh } from '@/background/refreshTask';
 import { registerForPushNotifications } from '@/utils/push-notifications';
 import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
@@ -47,6 +48,9 @@ export default function TeacherLayout() {
     Promise.all([initOfflineScans(), initOfflineMarks(), initOutbox(), pruneSessionDetailCache()]).then(() => {
       if (active) useOfflineStore.getState().refresh();
     });
+    // The phone keeps sending and refreshing on its own while the app is closed
+    // (src/background/refreshTask.ts). Never for an admin on a teacher's screens.
+    if (!useAuthStore.getState().impersonation?.active) void registerBackgroundRefresh();
     // Part 2: on open, enforce the date staleness guard and refresh the ACTIVE
     // teacher's schedule entry when online. Fire-and-forget — never blocks the UI,
     // and a failure just leaves the guard to fall back to manual reconciliation.

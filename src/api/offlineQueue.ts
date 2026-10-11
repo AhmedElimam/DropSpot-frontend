@@ -106,6 +106,57 @@ export function queuedLabel(rule: QueueRule, body: string | null): string {
   return text;
 }
 
+/** One readable line of a parked body on the sync screen: «المبلغ: ٣٠٠ ج.م». */
+export interface QueuedDetail { label: string; value: string }
+
+/** Never shown: identifiers, tokens and the rule's own rewrite — nothing a person reads. */
+const HIDDEN_FIELDS = /(^|_)(id|ids|uuid|token|key|code)$|^dedupe_decision$|^idempotency/i;
+const MAX_DETAILS = 8;
+
+/**
+ * What a parked action carries, as a person reads it (founder 2026-10-11: the sync screen
+ * «doesn't fully show data»): every plain field of the body in the order it was sent, with
+ * its Arabic name when one is known (offline.fields.*) and its value spelled out — money
+ * in ج.م, a status in words, yes/no for a switch. Ids and tokens stay out.
+ */
+export function queuedDetails(body: string | null): QueuedDetail[] {
+  if (!body) return [];
+  let parsed: unknown;
+  try { parsed = JSON.parse(body); } catch { return []; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
+  const out: QueuedDetail[] = [];
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (HIDDEN_FIELDS.test(k) || v == null || v === '') continue;
+    const value = detailValue(k, v);
+    if (value === null) continue;
+    out.push({ label: named(`offline.fields.${k}`, k.replace(/_/g, ' ')), value });
+    if (out.length >= MAX_DETAILS) break;
+  }
+  return out;
+}
+
+/** The translation when there is one, else the fallback (i18next hands the key back when a string is missing). */
+function named(key: string, fallback: string): string {
+  const tr = i18n.t(key);
+  return typeof tr === 'string' && tr && tr !== key ? tr : fallback;
+}
+
+function detailValue(k: string, v: unknown): string | null {
+  if (typeof v === 'boolean') return named(v ? 'offline.values.yes' : 'offline.values.no', v ? 'نعم' : 'لا');
+  if (typeof v === 'number') return /amount|price|fee|paid|total|cost/.test(k) ? `${formatNumber(v)} ج.م` : formatNumber(v);
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (!t) return null;
+    if (/^[a-z][a-z_]*$/.test(t)) return named(`offline.values.${t}`, t);
+    return t.length > 140 ? `${t.slice(0, 137)}…` : t;
+  }
+  if (Array.isArray(v)) {
+    const plain = v.filter((x) => typeof x === 'string' || typeof x === 'number').map(String);
+    return plain.length ? plain.join('، ') : (v.length ? formatNumber(v.length) : null);
+  }
+  return null;
+}
+
 export interface Queued { queued: true; offline: true; message: string }
 
 /**
