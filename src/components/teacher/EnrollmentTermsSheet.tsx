@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, ActivityIndicator } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, control } from '@/theme/index';
 import { getEnrollmentTerms, type BookingSecures, type EnrollmentTermsDefaults, type EnrollmentTermsInput } from '@/api/enrollmentTerms';
@@ -102,10 +104,11 @@ export function useEnrollmentTerms(courseId: number | null): EnrollmentTermsHand
   return { courseId, data: q.data, isLoading: q.isLoading, state, set, payload, resetPerStudent, securesEffective, overpaid };
 }
 
+/** `label` is an i18n key: invites.secures_session | invites.secures_booklet | invites.secures_flat */
 const SECURES: { key: BookingSecures; label: string }[] = [
-  { key: 'session', label: 'الحصص' },
-  { key: 'booklet', label: 'الملزمة' },
-  { key: 'flat', label: 'حجز مبدئي' },
+  { key: 'session', label: 'invites.secures_session' },
+  { key: 'booklet', label: 'invites.secures_booklet' },
+  { key: 'flat', label: 'invites.secures_flat' },
 ];
 
 const money = (n: number) => `${Math.round(n * 100) / 100} ج.م`;
@@ -123,14 +126,14 @@ export function summarizeTerms(h: EnrollmentTermsHandle): string {
   if (!d) return '';
   const parts: string[] = [];
   const pos = h.state.joinsAt ?? d.cycle.position;
-  parts.push(`الحصة ${pos}/${d.cycle.threshold}`);
-  if (h.state.bookingOn === false) parts.push('بدون دفعة');
+  parts.push(i18n.t('billing_sheets.summary_session_position', { pos, total: d.cycle.threshold }));
+  if (h.state.bookingOn === false) parts.push(i18n.t('teacher.no_booking'));
   else if (h.state.bookingOn) {
     const amt = h.state.amount.trim() !== '' ? Number(h.state.amount) : null;
-    parts.push(amt != null ? `دفعة ${money(amt)}${h.state.paid.trim() !== '' ? ` (مدفوع ${money(Number(h.state.paid))})` : ''}` : 'دفعة افتراضية');
+    parts.push(amt != null ? `${i18n.t('billing_sheets.summary_booking', { amount: money(amt) })}${h.state.paid.trim() !== '' ? ` (${i18n.t('billing_sheets.summary_booking_paid', { paid: money(Number(h.state.paid)) })})` : ''}` : i18n.t('billing_sheets.summary_booking_default'));
   }
-  if (d.booklet.offered) parts.push(h.state.bookletPaid ? 'ملزمة مدفوعة' : 'ملزمة غير مدفوعة');
-  if (h.state.cyclePaid) parts.push(h.state.cyclePaidAmount.trim() !== '' ? `رسوم الشهر مدفوعة مسبقًا (${money(Number(h.state.cyclePaidAmount))})` : 'رسوم الشهر مدفوعة مسبقًا');
+  if (d.booklet.offered) parts.push(h.state.bookletPaid ? i18n.t('billing_sheets.summary_booklet_paid') : i18n.t('billing_sheets.summary_booklet_unpaid'));
+  if (h.state.cyclePaid) parts.push(h.state.cyclePaidAmount.trim() !== '' ? i18n.t('billing_sheets.summary_cycle_paid_amount', { amount: money(Number(h.state.cyclePaidAmount)) }) : i18n.t('billing_sheets.summary_cycle_paid'));
   return parts.join(' · ');
 }
 
@@ -139,6 +142,7 @@ interface Props {
 }
 
 export function EnrollmentTermsSheet({ terms }: Props) {
+  const { t } = useTranslation();
   const d = terms.data;
   const s = terms.state;
 
@@ -186,10 +190,10 @@ export function EnrollmentTermsSheet({ terms }: Props) {
       {/* 1. Where the class is, and where this student starts. */}
       <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
-          المقرر الآن على الحصة {d.cycle.position} من {d.cycle.threshold}
+          {t('billing_sheets.course_at_session', { pos: d.cycle.position, total: d.cycle.threshold })}
         </Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textTertiary, marginTop: 2, marginBottom: spacing.sm }}>
-          الطالب يبدأ من الحصة رقم — ما قبلها لا يُحاسَب عليه. إن لم تختر، يُحاسَب من موضع المقرر الآن.
+          {t('billing_sheets.start_session_hint')}
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
           {Array.from({ length: d.cycle.threshold }, (_, i) => i + 1).map((n) => {
@@ -203,7 +207,7 @@ export function EnrollmentTermsSheet({ terms }: Props) {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, lineHeight: 20, color: active ? '#fff' : colors.textPrimary }}>{n}</Text>
                 {pos?.label ? (
                   <Text style={{ fontFamily: fonts.regular, fontSize: 10, lineHeight: 13, color: active ? 'rgba(255,255,255,0.85)' : colors.textTertiary }} numberOfLines={1}>
-                    {pos.label}{pos.is_past ? '' : ' · قادمة'}
+                    {pos.label}{pos.is_past ? '' : ` · ${t('session_ui.upcoming')}`}
                   </Text>
                 ) : null}
               </TouchableOpacity>
@@ -212,7 +216,7 @@ export function EnrollmentTermsSheet({ terms }: Props) {
         </ScrollView>
         {remainingFor != null ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, marginTop: spacing.sm }}>
-            {`يُحاسَب على ${remainingFor} ${remainingFor === 1 ? 'حصة متبقية' : 'حصص متبقية'} من هذه الدورة${remainingCost != null ? ` — ${money(remainingCost)}` : ''}، والدورة القادمة كاملة.`}
+            {t('billing_sheets.billed_for_remaining', { count: remainingFor, unit: remainingFor === 1 ? t('billing_sheets.remaining_session_one') : t('billing_sheets.remaining_session_many'), cost: remainingCost != null ? ` — ${money(remainingCost)}` : '' })}
           </Text>
         ) : null}
       </View>
@@ -221,45 +225,45 @@ export function EnrollmentTermsSheet({ terms }: Props) {
       <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>دفعة الحجز</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('teacher.due_booking')}</Text>
             {!d.booking.required ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>لا تطلب دفعة افتراضيًا — يمكنك طلبها من هذا الطالب فقط.</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{t('billing_sheets.booking_not_required_hint')}</Text>
             ) : null}
           </View>
           <Switch value={!!s.bookingOn} onValueChange={(v) => terms.set({ bookingOn: v })} trackColor={{ true: colors.brand, false: colors.border }} />
         </View>
         {s.bookingOn ? (
           <View style={{ marginTop: spacing.md }}>
-            <Text style={label()}>تؤمّن</Text>
+            <Text style={label()}>{t('billing_sheets.secures_label')}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
               {SECURES.map((o) => {
                 const active = terms.securesEffective === o.key;
                 return (
                   <TouchableOpacity key={o.key} onPress={() => terms.set({ secures: o.key })} activeOpacity={0.8}
                     style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1.5, borderColor: active ? colors.brand : colors.borderStrong, backgroundColor: active ? colors.brandTint : colors.surface }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.brand : colors.textSecondary }}>{o.label}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.brand : colors.textSecondary }}>{t(o.label)}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
             {terms.securesEffective === 'session' ? (
               <>
-                <Text style={label()}>عدد الحصص التي تغطّيها</Text>
+                <Text style={label()}>{t('billing_sheets.sessions_covered_label')}</Text>
                 <TextInput value={s.sessions} onChangeText={(v) => terms.set({ sessions: v.replace(/[^0-9]/g, '') })} keyboardType="number-pad"
-                  placeholder={remainingFor != null ? `${remainingFor} (المتبقي من الدورة)` : 'مثال: 3'} placeholderTextColor={colors.textTertiary} style={{ ...field(), marginBottom: spacing.md }} />
+                  placeholder={remainingFor != null ? t('billing_sheets.sessions_remaining_placeholder', { count: remainingFor }) : t('billing_sheets.sessions_example_placeholder')} placeholderTextColor={colors.textTertiary} style={{ ...field(), marginBottom: spacing.md }} />
               </>
             ) : null}
-            <Text style={label()}>قيمة الدفعة</Text>
+            <Text style={label()}>{t('billing_sheets.booking_amount_label')}</Text>
             <TextInput value={s.amount} onChangeText={(v) => terms.set({ amount: v.replace(/[^0-9.]/g, '') })} keyboardType="numeric"
-              placeholder={suggested != null ? `${suggested} (الافتراضي)` : 'المبلغ'} placeholderTextColor={colors.textTertiary} style={{ ...field(), marginBottom: spacing.xs }} />
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginBottom: spacing.md }}>اتركها فارغة لاستخدام السعر الافتراضي.</Text>
-            <Text style={label()}>المدفوع الآن (اختياري)</Text>
+              placeholder={suggested != null ? t('billing_sheets.amount_default_placeholder', { amount: suggested }) : t('invoices.amount')} placeholderTextColor={colors.textTertiary} style={{ ...field(), marginBottom: spacing.xs }} />
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginBottom: spacing.md }}>{t('billing_sheets.leave_blank_default_hint')}</Text>
+            <Text style={label()}>{t('billing_sheets.paid_now_label')}</Text>
             <TextInput value={s.paid} onChangeText={(v) => terms.set({ paid: v.replace(/[^0-9.]/g, '') })} keyboardType="numeric"
               placeholder="0" placeholderTextColor={colors.textTertiary} style={{ ...field(), borderColor: terms.overpaid ? colors.danger : colors.borderStrong }} />
             {terms.overpaid ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginTop: spacing.xs }}>المدفوع أكبر من قيمة الدفعة.</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginTop: spacing.xs }}>{t('billing_sheets.overpaid_error')}</Text>
             ) : s.amount.trim() !== '' && s.paid.trim() !== '' ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.xs }}>المتبقي على الأسرة: {money(Number(s.amount) - Number(s.paid))}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.xs }}>{t('billing_sheets.family_remaining', { amount: money(Number(s.amount) - Number(s.paid)) })}</Text>
             ) : null}
           </View>
         ) : null}
@@ -271,10 +275,10 @@ export function EnrollmentTermsSheet({ terms }: Props) {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: s.bookletPaid ? colors.success : colors.textPrimary }}>
-                {s.bookletPaid ? 'تم تحصيل الملزمة' : 'لم تُحصَّل الملزمة'}
+                {s.bookletPaid ? t('billing_sheets.booklet_collected') : t('billing_sheets.booklet_not_collected')}
               </Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: 2 }}>
-                {`${d.booklet.price ?? ''} ج.م — تُسجَّل على الطالب في الحالتين`}
+                {t('billing_sheets.booklet_price_note', { price: d.booklet.price ?? '' })}
               </Text>
             </View>
             <Switch value={s.bookletPaid} onValueChange={(v) => terms.set({ bookletPaid: v })} trackColor={{ true: colors.success, false: colors.border }} />
@@ -291,24 +295,24 @@ export function EnrollmentTermsSheet({ terms }: Props) {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: s.cyclePaid ? colors.success : colors.textPrimary }}>
-                {s.cyclePaid ? 'رسوم هذا الشهر مدفوعة مسبقًا' : `رسوم هذا الشهر: ${money(monthBill)}`}
+                {s.cyclePaid ? t('billing_sheets.cycle_paid_title') : t('billing_sheets.cycle_fee_title', { amount: money(monthBill) })}
               </Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textTertiary, marginTop: 2 }}>
                 {s.cyclePaid
-                  ? 'دفعتها الأسرة قبل الانضمام للنظام — تُسجَّل كمسدَّدة دون أن تُحسب ضمن المحصَّل أو درج النقدية.'
-                  : 'تُصدر فاتورة بهذا المبلغ وتُحصَّل عند المسح. فعِّل الخيار إن كانت الأسرة دفعت الشهر بالفعل قبل انضمامك للنظام.'}
+                  ? t('billing_sheets.cycle_paid_hint')
+                  : t('billing_sheets.cycle_fee_hint')}
               </Text>
             </View>
             <Switch value={s.cyclePaid} onValueChange={(v) => terms.set({ cyclePaid: v, cyclePaidAmount: v ? s.cyclePaidAmount : '' })} trackColor={{ true: colors.success, false: colors.border }} />
           </View>
           {s.cyclePaid ? (
             <View style={{ marginTop: spacing.md }}>
-              <Text style={label()}>المبلغ المدفوع مسبقًا (اختياري)</Text>
+              <Text style={label()}>{t('billing_sheets.prior_paid_amount_label')}</Text>
               <TextInput value={s.cyclePaidAmount} onChangeText={(v) => terms.set({ cyclePaidAmount: v.replace(/[^0-9.]/g, '') })} keyboardType="numeric"
-                placeholder={`${monthBill} (كامل الفاتورة)`} placeholderTextColor={colors.textTertiary} style={field()} />
+                placeholder={t('billing_sheets.prior_paid_full_placeholder', { amount: monthBill })} placeholderTextColor={colors.textTertiary} style={field()} />
               {s.cyclePaidAmount.trim() !== '' && Number(s.cyclePaidAmount) < monthBill ? (
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.xs }}>
-                  {`يبقى على الأسرة ${money(monthBill - Number(s.cyclePaidAmount))} تُحصَّل عند المسح.`}
+                  {t('billing_sheets.family_remaining_at_scan', { amount: money(monthBill - Number(s.cyclePaidAmount)) })}
                 </Text>
               ) : null}
             </View>

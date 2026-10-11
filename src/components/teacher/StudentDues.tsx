@@ -31,21 +31,21 @@ export async function collectTarget(studentId: string | number, target: CollectT
     let queued = false;
     for (const k of kinds) if (isQueued(await collectStudentCharge(studentId, k))) queued = true;
     if (queued) return i18n.t('offline.queued');
-    return `تم تحصيل ${formatNumber(target.remaining)} ج.م. سيصل الإيصال لولي الأمر.`;
+    return i18n.t('student_profile_ui.collected_all_receipt', { amount: formatNumber(target.remaining) });
   }
   const partial = amount < target.remaining - 0.001;
   const r = await collectStudentCharge(studentId, target.kind, target.chargeId, partial ? amount : undefined);
   if (isQueued(r)) return r.message;
   return Number(r.remaining) > 0
-    ? `تم تحصيل ${formatNumber(Number(r.collected))} ج.م — المتبقّي ${formatNumber(Number(r.remaining))} ج.م.`
-    : `تم تحصيل ${r.what} (${formatNumber(Number(r.collected))} ج.م). سيصل الإيصال لولي الأمر.`;
+    ? i18n.t('student_profile_ui.collected_partial', { collected: formatNumber(Number(r.collected)), remaining: formatNumber(Number(r.remaining)) })
+    : i18n.t('student_profile_ui.collected_what_receipt', { what: r.what, collected: formatNumber(Number(r.collected)) });
 }
 
 /** The amount typed for a target, or the reason it cannot be collected. */
 export function parseCollectAmount(text: string, target: CollectTarget): { amount: number } | { error: string } {
   const amount = Number(text.replace(/[^\d.]/g, ''));
   if (!Number.isFinite(amount) || amount <= 0 || amount > target.remaining + 0.001) {
-    return { error: `أدخل مبلغًا بين 1 و ${formatNumber(target.remaining)} ج.م.` };
+    return { error: i18n.t('student_profile_ui.amount_between', { max: formatNumber(target.remaining) }) };
   }
   return { amount };
 }
@@ -80,11 +80,11 @@ export function StudentDuesCard({ billing: b, canCollect, onCollect }: { billing
         </View>
         {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 }} numberOfLines={1}>{sub}</Text> : null}
       </View>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: overdue ? colors.danger : colors.textPrimary }}>{`${formatNumber(remaining)} ج.م`}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: overdue ? colors.danger : colors.textPrimary }}>{t('student_profile_ui.egp_amount', { amount: formatNumber(remaining) })}</Text>
       {canCollect ? (
         <TouchableOpacity onPress={() => onCollect(target)} accessibilityRole="button" activeOpacity={0.85}
           style={{ backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 7, paddingHorizontal: spacing.md }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#fff' }}>تحصيل</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#fff' }}>{t('collections.collect')}</Text>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -98,8 +98,8 @@ export function StudentDuesCard({ billing: b, canCollect, onCollect }: { billing
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{b.has_pending ? t('teacher.billing_pending') : t('teacher.billing_clear')}</Text>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, lineHeight: 32, color: tone }}>{b.has_pending ? `${formatNumber(owed)} ج.م` : '✓'}</Text>
-          {b.has_overdue ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>{`${t('teacher.billing_overdue')} · ${formatNumber(Number(b.overdue_amount))} ج.م`}</Text> : null}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, lineHeight: 32, color: tone }}>{b.has_pending ? t('student_profile_ui.egp_amount', { amount: formatNumber(owed) }) : '✓'}</Text>
+          {b.has_overdue ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>{`${t('teacher.billing_overdue')} · ${t('student_profile_ui.egp_amount', { amount: formatNumber(Number(b.overdue_amount)) })}`}</Text> : null}
           {b.override_active ? (
             <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
               <Badge label={t('teacher.billing_override_active')} variant="info" size="sm" />
@@ -110,19 +110,19 @@ export function StudentDuesCard({ billing: b, canCollect, onCollect }: { billing
       </View>
       {count > 0 ? (
         <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
-          {bills.map((x) => row(`bill-${x.id}`, 'money', x.month ? `فاتورة ${x.month}` : 'فاتورة الدورة',
-            [x.course, Number(x.paid) > 0 ? `مدفوع ${formatNumber(Number(x.paid))} من ${formatNumber(Number(x.amount))}` : null].filter(Boolean).join(' · ') || null,
+          {bills.map((x) => row(`bill-${x.id}`, 'money', x.month ? t('student_profile_ui.bill_month', { month: x.month }) : t('student_profile_ui.cycle_bill'),
+            [x.course, Number(x.paid) > 0 ? t('student_profile_ui.paid_of', { paid: formatNumber(Number(x.paid)), total: formatNumber(Number(x.amount)) }) : null].filter(Boolean).join(' · ') || null,
             Number(x.remaining), x.overdue,
-            { kind: 'bill', chargeId: x.id || undefined, label: x.month ? `فاتورة ${x.month}${x.course ? ` — ${x.course}` : ''}` : 'الفواتير', remaining: Number(x.remaining) }))}
-          {booklets.map((x) => row(`booklet-${x.id}`, 'book', `ملزمة ${x.course ?? ''}`, x.partial ? `متبقٍّ من ${formatNumber(Number(x.original))}` : null,
-            Number(x.remaining), false, { kind: 'booklet', chargeId: x.id, label: `ملزمة ${x.course ?? ''}`, remaining: Number(x.remaining) }))}
-          {booking ? row('booking', 'card', 'دفعة الحجز', booking.secures ? `تؤمّن ${booking.secures}` : null,
-            Number(booking.remaining), false, { kind: 'booking', label: 'دفعة الحجز', remaining: Number(booking.remaining) }) : null}
+            { kind: 'bill', chargeId: x.id || undefined, label: x.month ? `${t('student_profile_ui.bill_month', { month: x.month })}${x.course ? ` — ${x.course}` : ''}` : t('nav.invoices'), remaining: Number(x.remaining) }))}
+          {booklets.map((x) => row(`booklet-${x.id}`, 'book', t('student_profile_ui.booklet_of', { course: x.course ?? '' }), x.partial ? t('student_profile_ui.remaining_of', { amount: formatNumber(Number(x.original)) }) : null,
+            Number(x.remaining), false, { kind: 'booklet', chargeId: x.id, label: t('student_profile_ui.booklet_of', { course: x.course ?? '' }), remaining: Number(x.remaining) }))}
+          {booking ? row('booking', 'card', t('teacher.due_booking'), booking.secures ? t('student_profile_ui.secures', { what: booking.secures }) : null,
+            Number(booking.remaining), false, { kind: 'booking', label: t('teacher.due_booking'), remaining: Number(booking.remaining) }) : null}
           {canCollect && count > 1 ? (
-            <TouchableOpacity onPress={() => onCollect({ kind: 'all', label: 'كل المستحقّات', remaining: owed })} accessibilityRole="button" activeOpacity={0.85}
+            <TouchableOpacity onPress={() => onCollect({ kind: 'all', label: t('student_profile_ui.all_dues'), remaining: owed })} accessibilityRole="button" activeOpacity={0.85}
               style={{ marginTop: spacing.sm, marginBottom: spacing.xs, minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.success, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
               <Icon name="success" size={18} color="#fff" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{`تحصيل الكل · ${formatNumber(owed)} ج.م`}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('student_profile_ui.collect_all_amount', { amount: formatNumber(owed) })}</Text>
             </TouchableOpacity>
           ) : null}
         </View>

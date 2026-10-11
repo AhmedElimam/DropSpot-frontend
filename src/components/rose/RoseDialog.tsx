@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import i18n from '@/i18n';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { fonts } from '@/theme/typography';
@@ -34,7 +35,7 @@ export function useRoseDialog(): { ask: (a: RoseAsk) => Promise<boolean>; tell: 
   }), []);
   const tell = useCallback((title: string, message?: string) => new Promise<void>((resolve) => {
     resolver.current = () => resolve();
-    setState({ title, message, confirm: 'تمام', single: true });
+    setState({ title, message, confirm: i18n.t('misc_ui.rose_ok'), single: true });
   }), []);
   const answer = useCallback((v: boolean) => {
     const r = resolver.current;
@@ -72,7 +73,7 @@ function RoseDialog({ state, onAnswer }: { state: (RoseAsk & { single: boolean }
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={() => onAnswer(false)}>
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10,14,39,0.55)' }, backdrop]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => onAnswer(false)} accessibilityLabel="إغلاق" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => onAnswer(false)} accessibilityLabel={i18n.t('common.close')} />
       </Animated.View>
       <View pointerEvents="box-none" style={{ flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl }}>
         <Animated.View style={[{ paddingTop: rose.named ? PORTRAIT / 2 : 0 }, card]}>
@@ -88,7 +89,7 @@ function RoseDialog({ state, onAnswer }: { state: (RoseAsk & { single: boolean }
               {!s.single ? (
                 <Pressable onPress={() => onAnswer(false)} accessibilityRole="button"
                   style={({ pressed }) => ({ flex: 1, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>{s.cancel ?? 'رجوع'}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>{s.cancel ?? i18n.t('common.back')}</Text>
                 </Pressable>
               ) : null}
               <Pressable onPress={() => onAnswer(true)} accessibilityRole="button"

@@ -140,9 +140,9 @@ export default function CourseDetailScreen() {
 
   // Hard-delete the whole course (schedule master). Server blocks it while active students remain (422).
   const confirmDeleteCourse = () => {
-    Alert.alert('حذف المقرر نهائيًا', 'سيُمحى المقرر وكل ما يخصه (المواعيد، الحصص، السجلات) نهائيًا. لا يمكن التراجع. غير متاح إن كان به طلاب نشطون.', [
+    Alert.alert(t('enroll_ui.delete_course_title'), t('enroll_ui.delete_course_body'), [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: 'حذف نهائيًا', style: 'destructive', onPress: () => deleteCourse.mutate(undefined, { onSuccess: () => router.back(), onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? 'تعذّر حذف المقرر') }) },
+      { text: t('enroll_ui.delete_forever'), style: 'destructive', onPress: () => deleteCourse.mutate(undefined, { onSuccess: () => router.back(), onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('enroll_ui.delete_course_failed')) }) },
     ]);
   };
 
@@ -158,7 +158,7 @@ export default function CourseDetailScreen() {
   }
 
   const located = course.has_location;
-  const venueOptions = [{ key: '', label: 'بدون مكان محدد' }, ...venues.map((v) => ({ key: v.id, label: v.address ? `${v.name} — ${v.address}` : v.name }))];
+  const venueOptions = [{ key: '', label: t('enroll_ui.no_venue') }, ...venues.map((v) => ({ key: v.id, label: v.address ? `${v.name} — ${v.address}` : v.name }))];
 
   return (
     <FormScreen title={course.name} subtitle={course.grade_name ?? undefined}>
@@ -197,14 +197,14 @@ export default function CourseDetailScreen() {
             <Field label={t('teacher.course_name_label')} first>
               <Input value={name} onChangeText={setName} placeholder={t('teacher.course_name_label')} maxLength={255} />
             </Field>
-            <Field label="مكان التدريس" hint={t('form_ui.optional')}>
+            <Field label={t('enroll_ui.venue_label')} hint={t('form_ui.optional')}>
               {venues.length > 0 ? (
-                <SelectField value={venueId ?? ''} options={venueOptions} placeholder="بدون مكان محدد" onChange={(v) => setVenueId(v || null)} />
+                <SelectField value={venueId ?? ''} options={venueOptions} placeholder={t('enroll_ui.no_venue')} onChange={(v) => setVenueId(v || null)} />
               ) : !isAssistant ? (
                 <TouchableOpacity onPress={() => router.push('/(teacher)/venues' as Href)} activeOpacity={0.8}
                   style={{ minHeight: 48, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.brandTint }}>
                   <Icon name="add" size={16} color={colors.brand} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>أضِف أماكن التدريس أولًا</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('enroll_ui.add_venues_first')}</Text>
                 </TouchableOpacity>
               ) : null}
             </Field>
@@ -281,8 +281,8 @@ export default function CourseDetailScreen() {
 
       {/* Danger zone — hard-delete the whole course. Teacher only. */}
       {!isAssistant ? (
-        <FormCard icon="warning" title="منطقة الخطر" hint="حذف المقرر نهائيًا يزيل مواعيده وحصصه وسجلّاته. لا يمكن التراجع. غير متاح إن كان به طلاب نشطون." tint={colors.danger} style={{ borderColor: colors.danger + '55' }}>
-          <Button title={deleteCourse.isPending ? '…جارٍ الحذف' : 'حذف المقرر نهائيًا'} onPress={confirmDeleteCourse} loading={deleteCourse.isPending} variant="destructive" />
+        <FormCard icon="warning" title={t('enroll_ui.danger_zone')} hint={t('enroll_ui.danger_zone_hint')} tint={colors.danger} style={{ borderColor: colors.danger + '55' }}>
+          <Button title={deleteCourse.isPending ? t('enroll_ui.deleting') : t('enroll_ui.delete_course_title')} onPress={confirmDeleteCourse} loading={deleteCourse.isPending} variant="destructive" />
         </FormCard>
       ) : null}
     </FormScreen>

@@ -159,9 +159,9 @@ export default function ResolutionCenter() {
                 <Icon name="phone" size={22} color={colors.warningText} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>أرقام تحتاج تأكيد</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('home.phones_title')}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-                  {s?.phone_confirmations} رقم لم يُثبت صاحبه ملكيته بعد
+                  {t('desk_ui.phones_unconfirmed_count', { count: s?.phone_confirmations })}
                 </Text>
               </View>
               <Icon name="back" size={20} color={colors.textSecondary} />
@@ -278,13 +278,13 @@ export default function ResolutionCenter() {
               (approve → the admin queue, as the teacher's own) or closes them. */}
           {assistantReports.data && assistantReports.data.length > 0 ? (
             <>
-              <SectionTitle>بلاغات المساعدين بانتظار مراجعتك</SectionTitle>
+              <SectionTitle>{t('desk_ui.assistant_reports_title')}</SectionTitle>
               {assistantReports.data.map((r: AssistantReportItem) => (
                 <ReviewCard
                   key={`ar-${r.kind}-${r.id}`}
-                  title={`${r.student_name ?? '—'} · ${r.kind === 'report' ? (r.severity === 'safety_critical' ? 'بلاغ خطير' : 'بلاغ حادثة') : 'رقم ولي أمر غير صحيح'}`}
+                  title={`${r.student_name ?? '—'} · ${r.kind === 'report' ? (r.severity === 'safety_critical' ? t('desk_ui.report_safety_critical') : t('desk_ui.report_incident')) : t('desk_ui.parent_number_wrong')}`}
                   subtitle={[
-                    r.assistant_name ? `من ${r.assistant_name}` : null,
+                    r.assistant_name ? t('desk_ui.from_person', { name: r.assistant_name }) : null,
                     r.kind === 'report' ? (r.description ?? '') : [r.parent_name, r.old_number, r.reason].filter(Boolean).join(' · '),
                   ].filter(Boolean).join(' — ')}
                   busy={busy === `ar-${r.kind}-${r.id}`}
@@ -299,7 +299,7 @@ export default function ResolutionCenter() {
           {/* Family name-correction requests (Tier B) — approve applies immediately */}
           {canManage && editRequests.data && editRequests.data.length > 0 ? (
             <>
-              <SectionTitle>طلبات تصحيح البيانات</SectionTitle>
+              <SectionTitle>{t('desk_ui.edit_requests_title')}</SectionTitle>
               {editRequests.data.map((r: StudentEditReq) => (
                 <ReviewCard
                   key={`edit-${r.id}`}
@@ -342,7 +342,7 @@ export default function ResolutionCenter() {
                 value={category}
                 options={ticketCategories.data ?? []}
                 onChange={setCategory}
-                emptyHint="تعذّر تحميل قائمة الأسباب، أغلق النافذة وحاول مرة أخرى."
+                emptyHint={t('desk_ui.reasons_load_failed')}
               />
             </View>
 

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { configRule } from '@/stores/appConfigStore';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
@@ -11,7 +12,8 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { AuthScaffold, AuthBanner, AUTH_FOOTER_LINK } from '@/components/auth/AuthScaffold';
 import { OtpInput } from '@/components/auth/OtpInput';
 
-const RESEND_COOLDOWN = 60;
+/** The countdown is a backend rule (/admin/config → otp_resend_seconds), read when the screen opens. */
+const RESEND_COOLDOWN = () => configRule('otp_resend_seconds');
 
 export default function VerifyOtpScreen() {
   const { t } = useTranslation();
@@ -24,7 +26,7 @@ export default function VerifyOtpScreen() {
   const [newPhone, setNewPhone] = useState('');
 
   // A code was just sent (on arrival from register) → start the cooldown ticking.
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN());
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
@@ -40,7 +42,7 @@ export default function VerifyOtpScreen() {
 
   const resendMutation = useMutation({
     mutationFn: () => resendOtp(phone),
-    onSuccess: () => setCooldown(RESEND_COOLDOWN),
+    onSuccess: () => setCooldown(RESEND_COOLDOWN()),
   });
 
   const changePhoneMutation = useMutation({
@@ -50,7 +52,7 @@ export default function VerifyOtpScreen() {
       setEditingPhone(false);
       setNewPhone('');
       setCode('');
-      setCooldown(RESEND_COOLDOWN);
+      setCooldown(RESEND_COOLDOWN());
     },
   });
 

@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius } from '@/theme/index';
 import { fonts } from '@/theme/typography';
 import { Icon } from '@/components/ui/Icon';
@@ -43,22 +44,23 @@ function Badge({ count }: { count: number }) {
  * under each home's greeting — ConnectionLine.)
  */
 export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scanBadge = 0, onSearch }: HeaderBrandBarProps) {
+  const { t } = useTranslation();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
       {/* First child → visual RIGHT in RTL: the notifications bell, then (optionally) the scanner. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <TourTarget id="header:bell"><TouchableOpacity onPress={onBell} accessibilityRole="button" accessibilityLabel="الإشعارات" style={iconButton()}>
+        <TourTarget id="header:bell"><TouchableOpacity onPress={onBell} accessibilityRole="button" accessibilityLabel={t('misc_ui.notifications')} style={iconButton()}>
           <Icon name="bell" size={22} color={colors.onHero} outline />
           {unread ? <Badge count={unread} /> : null}
         </TouchableOpacity></TourTarget>
         {onScan ? (
-          <TourTarget id="header:scan"><TouchableOpacity onPress={onScan} accessibilityRole="button" accessibilityLabel="الكاميرا" style={iconButton()}>
+          <TourTarget id="header:scan"><TouchableOpacity onPress={onScan} accessibilityRole="button" accessibilityLabel={t('misc_ui.camera')} style={iconButton()}>
             <Icon name="scan" size={22} color={colors.onHero} outline />
             {scanBadge ? <Badge count={scanBadge} /> : null}
           </TouchableOpacity></TourTarget>
         ) : null}
         {onSearch ? (
-          <TourTarget id="header:search"><TouchableOpacity onPress={onSearch} accessibilityRole="button" accessibilityLabel="ابحث في التطبيق" style={iconButton()}>
+          <TourTarget id="header:search"><TouchableOpacity onPress={onSearch} accessibilityRole="button" accessibilityLabel={t('misc_ui.search_app')} style={iconButton()}>
             <Icon name="search" size={21} color={colors.onHero} outline />
           </TouchableOpacity></TourTarget>
         ) : null}

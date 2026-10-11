@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { configRule } from '@/stores/appConfigStore';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -61,7 +62,7 @@ export default function InviteAcceptScreen() {
   const parentNameHasLatin = hasLatinLetters(parentName);
   const nameOk = !needsName || (name.trim().length > 0 && !nameHasLatin);
   const isValid =
-    password.length >= 6 && password === confirmPassword && nameOk &&
+    password.length >= configRule('password_min_length') && password === confirmPassword && nameOk &&
     parentName.trim().length > 0 && !parentNameHasLatin && parentPhone.trim().length > 0 &&
     parentRelation && terms;
   const canSubmit = isValid && !acceptMutation.isPending;

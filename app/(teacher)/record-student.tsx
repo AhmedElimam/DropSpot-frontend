@@ -87,7 +87,7 @@ export default function RecordStudent() {
     setRelationship(null);
     // Keep the per-course answers (position, دفعة on/off, secures); drop the per-student money.
     terms.resetPerStudent();
-    setFlash(note ?? `تم إضافة ${count + 1} طالب`);
+    setFlash(note ?? t('enroll_ui.added_count', { count: count + 1 }));
     setTimeout(() => setFlash(null), note ? 3000 : 1800);
     nameRef.current?.focus();
   }
@@ -125,9 +125,9 @@ export default function RecordStudent() {
       } else if (isAxiosError(e) && e.response?.status === 409 && e.response.data?.code === 'DEDUPE_REQUIRED') {
         setDedupe({ matches: e.response.data.errors?.matches ?? [], payload });
       } else if (isAxiosError(e) && e.response?.status === 422) {
-        Alert.alert('تعذّر التسجيل', e.response.data?.message ?? 'تحقّق من البيانات المُدخلة.');
+        Alert.alert(t('enroll_ui.register_failed'), e.response.data?.message ?? t('enroll_ui.check_input'));
       } else {
-        Alert.alert('خطأ', 'تعذّر تسجيل الطالب. حاول مرة أخرى.');
+        Alert.alert(t('enroll_ui.error_title'), t('enroll_ui.record_failed'));
       }
     } finally {
       setSaving(false);
@@ -142,11 +142,11 @@ export default function RecordStudent() {
   function bulkOrderCards() {
     if (enrollmentIds.length === 0) return;
     Alert.alert(
-      'طلب بطاقات',
-      `سيتم تسجيل طلب بطاقة لـ ${enrollmentIds.length} من الطلاب المُضافين، وتراجعه الإدارة قبل الطباعة. الطالب الذي لديه بطاقة أو طلب قائم سيُتخطّى.`,
+      t('enroll_ui.order_cards_title'),
+      t('enroll_ui.order_cards_body', { count: enrollmentIds.length }),
       [
-        { text: 'إلغاء', style: 'cancel' },
-        { text: 'اطلب البطاقات', onPress: submitCardOrders },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('enroll_ui.order_cards_confirm'), onPress: submitCardOrders },
       ],
     );
   }
@@ -158,14 +158,14 @@ export default function RecordStudent() {
       // The batch is filed, not printed: these families did not ask for a card, so the
       // super-admin releases the batch first. Say so, or the teacher promises cards
       // that may never be produced.
-      const parts = [`تم تسجيل ${r.created} طلب بطاقة — بانتظار موافقة الإدارة قبل الطباعة`];
+      const parts = [t('enroll_ui.cards_ordered', { count: r.created })];
       // A student may already be covered by another teacher's order — one card serves
       // every teacher, so we say it plainly without naming who ordered it.
-      if (r.already_ordered) parts.push(`${r.already_ordered} لديهم بطاقة أو طلب قائم بالفعل`);
-      Alert.alert('تم', parts.join('\n'));
+      if (r.already_ordered) parts.push(t('enroll_ui.cards_already_covered', { count: r.already_ordered }));
+      Alert.alert(t('common.done'), parts.join('\n'));
       setEnrollmentIds([]);
     } catch {
-      Alert.alert('خطأ', 'تعذّر طلب البطاقات.');
+      Alert.alert(t('enroll_ui.error_title'), t('enroll_ui.order_cards_failed'));
     } finally {
       setOrderingCards(false);
     }
@@ -176,14 +176,14 @@ export default function RecordStudent() {
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
         <Icon name="info" size={40} color={colors.textSecondary} />
         <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.md }}>
-          التسجيل السريع غير مُتاح حاليًا
+          {t('enroll_ui.fast_register_off_title')}
         </Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm }}>
-          أوقفت إدارة المنصة هذه الميزة مؤقتًا. يمكنك تسجيل الطلاب بالبطاقة أو بالدعوة برقم الهاتف.
+          {t('enroll_ui.fast_register_off_body')}
         </Text>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85}
           style={{ marginTop: spacing.xl, minHeight: 48, alignSelf: 'stretch', borderRadius: radius.lg, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>رجوع</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -202,16 +202,16 @@ export default function RecordStudent() {
         {/* Header + running count */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
           <TouchableOpacity onPress={() => router.back()}><Icon name="forward" size={26} color={colors.textSecondary} /></TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>تسجيل سريع للطلاب</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('enroll_ui.fast_register_title')}</Text>
           <View style={{ backgroundColor: colors.brandTint, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{count}</Text>
           </View>
         </View>
 
         {/* Course picker (choose once) */}
-        <Text style={label()}>المقرر</Text>
+        <Text style={label()}>{t('invite_phone.course')}</Text>
         {eligible.length === 0 ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, marginBottom: spacing.lg }}>لا توجد مقررات لها مواعيد. أضِف موعدًا للمقرر أولًا.</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, marginBottom: spacing.lg }}>{t('enroll_ui.no_scheduled_courses')}</Text>
         ) : (
           <View style={{ gap: spacing.sm, marginBottom: spacing.lg }}>
             {eligible.map((c: InvitationCourseOption) => {
@@ -233,20 +233,20 @@ export default function RecordStudent() {
         {courseId != null && (
           <>
             {/* Student name */}
-            <Text style={label()}>اسم الطالب</Text>
+            <Text style={label()}>{t('invite_phone.student_name')}</Text>
             <TextInput
               ref={nameRef}
               value={name}
               onChangeText={setName}
-              placeholder="الاسم الكامل"
+              placeholder={t('enroll_ui.full_name_ph')}
               placeholderTextColor={colors.textTertiary}
               style={{ ...field(), marginBottom: spacing.xs, borderColor: nameError ? colors.danger : (name ? colors.brand : colors.borderStrong) }}
               returnKeyType="next"
             />
-            {nameError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>يرجى إدخال الاسم بالعربية</Text> : <View style={{ height: spacing.md }} />}
+            {nameError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>{t('enroll_ui.name_arabic_error')}</Text> : <View style={{ height: spacing.md }} />}
 
             {/* Student's own phone — their login handle when the app launches */}
-            <Text style={label()}>رقم هاتف الطالب <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}>(اختياري)</Text></Text>
+            <Text style={label()}>{t('invite_phone.student_phone')} <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}>{t('enroll_ui.optional_paren')}</Text></Text>
             <TextInput
               value={studentPhone}
               onChangeText={setStudentPhone}
@@ -257,13 +257,13 @@ export default function RecordStudent() {
               returnKeyType="next"
             />
             {sameAsParentError
-              ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>رقم الطالب لا يمكن أن يطابق رقم ولي الأمر</Text>
+              ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>{t('enroll_ui.phone_same_as_parent')}</Text>
               : studentPhoneError
-                ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>رقم هاتف غير صحيح</Text>
-                : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>إن وُجد، يسجّل الطالب الدخول به. يمكن تركه فارغًا.</Text>}
+                ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>{t('enroll_ui.phone_invalid')}</Text>
+                : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>{t('enroll_ui.student_phone_hint')}</Text>}
 
             {/* Parent phone — the activation anchor */}
-            <Text style={label()}>رقم ولي الأمر</Text>
+            <Text style={label()}>{t('enroll_ui.parent_phone')}</Text>
             <TextInput
               value={parentPhone}
               onChangeText={setParentPhone}
@@ -273,22 +273,22 @@ export default function RecordStudent() {
               style={{ ...field(), marginBottom: spacing.xs, borderColor: phoneError ? colors.danger : (parentPhone ? colors.brand : colors.borderStrong) }}
               onSubmitEditing={() => canSubmit && submit()}
             />
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>سيُستخدم هذا الرقم لتنشيط حساب الطالب لاحقًا.</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>{t('enroll_ui.parent_phone_hint')}</Text>
 
             {/* Parent name — OPTIONAL (the parent can set/modify it at setup). */}
-            <Text style={label()}>اسم ولي الأمر (اختياري)</Text>
+            <Text style={label()}>{t('enroll_ui.parent_name_optional')}</Text>
             <TextInput
               value={parentName}
               onChangeText={setParentName}
-              placeholder="الاسم الكامل"
+              placeholder={t('enroll_ui.full_name_ph')}
               placeholderTextColor={colors.textTertiary}
               style={{ ...field(), marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
             />
 
             {/* Relationship — OPTIONAL, tap to toggle. */}
-            <Text style={label()}>صلة القرابة (اختياري)</Text>
+            <Text style={label()}>{t('enroll_ui.relationship_optional')}</Text>
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
-              {([['father', 'أب'], ['mother', 'أم'], ['guardian', 'ولي أمر']] as const).map(([value, ar]) => {
+              {([['father', t('auth.father')], ['mother', t('auth.mother')], ['guardian', t('profile.role_parent')]] as const).map(([value, ar]) => {
                 const active = relationship === value;
                 return (
                   <TouchableOpacity
@@ -314,7 +314,7 @@ export default function RecordStudent() {
             <TouchableOpacity onPress={() => submit()} disabled={!canSubmit} activeOpacity={0.85}
               style={{ opacity: canSubmit ? 1 : 0.5, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm }}>
               {saving ? <ActivityIndicator color="#fff" /> : <Icon name="add" size={20} color="#fff" />}
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>حفظ والتالي</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('enroll_ui.save_next')}</Text>
             </TouchableOpacity>
 
             {flash ? (
@@ -328,7 +328,7 @@ export default function RecordStudent() {
               <TouchableOpacity onPress={bulkOrderCards} disabled={orderingCards} activeOpacity={0.85}
                 style={{ marginTop: spacing.lg, borderWidth: 1.5, borderColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm }}>
                 {orderingCards ? <ActivityIndicator color={colors.brand} /> : <Icon name="card" size={18} color={colors.brand} />}
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>اطلب بطاقات للطلاب المُضافين ({enrollmentIds.length})</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('enroll_ui.order_cards_for_added', { count: enrollmentIds.length })}</Text>
               </TouchableOpacity>
             ) : null}
           </>
@@ -339,22 +339,22 @@ export default function RecordStudent() {
       <Modal visible={dedupe !== null} transparent animationType="fade" onRequestClose={() => setDedupe(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: spacing.lg }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, marginBottom: spacing.sm }}>يوجد طالب بنفس رقم ولي الأمر</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.md }}>يمكنك ربط الطالب الحالي بهذا المقرر، أو إنشاء طالب جديد.</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('enroll_ui.dedupe_title')}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.md }}>{t('enroll_ui.dedupe_body')}</Text>
             <View style={{ gap: spacing.sm, marginBottom: spacing.md }}>
               {(dedupe?.matches ?? []).map((m) => (
                 <TouchableOpacity key={m.id} onPress={() => submit('link', m.id)} activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
                   <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}>{m.name}</Text>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand, marginStart: spacing.sm }}>ربط ←</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand, marginStart: spacing.sm }}>{t('enroll_ui.link_arrow')}</Text>
                 </TouchableOpacity>
               ))}
             </View>
             <TouchableOpacity onPress={() => submit('new')} activeOpacity={0.85} style={{ backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>إنشاء طالب جديد</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('enroll_ui.create_new_student')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setDedupe(null)} activeOpacity={0.7} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>إلغاء</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -383,25 +383,25 @@ export default function RecordStudent() {
 
             <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.sm }}>
               {ownStudent?.already_in_target
-                ? `هذا الطالب مسجّل معك بالفعل في «${ownStudent?.target_course_name}».`
+                ? t('enroll_ui.own_already_in_target', { course: ownStudent?.target_course_name })
                 : ownStudent?.is_own
-                  ? `هذا الطالب مسجّل معك في «${ownStudent?.current_course_name ?? '—'}». هل تريد إضافته إلى «${ownStudent?.target_course_name}»؟`
-                  : `هذا الطالب مسجّل بالفعل في النظام. هل تريد إضافته إلى «${ownStudent?.target_course_name}»؟`}
+                  ? t('enroll_ui.own_in_other_course', { current: ownStudent?.current_course_name ?? '—', course: ownStudent?.target_course_name })
+                  : t('enroll_ui.own_in_system', { course: ownStudent?.target_course_name })}
             </Text>
 
             {saving ? (
               <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.lg }} />
             ) : ownStudent?.already_in_target ? (
               <TouchableOpacity onPress={() => setOwnStudent(null)} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.xxl, alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>حسنًا</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('common.ok')}</Text>
               </TouchableOpacity>
             ) : (
               <>
                 <TouchableOpacity onPress={() => ownStudent && submit('link', ownStudent.student_id)} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', alignSelf: 'stretch' }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>تسجيله في «{ownStudent?.target_course_name}»</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('enroll_ui.enroll_in_course', { course: ownStudent?.target_course_name })}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setOwnStudent(null)} activeOpacity={0.7} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>إلغاء</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
               </>
             )}

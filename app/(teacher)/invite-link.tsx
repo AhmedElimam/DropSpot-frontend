@@ -139,7 +139,7 @@ export default function InviteLink() {
   };
 
   const FONTS: { key: 'default' | 'cairo' | 'tajawal' | 'amiri'; label: string }[] = [
-    { key: 'default', label: 'افتراضي' }, { key: 'cairo', label: 'Cairo' }, { key: 'tajawal', label: 'Tajawal' }, { key: 'amiri', label: 'Amiri' },
+    { key: 'default', label: t('billing_settings.font_default') }, { key: 'cairo', label: 'Cairo' }, { key: 'tajawal', label: 'Tajawal' }, { key: 'amiri', label: 'Amiri' },
   ];
   const BRAND_SWATCHES = ['#4C1D95', '#2563eb', '#059669', '#dc2626', '#d97706', '#0891b2', '#be185d', '#334155'];
   const BG_SWATCHES = ['#F3F1FA', '#ffffff', '#f0f9ff', '#f0fdf4', '#fff7ed', '#fef2f2', '#f8fafc'];
@@ -272,15 +272,15 @@ export default function InviteLink() {
                           {tpl.booking_logo_url ? (
                             <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 120, height: 54, alignSelf: 'center', marginBottom: spacing.sm }} contentFit="contain" />
                           ) : null}
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: brand, textAlign: 'center' }}>{(tpl.booking_title || '').trim() || 'حجز مكان'}</Text>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: brand, textAlign: 'center' }}>{(tpl.booking_title || '').trim() || t('enroll_ui.preview_booking_title')}</Text>
                           {(tpl.booking_intro || '').trim() ? (
                             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: onWhite.muted, textAlign: 'center', marginTop: 4 }}>{tpl.booking_intro}</Text>
                           ) : null}
                           <View style={{ backgroundColor: '#f3ecfd', borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.sm }}>
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: brand, textAlign: 'center' }}>تسجيل الطالب في «المقرر»</Text>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: brand, textAlign: 'center' }}>{t('enroll_ui.preview_enroll_in_course')}</Text>
                           </View>
                           <View style={{ backgroundColor: brand, borderRadius: radius.md, paddingVertical: spacing.sm, marginTop: spacing.sm }}>
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff', textAlign: 'center' }}>أوافق على التسجيل</Text>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff', textAlign: 'center' }}>{t('enroll_ui.preview_agree')}</Text>
                           </View>
                         </View>
                       );

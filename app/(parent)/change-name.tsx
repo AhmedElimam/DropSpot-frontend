@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView,
 import { Alert } from '@/ui/dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, control } from '@/theme/index';
@@ -25,6 +26,7 @@ import { PageHero } from '@/components/ui/PageHero';
  * there is nothing behind it to go back to. Both answers clear the prompt for good.
  */
 export default function ChangeNameScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const role = useAuthStore((s) => s.role);
@@ -47,7 +49,7 @@ export default function ChangeNameScreen() {
     mutationFn: () => updateMyName({ first_name: first.trim(), last_name: last.trim() || undefined }),
     onSuccess: async (d) => {
       if (user && role) await setSession({ ...user, name: d.name, should_confirm_name: false }, role);
-      Alert.alert('', 'تم تحديث اسمك بنجاح.', [{ text: 'حسنًا', onPress: leave }]);
+      Alert.alert('', t('family_ui.name_updated'), [{ text: t('common.ok'), onPress: leave }]);
     },
     onError: (e) => Alert.alert('', getFriendlyErrorMessage(e)),
   });
@@ -63,8 +65,8 @@ export default function ChangeNameScreen() {
   });
 
   const onSave = () => {
-    if (first.trim().length < 2) { Alert.alert('', 'الاسم الأول مطلوب'); return; }
-    if (!isArabicName(first) || !isArabicName(last)) { Alert.alert('', 'يُرجى كتابة الاسم بالعربية فقط'); return; }
+    if (first.trim().length < 2) { Alert.alert('', t('family_ui.first_name_required')); return; }
+    if (!isArabicName(first) || !isArabicName(last)) { Alert.alert('', t('family_ui.arabic_name_only')); return; }
     save.mutate();
   };
 
@@ -76,25 +78,25 @@ export default function ChangeNameScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <PageHero title={isFirstLogin ? 'تأكيد اسمك' : 'تعديل الاسم'} onBack={!isFirstLogin} compact />
+      <PageHero title={isFirstLogin ? t('family_ui.confirm_name_title') : t('family_ui.edit_name')} onBack={!isFirstLogin} compact />
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.lg, lineHeight: 22 }}>
             {isFirstLogin
-              ? 'سجّلك معلّم أبنائك برقم هاتفك، واسمك مأخوذ من اسم ابنك. تأكّد أنه مكتوب صحيحًا — هكذا سيظهر لمعلّمي أبنائك.'
-              : 'عدّل اسمك كما يظهر لمعلّمي أبنائك. يُطبَّق فورًا.'}
+              ? t('family_ui.confirm_name_intro')
+              : t('family_ui.edit_name_intro')}
           </Text>
 
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>الاسم الأول *</Text>
-          <TextInput value={first} onChangeText={setFirst} placeholder="الاسم الأول" placeholderTextColor={colors.textTertiary} style={input} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('family_ui.first_name_required_label')}</Text>
+          <TextInput value={first} onChangeText={setFirst} placeholder={t('family_ui.first_name')} placeholderTextColor={colors.textTertiary} style={input} />
 
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>الاسم الأخير</Text>
-          <TextInput value={last} onChangeText={setLast} placeholder="اترك فارغًا إن لم يوجد" placeholderTextColor={colors.textTertiary} style={input} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('family_ui.last_name')}</Text>
+          <TextInput value={last} onChangeText={setLast} placeholder={t('family_ui.leave_blank_none')} placeholderTextColor={colors.textTertiary} style={input} />
 
           <TouchableOpacity onPress={onSave} disabled={save.isPending} activeOpacity={0.85}
             style={{ backgroundColor: colors.primary, borderRadius: radius.lg, minHeight: control.minHeight, alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm, opacity: save.isPending ? 0.6 : 1 }}>
-            {save.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{isFirstLogin ? 'حفظ الاسم الصحيح' : 'حفظ'}</Text>}
+            {save.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{isFirstLogin ? t('family_ui.save_correct_name') : t('common.save')}</Text>}
           </TouchableOpacity>
 
           {isFirstLogin ? (
@@ -103,7 +105,7 @@ export default function ChangeNameScreen() {
               style={{ borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.lg, minHeight: control.minHeight, alignItems: 'center', justifyContent: 'center', marginTop: spacing.md, opacity: confirm.isPending ? 0.6 : 1 }}>
               {confirm.isPending
                 ? <ActivityIndicator color={colors.textSecondary} />
-                : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textSecondary }}>اسمي مكتوب صحيحًا</Text>}
+                : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textSecondary }}>{t('family_ui.name_is_correct')}</Text>}
             </TouchableOpacity>
           ) : null}
         </ScrollView>

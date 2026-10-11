@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { configRule } from '@/stores/appConfigStore';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
@@ -12,7 +13,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { sendOwnNumberOtp, verifyOwnNumber, changeOwnNumber } from '@/api/ownNumber';
 
-const RESEND_COOLDOWN = 60;
+/** The countdown is a backend rule (/admin/config → otp_resend_seconds), read when the screen opens. */
+const RESEND_COOLDOWN = () => configRule('otp_resend_seconds');
 
 const field = () => ({
   fontFamily: fonts.regular,
@@ -56,7 +58,7 @@ export default function VerifyOwnNumberScreen() {
 
   const [code, setCode] = useState('');
   const [masked, setMasked] = useState('');
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN());
   const [editing, setEditing] = useState(false);
   const [newPhone, setNewPhone] = useState('');
   const codeRef = useRef<TextInput>(null);
@@ -64,7 +66,7 @@ export default function VerifyOwnNumberScreen() {
   // Send the first code as the wall opens.
   const send = useMutation({
     mutationFn: sendOwnNumberOtp,
-    onSuccess: (r) => { setMasked(r.masked_phone); setCooldown(RESEND_COOLDOWN); },
+    onSuccess: (r) => { setMasked(r.masked_phone); setCooldown(RESEND_COOLDOWN()); },
   });
   useEffect(() => { send.mutate(); /* once on mount */ }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -91,7 +93,7 @@ export default function VerifyOwnNumberScreen() {
       setEditing(false);
       setNewPhone('');
       setCode('');
-      setCooldown(RESEND_COOLDOWN);
+      setCooldown(RESEND_COOLDOWN());
     },
   });
 

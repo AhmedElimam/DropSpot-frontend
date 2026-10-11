@@ -38,6 +38,7 @@ function ContactRow({ icon, label, name, phone, badge, empty, onCall, onFlag, di
   badge: { label: string; variant: 'success' | 'info' | 'warning' | 'danger' } | null;
   empty: string; onCall?: () => void; onFlag?: () => void; divider?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderTopWidth: divider ? 1 : 0, borderTopColor: colors.borderLight }}>
       <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: icon === 'child' ? colors.brandTint : colors.accentLight, alignItems: 'center', justifyContent: 'center' }}>
@@ -56,13 +57,13 @@ function ContactRow({ icon, label, name, phone, badge, empty, onCall, onFlag, di
         )}
       </View>
       {onFlag ? (
-        <TouchableOpacity onPress={onFlag} accessibilityRole="button" accessibilityLabel="الإبلاغ عن الرقم"
+        <TouchableOpacity onPress={onFlag} accessibilityRole="button" accessibilityLabel={t('student_profile_ui.flag_number_a11y')}
           style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="warning" size={17} color={colors.danger} />
         </TouchableOpacity>
       ) : null}
       {onCall ? (
-        <TouchableOpacity onPress={onCall} accessibilityRole="button" accessibilityLabel="اتصال"
+        <TouchableOpacity onPress={onCall} accessibilityRole="button" accessibilityLabel={t('student_profile_ui.call_a11y')}
           style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: colors.successLight, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="call" size={20} color={colors.success} />
         </TouchableOpacity>
@@ -111,13 +112,13 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   // an empty `collected` list for assistants, so the UI is naturally hidden for them).
   const [reversing, setReversing] = useState<number | null>(null);
   const cancelPayment = (c: { kind: 'bill' | 'booklet' | 'booking'; id: number; label: string }) => {
-    Alert.alert('إلغاء الدفع', `إلغاء دفع «${c.label}»؟ ستعود المستحقّات على الطالب.`, [
+    Alert.alert(t('cash.refuse_confirm'), t('student_profile_ui.cancel_payment_body', { label: c.label }), [
       { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'إلغاء الدفع', style: 'destructive', onPress: async () => {
+        text: t('cash.refuse_confirm'), style: 'destructive', onPress: async () => {
           setReversing(c.id);
           try { await reverseStudentPayment(id, c.kind, c.id); await refetch(); }
-          catch { Alert.alert(t('common.error'), 'تعذّر إلغاء الدفع'); }
+          catch { Alert.alert(t('common.error'), t('student_profile_ui.cancel_payment_failed')); }
           finally { setReversing(null); }
         },
       },
@@ -140,12 +141,12 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
     if ('error' in parsed) { Alert.alert('', parsed.error); return; }
     setCollectBusy(true);
     try {
-      Alert.alert('تم', await collectTarget(id, collectFor, parsed.amount, s.billing));
+      Alert.alert(t('common.done'), await collectTarget(id, collectFor, parsed.amount, s.billing));
       track('payment_collected', { kind: collectFor.kind, value: Math.round(parsed.amount), currency: 'EGP', source: 'profile' });
       setCollectFor(null);
       void qc.invalidateQueries({ queryKey: ['pending-collections'] });
     } catch (e: any) {
-      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر التحصيل');
+      Alert.alert(t('common.error'), e?.response?.data?.message || t('student_profile_ui.collect_failed'));
     } finally {
       await refetch();
       setCollectBusy(false);
@@ -197,7 +198,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
     if (changed.length === 0) { setAmountFor(null); return; }
     for (const r of changed) {
       const a = num(r.amount);
-      if (!Number.isFinite(a) || a <= 0) { Alert.alert('', r.month ? `أدخل مبلغًا صحيحًا لفاتورة ${r.month}.` : 'أدخل مبلغًا صحيحًا.'); return; }
+      if (!Number.isFinite(a) || a <= 0) { Alert.alert('', r.month ? t('student_profile_ui.enter_valid_amount_for_month', { month: r.month }) : t('student_profile_ui.enter_valid_amount')); return; }
     }
     setAmountBusy(true);
     try {
@@ -210,9 +211,9 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
         });
       }
       setAmountFor(null);
-      Alert.alert('تم', changed.length === 1 ? 'تم تصحيح الفاتورة.' : `تم تصحيح ${changed.length} فواتير.`);
+      Alert.alert(t('common.done'), changed.length === 1 ? t('student_profile_ui.bill_corrected_one') : t('student_profile_ui.bills_corrected', { count: changed.length }));
     } catch (e: any) {
-      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر تصحيح الفاتورة');
+      Alert.alert(t('common.error'), e?.response?.data?.message || t('student_profile_ui.bill_correct_failed'));
     } finally {
       await refetch();
       setAmountBusy(false);
@@ -229,7 +230,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
     if (!priorFor) return;
     const typed = priorAmount.trim() === '' ? null : Number(priorAmount.replace(/[^\d.]/g, ''));
     if (typed != null && (!Number.isFinite(typed) || typed <= 0 || typed > priorFor.remaining + 0.001)) {
-      Alert.alert('', `أدخل مبلغًا بين 1 و ${priorFor.remaining} ج.م، أو اتركه فارغًا لكامل المتبقي.`);
+      Alert.alert('', t('student_profile_ui.prior_amount_between', { max: priorFor.remaining }));
       return;
     }
     setPriorBusy(true);
@@ -238,11 +239,11 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       setPriorFor(null);
       setPriorAmount('');
       await refetch();
-      Alert.alert('تم', r.invoice && r.invoice.remaining > 0
-        ? `سُجِّل ${Math.round(r.applied)} ج.م كمسدَّد قبل الانضمام؛ المتبقي ${Math.round(r.invoice.remaining)} ج.م يُحصَّل عند المسح.`
-        : 'سُجِّلت فاتورة الدورة كمسدَّدة قبل الانضمام للنظام.');
+      Alert.alert(t('common.done'), r.invoice && r.invoice.remaining > 0
+        ? t('student_profile_ui.prior_settled_partial', { applied: Math.round(r.applied), remaining: Math.round(r.invoice.remaining) })
+        : t('student_profile_ui.prior_settled_full'));
     } catch (e: any) {
-      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر التسجيل');
+      Alert.alert(t('common.error'), e?.response?.data?.message || t('student_profile_ui.register_failed'));
     } finally {
       setPriorBusy(false);
     }
@@ -259,31 +260,31 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       const r = await setCyclePosition(positionFor.enrollmentId, n);
       setPositionFor(null);
       await refetch();
-      const parts = [`الطالب الآن على الحصة ${r.position} من ${r.threshold}.`];
-      if (r.repriced) parts.push(r.invoice_amount ? `أُعيد إصدار فاتورة الدورة بقيمة ${r.invoice_amount} ج.م.` : 'أُلغيت فاتورة الدورة.');
-      else if (r.kept_paid) parts.push('الفاتورة المدفوعة لم تُمسّ.');
-      Alert.alert('تم الضبط', parts.join('\n'));
+      const parts = [t('student_profile_ui.position_now', { position: r.position, threshold: r.threshold })];
+      if (r.repriced) parts.push(r.invoice_amount ? t('student_profile_ui.cycle_bill_reissued', { amount: r.invoice_amount }) : t('student_profile_ui.cycle_bill_cancelled'));
+      else if (r.kept_paid) parts.push(t('student_profile_ui.paid_bill_untouched'));
+      Alert.alert(t('student_profile_ui.position_set_title'), parts.join('\n'));
     } catch (e: any) {
-      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر ضبط الحصة');
+      Alert.alert(t('common.error'), e?.response?.data?.message || t('student_profile_ui.position_set_failed'));
     } finally {
       setPositionBusy(false);
     }
   };
 
   const submitBackfill = async () => {
-    if (!backfillFor || backfillPicked.length === 0) { Alert.alert('', 'اختر يومًا واحدًا على الأقل'); return; }
+    if (!backfillFor || backfillPicked.length === 0) { Alert.alert('', t('student_profile_ui.pick_one_day')); return; }
     setBackfillBusy(true);
     try {
       const r = await backfillAttendance(backfillFor.enrollmentId, backfillPicked);
       setBackfillFor(null);
       await refetch();
-      const parts = [`تم تسجيل ${r.created} ${r.created === 1 ? 'يوم حضور' : 'أيام حضور'}.`];
-      if (r.moved && r.started_at) parts.push(`ضُبط بدء الطالب على الحصة ${r.started_at}.`);
-      if (r.repriced) parts.push(r.invoice_amount ? `أُعيد إصدار فاتورة الدورة بقيمة ${r.invoice_amount} ج.م.` : 'أُلغيت فاتورة الدورة.');
-      else if (r.kept_paid && r.moved) parts.push('الفاتورة المدفوعة لم تُمسّ.');
-      Alert.alert('تم', parts.join('\n'));
+      const parts = [r.created === 1 ? t('student_profile_ui.backfill_created_one', { count: r.created }) : t('student_profile_ui.backfill_created_many', { count: r.created })];
+      if (r.moved && r.started_at) parts.push(t('student_profile_ui.backfill_start_moved', { session: r.started_at }));
+      if (r.repriced) parts.push(r.invoice_amount ? t('student_profile_ui.cycle_bill_reissued', { amount: r.invoice_amount }) : t('student_profile_ui.cycle_bill_cancelled'));
+      else if (r.kept_paid && r.moved) parts.push(t('student_profile_ui.paid_bill_untouched'));
+      Alert.alert(t('common.done'), parts.join('\n'));
     } catch (e: any) {
-      Alert.alert(t('common.error'), e?.response?.data?.message || 'تعذّر تسجيل الحضور السابق');
+      Alert.alert(t('common.error'), e?.response?.data?.message || t('student_profile_ui.backfill_failed'));
     } finally {
       setBackfillBusy(false);
     }
@@ -307,15 +308,15 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
 
   const submitEdit = async () => {
     const first = editFirst.trim(), last = editLast.trim(), phone = editPhone.trim(), reason = editReason.trim();
-    if (!first && !last && !phone) { Alert.alert('', 'حدّد الاسم أو الرقم الجديد على الأقل'); return; }
-    if (!reason) { Alert.alert('', 'يرجى توضيح سبب طلب التعديل'); return; }
+    if (!first && !last && !phone) { Alert.alert('', t('student_profile_ui.edit_need_field')); return; }
+    if (!reason) { Alert.alert('', t('student_profile_ui.edit_need_reason')); return; }
     setEditBusy(true);
     try {
       await requestStudentEdit(id, { first_name: first || undefined, last_name: last || undefined, phone: phone || undefined, reason });
       setEditOpen(false); setEditFirst(''); setEditLast(''); setEditPhone(''); setEditReason('');
-      Alert.alert('تم الإرسال', 'تم إرسال طلب التعديل لمراجعة الإدارة.');
+      Alert.alert(t('student_profile_ui.sent_title'), t('student_profile_ui.edit_sent_body'));
     } catch (e: any) {
-      Alert.alert('تعذّر الإرسال', e?.response?.data?.message || 'حدث خطأ');
+      Alert.alert(t('student_profile_ui.send_failed_title'), e?.response?.data?.message || t('common.error'));
     } finally {
       setEditBusy(false);
     }
@@ -330,7 +331,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   const [reportBusy, setReportBusy] = useState(false);
 
   const submitReport = async () => {
-    if (reportDesc.trim().length < 20) { Alert.alert('', 'يرجى كتابة وصف كافٍ للحادثة (20 حرفًا على الأقل)'); return; }
+    if (reportDesc.trim().length < 20) { Alert.alert('', t('student_profile_ui.report_desc_short')); return; }
     setReportBusy(true);
     try {
       await reportStudentIncident(id, {
@@ -340,9 +341,9 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
         safety_category: reportSafety ? reportSafetyCat : undefined,
       });
       setReportOpen(false); setReportDesc(''); setReportSafety(false); setReportType('behavioral');
-      Alert.alert('تم الإرسال', 'تم إرسال البلاغ لمراجعة الإدارة. لن يظهر لأي معلم آخر إلا بعد اعتماده.');
+      Alert.alert(t('student_profile_ui.sent_title'), t('student_profile_ui.report_sent_body'));
     } catch (e: any) {
-      Alert.alert('تعذّر الإرسال', e?.response?.data?.message || 'حدث خطأ');
+      Alert.alert(t('student_profile_ui.send_failed_title'), e?.response?.data?.message || t('common.error'));
     } finally {
       setReportBusy(false);
     }
@@ -359,9 +360,9 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
     try {
       await flagParentNumber(id, { parent_id: flagFor.id, reason: flagReason.trim() || undefined });
       setFlagFor(null); setFlagReason('');
-      Alert.alert('تم الإرسال', 'تم إرسال البلاغ لمراجعة الإدارة. بعد التأكيد سيظهر التنبيه لجميع المعلمين.');
+      Alert.alert(t('student_profile_ui.sent_title'), t('student_profile_ui.flag_sent_body'));
     } catch (e: any) {
-      Alert.alert('تعذّر الإرسال', e?.response?.data?.message || 'حدث خطأ');
+      Alert.alert(t('student_profile_ui.send_failed_title'), e?.response?.data?.message || t('common.error'));
     } finally {
       setFlagBusy(false);
     }
@@ -434,19 +435,19 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   // Remove a TERMINATED student from the roster now (before the 7-day grace). The bill stays.
   const confirmRemoveFromRoster = () => {
     Alert.alert(
-      'إزالة من القائمة',
-      'إزالة هذا الطالب المُنهى من قائمتك الآن؟ تبقى مستحقاته دون تغيير.',
+      t('student_profile_ui.remove_from_roster_title'),
+      t('student_profile_ui.remove_from_roster_body'),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'إزالة',
+          text: t('form_ui.remove'),
           style: 'destructive',
           onPress: async () => {
             try {
               await removeStudentFromRoster(id);
               if (onClose) onClose(); else router.back();
             } catch {
-              Alert.alert(t('common.error'), 'تعذّرت الإزالة من القائمة');
+              Alert.alert(t('common.error'), t('student_profile_ui.remove_from_roster_failed'));
             }
           },
         },
@@ -490,7 +491,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       stats={s ? [
         { value: formatNumber(s.attendance_stats.attended), label: t('teacher.stat_attended') },
         { value: formatNumber(s.attendance_stats.absent), label: t('teacher.stat_absent'), warn: s.attendance_stats.absent > 0 },
-        { value: s.billing.has_pending ? formatNumber(Number(s.billing.pending_total ?? 0)) : '٠', label: 'مستحق ج.م', warn: !!s.billing.has_pending },
+        { value: s.billing.has_pending ? formatNumber(Number(s.billing.pending_total ?? 0)) : '٠', label: t('student_profile_ui.stat_owed_egp'), warn: !!s.billing.has_pending },
       ] : undefined}
       compact={!s}
     />
@@ -525,14 +526,14 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.lg, paddingVertical: spacing.xs, ...shadows.sm }}>
             <ContactRow
               icon="child"
-              label="الطالب"
+              label={t('offline.fields.student_name')}
               name={null}
               phone={s.phone ?? null}
               badge={s.phone ? {
                 label: s.phone_verified ? t('teacher.number_verified') : s.phone_vouched ? t('teacher.number_vouched') : t('teacher.number_unproved'),
                 variant: s.phone_verified ? 'success' : s.phone_vouched ? 'info' : 'warning',
               } : null}
-              empty="لا رقم للطالب — يُتواصل مع ولي الأمر."
+              empty={t('student_profile_ui.student_no_phone')}
               onCall={s.phone ? () => Linking.openURL(`tel:${s.phone}`) : undefined}
             />
             {s.parents.map((p, i) => (
@@ -540,7 +541,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 key={`parent-${p.id ?? i}`}
                 divider
                 icon="profile"
-                label={[relationshipLabel(p.relationship) || 'ولي الأمر', p.is_primary ? t('teacher.primary_parent') : null].filter(Boolean).join(' · ')}
+                label={[relationshipLabel(p.relationship) || t('offline.fields.parent_name'), p.is_primary ? t('teacher.primary_parent') : null].filter(Boolean).join(' · ')}
                 name={p.name}
                 phone={p.phone}
                 // §7: an answered OTP, a teacher's word, or nothing — three claims that never share a badge.
@@ -586,7 +587,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
             >
               <Icon name="call" size={18} color={colors.warningText} />
               <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, color: colors.textPrimary }}>
-                {s.shared_unproved_message ?? 'هذا الطالب مسجَّل مع معلّم آخر أيضًا، ورقمه لم يُثبَت بعد.'}
+                {s.shared_unproved_message ?? t('student_profile_ui.shared_unproved_fallback')}
               </Text>
               <Icon name="back" size={16} color={colors.warningText} />
             </TouchableOpacity>
@@ -613,21 +614,21 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 <TouchableOpacity onPress={() => setEditOpen(true)} accessibilityRole="button" activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
                   <Icon name="note" size={16} color={colors.textSecondary} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>طلب تعديل الاسم/الرقم</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{t('student_profile_ui.edit_request_action')}</Text>
                 </TouchableOpacity>
               ) : null}
               {canReport ? (
                 <TouchableOpacity onPress={() => setReportOpen(true)} accessibilityRole="button" activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
                   <Icon name="warning" size={16} color={colors.danger} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger }}>الإبلاغ عن حادثة</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger }}>{t('student_profile_ui.report_incident')}</Text>
                 </TouchableOpacity>
               ) : null}
               {canManage && s.can_remove_from_roster ? (
                 <TouchableOpacity onPress={confirmRemoveFromRoster} accessibilityRole="button" activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
                   <Icon name="person-remove" size={16} color={colors.textSecondary} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>إزالة من القائمة</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{t('student_profile_ui.remove_from_roster_title')}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -680,8 +681,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 <Icon name="money" size={20} color="#fff" />
                 <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: '#fff' }} numberOfLines={1}>
                   {(s.courses ?? []).filter((x) => x.enrollment_id && x.cycle?.has_cycle).length > 1
-                    ? `تصحيح الفواتير — ${c.name ?? ''}`
-                    : 'تصحيح الفواتير'}
+                    ? t('student_profile_ui.correct_bills_course', { course: c.name ?? '' })
+                    : t('student_profile_ui.correct_bills')}
                 </Text>
                 <Icon name="back" size={18} color="rgba(255,255,255,0.85)" />
               </TouchableOpacity>
@@ -702,10 +703,10 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 <Icon name="success" size={20} color={colors.brand} outline />
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }} numberOfLines={1}>
-                    {(s.courses ?? []).filter((x) => x.cycle_invoice && Number(x.cycle_invoice.remaining) > 0).length > 1 ? `سُدِّدت قبل الانضمام — ${c.name ?? ''}` : 'سُدِّدت قبل الانضمام للنظام'}
+                    {(s.courses ?? []).filter((x) => x.cycle_invoice && Number(x.cycle_invoice.remaining) > 0).length > 1 ? t('student_profile_ui.prior_paid_course', { course: c.name ?? '' }) : t('student_profile_ui.prior_paid_system')}
                   </Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>
-                    {`فاتورة الدورة ${Math.round(Number(c.cycle_invoice!.amount))} ج.م · المتبقي ${Math.round(Number(c.cycle_invoice!.remaining))} ج.م`}
+                    {t('student_profile_ui.cycle_bill_amount_remaining', { amount: Math.round(Number(c.cycle_invoice!.amount)), remaining: Math.round(Number(c.cycle_invoice!.remaining)) })}
                   </Text>
                 </View>
                 <Icon name="back" size={18} color={colors.brand} />
@@ -717,7 +718,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               <View style={{ marginTop: spacing.md, flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
                 <Icon name="book" size={18} color={colors.textSecondary} outline />
                 <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>
-                  سعر الملزمة محدّد في المقرر، لكن الملازم غير مفعّلة في إعداداتك. فعّلها من صفحة الفواتير على الويب ليظهر زر «تم تحصيل الملزمة» هنا.
+                  {t('student_profile_ui.booklets_disabled_hint')}
                 </Text>
               </View>
             ) : null}
@@ -777,16 +778,16 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
             {/* Collected payments the teacher can CANCEL (per-charge). */}
             {(s.billing.collected ?? []).length > 0 ? (
               <View style={{ marginTop: spacing.md }}>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>مدفوعات محصّلة — يمكنك إلغاؤها</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('student_profile_ui.collected_payments_title')}</Text>
                 {(s.billing.collected ?? []).map((c) => (
                   <View key={`${c.kind}-${c.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{c.label}</Text>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.success, marginTop: 2 }}>{`مدفوع ${c.paid} ${t('teacher.egp')}`}</Text>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.success, marginTop: 2 }}>{t('student_profile_ui.paid_amount', { amount: c.paid })}</Text>
                     </View>
                     <TouchableOpacity onPress={() => cancelPayment(c)} disabled={reversing === c.id} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingVertical: 6, paddingHorizontal: spacing.md }}>
                       {reversing === c.id ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="close" size={14} color={colors.danger} />}
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>إلغاء الدفع</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>{t('cash.refuse_confirm')}</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -820,15 +821,15 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                         <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
                           {/* Where the cycle stands: a bar of the cycle's sessions, the current one marked. */}
                           <TouchableOpacity onPress={openPosition} disabled={!canPosition} activeOpacity={0.8} accessibilityRole="button"
-                            accessibilityLabel={`الحصة ${cy.position} من ${cy.threshold}`}
+                            accessibilityLabel={t('student_profile_ui.session_n_of', { position: cy.position, threshold: cy.threshold })}
                             style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-                              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>موقعه في الدورة</Text>
-                              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{`الحصة ${formatNumber(cy.position)} من ${formatNumber(cy.threshold)}`}</Text>
+                              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t('student_profile_ui.cycle_position_label')}</Text>
+                              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('student_profile_ui.session_n_of', { position: formatNumber(cy.position), threshold: formatNumber(cy.threshold) })}</Text>
                               {canPosition ? (
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginStart: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2 }}>
                                   <Icon name="note" size={12} color={colors.brand} />
-                                  <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.brand }}>تعديل</Text>
+                                  <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.brand }}>{t('student_profile_ui.edit')}</Text>
                                 </View>
                               ) : null}
                             </View>
@@ -846,16 +847,16 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                               })}
                             </View>
                             {cy.carried > 0 ? (
-                              <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 6 }}>{`انضم من الحصة ${formatNumber(cy.carried + 1)} — ما قبلها لا يُحسب عليه`}</Text>
+                              <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 6 }}>{t('student_profile_ui.joined_from_session', { session: formatNumber(cy.carried + 1) })}</Text>
                             ) : null}
                           </TouchableOpacity>
 
                           {/* Attendance in this cycle, in three numbers. */}
                           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                             {[
-                              { v: cy.attended, l: 'حضر', fg: colors.successText, bg: colors.successLight },
-                              { v: cy.absent, l: 'غاب', fg: cy.absent > 0 ? colors.dangerText : colors.textSecondary, bg: cy.absent > 0 ? colors.dangerLight : colors.surfaceSunken },
-                              { v: cy.held, l: 'حصص عُقدت', fg: colors.textPrimary, bg: colors.surfaceSunken },
+                              { v: cy.attended, l: t('student_profile_ui.attended'), fg: colors.successText, bg: colors.successLight },
+                              { v: cy.absent, l: t('student_profile_ui.absent'), fg: cy.absent > 0 ? colors.dangerText : colors.textSecondary, bg: cy.absent > 0 ? colors.dangerLight : colors.surfaceSunken },
+                              { v: cy.held, l: t('student_profile_ui.sessions_held'), fg: colors.textPrimary, bg: colors.surfaceSunken },
                             ].map((x) => (
                               <View key={x.l} style={{ flex: 1, backgroundColor: x.bg, borderRadius: radius.lg, paddingVertical: spacing.sm, alignItems: 'center' }}>
                                 <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: x.fg }}>{formatNumber(x.v)}</Text>
@@ -872,8 +873,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                           style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, paddingHorizontal: spacing.md }}>
                           <Icon name="calendar" size={18} color={colors.brand} />
                           <View style={{ flex: 1 }}>
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>تسجيل حضور سابق</Text>
-                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{`${formatNumber(unrecorded)} يوم بلا سجل — من الدفتر الورقي`}</Text>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('student_profile_ui.backfill_action')}</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('student_profile_ui.backfill_sub', { count: formatNumber(unrecorded) })}</Text>
                           </View>
                           <Icon name="back" size={16} color={colors.brand} />
                         </TouchableOpacity>
@@ -885,8 +886,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                           style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, paddingHorizontal: spacing.md }}>
                           <Icon name="calendar" size={18} color={colors.brand} />
                           <View style={{ flex: 1 }}>
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>تقويم السنة</Text>
-                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>كل شهر: فاتورته وحصصه — وتعديلها</Text>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('student_profile_ui.year_calendar')}</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('student_profile_ui.year_calendar_sub')}</Text>
                           </View>
                           <Icon name="back" size={16} color={colors.brand} />
                         </TouchableOpacity>
@@ -899,8 +900,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                           style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.warningDark, paddingHorizontal: spacing.md }}>
                           <Icon name="invoices" size={18} color={colors.warningDark} />
                           <View style={{ flex: 1 }}>
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.warningDark }}>تسجيل شهر سابق</Text>
-                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>حصص شهر قبل الانضمام وفاتورته المستحقة</Text>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.warningDark }}>{t('student_profile_ui.prior_month')}</Text>
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('student_profile_ui.prior_month_sub')}</Text>
                           </View>
                           <Icon name="back" size={16} color={colors.warningDark} />
                         </TouchableOpacity>
@@ -961,7 +962,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
         locked={collectFor?.kind === 'all'}
         busy={collectBusy}
         onSubmit={submitCollect}
-        hint={collectFor?.kind === 'all' ? 'يُرسَل إيصال لولي الأمر، ويدخل المبلغ خزنتك ويُحتسب في التقارير المالية الآن.' : undefined}
+        hint={collectFor?.kind === 'all' ? t('student_profile_ui.collect_all_hint') : undefined}
       />
 
       {/* Correct the bills of one course: a card per month — the amount, how many sessions it
@@ -970,14 +971,14 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       <SheetModal visible={!!amountFor} onClose={() => !amountBusy && setAmountFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>
-                {`تصحيح الفواتير — ${amountFor?.courseName ?? ''}`}
+                {t('student_profile_ui.correct_bills_course', { course: amountFor?.courseName ?? '' })}
               </Text>
               <TouchableOpacity onPress={() => !amountBusy && setAmountFor(null)} hitSlop={10}>
                 <Icon name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginBottom: spacing.md }}>
-              لكل شهر: المبلغ، وعن كم حصة، وكم دُفع منه حتى الآن. تُعدَّل الفاتورة نفسها — لا تصدر فاتورة جديدة ولا تبقى فاتورة ملغاة.
+              {t('student_profile_ui.correct_bills_intro')}
             </Text>
             {(amountFor?.rows ?? []).map((r, idx) => {
               const field = (label: string, value: string, onChange: (v: string) => void, keyboard: 'numeric' | 'number-pad', placeholder?: string) => (
@@ -996,24 +997,24 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               return (
                 <View key={r.invoiceId ?? 'open'} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, padding: spacing.md, marginBottom: spacing.sm }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-                    <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }}>{r.month ?? 'فاتورة الدورة الحالية'}</Text>
+                    <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }}>{r.month ?? t('student_profile_ui.current_cycle_bill')}</Text>
                     {r.threshold ? (
                       <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: r.neverRan ? colors.dangerText : colors.textSecondary }}>
-                        {r.neverRan ? `حضر ${r.sessions}/${r.threshold} — مقرر لم يبدأ؟` : `حضر ${r.sessions}/${r.threshold}`}
+                        {r.neverRan ? t('student_profile_ui.attended_of_never_ran', { sessions: r.sessions, threshold: r.threshold }) : t('student_profile_ui.attended_of', { sessions: r.sessions, threshold: r.threshold })}
                       </Text>
                     ) : null}
-                    {r.overdue ? <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.dangerText }}>متأخرة</Text> : null}
+                    {r.overdue ? <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.dangerText }}>{t('collections.overdue')}</Text> : null}
                   </View>
                   <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                    {field('المبلغ (ج.م)', r.amount, (v) => setBillRow(idx, { amount: v }), 'numeric')}
-                    {field('عن كم حصة', r.sessionsText, (v) => setBillRow(idx, { sessionsText: v }), 'number-pad', r.threshold ? String(r.threshold) : '—')}
-                    {field('المدفوع منه', r.paid, (v) => setBillRow(idx, { paid: v }), 'numeric')}
+                    {field(t('expenses.amount'), r.amount, (v) => setBillRow(idx, { amount: v }), 'numeric')}
+                    {field(t('student_profile_ui.for_sessions'), r.sessionsText, (v) => setBillRow(idx, { sessionsText: v }), 'number-pad', r.threshold ? String(r.threshold) : '—')}
+                    {field(t('student_profile_ui.paid_of_it'), r.paid, (v) => setBillRow(idx, { paid: v }), 'numeric')}
                   </View>
                 </View>
               );
             })}
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.xs }}>
-              ما تزيده في «المدفوع» يُسجَّل مدفوعًا دون أن يدخل خزنة. لتقليل المدفوع ألغِ التحصيل من سجل المدفوعات، لا من هنا.
+              {t('student_profile_ui.correct_bills_paid_note')}
             </Text>
             <TouchableOpacity
               onPress={submitAmount}
@@ -1022,7 +1023,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.brand, justifyContent: 'center', alignItems: 'center' }}
             >
               {amountBusy ? <ActivityIndicator color="#fff" /> : (
-                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>حفظ</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('common.save')}</Text>
               )}
             </TouchableOpacity>
       </SheetModal>
@@ -1032,17 +1033,17 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       <SheetModal visible={!!priorFor} onClose={() => !priorBusy && setPriorFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>
-                {`سُدِّدت قبل الانضمام — ${priorFor?.courseName ?? ''}`}
+                {t('student_profile_ui.prior_paid_course', { course: priorFor?.courseName ?? '' })}
               </Text>
               <TouchableOpacity onPress={() => !priorBusy && setPriorFor(null)} hitSlop={10}>
                 <Icon name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginBottom: spacing.md }}>
-              {`الأسرة دفعت رسوم هذا الشهر قبل انضمامك للنظام. تُسجَّل الفاتورة كمسدَّدة دون أن تُحسب ضمن المحصَّل أو درج النقدية، وتُصدر فاتورة الشهر القادم كالمعتاد. المتبقي على الفاتورة الآن ${Math.round(priorFor?.remaining ?? 0)} ج.م.`}
+              {t('student_profile_ui.prior_intro', { remaining: Math.round(priorFor?.remaining ?? 0) })}
             </Text>
             <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginBottom: 4 }}>
-              المبلغ المدفوع مسبقًا (اختياري — فارغ = كامل المتبقي)
+              {t('student_profile_ui.prior_amount_label')}
             </Text>
             <TextInput
               value={priorAmount}
@@ -1059,18 +1060,18 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.success, justifyContent: 'center', alignItems: 'center' }}
             >
               {priorBusy ? <ActivityIndicator color="#fff" /> : (
-                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>تسجيلها كمسدَّدة مسبقًا</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('student_profile_ui.prior_submit')}</Text>
               )}
             </TouchableOpacity>
       </SheetModal>
 
       <SheetModal visible={!!positionFor} onClose={() => !positionBusy && setPositionFor(null)} style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{`الطالب على الحصة رقم — ${positionFor?.courseName ?? ''}`}</Text>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('student_profile_ui.position_title', { course: positionFor?.courseName ?? '' })}</Text>
               <TouchableOpacity onPress={() => !positionBusy && setPositionFor(null)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginBottom: spacing.sm }}>
-              الحصة التي بدأ منها الطالب — ما قبلها لا يُحاسَب عليه. تُعاد تسعير فاتورة الدورة غير المدفوعة تلقائيًا؛ الفواتير المدفوعة لا تتغيّر.
+              {t('student_profile_ui.position_intro')}
             </Text>
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
               {Array.from({ length: positionFor?.threshold ?? 0 }, (_, i) => i + 1).map((n) => {
@@ -1088,9 +1089,9 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                       <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: current ? '#fff' : colors.textPrimary }}>{n}</Text>
                     </View>
                     <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>
-                      {pos?.label ?? '—'}{pos && !pos.is_past ? '  · قادمة' : ''}
+                      {pos?.label ?? '—'}{pos && !pos.is_past ? `  · ${t('session_ui.upcoming')}` : ''}
                     </Text>
-                    {current ? <Badge label="الحالية" variant="info" size="sm" /> : null}
+                    {current ? <Badge label={t('student_profile_ui.current')} variant="info" size="sm" /> : null}
                   </TouchableOpacity>
                 );
               })}
@@ -1101,23 +1102,23 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       {/* The paper register — past days of one course, tick who came. */}
       <SheetModal visible={!!backfillFor} onClose={() => !backfillBusy && setBackfillFor(null)} style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>تسجيل حضور سابق من السجل الورقي</Text>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('student_profile_ui.backfill_title')}</Text>
               <TouchableOpacity onPress={() => !backfillBusy && setBackfillFor(null)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>
-              {`حصص «${backfillFor?.courseName ?? ''}» خلال آخر ٩٠ يومًا. علّم الأيام التي حضرها الطالب حسب الدفتر — يُسجَّل الحضور فقط؛ اليوم غير المعلَّم يبقى بلا سجل.`}
+              {t('student_profile_ui.backfill_intro', { course: backfillFor?.courseName ?? '' })}
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.sm }}>
-              سيُضبط بدء الطالب على أقدم يوم مختار وتُعاد تسعير فاتورة الدورة غير المدفوعة. الفواتير المدفوعة لا تتغيّر.
+              {t('student_profile_ui.backfill_note')}
             </Text>
             <TouchableOpacity onPress={() => setBackfillPicked((backfillFor?.days ?? []).filter((d) => d.recorded == null).map((d) => d.id))} style={{ alignSelf: 'flex-start', marginBottom: spacing.xs }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brand }}>تحديد كل الأيام غير المسجّلة</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brand }}>{t('student_profile_ui.backfill_select_all')}</Text>
             </TouchableOpacity>
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 360 }}>
               {(backfillFor?.days ?? []).map((d) => {
                 const locked = d.recorded != null;
                 const on = locked ? (d.recorded === 'present' || d.recorded === 'late') : backfillPicked.includes(d.id);
-                const tag = locked ? ({ present: 'حاضر', late: 'متأخر', absent: 'غائب', excused: 'بعذر' } as Record<string, string>)[d.recorded!] ?? d.recorded : (d.virtual ? 'حسب الجدول' : (d.before_enrolment ? 'قبل التسجيل' : 'بلا سجل'));
+                const tag = locked ? ({ present: t('attendance.present'), late: t('attendance.late'), absent: t('attendance.absent'), excused: t('attendance.excused') } as Record<string, string>)[d.recorded!] ?? d.recorded : (d.virtual ? t('student_profile_ui.per_schedule') : (d.before_enrolment ? t('student_profile_ui.before_enrolment') : t('student_profile_ui.no_record')));
                 return (
                   <TouchableOpacity
                     key={String(d.id)}
@@ -1141,7 +1142,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               accessibilityRole="button"
               style={{ marginTop: spacing.md, minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.brand, justifyContent: 'center', alignItems: 'center', opacity: backfillBusy ? 0.6 : 1 }}
             >
-              {backfillBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{`تسجيل الحضور (${backfillPicked.length})`}</Text>}
+              {backfillBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('student_profile_ui.backfill_submit', { count: backfillPicked.length })}</Text>}
             </TouchableOpacity>
       </SheetModal>
 
@@ -1194,20 +1195,20 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       {/* Name/phone correction request → super-admin review */}
       <SheetModal visible={editOpen} onClose={() => !editBusy && setEditOpen(false)} avoidKeyboard style={{ backgroundColor: colors.background, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '88%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>طلب تعديل بيانات الطالب</Text>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('student_profile_ui.edit_request_title')}</Text>
               <TouchableOpacity onPress={() => !editBusy && setEditOpen(false)} hitSlop={10}>
                 <Icon name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>
-              يراجع مدير النظام الطلب قبل تطبيقه. اترك الحقل فارغًا إن لم ترغب بتغييره.
+              {t('student_profile_ui.edit_request_intro')}
             </Text>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.md }}>
               {[
-                { label: 'الاسم الأول', value: editFirst, set: setEditFirst, kb: 'default' as const },
-                { label: 'الاسم الأخير', value: editLast, set: setEditLast, kb: 'default' as const },
-                { label: 'رقم الهاتف', value: editPhone, set: setEditPhone, kb: 'phone-pad' as const },
+                { label: t('student_profile_ui.first_name'), value: editFirst, set: setEditFirst, kb: 'default' as const },
+                { label: t('student_profile_ui.last_name'), value: editLast, set: setEditLast, kb: 'default' as const },
+                { label: t('auth.phone'), value: editPhone, set: setEditPhone, kb: 'phone-pad' as const },
               ].map((f) => (
                 <View key={f.label} style={{ marginBottom: spacing.md }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{f.label}</Text>
@@ -1221,12 +1222,12 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 </View>
               ))}
               <View style={{ marginBottom: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>سبب التعديل *</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('student_profile_ui.edit_reason_label')}</Text>
                 <TextInput
                   value={editReason}
                   onChangeText={setEditReason}
                   multiline
-                  placeholder="مثال: خطأ إملائي في الاسم / رقم قديم"
+                  placeholder={t('student_profile_ui.edit_reason_ph')}
                   placeholderTextColor={colors.textTertiary}
                   style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md, minHeight: 76, textAlignVertical: 'top', fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}
                 />
@@ -1238,7 +1239,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 activeOpacity={0.85}
                 style={{ backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', opacity: editBusy ? 0.6 : 1 }}
               >
-                {editBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إرسال للمراجعة</Text>}
+                {editBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('student_profile_ui.send_for_review')}</Text>}
               </TouchableOpacity>
             </ScrollView>
       </SheetModal>
@@ -1246,17 +1247,17 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       {/* Incident report → super-admin review (teacher-only) */}
       <SheetModal visible={reportOpen} onClose={() => !reportBusy && setReportOpen(false)} avoidKeyboard style={{ backgroundColor: colors.background, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '90%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>الإبلاغ عن حادثة</Text>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('student_profile_ui.report_incident')}</Text>
               <TouchableOpacity onPress={() => !reportBusy && setReportOpen(false)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>
-              يُراجع مدير النظام البلاغ ولا يظهر لأي معلم آخر إلا بعد اعتماده.
+              {t('student_profile_ui.report_intro')}
             </Text>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.md }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>نوع البلاغ</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('student_profile_ui.report_type_label')}</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
-                {([['behavioral', 'سلوكي'], ['communication', 'تواصل'], ['attendance_discipline', 'انضباط'], ['other', 'أخرى']] as [IncidentType, string][]).map(([val, label]) => (
+                {([['behavioral', t('student_profile_ui.type_behavioral')], ['communication', t('student_profile_ui.type_communication')], ['attendance_discipline', t('student_profile_ui.type_discipline')], ['other', t('student_profile_ui.other')]] as [IncidentType, string][]).map(([val, label]) => (
                   <TouchableOpacity key={val} onPress={() => setReportType(val)} activeOpacity={0.85}
                     style={{ paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: reportType === val ? colors.brand : colors.border, backgroundColor: reportType === val ? colors.brandTint : colors.surface }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: reportType === val ? colors.brand : colors.textSecondary }}>{label}</Text>
@@ -1264,14 +1265,14 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 ))}
               </View>
 
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>وصف الحادثة *</Text>
-              <TextInput value={reportDesc} onChangeText={setReportDesc} multiline placeholder="اكتب وصفًا واضحًا (20 حرفًا على الأقل)" placeholderTextColor={colors.textTertiary}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('student_profile_ui.report_desc_label')}</Text>
+              <TextInput value={reportDesc} onChangeText={setReportDesc} multiline placeholder={t('student_profile_ui.report_desc_ph')} placeholderTextColor={colors.textTertiary}
                 style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md, minHeight: 96, textAlignVertical: 'top', fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.md }} />
 
               <TouchableOpacity onPress={() => setReportSafety((v) => !v)} activeOpacity={0.85}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: reportSafety ? colors.dangerLight : colors.surface, borderWidth: 1.5, borderColor: reportSafety ? colors.danger : colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
                 <Icon name="warning" size={18} color={reportSafety ? colors.danger : colors.textTertiary} />
-                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: reportSafety ? colors.danger : colors.textSecondary }}>حادثة خطيرة (تتطلب مراجعة عاجلة)</Text>
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: reportSafety ? colors.danger : colors.textSecondary }}>{t('student_profile_ui.report_safety_toggle')}</Text>
                 <View style={{ width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: reportSafety ? colors.danger : colors.border, backgroundColor: reportSafety ? colors.danger : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
                   {reportSafety ? <Icon name="success" size={12} color="#fff" /> : null}
                 </View>
@@ -1279,9 +1280,9 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
 
               {reportSafety ? (
                 <View style={{ marginBottom: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>نوع الخطر *</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('student_profile_ui.danger_type_label')}</Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-                    {([['weapon', 'سلاح'], ['physical_violence', 'عنف جسدي'], ['other_immediate_danger', 'خطر مباشر آخر']] as [SafetyCategory, string][]).map(([val, label]) => (
+                    {([['weapon', t('student_profile_ui.danger_weapon')], ['physical_violence', t('student_profile_ui.danger_physical_violence')], ['other_immediate_danger', t('student_profile_ui.danger_other_immediate')]] as [SafetyCategory, string][]).map(([val, label]) => (
                       <TouchableOpacity key={val} onPress={() => setReportSafetyCat(val)} activeOpacity={0.85}
                         style={{ paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: reportSafetyCat === val ? colors.danger : colors.border, backgroundColor: reportSafetyCat === val ? colors.dangerLight : colors.surface }}>
                         <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: reportSafetyCat === val ? colors.danger : colors.textSecondary }}>{label}</Text>
@@ -1293,7 +1294,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
 
               <TouchableOpacity onPress={submitReport} disabled={reportBusy} activeOpacity={0.85}
                 style={{ backgroundColor: reportSafety ? colors.danger : colors.brand, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', opacity: reportBusy ? 0.6 : 1 }}>
-                {reportBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إرسال البلاغ</Text>}
+                {reportBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('attendance.report_submit')}</Text>}
               </TouchableOpacity>
             </ScrollView>
       </SheetModal>
@@ -1301,17 +1302,17 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       {/* Flag a parent's phone number → super-admin review (teacher-only) */}
       <SheetModal visible={!!flagFor} onClose={() => !flagBusy && setFlagFor(null)} avoidKeyboard style={{ backgroundColor: colors.background, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>الإبلاغ عن رقم غير صحيح</Text>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('student_profile_ui.flag_title')}</Text>
               <TouchableOpacity onPress={() => !flagBusy && setFlagFor(null)} hitSlop={10}><Icon name="close" size={22} color={colors.textSecondary} /></TouchableOpacity>
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>
-              الإبلاغ عن رقم ولي الأمر «{flagFor?.name}» كرقم غير صحيح/مضلِّل. بعد اعتماد الإدارة يظهر التنبيه لجميع المعلمين.
+              {t('student_profile_ui.flag_intro', { name: flagFor?.name ?? '' })}
             </Text>
-            <TextInput value={flagReason} onChangeText={setFlagReason} multiline placeholder="السبب (اختياري)" placeholderTextColor={colors.textTertiary}
+            <TextInput value={flagReason} onChangeText={setFlagReason} multiline placeholder={t('teacher.reason_optional')} placeholderTextColor={colors.textTertiary}
               style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md, minHeight: 72, textAlignVertical: 'top', fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.md }} />
             <TouchableOpacity onPress={submitFlag} disabled={flagBusy} activeOpacity={0.85}
               style={{ backgroundColor: colors.danger, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', opacity: flagBusy ? 0.6 : 1 }}>
-              {flagBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إرسال البلاغ</Text>}
+              {flagBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('attendance.report_submit')}</Text>}
             </TouchableOpacity>
       </SheetModal>
     </View>

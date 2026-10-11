@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Switch, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
@@ -14,6 +15,7 @@ import { getNotificationPrefs, updateNotificationPrefs, type NotificationPrefs }
  * whole app. Auto-saves on each toggle. In-app feed is unaffected; only pushes are gated.
  */
 export default function NotificationPreferencesScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [prefs, setPrefs] = useState<NotificationPrefs>({ push: true, digest: true });
 
@@ -49,7 +51,7 @@ export default function NotificationPreferencesScreen() {
         <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>تفضيلات الإشعارات</Text>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('family_ui.notif_prefs_title')}</Text>
         {save.isPending ? <ActivityIndicator size="small" color={colors.brand} /> : null}
       </View>
 
@@ -59,15 +61,15 @@ export default function NotificationPreferencesScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.lg }}>
             <Row
-              title="الإشعارات الفورية"
-              subtitle="استقبال إشعارات التطبيق على هذا الجهاز (تبقى الإشعارات داخل التطبيق متاحة دائمًا)."
+              title={t('family_ui.notif_push')}
+              subtitle={t('family_ui.notif_push_sub')}
               value={prefs.push}
               onValueChange={(v) => set({ push: v })}
             />
             <View style={{ height: 1, backgroundColor: colors.borderLight }} />
             <Row
-              title="الملخّص الدوري"
-              subtitle="الملخّص اليومي/الدوري عن الحضور والرسوم. أوقفه لإسكات إشعار الملخّص فقط."
+              title={t('family_ui.notif_digest')}
+              subtitle={t('family_ui.notif_digest_sub')}
               value={prefs.digest}
               onValueChange={(v) => set({ digest: v })}
               disabled={!prefs.push}
@@ -75,7 +77,7 @@ export default function NotificationPreferencesScreen() {
           </View>
 
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.md, textAlign: 'center' }}>
-            لا تتأثر رسائل التحقق والأمان (OTP) بهذه الإعدادات.
+            {t('family_ui.notif_otp_note')}
           </Text>
         </ScrollView>
       )}

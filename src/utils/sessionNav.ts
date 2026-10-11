@@ -1,3 +1,4 @@
+import { configRule } from '@/stores/appConfigStore';
 import { router, type Href } from 'expo-router';
 import type { TeacherSession } from '@/api/teacher';
 
@@ -5,14 +6,15 @@ import type { TeacherSession } from '@/api/teacher';
 // before its start through its scheduled end. DELIBERATELY separate from the backend
 // check-in validation window (10 min before / 15 after); the two must never reference
 // each other (spec Directive 3).
-const HIGHLIGHT_BEFORE_MIN = 30;
+/** A backend rule (/admin/config → session_early_min), read at call time. */
+const HIGHLIGHT_BEFORE_MIN = () => configRule('session_early_min');
 
 export function isSessionHighlighted(s: TeacherSession, now: number): boolean {
   if (!s.scheduled_at) return false;
   const start = new Date(s.scheduled_at).getTime();
   if (Number.isNaN(start)) return false;
   const end = start + (s.duration_minutes ?? 60) * 60_000;
-  return now >= start - HIGHLIGHT_BEFORE_MIN * 60_000 && now <= end;
+  return now >= start - HIGHLIGHT_BEFORE_MIN() * 60_000 && now <= end;
 }
 
 /** The session that is live now, else the next one still to come today, else null. */

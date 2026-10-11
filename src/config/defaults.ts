@@ -12,6 +12,12 @@ export interface AppConfigRules {
   dormancy_days: number;
   billing_allowance_days: number;
   offline_bucket_gap_min: number;
+  /** The «إعادة الإرسال» countdown on every code screen. */
+  otp_resend_seconds: number;
+  /** App screens and the API agree on this floor. */
+  password_min_length: number;
+  /** How long before a session the app treats it as «قريبة». */
+  session_early_min: number;
 }
 
 export interface AppConfigContact {
@@ -78,6 +84,9 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
     dormancy_days: 30,
     billing_allowance_days: 15,
     offline_bucket_gap_min: 60, // = buckets.ts ONE_HOUR_MS
+    otp_resend_seconds: 60,
+    password_min_length: 6,
+    session_early_min: 30,
   },
   copy: {},
   pricing: { tiers: [] },

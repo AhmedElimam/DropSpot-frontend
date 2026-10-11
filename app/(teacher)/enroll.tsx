@@ -95,7 +95,7 @@ export default function TeacherEnroll() {
             const code = e?.response?.data?.code;
             // A real pre-card conflict must surface, not be retried as a card.
             if (code === 'RESERVED_ELSEWHERE' || code === 'TEACHER_ONLY') {
-              Alert.alert('', e?.response?.data?.message || 'تعذّر استخدام هذا الرمز');
+              Alert.alert('', e?.response?.data?.message || t('enroll_ui.token_unusable'));
               return;
             }
             // INVALID_TOKEN / anything else → fall through to a normal card scan.
@@ -107,12 +107,12 @@ export default function TeacherEnroll() {
         Vibration.vibrate(50);
         setReview(res.found && res.student ? { kind: 'match', student: res.student, value: data } : { kind: 'miss' });
       } catch {
-        Alert.alert('', 'تعذّر البحث. حاول مرة أخرى.');
+        Alert.alert('', t('enroll_ui.lookup_failed'));
       } finally {
         setBusy(false);
       }
     },
-    [busy, review, done, course, isAssistant],
+    [busy, review, done, course, isAssistant, t],
   );
   // The camera only while this screen is in front (invite-phone pushes over it and the stack does
   // not freeze), and ONE stable scan handler gated by a ref: toggling `onBarcodeScanned` makes
@@ -185,7 +185,7 @@ export default function TeacherEnroll() {
               ]);
               return;
             }
-            Alert.alert('', e?.response?.data?.message || 'تعذّر التسجيل');
+            Alert.alert('', e?.response?.data?.message || t('enroll_ui.register_failed'));
           },
         });
       run();
@@ -193,7 +193,7 @@ export default function TeacherEnroll() {
       const name = review.student.name;
       confirmPre.mutate(review.invitationId, {
         onSuccess: () => flashDone(name, 'pre_card'),
-        onError: (e: any) => Alert.alert('', e?.response?.data?.message || 'تعذّر التسجيل'),
+        onError: (e: any) => Alert.alert('', e?.response?.data?.message || t('enroll_ui.register_failed')),
       });
     } else if (review.kind === 'offline') {
       enrollLater.mutate(review.value, {
@@ -218,12 +218,12 @@ export default function TeacherEnroll() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
         <Icon name="scan" size={56} color={colors.brand} />
-        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.lg }}>نحتاج إذن الكاميرا</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.lg }}>{t('teacher.camera_permission_title')}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm }}>
-          لمسح رمز QR على بطاقة الطالب وتسجيله في المقرر.
+          {t('enroll_ui.camera_permission_body')}
         </Text>
         <TouchableOpacity onPress={requestPermission} activeOpacity={0.85} style={{ marginTop: spacing.xl, backgroundColor: colors.brand, borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }}>السماح بالكاميرا</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }}>{t('teacher.grant_camera')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -245,10 +245,10 @@ export default function TeacherEnroll() {
             <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
               <Icon name="forward" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>تسجيل طالب</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{t('offline.actions.record_student')}</Text>
           </View>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, marginTop: spacing.md }}>
-            اختر المقرر، ثم امسح رمز QR على بطاقة الطالب أو رمز الدعوة الذي أنشأه ولي الأمر. يُسجَّل في المقرر ويحضر جميع حصصه.
+            {t('enroll_ui.enroll_intro')}
           </Text>
         </View>
         {isLoading ? (
@@ -257,7 +257,7 @@ export default function TeacherEnroll() {
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.sm }}>
             {(classes ?? []).length === 0 ? (
               <Text style={{ fontFamily: fonts.regular, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xl }}>
-                لا توجد مقررات لها مواعيد. أضِف موعدًا للمقرر أولًا.
+                {t('enroll_ui.no_scheduled_courses')}
               </Text>
             ) : (
               (classes ?? []).map((c) => (
@@ -270,7 +270,7 @@ export default function TeacherEnroll() {
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{c.course_name}</Text>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-                      {c.slots.length} {c.slots.length === 1 ? 'موعد أسبوعي' : 'مواعيد أسبوعية'}
+                      {c.slots.length} {c.slots.length === 1 ? t('enroll_ui.weekly_slot_one') : t('enroll_ui.weekly_slot_many')}
                     </Text>
                   </View>
                   <Icon name="back" size={18} color={colors.brand} />
@@ -304,7 +304,7 @@ export default function TeacherEnroll() {
           <Icon name="forward" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>التسجيل في المقرر</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>{t('enroll_ui.enrolling_in_course')}</Text>
           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }} numberOfLines={1}>{course!.course_name}</Text>
         </View>
       </View>
@@ -314,7 +314,7 @@ export default function TeacherEnroll() {
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
           <View style={{ width: 240, height: 240, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)', borderRadius: 24 }} />
           <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: '#fff', marginTop: spacing.lg }}>
-            {busy ? 'جارٍ البحث…' : 'وجّه الكاميرا نحو رمز QR على البطاقة'}
+            {busy ? t('enroll_ui.searching') : t('enroll_ui.aim_camera')}
           </Text>
           {busy ? <ActivityIndicator color="#fff" style={{ marginTop: spacing.md }} /> : null}
         </View>
@@ -337,9 +337,9 @@ export default function TeacherEnroll() {
       {/* No student behind this card — a small bottom card, back to scanning. */}
       {review?.kind === 'miss' ? (
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>لا يوجد طالب بهذه البطاقة</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: spacing.xs }}>تأكد من البطاقة وأعد المسح.</Text>
-          <Button title="إعادة المسح" onPress={() => setReview(null)} style={{ marginTop: spacing.lg }} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('enroll_ui.no_student_for_card')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: spacing.xs }}>{t('enroll_ui.check_card_rescan')}</Text>
+          <Button title={t('enroll_ui.rescan')} onPress={() => setReview(null)} style={{ marginTop: spacing.lg }} />
         </View>
       ) : null}
 
@@ -353,7 +353,7 @@ export default function TeacherEnroll() {
                   <View style={{ flex: 1 }}>
                     {review.kind === 'precard' ? (
                       <View style={{ alignSelf: 'flex-start', marginBottom: spacing.sm }}>
-                        <Badge text="دعوة بواسطة ولي الأمر — قبل البطاقة" color={colors.brand} />
+                        <Badge text={t('enroll_ui.precard_badge')} color={colors.brand} />
                       </View>
                     ) : review.kind === 'offline' ? (
                       <View style={{ alignSelf: 'flex-start', marginBottom: spacing.sm }}>
@@ -369,11 +369,11 @@ export default function TeacherEnroll() {
                     ) : null}
                     {review.kind === 'match' ? (
                       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, flexWrap: 'wrap' }}>
-                        <Badge text={review.student.has_card ? 'لديه بطاقة' : 'بدون بطاقة'} color={review.student.has_card ? colors.success : colors.textSecondary} />
+                        <Badge text={review.student.has_card ? t('enroll_ui.has_card') : t('teacher.card_less')} color={review.student.has_card ? colors.success : colors.textSecondary} />
                       </View>
                     ) : null}
                   </View>
-                  <TouchableOpacity onPress={dismiss} accessibilityRole="button" accessibilityLabel="إغلاق" style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
+                  <TouchableOpacity onPress={dismiss} accessibilityRole="button" accessibilityLabel={t('common.close')} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
                     <Icon name="close" size={18} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
@@ -389,15 +389,15 @@ export default function TeacherEnroll() {
 
               {/* Body: the shared terms sheet (position in the month, دفعة, booklet). */}
               <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.sm }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>شروط التسجيل</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('enroll_ui.terms_title')}</Text>
                 <EnrollmentTermsSheet terms={terms} />
               </ScrollView>
 
               {/* Footer: reject / accept. */}
               <View style={{ flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.lg, backgroundColor: colors.surface, borderTopWidth: 1, borderColor: colors.border }}>
-                <Button title="رفض" variant="outline" onPress={dismiss} style={{ flex: 1 }} />
+                <Button title={t('invites.reject')} variant="outline" onPress={dismiss} style={{ flex: 1 }} />
                 <Button
-                  title="قبول وتسجيل"
+                  title={t('enroll_ui.accept_enroll')}
                   variant="success"
                   onPress={accept}
                   loading={enroll.isPending || confirmPre.isPending || enrollLater.isPending}
@@ -415,7 +415,7 @@ export default function TeacherEnroll() {
             <Icon name="success" size={64} color="#fff" />
           </View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', textAlign: 'center', marginTop: spacing.lg }}>{done}</Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 18, color: '#fff', marginTop: spacing.sm }}>تم التسجيل في المقرر</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 18, color: '#fff', marginTop: spacing.sm }}>{t('enroll_ui.enrolled_in_course')}</Text>
         </View>
       ) : null}
     </View>

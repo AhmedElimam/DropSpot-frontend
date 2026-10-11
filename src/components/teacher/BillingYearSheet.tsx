@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, ScrollView,
 import { Alert } from '@/ui/dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { Icon } from '@/components/ui/Icon';
 import { fonts } from '@/theme/typography';
@@ -37,17 +39,18 @@ const num = (v: string | number | null | undefined) => Number(v ?? 0);
 function tone(m: YearMonth): { bg: string; border: string; fg: string; note: string; dashed?: boolean; faded?: boolean } {
   const bill = m.bills[0];
   if (m.phase === 'future') return { bg: colors.surface, border: colors.borderLight, fg: colors.textTertiary, note: '', faded: true };
-  if (m.phase === 'before_join' && !bill) return { bg: colors.surfaceSunken, border: colors.surfaceSunken, fg: colors.textTertiary, note: 'قبل الانضمام' };
-  if (!bill) return { bg: colors.surface, border: colors.border, fg: colors.textSecondary, note: 'بدون فاتورة', dashed: true };
+  if (m.phase === 'before_join' && !bill) return { bg: colors.surfaceSunken, border: colors.surfaceSunken, fg: colors.textTertiary, note: i18n.t('billing_sheets.before_join') };
+  if (!bill) return { bg: colors.surface, border: colors.border, fg: colors.textSecondary, note: i18n.t('billing_sheets.no_bill'), dashed: true };
   const owed = m.bills.reduce((t, b) => t + num(b.remaining), 0);
   const paid = m.bills.reduce((t, b) => t + num(b.paid), 0);
-  if (owed <= 0.001) return { bg: colors.successLight, border: colors.success, fg: colors.successText, note: 'مدفوعة' };
-  if (m.bills.some((b) => b.status === 'overdue')) return { bg: colors.dangerLight, border: colors.danger, fg: colors.dangerText, note: 'متأخرة' };
-  if (paid > 0) return { bg: colors.warningLight, border: colors.warning, fg: colors.warningText, note: 'مدفوع جزء' };
-  return { bg: colors.brandTint, border: colors.brand, fg: colors.brand, note: 'مستحقة' };
+  if (owed <= 0.001) return { bg: colors.successLight, border: colors.success, fg: colors.successText, note: i18n.t('billing_sheets.paid') };
+  if (m.bills.some((b) => b.status === 'overdue')) return { bg: colors.dangerLight, border: colors.danger, fg: colors.dangerText, note: i18n.t('collections.overdue') };
+  if (paid > 0) return { bg: colors.warningLight, border: colors.warning, fg: colors.warningText, note: i18n.t('billing_sheets.partly_paid') };
+  return { bg: colors.brandTint, border: colors.brand, fg: colors.brand, note: i18n.t('collections.due') };
 }
 
 export function BillingYearSheet({ target, onClose }: { target: BillingYearTarget | null; onClose: () => void }) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const qc = useQueryClient();
@@ -86,10 +89,10 @@ export function BillingYearSheet({ target, onClose }: { target: BillingYearTarge
               <Icon name="calendar" size={20} color={colors.brand} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>سنة الطالب</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('billing_sheets.student_year')}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }} numberOfLines={1}>{data?.student.name ?? target?.name ?? ''}</Text>
             </View>
-            <TouchableOpacity onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="إغلاق">
+            <TouchableOpacity onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.close')}>
               <Icon name="close" size={22} color={colors.textTertiary} />
             </TouchableOpacity>
           </View>
@@ -113,12 +116,12 @@ export function BillingYearSheet({ target, onClose }: { target: BillingYearTarge
 
           {/* The year, with arrows (RTL: the earlier year on the right). */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4 }}>
-            <TouchableOpacity onPress={() => { setYear((y) => y - 1); setPicked(null); }} accessibilityRole="button" accessibilityLabel="السنة السابقة"
+            <TouchableOpacity onPress={() => { setYear((y) => y - 1); setPicked(null); }} accessibilityRole="button" accessibilityLabel={t('billing_sheets.prev_year')}
               style={{ width: 40, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface }}>
               <Icon name="forward" size={18} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{formatNumber(year, { useGrouping: false })}</Text>
-            <TouchableOpacity onPress={() => { setYear((y) => y + 1); setPicked(null); }} disabled={year >= new Date().getFullYear() + 1} accessibilityRole="button" accessibilityLabel="السنة التالية"
+            <TouchableOpacity onPress={() => { setYear((y) => y + 1); setPicked(null); }} disabled={year >= new Date().getFullYear() + 1} accessibilityRole="button" accessibilityLabel={t('billing_sheets.next_year')}
               style={{ width: 40, height: 36, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, opacity: year >= new Date().getFullYear() + 1 ? 0.4 : 1 }}>
               <Icon name="back" size={18} color={colors.textPrimary} />
             </TouchableOpacity>
@@ -146,6 +149,7 @@ export function BillingYearSheet({ target, onClose }: { target: BillingYearTarge
 }
 
 function Legend() {
+  const { t } = useTranslation();
   const dot = (c: string, label: string) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
       <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c }} />
@@ -154,37 +158,39 @@ function Legend() {
   );
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md }}>
-      {dot(colors.success, 'مدفوعة')}{dot(colors.warning, 'مدفوع جزء')}{dot(colors.brand, 'مستحقة')}{dot(colors.danger, 'متأخرة')}{dot(colors.border, 'بدون فاتورة')}
+      {dot(colors.success, t('billing_sheets.paid'))}{dot(colors.warning, t('billing_sheets.partly_paid'))}{dot(colors.brand, t('collections.due'))}{dot(colors.danger, t('collections.overdue'))}{dot(colors.border, t('billing_sheets.no_bill'))}
     </View>
   );
 }
 
 function MonthTile({ m, on, onPress }: { m: YearMonth; on: boolean; onPress: () => void }) {
-  const t = tone(m);
+  const { t } = useTranslation();
+  const tn = tone(m);
   const total = m.bills.reduce((s, b) => s + num(b.amount), 0);
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
       style={{
-        width: '31.6%', minHeight: 92, borderRadius: radius.lg, padding: spacing.sm, backgroundColor: t.bg,
-        borderWidth: on ? 2.5 : m.current ? 2 : 1, borderColor: on ? colors.accent : m.current ? colors.brand : t.border,
-        borderStyle: t.dashed && !on ? 'dashed' : 'solid', opacity: t.faded ? 0.5 : 1,
+        width: '31.6%', minHeight: 92, borderRadius: radius.lg, padding: spacing.sm, backgroundColor: tn.bg,
+        borderWidth: on ? 2.5 : m.current ? 2 : 1, borderColor: on ? colors.accent : m.current ? colors.brand : tn.border,
+        borderStyle: tn.dashed && !on ? 'dashed' : 'solid', opacity: tn.faded ? 0.5 : 1,
       }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{m.label}</Text>
         {m.current ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.brand }} /> : null}
       </View>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: t.fg, marginTop: 4 }} numberOfLines={1}>
-        {m.bills.length ? formatEGP(total) : t.note || ' '}
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: tn.fg, marginTop: 4 }} numberOfLines={1}>
+        {m.bills.length ? formatEGP(total) : tn.note || ' '}
       </Text>
-      {m.bills.length ? <Text style={{ fontFamily: fonts.regular, fontSize: 10.5, color: t.fg }}>{t.note}</Text> : null}
+      {m.bills.length ? <Text style={{ fontFamily: fonts.regular, fontSize: 10.5, color: tn.fg }}>{tn.note}</Text> : null}
       {m.phase !== 'future' && m.held > 0 ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 10.5, color: colors.textTertiary, marginTop: 2 }}>حضر {formatNumber(m.attended)}/{formatNumber(m.held)}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 10.5, color: colors.textTertiary, marginTop: 2 }}>{t('billing_sheets.attended_short', { attended: formatNumber(m.attended), held: formatNumber(m.held) })}</Text>
       ) : null}
     </TouchableOpacity>
   );
 }
 
 function MonthPanel({ data, m, onChanged, onPrior }: { data: BillingYear; m: YearMonth; onChanged: () => Promise<void>; onPrior: () => void }) {
+  const { t } = useTranslation();
   const title = `${m.label} ${formatNumber(Number(m.month.slice(0, 4)), { useGrouping: false })}`;
   const past = m.month < `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   return (
@@ -194,7 +200,7 @@ function MonthPanel({ data, m, onChanged, onPrior }: { data: BillingYear; m: Yea
         {m.phase !== 'future' ? (
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary }}>
-              {m.held > 0 ? `حضر ${formatNumber(m.attended)} من ${formatNumber(m.held)} حصة` : 'مفيش حصص متسجلة'}
+              {m.held > 0 ? t('billing_sheets.attended_of', { attended: formatNumber(m.attended), held: formatNumber(m.held) }) : t('billing_sheets.no_sessions_recorded')}
             </Text>
           </View>
         ) : null}
@@ -203,36 +209,37 @@ function MonthPanel({ data, m, onChanged, onPrior }: { data: BillingYear; m: Yea
       {m.bills.map((b) => <BillCard key={b.invoice_id} data={data} b={b} onChanged={onChanged} />)}
 
       {m.phase === 'future' ? (
-        <Note text="الشهر ده لسه مجاش — فاتورته بتطلع لوحدها مع أول حصة فيه." />
+        <Note text={t('billing_sheets.future_month_note')} />
       ) : !m.bills.length && m.phase === 'joined' ? (
-        data.can.add && m.can_add ? <AddForm data={data} m={m} past={past} onChanged={onChanged} /> : <Note text="الشهر ده من غير فاتورة." />
+        data.can.add && m.can_add ? <AddForm data={data} m={m} past={past} onChanged={onChanged} /> : <Note text={t('billing_sheets.no_bill_note')} />
       ) : !m.bills.length && m.phase === 'before_join' ? (
         m.can_prior && data.can.prior ? (
           <View style={{ marginTop: spacing.md }}>
-            <Note text="الشهر ده قبل ما الطالب ينضم. تقدر تسجّل حضوره فيه وفاتورته." />
-            <Primary label={`تسجيل ${m.label} كشهر سابق`} icon="calendar" onPress={onPrior} />
+            <Note text={t('billing_sheets.before_join_note')} />
+            <Primary label={t('billing_sheets.record_as_prior', { month: m.label })} icon="calendar" onPress={onPrior} />
           </View>
-        ) : <Note text="قبل انضمام الطالب." />
+        ) : <Note text={t('billing_sheets.before_join_short')} />
       ) : null}
     </View>
   );
 }
 
 function BillCard({ data, b, onChanged }: { data: BillingYear; b: YearBill; onChanged: () => Promise<void> }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [amount, setAmount] = useState(String(Math.round(num(b.amount))));
   const [sessions, setSessions] = useState(String(b.threshold || data.sessions_per_cycle || ''));
   const [paid, setPaid] = useState(String(Math.round(num(b.paid))));
   const [busy, setBusy] = useState(false);
   const owed = num(b.remaining);
-  const state = owed <= 0.001 ? { fg: colors.successText, bg: colors.successLight, t: 'مدفوعة' }
-    : b.status === 'overdue' ? { fg: colors.dangerText, bg: colors.dangerLight, t: 'متأخرة' }
-    : num(b.paid) > 0 ? { fg: colors.warningText, bg: colors.warningLight, t: 'مدفوع جزء' }
-    : { fg: colors.brand, bg: colors.brandTint, t: 'مستحقة' };
+  const state = owed <= 0.001 ? { fg: colors.successText, bg: colors.successLight, t: t('billing_sheets.paid') }
+    : b.status === 'overdue' ? { fg: colors.dangerText, bg: colors.dangerLight, t: t('collections.overdue') }
+    : num(b.paid) > 0 ? { fg: colors.warningText, bg: colors.warningLight, t: t('billing_sheets.partly_paid') }
+    : { fg: colors.brand, bg: colors.brandTint, t: t('collections.due') };
 
   const save = async () => {
     const a = Number(amount), s = Number(sessions), p = Number(paid);
-    if (!Number.isFinite(a) || a <= 0) return Alert.alert('', 'اكتب المبلغ.');
+    if (!Number.isFinite(a) || a <= 0) return Alert.alert('', t('billing_sheets.enter_amount'));
     setBusy(true);
     try {
       await setCycleAmount(data.enrollment_id, { amount: a, sessions: Number.isFinite(s) && s > 0 ? s : null, paid: Number.isFinite(p) ? p : null, invoiceId: b.invoice_id });
@@ -243,9 +250,9 @@ function BillCard({ data, b, onChanged }: { data: BillingYear; b: YearBill; onCh
     } finally { setBusy(false); }
   };
   const cancel = () => {
-    Alert.alert('إلغاء فاتورة الشهر؟', `الفاتورة ${b.number} (${formatEGP(num(b.amount))}) مش هتبقى مستحقة على الطالب.`, [
-      { text: 'رجوع', style: 'cancel' },
-      { text: 'إلغاء الفاتورة', style: 'destructive', onPress: async () => {
+    Alert.alert(t('billing_sheets.cancel_bill_title'), t('billing_sheets.cancel_bill_body', { number: b.number, amount: formatEGP(num(b.amount)) }), [
+      { text: t('common.back'), style: 'cancel' },
+      { text: t('billing_sheets.cancel_bill'), style: 'destructive', onPress: async () => {
         try { await cancelBillingMonth(data.enrollment_id, b.invoice_id); await onChanged(); } catch (e) { Alert.alert('', getFriendlyErrorMessage(e)); }
       } },
     ]);
@@ -254,13 +261,13 @@ function BillCard({ data, b, onChanged }: { data: BillingYear; b: YearBill; onCh
   return (
     <View style={{ marginTop: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.md, borderStartWidth: 4, borderStartColor: state.fg }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={2}>{b.line ?? `فاتورة ${b.number}`}</Text>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={2}>{b.line ?? t('billing_sheets.bill_number', { number: b.number })}</Text>
         <View style={{ backgroundColor: state.bg, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: state.fg }}>{state.t}</Text>
         </View>
       </View>
       <View style={{ flexDirection: 'row', marginTop: spacing.sm }}>
-        {[['المبلغ', num(b.amount)], ['المدفوع', num(b.paid)], ['الباقي', owed]].map(([l, v]) => (
+        {[[t('invoices.amount'), num(b.amount)], [t('invoices.paid_amount'), num(b.paid)], [t('billing_sheets.remaining'), owed]].map(([l, v]) => (
           <View key={l as string} style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{l}</Text>
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{formatEGP(v as number)}</Text>
@@ -268,22 +275,22 @@ function BillCard({ data, b, onChanged }: { data: BillingYear; b: YearBill; onCh
         ))}
       </View>
       <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 4 }}>
-        {b.number}{b.due_date ? ` · الاستحقاق ${b.due_date}` : ''}{b.open_cycle ? ` · الدورة الجارية: حضر ${formatNumber(b.sessions)}/${formatNumber(b.threshold)}` : ''}
+        {b.number}{b.due_date ? ` · ${t('billing_sheets.due_on', { date: b.due_date })}` : ''}{b.open_cycle ? ` · ${t('billing_sheets.open_cycle_attended', { attended: formatNumber(b.sessions), held: formatNumber(b.threshold) })}` : ''}
       </Text>
 
       {editing ? (
         <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Field label="المبلغ (ج.م)" value={amount} onChange={setAmount} />
-            <Field label="عدد الحصص" value={sessions} onChange={setSessions} />
-            <Field label="المدفوع" value={paid} onChange={setPaid} />
+            <Field label={t('expenses.amount')} value={amount} onChange={setAmount} />
+            <Field label={t('collections.bill_sessions')} value={sessions} onChange={setSessions} />
+            <Field label={t('invoices.paid_amount')} value={paid} onChange={setPaid} />
           </View>
           <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, lineHeight: 18 }}>
-            نفس الفاتورة بتتعدّل — نفس الرقم وميعاد الاستحقاق. المدفوع يزيد بس (لو اتدفع قبل كده ومتسجلش)؛ لتقليله ألغِ التحصيل من سجل المدفوعات.
+            {t('billing_sheets.edit_bill_hint')}
           </Text>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Secondary label="رجوع" onPress={() => setEditing(false)} />
-            <Primary label={busy ? '…' : 'حفظ'} onPress={save} disabled={busy} flex />
+            <Secondary label={t('common.back')} onPress={() => setEditing(false)} />
+            <Primary label={busy ? '…' : t('common.save')} onPress={save} disabled={busy} flex />
           </View>
         </View>
       ) : data.can.edit || (data.can.cancel && num(b.paid) <= 0.001) ? (
@@ -291,12 +298,12 @@ function BillCard({ data, b, onChanged }: { data: BillingYear; b: YearBill; onCh
           {data.can.edit ? (
             <TouchableOpacity onPress={() => setEditing(true)} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Icon name="note" size={14} color={colors.brand} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>تعديل</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('billing_sheets.edit')}</Text>
             </TouchableOpacity>
           ) : null}
           {data.can.cancel && num(b.paid) <= 0.001 ? (
             <TouchableOpacity onPress={cancel} hitSlop={8}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.dangerText }}>إلغاء الفاتورة</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.dangerText }}>{t('billing_sheets.cancel_bill')}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -306,6 +313,7 @@ function BillCard({ data, b, onChanged }: { data: BillingYear; b: YearBill; onCh
 }
 
 function AddForm({ data, m, past, onChanged }: { data: BillingYear; m: YearMonth; past: boolean; onChanged: () => Promise<void> }) {
+  const { t } = useTranslation();
   const [amount, setAmount] = useState(data.price ? String(Math.round(num(data.price))) : '');
   const [sessions, setSessions] = useState(String(data.sessions_per_cycle || m.held || ''));
   // This month, while the running cycle still carries an earlier month's bill: that cycle's
@@ -314,7 +322,7 @@ function AddForm({ data, m, past, onChanged }: { data: BillingYear; m: YearMonth
   const [busy, setBusy] = useState(false);
   const add = async () => {
     const a = Number(amount), s = Number(sessions);
-    if (!Number.isFinite(a) || a <= 0) return Alert.alert('', 'اكتب المبلغ.');
+    if (!Number.isFinite(a) || a <= 0) return Alert.alert('', t('billing_sheets.enter_amount'));
     setBusy(true);
     try {
       await addBillingMonth(data.enrollment_id, { month: m.month, amount: a, sessions: Number.isFinite(s) && s > 0 ? s : null });
@@ -326,20 +334,20 @@ function AddForm({ data, m, past, onChanged }: { data: BillingYear; m: YearMonth
   return (
     <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
       <Note text={past
-        ? 'الشهر ده من غير فاتورة. لو أصدرتها هتبقى مستحقة على طول — والطالب يتوقف على الباب لحد ما يدفعها، زي أي فاتورة متأخرة.'
-        : 'الشهر ده من غير فاتورة. أصدرها بالمبلغ وعدد الحصص.'} />
+        ? t('billing_sheets.add_bill_note_past')
+        : t('billing_sheets.add_bill_note')} />
       {running ? (
         <View style={{ backgroundColor: colors.warningLight, borderRadius: radius.md, padding: spacing.sm }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.warningText, lineHeight: 20 }}>
-            {`الدورة الجارية لسه ماخلصتش (حضر ${formatNumber(running.sessions)}/${formatNumber(running.threshold)}) — فاتورتها الجاية بتطلع لوحدها لما تخلص. أصدر فاتورة الشهر ده بإيدك بس لو اتفقت على كده.`}
+            {t('billing_sheets.running_cycle_warning', { attended: formatNumber(running.sessions), held: formatNumber(running.threshold) })}
           </Text>
         </View>
       ) : null}
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        <Field label="المبلغ (ج.م)" value={amount} onChange={setAmount} />
-        <Field label="عدد الحصص" value={sessions} onChange={setSessions} />
+        <Field label={t('expenses.amount')} value={amount} onChange={setAmount} />
+        <Field label={t('collections.bill_sessions')} value={sessions} onChange={setSessions} />
       </View>
-      <Primary label={busy ? '…' : `إصدار فاتورة ${m.label}`} icon="add" onPress={add} disabled={busy} />
+      <Primary label={busy ? '…' : t('billing_sheets.issue_bill', { month: m.label })} icon="add" onPress={add} disabled={busy} />
     </View>
   );
 }

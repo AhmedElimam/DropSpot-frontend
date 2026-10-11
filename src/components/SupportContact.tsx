@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity, Linking } from 'react-native';
 import { router, type Href } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius } from '@/theme/index';
 import { fonts } from '@/theme/typography';
 import { Icon } from '@/components/ui/Icon';
@@ -20,6 +21,7 @@ import { useAppConfigStore } from '@/stores/appConfigStore';
  * bundled constants are the fallback. RTL: rows use flexDirection 'row'.
  */
 export function SupportContact({ href }: { href: Href }) {
+  const { t } = useTranslation();
   const contact = useAppConfigStore((s) => s.config.contact);
   const email = contact?.support_email || SUPPORT_EMAIL;
   const phone = contact?.support_phone || SUPPORT_PHONE;
@@ -35,10 +37,10 @@ export function SupportContact({ href }: { href: Href }) {
       }}
     >
       <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.xs }}>
-        الدعم والتواصل
+        {t('family_ui.support_contact_title')}
       </Text>
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginBottom: spacing.md }}>
-        اختر سبب المشكلة وأرسلها للإدارة مباشرة، وتابع الرد داخل التطبيق.
+        {t('family_ui.support_contact_intro')}
       </Text>
 
       <TouchableOpacity
@@ -50,12 +52,12 @@ export function SupportContact({ href }: { href: Href }) {
         }}
       >
         <Icon name="ticket" size={18} color="#FFFFFF" />
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#FFFFFF' }}>راسل الإدارة</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#FFFFFF' }}>{t('family_ui.contact_admin')}</Text>
       </TouchableOpacity>
 
       <View style={{ marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border }}>
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginBottom: spacing.xs }}>
-          أو تواصل معنا خارج التطبيق:
+          {t('family_ui.support_contact_outside')}
         </Text>
         <TouchableOpacity
           onPress={() => Linking.openURL(`mailto:${email}`)}

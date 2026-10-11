@@ -49,7 +49,7 @@ export default function ParentSettings() {
     },
     {
       key: 'parent.edit_name',
-      title: 'تعديل الاسم',
+      title: t('family_ui.edit_name'),
       icon: 'note',
       color: colors.primary,
       onPress: () => router.push('/(parent)/change-name' as Href),
@@ -62,18 +62,18 @@ export default function ParentSettings() {
     },
     {
       key: 'parent.request_name_correction',
-      title: 'طلب تصحيح اسم الطفل',
+      title: t('family_ui.child_name_fix'),
       icon: 'note',
       color: colors.primary,
       onPress: () => {
         const kids = children ?? [];
         const go = (k: { student_id: number; name: string }) =>
           router.push(`/request-name-correction?studentId=${k.student_id}&studentName=${encodeURIComponent(k.name)}` as Href);
-        if (kids.length === 0) { Alert.alert('', 'لا يوجد أطفال مرتبطون بحسابك'); return; }
+        if (kids.length === 0) { Alert.alert('', t('family_ui.no_children_linked')); return; }
         if (kids.length === 1) { go(kids[0]); return; }
-        Alert.alert('اختر الطفل', 'لأي طفل تريد طلب تصحيح الاسم؟', [
+        Alert.alert(t('family_ui.pick_child_title'), t('family_ui.pick_child_body'), [
           ...kids.slice(0, 4).map((k) => ({ text: k.name, onPress: () => go(k) })),
-          { text: 'إلغاء', style: 'cancel' as const },
+          { text: t('common.cancel'), style: 'cancel' as const },
         ]);
       },
     },
@@ -112,7 +112,7 @@ export default function ParentSettings() {
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
               <Icon name="lock" size={16} color={colors.textTertiary} outline />
               <Text style={[textPresets.caption, { flex: 1, lineHeight: 18 }]}>
-                كود الطالب وصفّه ورقم هاتفه يديرها المعلّم. لتغيير أيٍّ منها، تواصل مع معلّم الطالب.
+                {t('family_ui.parent_locked_fields')}
               </Text>
             </View>
           </View>

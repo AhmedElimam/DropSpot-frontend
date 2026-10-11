@@ -12,6 +12,8 @@
  * Mirrors TeacherAssistant::ABILITIES on the server; an ability this file does not know
  * yet counts as the door, so a new permission never lifts a rank by accident.
  */
+import i18n from '@/i18n';
+
 export const DESK = ['reply_tickets', 'manage_students', 'review_payment_proofs'] as const;
 export const MANAGEMENT = ['manage_sessions', 'cancel_sessions', 'manage_courses', 'export_reports'] as const;
 
@@ -24,12 +26,13 @@ export interface AssistantRank {
   tint: string;
 }
 
-const RANKS: Record<AssistantRank['key'], Omit<AssistantRank, 'key'>> = {
-  none: { level: 0, title: 'بدون صلاحيات', color: '#8A8F9E', tint: 'rgba(138,143,158,0.14)' },
-  door: { level: 1, title: 'مساعد الباب', color: '#A86B32', tint: 'rgba(168,107,50,0.14)' },
-  desk: { level: 2, title: 'مساعد أول', color: '#6F7B91', tint: 'rgba(111,123,145,0.16)' },
-  executive: { level: 3, title: 'مساعد تنفيذي', color: '#A8841C', tint: 'rgba(201,162,39,0.18)' },
-  right_hand: { level: 4, title: 'اليد اليمنى', color: '#34419B', tint: 'rgba(52,65,155,0.14)' },
+// The title is resolved at call time (not module load) so the backend copy overlay applies.
+const RANKS: Record<AssistantRank['key'], Omit<AssistantRank, 'key' | 'title'>> = {
+  none: { level: 0, color: '#8A8F9E', tint: 'rgba(138,143,158,0.14)' },
+  door: { level: 1, color: '#A86B32', tint: 'rgba(168,107,50,0.14)' },
+  desk: { level: 2, color: '#6F7B91', tint: 'rgba(111,123,145,0.16)' },
+  executive: { level: 3, color: '#A8841C', tint: 'rgba(201,162,39,0.18)' },
+  right_hand: { level: 4, color: '#34419B', tint: 'rgba(52,65,155,0.14)' },
 };
 
 export function assistantRank(abilities: readonly string[], catalog?: readonly string[]): AssistantRank {
@@ -40,5 +43,6 @@ export function assistantRank(abilities: readonly string[], catalog?: readonly s
   if (MANAGEMENT.some((a) => has.has(a))) key = 'executive';
   if (catalog && catalog.length > 0 && catalog.every((a) => has.has(a))) key = 'right_hand';
 
-  return { key, ...RANKS[key] };
+  // key ∈ none | door | desk | executive | right_hand → staff_ui.rank_none … staff_ui.rank_right_hand
+  return { key, title: i18n.t(`staff_ui.rank_${key}`), ...RANKS[key] };
 }

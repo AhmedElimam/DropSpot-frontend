@@ -77,11 +77,11 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
     // and revoking the ability later cannot reach a file already on their phone.
     if (turningOn && takeaway.includes(key) && sharedWith > 0) {
       Alert.alert(
-        'مساعد مشترك',
-        'هذا المساعد يعمل مع معلّمين آخرين. تقرير الطالب ملف كامل يخرج من المنصة ويبقى معه، ولا يمكن سحبه بعد ذلك حتى لو أوقفت الصلاحية.\n\nهل تريد منحه هذه الصلاحية؟',
+        t('staff_ui.shared_assistant_title'),
+        t('staff_ui.shared_assistant_body'),
         [
-          { text: 'إلغاء', style: 'cancel' },
-          { text: 'امنح الصلاحية', style: 'destructive', onPress: () => grant(key) },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('staff_ui.grant_ability'), style: 'destructive', onPress: () => grant(key) },
         ],
       );
 
@@ -118,7 +118,7 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.warningLight, borderWidth: 1, borderColor: colors.warning }}>
           <Icon name="info" size={16} color={colors.warning} />
           <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>
-            مساعد مشترك — يعمل أيضًا مع {sharedWith === 1 ? 'معلّم آخر' : `${sharedWith} معلّمين آخرين`}. ننصح بعدم منحه صلاحية إصدار تقارير PDF.
+            {sharedWith === 1 ? t('staff_ui.shared_assistant_note_one') : t('staff_ui.shared_assistant_note_many', { count: sharedWith })}
           </Text>
         </View>
       ) : null}
@@ -129,7 +129,7 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
           Choosing NO venue is not a cage — an unpinned assistant works everywhere (founder). */}
       {venues.length > 0 && a.status === 'accepted' ? (
         <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginBottom: spacing.sm }}>أماكن العمل</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('staff_ui.work_venues')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
             <TouchableOpacity
               onPress={() => setScope.mutate({ id: a.id, allVenues: true })}
@@ -138,7 +138,7 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: a.all_venues ? colors.primaryLight : colors.surfaceSunken, borderWidth: 1, borderColor: a.all_venues ? colors.primary : colors.border }}
             >
               <Icon name={a.all_venues ? 'success' : 'add'} size={13} color={a.all_venues ? colors.primary : colors.textTertiary} />
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: a.all_venues ? colors.primary : colors.textSecondary }}>كل الأماكن</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: a.all_venues ? colors.primary : colors.textSecondary }}>{t('insights.venue_all')}</Text>
             </TouchableOpacity>
             {venues.map((v) => {
               const on = !a.all_venues && (a.venue_ids ?? []).includes(v.id);
@@ -162,8 +162,8 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
           </View>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>
             {a.all_venues
-              ? 'يعمل في كل الأماكن — وأي مكان تضيفه لاحقًا. اختر مكانًا لتقييده.'
-              : 'خارج أماكنه لا يرى الطالب ولا تحصيلاته. وإلغاء كل الأماكن يعيده للعمل في كل الأماكن.'}
+              ? t('staff_ui.all_venues_hint')
+              : t('staff_ui.scoped_venues_hint')}
           </Text>
         </View>
       ) : null}
@@ -206,6 +206,7 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
 }
 
 export default function TeacherAssistants() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const role = useAuthStore((s) => s.role);
   const { data, isLoading, refetch } = useAssistants();
@@ -247,8 +248,8 @@ export default function TeacherAssistants() {
     setInviteErr(null);
     const typed = phone.trim();
     invite.mutate(typed, {
-      onSuccess: (r) => { setPhone(''); void celebrate(r.id, true, { name: 'مساعدك الجديد', phone: typed }); },
-      onError: (e) => setInviteErr(apiMsg(e, 'تعذّرت الدعوة')),
+      onSuccess: (r) => { setPhone(''); void celebrate(r.id, true, { name: t('staff_ui.new_assistant_fallback_name'), phone: typed }); },
+      onError: (e) => setInviteErr(apiMsg(e, t('staff_ui.invite_failed'))),
     });
   };
 
@@ -263,7 +264,7 @@ export default function TeacherAssistants() {
           setCFirst(''); setCPhone(''); setCPass(''); setShowCreate(false);
           void celebrate(r.id, false, fallback);
         },
-        onError: (e) => setCreateErr(apiMsg(e, 'تعذّر الإنشاء')),
+        onError: (e) => setCreateErr(apiMsg(e, t('staff_ui.create_failed'))),
       },
     );
   };
@@ -279,7 +280,7 @@ export default function TeacherAssistants() {
         <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>المساعدون</Text>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('assistants.title')}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}
@@ -291,11 +292,11 @@ export default function TeacherAssistants() {
       >
         {/* Invite an existing assistant by phone */}
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>دعوة مساعد قائم</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('staff_ui.invite_existing_title')}</Text>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <TextInput value={phone} onChangeText={setPhone} placeholder="رقم هاتف المساعد" placeholderTextColor={colors.textTertiary} keyboardType="phone-pad" style={{ ...field, flex: 1 }} />
+            <TextInput value={phone} onChangeText={setPhone} placeholder={t('staff_ui.assistant_phone_ph')} placeholderTextColor={colors.textTertiary} keyboardType="phone-pad" style={{ ...field, flex: 1 }} />
             <TouchableOpacity onPress={submitInvite} disabled={invite.isPending} activeOpacity={0.85} style={{ paddingHorizontal: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.brand, justifyContent: 'center', alignItems: 'center', minWidth: 84 }}>
-              {invite.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>دعوة</Text>}
+              {invite.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('staff_ui.invite_btn')}</Text>}
             </TouchableOpacity>
           </View>
           {inviteErr ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginTop: spacing.sm }}>{inviteErr}</Text> : null}
@@ -304,28 +305,28 @@ export default function TeacherAssistants() {
         {/* Create a brand-new assistant account */}
         <TouchableOpacity onPress={() => setShowCreate((v) => !v)} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, marginBottom: showCreate ? spacing.sm : spacing.lg }}>
           <Icon name={showCreate ? 'down' : 'add'} size={18} color={colors.brand} />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>إنشاء حساب مساعد جديد</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('staff_ui.create_new_title')}</Text>
         </TouchableOpacity>
         {showCreate ? (
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, gap: spacing.sm }}>
-            <TextInput value={cFirst} onChangeText={setCFirst} placeholder="اسم المساعد" placeholderTextColor={colors.textTertiary} style={field} />
-            <TextInput value={cPhone} onChangeText={setCPhone} placeholder="رقم الهاتف" placeholderTextColor={colors.textTertiary} keyboardType="phone-pad" style={field} />
-            <PasswordInput value={cPass} onChangeText={setCPass} placeholder="كلمة المرور (6 أحرف على الأقل)" placeholderTextColor={colors.textTertiary} style={field} />
+            <TextInput value={cFirst} onChangeText={setCFirst} placeholder={t('staff_ui.assistant_name_ph')} placeholderTextColor={colors.textTertiary} style={field} />
+            <TextInput value={cPhone} onChangeText={setCPhone} placeholder={t('auth.phone')} placeholderTextColor={colors.textTertiary} keyboardType="phone-pad" style={field} />
+            <PasswordInput value={cPass} onChangeText={setCPass} placeholder={t('staff_ui.password_min_ph')} placeholderTextColor={colors.textTertiary} style={field} />
             {createErr ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger }}>{createErr}</Text> : null}
             <TouchableOpacity onPress={submitCreate} disabled={create.isPending} activeOpacity={0.85} style={{ minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginTop: spacing.xs }}>
-              {create.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>إنشاء</Text>}
+              {create.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('staff_ui.create')}</Text>}
             </TouchableOpacity>
           </View>
         ) : null}
 
-        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>مساعدوك</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{t('staff_ui.your_assistants')}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textTertiary, marginTop: 2, marginBottom: spacing.md }}>
-          رتبة كل مساعد من صلاحياته: الباب، ثم المكتب، ثم إدارة الشغل — ومن معه كل الصلاحيات هو اليد اليمنى.
+          {t('staff_ui.rank_intro')}
         </Text>
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : !data?.assistants.length ? (
-          <EmptyState icon="children" title="لا يوجد مساعدون" message="ادعُ مساعدًا قائمًا أو أنشئ حسابًا جديدًا." />
+          <EmptyState icon="children" title={t('staff_ui.no_assistants_title')} message={t('staff_ui.no_assistants_msg')} />
         ) : (
           data.assistants.map((a) => <AssistantCard key={a.id} a={a} catalog={catalog} takeaway={takeaway} venues={venues} />)
         )}

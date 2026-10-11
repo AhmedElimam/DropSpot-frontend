@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { ScrollView } from '@/components/ui/Refreshable';
@@ -14,6 +15,7 @@ import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { cancelSession } from '@/api/teacherSessions';
 import type { RoseSheetSession, RoseSheetItem } from '@/api/cash';
 import { useRoseDialog } from './RoseDialog';
+import i18n from '@/i18n';
 
 /**
  * What stands behind one line of «ورقة النهارده» (founder 2026-10-08: «every element … a modal
@@ -37,11 +39,11 @@ export type SheetDetailTarget =
   | { type: 'fact'; kind: string; text: string; items: RoseSheetItem[] | undefined };
 
 const FACT_LOOK = (): Record<string, { icon: IconName; tint: string; title: string; action?: { label: string; href: Href } }> => ({
-  dues: { icon: 'warning', tint: colors.danger, title: 'هيقفوا على الباب', action: { label: 'افتح التحصيل', href: '/(teacher)/pending-collections' as Href } },
-  dues_clear: { icon: 'success', tint: colors.success, title: 'مفيش متأخرات' },
-  collected: { icon: 'money', tint: colors.success, title: 'تحصيل النهارده' },
-  complaints: { icon: 'note', tint: colors.accent, title: 'اعتراضات مستنية قرار', action: { label: 'افتح الاعتراضات', href: '/(teacher)/complaints' as Href } },
-  review: { icon: 'eye', tint: colors.brand, title: 'قرارات المساعد', action: { label: 'افتح الاعتراضات', href: '/(teacher)/complaints' as Href } },
+  dues: { icon: 'warning', tint: colors.danger, title: i18n.t('desk_ui.fact_dues_title'), action: { label: i18n.t('desk_ui.fact_open_collections'), href: '/(teacher)/pending-collections' as Href } },
+  dues_clear: { icon: 'success', tint: colors.success, title: i18n.t('desk_ui.fact_dues_clear_title') },
+  collected: { icon: 'money', tint: colors.success, title: i18n.t('desk_ui.fact_collected_title') },
+  complaints: { icon: 'note', tint: colors.accent, title: i18n.t('desk_ui.fact_complaints_title'), action: { label: i18n.t('cash.complaints_open'), href: '/(teacher)/complaints' as Href } },
+  review: { icon: 'eye', tint: colors.brand, title: i18n.t('desk_ui.fact_review_title'), action: { label: i18n.t('cash.complaints_open'), href: '/(teacher)/complaints' as Href } },
 });
 
 export function SheetDetail({ target, onClose }: { target: SheetDetailTarget | null; onClose: () => void }) {
@@ -64,6 +66,7 @@ function SessionBody({ s, go, ask, tell, onDone }: {
   s: RoseSheetSession; go: (h: Href) => void;
   ask: ReturnType<typeof useRoseDialog>['ask']; tell: ReturnType<typeof useRoseDialog>['tell']; onDone: () => void;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { can } = useActiveAbilities();
   const [busy, setBusy] = useState(false);
@@ -72,14 +75,14 @@ function SessionBody({ s, go, ask, tell, onDone }: {
   const cancelled = s.status === 'cancelled';
   // The server's rule: a session anyone was checked into happened and stays.
   const canCancel = !!s.id && can(ABILITY.CANCEL_SESSIONS) && !cancelled && (!ended || inNow === 0);
-  const phase = cancelled ? { label: 'ملغاة', tint: colors.danger } : ended ? { label: 'انتهت', tint: colors.textSecondary } : { label: 'لم تبدأ بعد', tint: colors.brand };
+  const phase = cancelled ? { label: t('attendance.phase_cancelled'), tint: colors.danger } : ended ? { label: t('attendance.phase_done'), tint: colors.textSecondary } : { label: t('desk_ui.phase_not_started'), tint: colors.brand };
 
   const cancel = async () => {
     const ok = await ask({
-      title: `أُلغي حصة ${s.time}؟`,
-      message: `${s.title}${s.venue ? ` · ${s.venue}` : ''}\n${ended ? 'الحصة انتهت ومحدش اتسجّل فيها — هتخرج من دورة الحساب.' : 'الطلاب وأولياء الأمور هيوصلهم إن الحصة اتلغت.'}`,
-      confirm: 'إلغاء الحصة',
-      cancel: 'رجوع',
+      title: t('desk_ui.cancel_session_ask_title', { time: s.time }),
+      message: `${s.title}${s.venue ? ` · ${s.venue}` : ''}\n${ended ? t('desk_ui.cancel_session_ended_note') : t('desk_ui.cancel_session_notify_note')}`,
+      confirm: t('teacher.cancel_session_confirm'),
+      cancel: t('common.back'),
       danger: true,
     });
     if (!ok || !s.id) return;
@@ -90,10 +93,10 @@ function SessionBody({ s, go, ask, tell, onDone }: {
       qc.invalidateQueries({ queryKey: ['teacher-sessions-today'] });
       qc.invalidateQueries({ queryKey: ['teacher-session-detail', String(s.id)] });
       qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
-      await tell('اتلغت الحصة', d?.notice ?? `${s.title} · ${s.time}`);
+      await tell(t('desk_ui.session_cancelled_done'), d?.notice ?? `${s.title} · ${s.time}`);
       onDone();
     } catch (e) {
-      await tell('ماقدرتش ألغي الحصة', getFriendlyErrorMessage(e));
+      await tell(t('desk_ui.session_cancel_failed_rose'), getFriendlyErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -119,7 +122,7 @@ function SessionBody({ s, go, ask, tell, onDone }: {
           </View>
           {s.exam ? (
             <View style={{ paddingHorizontal: 10, height: 26, borderRadius: radius.full, backgroundColor: colors.info + '1A', justifyContent: 'center' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.info }}>امتحان</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.info }}>{t('cash.sheet_exam')}</Text>
             </View>
           ) : null}
         </View>
@@ -136,10 +139,10 @@ function SessionBody({ s, go, ask, tell, onDone }: {
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
         {ended ? (
           <>
-            {stat(formatNumber(s.present ?? inNow), 'حضر', colors.success)}
-            {stat(formatNumber(s.absent ?? 0), 'غاب', (s.absent ?? 0) > 0 ? colors.danger : colors.textSecondary)}
+            {stat(formatNumber(s.present ?? inNow), t('desk_ui.stat_present'), colors.success)}
+            {stat(formatNumber(s.absent ?? 0), t('desk_ui.stat_absent'), (s.absent ?? 0) > 0 ? colors.danger : colors.textSecondary)}
           </>
-        ) : stat(formatNumber(inNow), 'اتسجّل لحد دلوقتي', colors.brand)}
+        ) : stat(formatNumber(inNow), t('desk_ui.stat_checked_in_so_far'), colors.brand)}
       </View>
 
       {/* Actions */}
@@ -147,14 +150,14 @@ function SessionBody({ s, go, ask, tell, onDone }: {
         <TouchableOpacity onPress={() => go(`/(teacher)/sessions/${s.id}` as Href)} activeOpacity={0.85} accessibilityRole="button"
           style={{ marginTop: spacing.lg, minHeight: 52, borderRadius: radius.lg, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm }}>
           <Icon name="attendance" size={18} color="#fff" />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>كل تفاصيل الحصة وكشف الحضور</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('desk_ui.session_full_details')}</Text>
         </TouchableOpacity>
       ) : null}
       {canCancel ? (
         <TouchableOpacity onPress={cancel} disabled={busy} activeOpacity={0.85} accessibilityRole="button"
           style={{ marginTop: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.danger, backgroundColor: colors.dangerLight, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, opacity: busy ? 0.6 : 1 }}>
           {busy ? <ActivityIndicator color={colors.danger} /> : <Icon name="close" size={17} color={colors.danger} />}
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.danger }}>إلغاء الحصة</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.danger }}>{t('teacher.cancel_session')}</Text>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -164,7 +167,8 @@ function SessionBody({ s, go, ask, tell, onDone }: {
 // ───────────── a fact ─────────────
 
 function FactBody({ kind, text, items, go }: { kind: string; text: string; items: RoseSheetItem[] | undefined; go: (h: Href) => void }) {
-  const look = FACT_LOOK()[kind] ?? { icon: 'note' as IconName, tint: colors.textSecondary, title: 'تفاصيل' };
+  const { t } = useTranslation();
+  const look = FACT_LOOK()[kind] ?? { icon: 'note' as IconName, tint: colors.textSecondary, title: t('desk_ui.details') };
   const list = items ?? [];
   const sum = list.reduce((n, i) => n + (i.amount ?? 0), 0);
 
@@ -202,7 +206,7 @@ function FactBody({ kind, text, items, go }: { kind: string; text: string; items
                 </View>
                 {i.amount != null ? (
                   <View style={{ paddingHorizontal: 10, height: 28, borderRadius: radius.full, backgroundColor: (kind === 'dues' ? colors.danger : colors.success) + '1A', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: kind === 'dues' ? colors.danger : colors.success }}>{`${formatNumber(i.amount)} ج.م`}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: kind === 'dues' ? colors.danger : colors.success }}>{t('desk_ui.money', { amount: formatNumber(i.amount) })}</Text>
                   </View>
                 ) : null}
               </View>
@@ -218,7 +222,7 @@ function FactBody({ kind, text, items, go }: { kind: string; text: string; items
               ) : null}
               {i.student_id ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-end', marginTop: spacing.sm }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>صفحة الطالب</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('desk_ui.student_page')}</Text>
                   <Icon name="back" size={13} color={colors.brand} />
                 </View>
               ) : null}
@@ -226,13 +230,13 @@ function FactBody({ kind, text, items, go }: { kind: string; text: string; items
           ))}
           {sum > 0 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>الإجمالي</Text>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{`${formatNumber(sum)} ج.م`}</Text>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }}>{t('desk_ui.total')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{t('desk_ui.money', { amount: formatNumber(sum) })}</Text>
             </View>
           ) : null}
         </ScrollView>
       ) : items === undefined && kind !== 'dues_clear' ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.md }}>التفاصيل هتظهر بعد تحديث الخادم.</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.md }}>{t('desk_ui.details_after_server_update')}</Text>
       ) : null}
 
       {look.action ? (

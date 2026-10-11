@@ -20,12 +20,13 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { isNetworkFailure } from '@/db/marksSync';
 import { formatNumber, formatShortDate, formatTime, formatDayDate } from '@/utils/format';
 import { getCashCollections, type CollectionItem, type CollectionKind, type CollectionStudent } from '@/api/cash';
+import i18n from '@/i18n';
 
 const KIND = (): Record<CollectionKind, { label: string; icon: IconName; tint: string }> => ({
-  bill: { label: 'فواتير', icon: 'invoices', tint: colors.brand },
-  booklet: { label: 'ملازم', icon: 'book', tint: colors.info },
-  booking: { label: 'حجز', icon: 'card', tint: colors.accent },
-  guest_pass: { label: 'مراجعة', icon: 'quiz', tint: colors.success },
+  bill: { label: i18n.t('cash.kind_bill'), icon: 'invoices', tint: colors.brand },
+  booklet: { label: i18n.t('cash.kind_booklet'), icon: 'book', tint: colors.info },
+  booking: { label: i18n.t('desk_ui.kind_booking'), icon: 'card', tint: colors.accent },
+  guest_pass: { label: i18n.t('desk_ui.kind_revision'), icon: 'quiz', tint: colors.success },
 });
 const ORDER: CollectionKind[] = ['bill', 'booklet', 'booking', 'guest_pass'];
 
@@ -42,6 +43,7 @@ const StudentRow = memo(function StudentRow({ s, kind, open, onToggle, onRefuse,
   onRefuse?: (s: CollectionStudent, i: CollectionItem) => void;
   busyKey: string | null;
 }) {
+  const { t } = useTranslation();
   const items = kind ? s.items.filter((i) => i.kind === kind) : s.items;
   const total = items.reduce((n, i) => n + i.amount, 0);
   const initial = s.name.trim().charAt(0) || '؟';
@@ -61,7 +63,7 @@ const StudentRow = memo(function StudentRow({ s, kind, open, onToggle, onRefuse,
                 <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: KIND()[k].tint }}>{KIND()[k].label}</Text>
               </View>
             ))}
-            {items.length > 1 ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{`${formatNumber(items.length)} دفعات`}</Text> : null}
+            {items.length > 1 ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t('desk_ui.payments_count', { count: formatNumber(items.length) })}</Text> : null}
           </View>
         </View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.successText }}>{money(total)}</Text>
@@ -79,17 +81,17 @@ const StudentRow = memo(function StudentRow({ s, kind, open, onToggle, onRefuse,
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{i.label ?? k.label}</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textSecondary, marginTop: 1 }} numberOfLines={1}>
-                    {[i.collected_at ? `${formatDayDate(i.collected_at)} · ${formatTime(i.collected_at)}` : null, i.collector, i.method === 'digital' ? 'تحويل' : null].filter(Boolean).join(' · ')}
+                    {[i.collected_at ? `${formatDayDate(i.collected_at)} · ${formatTime(i.collected_at)}` : null, i.collector, i.method === 'digital' ? t('cash.method_digital') : null].filter(Boolean).join(' · ')}
                   </Text>
-                  {i.reversed > 0 ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.dangerText, marginTop: 1 }}>{`أُعيد منه ${money(i.reversed)}`}</Text> : null}
+                  {i.reversed > 0 ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.dangerText, marginTop: 1 }}>{t('desk_ui.reversed_part', { amount: money(i.reversed) })}</Text> : null}
                 </View>
                 <View style={{ alignItems: 'flex-end', gap: 4 }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{money(i.amount)}</Text>
                   {onRefuse && s.student_id && i.kind !== 'guest_pass' ? (
-                    <TouchableOpacity onPress={() => onRefuse(s, i)} disabled={busyKey !== null} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={`إلغاء دفع ${i.label ?? ''}`}
+                    <TouchableOpacity onPress={() => onRefuse(s, i)} disabled={busyKey !== null} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('desk_ui.reverse_payment_a11y', { what: i.label ?? '' })}
                       style={{ flexDirection: 'row', alignItems: 'center', gap: 3, height: 28, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.danger + '12', borderWidth: 1, borderColor: colors.danger + '55', opacity: busyKey !== null && busyKey !== `${s.student_id}:${i.kind}:${i.subject_id}` ? 0.5 : 1 }}>
                       {busyKey === `${s.student_id}:${i.kind}:${i.subject_id}` ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="undo" size={12} color={colors.danger} />}
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.danger }}>إلغاء الدفع</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.danger }}>{t('cash.refuse_confirm')}</Text>
                     </TouchableOpacity>
                   ) : null}
                 </View>

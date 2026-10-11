@@ -89,19 +89,19 @@ export default function StudentProfile() {
               </View>
 
               <Text style={{ fontFamily: fonts.bold, fontSize: 16.5, color: colors.textPrimary, marginTop: spacing.md, textAlign: 'center' }}>
-                {cardState === 'in_hand' ? 'بطاقتك معك'
-                  : cardState === 'preparing' ? 'بطاقتك قيد التجهيز'
-                  : cardState === 'ordered' ? 'طلب بطاقتك قيد المراجعة'
-                  : 'لا توجد بطاقة بعد'}
+                {cardState === 'in_hand' ? t('family_ui.card_in_hand')
+                  : cardState === 'preparing' ? t('family_ui.card_preparing')
+                  : cardState === 'ordered' ? t('family_ui.card_ordered')
+                  : t('family_ui.card_none')}
               </Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 22, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xs }}>
                 {cardState === 'in_hand'
-                  ? 'استخدم بطاقتك لتسجيل الحضور. احملها معك في كل حصة، ولو فقدتها بلّغ معلّمك فورًا.'
+                  ? t('family_ui.card_in_hand_hint')
                   : cardState === 'preparing'
-                    ? 'تم اعتماد بطاقتك وهي قيد الطباعة. سجّل حضورك مع معلّمك حتى تستلمها.'
+                    ? t('family_ui.card_preparing_hint')
                     : cardState === 'ordered'
-                      ? 'وصل طلبك وهو بانتظار اعتماد الإدارة. سنخبرك عند اعتماده، وحتى تصلك البطاقة سجّل حضورك مع معلّمك.'
-                      : 'تسجيل الحضور يتم ببطاقة دروس سبوت. اطلب بطاقتك، وحتى تصلك سجّل حضورك مع معلّمك.'}
+                      ? t('family_ui.card_ordered_hint')
+                      : t('family_ui.card_none_hint')}
               </Text>
 
               {/* Where the order stands, in the admin's own words, so the student sees it move. */}
@@ -114,7 +114,7 @@ export default function StudentProfile() {
               ) : null}
               {cardState === 'in_hand' && card?.card_released_at ? (
                 <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.sm }}>
-                  استلمتها في {formatDate(new Date(card.card_released_at), { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {t('family_ui.card_received_on', { date: formatDate(new Date(card.card_released_at), { day: 'numeric', month: 'long', year: 'numeric' }) })}
                 </Text>
               ) : null}
 
@@ -123,7 +123,7 @@ export default function StudentProfile() {
                   <TouchableOpacity onPress={() => setShowQr((v) => !v)} activeOpacity={0.85} accessibilityRole="button"
                     style={{ alignSelf: 'stretch', minHeight: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, backgroundColor: colors.brandTint, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
                     <Icon name="scan" size={18} color={colors.brand} />
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.brand }}>{showQr ? 'إخفاء رمز البطاقة' : 'نسيت بطاقتك؟ اعرض رمزها'}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.brand }}>{showQr ? t('family_ui.card_qr_hide') : t('family_ui.card_qr_show')}</Text>
                   </TouchableOpacity>
                   {showQr ? (
                     <>
@@ -132,7 +132,7 @@ export default function StudentProfile() {
                         <QRCode value={qrValue} size={188} backgroundColor="#FFFFFF" color="#171C3B" />
                       </View>
                       <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm, paddingHorizontal: spacing.md }}>
-                        هذا هو رمز بطاقتك نفسه — يمسحه المعلم عند الباب إن نسيت البطاقة أو فقدتها. لا تشاركه مع أحد.
+                        {t('family_ui.card_qr_hint')}
                       </Text>
                     </>
                   ) : null}
@@ -153,7 +153,7 @@ export default function StudentProfile() {
                   style={{ marginTop: spacing.lg, alignSelf: 'stretch', minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}
                 >
                   <Icon name="add" size={17} color={colors.onPrimary} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>اطلب بطاقتك</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>{t('family_ui.card_order_cta')}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -204,7 +204,7 @@ export default function StudentProfile() {
               <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md }}>
                 <Icon name="note" size={20} color={colors.primary} outline />
               </View>
-              <Text style={[textPresets.body, { flex: 1 }]}>طلب تصحيح الاسم</Text>
+              <Text style={[textPresets.body, { flex: 1 }]}>{t('family_ui.name_fix_title')}</Text>
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
             <TouchableOpacity
@@ -223,7 +223,7 @@ export default function StudentProfile() {
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
               <Icon name="lock" size={16} color={colors.textTertiary} outline />
               <Text style={[textPresets.caption, { flex: 1, lineHeight: 18 }]}>
-                الكود والصف ورقم ولي الأمر يديرها معلّمك. لتغيير أيٍّ منها، تواصل مع معلّمك.
+                {t('family_ui.student_locked_fields')}
               </Text>
             </View>
           </View>

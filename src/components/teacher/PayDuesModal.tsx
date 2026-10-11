@@ -189,10 +189,10 @@ export function PayDuesModal({
                 <View key={row.kind} style={{ backgroundColor: colors.background, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.md }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>{row.label}</Text>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{row.paid > 0 ? 'المتبقّي ' : ''}{row.remaining} {t('insights.egp')}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{row.paid > 0 ? t('student_profile_ui.remaining_prefix') : ''}{row.remaining} {t('insights.egp')}</Text>
                   </View>
                   {row.paid > 0 ? (
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.success, marginTop: 2 }}>{`مدفوع مسبقًا: ${row.paid} `}{t('insights.egp')}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.success, marginTop: 2 }}>{t('student_profile_ui.paid_before', { amount: row.paid })}</Text>
                   ) : null}
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
@@ -208,7 +208,7 @@ export function PayDuesModal({
                   </View>
 
                   <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 6 }}>
-                    {`المتبقي بعد الدفع: ${after} `}{t('insights.egp')}
+                    {t('student_profile_ui.remaining_after_pay', { amount: after })}
                   </Text>
 
                   {(() => {
@@ -222,7 +222,7 @@ export function PayDuesModal({
                         activeOpacity={0.85}
                         style={{ marginTop: spacing.sm, minHeight: 46, borderRadius: radius.md, backgroundColor: !enabled ? colors.border : isWaive ? colors.warning : colors.success, justifyContent: 'center', alignItems: 'center' }}
                       >
-                        {busy === row.kind ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{isWaive ? t('teacher.waive_button') : 'تأكيد التحصيل'}</Text>}
+                        {busy === row.kind ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{isWaive ? t('teacher.waive_button') : t('collections.confirm')}</Text>}
                       </TouchableOpacity>
                     );
                   })()}
@@ -234,10 +234,10 @@ export function PayDuesModal({
           {/* Just-collected → cancel-the-payment (undo). */}
           {collected.map((c) => (
             <View key={`done-${c.kind}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm }}>
-              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.successText }}>{`تم تحصيل ${c.label} (${c.amount} ${t('insights.egp')})`}</Text>
+              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.successText }}>{t('student_profile_ui.collected_label_amount', { label: c.label, amount: c.amount })}</Text>
               {canReverse ? (
                 <TouchableOpacity onPress={() => undo(c)} disabled={busy === c.kind} activeOpacity={0.8} style={{ paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.md, borderWidth: 1, borderColor: colors.danger }}>
-                  {busy === c.kind ? <ActivityIndicator color={colors.danger} size="small" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>إلغاء الدفع</Text>}
+                  {busy === c.kind ? <ActivityIndicator color={colors.danger} size="small" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{t('cash.refuse_confirm')}</Text>}
                 </TouchableOpacity>
               ) : null}
             </View>

@@ -129,7 +129,7 @@ export default function CourseCreateScreen() {
     );
   };
 
-  const venueOptions = [{ key: '', label: 'بدون مكان محدد' }, ...(options?.venues ?? []).map((v) => ({ key: v.id, label: v.address ? `${v.name} — ${v.address}` : v.name }))];
+  const venueOptions = [{ key: '', label: t('enroll_ui.no_venue') }, ...(options?.venues ?? []).map((v) => ({ key: v.id, label: v.address ? `${v.name} — ${v.address}` : v.name }))];
 
   return (
     <FormScreen title={t('teacher.create_course')} subtitle={t('teacher.create_course_sub')} loading={isLoading || !options}>
@@ -154,14 +154,14 @@ export default function CourseCreateScreen() {
               <Chips options={options.terms.map((tm) => ({ key: tm.id, label: tm.name + (tm.ended ? ` — ${t('teacher.term_ended_tag')}` : '') }))} value={termId} onChange={setTermId} />
             </Field>
             {/* Venue — optional. With none yet, show the way to add one rather than nothing. */}
-            <Field label="مكان التدريس" hint={t('form_ui.optional')}>
+            <Field label={t('enroll_ui.venue_label')} hint={t('form_ui.optional')}>
               {(options.venues?.length ?? 0) > 0 ? (
-                <SelectField value={venueId ?? ''} options={venueOptions} placeholder="بدون مكان محدد" onChange={(id) => setVenueId(id || null)} />
+                <SelectField value={venueId ?? ''} options={venueOptions} placeholder={t('enroll_ui.no_venue')} onChange={(id) => setVenueId(id || null)} />
               ) : !isAssistant ? (
                 <TouchableOpacity onPress={() => router.push('/(teacher)/venues' as Href)} activeOpacity={0.8}
                   style={{ minHeight: 48, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.brandTint }}>
                   <Icon name="add" size={16} color={colors.brand} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>أضِف أماكن التدريس أولًا</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('enroll_ui.add_venues_first')}</Text>
                 </TouchableOpacity>
               ) : null}
             </Field>

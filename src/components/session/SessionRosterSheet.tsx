@@ -118,18 +118,18 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
         {attendees.length > 3 ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, marginBottom: spacing.sm }}>
             <Icon name="search" size={17} color={colors.textTertiary} />
-            <TextInput value={search} onChangeText={setSearch} placeholder="ابحث بالاسم أو الكود" placeholderTextColor={colors.textTertiary}
+            <TextInput value={search} onChangeText={setSearch} placeholder={t('misc_ui.search_name_or_code')} placeholderTextColor={colors.textTertiary}
               returnKeyType="search" autoCorrect={false} clearButtonMode="never"
               style={{ flex: 1, height: 44, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right', paddingVertical: 0 }} />
             {search ? (
-              <TouchableOpacity onPress={() => setSearch('')} hitSlop={10} accessibilityRole="button" accessibilityLabel="مسح البحث">
+              <TouchableOpacity onPress={() => setSearch('')} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('misc_ui.clear_search')}>
                 <Icon name="close" size={16} color={colors.textTertiary} />
               </TouchableOpacity>
             ) : null}
           </View>
         ) : null}
         {shown.length === 0 ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.lg }}>{`لا يوجد طالب باسم «${search.trim()}» في هذه الحصة`}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.lg }}>{t('misc_ui.no_student_named', { name: search.trim() })}</Text>
         ) : null}
         {/* The list takes what the sheet has left — title, search, the «open the full sheet»
             button and the sheet's own margins (≈300 pt) — not a flat 60 % of the screen, which

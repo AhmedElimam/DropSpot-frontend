@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { configRule } from '@/stores/appConfigStore';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, FlatList, KeyboardAvoidingView } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +18,8 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatDayDate } from '@/utils/format';
 
 // Grants run a fixed 15-day exception; preview the day it lapses.
-const GRANT_DAYS = 15;
+/** The allowance length is the backend rule the server itself applies (billing_allowance_days). */
+const GRANT_DAYS = () => configRule('billing_allowance_days');
 
 /**
  * Grant a billing exception. Shows the teacher's student roster (like the الطلاب
@@ -120,7 +122,7 @@ export default function GrantException() {
           />
 
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.md }}>
-            {t('teacher.exception_ends', { date: formatDayDate(new Date(Date.now() + GRANT_DAYS * 86_400_000)) })}
+            {t('teacher.exception_ends', { date: formatDayDate(new Date(Date.now() + GRANT_DAYS() * 86_400_000)) })}
           </Text>
 
           <TouchableOpacity

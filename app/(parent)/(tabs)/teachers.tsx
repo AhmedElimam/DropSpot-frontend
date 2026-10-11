@@ -96,12 +96,12 @@ export default function ParentTeachers() {
       >
         <PageHero
           title={t('parent.teachers')}
-          subtitle={many ? 'معلّمو أبنائك، وما يدرسه كلٌّ منهم معهم' : 'معلّمو ابنك، وما يدرسه معهم'}
+          subtitle={many ? t('family_ui.teachers_sub_many') : t('family_ui.teachers_sub_one')}
           action={{ icon: 'ticket', label: t('parent.tickets_chip'), accessibilityLabel: t('parent.teacher_tickets_title'), onPress: () => router.push('/(parent)/tickets') }}
           stats={cards.length ? [
-            { value: formatNumber(cards.length), label: 'معلّم' },
-            { value: formatNumber(courseCount), label: 'مقرر' },
-            ...(many ? [{ value: formatNumber(list.length), label: 'أبناء' }] : []),
+            { value: formatNumber(cards.length), label: t('family_ui.role_teacher') },
+            { value: formatNumber(courseCount), label: t('family_ui.stat_course') },
+            ...(many ? [{ value: formatNumber(list.length), label: t('family_ui.stat_children') }] : []),
           ] : undefined}
         />
 
@@ -181,7 +181,7 @@ function TeacherCardView({ card, showChildName, removingKey, onTicket, onRemove 
             {att && att.held > 0 ? (
               <View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{`حضر ${formatNumber(att.attended)} من ${formatNumber(att.held)} حصة`}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t('family_ui.attended_of', { attended: formatNumber(att.attended), held: formatNumber(att.held) })}</Text>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: tone }}>{`${formatNumber(Math.round((rate ?? 0) * 100))}٪`}</Text>
                 </View>
                 <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.surfaceSunken, overflow: 'hidden' }}>
@@ -194,7 +194,7 @@ function TeacherCardView({ card, showChildName, removingKey, onTicket, onRemove 
               <TouchableOpacity onPress={() => onTicket(child)} activeOpacity={0.85} accessibilityRole="button"
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42, borderRadius: radius.lg, backgroundColor: colors.brand }}>
                 <Icon name="ticket" size={16} color={colors.onPrimary} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.onPrimary }}>تواصل مع المعلّم</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.onPrimary }}>{t('family_ui.contact_teacher')}</Text>
               </TouchableOpacity>
               {removing ? (
                 <ActivityIndicator size="small" color={colors.danger} style={{ paddingHorizontal: spacing.md }} />

@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView,
 import { Alert } from '@/ui/dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
@@ -15,6 +16,7 @@ import { submitMyNameCorrection, submitChildNameCorrection } from '@/api/student
  * resolution centre; nothing changes until a teacher approves.
  */
 export default function RequestNameCorrectionScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { studentId, studentName } = useLocalSearchParams<{ studentId?: string; studentName?: string }>();
   const forChild = !!studentId;
@@ -29,16 +31,16 @@ export default function RequestNameCorrectionScreen() {
       return forChild ? submitChildNameCorrection(studentId!, payload) : submitMyNameCorrection(payload);
     },
     onSuccess: () => {
-      Alert.alert('تم الإرسال', 'تم إرسال طلب التصحيح لمراجعة المعلّم. سيُطبّق بعد الاعتماد.', [
-        { text: 'حسنًا', onPress: () => router.back() },
+      Alert.alert(t('family_ui.name_fix_sent_title'), t('family_ui.name_fix_sent_body'), [
+        { text: t('common.ok'), onPress: () => router.back() },
       ]);
     },
-    onError: (e: any) => Alert.alert('تعذّر الإرسال', e?.response?.data?.message || 'حدث خطأ'),
+    onError: (e: any) => Alert.alert(t('family_ui.name_fix_send_failed'), e?.response?.data?.message || t('common.error')),
   });
 
   const onSubmit = () => {
-    if (!first.trim() && !last.trim()) { Alert.alert('', 'حدّد الاسم الجديد على الأقل'); return; }
-    if (reason.trim().length < 3) { Alert.alert('', 'يرجى توضيح سبب التصحيح'); return; }
+    if (!first.trim() && !last.trim()) { Alert.alert('', t('family_ui.name_fix_need_name')); return; }
+    if (reason.trim().length < 3) { Alert.alert('', t('family_ui.name_fix_need_reason')); return; }
     submit.mutate();
   };
 
@@ -54,30 +56,30 @@ export default function RequestNameCorrectionScreen() {
         <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>طلب تصحيح الاسم</Text>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('family_ui.name_fix_title')}</Text>
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1 }}>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.lg, lineHeight: 22 }}>
             {forChild
-              ? `اطلب تصحيح اسم «${studentName ?? 'الطالب'}». يراجع المعلّم الطلب قبل تطبيقه.`
-              : 'اطلب تصحيح اسمك. يراجع معلّمك الطلب قبل تطبيقه — لن يتغيّر شيء حتى يعتمده.'}
+              ? t('family_ui.name_fix_intro_child', { name: studentName ?? t('offline.fields.student_name') })
+              : t('family_ui.name_fix_intro_self')}
           </Text>
 
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>الاسم الأول</Text>
-          <TextInput value={first} onChangeText={setFirst} placeholder="اترك فارغًا إن لم يتغيّر" placeholderTextColor={colors.textTertiary} style={input} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('family_ui.first_name')}</Text>
+          <TextInput value={first} onChangeText={setFirst} placeholder={t('family_ui.leave_blank_unchanged')} placeholderTextColor={colors.textTertiary} style={input} />
 
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>الاسم الأخير</Text>
-          <TextInput value={last} onChangeText={setLast} placeholder="اترك فارغًا إن لم يتغيّر" placeholderTextColor={colors.textTertiary} style={input} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('family_ui.last_name')}</Text>
+          <TextInput value={last} onChangeText={setLast} placeholder={t('family_ui.leave_blank_unchanged')} placeholderTextColor={colors.textTertiary} style={input} />
 
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>سبب التصحيح *</Text>
-          <TextInput value={reason} onChangeText={setReason} multiline placeholder="مثال: خطأ إملائي في الاسم" placeholderTextColor={colors.textTertiary}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('family_ui.name_fix_reason_label')}</Text>
+          <TextInput value={reason} onChangeText={setReason} multiline placeholder={t('family_ui.name_fix_reason_ph')} placeholderTextColor={colors.textTertiary}
             style={[input, { minHeight: 84, textAlignVertical: 'top' }]} />
 
           <TouchableOpacity onPress={onSubmit} disabled={submit.isPending} activeOpacity={0.85}
             style={{ backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', marginTop: spacing.sm, opacity: submit.isPending ? 0.6 : 1 }}>
-            {submit.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>إرسال للمراجعة</Text>}
+            {submit.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('family_ui.name_fix_submit')}</Text>}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

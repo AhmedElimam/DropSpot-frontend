@@ -29,6 +29,7 @@ import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { TeacherTip } from '@/components/TeacherTip';
+import i18n from '@/i18n';
 
 interface Target {
   studentId: number;
@@ -40,8 +41,8 @@ interface Target {
   items?: RosterBillItem[];
 }
 
-const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-const monthName = (ym?: string | null) => (ym ? MONTHS[Number(ym.slice(5, 7)) - 1] ?? null : null);
+// desk_ui.month_1 … desk_ui.month_12 — the twelve calendar months, January first.
+const monthName = (ym?: string | null) => { const n = ym ? Number(ym.slice(5, 7)) : 0; return n >= 1 && n <= 12 ? i18n.t(`desk_ui.month_${n}`) : null; };
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 type BillEdit = { amount: string; sessions: string };
@@ -188,12 +189,12 @@ export default function TeacherPendingCollections() {
   // Cancel a student's collected payment straight from a roster row (per-student, in-UI —
   // no toast). Shown to the teacher only; the reverse endpoint re-checks.
   const cancelPayment = (studentId: number, name: string, kind: CollectKind, chargeId?: number) => {
-    Alert.alert('إلغاء الدفع', `إلغاء دفع «${name}»؟ ستعود مستحقّاته كما كانت.`, [
+    Alert.alert(t('cash.refuse_confirm'), t('desk_ui.reverse_payment_body', { name }), [
       { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'إلغاء الدفع', style: 'destructive', onPress: async () => {
+        text: t('cash.refuse_confirm'), style: 'destructive', onPress: async () => {
           try { await reverseStudentPayment(studentId, kind, chargeId); await qc.invalidateQueries({ queryKey: ['pending-collections'] }); }
-          catch { Alert.alert(t('common.error'), 'تعذّر إلغاء الدفع'); }
+          catch { Alert.alert(t('common.error'), t('desk_ui.reverse_payment_failed')); }
         },
       },
     ]);
@@ -205,19 +206,19 @@ export default function TeacherPendingCollections() {
   // is tapped from shows a remainder, not a total.
   const cancelDue = (studentId: number, name: string, kind: CollectKind, remaining: number, chargeId?: number) => {
     Alert.alert(
-      'إلغاء المستحق',
-      `إلغاء مستحق «${name}» بقيمة ${formatEGP(remaining)} دون تحصيل؟ لن يُطلب من الطالب دفعه.`,
+      t('desk_ui.cancel_due'),
+      t('desk_ui.cancel_due_body', { name, amount: formatEGP(remaining) }),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'إلغاء المستحق', style: 'destructive', onPress: async () => {
+          text: t('desk_ui.cancel_due'), style: 'destructive', onPress: async () => {
             try {
               await cancelDueFromRoster(studentId, kind, chargeId);
               await qc.invalidateQueries({ queryKey: ['pending-collections'] });
             } catch (e: any) {
               // Show the server's own sentence when it sent one — it names the actual
               // reason; the generic line is only for a dead network.
-              Alert.alert(t('common.error'), e?.message || 'تعذّر إلغاء المستحق — تحقّق من الاتصال');
+              Alert.alert(t('common.error'), e?.message || t('desk_ui.cancel_due_failed'));
             }
           },
         },
@@ -260,7 +261,7 @@ export default function TeacherPendingCollections() {
     return (
       <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: tone.stripe, padding: spacing.md, marginBottom: spacing.sm }}>
         {/* Who, and what they owe — the number is the headline. A tap opens the student. */}
-        <TouchableOpacity onPress={() => openStudent(s.student_id, s.name)} activeOpacity={0.7} accessibilityRole="button" accessibilityHint="عرض بيانات الطالب"
+        <TouchableOpacity onPress={() => openStudent(s.student_id, s.name)} activeOpacity={0.7} accessibilityRole="button" accessibilityHint={t('desk_ui.view_student_hint')}
           style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
           <GeneratedAvatar seed={avatarSeed.student(s.student_id)} size={42} label={s.name} />
           <View style={{ flex: 1 }}>
@@ -318,12 +319,12 @@ export default function TeacherPendingCollections() {
                 <View style={{ flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm }}>
                   {canReverse && l.paid > 0 ? (
                     <TouchableOpacity onPress={() => cancelPayment(s.student_id, s.name, l.kind, l.chargeId)} hitSlop={8}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.dangerText }}>إلغاء الدفع</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.dangerText }}>{t('cash.refuse_confirm')}</Text>
                     </TouchableOpacity>
                   ) : null}
                   {canCancelDue && l.remaining > 0 ? (
                     <TouchableOpacity onPress={() => cancelDue(s.student_id, s.name, l.kind, l.remaining, l.chargeId)} hitSlop={8}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.warningText }}>إلغاء المستحق</Text>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.warningText }}>{t('desk_ui.cancel_due')}</Text>
                     </TouchableOpacity>
                   ) : null}
                 </View>
@@ -335,7 +336,7 @@ export default function TeacherPendingCollections() {
         <TouchableOpacity onPress={() => setYearFor({ studentId: s.student_id, name: s.name })} hitSlop={6} accessibilityRole="button"
           style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
           <Icon name="calendar" size={15} color={colors.brand} />
-          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>السنة والفواتير — شهر بشهر</Text>
+          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('desk_ui.year_bills_month_by_month')}</Text>
           <Icon name="back" size={14} color={colors.brand} />
         </TouchableOpacity>
       </View>
@@ -421,7 +422,7 @@ export default function TeacherPendingCollections() {
       <TouchableOpacity onPress={() => router.push('/(teacher)/scan?payKind=all' as Href)} activeOpacity={0.9} accessibilityRole="button"
         style={{ position: 'absolute', bottom: insets.bottom + spacing.lg, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 54, paddingHorizontal: spacing.xl, borderRadius: radius.full, backgroundColor: colors.brand, shadowColor: '#000', shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
         <Icon name="scan" size={22} color="#fff" />
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: '#fff' }}>امسح البطاقة للتحصيل</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: '#fff' }}>{t('desk_ui.scan_card_to_collect')}</Text>
       </TouchableOpacity>
 
       <TeacherTip

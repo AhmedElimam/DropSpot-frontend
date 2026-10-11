@@ -17,12 +17,12 @@ import { getAssistantActions, rejectAssistantAction, type AssistantAction } from
 
 type Kind = AssistantAction['kind'];
 const KIND_ORDER: Kind[] = ['proof', 'bill', 'booklet', 'booking', 'attendance'];
-const KIND = (): Record<Kind, { label: string; icon: IconName; tint: string }> => ({
-  proof: { label: 'إثبات دفع', icon: 'card', tint: colors.success },
-  bill: { label: 'فاتورة', icon: 'money', tint: colors.success },
-  booklet: { label: 'ملزمة', icon: 'book', tint: colors.info },
-  booking: { label: 'دفعة حجز', icon: 'money', tint: colors.brand },
-  attendance: { label: 'تعديل حضور', icon: 'attendance', tint: colors.accent },
+const KIND = (t: (key: string) => string): Record<Kind, { label: string; icon: IconName; tint: string }> => ({
+  proof: { label: t('staff_ui.kind_proof'), icon: 'card', tint: colors.success },
+  bill: { label: t('payment_proofs.invoice'), icon: 'money', tint: colors.success },
+  booklet: { label: t('collections.booklet'), icon: 'book', tint: colors.info },
+  booking: { label: t('collections.booking'), icon: 'money', tint: colors.brand },
+  attendance: { label: t('staff_ui.kind_attendance_edit'), icon: 'attendance', tint: colors.accent },
 });
 
 /** A steady colour per assistant, from the name — the same one on every chip and row. */
@@ -57,7 +57,7 @@ function Chip({ label, count, on, tint, onPress, initial }: { label: string; cou
 /** One assistant action: what, how much, who, when — and the one button, «رفض». */
 const ActionRow = memo(function ActionRow({ a, busy, onReject }: { a: AssistantAction; busy: boolean; onReject: (a: AssistantAction) => void }) {
   const { t } = useTranslation();
-  const k = KIND()[a.kind] ?? KIND().bill;
+  const k = KIND(t)[a.kind] ?? KIND(t).bill;
   const money = a.kind !== 'attendance';
   const who = hue(a.assistant_name);
   return (
@@ -126,7 +126,7 @@ export default function AssistantActionsScreen() {
   const confirmReject = (a: AssistantAction) => {
     Alert.alert(
       t('assistant_actions.reject_confirm_title'),
-      a.kind === 'attendance' ? t('assistant_actions.reject_attendance_hint') : t('assistant_actions.reject_confirm_hint', { what: KIND()[a.kind]?.label ?? a.kind, amount: Math.round(a.amount) }),
+      a.kind === 'attendance' ? t('assistant_actions.reject_attendance_hint') : t('assistant_actions.reject_confirm_hint', { what: KIND(t)[a.kind]?.label ?? a.kind, amount: Math.round(a.amount) }),
       [{ text: t('common.cancel'), style: 'cancel' }, { text: t('assistant_actions.reject'), style: 'destructive', onPress: () => reject.mutate(a.id) }],
     );
   };
@@ -190,7 +190,7 @@ export default function AssistantActionsScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }}>
                 <Chip label={t('assistant_actions.all_kinds')} on={!kind} onPress={() => setKind(null)} />
                 {kinds.map(([k, n]) => (
-                  <Chip key={k} label={KIND()[k].label} count={n} on={kind === k} tint={KIND()[k].tint} onPress={() => setKind(kind === k ? null : k)} />
+                  <Chip key={k} label={KIND(t)[k].label} count={n} on={kind === k} tint={KIND(t)[k].tint} onPress={() => setKind(kind === k ? null : k)} />
                 ))}
               </ScrollView>
               {/* What the filter adds up to. */}

@@ -16,6 +16,7 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { getTeacherInsights, getInsightsPdfUrl, type TeacherInsights, type TrendDay, type InsightsRangeKey } from '@/api/insights';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { openRemotePdf } from '@/utils/openPdf';
+import i18n from '@/i18n';
 
 const VENUE_KEY = 'insights_venue_filter';
 
@@ -33,12 +34,12 @@ function CashLine({ label, value, tint }: { label: string; value: string; tint?:
  * The server sends its own list with the bundle and that one wins once it lands — this
  * is a placeholder, not a second source of truth.
  */
-const FALLBACK_PRESETS: { key: InsightsRangeKey; label: string }[] = [
-  { key: 'month', label: 'هذا الشهر' },
-  { key: 'last_month', label: 'الشهر الماضي' },
-  { key: 'last30', label: 'آخر ٣٠ يومًا' },
-  { key: 'last90', label: 'آخر ٣ شهور' },
-  { key: 'all', label: 'كل الوقت' },
+const FALLBACK_PRESETS = (): { key: InsightsRangeKey; label: string }[] => [
+  { key: 'month', label: i18n.t('invoices.this_month') },
+  { key: 'last_month', label: i18n.t('invoices.last_month') },
+  { key: 'last30', label: i18n.t('desk_ui.range_last30') },
+  { key: 'last90', label: i18n.t('desk_ui.range_last90') },
+  { key: 'all', label: i18n.t('desk_ui.range_all') },
 ];
 
 /**
@@ -114,7 +115,8 @@ export default function InsightsScreen() {
   ], [venueList, perVenueRef.current, t]);
 
   const money = (v: number) => `${formatNumber(Math.round(v))} ${t('insights.egp')}`;
-  const presets = d?.presets?.length ? d.presets : FALLBACK_PRESETS;
+  const fallbackPresets = useMemo(FALLBACK_PRESETS, [t]);
+  const presets = d?.presets?.length ? d.presets : fallbackPresets;
   const rangeLabel = d?.range?.label ?? presets.find((p) => p.key === range)?.label ?? '';
 
   // Ask for a fresh signed link every time, then download + share it — the same flow as
@@ -125,7 +127,7 @@ export default function InsightsScreen() {
     try {
       const url = await getInsightsPdfUrl({ range, venue: venueParam });
       if (!url) throw new Error('no url');
-      await openRemotePdf(url, `تحليلات-${rangeLabel || range}`);
+      await openRemotePdf(url, t('desk_ui.insights_pdf_filename', { range: rangeLabel || range }));
     } catch {
       Alert.alert(t('common.error'), t('insights.export_failed'));
     } finally {

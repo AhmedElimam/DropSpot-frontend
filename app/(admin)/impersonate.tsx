@@ -4,6 +4,7 @@ import { Alert } from '@/ui/dialog';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import * as SecureStore from 'expo-secure-store';
 import { colors, spacing, radius } from '@/theme/index';
 import { fonts } from '@/theme/typography';
@@ -13,15 +14,18 @@ import {
   listImpersonatableUsers, startImpersonationForUser, type ImpersonatableRole, type ImpersonatableUser,
 } from '@/api/impersonation';
 
-const ROLES: { key: ImpersonatableRole; label: string }[] = [
-  { key: 'teacher', label: 'معلّم' },
-  { key: 'assistant', label: 'مساعد' },
-  { key: 'parent', label: 'وليّ أمر' },
-  { key: 'student', label: 'طالب' },
-];
+const ROLE_KEYS: ImpersonatableRole[] = ['teacher', 'assistant', 'parent', 'student'];
 
 export default function ImpersonatePicker() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const ROLES: { key: ImpersonatableRole; label: string }[] = ROLE_KEYS.map((key) => ({
+    key,
+    label: key === 'teacher' ? t('family_ui.role_teacher')
+      : key === 'assistant' ? t('teacher.role_assistant')
+      : key === 'parent' ? t('family_ui.role_parent')
+      : t('profile.role_student'),
+  }));
   const admin = useAuthStore((s) => s.user);
   const beginImpersonation = useAuthStore((s) => s.beginImpersonation);
   const logout = useAuthStore((s) => s.logout);
@@ -46,12 +50,12 @@ export default function ImpersonatePicker() {
   const start = (u: ImpersonatableUser) => {
     const canWrite = role !== 'student' && write; // students are read-only always
     Alert.alert(
-      'بدء التصفّح',
-      `التصفّح بحساب ${u.name}${canWrite ? ' (وضع الكتابة)' : ' (قراءة فقط)'}؟`,
+      t('family_ui.imp_start_title'),
+      canWrite ? t('family_ui.imp_start_body_write', { name: u.name }) : t('family_ui.imp_start_body_read', { name: u.name }),
       [
-        { text: 'إلغاء', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'بدء',
+          text: t('family_ui.imp_start'),
           onPress: async () => {
             if (starting) return;
             setStarting(true);
@@ -83,7 +87,7 @@ export default function ImpersonatePicker() {
               await SecureStore.deleteItemAsync('imp_admin_token').catch(() => {});
               await SecureStore.deleteItemAsync('imp_admin_refresh').catch(() => {});
               await SecureStore.deleteItemAsync('imp_admin_user').catch(() => {});
-              Alert.alert('تعذّر بدء التصفّح');
+              Alert.alert(t('family_ui.imp_start_failed'));
             } finally {
               setStarting(false);
             }
@@ -96,10 +100,10 @@ export default function ImpersonatePicker() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top + spacing.xl, paddingHorizontal: spacing.xl }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary, marginBottom: spacing.xs }}>
-        أداة الدعم — التصفّح بحساب
+        {t('family_ui.imp_title')}
       </Text>
       <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.xxl }}>
-        اختر مستخدمًا لبدء جلسة تصفّح مؤقتة. قراءة فقط افتراضيًا، وكل إجراء يُسجَّل باسمك.
+        {t('family_ui.imp_intro')}
       </Text>
 
       <TouchableOpacity
@@ -108,11 +112,11 @@ export default function ImpersonatePicker() {
         style={{ backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm }}
       >
         <Icon name="profile" size={20} color={colors.textInverse} />
-        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textInverse }}>اختيار مستخدم للتصفّح</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textInverse }}>{t('family_ui.imp_pick_user')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => { qc.clear(); logout(); router.replace('/(auth)/login'); }} style={{ marginTop: spacing.xl, alignItems: 'center' }}>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary }}>تسجيل الخروج</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary }}>{t('common.logout')}</Text>
       </TouchableOpacity>
 
       <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
@@ -122,7 +126,7 @@ export default function ImpersonatePicker() {
             <TouchableOpacity onPress={() => setOpen(false)}>
               <Icon name="forward" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>اختر مستخدمًا</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('family_ui.imp_pick_user_title')}</Text>
           </View>
 
           {/* Role filter chips */}
@@ -151,7 +155,7 @@ export default function ImpersonatePicker() {
           <TextInput
             value={q}
             onChangeText={setQ}
-            placeholder="بحث بالاسم أو الرقم"
+            placeholder={t('family_ui.imp_search_ph')}
             placeholderTextColor={colors.textTertiary}
             style={{
               marginHorizontal: spacing.lg, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg,
@@ -164,7 +168,7 @@ export default function ImpersonatePicker() {
           {role !== 'student' && (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, marginBottom: spacing.md }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary }}>
-                وضع الكتابة (كل إجراء يُسجَّل)
+                {t('family_ui.imp_write_mode')}
               </Text>
               <Switch value={write} onValueChange={setWrite} />
             </View>
@@ -185,7 +189,7 @@ export default function ImpersonatePicker() {
               ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.border }} />}
               ListEmptyComponent={
                 <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textTertiary, textAlign: 'center', marginTop: spacing.xl }}>
-                  لا يوجد مستخدمون.
+                  {t('family_ui.imp_no_users')}
                 </Text>
               }
               renderItem={({ item }) => (
