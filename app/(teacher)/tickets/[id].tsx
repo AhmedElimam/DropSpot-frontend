@@ -14,7 +14,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { formatTime } from '@/utils/format';
 import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
-import { useTicket, useAddMessage, useUpdateTicketStatus } from '@/hooks/useTickets';
+import { useTicket, useAddMessage, useUpdateTicketStatus, useSendStudentReport } from '@/hooks/useTickets';
+import type { PendingFile } from '@/api/tickets';
+import { AttachButton, MessageAttachments, PendingFiles } from '@/components/tickets/Attachments';
+import { Alert } from '@/ui/dialog';
 import { useAuthStore } from '@/stores/authStore';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,6 +48,8 @@ export default function TeacherTicketDetail() {
   const addMessage = useAddMessage(id ?? '');
   const updateStatus = useUpdateTicketStatus(id ?? '');
   const [newMessage, setNewMessage] = useState('');
+  const [files, setFiles] = useState<PendingFile[]>([]);
+  const sendReport = useSendStudentReport(id ?? '');
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -53,9 +58,17 @@ export default function TeacherTicketDetail() {
     }
   }, [ticket?.messages?.length]);
 
+  const canSend = !!newMessage.trim() || files.length > 0;
   const handleSend = () => {
-    if (!newMessage.trim()) return;
-    addMessage.mutate(newMessage.trim(), { onSuccess: () => setNewMessage('') });
+    if (!canSend) return;
+    addMessage.mutate({ message: newMessage.trim(), files }, { onSuccess: () => { setNewMessage(''); setFiles([]); } });
+  };
+  // The student's performance report, into the thread — no download on either side.
+  const handleReport = () => {
+    Alert.alert(t('tickets.send_report'), t('tickets.send_report_confirm', { name: ticket?.student_name ?? '' }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('tickets.send_report_do'), onPress: () => sendReport.mutate(undefined, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) }) },
+    ]);
   };
 
   const handleStatusChange = (status: string) => updateStatus.mutate(status);
@@ -183,9 +196,12 @@ export default function TeacherTicketDetail() {
                     {msg.user_name}
                   </Text>
                 )}
-                <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: isMine ? '#fff' : colors.textPrimary }}>
-                  {msg.message}
-                </Text>
+                {msg.message ? (
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: isMine ? '#fff' : colors.textPrimary }}>
+                    {msg.message}
+                  </Text>
+                ) : null}
+                <MessageAttachments items={msg.attachments} onDark={isMine} />
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: isMine ? 'rgba(255,255,255,0.6)' : colors.textTertiary, marginTop: 6, alignSelf: 'flex-end' }}>
                   {formatTime(msg.created_at)}
                 </Text>
@@ -207,13 +223,26 @@ export default function TeacherTicketDetail() {
         {ticket.status !== 'closed' && !can(ABILITY.REPLY_TICKETS) ? (
           <View style={{ height: insets.bottom }} />
         ) : ticket.status !== 'closed' ? (
+          <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>
+          {ticket.can_send_report ? (
+            <Surface id="teacher.tickets.detail.send_report">
+            <TouchableOpacity onPress={handleReport} disabled={sendReport.isPending} activeOpacity={0.8} accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginHorizontal: spacing.md, marginTop: spacing.sm, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: colors.accentWarmTint, borderWidth: 1, borderColor: colors.accentWarm }}>
+              {sendReport.isPending ? <ActivityIndicator size="small" color={colors.accentWarm} /> : <Icon name="reports" size={16} color={colors.accentWarm} />}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accentText }}>{t('tickets.send_report')}</Text>
+            </TouchableOpacity>
+            </Surface>
+          ) : null}
+          <PendingFiles files={files} onRemove={(uri) => setFiles((f) => f.filter((x) => x.uri !== uri))} />
           <View
             style={{
               flexDirection: 'row', alignItems: 'flex-end', padding: spacing.md,
-              paddingBottom: spacing.md + (keyboardShown ? 0 : insets.bottom), backgroundColor: colors.surface,
-              borderTopWidth: 1, borderTopColor: colors.border, gap: spacing.sm,
+              paddingBottom: spacing.md + (keyboardShown ? 0 : insets.bottom), gap: spacing.sm,
             }}
           >
+            <Surface id="teacher.tickets.detail.attach_button">
+            <AttachButton files={files} onAdd={(f) => setFiles((cur) => [...cur, f])} disabled={addMessage.isPending} />
+            </Surface>
             <TextInput
               value={newMessage}
               onChangeText={setNewMessage}
@@ -229,14 +258,15 @@ export default function TeacherTicketDetail() {
             <Surface id="teacher.tickets.detail.send_button">
             <TouchableOpacity
               onPress={handleSend}
-              disabled={!newMessage.trim() || addMessage.isPending}
+              disabled={!canSend || addMessage.isPending}
               activeOpacity={0.85}
               accessibilityRole="button"
-              style={{ width: 52, height: 52, borderRadius: radius.lg, backgroundColor: newMessage.trim() ? colors.brand : colors.border, justifyContent: 'center', alignItems: 'center' }}
+              style={{ width: 52, height: 52, borderRadius: radius.lg, backgroundColor: canSend ? colors.brand : colors.border, justifyContent: 'center', alignItems: 'center' }}
             >
               {addMessage.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={20} color="#fff" />}
             </TouchableOpacity>
             </Surface>
+          </View>
           </View>
         ) : null}
         </Surface>

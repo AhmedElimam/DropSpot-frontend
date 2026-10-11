@@ -5,7 +5,7 @@ import { QueryClient, dehydrate, hydrate } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { getQueryClient, setQueryClient } from '@/lib/queryClientRef';
-import { persistBuster, queryPersister } from '@/lib/queryPersist';
+import { flushPersistedQueries, persistBuster, queryPersister } from '@/lib/queryPersist';
 import { PERSIST_MAX_AGE_MS, dropOtherDays, shouldPersistQuery } from '@/lib/queryPersistRules';
 import { initOfflineScans } from '@/db/offlineScans';
 import { initOfflineMarks } from '@/db/offlineMarks';
@@ -109,6 +109,7 @@ async function persist(qc: QueryClient): Promise<void> {
       timestamp: Date.now(),
       clientState: dehydrate(qc, { shouldDehydrateQuery: (q) => shouldPersistQuery(q) }),
     });
+    await flushPersistedQueries(); // headless: nothing else will wait for the idle write
   } catch {
     // best-effort
   }

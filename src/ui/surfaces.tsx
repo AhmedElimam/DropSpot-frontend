@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { View, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAppConfigStore } from '@/stores/appConfigStore';
@@ -42,9 +42,27 @@ export function useSurfaceNotice(id: string): string {
 
 export function Surface({ id, screen, fallback, children }: { id: string; screen?: boolean; fallback?: ReactNode; children: ReactNode }) {
   const on = useSurface(id);
-  if (on) return <>{children}</>;
+  const ready = useFirstFrame(!!screen);
+  if (on) return ready ? <>{children}</> : <View style={{ flex: 1, backgroundColor: colors.background }} />;
   if (fallback !== undefined) return <>{fallback}</>;
   return screen ? <HiddenScreenNotice id={id} /> : null;
+}
+
+/**
+ * A screen root renders a blank page the first time and its content on the next frame
+ * (founder 2026-10-11: «a slight delay on every tap, on every device»). The native push
+ * cannot start until the screen's first render has committed, so a page with a few
+ * hundred elements held the tap for the time its whole tree took; now the page slides in
+ * at once and fills a frame later, under the animation. Off for non-screen surfaces.
+ */
+function useFirstFrame(deferred: boolean): boolean {
+  const [ready, setReady] = useState(!deferred);
+  useEffect(() => {
+    if (ready) return;
+    const h = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(h);
+  }, [ready]);
+  return ready;
 }
 
 /** What a switched-off screen shows: the backend's own words for it, centred, nothing else. */

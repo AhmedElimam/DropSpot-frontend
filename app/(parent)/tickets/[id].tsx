@@ -15,6 +15,8 @@ import { fonts } from '@/theme/typography';
 import { formatTime } from '@/utils/format';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
 import { useTicket, useAddMessage, useUpdateTicketStatus } from '@/hooks/useTickets';
+import type { PendingFile } from '@/api/tickets';
+import { AttachButton, MessageAttachments, PendingFiles } from '@/components/tickets/Attachments';
 import { useAuthStore } from '@/stores/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -42,6 +44,7 @@ export default function TicketDetail() {
   const addMessage = useAddMessage(id ?? '');
   const updateStatus = useUpdateTicketStatus(id ?? '');
   const [newMessage, setNewMessage] = useState('');
+  const [files, setFiles] = useState<PendingFile[]>([]);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -50,11 +53,13 @@ export default function TicketDetail() {
     }
   }, [ticket?.messages?.length]);
 
+  const canSend = !!newMessage.trim() || files.length > 0;
   const handleSend = () => {
-    if (!newMessage.trim()) return;
-    addMessage.mutate(newMessage.trim(), {
+    if (!canSend) return;
+    addMessage.mutate({ message: newMessage.trim(), files }, {
       onSuccess: () => {
         setNewMessage('');
+        setFiles([]);
       },
     });
   };
@@ -200,16 +205,19 @@ export default function TicketDetail() {
                     {msg.user_name}
                   </Text>
                 )}
-                <Text
-                  style={{
-                    fontFamily: fonts.regular,
-                    fontSize: 16,
-                    lineHeight: 24,
-                    color: isMine ? '#fff' : colors.textPrimary,
-                  }}
-                >
-                  {msg.message}
-                </Text>
+                {msg.message ? (
+                  <Text
+                    style={{
+                      fontFamily: fonts.regular,
+                      fontSize: 16,
+                      lineHeight: 24,
+                      color: isMine ? '#fff' : colors.textPrimary,
+                    }}
+                  >
+                    {msg.message}
+                  </Text>
+                ) : null}
+                <MessageAttachments items={msg.attachments} onDark={isMine} />
                 <Text
                   style={{
                     fontFamily: fonts.regular,
@@ -238,18 +246,20 @@ export default function TicketDetail() {
         {/* Input */}
         {ticket.status !== 'closed' && (
           <Surface id="parent.ticket.composer">
+          <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>
+          <PendingFiles files={files} onRemove={(uri) => setFiles((f) => f.filter((x) => x.uri !== uri))} />
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'flex-end',
               padding: spacing.md,
               paddingBottom: spacing.md + (keyboardShown ? 0 : insets.bottom),
-              backgroundColor: colors.surface,
-              borderTopWidth: 1,
-              borderTopColor: colors.border,
               gap: spacing.sm,
             }}
           >
+            <Surface id="parent.ticket.attach_button">
+            <AttachButton files={files} onAdd={(f) => setFiles((cur) => [...cur, f])} disabled={addMessage.isPending} />
+            </Surface>
             <TextInput
               value={newMessage}
               onChangeText={setNewMessage}
@@ -275,14 +285,14 @@ export default function TicketDetail() {
             />
             <TouchableOpacity
               onPress={handleSend}
-              disabled={!newMessage.trim() || addMessage.isPending}
+              disabled={!canSend || addMessage.isPending}
               activeOpacity={0.85}
               accessibilityRole="button"
               style={{
                 width: 52,
                 height: 52,
                 borderRadius: radius.lg,
-                backgroundColor: newMessage.trim() ? colors.brand : colors.border,
+                backgroundColor: canSend ? colors.brand : colors.border,
                 justifyContent: 'center',
                 alignItems: 'center',
               }}
@@ -293,6 +303,7 @@ export default function TicketDetail() {
                 <Icon name="send" size={20} color="#fff" />
               )}
             </TouchableOpacity>
+          </View>
           </View>
           </Surface>
         )}
