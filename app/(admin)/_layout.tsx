@@ -20,5 +20,5 @@ export default function AdminLayout() {
     return <Redirect href={ROUTE_BY_ROLE} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />;
+  return <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />;
 }

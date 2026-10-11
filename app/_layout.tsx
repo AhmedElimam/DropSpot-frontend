@@ -265,8 +265,11 @@ export default function RootLayout() {
             <ImpersonationBanner />
             <View style={{ flex: 1 }}>
               {/* A consistent content background so screen transitions never flash the
-                  navigator's default (white) card between two routes. */}
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+                  navigator's default (white) card between two routes. freezeOnBlur off: the
+                  root stack pushes pages OVER a whole role (notification preferences, change
+                  password, «ما الجديد»…), and a frozen role thawed mid-swipe-back stuttered
+                  the gesture (founder 2026-10-12, same cause as the role stacks on 10-08). */}
+              <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />
             </View>
             {/* Super-admin survey prompt — checked on app-open/login, once across platforms. */}
             <SurveyModal />
