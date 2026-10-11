@@ -31,6 +31,7 @@ import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePo
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBill, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { dayLabel, formatDayDate, formatNumber, relationshipLabel } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 /** One person to call: who, the number with who has proved it, call (and report, for a parent). */
 function ContactRow({ icon, label, name, phone, badge, empty, onCall, onFlag, divider = false }: {
@@ -57,16 +58,20 @@ function ContactRow({ icon, label, name, phone, badge, empty, onCall, onFlag, di
         )}
       </View>
       {onFlag ? (
+        <Surface id="teacher.student_profile.flag_parent_number">
         <TouchableOpacity onPress={onFlag} accessibilityRole="button" accessibilityLabel={t('student_profile_ui.flag_number_a11y')}
           style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="warning" size={17} color={colors.danger} />
         </TouchableOpacity>
+        </Surface>
       ) : null}
       {onCall ? (
+        <Surface id="teacher.student_profile.call_button">
         <TouchableOpacity onPress={onCall} accessibilityRole="button" accessibilityLabel={t('student_profile_ui.call_a11y')}
           style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: colors.successLight, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="call" size={20} color={colors.success} />
         </TouchableOpacity>
+        </Surface>
       ) : null}
     </View>
   );
@@ -479,6 +484,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   };
 
   const hero = (
+    <Surface id="teacher.student_profile.hero">
     <PageHero
       title={s?.name ?? initialName ?? t('teacher.tab_students')}
       subtitle={s ? [s.grade_name ?? t('teacher.no_grade'), s.student_code].filter(Boolean).join(' · ') : undefined}
@@ -495,6 +501,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       ] : undefined}
       compact={!s}
     />
+    </Surface>
   );
 
   return (
@@ -523,6 +530,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               student's number). The student's OWN number is their login credential and the one a
               teacher rings when the parent does not answer; each number says who (if anyone) has
               proved it, because an unproved number propagates to every other teacher. */}
+          <Surface id="teacher.student_profile.contacts_card">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.lg, paddingVertical: spacing.xs, ...shadows.sm }}>
             <ContactRow
               icon="child"
@@ -559,14 +567,17 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               />
             ))}
             {s.parent_number_notice ? (
+              <Surface id="teacher.student_profile.parent_number_notice">
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm }}>
                 <Icon name="call" size={16} color={colors.dangerText} />
                 <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.dangerText }}>
                   {s.parent_number_notice_message ?? t('teacher.number_fake')}
                 </Text>
               </View>
+              </Surface>
             ) : null}
           </View>
+          </Surface>
 
           {/* A student who studies with another teacher too, whose number nobody has proved.
               It sits at the top because it is not this teacher's problem alone: a student is
@@ -574,6 +585,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               calls. Narrow by construction — the server sends a sentence and a boolean, never
               which teacher, so this screen has nothing to leak even if it wanted to. */}
           {s.shared_unproved_number ? (
+            <Surface id="teacher.student_profile.shared_unproved_banner">
             <TouchableOpacity
               onPress={() => go('/(teacher)/phone-confirmations' as Href)}
               accessibilityRole="button"
@@ -591,6 +603,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               </Text>
               <Icon name="back" size={16} color={colors.warningText} />
             </TouchableOpacity>
+            </Surface>
           ) : null}
 
           {/* The API this app is talking to predates the sections below (cycle progress,
@@ -609,32 +622,41 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
           {/* Quieter actions, one row: a name/phone correction request, an incident report,
               removing a terminated student. Only what this person may do is drawn. */}
           {canManage || canReport || (canManage && s.can_remove_from_roster) ? (
+            <Surface id="teacher.student_profile.quick_actions">
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md }}>
               {canManage ? (
+                <Surface id="teacher.student_profile.edit_request_button">
                 <TouchableOpacity onPress={() => setEditOpen(true)} accessibilityRole="button" activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
                   <Icon name="note" size={16} color={colors.textSecondary} />
                   <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{t('student_profile_ui.edit_request_action')}</Text>
                 </TouchableOpacity>
+                </Surface>
               ) : null}
               {canReport ? (
+                <Surface id="teacher.student_profile.report_incident_button">
                 <TouchableOpacity onPress={() => setReportOpen(true)} accessibilityRole="button" activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
                   <Icon name="warning" size={16} color={colors.danger} />
                   <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger }}>{t('student_profile_ui.report_incident')}</Text>
                 </TouchableOpacity>
+                </Surface>
               ) : null}
               {canManage && s.can_remove_from_roster ? (
+                <Surface id="teacher.student_profile.remove_from_roster_button">
                 <TouchableOpacity onPress={confirmRemoveFromRoster} accessibilityRole="button" activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
                   <Icon name="person-remove" size={16} color={colors.textSecondary} />
                   <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{t('student_profile_ui.remove_from_roster_title')}</Text>
                 </TouchableOpacity>
+                </Surface>
               ) : null}
             </View>
+            </Surface>
           ) : null}
 
           {/* Billing */}
+          <Surface id="teacher.student_profile.billing_section">
           <Section title={t('teacher.billing_section')}>
             {/* The dues card: the total in one glance, then every charge by name — each bill
                 by its month, each ملزمة, the booking دفعة — with «تحصيل» on the row and
@@ -648,6 +670,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 it wrong. The teacher, or an assistant holding «تعديل قيمة فاتورة الطالب» (founder
                 2026-10-05; on by default, the server tells the teacher). One button per billable
                 enrolment, named by course, so a student in two courses is never ambiguous. */}
+            <Surface id="teacher.student_profile.correct_bill_button">
             {can(ABILITY.EDIT_BILL_AMOUNT) ? (s.courses ?? []).filter((c) => c.enrollment_id && c.cycle?.has_cycle).map((c) => (
               <TouchableOpacity
                 key={`fixamt-${c.enrollment_id}`}
@@ -687,11 +710,13 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 <Icon name="back" size={18} color="rgba(255,255,255,0.85)" />
               </TouchableOpacity>
             )) : null}
+            </Surface>
 
             {/* «سُدِّدت قبل الانضمام» — one per course bill with money still due. Teacher, or an
                 assistant with manage_students (their word lands in the teacher's review bucket).
                 Quieter than the correction above: this does not change the figure, it says
                 the family already paid it before the system existed. */}
+            <Surface id="teacher.student_profile.prior_paid_button">
             {canManage ? (s.courses ?? []).filter((c) => c.enrollment_id && c.cycle_invoice && Number(c.cycle_invoice.remaining) > 0).map((c) => (
               <TouchableOpacity
                 key={`prior-${c.enrollment_id}`}
@@ -712,19 +737,23 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 <Icon name="back" size={18} color={colors.brand} />
               </TouchableOpacity>
             )) : null}
+            </Surface>
 
             {/* Price set on a course, but the teacher-wide booklets switch is off — say why there is no button. */}
             {s.billing.booklets_disabled_hint ? (
+              <Surface id="teacher.student_profile.booklets_disabled_hint">
               <View style={{ marginTop: spacing.md, flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
                 <Icon name="book" size={18} color={colors.textSecondary} outline />
                 <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>
                   {t('student_profile_ui.booklets_disabled_hint')}
                 </Text>
               </View>
+              </Surface>
             ) : null}
 
             {/* Per-student 15-day-allowance block — scan_attendance, like the API. */}
             {canCollect ? (
+            <Surface id="teacher.student_profile.allowance_block_toggle">
             <TouchableOpacity
               onPress={() => allowanceBlock.mutate(!(s.billing.allowance_blocked ?? false))}
               disabled={allowanceBlock.isPending}
@@ -742,12 +771,14 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               </View>
               {allowanceBlock.isPending ? <ActivityIndicator size="small" color={colors.brand} /> : null}
             </TouchableOpacity>
+            </Surface>
             ) : null}
 
             {/* Every 15-day exemption this student was given, newest first, with where it
                 came from — the screen, the door scan, the kiosk, or a manual check-in at a
                 given session (founder 2026-10-04: «track that on the student's profile»). */}
             {(s.billing.exemptions ?? []).length > 0 ? (
+              <Surface id="teacher.student_profile.exemptions_list">
               <View style={{ marginTop: spacing.md }}>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('students_ui.exemptions_title')}</Text>
                 {(s.billing.exemptions ?? []).map((x) => (
@@ -773,10 +804,12 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                   </View>
                 ))}
               </View>
+              </Surface>
             ) : null}
 
             {/* Collected payments the teacher can CANCEL (per-charge). */}
             {(s.billing.collected ?? []).length > 0 ? (
+              <Surface id="teacher.student_profile.collected_payments">
               <View style={{ marginTop: spacing.md }}>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('student_profile_ui.collected_payments_title')}</Text>
                 {(s.billing.collected ?? []).map((c) => (
@@ -785,21 +818,26 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{c.label}</Text>
                       <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.success, marginTop: 2 }}>{t('student_profile_ui.paid_amount', { amount: c.paid })}</Text>
                     </View>
+                    <Surface id="teacher.student_profile.cancel_payment_button">
                     <TouchableOpacity onPress={() => cancelPayment(c)} disabled={reversing === c.id} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: colors.danger, borderRadius: radius.md, paddingVertical: 6, paddingHorizontal: spacing.md }}>
                       {reversing === c.id ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="close" size={14} color={colors.danger} />}
                       <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>{t('cash.refuse_confirm')}</Text>
                     </TouchableOpacity>
+                    </Surface>
                   </View>
                 ))}
               </View>
+              </Surface>
             ) : null}
           </Section>
+          </Surface>
 
           {/* Courses — a card per enrolment (founder 2026-10-06: «the course part needs love; the
               attendance doesn't look tappable»): where the cycle stands as a bar of sessions (tap
               to correct the position), attendance in three numbers, the paper register as a real
               button, and transfer / terminate at the foot. */}
           {s.courses.length > 0 ? (
+            <Surface id="teacher.student_profile.courses_section">
             <Section title={t('teacher.student_courses')}>
               <View style={{ gap: spacing.md }}>
                 {s.courses.map((c) => {
@@ -820,6 +858,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                       {cy ? (
                         <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md }}>
                           {/* Where the cycle stands: a bar of the cycle's sessions, the current one marked. */}
+                          <Surface id="teacher.student_profile.cycle_position_bar">
                           <TouchableOpacity onPress={openPosition} disabled={!canPosition} activeOpacity={0.8} accessibilityRole="button"
                             accessibilityLabel={t('student_profile_ui.session_n_of', { position: cy.position, threshold: cy.threshold })}
                             style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
@@ -850,8 +889,10 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                               <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 6 }}>{t('student_profile_ui.joined_from_session', { session: formatNumber(cy.carried + 1) })}</Text>
                             ) : null}
                           </TouchableOpacity>
+                          </Surface>
 
                           {/* Attendance in this cycle, in three numbers. */}
+                          <Surface id="teacher.student_profile.cycle_stats">
                           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                             {[
                               { v: cy.attended, l: t('student_profile_ui.attended'), fg: colors.successText, bg: colors.successLight },
@@ -864,11 +905,13 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                               </View>
                             ))}
                           </View>
+                          </Surface>
                         </View>
                       ) : null}
 
                       {/* The paper register: days held with no record for this student. */}
                       {canMarkManual && c.enrollment_id && unrecorded > 0 ? (
+                        <Surface id="teacher.student_profile.backfill_button">
                         <TouchableOpacity onPress={() => openBackfill(c)} accessibilityRole="button" activeOpacity={0.85}
                           style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, paddingHorizontal: spacing.md }}>
                           <Icon name="calendar" size={18} color={colors.brand} />
@@ -878,10 +921,12 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                           </View>
                           <Icon name="back" size={16} color={colors.brand} />
                         </TouchableOpacity>
+                        </Surface>
                       ) : null}
 
                       {/* The year of this course, month by month (founder 2026-10-08). */}
                       {c.enrollment_id ? (
+                        <Surface id="teacher.student_profile.year_calendar_button">
                         <TouchableOpacity onPress={() => setYearFor({ studentId: Number(s.id), name: s.name, enrollmentId: c.enrollment_id! })} accessibilityRole="button" activeOpacity={0.85}
                           style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, paddingHorizontal: spacing.md }}>
                           <Icon name="calendar" size={18} color={colors.brand} />
@@ -891,11 +936,13 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                           </View>
                           <Icon name="back" size={16} color={colors.brand} />
                         </TouchableOpacity>
+                        </Surface>
                       ) : null}
 
                       {/* A month before joining, recorded whole: its sessions and its fee, owed now
                           (founder 2026-10-08). Money → who may manage students. */}
                       {canManage && c.enrollment_id ? (
+                        <Surface id="teacher.student_profile.prior_month_button">
                         <TouchableOpacity onPress={() => setPriorBillFor({ enrollmentId: c.enrollment_id!, courseName: c.name })} accessibilityRole="button" activeOpacity={0.85}
                           style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.warningDark, paddingHorizontal: spacing.md }}>
                           <Icon name="invoices" size={18} color={colors.warningDark} />
@@ -905,11 +952,13 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                           </View>
                           <Icon name="back" size={16} color={colors.warningDark} />
                         </TouchableOpacity>
+                        </Surface>
                       ) : null}
 
                       {/* Transfer / terminate. */}
                       {c.enrollment_id && canManage ? (
                         <View style={{ flexDirection: 'row', gap: spacing.sm, padding: spacing.lg, paddingTop: spacing.md }}>
+                          <Surface id="teacher.student_profile.transfer_button">
                           <TouchableOpacity
                             onPress={() => setTransferFor({ enrollmentId: c.enrollment_id!, courseId: c.id, courseName: c.name })}
                             accessibilityRole="button" accessibilityLabel={t('teacher.transfer_title')} activeOpacity={0.85}
@@ -918,6 +967,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                             <Icon name="transfer" size={16} color={colors.brand} />
                             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.transfer_action')}</Text>
                           </TouchableOpacity>
+                          </Surface>
+                          <Surface id="teacher.student_profile.terminate_button">
                           <TouchableOpacity
                             onPress={() => confirmTerminate(c.name, c.enrollment_id)}
                             accessibilityRole="button" accessibilityLabel={t('teacher.terminate_title')} activeOpacity={0.85}
@@ -926,6 +977,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                             <Icon name="trash" size={15} color={colors.danger} />
                             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{t('teacher.terminate_action')}</Text>
                           </TouchableOpacity>
+                          </Surface>
                         </View>
                       ) : <View style={{ height: spacing.lg }} />}
                     </View>
@@ -933,15 +985,18 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 })}
               </View>
             </Section>
+            </Surface>
           ) : null}
 
           {/* Attendance history */}
           {/* Recent sessions recordable in place (✓ / ✗, a tap for the rest and the mark),
               then the older records — the session sheet's rows, for one student. */}
+          <Surface id="teacher.student_profile.attendance_section">
           <Section title={t('teacher.attendance_history')}>
             <StudentAttendanceList studentId={Number(s.id)} sessions={s.quick_sessions ?? []} history={s.attendance}
               canMark={canMarkManual} isAssistant={isAssistant} onChanged={() => { void refetch(); }} beforeNavigate={onClose} />
           </Section>
+          </Surface>
         </ScrollView>
       )}
 
@@ -949,8 +1004,9 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       {/* «الطالب على الحصة N» — pick the number, see the day it fell on. */}
       {/* Collect: what, how much (editable — part-payment at the door is normal), and what
           follows (receipt, drawer, reports). */}
-      <PriorMonthSheet target={priorBillFor} onClose={() => setPriorBillFor(null)} onSaved={() => { void refetch(); }} />
-      <BillingYearSheet target={yearFor} onClose={() => { setYearFor(null); void refetch(); }} />
+      <Surface id="teacher.student_profile.prior_month_sheet"><PriorMonthSheet target={priorBillFor} onClose={() => setPriorBillFor(null)} onSaved={() => { void refetch(); }} /></Surface>
+      <Surface id="teacher.student_profile.year_sheet"><BillingYearSheet target={yearFor} onClose={() => { setYearFor(null); void refetch(); }} /></Surface>
+      <Surface id="teacher.student_profile.collect_sheet">
       <CollectSheet
         visible={!!collectFor}
         onClose={() => setCollectFor(null)}
@@ -964,10 +1020,12 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
         onSubmit={submitCollect}
         hint={collectFor?.kind === 'all' ? t('student_profile_ui.collect_all_hint') : undefined}
       />
+      </Surface>
 
       {/* Correct the bills of one course: a card per month — the amount, how many sessions it
           buys, how much of it is paid — prefilled as the bill stands, so the one wrong number
           is the only thing to type. */}
+      <Surface id="teacher.student_profile.correct_bills_sheet">
       <SheetModal visible={!!amountFor} onClose={() => !amountBusy && setAmountFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>
@@ -1027,9 +1085,11 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               )}
             </TouchableOpacity>
       </SheetModal>
+      </Surface>
 
       {/* «سُدِّدت قبل الانضمام»: say plainly what it does and does not do, then one optional
           number. Blank = the whole remaining bill. */}
+      <Surface id="teacher.student_profile.prior_paid_sheet">
       <SheetModal visible={!!priorFor} onClose={() => !priorBusy && setPriorFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>
@@ -1064,7 +1124,9 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               )}
             </TouchableOpacity>
       </SheetModal>
+      </Surface>
 
+      <Surface id="teacher.student_profile.position_sheet">
       <SheetModal visible={!!positionFor} onClose={() => !positionBusy && setPositionFor(null)} style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('student_profile_ui.position_title', { course: positionFor?.courseName ?? '' })}</Text>
@@ -1098,8 +1160,10 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
             </ScrollView>
             {positionBusy ? <ActivityIndicator style={{ marginTop: spacing.md }} color={colors.brand} /> : null}
       </SheetModal>
+      </Surface>
 
       {/* The paper register — past days of one course, tick who came. */}
+      <Surface id="teacher.student_profile.backfill_sheet">
       <SheetModal visible={!!backfillFor} onClose={() => !backfillBusy && setBackfillFor(null)} style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('student_profile_ui.backfill_title')}</Text>
@@ -1145,7 +1209,9 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               {backfillBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('student_profile_ui.backfill_submit', { count: backfillPicked.length })}</Text>}
             </TouchableOpacity>
       </SheetModal>
+      </Surface>
 
+      <Surface id="teacher.student_profile.transfer_sheet">
       <SheetModal visible={!!transferFor} onClose={() => !transferBusy && setTransferFor(null)} style={{ backgroundColor: colors.background, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '75%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('teacher.transfer_title')}</Text>
@@ -1191,8 +1257,10 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
 
             {transferBusy ? <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.sm }} /> : null}
       </SheetModal>
+      </Surface>
 
       {/* Name/phone correction request → super-admin review */}
+      <Surface id="teacher.student_profile.edit_request_sheet">
       <SheetModal visible={editOpen} onClose={() => !editBusy && setEditOpen(false)} avoidKeyboard style={{ backgroundColor: colors.background, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '88%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('student_profile_ui.edit_request_title')}</Text>
@@ -1243,8 +1311,10 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               </TouchableOpacity>
             </ScrollView>
       </SheetModal>
+      </Surface>
 
       {/* Incident report → super-admin review (teacher-only) */}
+      <Surface id="teacher.student_profile.report_incident_sheet">
       <SheetModal visible={reportOpen} onClose={() => !reportBusy && setReportOpen(false)} avoidKeyboard style={{ backgroundColor: colors.background, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg, maxHeight: '90%' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('student_profile_ui.report_incident')}</Text>
@@ -1269,6 +1339,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               <TextInput value={reportDesc} onChangeText={setReportDesc} multiline placeholder={t('student_profile_ui.report_desc_ph')} placeholderTextColor={colors.textTertiary}
                 style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.md, minHeight: 96, textAlignVertical: 'top', fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.md }} />
 
+              <Surface id="teacher.student_profile.report_safety_toggle">
               <TouchableOpacity onPress={() => setReportSafety((v) => !v)} activeOpacity={0.85}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: reportSafety ? colors.dangerLight : colors.surface, borderWidth: 1.5, borderColor: reportSafety ? colors.danger : colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
                 <Icon name="warning" size={18} color={reportSafety ? colors.danger : colors.textTertiary} />
@@ -1277,6 +1348,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                   {reportSafety ? <Icon name="success" size={12} color="#fff" /> : null}
                 </View>
               </TouchableOpacity>
+              </Surface>
 
               {reportSafety ? (
                 <View style={{ marginBottom: spacing.md }}>
@@ -1298,8 +1370,10 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               </TouchableOpacity>
             </ScrollView>
       </SheetModal>
+      </Surface>
 
       {/* Flag a parent's phone number → super-admin review (teacher-only) */}
+      <Surface id="teacher.student_profile.flag_number_sheet">
       <SheetModal visible={!!flagFor} onClose={() => !flagBusy && setFlagFor(null)} avoidKeyboard style={{ backgroundColor: colors.background, paddingTop: spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('student_profile_ui.flag_title')}</Text>
@@ -1315,6 +1389,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               {flagBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('attendance.report_submit')}</Text>}
             </TouchableOpacity>
       </SheetModal>
+      </Surface>
     </View>
   );
 }

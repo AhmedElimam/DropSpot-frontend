@@ -8,6 +8,7 @@ import { colors } from '@/theme/index';
 import { RosePortrait } from './RoseStamp';
 import { useAmbientMotion } from '@/hooks/useAmbientMotion';
 import { RoseSleeping } from './RoseSleeping';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * مدام روز on the home shortcut, CALLING you when something is waiting on her desk (founder
@@ -112,11 +113,14 @@ export function RoseCalling({ size, calling }: { size: number; calling: boolean 
   return (
     <View style={{ width: size, height: size }}>
       {calling ? (
+        <Surface id="teacher.rose.calling.ring">
         <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: clipLeft, top: clipTop, width: 2 * CLIP.r * k, height: 2 * CLIP.r * k, borderRadius: CLIP.r * k, borderWidth: 3, borderColor: colors.accent }, ringSt]} />
+        </Surface>
       ) : null}
       {/* An empty desk: she dozes (founder 2026-10-09). Something waiting: awake, and calling. */}
-      {calling ? <RosePortrait size={size} nod={false} /> : <RoseSleeping size={size} />}
+      {calling ? <RosePortrait size={size} nod={false} /> : <Surface id="teacher.rose.sleeping" fallback={<RosePortrait size={size} nod={false} />}><RoseSleeping size={size} /></Surface>}
       {calling ? (
+        <Surface id="teacher.rose.calling.wave">
         <View pointerEvents="none" style={{ position: 'absolute', left: clipLeft, top: clipTop, width: 2 * CLIP.r * k, height: 2 * CLIP.r * k, borderRadius: CLIP.r * k, overflow: 'hidden' }}>
           <Animated.View style={[{ position: 'absolute', left: -clipLeft, top: -clipTop, width: size, height: size, transformOrigin: [ELBOW.x * k, ELBOW.y * k, 0] }, armSt]}>
             <Svg width={size} height={size} viewBox="0 0 400 400" style={StyleSheet.absoluteFill}>
@@ -126,6 +130,7 @@ export function RoseCalling({ size, calling }: { size: number; calling: boolean 
             </Svg>
           </Animated.View>
         </View>
+        </Surface>
       ) : null}
     </View>
   );

@@ -14,6 +14,7 @@ import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionH
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { formatNumber, foldForSearch } from '@/utils/format';
 import type { SessionAttendee } from '@/api/teacherSessions';
+import { Surface } from '@/ui/surfaces';
 
 type Status = 'present' | 'late' | 'absent' | 'excused';
 
@@ -96,6 +97,7 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
 
   return (
     <SheetModal visible={!!sessionId} onClose={onClose} avoidKeyboard>
+      <Surface id="teacher.roster_sheet.header">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md }}>
         <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="attendance" size={22} color={colors.brand} />
@@ -108,6 +110,7 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
         </View>
         {controls.mark.isPending ? <ActivityIndicator color={colors.primary} /> : null}
       </View>
+      </Surface>
 
       {q.isLoading || (!s && !!sessionId && !q.isError) ? (
         <ActivityIndicator color={colors.primary} style={{ paddingVertical: spacing.xl }} />
@@ -116,6 +119,7 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
       ) : (
         <>
         {attendees.length > 3 ? (
+          <Surface id="teacher.roster_sheet.search">
           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, marginBottom: spacing.sm }}>
             <Icon name="search" size={17} color={colors.textTertiary} />
             <TextInput value={search} onChangeText={setSearch} placeholder={t('misc_ui.search_name_or_code')} placeholderTextColor={colors.textTertiary}
@@ -127,6 +131,7 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
               </TouchableOpacity>
             ) : null}
           </View>
+          </Surface>
         ) : null}
         {shown.length === 0 ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.lg }}>{t('misc_ui.no_student_named', { name: search.trim() })}</Text>
@@ -134,6 +139,7 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
         {/* The list takes what the sheet has left — title, search, the «open the full sheet»
             button and the sheet's own margins (≈300 pt) — not a flat 60 % of the screen, which
             overflowed the sheet and slid the bottom under its margin (founder 2026-10-08). */}
+        <Surface id="teacher.roster_sheet.list">
         <ScrollView style={{ maxHeight: Math.max(200, Math.min(height * 0.6, height - insets.top - insets.bottom - 300)) }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {shown.map((a) => {
             const color = STATUS_COLOR()[a.status] ?? STATUS_COLOR().not_recorded;
@@ -159,6 +165,7 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
 
                 {/* One tap per student: the four marks, the current one filled. */}
                 {canMark && editable ? (
+                  <Surface id="teacher.roster_sheet.quick_marks">
                   <View style={{ flexDirection: 'row', gap: 6, marginTop: spacing.sm }}>
                     {MARKS.map((m) => {
                       const c = STATUS_COLOR()[m.status];
@@ -173,13 +180,16 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
                       );
                     })}
                   </View>
+                  </Surface>
                 ) : null}
 
                 {/* Tapped name: grade, sheet handed in, note to the parent. */}
                 {open && s ? (
+                  <Surface id="teacher.roster_sheet.student_details">
                   <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
                     {!s.sheet_excluded ? (
                       <>
+                        <Surface id="teacher.roster_sheet.student_details.grade">
                         <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>
                           {t('teacher.sheet_grade')}{s.sheet_max_mark != null ? ` (${t('teacher.out_of', { max: s.sheet_max_mark })})` : ''}
                         </Text>
@@ -192,30 +202,39 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
                               { onError: (e) => fail(e, 'teacher.grade_failed') },
                             )} />
                         </View>
+                        </Surface>
+                        <Surface id="teacher.roster_sheet.student_details.sheet_marked">
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: 6, paddingHorizontal: spacing.md }}>
                           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('teacher.sheet_marked')}</Text>
                           <Switch value={a.sheet_marked} onValueChange={() => controls.sheet.mutate(a.student_id)} trackColor={{ true: colors.brand }} />
                         </View>
+                        </Surface>
                       </>
                     ) : null}
+                    <Surface id="teacher.roster_sheet.student_details.note">
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{t('teacher.parent_note')}</Text>
                     <TextInput value={noteDraft} onChangeText={setNoteDraft} placeholder={t('teacher.parent_note_placeholder')} placeholderTextColor={colors.textTertiary} multiline
                       style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, minHeight: 64, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlignVertical: 'top' }} />
                     <Button title={t('teacher.save_note')} variant="secondary" loading={controls.note.isPending}
                       onPress={() => controls.note.mutate({ studentId: a.student_id, note: noteDraft.trim() }, { onError: (e) => fail(e, 'common.error') })} />
+                    </Surface>
                   </View>
+                  </Surface>
                 ) : null}
               </View>
             );
           })}
         </ScrollView>
+        </Surface>
         </>
       )}
 
       {sessionId ? (
+        <Surface id="teacher.roster_sheet.open_full_button">
         <View style={{ marginTop: spacing.lg }}>
           <Button title={t('home.roster_open_full')} onPress={() => onOpenFull(sessionId)} variant="outline" />
         </View>
+        </Surface>
       ) : null}
     </SheetModal>
   );

@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import Svg, { G, Rect, Path, Ellipse } from 'react-native-svg';
 import { Image } from 'expo-image';
 import Animated, { Easing, FadeInDown, FadeOut, cancelAnimation, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * What مدام روز has in her hands, by the tab you are on (founder 2026-10-08: «papers on her
@@ -28,9 +29,11 @@ const STAMP_RED = require('../../../assets/images/rose/rose-stamp-red.webp');
 export function RoseProps({ activity, size, alive }: { activity: RoseActivity; size: number; alive: boolean }) {
   if (activity === 'cash') return null;
   return (
+    <Surface id={`teacher.rose.props.${activity}`}>
     <Animated.View key={activity} entering={FadeInDown.duration(380)} exiting={FadeOut.duration(160)} pointerEvents="none" style={StyleSheet.absoluteFill}>
       {activity === 'expenses' ? <Ledger k={size / 400} alive={alive} /> : activity === 'notes' ? <Notes k={size / 400} alive={alive} /> : <StampDesk k={size / 400} alive={alive} />}
     </Animated.View>
+    </Surface>
   );
 }
 

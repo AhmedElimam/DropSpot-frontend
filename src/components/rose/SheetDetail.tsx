@@ -15,6 +15,7 @@ import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { cancelSession } from '@/api/teacherSessions';
 import type { RoseSheetSession, RoseSheetItem } from '@/api/cash';
 import { useRoseDialog } from './RoseDialog';
+import { Surface } from '@/ui/surfaces';
 import i18n from '@/i18n';
 
 /**
@@ -112,6 +113,7 @@ function SessionBody({ s, go, ask, tell, onDone }: {
   return (
     <View>
       {/* Hero */}
+      <Surface id="teacher.rose.sheet_detail.session_hero">
       <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <View style={{ paddingHorizontal: 12, height: 34, borderRadius: radius.md, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
@@ -134,8 +136,10 @@ function SessionBody({ s, go, ask, tell, onDone }: {
           </View>
         ) : null}
       </View>
+      </Surface>
 
       {/* Where it stands */}
+      <Surface id="teacher.rose.sheet_detail.session_stats">
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
         {ended ? (
           <>
@@ -144,21 +148,26 @@ function SessionBody({ s, go, ask, tell, onDone }: {
           </>
         ) : stat(formatNumber(inNow), t('desk_ui.stat_checked_in_so_far'), colors.brand)}
       </View>
+      </Surface>
 
       {/* Actions */}
       {s.id ? (
+        <Surface id="teacher.rose.sheet_detail.open_session_button">
         <TouchableOpacity onPress={() => go(`/(teacher)/sessions/${s.id}` as Href)} activeOpacity={0.85} accessibilityRole="button"
           style={{ marginTop: spacing.lg, minHeight: 52, borderRadius: radius.lg, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm }}>
           <Icon name="attendance" size={18} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('desk_ui.session_full_details')}</Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
       {canCancel ? (
+        <Surface id="teacher.rose.sheet_detail.cancel_session">
         <TouchableOpacity onPress={cancel} disabled={busy} activeOpacity={0.85} accessibilityRole="button"
           style={{ marginTop: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.danger, backgroundColor: colors.dangerLight, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, opacity: busy ? 0.6 : 1 }}>
           {busy ? <ActivityIndicator color={colors.danger} /> : <Icon name="close" size={17} color={colors.danger} />}
           <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.danger }}>{t('teacher.cancel_session')}</Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
     </View>
   );
@@ -192,6 +201,7 @@ function FactBody({ kind, text, items, go }: { kind: string; text: string; items
       </View>
 
       {list.length > 0 ? (
+        <Surface id="teacher.rose.sheet_detail.fact_items">
         <ScrollView style={{ marginTop: spacing.md, maxHeight: 420 }} showsVerticalScrollIndicator={false}>
           {list.map((i, n) => (
             <TouchableOpacity key={n} disabled={!i.student_id} onPress={() => i.student_id && go(`/(teacher)/students/${i.student_id}` as Href)} activeOpacity={0.85}
@@ -235,15 +245,18 @@ function FactBody({ kind, text, items, go }: { kind: string; text: string; items
             </View>
           ) : null}
         </ScrollView>
+        </Surface>
       ) : items === undefined && kind !== 'dues_clear' ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginTop: spacing.md }}>{t('desk_ui.details_after_server_update')}</Text>
       ) : null}
 
       {look.action ? (
+        <Surface id="teacher.rose.sheet_detail.fact_action_button">
         <TouchableOpacity onPress={() => go(look.action!.href)} activeOpacity={0.85} accessibilityRole="button"
           style={{ marginTop: spacing.md, minHeight: 50, borderRadius: radius.lg, backgroundColor: look.tint, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{look.action.label}</Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
     </View>
   );

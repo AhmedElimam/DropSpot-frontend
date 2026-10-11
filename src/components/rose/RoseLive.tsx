@@ -9,6 +9,7 @@ import Animated, {
 import { useAmbientMotion } from '@/hooks/useAmbientMotion';
 import { useRose } from '@/hooks/useRose';
 import { RoseProps, type RoseActivity } from './RoseProps';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * مدام روز, alive — the app's copy of the landing page's figure (partials/rose-live), and more
@@ -335,7 +336,7 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
         </>, mouth, at(MOUTH))}
         {layer(hoop(146), hoopLs, at(HOOP_L))}
         {layer(hoop(254), hoopRs, at(HOOP_R))}
-        <RoseProps activity={activity} size={size} alive={alive} />
+        <Surface id="teacher.rose.live.props"><RoseProps activity={activity} size={size} alive={alive} /></Surface>
       </Animated.View>
     </Pressable>
   );

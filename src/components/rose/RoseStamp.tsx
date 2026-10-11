@@ -7,6 +7,7 @@ import { colors, radius, shadows, spacing } from '@/theme/index';
 import { useRose } from '@/hooks/useRose';
 import { useThemeStore } from '@/stores/themeStore';
 import { reactRose } from './RoseLive';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * مدام روز's marks in the app (founder 2026-10-07: «put her stamps on operations as we're
@@ -63,9 +64,11 @@ export function RoseStamp({ ink = 'navy', size = 48, animate = false, tilt = -8,
   const st = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ rotate: `${tilt}deg` }, { scale: scale.value }] }));
   if (!rose.named) return null;
   return (
+    <Surface id="teacher.rose.stamp">
     <Animated.View style={[{ width: size, height: size }, st, style]} pointerEvents="none" accessibilityRole="image" accessibilityLabel={`ختم ${rose.name}`}>
       <Image source={STAMP[ink]} style={StyleSheet.absoluteFill} contentFit="contain" tintColor={night ? NIGHT_INK[ink] : undefined} />
     </Animated.View>
+    </Surface>
   );
 }
 
@@ -78,16 +81,18 @@ export function RosePortrait({ size = 64, nod = true, large = false, style }: { 
   }, [nod, s]);
   const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }, { rotate: `${(1 - s.value) * -36}deg` }] }));
   return (
+    <Surface id="teacher.rose.portrait">
     <Animated.View style={[{ width: size, height: size }, st, style]}>
       <Image source={large || size > 100 ? ROSE_PORTRAIT_LARGE : ROSE_PORTRAIT} style={StyleSheet.absoluteFill} contentFit="contain" accessibilityLabel={rose.name} />
     </Animated.View>
+    </Surface>
   );
 }
 
 /** Her logo: the crest's shield, still. */
 export function RoseShield({ size = 44, style }: { size?: number; style?: StyleProp<ViewStyle> }) {
   const rose = useRose();
-  return <Image source={ROSE_SHIELD} style={[{ width: size, height: size }, style as object]} contentFit="contain" accessibilityLabel={rose.name} />;
+  return <Surface id="teacher.rose.shield"><Image source={ROSE_SHIELD} style={[{ width: size, height: size }, style as object]} contentFit="contain" accessibilityLabel={rose.name} /></Surface>;
 }
 
 /**
@@ -104,12 +109,14 @@ function StampBurst({ ink, text, onDone }: { ink: StampInk; text: string; onDone
   }, [o, onDone]);
   const st = useAnimatedStyle(() => ({ opacity: o.value }));
   return (
+    <Surface id="teacher.rose.stamp_burst">
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', zIndex: 50 }, st]}>
       <View style={{ alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.xl, paddingHorizontal: spacing.xl, paddingVertical: spacing.lg, maxWidth: '82%', ...shadows.md }}>
         <RoseStamp ink={ink} size={132} animate />
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.sm, lineHeight: 23 }}>{text}</Text>
       </View>
     </Animated.View>
+    </Surface>
   );
 }
 

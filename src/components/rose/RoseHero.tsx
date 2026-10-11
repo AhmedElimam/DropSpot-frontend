@@ -15,6 +15,7 @@ import type { RoseActivity } from './RoseProps';
 import type { RoseSheet } from '@/api/cash';
 import { ExportPill } from './RoseExport';
 import { SheetDetail, type SheetDetailTarget } from './SheetDetail';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * The top of مدام روز's desk, as in her story videos (founder 2026-10-07: «her frame
@@ -77,24 +78,29 @@ export function RoseHero({
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         {square('forward', onBack, t('common.back'))}
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          {onExportAll ? square('download', onExportAll, t('cash.export_all'), exportingAll) : null}
-          {onSettings ? square('settings', onSettings, t('cash.settings_title')) : null}
+          {onExportAll ? <Surface id="teacher.rose.hero.export_all_button">{square('download', onExportAll, t('cash.export_all'), exportingAll)}</Surface> : null}
+          {onSettings ? <Surface id="teacher.rose.hero.settings_button">{square('settings', onSettings, t('cash.settings_title'))}</Surface> : null}
           {!onExportAll && !onSettings ? <View style={{ width: 40 }} /> : null}
         </View>
       </View>
 
       {rose.named ? (
+        <Surface id="teacher.rose.hero.portrait">
         <View style={{ alignItems: 'center', marginTop: -spacing.lg }}>
           {/* No halo behind her (founder 2026-10-07): the frame sits straight on the navy. */}
+          <Surface id="teacher.rose.live" fallback={<RosePortrait size={PORTRAIT} nod={false} />}>
           {live ? <RoseLive size={PORTRAIT} talking={talking} paused={paused} activity={activity} /> : <RosePortrait size={PORTRAIT} nod={false} />}
+          </Surface>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: ON, marginTop: spacing.xs }}>{rose.name}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: ON_SOFT }}>{t('cash.screen_title')}</Text>
         </View>
+        </Surface>
       ) : (
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: ON, textAlign: 'center', marginTop: -spacing.xl }}>{rose.name}</Text>
       )}
 
       {/* Her speech bubble, pointing up at her. */}
+      <Surface id="teacher.rose.hero.bubble">
       <View style={{ marginTop: spacing.md }}>
         <View style={{ alignSelf: 'center', width: 0, height: 0, borderLeftWidth: 11, borderRightWidth: 11, borderBottomWidth: 11, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: colors.surface }} />
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, ...shadows.md }}>
@@ -102,9 +108,10 @@ export function RoseHero({
               keeps its full width while it types and the centred text never shifts. */}
           <TypedGreeting text={greeting} start={live} onTalking={setTalking} />
           {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2, textAlign: 'center' }}>{sub}</Text> : null}
-          {sheet && sheet.lines.length > 0 ? <SheetList sheet={sheet} open={open} onToggle={() => setOpen((o) => !o)} onExport={onExportSheet} exporting={exportingSheet} /> : null}
+          {sheet && sheet.lines.length > 0 ? <Surface id="teacher.rose.hero.today_sheet"><SheetList sheet={sheet} open={open} onToggle={() => setOpen((o) => !o)} onExport={onExportSheet} exporting={exportingSheet} /></Surface> : null}
         </View>
       </View>
+      </Surface>
 
       {children}
     </LinearGradient>
@@ -175,6 +182,7 @@ export function useRoseHold(): RoseHold {
 /** A card on her navy band (past period, load error): white on a translucent chip. */
 export function RoseHeroCard({ icon, title, sub, onPress, chevron = false }: { icon: 'calendar' | 'refresh'; title: string; sub?: string; onPress: () => void; chevron?: boolean }) {
   return (
+    <Surface id="teacher.rose.hero.card">
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} accessibilityRole="button"
       style={{ backgroundColor: CHIP, borderRadius: radius.xl, borderWidth: 1, borderColor: CHIP_BORDER, padding: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
       <Icon name={icon} size={22} color={ON} />
@@ -184,6 +192,7 @@ export function RoseHeroCard({ icon, title, sub, onPress, chevron = false }: { i
       </View>
       {chevron ? <Icon name="back" size={18} color={ON} /> : null}
     </TouchableOpacity>
+    </Surface>
   );
 }
 
@@ -300,13 +309,14 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
           </View>
           <Animated.View style={chevron}><Icon name="down" size={18} color={colors.textTertiary} /></Animated.View>
         </TouchableOpacity>
-        {onExport ? <ExportPill onPress={onExport} busy={exporting} /> : null}
+        {onExport ? <Surface id="teacher.rose.sheet.export_button"><ExportPill onPress={onExport} busy={exporting} /></Surface> : null}
       </View>
 
       {fold.open ? (
         <View>
       {sessions ? (
         <>
+          <Surface id="teacher.rose.sheet.sessions">
           {(open ? sessions : sessions.slice(0, 3)).map((x, i) => (
             <TouchableOpacity key={i} onPress={() => setDetail({ type: 'session', session: x })} activeOpacity={0.8} accessibilityRole="button" accessibilityHint="التفاصيل"
               style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm, padding: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }}>
@@ -337,7 +347,9 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
               <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{open ? t('cash.sheet_less') : t('cash.sheet_more', { count: formatNumber(sessions.length) })}</Text>
             </TouchableOpacity>
           ) : null}
+          </Surface>
           {(sheet.facts ?? []).length > 0 ? (
+            <Surface id="teacher.rose.sheet.facts">
             <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
               {(sheet.facts ?? []).map((f, i) => {
                 const look = FACT()[f.kind] ?? { icon: 'note' as const, tint: colors.textSecondary };
@@ -353,6 +365,7 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
                 );
               })}
             </View>
+            </Surface>
           ) : null}
         </>
       ) : (
@@ -363,7 +376,9 @@ function SheetList({ sheet, open: all, onToggle, onExport, exporting }: { sheet:
           <View style={{ height: spacing.xs }} />
         </View>
       ) : null}
+      <Surface id="teacher.rose.sheet.detail">
       <SheetDetail target={detail} onClose={() => setDetail(null)} />
+      </Surface>
     </View>
   );
 }

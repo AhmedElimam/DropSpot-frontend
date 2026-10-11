@@ -7,6 +7,7 @@ import { colors, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { getRoseReportUrl, type RoseReportSection } from '@/api/cash';
 import { openRemotePdf } from '@/utils/openPdf';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * «تصدير PDF» on her desk (founder 2026-10-08: «on her tab I want everything to be exportable
@@ -36,10 +37,12 @@ export function useRoseExport() {
 export function ExportPill({ onPress, busy, label, style }: { onPress: () => void; busy: boolean; label?: string; style?: StyleProp<ViewStyle> }) {
   const { t } = useTranslation();
   return (
+    <Surface id="teacher.rose.export_pill">
     <TouchableOpacity onPress={onPress} disabled={busy} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={label ?? t('cash.export_pdf')}
       style={[{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 12, borderRadius: radius.full, borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.surface }, style]}>
       {busy ? <ActivityIndicator size="small" color={colors.brand} /> : <Icon name="download" size={14} color={colors.brand} />}
       <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{label ?? t('cash.export_pdf')}</Text>
     </TouchableOpacity>
+    </Surface>
   );
 }

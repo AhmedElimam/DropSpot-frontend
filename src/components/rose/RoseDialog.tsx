@@ -6,6 +6,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { useRose } from '@/hooks/useRose';
 import { RosePortrait } from './RoseStamp';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * مدام روز asks (founder 2026-10-08: «any confirmation popup on her page — Madam Rose asks in
@@ -81,9 +82,11 @@ function RoseDialog({ state, onAnswer }: { state: (RoseAsk & { single: boolean }
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accent, textAlign: 'center' }}>{rose.name}</Text>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, lineHeight: 27, color: colors.textPrimary, textAlign: 'center', marginTop: 4 }}>{s.title}</Text>
             {s.message ? (
+              <Surface id="teacher.rose.dialog.message">
               <View style={{ marginTop: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'center' }}>{s.message}</Text>
               </View>
+              </Surface>
             ) : null}
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
               {!s.single ? (
@@ -99,9 +102,11 @@ function RoseDialog({ state, onAnswer }: { state: (RoseAsk & { single: boolean }
             </View>
           </View>
           {rose.named ? (
+            <Surface id="teacher.rose.dialog.portrait">
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' }}>
               <RosePortrait size={PORTRAIT} />
             </View>
+            </Surface>
           ) : null}
         </Animated.View>
       </View>

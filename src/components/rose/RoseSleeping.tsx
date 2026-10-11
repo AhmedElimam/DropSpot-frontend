@@ -8,6 +8,7 @@ import Animated, {
 import { useAmbientMotion } from '@/hooks/useAmbientMotion';
 import { fonts } from '@/theme/typography';
 import { useRose } from '@/hooks/useRose';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * مدام روز asleep at her desk (founder 2026-10-09: «on the home page, if there's nothing on
@@ -114,11 +115,13 @@ export function RoseSleeping({ size }: { size: number }) {
     <View style={{ width: size, height: size }} accessibilityLabel={`${rose.name} — نايمة`}>
       <StillFace size={size} />
       {/* «Z z z» from just above her head, on the side her head leans to. */}
+      <Surface id="teacher.rose.sleeping.zees">
       <View pointerEvents="none" style={{ position: 'absolute', top: size * 0.06, end: -size * 0.1, width: size * 0.5, height: size * 0.4 }}>
         <Zee puff={puff} delay={0} size={z * 0.75} x={size * 0.24} />
         <Zee puff={puff} delay={450} size={z} x={size * 0.12} />
         <Zee puff={puff} delay={900} size={z * 1.2} x={0} />
       </View>
+      </Surface>
     </View>
   );
 }
