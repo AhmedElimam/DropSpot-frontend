@@ -10,6 +10,7 @@ import { syncAppConfig } from '@/stores/appConfigSync';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { isVersionBelow } from '@/utils/semver';
 import { checkForOtaUpdate, reloadIfReady } from '@/updates/otaUpdates';
+import { reportCapabilities } from '@/capabilities';
 import { storeLinksFor } from '@/utils/storeLinks';
 
 /**
@@ -43,7 +44,7 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
   const migration = cfg.migration;
 
   useEffect(() => {
-    useAppConfigStore.getState().hydrate().finally(() => { void syncAppConfig(); });
+    useAppConfigStore.getState().hydrate().finally(() => { void syncAppConfig(); void reportCapabilities(); });
     lastConfigSync = Date.now();
     void checkForOtaUpdate();
     lastOtaCheck = Date.now();
