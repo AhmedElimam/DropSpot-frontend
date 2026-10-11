@@ -6,6 +6,7 @@ export interface Ticket {
   subject: string;
   status: 'open' | 'in_progress' | 'resolved' | 'closed';
   priority: 'low' | 'medium' | 'high';
+  student_id?: number;
   student_name: string;
   teacher_name: string;
   parent_name?: string;

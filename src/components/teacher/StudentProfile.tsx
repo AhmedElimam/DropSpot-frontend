@@ -32,6 +32,7 @@ import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { dayLabel, formatDayDate, formatNumber, relationshipLabel } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
+import { SendReportSheet } from '@/components/tickets/SendReportSheet';
 
 /** One person to call: who, the number with who has proved it, call (and report, for a parent). */
 function ContactRow({ icon, label, name, phone, badge, empty, onCall, onFlag, divider = false }: {
@@ -113,6 +114,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const allowanceBlock = useSetStudentAllowanceBlock(Number(id));
   const [exporting, setExporting] = useState(false);
+  const [sendReportOpen, setSendReportOpen] = useState(false);
   // Cancel a specific collected payment (teacher-only; the server enforces + returns
   // an empty `collected` list for assistants, so the UI is naturally hidden for them).
   const [reversing, setReversing] = useState<number | null>(null);
@@ -403,6 +405,17 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   };
 
   // Fetch a short-lived signed URL, then download + share the performance PDF.
+  // The PDF chip: open / share it here, or send it to the parent inside one of the
+  // student's tickets without downloading anything (founder 2026-10-11).
+  const choosePerformance = () => {
+    if (exporting) return;
+    Alert.alert(t('teacher.performance_export'), undefined, [
+      { text: t('tickets.pdf_open_here'), onPress: () => { void exportPerformance(); } },
+      { text: t('tickets.pdf_send_in_ticket'), onPress: () => setSendReportOpen(true) },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
+
   const exportPerformance = async () => {
     if (exporting) return;
     setExporting(true);
@@ -493,7 +506,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       closeIcon={sheet}
       grabber={sheet}
       inset={sheet ? spacing.md : undefined}
-      action={s && canExport ? { icon: 'download', label: exporting ? '…' : 'PDF', onPress: exportPerformance, accessibilityLabel: t('teacher.performance_export') } : undefined}
+      action={s && canExport ? { icon: 'download', label: exporting ? '…' : 'PDF', onPress: choosePerformance, accessibilityLabel: t('teacher.performance_export') } : undefined}
       stats={s ? [
         { value: formatNumber(s.attendance_stats.attended), label: t('teacher.stat_attended') },
         { value: formatNumber(s.attendance_stats.absent), label: t('teacher.stat_absent'), warn: s.attendance_stats.absent > 0 },
@@ -1026,6 +1039,12 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
           buys, how much of it is paid — prefilled as the bill stands, so the one wrong number
           is the only thing to type. */}
       <Surface id="teacher.student_profile.correct_bills_sheet">
+      {s ? (
+        <Surface id="teacher.student_profile.send_report_sheet" ctx={{ student: s }}>
+          <SendReportSheet visible={sendReportOpen} onClose={() => setSendReportOpen(false)} studentId={Number(s.id)} studentName={s.name ?? ''} />
+        </Surface>
+      ) : null}
+
       <SheetModal visible={!!amountFor} onClose={() => !amountBusy && setAmountFor(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>
