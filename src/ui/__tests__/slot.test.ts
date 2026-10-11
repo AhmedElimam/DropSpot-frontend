@@ -12,7 +12,7 @@ jest.mock('@/components/ui/Icon', () => ({ Icon: 'Icon' }));
 import { setSurfaceContext } from '../surfaces';
 import type { UiBlock } from '@/config/defaults';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { resolveSlot } = require('../Slot') as typeof import('../Slot');
+const { resolveSlot, fillBody } = require('../Slot') as typeof import('../Slot');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { runApiAction, runPopupAction } = require('../serverPopup') as typeof import('../serverPopup');
 
@@ -38,6 +38,18 @@ describe('slots: UI the backend adds', () => {
     expect(resolveSlot('teacher.home.top', { student: { billing: { pending_total: 0 } } }, ui, true, 'assistant').map((b) => b.type)).toEqual(['notice']);
     setSurfaceContext({ can: { cash_reconcile: true } });
     expect(resolveSlot('teacher.home.top', undefined, ui, true, 'assistant').map((b) => b.type)).toEqual(['notice', 'card']);
+  });
+
+  it('a block past its expires_at is dropped on the phone, even from a cached manifest', () => {
+    const ui = { slots: { 'teacher.home.top': [{ type: 'notice' as const, body: 'الليلة', expires_at: '2026-10-13T01:00:00+03:00' }, { type: 'notice' as const, body: 'دائم' }] } };
+    expect(resolveSlot('teacher.home.top', undefined, ui, true, 'teacher', Date.parse('2026-10-12T20:00:00+03:00')).map((b) => b.body)).toEqual(['الليلة', 'دائم']);
+    expect(resolveSlot('teacher.home.top', undefined, ui, true, 'teacher', Date.parse('2026-10-13T02:00:00+03:00')).map((b) => b.body)).toEqual(['دائم']);
+  });
+
+  it('a body placeholder is filled from the screen, never guessed', () => {
+    const btn = { label: 'ذكّر', action: 'api:post /teacher/students/dues-reminder', body: { student_id: '{student.id}', days: 3, note: '{student.nope}', literal: '{not a name}' } };
+    expect(fillBody(btn, { student: { id: 42 } }).body).toEqual({ student_id: 42, days: 3, literal: '{not a name}' });
+    expect(fillBody({ label: 'x', action: 'dismiss' }, {}).body).toBeUndefined();
   });
 
   it('hidden switches off a whole slot, or one block by its id', () => {

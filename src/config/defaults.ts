@@ -44,7 +44,7 @@ export type UiTone = 'info' | 'success' | 'warning' | 'danger' | 'brand';
  * card with up to 3 buttons, or one button. `when` is a condition evaluated on the phone;
  * `id` lets `hidden` switch the block off as `<slot>#<id>`.
  */
-export interface UiBlock { type: 'notice' | 'card' | 'button'; title?: string; body?: string; tone?: UiTone; icon?: string; buttons?: UiPopupButton[]; when?: string; id?: string; persona?: 'rose' }
+export interface UiBlock { type: 'notice' | 'card' | 'button'; title?: string; body?: string; tone?: UiTone; icon?: string; buttons?: UiPopupButton[]; when?: string; id?: string; persona?: 'rose'; /** ISO date after which the block is dropped on the phone too (a cached manifest may still carry it). */ expires_at?: string }
 /** Colour tokens the backend repaints, per scheme (src/theme/index.ts setThemeOverrides). */
 export type UiTheme = Partial<Record<'light' | 'dark', Record<string, string>>>;
 /**
