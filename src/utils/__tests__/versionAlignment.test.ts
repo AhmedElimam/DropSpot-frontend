@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 /**
  * The store version is declared ONCE — app.json → expo.version — and everything else
  * follows it: app.config.ts reads it, both CI workflows read it, package.json mirrors it.
@@ -17,9 +19,16 @@ describe('release version alignment', () => {
     expect(pkg.version).toBe(version);
   });
 
-  it('OTA runtime follows the app version, so an update never lands on the wrong binary', () => {
-    expect(appJson.expo.runtimeVersion).toEqual({ policy: 'appVersion' });
+  // Since 2026-10-11 the runtime is a FINGERPRINT of the native layer, not the version
+  // number: one update reaches iOS and Android alike however far their store versions have
+  // drifted, and can never land on a binary whose native code differs. A local ios/ must
+  // not change the hash CI computes (.fingerprintignore).
+  it('OTA runtime is the native fingerprint, so one update reaches every matching binary and never a different one', () => {
+    expect(appJson.expo.runtimeVersion).toEqual({ policy: 'fingerprint' });
     expect(appJson.expo.updates?.requestHeaders?.['expo-channel-name']).toBe('production');
+    const ignore = fs.readFileSync(path.join(__dirname, '../../../.fingerprintignore'), 'utf8');
+    expect(ignore).toContain('ios/**');
+    expect(ignore).toContain('android/**');
   });
 
   it('Android has a versionCode floor for local builds (CI stamps the run number above it)', () => {

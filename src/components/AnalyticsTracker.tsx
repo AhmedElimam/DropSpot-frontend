@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { usePathname } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
 import { routePattern, setAnalyticsEnabled, setAnalyticsRole, trackScreen } from '@/lib/analytics';
+import { noteRoute, setErrorReportingRole } from '@/lib/errorReport';
 
 /**
  * Renders nothing. Reports the screen on show as a route pattern (ids stripped — see
@@ -20,12 +21,14 @@ export function AnalyticsTracker() {
 
   useEffect(() => {
     if (!impersonating) setAnalyticsRole(role ?? null);
+    setErrorReportingRole(impersonating ? 'impersonating' : (role ?? null));
   }, [role, impersonating]);
 
   useEffect(() => {
     const route = routePattern(pathname ?? '/');
     if (route === last.current) return;
     last.current = route;
+    noteRoute(route);
     trackScreen(route);
   }, [pathname]);
 

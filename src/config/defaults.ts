@@ -25,6 +25,8 @@ export interface AppConfigContact {
 
 export interface AppConfigPayload {
   schema_version: number;
+  /** 'off' stops the app sending JS errors to /app-errors (src/lib/errorReport.ts); anything else = on. */
+  error_reporting?: 'on' | 'off';
   min_supported_app_version: string;
   /**
    * Set by the server when THIS app identity has been retired (its store listing is

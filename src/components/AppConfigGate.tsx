@@ -9,7 +9,7 @@ import { useAppConfigStore } from '@/stores/appConfigStore';
 import { syncAppConfig } from '@/stores/appConfigSync';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { isVersionBelow } from '@/utils/semver';
-import { checkForOtaUpdate } from '@/updates/otaUpdates';
+import { checkForOtaUpdate, reloadIfReady } from '@/updates/otaUpdates';
 import { storeLinksFor } from '@/utils/storeLinks';
 
 /**
@@ -47,8 +47,14 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
     lastConfigSync = Date.now();
     void checkForOtaUpdate();
     lastOtaCheck = Date.now();
+    let wentBackgroundAt = 0;
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
-      if (s !== 'active') return;
+      if (s !== 'active') { if (!wentBackgroundAt) wentBackgroundAt = Date.now(); return; }
+      const away = wentBackgroundAt ? Date.now() - wentBackgroundAt : 0;
+      wentBackgroundAt = 0;
+      // A fix downloaded earlier is applied now, if the person was really away — a restart
+      // on return from a two-minute absence interrupts nothing (src/updates/otaUpdates.ts).
+      void reloadIfReady(away).then((reloaded) => { if (reloaded) return; });
       // Flags, rules and the minimum version change rarely: once per 15 min on return is
       // enough (it ran on every single return; founder 2026-10-09: «light on all devices»).
       if (Date.now() - lastConfigSync >= CONFIG_SYNC_EVERY_MS) { lastConfigSync = Date.now(); void syncAppConfig(); }

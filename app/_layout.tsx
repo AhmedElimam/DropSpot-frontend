@@ -45,6 +45,7 @@ import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { SurveyModal } from '@/components/SurveyModal';
 import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
 import { AppConfigGate } from '@/components/AppConfigGate';
+import { installErrorReporting } from '@/lib/errorReport';
 import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
@@ -128,6 +129,8 @@ const queryClient = new QueryClient({
   },
 });
 setQueryClient(queryClient);
+// JS errors go to /admin/app-errors with version, update, screen and stack (src/lib/errorReport.ts).
+installErrorReporting();
 
 function HydrationGate({ children }: { children: React.ReactNode }) {
   const isLoading = useAuthStore((s) => s.isLoading);

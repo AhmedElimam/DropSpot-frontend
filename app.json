@@ -4,7 +4,7 @@
     "slug": "DrosSpot",
     "version": "1.2.8",
     "runtimeVersion": {
-      "policy": "appVersion"
+      "policy": "fingerprint"
     },
     "updates": {
       "url": "https://u.expo.dev/f537825e-3329-40d0-827a-aa708f228509",

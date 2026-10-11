@@ -57,7 +57,12 @@ export function OfflinePill() {
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   if (!shown) return null;
+  // Ink is navy by day and cream at night (src/theme/palettes.ts), so the words on it are the
+  // page background, not the fixed white «textInverse» — which vanished on the cream pill in
+  // dark mode (founder 2026-10-11). The green and blue pills are dark in both schemes.
+  const onInk = shown === 'back' || shown === 'queued';
   const tone = shown === 'back' ? colors.successDark : shown === 'queued' ? colors.primaryDark : colors.ink;
+  const textColor = onInk ? colors.textInverse : colors.background;
   const text = shown === 'back' ? t('offline_pill.back')
     : shown === 'offline' ? t('offline_pill.offline')
     : shown === 'weak' ? t('offline.weak')
@@ -74,7 +79,7 @@ export function OfflinePill() {
         paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: tone,
       }}
     >
-      <Text numberOfLines={2} style={{ fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 18, color: colors.textInverse, textAlign: 'center' }}>
+      <Text numberOfLines={2} style={{ fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 18, color: textColor, textAlign: 'center' }}>
         {text}
       </Text>
     </Animated.View>
