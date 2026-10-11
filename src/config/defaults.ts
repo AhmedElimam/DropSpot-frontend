@@ -31,8 +31,22 @@ export interface AppConfigContact {
 
 /** One inline validation rule the backend code declares (config/mobile_ui.php on the server). */
 export interface UiValidationRule { pattern?: string; min_words?: number; min?: number; max?: number; message?: string }
-export interface UiPopupButton { label: string; action: string; style?: 'cancel' | 'destructive' }
+/**
+ * A button the backend draws (in a popup or a slot block). `action`: dismiss ·
+ * navigate:<path> · url:<https…> · popup:<id> · api:<method> </path>. An `api:` button may
+ * carry a flat `body` to send and a `confirm` line asked first (src/ui/serverPopup.ts).
+ */
+export interface UiPopupButton { label: string; action: string; style?: 'cancel' | 'destructive'; body?: Record<string, string | number | boolean | null>; confirm?: string }
 export interface UiPopup { title: string; body?: string | null; buttons: UiPopupButton[]; persona?: 'rose' }
+export type UiTone = 'info' | 'success' | 'warning' | 'danger' | 'brand';
+/**
+ * UI the backend ADDS into a slot the app leaves open (src/ui/Slot.tsx): a notice line, a
+ * card with up to 3 buttons, or one button. `when` is a condition evaluated on the phone;
+ * `id` lets `hidden` switch the block off as `<slot>#<id>`.
+ */
+export interface UiBlock { type: 'notice' | 'card' | 'button'; title?: string; body?: string; tone?: UiTone; icon?: string; buttons?: UiPopupButton[]; when?: string; id?: string; persona?: 'rose' }
+/** Colour tokens the backend repaints, per scheme (src/theme/index.ts setThemeOverrides). */
+export type UiTheme = Partial<Record<'light' | 'dark', Record<string, string>>>;
 /**
  * What the app obeys from BACKEND CODE (server config/mobile_ui.php, served as `ui`):
  * surfaces switched off (a tab, a card, a button, a screen — see src/ui/surfaces.tsx), the
@@ -50,6 +64,9 @@ export interface UiManifest {
   notices: Record<string, string>;
   validation: Record<string, UiValidationRule>;
   popups: Record<string, UiPopup>;
+  /** Slot id → the blocks drawn there (docs/MOBILE_SLOTS.md). */
+  slots?: Record<string, UiBlock[]>;
+  theme?: UiTheme;
 }
 
 export interface AppConfigPayload {
@@ -117,6 +134,8 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
     hidden: [],
     disabled: {},
     conditions: {},
+    slots: {},
+    theme: {},
     notices: {},
     // Mirrors src/utils/validators.ts' own constants, which stay the fallback.
     validation: { arabic_name: { pattern: '^[ء-يـ\\s]+$' }, egypt_phone: { pattern: '^01[0-9]{9}$' }, triple_name: { min_words: 3 } },

@@ -31,6 +31,7 @@ import { ActionTile } from '@/components/ui/ShortcutTile';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { timeAgo, formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
+import { Slot } from '@/ui/Slot';
 
 /**
  * Parent Home — "Sanad" simple mode, built for an older parent (founder 2026-10-03: «some
@@ -123,6 +124,7 @@ export default function ParentHome() {
         </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
+          <Slot id="parent.home.top" style={{ marginBottom: spacing.lg }} />
           {/* The verdict card: one plain sentence about the household. */}
           {kids.length > 0 ? (
             <Surface id="parent.home.verdict">
@@ -208,6 +210,7 @@ export default function ParentHome() {
             )}
           </View>
           </Surface>
+          <Slot id="parent.home.bottom" style={{ marginTop: spacing.xl }} />
         </View>
       </ScrollView>
     </View>

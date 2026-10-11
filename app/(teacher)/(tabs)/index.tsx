@@ -21,6 +21,7 @@ import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { ConnectionLine } from '@/components/ui/ConnectionStatus';
 import { TourTarget } from '@/tour/TourTarget';
 import { Surface } from '@/ui/surfaces';
+import { Slot } from '@/ui/Slot';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
 import { PendingInvitations } from '@/components/teacher/PendingInvitations';
@@ -222,6 +223,7 @@ export default function TeacherHome() {
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
+          <Slot id="teacher.home.top" style={{ marginBottom: spacing.lg }} />
           {/* Spotlight — the session that matters now. */}
           <Surface id="teacher.home.spotlight">
           <TourTarget id="home:spotlight">
@@ -322,6 +324,7 @@ export default function TeacherHome() {
           ) : null}
 
           <Surface id="teacher.home.whats_new"><View style={{ marginTop: spacing.xl }}><WhatsNewCard /></View></Surface>
+          <Slot id="teacher.home.bottom" style={{ marginTop: spacing.xl }} />
         </View>
       </ScrollView>
       <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} />

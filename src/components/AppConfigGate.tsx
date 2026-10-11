@@ -3,7 +3,8 @@ import { View, Text, AppState, TouchableOpacity, Linking, Platform, type AppStat
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius } from '@/theme/index';
+import { colors, spacing, radius, setThemeOverrides } from '@/theme/index';
+import { useThemeStore } from '@/stores/themeStore';
 import { Icon } from '@/components/ui/Icon';
 import { useAppConfigStore } from '@/stores/appConfigStore';
 import { syncAppConfig } from '@/stores/appConfigSync';
@@ -42,6 +43,13 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
   const cfg = useAppConfig();
   const min = cfg.min_supported_app_version;
   const migration = cfg.migration;
+
+  // Colours the backend repaints (config/mobile_ui.php → theme): applied to the live tokens,
+  // then the root rebuilds its tree on the new palette — only when something really changed.
+  const theme = useAppConfigStore((s) => s.config.ui?.theme);
+  useEffect(() => {
+    if (setThemeOverrides(theme)) useThemeStore.getState().repainted();
+  }, [theme]);
 
   useEffect(() => {
     useAppConfigStore.getState().hydrate().finally(() => { void syncAppConfig(); void reportCapabilities(); });

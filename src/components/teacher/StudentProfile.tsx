@@ -32,6 +32,7 @@ import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { dayLabel, formatDayDate, formatNumber, relationshipLabel } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
+import { Slot } from '@/ui/Slot';
 import { SendReportSheet } from '@/components/tickets/SendReportSheet';
 
 /** One person to call: who, the number with who has proved it, call (and report, for a parent). */
@@ -1010,6 +1011,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               canMark={canMarkManual} isAssistant={isAssistant} onChanged={() => { void refetch(); }} beforeNavigate={onClose} />
           </Section>
           </Surface>
+          <Slot id="teacher.student_profile.bottom" ctx={{ student: s }} style={{ marginTop: spacing.xl }} />
         </ScrollView>
       )}
 

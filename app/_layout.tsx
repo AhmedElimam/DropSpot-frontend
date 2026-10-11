@@ -213,6 +213,8 @@ export default function RootLayout() {
   // mounted screen is rebuilt on the new palette (react-navigation's StaticContainer would
   // otherwise keep them exactly as they were — an inline `colors.x` is read at render only).
   const scheme = useThemeStore((s) => s.scheme);
+  // The backend repainted a token (config/mobile_ui.php → theme): rebuild on the new colours.
+  const paintEpoch = useThemeStore((s) => s.paintEpoch);
 
   useEffect(() => {
     if (fontError) {
@@ -260,7 +262,7 @@ export default function RootLayout() {
         <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
         <HydrationGate>
           <AppConfigGate>
-          <View key={scheme} style={{ flex: 1, backgroundColor: colors.background }}>
+          <View key={`${scheme}-${paintEpoch}`} style={{ flex: 1, backgroundColor: colors.background }}>
             {/* Persistent impersonation banner sits above every screen. */}
             <ImpersonationBanner />
             <View style={{ flex: 1 }}>

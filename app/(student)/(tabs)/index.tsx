@@ -32,6 +32,7 @@ import { PercentRing } from '@/components/ui/PercentRing';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { getStudentTeachers, type StudentTeacher } from '@/api/studentOverview';
 import { Surface } from '@/ui/surfaces';
+import { Slot } from '@/ui/Slot';
 
 const statusDot = (): Record<string, string> => ({
   live: colors.success,
@@ -130,6 +131,7 @@ export default function StudentDashboard() {
         </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
+          <Slot id="student.home.top" style={{ marginBottom: spacing.lg }} />
           {/* Spotlight — the session that matters now, or a calm card when the day is done. */}
           <Surface id="student.home.spotlight">
           <TourTarget id="home:spotlight">
@@ -239,6 +241,7 @@ export default function StudentDashboard() {
             </TouchableOpacity>
           </View>
           </Surface>
+          <Slot id="student.home.bottom" style={{ marginTop: spacing.xl }} />
         </View>
       </ScrollView>
     </View>

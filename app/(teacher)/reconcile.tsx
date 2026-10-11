@@ -24,6 +24,7 @@ import { getPendingActions, getRejectedActions, type OutboxAction } from '@/db/o
 import { PendingActionsSection, PendingMarksSection, RejectedActionsSection } from '@/components/teacher/OutboxSections';
 import { backgroundLastRun } from '@/background/lastRun';
 import { Surface } from '@/ui/surfaces';
+import { Slot } from '@/ui/Slot';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -140,6 +141,7 @@ export default function Reconcile() {
         </View>
       </LinearGradient>
       </Surface>
+      <Slot id="teacher.reconcile.top" style={{ marginHorizontal: spacing.lg, marginTop: spacing.md }} />
 
       {/* §7: passive, DISMISSIBLE confirmation that attendance was recorded on the
           teacher's behalf. The records are audit-logged regardless, so dismissing loses nothing. */}

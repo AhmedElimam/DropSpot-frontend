@@ -58,6 +58,10 @@ let globalCtx: Record<string, unknown> = {};
 export function setSurfaceContext(patch: Record<string, unknown>): void {
   globalCtx = { ...globalCtx, ...patch };
 }
+/** What the app knows about itself right now (for slots, which evaluate the same conditions). */
+export function surfaceContext(): Record<string, unknown> {
+  return globalCtx;
+}
 
 /** The pure resolver behind useSurfaceState: hidden list → static disable → condition. Exported for tests. */
 export function resolveSurface(id: string, ctx: Record<string, unknown> | undefined, ui: NonNullable<ReturnType<typeof useAppConfigStore.getState>['config']['ui']> | undefined, online: boolean, role: string | null): { hidden: boolean; disabled: string | null } {

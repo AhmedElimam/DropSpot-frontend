@@ -24,6 +24,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useTeacherCourses, useTeacherStudents } from '@/hooks/useStudents';
 import { formatDate, formatNumber } from '@/utils/format';
 import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
+import { Slot } from '@/ui/Slot';
 
 /**
  * Settings (founder 2026-10-03: «some love on the settings page»). A short hero with the
@@ -202,6 +203,7 @@ export default function TeacherSettings() {
           </Surface>
 
           <Surface id="teacher.settings.delete_account"><DeleteAccountButton /></Surface>
+          <Slot id="teacher.settings.bottom" style={{ marginTop: spacing.xl }} />
           </Surface>
         </View>
       </ScrollView>
