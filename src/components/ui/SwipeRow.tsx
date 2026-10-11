@@ -35,7 +35,7 @@ const EDGE_GUARD = 28;
  * threshold ("it doesn't swipe to read, it stays the same"). The root layout mounts the
  * GestureHandlerRootView this needs.
  */
-export function SwipeRow({ action, leftAction, children, style }: {
+export function SwipeRow({ action, leftAction, children, style, radius = 20 }: {
   /** Revealed on the RIGHT edge by a swipe from right to left. */
   action?: SwipeAction;
   /** Revealed on the LEFT edge by a swipe from left to right (founder 2026-10-04: a second
@@ -43,13 +43,24 @@ export function SwipeRow({ action, leftAction, children, style }: {
   leftAction?: SwipeAction;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** The row's own corner radius: the panel's OUTER corners take it, so the green or red
+   *  block reads as part of the card, not a tile beside it (founder 2026-10-11). */
+  radius?: number;
 }) {
   const ref = useRef<SwipeableMethods>(null);
   // The library reports PHYSICAL directions, never flipped for RTL: 'left' = the row moved
   // left (finger right → left, the right panel shows); 'right' = the opposite.
-  const fire = (direction: 'left' | 'right') => {
-    const a = direction === 'left' ? action : leftAction;
+  // The action is remembered at the threshold and fired once the row has sprung back
+  // (onSwipeableClose): firing while it was still sliding let a read ⇄ unread flip restyle
+  // the panel and the row mid-motion (founder 2026-10-11: «feels something wrong»).
+  const pending = useRef<SwipeAction | null>(null);
+  const arm = (direction: 'left' | 'right') => {
+    pending.current = (direction === 'left' ? action : leftAction) ?? null;
     ref.current?.close();
+  };
+  const settled = () => {
+    const a = pending.current;
+    pending.current = null;
     a?.onTrigger();
   };
   return (
@@ -64,9 +75,10 @@ export function SwipeRow({ action, leftAction, children, style }: {
       // A deliberate sideways drag, not the first few points of a back swipe or a scroll.
       dragOffsetFromLeftEdge={16}
       dragOffsetFromRightEdge={16}
-      renderRightActions={action ? (progress) => <Panel progress={progress} action={action} /> : undefined}
-      renderLeftActions={leftAction ? (progress) => <Panel progress={progress} action={leftAction} /> : undefined}
-      onSwipeableWillOpen={(d) => fire(d === 'left' ? 'left' : 'right')}
+      renderRightActions={action ? (progress) => <Panel progress={progress} action={action} radius={radius} edge="right" /> : undefined}
+      renderLeftActions={leftAction ? (progress) => <Panel progress={progress} action={leftAction} radius={radius} edge="left" /> : undefined}
+      onSwipeableWillOpen={(d) => arm(d === 'left' ? 'left' : 'right')}
+      onSwipeableClose={settled}
       containerStyle={style}
     >
       {children}
@@ -74,13 +86,18 @@ export function SwipeRow({ action, leftAction, children, style }: {
   );
 }
 
-function Panel({ progress, action }: { progress: SharedValue<number>; action: SwipeAction }) {
+function Panel({ progress, action, radius, edge }: { progress: SharedValue<number>; action: SwipeAction; radius: number; edge: 'left' | 'right' }) {
   const anim = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 0.4, 1], [0, 0.9, 1], 'clamp'),
     transform: [{ scale: interpolate(progress.value, [0, 1], [0.7, 1], 'clamp') }],
   }));
+  // Only the corners on the screen's edge are rounded; the inner edge meets the sliding
+  // card flush, so no sliver of background shows between them.
+  const corners = edge === 'right'
+    ? { borderTopRightRadius: radius, borderBottomRightRadius: radius }
+    : { borderTopLeftRadius: radius, borderBottomLeftRadius: radius };
   return (
-    <View style={{ width: PANEL_W, backgroundColor: action.color, alignItems: 'center', justifyContent: 'center', borderRadius: 20 }}>
+    <View style={{ width: PANEL_W, backgroundColor: action.color, alignItems: 'center', justifyContent: 'center', ...corners }}>
       <Animated.View style={[{ alignItems: 'center', gap: 4 }, anim]}>
         <Icon name={action.icon} size={24} color="#fff" />
         <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>{action.label}</Text>

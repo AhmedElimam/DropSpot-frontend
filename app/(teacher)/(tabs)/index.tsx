@@ -230,7 +230,7 @@ export default function TeacherHome() {
               <ActivityIndicator color={colors.primary} />
             </View>
           ) : current ? (
-            <SwipeRow {...swipesFor(current)} style={{ borderRadius: radius.xxl }}>
+            <SwipeRow {...swipesFor(current)} style={{ borderRadius: radius.xxl }} radius={radius.xxl}>
               <Spotlight s={current} now={now} canScan={canCash} onScan={scan} onOpen={openSheet} />
             </SwipeRow>
           ) : (
@@ -313,7 +313,7 @@ export default function TeacherHome() {
             <View style={{ marginTop: spacing.xl }}>
               <SectionHead icon="calendar" color={colors.brand} title={t('home.rest_of_day')} action={t('home.all_sessions')} onAction={() => router.push('/(teacher)/sessions' as Href)} />
               {rest.map((s) => (
-                <SwipeRow key={s.id} {...swipesFor(s)} style={{ borderRadius: radius.xl }}>
+                <SwipeRow key={s.id} {...swipesFor(s)} style={{ borderRadius: radius.xl }} radius={radius.xl}>
                   <SessionCard s={s} now={now} onOpen={openSheet} compact />
                 </SwipeRow>
               ))}

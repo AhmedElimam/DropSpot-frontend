@@ -55,8 +55,9 @@ function bracket(pos: 'tl' | 'tr' | 'bl' | 'br'): ViewStyle {
 // The aiming frame (must match the on-screen box in the render) plus slack, so a
 // card only registers when it's lined up INSIDE the frame — not read from anywhere
 // in view.
-const FRAME_W = 250;
-const FRAME_H = 190;
+// Square (founder 2026-10-11: «it looks rectangular»): a card's QR is square and so is the box.
+const FRAME_W = 240;
+const FRAME_H = 240;
 const FRAME_SLACK = 56;
 const WIN_W = Dimensions.get('window').width;
 const WIN_H = Dimensions.get('window').height;

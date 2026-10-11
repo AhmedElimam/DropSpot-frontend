@@ -145,6 +145,7 @@ const FeedRow = memo(function FeedRow({
   const hers = rose.named && isRoseNotification(n);
   return (
     <SwipeRow
+      radius={radius.xl}
       style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm }}
       action={{ icon: unread ? 'success' : 'bell', label: t(unread ? 'notifications.swipe_read' : 'notifications.swipe_unread'), color: unread ? colors.success : colors.brand, onTrigger: () => onToggleRead(n) }}
     >
