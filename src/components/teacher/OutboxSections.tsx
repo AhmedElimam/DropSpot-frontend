@@ -8,7 +8,7 @@ import { Icon } from '@/components/ui/Icon';
 import { deleteActions, requeueAction, type OutboxAction } from '@/db/outbox';
 import { queuedDetails } from '@/api/offlineQueue';
 import type { OfflineMark } from '@/db/offlineMarks';
-import { syncNow } from '@/db/autoSync';
+import { useOfflineStore } from '@/stores/offlineStore';
 import { uuid } from '@/utils/uuid';
 
 function hhmm(iso: string): string {
@@ -17,6 +17,26 @@ function hhmm(iso: string): string {
   } catch {
     return '—';
   }
+}
+
+/**
+ * What the automatic send is doing right now. It replaced «إرسال الآن» (founder 2026-10-12:
+ * the button did nothing — a pass was already running, or there was no signal, so the tap
+ * was swallowed). The queue goes on its own; this line says so and shows it happening.
+ */
+function AutoSendStatus() {
+  const { t } = useTranslation();
+  const online = useOfflineStore((s) => s.online);
+  const syncing = useOfflineStore((s) => s.syncing);
+  const tone = !online ? colors.textTertiary : colors.primary;
+  return (
+    <View accessibilityLiveRegion="polite" style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 44, borderRadius: radius.md, backgroundColor: colors.surfaceSunken, paddingHorizontal: spacing.md }}>
+      {syncing ? <ActivityIndicator size="small" color={tone} /> : <Icon name={online ? 'refresh' : 'offline'} size={16} color={tone} />}
+      <Text style={{ flexShrink: 1, fontFamily: fonts.medium, fontSize: 13, color: tone, textAlign: 'center' }}>
+        {syncing ? t('offline.auto_sending') : online ? t('offline.auto_send_soon') : t('offline.auto_send_waiting')}
+      </Text>
+    </View>
+  );
 }
 
 /** How many lines of a parked body show before «التفاصيل» opens the rest. */
@@ -62,16 +82,11 @@ function Row({ a, children }: { a: OutboxAction; children?: React.ReactNode }) {
 /**
  * Manual attendance marks waiting to be sent (src/db/offlineMarks.ts). They were counted
  * on the header badge but never listed here (founder 2026-10-11): the student, the mark,
- * the group, when — and the same «إرسال الآن».
+ * the group, when — and the same live «يُرسل تلقائيًا» line.
  */
-export function PendingMarksSection({ marks, onChange }: { marks: OfflineMark[]; onChange: () => Promise<void> }) {
+export function PendingMarksSection({ marks }: { marks: OfflineMark[] }) {
   const { t } = useTranslation();
-  const [busy, setBusy] = useState(false);
   const statusKey: Record<string, string> = { present: 'attendance.present', late: 'attendance.late', absent: 'attendance.absent', excused: 'attendance.excused' };
-  const send = async () => {
-    setBusy(true);
-    try { await syncNow(); await onChange(); } finally { setBusy(false); }
-  };
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.primary, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs }}>
@@ -92,26 +107,17 @@ export function PendingMarksSection({ marks, onChange }: { marks: OfflineMark[];
           </View>
         ))}
       </View>
-      <TouchableOpacity onPress={send} disabled={busy} activeOpacity={0.8} accessibilityRole="button"
-        style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48, borderRadius: radius.md, backgroundColor: colors.primary, opacity: busy ? 0.7 : 1 }}>
-        {busy ? <ActivityIndicator color={colors.textInverse} /> : <Icon name="send" size={16} color={colors.textInverse} />}
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textInverse }}>{t('offline.sync_now')}</Text>
-      </TouchableOpacity>
+      <AutoSendStatus />
     </View>
   );
 }
 
 /**
  * Actions taken with no connection, waiting to be sent in order (src/db/outbox.ts). They go
- * on their own when the connection returns; «إرسال الآن» is for the person who wants to watch.
+ * on their own when the connection returns; the status line shows it happening.
  */
-export function PendingActionsSection({ actions, onChange }: { actions: OutboxAction[]; onChange: () => Promise<void> }) {
+export function PendingActionsSection({ actions }: { actions: OutboxAction[] }) {
   const { t } = useTranslation();
-  const [busy, setBusy] = useState(false);
-  const send = async () => {
-    setBusy(true);
-    try { await syncNow(); await onChange(); } finally { setBusy(false); }
-  };
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.primary, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs }}>
@@ -122,11 +128,7 @@ export function PendingActionsSection({ actions, onChange }: { actions: OutboxAc
       <View style={{ gap: spacing.sm }}>
         {actions.map((a) => <Row key={a.id} a={a} />)}
       </View>
-      <TouchableOpacity onPress={send} disabled={busy} activeOpacity={0.8} accessibilityRole="button"
-        style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48, borderRadius: radius.md, backgroundColor: colors.primary, opacity: busy ? 0.7 : 1 }}>
-        {busy ? <ActivityIndicator color={colors.textInverse} /> : <Icon name="send" size={16} color={colors.textInverse} />}
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textInverse }}>{t('offline.sync_now')}</Text>
-      </TouchableOpacity>
+      <AutoSendStatus />
     </View>
   );
 }

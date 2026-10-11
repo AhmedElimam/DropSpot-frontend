@@ -396,6 +396,17 @@ export async function getStudentPerformanceUrl(id: string | number): Promise<str
   return data?.data?.url ?? data?.url;
 }
 
+export type ReportWhatsApp = { sent: boolean; phone: string; parent_name: string | null; text: string; url: string };
+
+/**
+ * The performance PDF to the parent on WhatsApp when the student has no open ticket.
+ * `sent` = the business number already sent it; otherwise open `phone` with `text`.
+ */
+export async function sendStudentReportWhatsApp(id: string | number): Promise<ReportWhatsApp> {
+  const { data } = await client.post(`/teacher/students/${id}/report-whatsapp`);
+  return data?.data ?? data;
+}
+
 /**
  * The teacher/assistant called the parent and got no answer → nudge the student
  * (in-app + push) to relay that their teacher urgently needs to reach the parent.

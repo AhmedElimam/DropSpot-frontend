@@ -17,6 +17,7 @@ import { suggestSessionId, applyBatchResults } from '@/db/reconcile';
 import { getFreshScheduleEntries, getFreshScheduleEntry, buildGradeResolver } from '@/db/scheduleCache';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { useOfflineStore } from '@/stores/offlineStore';
+import { syncNow } from '@/db/autoSync';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { getPendingActions, getRejectedActions, type OutboxAction } from '@/db/outbox';
@@ -90,6 +91,23 @@ export default function Reconcile() {
     load();
   }, [load]);
 
+  // The queue sends itself (founder 2026-10-12: «إرسال الآن» did nothing while it did). On
+  // opening, a pass starts at once past the cool-down; while marks or actions still wait,
+  // one more every 20 s; and every pass that ends re-reads the lists, so sent rows leave
+  // the screen as they go.
+  const syncing = useOfflineStore((s) => s.syncing);
+  const online = useOfflineStore((s) => s.online);
+  const waiting = pendingMarks.length + pendingActions.length + pendingCount;
+  useEffect(() => {
+    if (!syncing) void load();
+  }, [syncing, load]);
+  useEffect(() => {
+    if (!online || waiting === 0) return;
+    void syncNow();
+    const id = setInterval(() => { void syncNow(); }, 20_000);
+    return () => clearInterval(id);
+  }, [online, waiting > 0]);
+
   // Durability nudge (addendum §6): unsynced scans live only on THIS device until
   // they reach the server, so a reinstall/wipe would lose them. Warn while any are
   // waiting, and nag harder once the oldest has been sitting for over a day.
@@ -156,8 +174,8 @@ export default function Reconcile() {
           {rejected.length > 0 ? <Surface id="teacher.reconcile.rejected_scans"><RejectedSection scans={rejected} onChange={load} /></Surface> : null}
           {rejectedMarks.length > 0 ? <Surface id="teacher.reconcile.rejected_marks"><RejectedMarksSection marks={rejectedMarks} onChange={load} /></Surface> : null}
           {rejectedActions.length > 0 ? <Surface id="teacher.reconcile.rejected_actions"><RejectedActionsSection actions={rejectedActions} onChange={load} /></Surface> : null}
-          {pendingMarks.length > 0 ? <Surface id="teacher.reconcile.pending_marks"><PendingMarksSection marks={pendingMarks} onChange={load} /></Surface> : null}
-          {pendingActions.length > 0 ? <Surface id="teacher.reconcile.pending_actions"><PendingActionsSection actions={pendingActions} onChange={load} /></Surface> : null}
+          {pendingMarks.length > 0 ? <Surface id="teacher.reconcile.pending_marks"><PendingMarksSection marks={pendingMarks} /></Surface> : null}
+          {pendingActions.length > 0 ? <Surface id="teacher.reconcile.pending_actions"><PendingActionsSection actions={pendingActions} /></Surface> : null}
 
           <Surface id="teacher.reconcile.buckets">
           {buckets.map((bucket, i) => (

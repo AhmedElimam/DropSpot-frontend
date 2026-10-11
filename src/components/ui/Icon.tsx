@@ -98,6 +98,8 @@ const ICON_MAP = {
   pause: 'pause',
   redo: 'arrow-redo',
   list: 'list',
+  // Brand glyph — no outline variant, never pass `outline`.
+  whatsapp: 'logo-whatsapp',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;
