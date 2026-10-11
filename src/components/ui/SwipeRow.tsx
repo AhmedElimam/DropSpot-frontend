@@ -10,6 +10,13 @@ export interface SwipeAction {
   label: string;
   color: string;
   onTrigger: () => void;
+  /**
+   * Fire only once the row has sprung back. For an action that RESTYLES the row itself
+   * (read ⇄ unread): firing mid-motion restyled the row and the panel while they slid.
+   * Off by default: an action that opens something (a sheet, a confirmation) fires at the
+   * threshold, so it appears at once (founder 2026-10-11: «a delay until the modal shows»).
+   */
+  afterSettle?: boolean;
 }
 
 const PANEL_W = 96;
@@ -50,13 +57,14 @@ export function SwipeRow({ action, leftAction, children, style, radius = 20 }: {
   const ref = useRef<SwipeableMethods>(null);
   // The library reports PHYSICAL directions, never flipped for RTL: 'left' = the row moved
   // left (finger right → left, the right panel shows); 'right' = the opposite.
-  // The action is remembered at the threshold and fired once the row has sprung back
-  // (onSwipeableClose): firing while it was still sliding let a read ⇄ unread flip restyle
-  // the panel and the row mid-motion (founder 2026-10-11: «feels something wrong»).
+  // An action that restyles the row (afterSettle) is remembered at the threshold and fired
+  // once the row has sprung back (onSwipeableClose); every other action fires at once.
   const pending = useRef<SwipeAction | null>(null);
   const arm = (direction: 'left' | 'right') => {
-    pending.current = (direction === 'left' ? action : leftAction) ?? null;
+    const a = (direction === 'left' ? action : leftAction) ?? null;
     ref.current?.close();
+    if (a?.afterSettle) { pending.current = a; return; }
+    a?.onTrigger();
   };
   const settled = () => {
     const a = pending.current;
