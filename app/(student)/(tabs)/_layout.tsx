@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { useHiddenSurfaces } from '@/ui/surfaces';
 import { colors } from '@/theme/index';
 import { type IconName } from '@/components/ui/Icon';
 import { NotchTabBar } from '@/components/ui/NotchTabBar';
@@ -34,6 +35,11 @@ const icons: Record<string, IconName> = {
 };
 
 export default function StudentTabsLayout() {
+  // A tab the backend code switched off (server config/mobile_ui.php → `tab.student.<name>`)
+  // leaves the bar; the raised centre falls back to the middle of what is left.
+  const hiddenSurfaces = useHiddenSurfaces();
+  const tabs = TAB_ORDER.filter((n) => !hiddenSurfaces.has(`tab.student.${n}`));
+  const center = tabs.includes(CENTER_TAB) ? CENTER_TAB : (tabs[Math.floor(tabs.length / 2)] ?? CENTER_TAB);
   // Freezing the hidden tabs is a super-admin FLAG, off by default (react-native-screens #2971).
   const freezeTabs = useFeatureFlags().data?.freeze_hidden_tabs === true;
   return (
@@ -43,7 +49,7 @@ export default function StudentTabsLayout() {
       // to the Home tab.
       backBehavior="history"
       screenLayout={sceneLayout}
-      tabBar={(props) => <NotchTabBar {...props} tabs={TAB_ORDER} center={CENTER_TAB} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
+      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
       screenOptions={({ route }) => ({
         headerShown: false,
         freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),

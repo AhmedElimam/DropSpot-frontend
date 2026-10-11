@@ -209,13 +209,26 @@ async function refreshAccessToken(): Promise<string | null> {
   return at;
 }
 
+/** Loaded on first use: the popup module reaches the dialog, the router and the stores, which must not load with this client (tests, headless tasks). */
+function serverMeta(meta: unknown): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    (require('@/ui/serverPopup') as typeof import('@/ui/serverPopup')).handleServerMeta(meta);
+  } catch {
+    // never let a steering hint break a response
+  }
+}
+
 client.interceptors.response.use(
   (res) => {
     useOfflineStore.getState().noteNetworkOk();
+    // The backend may steer the app with this answer (meta.popup / meta.navigate).
+    if (res?.data?.meta) serverMeta(res.data.meta);
     return res;
   },
   async (error) => {
     const original = error.config;
+    if (error.response?.data?.meta) serverMeta(error.response.data.meta);
     // No answer at all (offline, timeout, DNS): a dropout, not a verdict.
     if (!error.response && original) {
       useOfflineStore.getState().noteNetworkFailure();

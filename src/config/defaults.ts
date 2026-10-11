@@ -29,8 +29,26 @@ export interface AppConfigContact {
   card_vodafone_number: string; // blank unless the super-admin sets one
 }
 
+/** One inline validation rule the backend code declares (config/mobile_ui.php on the server). */
+export interface UiValidationRule { pattern?: string; min_words?: number; min?: number; max?: number; message?: string }
+export interface UiPopupButton { label: string; action: string; style?: 'cancel' | 'destructive' }
+export interface UiPopup { title: string; body?: string | null; buttons: UiPopupButton[]; persona?: 'rose' }
+/**
+ * What the app obeys from BACKEND CODE (server config/mobile_ui.php, served as `ui`):
+ * surfaces switched off (a tab, a card, a button, a screen — see src/ui/surfaces.tsx), the
+ * notice a hidden screen shows, inline validation rules (src/utils/validators.ts), named
+ * popups (src/ui/serverPopup.ts).
+ */
+export interface UiManifest {
+  hidden: string[];
+  notices: Record<string, string>;
+  validation: Record<string, UiValidationRule>;
+  popups: Record<string, UiPopup>;
+}
+
 export interface AppConfigPayload {
   schema_version: number;
+  ui?: UiManifest;
   /** 'off' stops the app sending JS errors to /app-errors (src/lib/errorReport.ts); anything else = on. */
   error_reporting?: 'on' | 'off';
   min_supported_app_version: string;
@@ -89,6 +107,13 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
     session_early_min: 30,
   },
   copy: {},
+  ui: {
+    hidden: [],
+    notices: {},
+    // Mirrors src/utils/validators.ts' own constants, which stay the fallback.
+    validation: { arabic_name: { pattern: '^[ء-يـ\\s]+$' }, egypt_phone: { pattern: '^01[0-9]{9}$' }, triple_name: { min_words: 3 } },
+    popups: {},
+  },
   pricing: { tiers: [] },
   contact: {
     support_email: 'drosspot.support@gmail.com',
