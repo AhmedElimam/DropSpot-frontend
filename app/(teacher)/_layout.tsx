@@ -13,6 +13,7 @@ import { initOutbox } from '@/db/outbox';
 import { triggerAutoSync } from '@/db/autoSync';
 import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 import { registerBackgroundRefresh } from '@/background/refreshTask';
+import { setSurfaceContext } from '@/ui/surfaces';
 import { registerForPushNotifications } from '@/utils/push-notifications';
 import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
@@ -82,8 +83,12 @@ export default function TeacherLayout() {
 
   // A tapped push opens the screen it is about (running or launched by the tap); an
   // assistant is never sent where the server would refuse them.
-  const { can } = useActiveAbilities();
+  const { can, abilities, isAssistant } = useActiveAbilities();
   useNotificationTaps(can);
+  // Conditions in the backend's manifest may read `can.<ability>` and `is_assistant`.
+  useEffect(() => {
+    setSurfaceContext({ is_assistant: isAssistant, can: Object.fromEntries(abilities.map((a) => [a, true])) });
+  }, [abilities, isAssistant]);
 
   // Register this device's push token so teacher notifications (daily financial
   // report, admin-ticket replies, etc.) can be delivered via FCM. Previously this

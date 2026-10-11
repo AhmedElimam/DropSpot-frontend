@@ -302,7 +302,7 @@ export default function TeacherPendingCollections() {
                   </Text>
                 </View>
                 {l.remaining > 0 ? (
-                  <Surface id="teacher.pending_collections.collect_button">
+                  <Surface id="teacher.pending_collections.collect_button" ctx={{ line: l }}>
                   <TouchableOpacity
                     onPress={() => openCollect({ studentId: s.student_id, name: s.name, kind: l.kind, label: l.collectLabel, remaining: l.remaining, items: l.kind === 'bill' ? s.bill?.items : undefined })}
                     activeOpacity={0.85} accessibilityRole="button"
@@ -324,7 +324,7 @@ export default function TeacherPendingCollections() {
               {(canReverse && l.paid > 0) || (canCancelDue && l.remaining > 0) ? (
                 <View style={{ flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm }}>
                   {canReverse && l.paid > 0 ? (
-                    <Surface id="teacher.pending_collections.refuse_button">
+                    <Surface id="teacher.pending_collections.refuse_button" ctx={{ line: l }}>
                     <TouchableOpacity onPress={() => cancelPayment(s.student_id, s.name, l.kind, l.chargeId)} hitSlop={8}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.dangerText }}>{t('cash.refuse_confirm')}</Text>
                     </TouchableOpacity>

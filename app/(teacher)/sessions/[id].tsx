@@ -387,7 +387,7 @@ export default function SessionDetailScreen() {
               ) : null}
 
               {mode === 'attendance' && canMark && started && !s.is_cancelled && awaitingRows.length > 0 ? (
-                <Surface id="teacher.session_detail.rest_absent_button">
+                <Surface id="teacher.session_detail.rest_absent_button" ctx={{ session: s }}>
                 <TouchableOpacity onPress={markRestAbsent} disabled={bulkBusy} activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md }}>
                   {bulkBusy ? <ActivityIndicator color={colors.danger} /> : <Icon name="absent" size={20} color={colors.danger} />}
@@ -414,7 +414,7 @@ export default function SessionDetailScreen() {
 
       {/* Scan straight into this session. */}
       {s && canScan && live && mode === 'attendance' ? (
-        <Surface id="teacher.session_detail.scan_fab">
+        <Surface id="teacher.session_detail.scan_fab" ctx={{ session: s }}>
         <TouchableOpacity onPress={() => goToScan({ id: s.id, course_name: s.course_name } as TeacherSession)} activeOpacity={0.9} accessibilityRole="button"
           style={{ position: 'absolute', bottom: nav.pageEnd + insets.bottom + spacing.sm, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8, height: 54, paddingHorizontal: spacing.xl, borderRadius: 27, backgroundColor: colors.success, ...shadows.md }}>
           <Icon name="scan" size={22} color="#fff" />
@@ -426,7 +426,7 @@ export default function SessionDetailScreen() {
       {/* Session settings — type, sheet, cancel. Out of the way of the roster. The card draws
           its own background and safe-area padding, so the sheet adds none (a transparent
           bottom padding showed as a see-through gap under the card). */}
-      <Surface id="teacher.session_detail.settings_sheet">
+      <Surface id="teacher.session_detail.settings_sheet" ctx={{ session: s }}>
       <SheetModal visible={settingsOpen && !!s} onClose={() => setSettingsOpen(false)} style={{ padding: 0, paddingBottom: 0, backgroundColor: 'transparent' }} handle={false}>
           {s ? (
             <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, gap: spacing.md }}>
@@ -471,7 +471,7 @@ export default function SessionDetailScreen() {
               </Surface>
 
               {canCancel ? (
-              <Surface id="teacher.session_detail.cancel_button">
+              <Surface id="teacher.session_detail.cancel_button" ctx={{ session: s }}>
               <Button
                 title={s.is_cancelled ? t('teacher.restore_session') : t('teacher.cancel_session')}
                 onPress={doCancelRestore}

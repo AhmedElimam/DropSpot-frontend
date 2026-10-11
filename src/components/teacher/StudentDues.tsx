@@ -83,7 +83,7 @@ export function StudentDuesCard({ billing: b, canCollect, onCollect }: { billing
       </View>
       <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: overdue ? colors.danger : colors.textPrimary }}>{t('student_profile_ui.egp_amount', { amount: formatNumber(remaining) })}</Text>
       {canCollect ? (
-        <Surface id="teacher.student_profile.dues_row_collect_button">
+        <Surface id="teacher.student_profile.dues_row_collect_button" ctx={{ billing: b }}>
         <TouchableOpacity onPress={() => onCollect(target)} accessibilityRole="button" activeOpacity={0.85}
           style={{ backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 7, paddingHorizontal: spacing.md }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#fff' }}>{t('collections.collect')}</Text>
@@ -126,7 +126,7 @@ export function StudentDuesCard({ billing: b, canCollect, onCollect }: { billing
           {booking ? row('booking', 'card', t('teacher.due_booking'), booking.secures ? t('student_profile_ui.secures', { what: booking.secures }) : null,
             Number(booking.remaining), false, { kind: 'booking', label: t('teacher.due_booking'), remaining: Number(booking.remaining) }) : null}
           {canCollect && count > 1 ? (
-            <Surface id="teacher.student_profile.collect_all_button">
+            <Surface id="teacher.student_profile.collect_all_button" ctx={{ billing: b }}>
             <TouchableOpacity onPress={() => onCollect({ kind: 'all', label: t('student_profile_ui.all_dues'), remaining: owed })} accessibilityRole="button" activeOpacity={0.85}
               style={{ marginTop: spacing.sm, marginBottom: spacing.xs, minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.success, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
               <Icon name="success" size={18} color="#fff" />

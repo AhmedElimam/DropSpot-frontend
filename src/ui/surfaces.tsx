@@ -1,13 +1,20 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAppConfigStore } from '@/stores/appConfigStore';
+import { useOfflineStore } from '@/stores/offlineStore';
+import { useAuthStore } from '@/stores/authStore';
+import { Alert } from '@/ui/dialog';
+import { evaluateCondition } from './conditions';
+import i18n from '@/i18n';
 import { colors, spacing, radius } from '@/theme/index';
 import { fonts } from '@/theme/typography';
 
 /**
  * A SURFACE is anything the backend code may switch off (server config/mobile_ui.php →
- * `ui.hidden`): a tab, a card, a button, a row, a whole screen. Wrap it:
+ * `ui.hidden`), DISABLE with a reason (`ui.disabled`), or gate by a CONDITION evaluated on
+ * the phone against what the screen knows (`ui.conditions`, src/ui/conditions.ts): a tab,
+ * a card, a button, a row, a whole screen. Wrap it:
  *
  *   <Surface id="teacher.home.rose_card">…</Surface>
  *   <Surface id="screen.teacher.collect" screen>…</Surface>   // a screen: shows a notice instead
@@ -40,12 +47,64 @@ export function useSurfaceNotice(id: string): string {
   return notice || t('misc_ui.surface_off');
 }
 
-export function Surface({ id, screen, fallback, children }: { id: string; screen?: boolean; fallback?: ReactNode; children: ReactNode }) {
-  const on = useSurface(id);
+export type SurfaceState = { on: true } | { on: false; disabled?: undefined } | { on: true; disabled: string };
+
+/**
+ * What the app knows about itself, for conditions: role, online, platform, version, and
+ * the assistant's abilities as `can.<ability>` (set by the teacher layout). A screen adds
+ * what it shows (`ctx={{ student }}`), and a condition reads either.
+ */
+let globalCtx: Record<string, unknown> = {};
+export function setSurfaceContext(patch: Record<string, unknown>): void {
+  globalCtx = { ...globalCtx, ...patch };
+}
+
+/** The pure resolver behind useSurfaceState: hidden list → static disable → condition. Exported for tests. */
+export function resolveSurface(id: string, ctx: Record<string, unknown> | undefined, ui: NonNullable<ReturnType<typeof useAppConfigStore.getState>['config']['ui']> | undefined, online: boolean, role: string | null): { hidden: boolean; disabled: string | null } {
+  if (!ui) return { hidden: false, disabled: null };
+  if ((ui.hidden ?? []).includes(id)) return { hidden: true, disabled: null };
+  const staticReason = ui.disabled?.[id];
+  if (staticReason) return { hidden: false, disabled: staticReason };
+  const cond = ui.conditions?.[id];
+  if (cond?.when) {
+    const ok = evaluateCondition(cond.when, { ...globalCtx, online, role, ...(ctx ?? {}) });
+    if (ok === false) {
+      return cond.else === 'hide'
+        ? { hidden: true, disabled: null }
+        : { hidden: false, disabled: cond.reason || i18n.t('misc_ui.surface_disabled') };
+    }
+  }
+  return { hidden: false, disabled: null };
+}
+
+/** The resolved state of a surface, reactive to the manifest, the connection and the screen's context. */
+export function useSurfaceState(id: string, ctx?: Record<string, unknown>): { hidden: boolean; disabled: string | null } {
+  const ui = useAppConfigStore((s) => s.config.ui);
+  const online = useOfflineStore((s) => s.online);
+  const role = useAuthStore((s) => s.role);
+  return resolveSurface(id, ctx, ui, online, role);
+}
+
+export function Surface({ id, screen, fallback, ctx, children }: { id: string; screen?: boolean; fallback?: ReactNode; ctx?: Record<string, unknown>; children: ReactNode }) {
+  const state = useSurfaceState(id, ctx);
   const ready = useFirstFrame(!!screen);
-  if (on) return ready ? <>{children}</> : <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  if (!state.hidden) {
+    if (!ready) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+    if (state.disabled) return <Disabled reason={state.disabled}>{children}</Disabled>;
+    return <>{children}</>;
+  }
   if (fallback !== undefined) return <>{fallback}</>;
   return screen ? <HiddenScreenNotice id={id} /> : null;
+}
+
+/** The element shows, dimmed, and a tap says why instead of acting (server `ui.disabled` / a condition's `else: disable`). */
+function Disabled({ reason, children }: { reason: string; children: ReactNode }) {
+  return (
+    <View style={{ position: 'relative' }}>
+      <View pointerEvents="none" style={{ opacity: 0.45 }}>{children}</View>
+      <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel={reason} onPress={() => Alert.alert(i18n.t('misc_ui.disabled_title'), reason)} />
+    </View>
+  );
 }
 
 /**

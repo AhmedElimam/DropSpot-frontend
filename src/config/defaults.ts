@@ -39,8 +39,14 @@ export interface UiPopup { title: string; body?: string | null; buttons: UiPopup
  * notice a hidden screen shows, inline validation rules (src/utils/validators.ts), named
  * popups (src/ui/serverPopup.ts).
  */
+/** A condition on a surface: when `when` is false, the surface is hidden or disabled (with a reason). */
+export interface UiCondition { when: string; else?: 'hide' | 'disable'; reason?: string }
 export interface UiManifest {
   hidden: string[];
+  /** Surface id → the reason shown when it is tapped; the element shows but does nothing. */
+  disabled?: Record<string, string>;
+  /** Surface id → a condition evaluated on the phone (src/ui/conditions.ts) against the screen's context. */
+  conditions?: Record<string, UiCondition>;
   notices: Record<string, string>;
   validation: Record<string, UiValidationRule>;
   popups: Record<string, UiPopup>;
@@ -109,6 +115,8 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
   copy: {},
   ui: {
     hidden: [],
+    disabled: {},
+    conditions: {},
     notices: {},
     // Mirrors src/utils/validators.ts' own constants, which stay the fallback.
     validation: { arabic_name: { pattern: '^[ء-يـ\\s]+$' }, egypt_phone: { pattern: '^01[0-9]{9}$' }, triple_name: { min_words: 3 } },
