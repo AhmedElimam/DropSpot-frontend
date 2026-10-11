@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { startPhoneChange, verifyOldPhone, requestNewPhone, confirmPhoneChange } from '@/api/phoneChange';
 import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 type Step = 'intro' | 'verify_old' | 'enter_new' | 'verify_new';
 
@@ -85,13 +86,16 @@ export default function ChangePhoneScreen() {
   );
 
   return (
+    <Surface id="screen.parent.change-phone" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <Surface id="parent.change_phone.hero">
       <PageHero title={t('auth.change_phone')} onBack={true} compact />
+      </Surface>
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl }}>
         {step === 'intro' ? (
-          <>
+          <Surface id="parent.change_phone.intro">
             <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 26, color: colors.textSecondary }}>
               {t('auth.change_phone_intro')}
             </Text>
@@ -99,40 +103,41 @@ export default function ChangePhoneScreen() {
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textTertiary, marginTop: spacing.xl }}>
               {t('auth.change_phone_lost')}
             </Text>
-          </>
+          </Surface>
         ) : null}
 
         {step === 'verify_old' ? (
-          <>
+          <Surface id="parent.change_phone.verify_old">
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.md }}>
               {t('auth.change_phone_old_sent', { phone: maskedOld })}
             </Text>
             <TextInput value={oldCode} onChangeText={(v) => setOldCode(onlyDigits(v, 6))} keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="sms-otp" placeholder="------" placeholderTextColor={colors.textTertiary} style={field()} />
             <Primary label={t('auth.change_phone_verify')} onPress={() => verifyOld.mutate()} disabled={oldCode.length !== 6} />
-          </>
+          </Surface>
         ) : null}
 
         {step === 'enter_new' ? (
-          <>
+          <Surface id="parent.change_phone.enter_new">
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.md }}>
               {t('auth.change_phone_new_label')}
             </Text>
             <TextInput value={newPhone} onChangeText={(v) => setNewPhone(onlyDigits(v, 15))} keyboardType="phone-pad" placeholder="01000000000" placeholderTextColor={colors.textTertiary} style={{ ...field(), letterSpacing: 1, writingDirection: 'ltr' }} />
             <Primary label={t('auth.change_phone_send_new')} onPress={() => reqNew.mutate()} disabled={newPhone.trim().length < 10} />
-          </>
+          </Surface>
         ) : null}
 
         {step === 'verify_new' ? (
-          <>
+          <Surface id="parent.change_phone.verify_new">
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.md }}>
               {t('auth.change_phone_new_sent', { phone: maskedNew })}
             </Text>
             <TextInput value={newCode} onChangeText={(v) => setNewCode(onlyDigits(v, 6))} keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="sms-otp" placeholder="------" placeholderTextColor={colors.textTertiary} style={field()} />
             <Primary label={t('auth.change_phone_confirm')} onPress={() => confirm.mutate()} disabled={newCode.length !== 6} />
-          </>
+          </Surface>
         ) : null}
       </ScrollView>
       </KeyboardAvoidingView>
     </View>
+    </Surface>
   );
 }

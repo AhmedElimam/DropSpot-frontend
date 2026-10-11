@@ -1,4 +1,5 @@
 import { TogetherComingSoon } from '@/components/student/TogetherComingSoon';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * «مجموعاتي» — the student's centre tab (founder 2026-10-06). Group chat and threads are not open
@@ -6,5 +7,5 @@ import { TogetherComingSoon } from '@/components/student/TogetherComingSoon';
  * conversations screen (threads branch) takes the same slot when it ships.
  */
 export default function StudentTogether() {
-  return <TogetherComingSoon />;
+  return <Surface id="screen.student.chat" screen><TogetherComingSoon /></Surface>;
 }

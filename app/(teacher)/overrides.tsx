@@ -18,6 +18,7 @@ import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useBillingOverrides, useCheckinPermissions, useRevokeBillingOverride, useRevokeCheckinPermission } from '@/hooks/useOverrides';
 import { formatNumber, formatDate } from '@/utils/format';
 import type { BillingOverride, CheckinPermission } from '@/api/teacher';
+import { Surface } from '@/ui/surfaces';
 
 type Segment = 'billing' | 'phone';
 
@@ -86,10 +87,12 @@ const ExceptionRow = memo(function ExceptionRow({ r, now, canRevoke, revoking, o
         ) : null}
       </View>
       {canRevoke ? (
+        <Surface id="teacher.overrides.revoke_button" fallback={<Icon name="back" size={16} color={colors.textTertiary} />}>
         <TouchableOpacity onPress={() => onRevoke(r)} disabled={revoking} hitSlop={4} accessibilityRole="button" accessibilityLabel={t('teacher.revoke')}
           style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.danger + '14', borderWidth: 1, borderColor: colors.danger + '55' }}>
           {revoking ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="close" size={20} color={colors.danger} />}
         </TouchableOpacity>
+        </Surface>
       ) : (
         <Icon name="back" size={16} color={colors.textTertiary} />
       )}
@@ -151,6 +154,7 @@ export default function OverridesScreen() {
     : (revokePermission.isPending ? revokePermission.variables : null);
 
   return (
+    <Surface id="screen.teacher.overrides" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
@@ -164,14 +168,17 @@ export default function OverridesScreen() {
           </View>
           <View style={{ flex: 1 }} />
           {canGrant ? (
+            <Surface id="teacher.overrides.grant_button">
             <TouchableOpacity onPress={() => router.push('/(teacher)/grant-exception' as Href)} accessibilityRole="button"
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.accent }}>
               <Icon name="add" size={18} color={colors.onAccent} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onAccent }}>{t('teacher.grant_override')}</Text>
             </TouchableOpacity>
+            </Surface>
           ) : null}
         </View>
 
+        <Surface id="teacher.overrides.segment_switch">
         <View style={{ flexDirection: 'row', gap: 6, marginTop: spacing.md }}>
           {([['billing', 'money', t('teacher.billing_overrides'), billingRows.length], ['phone', 'phone', t('teacher.phone_permissions'), phoneRows.length]] as const).map(([k, icon, label, n]) => {
             const on = segment === k;
@@ -185,11 +192,13 @@ export default function OverridesScreen() {
             );
           })}
         </View>
+        </Surface>
       </LinearGradient>
 
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
+        <Surface id="teacher.overrides.list">
         <FlatList showsVerticalScrollIndicator={false}
           data={rows}
           keyExtractor={(r) => r.key}
@@ -200,11 +209,13 @@ export default function OverridesScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           removeClippedSubviews initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7}
           ListHeaderComponent={
+            <Surface id="teacher.overrides.intro_note">
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginBottom: spacing.md }}>
               {isAssistant
                 ? t(canGrant ? 'teacher.assistant_can_grant_override_note' : 'teacher.assistant_override_note')
                 : t(segment === 'billing' ? 'exceptions_ui.billing_intro' : 'exceptions_ui.phone_intro')}
             </Text>
+            </Surface>
           }
           ListEmptyComponent={
             <EmptyState icon={segment === 'billing' ? 'money' : 'phone'}
@@ -212,7 +223,9 @@ export default function OverridesScreen() {
               message={t(segment === 'billing' ? 'exceptions_ui.billing_empty_hint' : 'exceptions_ui.phone_empty_hint')} />
           }
         />
+        </Surface>
       )}
     </View>
+    </Surface>
   );
 }

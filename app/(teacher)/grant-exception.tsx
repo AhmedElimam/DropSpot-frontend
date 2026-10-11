@@ -16,6 +16,7 @@ import { useGrantBillingOverride, useAllowanceSetting, useSetAllowanceSetting } 
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatDayDate } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 // Grants run a fixed 15-day exception; preview the day it lapses.
 /** The allowance length is the backend rule the server itself applies (billing_allowance_days). */
@@ -57,6 +58,7 @@ export default function GrantException() {
   };
 
   return (
+    <Surface id="screen.teacher.grant-exception" screen>
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
@@ -68,6 +70,7 @@ export default function GrantException() {
 
       {/* Teacher-wide master switch (teacher-only; assistants can't change policy). */}
       {!isAssistant ? (
+        <Surface id="teacher.grant_exception.allowance_master_switch">
         <TouchableOpacity
           onPress={() => setAllowance.mutate(!allowanceOn)}
           disabled={setAllowance.isPending}
@@ -89,11 +92,13 @@ export default function GrantException() {
             </View>
           )}
         </TouchableOpacity>
+        </Surface>
       ) : null}
 
       {selected ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl }} keyboardShouldPersistTaps="handled">
           {/* Selected student card + jump to profile */}
+          <Surface id="teacher.grant_exception.selected_student_card">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>
             <Avatar name={selected.name} seed={avatarSeed.student(selected.id, selected.name)} size={48} />
             <View style={{ flex: 1 }}>
@@ -103,7 +108,9 @@ export default function GrantException() {
               <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.primary }}>{t('teacher.change')}</Text>
             </TouchableOpacity>
           </View>
+          </Surface>
 
+          <Surface id="teacher.grant_exception.view_profile_button">
           <TouchableOpacity
             onPress={() => router.push(`/(teacher)/students/${selected.id}` as Href)}
             activeOpacity={0.85}
@@ -112,7 +119,9 @@ export default function GrantException() {
             <Icon name="profile" size={18} color={colors.brand} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('teacher.view_profile')}</Text>
           </TouchableOpacity>
+          </Surface>
 
+          <Surface id="teacher.grant_exception.reason_input">
           <TextInput
             value={reason}
             onChangeText={setReason}
@@ -120,11 +129,15 @@ export default function GrantException() {
             placeholderTextColor={colors.textTertiary}
             style={{ fontFamily: fonts.regular, fontSize: 16, minHeight: 52, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radius.lg, paddingHorizontal: spacing.lg, color: colors.textPrimary, textAlign: 'right', marginTop: spacing.lg }}
           />
+          </Surface>
 
+          <Surface id="teacher.grant_exception.ends_on_note">
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.md }}>
             {t('teacher.exception_ends', { date: formatDayDate(new Date(Date.now() + GRANT_DAYS() * 86_400_000)) })}
           </Text>
+          </Surface>
 
+          <Surface id="teacher.grant_exception.grant_button">
           <TouchableOpacity
             onPress={submit}
             disabled={grant.isPending}
@@ -132,6 +145,7 @@ export default function GrantException() {
           >
             {grant.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('teacher.grant_15_days')}</Text>}
           </TouchableOpacity>
+          </Surface>
 
           {grant.isError ? (
             <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md }}>
@@ -145,6 +159,7 @@ export default function GrantException() {
       ) : (
         <>
           {/* Search over the roster */}
+          <Surface id="teacher.grant_exception.search_bar">
           <View style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md }}>
             <Icon name="search" size={18} color={colors.textTertiary} />
             <TextInput
@@ -155,10 +170,12 @@ export default function GrantException() {
               style={{ flex: 1, height: 46, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}
             />
           </View>
+          </Surface>
 
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : (
+            <Surface id="teacher.grant_exception.roster_list">
             <FlatList showsVerticalScrollIndicator={false}
               removeClippedSubviews
               initialNumToRender={8}
@@ -180,9 +197,11 @@ export default function GrantException() {
               )}
               ListEmptyComponent={<EmptyState icon="children" title={t('teacher.no_students')} message={t('teacher.no_students_hint')} />}
             />
+            </Surface>
           )}
         </>
       )}
     </KeyboardAvoidingView>
+    </Surface>
   );
 }

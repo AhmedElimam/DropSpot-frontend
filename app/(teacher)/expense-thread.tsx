@@ -15,6 +15,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { getExpenseThread, replyToThread } from '@/api/cash';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * The question thread on one expense (weekly review §7). Two-way: the teacher asks, the
@@ -55,6 +56,7 @@ export default function ExpenseThreadScreen() {
 
   const e = data?.expense;
   return (
+    <Surface id="screen.teacher.expense-thread" screen>
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
@@ -71,6 +73,7 @@ export default function ExpenseThreadScreen() {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
           {e?.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>{e.note}</Text> : null}
+          <Surface id="teacher.expense_thread.messages">
           {data.messages.map((m) => (
             <View key={m.id} style={{ alignSelf: m.is_me ? 'flex-start' : 'flex-end', maxWidth: '85%', backgroundColor: m.is_me ? colors.brand + '14' : colors.surface, borderWidth: 1, borderColor: m.is_me ? colors.brand + '33' : colors.border, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textTertiary }}>{m.author}</Text>
@@ -81,23 +84,31 @@ export default function ExpenseThreadScreen() {
               {m.created_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary, marginTop: 4 }}>{formatDateTime(m.created_at)}</Text> : null}
             </View>
           ))}
+          </Surface>
 
           {data.can_reply ? (
+            <Surface id="teacher.expense_thread.reply_box">
             <View style={{ marginTop: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: 6 }}>{t('review.reply_title')}</Text>
               <TextInput value={body} onChangeText={setBody} multiline maxLength={1000} placeholder={t('review.reply_placeholder')} placeholderTextColor={colors.textTertiary}
                 style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', minHeight: 64 }} />
+              <Surface id="teacher.expense_thread.attach_photo">
               <TouchableOpacity onPress={pick} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
                 <Icon name="download" size={16} color={colors.brand} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{imageUri ? t('review.attached') : t('review.attach')}</Text>
               </TouchableOpacity>
+              </Surface>
+              <Surface id="teacher.expense_thread.send_button">
               <Button title={t('review.reply_send')} onPress={() => send.mutate()} disabled={body.trim() === '' && !imageUri} loading={send.isPending} style={{ marginTop: spacing.sm }} />
+              </Surface>
             </View>
+            </Surface>
           ) : (
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.md, textAlign: 'center' }}>{t('review.no_reply')}</Text>
           )}
         </ScrollView>
       )}
     </KeyboardAvoidingView>
+    </Surface>
   );
 }

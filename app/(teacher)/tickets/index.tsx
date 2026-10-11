@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 // Left-edge accent per ticket state.
 const statusColors = (): Record<string, [string, string]> => ({
@@ -36,6 +37,7 @@ export default function TeacherTicketsList() {
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   return (
+    <Surface id="screen.teacher.tickets" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
@@ -43,8 +45,9 @@ export default function TeacherTicketsList() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* A pushed screen since tickets left the tab bar (2026-10-04) — so it needs its back. */}
-        <PageHero onBack title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} />
+        <Surface id="teacher.tickets.hero"><PageHero onBack title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} /></Surface>
 
+        <Surface id="teacher.tickets.list">
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
@@ -104,7 +107,9 @@ export default function TeacherTicketsList() {
             })
           )}
         </View>
+        </Surface>
       </ScrollView>
     </View>
+    </Surface>
   );
 }

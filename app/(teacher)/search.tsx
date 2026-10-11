@@ -14,6 +14,7 @@ import { AddStudentSheet } from '@/components/teacher/AddStudentSheet';
 import { ScheduleToolsSheet } from '@/components/teacher/ScheduleToolsSheet';
 import { FEATURES, type FeatureEntry } from '@/search/featureIndex';
 import { buildSearch, type Indexed } from '@/search/featureSearch';
+import { Surface } from '@/ui/surfaces';
 
 /** What shows before anything is typed: the places people reach for most. */
 const SUGGESTED = ['collect', 'who_paid', 'add_student', 'sessions', 'rose', 'expenses', 'students', 'assistant_actions'];
@@ -78,7 +79,9 @@ export default function SearchScreen() {
   };
 
   return (
+    <Surface id="screen.teacher.search" screen>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Surface id="teacher.search.field">
       {/* The field — focused on arrival, RTL, with a clear button. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => { inputRef.current?.blur(); Keyboard.dismiss(); router.back(); }} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.back')}>
@@ -104,7 +107,9 @@ export default function SearchScreen() {
           ) : null}
         </View>
       </View>
+      </Surface>
 
+      <Surface id="teacher.search.results">
       <FlatList
         data={results}
         keyExtractor={(r) => r.entry.id}
@@ -148,8 +153,10 @@ export default function SearchScreen() {
           ) : null
         }
       />
-      {sheetsMounted.add ? <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} /> : null}
-      {sheetsMounted.schedule ? <ScheduleToolsSheet visible={scheduleOpen} onClose={() => setScheduleOpen(false)} /> : null}
+      </Surface>
+      <Surface id="teacher.search.add_student_sheet">{sheetsMounted.add ? <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} /> : null}</Surface>
+      <Surface id="teacher.search.schedule_tools_sheet">{sheetsMounted.schedule ? <ScheduleToolsSheet visible={scheduleOpen} onClose={() => setScheduleOpen(false)} /> : null}</Surface>
     </View>
+    </Surface>
   );
 }

@@ -9,6 +9,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Surface } from '@/ui/surfaces';
 import { getRevisionAttendees, recordRevisionMark, type RevisionAttendee } from '@/api/revisions';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 
@@ -49,7 +50,9 @@ export default function RevisionMarks() {
   };
 
   return (
+    <Surface id="screen.teacher.revision-marks" screen>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Surface id="teacher.revision_marks.header">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
@@ -59,10 +62,12 @@ export default function RevisionMarks() {
           {maxMark != null ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{t('teacher.exam_out_of')}: {maxMark}</Text> : null}
         </View>
       </View>
+      </Surface>
 
       {q.isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
+        <Surface id="teacher.revision_marks.list">
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <FlatList showsVerticalScrollIndicator={false}
           removeClippedSubviews
@@ -91,16 +96,20 @@ export default function RevisionMarks() {
                   placeholderTextColor={colors.textTertiary}
                   style={{ width: 80, height: 42, backgroundColor: colors.background, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.sm, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'center' }}
                 />
+                <Surface id="teacher.revision_marks.save_button">
                 <TouchableOpacity onPress={() => save(item)} disabled={saving === item.student_id} style={{ width: 44, height: 42, borderRadius: radius.md, backgroundColor: colors.success, justifyContent: 'center', alignItems: 'center' }}>
                   {saving === item.student_id ? <ActivityIndicator color="#fff" /> : <Icon name="success" size={20} color="#fff" />}
                 </TouchableOpacity>
+                </Surface>
               </View>
             );
           }}
           ListEmptyComponent={<EmptyState icon="children" title={t('teacher.exam_no_attendees')} message="" />}
         />
         </KeyboardAvoidingView>
+        </Surface>
       )}
     </View>
+    </Surface>
   );
 }

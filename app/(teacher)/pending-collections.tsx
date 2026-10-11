@@ -29,6 +29,7 @@ import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { TeacherTip } from '@/components/TeacherTip';
+import { Surface } from '@/ui/surfaces';
 import i18n from '@/i18n';
 
 interface Target {
@@ -283,6 +284,7 @@ export default function TeacherPendingCollections() {
         </TouchableOpacity>
 
         {/* One line per due: what it is, how much of it is in, and the actions. */}
+        <Surface id="teacher.pending_collections.due_lines">
         {lines.map((l) => {
           const pct = l.original > 0 ? Math.min(1, l.paid / l.original) : 0;
           return (
@@ -300,6 +302,7 @@ export default function TeacherPendingCollections() {
                   </Text>
                 </View>
                 {l.remaining > 0 ? (
+                  <Surface id="teacher.pending_collections.collect_button">
                   <TouchableOpacity
                     onPress={() => openCollect({ studentId: s.student_id, name: s.name, kind: l.kind, label: l.collectLabel, remaining: l.remaining, items: l.kind === 'bill' ? s.bill?.items : undefined })}
                     activeOpacity={0.85} accessibilityRole="button"
@@ -307,43 +310,54 @@ export default function TeacherPendingCollections() {
                     <Icon name="money" size={15} color="#fff" />
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{formatEGP(l.remaining)}</Text>
                   </TouchableOpacity>
+                  </Surface>
                 ) : (
                   <Icon name="success" size={22} color={colors.success} />
                 )}
               </View>
               {/* Progress: how much of this due is in. */}
+              <Surface id="teacher.pending_collections.progress_bar">
               <View style={{ height: 5, borderRadius: 3, backgroundColor: colors.surfaceSunken, marginTop: spacing.sm, overflow: 'hidden' }}>
                 <View style={{ width: `${Math.round(pct * 100)}%`, height: 5, borderRadius: 3, backgroundColor: l.overdue && pct < 1 ? colors.danger : colors.success }} />
               </View>
+              </Surface>
               {(canReverse && l.paid > 0) || (canCancelDue && l.remaining > 0) ? (
                 <View style={{ flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm }}>
                   {canReverse && l.paid > 0 ? (
+                    <Surface id="teacher.pending_collections.refuse_button">
                     <TouchableOpacity onPress={() => cancelPayment(s.student_id, s.name, l.kind, l.chargeId)} hitSlop={8}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.dangerText }}>{t('cash.refuse_confirm')}</Text>
                     </TouchableOpacity>
+                    </Surface>
                   ) : null}
                   {canCancelDue && l.remaining > 0 ? (
+                    <Surface id="teacher.pending_collections.cancel_due_button">
                     <TouchableOpacity onPress={() => cancelDue(s.student_id, s.name, l.kind, l.remaining, l.chargeId)} hitSlop={8}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.warningText }}>{t('desk_ui.cancel_due')}</Text>
                     </TouchableOpacity>
+                    </Surface>
                   ) : null}
                 </View>
               ) : null}
             </View>
           );
         })}
+        </Surface>
         {/* «السنة»: the student's months — which month each bill is, edit it, bill a missing one. */}
+        <Surface id="teacher.pending_collections.year_bills_button">
         <TouchableOpacity onPress={() => setYearFor({ studentId: s.student_id, name: s.name })} hitSlop={6} accessibilityRole="button"
           style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
           <Icon name="calendar" size={15} color={colors.brand} />
           <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('desk_ui.year_bills_month_by_month')}</Text>
           <Icon name="back" size={14} color={colors.brand} />
         </TouchableOpacity>
+        </Surface>
       </View>
     );
   };
 
   return (
+    <Surface id="screen.teacher.pending-collections" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Ink hero: what is still out, what is late, what came in — then search and filters. */}
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -355,6 +369,7 @@ export default function TeacherPendingCollections() {
           <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }}>{t('collections.title')}</Text>
         </View>
 
+        <Surface id="teacher.pending_collections.stats">
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
           {[
             { label: t('collections.stat_out'), value: formatEGP(totals.remaining), icon: 'money' as IconName, tint: colors.accent },
@@ -370,14 +385,18 @@ export default function TeacherPendingCollections() {
             </View>
           ))}
         </View>
+        </Surface>
 
+        <Surface id="teacher.pending_collections.search_bar">
         <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.lg, paddingHorizontal: spacing.md, marginTop: spacing.md }}>
           <Icon name="search" size={17} color={colors.onHeroSoft} />
           <TextInput value={search} onChangeText={setSearch} placeholder={t('collections.search_ph')} placeholderTextColor={colors.onHeroFaint}
             style={{ flex: 1, height: 40, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 14, color: colors.onHero, textAlign: 'right', paddingVertical: 0 }} />
           {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color={colors.onHeroSoft} /></TouchableOpacity> : null}
         </View>
+        </Surface>
 
+        <Surface id="teacher.pending_collections.filter_pills">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: spacing.sm, marginHorizontal: -spacing.lg }}
           contentContainerStyle={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg }}>
           {pills.map((x) => {
@@ -392,6 +411,7 @@ export default function TeacherPendingCollections() {
             );
           })}
         </ScrollView>
+        </Surface>
       </LinearGradient>
 
       {isLoading ? (
@@ -399,6 +419,7 @@ export default function TeacherPendingCollections() {
       ) : isError && !data ? (
         <ErrorState onRetry={() => refetch()} />
       ) : (
+        <Surface id="teacher.pending_collections.list">
         <FlatList showsVerticalScrollIndicator={false}
           removeClippedSubviews
           initialNumToRender={8}
@@ -415,16 +436,20 @@ export default function TeacherPendingCollections() {
             ? <EmptyState icon="search" title={t('collections.empty_filter')} />
             : <EmptyState icon="money" title={t('collections.empty')} />}
         />
+        </Surface>
       )}
 
       {/* One page, two ways in (founder 2026-10-06: «a page made for two tabs is a bit much»):
           the list above, and — always in reach of the thumb — scanning the card. */}
+      <Surface id="teacher.pending_collections.scan_fab">
       <TouchableOpacity onPress={() => router.push('/(teacher)/scan?payKind=all' as Href)} activeOpacity={0.9} accessibilityRole="button"
         style={{ position: 'absolute', bottom: insets.bottom + spacing.lg, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 54, paddingHorizontal: spacing.xl, borderRadius: radius.full, backgroundColor: colors.brand, shadowColor: '#000', shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
         <Icon name="scan" size={22} color="#fff" />
         <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: '#fff' }}>{t('desk_ui.scan_card_to_collect')}</Text>
       </TouchableOpacity>
+      </Surface>
 
+      <Surface id="teacher.pending_collections.tip">
       <TeacherTip
         tip="billing"
         icon="money"
@@ -432,8 +457,10 @@ export default function TeacherPendingCollections() {
         bodyKey="onboarding.tip_billing_body"
         bulletKeys={['onboarding.tip_billing_b1', 'onboarding.tip_billing_b2']}
       />
+      </Surface>
 
       {/* Collect sheet — shared with the student's page (CollectSheet); the bill corrections ride inside. */}
+      <Surface id="teacher.pending_collections.collect_sheet">
       <CollectSheet
         visible={!!target}
         onClose={() => setTarget(null)}
@@ -445,6 +472,7 @@ export default function TeacherPendingCollections() {
         busy={busy}
         onSubmit={submit}
       >
+            <Surface id="teacher.pending_collections.bill_corrections">
             {editable.map((i) => {
               const e = edits[i.invoice_id] ?? { amount: '', sessions: '' };
               const set = (patch: Partial<BillEdit>) => setEdits((m) => ({ ...m, [i.invoice_id]: { ...e, ...patch } }));
@@ -461,9 +489,14 @@ export default function TeacherPendingCollections() {
               );
             })}
             {editable.length ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: -spacing.xs, marginBottom: spacing.md }}>{t('collections.bill_edit_hint')}</Text> : null}
+            </Surface>
       </CollectSheet>
+      </Surface>
+      <Surface id="teacher.pending_collections.year_sheet">
       <BillingYearSheet target={yearFor} onClose={() => setYearFor(null)} />
+      </Surface>
     </View>
+    </Surface>
   );
 }
 

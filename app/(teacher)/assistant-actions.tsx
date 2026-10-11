@@ -14,6 +14,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatNumber, formatDayDate, formatTime } from '@/utils/format';
 import { getAssistantActions, rejectAssistantAction, type AssistantAction } from '@/api/assistantActions';
+import { Surface } from '@/ui/surfaces';
 
 type Kind = AssistantAction['kind'];
 const KIND_ORDER: Kind[] = ['proof', 'bill', 'booklet', 'booking', 'attendance'];
@@ -82,11 +83,13 @@ const ActionRow = memo(function ActionRow({ a, busy, onReject }: { a: AssistantA
             {a.created_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{formatTime(a.created_at)}</Text> : null}
           </View>
         </View>
+        <Surface id="teacher.assistant_actions.reject_button">
         <TouchableOpacity onPress={() => onReject(a)} disabled={busy} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('assistant_actions.reject')}
           style={{ height: 40, paddingHorizontal: spacing.md, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.danger + '14', borderWidth: 1, borderColor: colors.danger + '55' }}>
           {busy ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="close" size={16} color={colors.danger} />}
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{t('assistant_actions.reject_short')}</Text>
         </TouchableOpacity>
+        </Surface>
       </View>
     </View>
   );
@@ -159,7 +162,9 @@ export default function AssistantActionsScreen() {
   const filtered = !!assistant || !!kind;
 
   return (
+    <Surface id="screen.teacher.assistant-actions" screen>
     <FormScreen title={t('assistant_actions.title')} subtitle={t('assistant_actions.manage_sub')} scroll={false} right={rows.length > 0 ? <HeaderCount n={rows.length} /> : null}>
+      <Surface id="teacher.assistant_actions.list">
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : rows.length === 0 ? (
@@ -178,6 +183,7 @@ export default function AssistantActionsScreen() {
           ListHeaderComponent={
             <View style={{ paddingTop: spacing.md }}>
               {/* Who: one chip per assistant, with how many of theirs wait. */}
+              <Surface id="teacher.assistant_actions.filter_assistant">
               {assistants.length > 1 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }}>
                   <Chip label={t('assistant_actions.all')} count={rows.length} on={!assistant} onPress={() => setAssistant(null)} />
@@ -186,32 +192,41 @@ export default function AssistantActionsScreen() {
                   ))}
                 </ScrollView>
               ) : null}
+              </Surface>
               {/* What: one chip per kind present. */}
+              <Surface id="teacher.assistant_actions.filter_kind">
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }}>
                 <Chip label={t('assistant_actions.all_kinds')} on={!kind} onPress={() => setKind(null)} />
                 {kinds.map(([k, n]) => (
                   <Chip key={k} label={KIND(t)[k].label} count={n} on={kind === k} tint={KIND(t)[k].tint} onPress={() => setKind(kind === k ? null : k)} />
                 ))}
               </ScrollView>
+              </Surface>
               {/* What the filter adds up to. */}
+              <Surface id="teacher.assistant_actions.summary_strip">
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.xs }}>
                 <Icon name="eye" size={16} color={colors.textSecondary} />
                 <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>
                   {t('assistant_actions.count_actions', { count: shown.length })}
                   {money > 0 ? `  ·  ${t('assistant_actions.total_money', { amount: formatNumber(Math.round(money)) })}` : ''}
                 </Text>
+                <Surface id="teacher.assistant_actions.clear_filter">
                 {filtered ? (
                   <TouchableOpacity onPress={() => { setAssistant(null); setKind(null); }} hitSlop={8} accessibilityRole="button">
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('assistant_actions.clear_filter')}</Text>
                   </TouchableOpacity>
                 ) : null}
+                </Surface>
               </View>
-              {!filtered ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textTertiary, marginBottom: spacing.xs }}>{t('assistant_actions.intro_short')}</Text> : null}
+              </Surface>
+              <Surface id="teacher.assistant_actions.intro">{!filtered ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textTertiary, marginBottom: spacing.xs }}>{t('assistant_actions.intro_short')}</Text> : null}</Surface>
             </View>
           }
           ListEmptyComponent={<EmptyState icon="search" title={t('assistant_actions.none_filter')} />}
         />
       )}
+      </Surface>
     </FormScreen>
+    </Surface>
   );
 }

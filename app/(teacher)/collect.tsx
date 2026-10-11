@@ -1,4 +1,5 @@
 import { Redirect, type Href } from 'expo-router';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * «تحصيل الدفعات» used to be a page with two cards — the list, and scanning — which was one
@@ -6,5 +7,9 @@ import { Redirect, type Href } from 'expo-router';
  * and a scan button always in reach. Kept as a redirect so old links and notifications land.
  */
 export default function TeacherCollect() {
-  return <Redirect href={'/(teacher)/pending-collections' as Href} />;
+  return (
+    <Surface id="screen.teacher.collect" screen>
+      <Redirect href={'/(teacher)/pending-collections' as Href} />
+    </Surface>
+  );
 }

@@ -7,6 +7,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
+import { Surface } from '@/ui/surfaces';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FormScreen, FormCard, Field, Input, OptionRow, DayPicker, Banner, TimeRangeRow } from '@/components/ui/Form';
@@ -84,23 +85,28 @@ export default function ScheduleMergeScreen() {
   const sub = (c: MergeCourse) => [c.slots_label, t('form_ui.students_n', { n: formatNumber(c.headcount) })].filter(Boolean).join(' · ');
 
   return (
+    <Surface id="screen.teacher.schedule-merge" screen>
     <FormScreen title={t('teacher.merge_title')} subtitle={t('teacher.merge_sub')} loading={isLoading}>
       {(courses ?? []).length < 2 ? (
         <EmptyState icon="calendar" title={t('teacher.merge_need_two')} message={t('teacher.merge_need_two_hint')} />
       ) : (
         <>
-          <Banner tone="warn" text={t('teacher.merge_course_intro')} />
+          <Surface id="teacher.schedule_merge.intro_banner"><Banner tone="warn" text={t('teacher.merge_course_intro')} /></Surface>
 
+          <Surface id="teacher.schedule_merge.sources">
           <FormCard icon="book" title={t('teacher.merge_sources')} required hint={sources.length ? t('form_ui.students_n', { n: formatNumber(sources.reduce((n, id) => n + ((courses ?? []).find((c) => c.id === id)?.headcount ?? 0), 0)) }) : undefined}>
             {candidates.map((c) => <OptionRow key={c.id} mode="check" title={c.course_name ?? '—'} sub={sub(c)} selected={sources.includes(c.id)} onPress={() => toggleSource(c.id)} />)}
           </FormCard>
+          </Surface>
 
           {sources.length >= 1 ? (
+            <Surface id="teacher.schedule_merge.destination">
             <FormCard icon="transfer" title={t('teacher.merge_destination')} required hint={t('teacher.merge_pick_destination')} tint={colors.success}>
               {candidates.map((c) => <OptionRow key={`d-${c.id}`} title={c.course_name ?? '—'} sub={sub(c)} selected={destinationId === c.id} onPress={() => setDestinationId(c.id)} />)}
-              <OptionRow title={t('teacher.merge_new_course')} selected={isNew} onPress={() => setDestinationId('new')} leading={<Icon name="add" size={18} color={isNew ? colors.brand : colors.textSecondary} />} />
+              <Surface id="teacher.schedule_merge.new_course_option"><OptionRow title={t('teacher.merge_new_course')} selected={isNew} onPress={() => setDestinationId('new')} leading={<Icon name="add" size={18} color={isNew ? colors.brand : colors.textSecondary} />} /></Surface>
 
               {isNew ? (
+                <Surface id="teacher.schedule_merge.new_course_form">
                 <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
                   <Field label={t('teacher.merge_new_course_name')} required first>
                     <Input value={newName} onChangeText={setNewName} placeholder={t('teacher.merge_new_course_name_ph')} maxLength={120} style={{ backgroundColor: colors.surface }} />
@@ -127,21 +133,26 @@ export default function ScheduleMergeScreen() {
                         </View>
                       </View>
                     ))}
+                    <Surface id="teacher.schedule_merge.new_course_form.add_slot">
                     <TouchableOpacity onPress={addSlot} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.brand, backgroundColor: colors.brandTint }}>
                       <Icon name="add" size={16} color={colors.brand} />
                       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.merge_add_slot')}</Text>
                     </TouchableOpacity>
+                    </Surface>
                   </Field>
                 </View>
+                </Surface>
               ) : destinationId ? (
                 <Banner tone="info" text={t(sources.includes(destinationId) ? 'teacher.merge_destination_hint_survives' : 'teacher.merge_destination_hint_new')} style={{ marginBottom: 0 }} />
               ) : null}
             </FormCard>
+            </Surface>
           ) : null}
 
-          <Button title={t('teacher.merge_title')} onPress={submit} loading={merge.isPending} disabled={!canSubmit} variant="primary" />
+          <Surface id="teacher.schedule_merge.merge_button"><Button title={t('teacher.merge_title')} onPress={submit} loading={merge.isPending} disabled={!canSubmit} variant="primary" /></Surface>
         </>
       )}
     </FormScreen>
+    </Surface>
   );
 }

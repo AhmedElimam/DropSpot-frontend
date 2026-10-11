@@ -4,6 +4,7 @@ import { colors, spacing, radius, fonts } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { PaymentProofButton } from '@/components/parent/PaymentProofButton';
 import type { Invoice } from '@/api/invoices';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * The per-invoice payment affordance, shared by the parent and student invoice
@@ -29,10 +30,11 @@ export function PaymentSection({ invoice }: { invoice: Invoice }) {
     <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
       {hasDigital ? (
         // TEMP/INTERIM (Paymob blocked): remote transfer + screenshot proof.
-        <PaymentProofButton invoice={invoice} />
+        <Surface id="family.invoices.upload_proof"><PaymentProofButton invoice={invoice} /></Surface>
       ) : null}
 
       {acceptsPhysical ? (
+        <Surface id="family.invoices.cash_note">
         <View
           style={{
             flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
@@ -45,6 +47,7 @@ export function PaymentSection({ invoice }: { invoice: Invoice }) {
             {t(hasDigital ? 'invoices.cash_also' : 'invoices.cash_only')}
           </Text>
         </View>
+        </Surface>
       ) : null}
 
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>

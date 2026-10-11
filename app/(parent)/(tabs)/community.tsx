@@ -1,4 +1,5 @@
 import { CommunityComingSoon } from '@/components/parent/CommunityComingSoon';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * «مجتمعنا» — the parent's centre tab (founder 2026-10-06): the child's course chat and a parents'
@@ -6,5 +7,5 @@ import { CommunityComingSoon } from '@/components/parent/CommunityComingSoon';
  * screen opened from Home's children section.
  */
 export default function ParentCommunity() {
-  return <CommunityComingSoon />;
+  return <Surface id="screen.parent.community" screen><CommunityComingSoon /></Surface>;
 }

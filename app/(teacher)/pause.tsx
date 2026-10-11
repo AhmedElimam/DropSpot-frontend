@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing } from '@/theme/index';
 import { Button } from '@/components/ui/Button';
+import { Surface } from '@/ui/surfaces';
 import { FormScreen, FormCard, Field, Chips, DateField, Banner, toIsoDate } from '@/components/ui/Form';
 import { usePauseSessions } from '@/hooks/useTeacherSessionHistory';
 import { formatNumber, formatDayDate } from '@/utils/format';
@@ -53,13 +54,17 @@ export default function PausePeriodScreen() {
   const fmt = (iso: string) => formatDayDate(new Date(`${iso}T00:00:00`));
 
   return (
+    <Surface id="screen.teacher.pause" screen>
     <FormScreen title={t('teacher.pause_period')} subtitle={t('teacher.pause_sub')}>
-      <Banner tone="warn" text={t('teacher.pause_intro')} />
+      <Surface id="teacher.pause.intro_banner"><Banner tone="warn" text={t('teacher.pause_intro')} /></Surface>
 
+      <Surface id="teacher.pause.period">
       <FormCard icon="clock" title={t('teacher.pause_period')} tint={colors.warning}>
+        <Surface id="teacher.pause.period.presets">
         <Chips fill tint={colors.warning}
           options={[{ key: 0, label: t('teacher.preset_today') }, { key: 6, label: t('teacher.preset_week') }, { key: 13, label: t('teacher.preset_two_weeks') }]}
           value={preset} onChange={applyPreset} />
+        </Surface>
         <View style={{ flexDirection: 'row', gap: spacing.md }}>
           <View style={{ flex: 1 }}>
             <Field label={t('teacher.pause_from')}><DateField value={from} onChange={(v) => { setFrom(v); setPreset(null); if (v > to) setTo(v); }} /></Field>
@@ -74,8 +79,10 @@ export default function PausePeriodScreen() {
           <Banner tone="info" icon="calendar" text={`${t('form_ui.range', { from: fmt(from), to: fmt(to) })} · ${t('form_ui.days_count', { n: formatNumber(dayCount) })}`} style={{ marginTop: spacing.md, marginBottom: 0 }} />
         ) : null}
       </FormCard>
+      </Surface>
 
-      <Button title={t('teacher.pause_period')} onPress={submit} loading={pause.isPending} disabled={!canSubmit} variant="destructive" />
+      <Surface id="teacher.pause.submit_button"><Button title={t('teacher.pause_period')} onPress={submit} loading={pause.isPending} disabled={!canSubmit} variant="destructive" /></Surface>
     </FormScreen>
+    </Surface>
   );
 }

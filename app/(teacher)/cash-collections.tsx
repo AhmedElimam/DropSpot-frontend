@@ -20,6 +20,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { isNetworkFailure } from '@/db/marksSync';
 import { formatNumber, formatShortDate, formatTime, formatDayDate } from '@/utils/format';
 import { getCashCollections, type CollectionItem, type CollectionKind, type CollectionStudent } from '@/api/cash';
+import { Surface } from '@/ui/surfaces';
 import i18n from '@/i18n';
 
 const KIND = (): Record<CollectionKind, { label: string; icon: IconName; tint: string }> => ({
@@ -70,6 +71,7 @@ const StudentRow = memo(function StudentRow({ s, kind, open, onToggle, onRefuse,
         <Icon name={open ? 'up' : 'down'} size={16} color={colors.textTertiary} />
       </TouchableOpacity>
       {open ? (
+        <Surface id="teacher.cash_collections.payment_items">
         <View style={{ borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSunken, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm }}>
           {items.map((i, n) => {
             const k = KIND()[i.kind];
@@ -88,17 +90,20 @@ const StudentRow = memo(function StudentRow({ s, kind, open, onToggle, onRefuse,
                 <View style={{ alignItems: 'flex-end', gap: 4 }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{money(i.amount)}</Text>
                   {onRefuse && s.student_id && i.kind !== 'guest_pass' ? (
+                    <Surface id="teacher.cash_collections.refuse_button">
                     <TouchableOpacity onPress={() => onRefuse(s, i)} disabled={busyKey !== null} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('desk_ui.reverse_payment_a11y', { what: i.label ?? '' })}
                       style={{ flexDirection: 'row', alignItems: 'center', gap: 3, height: 28, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.danger + '12', borderWidth: 1, borderColor: colors.danger + '55', opacity: busyKey !== null && busyKey !== `${s.student_id}:${i.kind}:${i.subject_id}` ? 0.5 : 1 }}>
                       {busyKey === `${s.student_id}:${i.kind}:${i.subject_id}` ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="undo" size={12} color={colors.danger} />}
                       <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.danger }}>{t('cash.refuse_confirm')}</Text>
                     </TouchableOpacity>
+                    </Surface>
                   ) : null}
                 </View>
               </View>
             );
           })}
         </View>
+        </Surface>
       ) : null}
     </View>
   );
@@ -185,11 +190,12 @@ export default function CashCollectionsScreen() {
   const kinds = ORDER.filter((k) => k !== 'guest_pass' || (d?.by_kind.guest_pass?.count ?? 0) > 0);
 
   return (
+    <Surface id="screen.teacher.cash-collections" screen>
     <FormScreen
       title={t('cash.who_paid_title')}
       subtitle={d ? t('cash.week_of', { start: formatShortDate(d.week.start), end: formatShortDate(d.week.end) }) : null}
       scroll={false}
-      right={rose.named ? <RosePortrait size={44} nod={false} /> : null}
+      right={rose.named ? <Surface id="teacher.cash_collections.rose_portrait"><RosePortrait size={44} nod={false} /></Surface> : null}
     >
       {query.isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
@@ -198,6 +204,7 @@ export default function CashCollectionsScreen() {
           ? <EmptyState icon="warning" title={t('offline.not_saved_title')} message={t('offline.not_saved_rose', { rose: rose.name })} />
           : <EmptyState icon="refresh" title={t('cash.load_failed')} />
       ) : (
+        <Surface id="teacher.cash_collections.list">
         <FlatList showsVerticalScrollIndicator={false}
           data={list}
           keyExtractor={(s) => String(s.student_id ?? 'guests')}
@@ -211,6 +218,7 @@ export default function CashCollectionsScreen() {
           ListHeaderComponent={
             <View style={{ paddingTop: spacing.md }}>
               {/* Her week: back through past weeks, forward to this one. RTL: › = earlier. */}
+              <Surface id="teacher.cash_collections.week_stepper">
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
                 <TouchableOpacity onPress={() => step(-7)} accessibilityRole="button" accessibilityLabel={t('cash.collections_prev')}
                   style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
@@ -224,8 +232,10 @@ export default function CashCollectionsScreen() {
                   <Icon name="back" size={18} color={colors.brand} />
                 </TouchableOpacity>
               </View>
+              </Surface>
 
               {/* The week in one card: the total, how many paid, cash vs transfer. */}
+              <Surface id="teacher.cash_collections.week_total_card">
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{d.scope === 'mine' ? t('cash.who_paid_mine') : t('cash.collections_total')}</Text>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 30, color: colors.successText, marginTop: 2 }}>{money(d.total)}</Text>
@@ -234,8 +244,10 @@ export default function CashCollectionsScreen() {
                   {d.digital > 0 ? `  ·  ${t('cash.collections_split', { cash: money(d.cash), digital: money(d.digital) })}` : ''}
                 </Text>
               </View>
+              </Surface>
 
               {/* What: each kind with its money and how many paid it. */}
+              <Surface id="teacher.cash_collections.kind_filter">
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.md }}>
                 {[null, ...kinds].map((k) => {
                   const on = kind === k;
@@ -256,13 +268,16 @@ export default function CashCollectionsScreen() {
                   );
                 })}
               </ScrollView>
+              </Surface>
 
               {(d.students?.length ?? 0) > 6 ? (
+                <Surface id="teacher.cash_collections.search_bar">
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, height: 44, marginBottom: spacing.md }}>
                   <Icon name="search" size={16} color={colors.textTertiary} />
                   <TextInput value={q} onChangeText={setQ} placeholder={t('cash.collections_search')} placeholderTextColor={colors.textTertiary}
                     style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, textAlign: 'right' }} />
                 </View>
+                </Surface>
               ) : null}
 
               {kind || q ? (
@@ -276,7 +291,9 @@ export default function CashCollectionsScreen() {
             <EmptyState icon="money" title={kind || q ? t('cash.collections_none_filter') : t('cash.collections_none')} message={kind || q ? undefined : t('cash.collections_none_hint')} />
           }
         />
+        </Surface>
       )}
     </FormScreen>
+    </Surface>
   );
 }

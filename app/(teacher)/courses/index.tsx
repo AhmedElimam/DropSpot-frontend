@@ -13,6 +13,7 @@ import { useCourses } from '@/hooks/useCourses';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 import type { CourseSummary } from '@/api/courses';
 
 function Meta({ icon, label, color = colors.textSecondary }: { icon: IconName; label: string; color?: string }) {
@@ -73,16 +74,18 @@ export default function TeacherCourses() {
   const open = (id: string) => router.push(`/(teacher)/courses/${id}` as Href);
 
   return (
+    <Surface id="screen.teacher.courses" screen>
     <FormScreen title={t('teacher.courses_title')} scroll={false}
       right={(
         <>
           {list.length > 0 ? <HeaderCount n={list.length} /> : null}
-          {can(ABILITY.MANAGE_COURSES) ? <HeaderAction icon="add" label={t('teacher.new_course')} onPress={() => router.push('/(teacher)/courses/create' as Href)} /> : null}
+          {can(ABILITY.MANAGE_COURSES) ? <Surface id="teacher.courses.new_button"><HeaderAction icon="add" label={t('teacher.new_course')} onPress={() => router.push('/(teacher)/courses/create' as Href)} /></Surface> : null}
         </>
       )}>
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
+        <Surface id="teacher.courses.list">
         <FlatList showsVerticalScrollIndicator={false}
           data={list}
           keyExtractor={(c) => c.id}
@@ -92,7 +95,9 @@ export default function TeacherCourses() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={<EmptyState icon="book" title={t('teacher.courses_empty_title')} message={t('teacher.courses_empty_hint')} />}
         />
+        </Surface>
       )}
     </FormScreen>
+    </Surface>
   );
 }

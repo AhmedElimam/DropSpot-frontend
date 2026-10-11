@@ -13,6 +13,7 @@ import { useRevisions } from '@/hooks/useRevisions';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { GuestPassModal } from '@/components/teacher/GuestPassModal';
+import { Surface } from '@/ui/surfaces';
 import type { BillingMode, RevisionSummary } from '@/api/revisions';
 
 function billingLabel(mode: BillingMode, t: (k: string) => string): string {
@@ -66,18 +67,22 @@ export default function TeacherRevisions() {
         {!disabled && (canIssuePass || rev.is_quiz_exam) ? (
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
             {canIssuePass ? (
+              <Surface id="teacher.revisions.guest_pass_button">
               <TouchableOpacity onPress={() => setGuestFor({ id: rev.id, instanceId: rev.instance_id as number, title: rev.title })} accessibilityLabel={t('teacher.guest_pass_issue')}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 40, borderRadius: radius.md, backgroundColor: colors.brandTint }}>
                 <Icon name="add" size={16} color={colors.brand} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.guest_add_short')}</Text>
               </TouchableOpacity>
+              </Surface>
             ) : null}
             {rev.is_quiz_exam ? (
+              <Surface id="teacher.revisions.exam_marks_button">
               <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/revision-marks', params: { revisionId: String(rev.id), instanceId: String(rev.instance_id), title: rev.title, maxMark: rev.max_mark != null ? String(rev.max_mark) : '' } })}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 40, borderRadius: radius.md, backgroundColor: colors.accentLight }}>
                 <Icon name="grades" size={16} color={colors.accentText} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accentText }}>{t('teacher.exam_marks')}</Text>
               </TouchableOpacity>
+              </Surface>
             ) : null}
           </View>
         ) : null}
@@ -86,16 +91,18 @@ export default function TeacherRevisions() {
   };
 
   return (
+    <Surface id="screen.teacher.revisions" screen>
     <FormScreen title={t('teacher.revisions_title')} subtitle={t('teacher.revisions_subtitle')} scroll={false}
       right={(
         <>
           {list.length > 0 ? <HeaderCount n={list.length} /> : null}
-          <HeaderAction icon="add" onPress={() => router.push('/(teacher)/revision-create')} accessibilityLabel={t('revision_create.title')} />
+          <Surface id="teacher.revisions.create_button"><HeaderAction icon="add" onPress={() => router.push('/(teacher)/revision-create')} accessibilityLabel={t('revision_create.title')} /></Surface>
         </>
       )}>
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
+        <Surface id="teacher.revisions.list">
         <FlatList showsVerticalScrollIndicator={false}
           data={list}
           keyExtractor={(r) => String(r.id)}
@@ -104,8 +111,10 @@ export default function TeacherRevisions() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           ListEmptyComponent={<EmptyState icon="book" title={t('teacher.revisions_empty')} />}
         />
+        </Surface>
       )}
-      <GuestPassModal visible={!!guestFor} revisionId={guestFor?.id ?? null} instanceId={guestFor?.instanceId ?? null} sessionTitle={guestFor?.title} onClose={() => setGuestFor(null)} />
+      <Surface id="teacher.revisions.guest_pass_modal"><GuestPassModal visible={!!guestFor} revisionId={guestFor?.id ?? null} instanceId={guestFor?.instanceId ?? null} sessionTitle={guestFor?.title} onClose={() => setGuestFor(null)} /></Surface>
     </FormScreen>
+    </Surface>
   );
 }

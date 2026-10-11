@@ -17,6 +17,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { PageHero } from '@/components/ui/PageHero';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
+import { Surface } from '@/ui/surfaces';
 
 interface SettingItem {
   key: string;
@@ -80,15 +81,19 @@ export default function ParentSettings() {
   ];
 
   return (
+    <Surface id="screen.parent.profile" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+        <Surface id="parent.profile.hero">
         <PageHero title={user?.name ?? ''} subtitle={user?.phone ?? undefined} avatar={avatarSeed.user(user?.id, user?.name ?? '?')}>
         <View style={{ alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.onHeroChip, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.onHero }}>{t('profile.role_parent')}</Text>
         </View>
         </PageHero>
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          <Surface id="parent.profile.account">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.account')}
@@ -116,7 +121,9 @@ export default function ParentSettings() {
               </Text>
             </View>
           </View>
+          </Surface>
 
+          <Surface id="parent.profile.account_info">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.account_info')}
@@ -132,8 +139,10 @@ export default function ParentSettings() {
               <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>{children?.length ?? 0}</Text>
             </View>
           </View>
+          </Surface>
 
           {/* The family's conversations with its teachers — easy to miss as a home tile alone. */}
+          <Surface id="parent.profile.tickets_entry">
           <TouchableOpacity
             onPress={() => router.push('/(parent)/tickets' as Href)}
             activeOpacity={0.85}
@@ -147,25 +156,29 @@ export default function ParentSettings() {
             </View>
             <Icon name="back" size={16} color={colors.textTertiary} />
           </TouchableOpacity>
+          </Surface>
 
           <View style={{ marginBottom: spacing.md }}>
-            <TourRow home={'/(parent)/(tabs)' as Href} />
-            <ThemeRow />
-            <SupportContact href={'/(parent)/support' as Href} />
+            <Surface id="parent.profile.tour"><TourRow home={'/(parent)/(tabs)' as Href} /></Surface>
+            <Surface id="parent.profile.theme"><ThemeRow /></Surface>
+            <Surface id="parent.profile.support"><SupportContact href={'/(parent)/support' as Href} /></Surface>
           </View>
 
+          <Surface id="parent.profile.logout">
           <TouchableOpacity onPress={() => logout.mutate()} activeOpacity={0.85} style={{ borderRadius: radius.lg, overflow: 'hidden' }}>
             <LinearGradient colors={[colors.dangerDark, colors.danger]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: control.minHeight, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <Icon name="logout" size={20} color="#fff" outline />
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('common.logout')}</Text>
             </LinearGradient>
           </TouchableOpacity>
+          </Surface>
 
-          <DeleteAccountButton />
+          <Surface id="parent.profile.delete_account"><DeleteAccountButton /></Surface>
 
           <Text style={[textPresets.caption, { textAlign: 'center', marginTop: spacing.md }]}>DrosSpot v1.0.0</Text>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }

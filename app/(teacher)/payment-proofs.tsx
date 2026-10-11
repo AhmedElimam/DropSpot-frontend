@@ -21,6 +21,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { getPaymentProofs, approvePaymentProof, rejectPaymentProof, type PaymentProof } from '@/api/paymentProofs';
+import { Surface } from '@/ui/surfaces';
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '';
@@ -100,6 +101,7 @@ export default function PaymentProofsScreen() {
 
       {!review ? (
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+          <Surface id="teacher.payment_proofs.approve_button">
           <TouchableOpacity
             onPress={() => confirmApprove(p)}
             disabled={approve.isPending}
@@ -109,6 +111,8 @@ export default function PaymentProofsScreen() {
             <Icon name="success" size={18} color="#fff" />
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('payment_proofs.approve')}</Text>
           </TouchableOpacity>
+          </Surface>
+          <Surface id="teacher.payment_proofs.reject_button">
           <TouchableOpacity
             onPress={() => { setRejecting(p); setReason(''); }}
             activeOpacity={0.85}
@@ -117,6 +121,7 @@ export default function PaymentProofsScreen() {
             <Icon name="close" size={18} color={colors.danger} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.danger }}>{t('payment_proofs.reject')}</Text>
           </TouchableOpacity>
+          </Surface>
         </View>
       ) : null}
     </View>
@@ -126,6 +131,7 @@ export default function PaymentProofsScreen() {
   const reviewed = data?.reviewed ?? [];
 
   return (
+    <Surface id="screen.teacher.payment-proofs" screen>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
@@ -142,6 +148,7 @@ export default function PaymentProofsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           showsVerticalScrollIndicator={false}
         >
+          <Surface id="teacher.payment_proofs.pending_section">
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>
             {t('payment_proofs.pending')} ({pending.length})
           </Text>
@@ -150,27 +157,31 @@ export default function PaymentProofsScreen() {
           ) : (
             pending.map((p) => <ProofCard key={p.id} p={p} review={false} />)
           )}
+          </Surface>
 
           {reviewed.length > 0 ? (
-            <>
+            <Surface id="teacher.payment_proofs.reviewed_section">
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginTop: spacing.lg, marginBottom: spacing.sm }}>
                 {t('payment_proofs.reviewed')}
               </Text>
               {reviewed.map((p) => <ProofCard key={p.id} p={p} review />)}
-            </>
+            </Surface>
           ) : null}
         </ScrollView>
       )}
 
       {/* Screenshot lightbox */}
+      <Surface id="teacher.payment_proofs.lightbox">
       <Modal visible={!!preview} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
         <TouchableOpacity activeOpacity={1} onPress={() => setPreview(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: spacing.lg }}>
           {preview ? <Image source={{ uri: preview }} style={{ width: '100%', height: '80%' }} contentFit="contain" /> : null}
           <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: spacing.md }}>{t('common.close')}</Text>
         </TouchableOpacity>
       </Modal>
+      </Surface>
 
       {/* Reject reason */}
+      <Surface id="teacher.payment_proofs.reject_sheet">
       <SheetModal visible={!!rejecting} onClose={() => setRejecting(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('payment_proofs.reject_title')}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs }}>{t('payment_proofs.reject_hint')}</Text>
@@ -191,6 +202,8 @@ export default function PaymentProofsScreen() {
               {reject.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('payment_proofs.reject')}</Text>}
             </TouchableOpacity>
       </SheetModal>
+      </Surface>
     </View>
+    </Surface>
   );
 }

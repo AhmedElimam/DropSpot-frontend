@@ -17,6 +17,7 @@ import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePhoneConfirmations, PHONE_CONFIRMATIONS_KEY } from '@/hooks/usePhoneConfirmations';
 import { acknowledgePhone, sendPhoneConfirmationCode, confirmPhoneCode, type PhoneConfirmation } from '@/api/phoneConfirmations';
 import { requestStudentEdit, flagParentNumber } from '@/api/students';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * «أرقام تحتاج تأكيد» — spec §5.
@@ -189,6 +190,7 @@ export default function PhoneConfirmationsScreen() {
 
         {/* Proof first. A code the family reads back is stronger than anyone's word (§7),
             so it leads the row; vouching stays for the families who cannot receive SMS. */}
+        <Surface id="teacher.phone_confirmations.confirm_by_code">
         <TouchableOpacity
           onPress={() => { setOtpCode(''); setOtpSent(false); setSheet({ kind: 'otp', item: it }); }}
           activeOpacity={0.85}
@@ -200,8 +202,10 @@ export default function PhoneConfirmationsScreen() {
           <Icon name="call" size={16} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('staff_ui.phone_confirm_by_code')}</Text>
         </TouchableOpacity>
+        </Surface>
 
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
+          <Surface id="teacher.phone_confirmations.number_correct">
           <TouchableOpacity
             onPress={() => { setNote(''); setSheet({ kind: 'ack', item: it }); }}
             activeOpacity={0.85}
@@ -214,7 +218,9 @@ export default function PhoneConfirmationsScreen() {
             <Icon name="success" size={15} color={colors.success} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.success }}>{t('staff_ui.phone_number_correct')}</Text>
           </TouchableOpacity>
+          </Surface>
 
+          <Surface id="teacher.phone_confirmations.edit_number">
           {(it.scope === 'student' ? can(ABILITY.MANAGE_STUDENTS) : can(ABILITY.REPORT_INCIDENTS)) ? (
             <TouchableOpacity
               onPress={() => { setNote(''); setNewNumber(''); setSheet({ kind: 'edit', item: it }); }}
@@ -229,7 +235,9 @@ export default function PhoneConfirmationsScreen() {
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('staff_ui.edit_number')}</Text>
             </TouchableOpacity>
           ) : null}
+          </Surface>
 
+          <Surface id="teacher.phone_confirmations.escalate">
           {it.can_escalate && can(ABILITY.REPORT_INCIDENTS) ? (
             <TouchableOpacity
               onPress={() => { setNote(''); setSheet({ kind: 'escalate', item: it }); }}
@@ -243,6 +251,7 @@ export default function PhoneConfirmationsScreen() {
               <Icon name="warning" size={16} color={colors.warningText} />
             </TouchableOpacity>
           ) : null}
+          </Surface>
         </View>
       </View>
     );
@@ -254,7 +263,9 @@ export default function PhoneConfirmationsScreen() {
         : t('staff_ui.phone_escalate_title');
 
   return (
+    <Surface id="screen.teacher.phone-confirmations" screen>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Surface id="teacher.phone_confirmations.header">
       <View style={{
         flexDirection: 'row', alignItems: 'center', gap: spacing.md,
         paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
@@ -268,7 +279,9 @@ export default function PhoneConfirmationsScreen() {
         </TouchableOpacity>
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('home.phones_title')}</Text>
       </View>
+      </Surface>
 
+      <Surface id="teacher.phone_confirmations.list">
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
@@ -285,9 +298,11 @@ export default function PhoneConfirmationsScreen() {
             />
           ) : (
             <>
+              <Surface id="teacher.phone_confirmations.intro">
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md, lineHeight: 20 }}>
                 {t('staff_ui.phone_intro')}
               </Text>
+              </Surface>
               {groups.map(([studentId, g]) => (
                 <View
                   key={studentId}
@@ -312,7 +327,9 @@ export default function PhoneConfirmationsScreen() {
           )}
         </ScrollView>
       )}
+      </Surface>
 
+      <Surface id="teacher.phone_confirmations.sheet">
       <SheetModal visible={sheet !== null} onClose={closeSheet} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{sheetTitle}</Text>
 
@@ -398,6 +415,7 @@ export default function PhoneConfirmationsScreen() {
               >
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>{t('common.cancel')}</Text>
               </TouchableOpacity>
+              <Surface id="teacher.phone_confirmations.sheet.submit">
               <TouchableOpacity
                 onPress={() => {
                   if (!sheet) return;
@@ -422,8 +440,11 @@ export default function PhoneConfirmationsScreen() {
                   </Text>
                 )}
               </TouchableOpacity>
+              </Surface>
             </View>
       </SheetModal>
+      </Surface>
     </View>
+    </Surface>
   );
 }

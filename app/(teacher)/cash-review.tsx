@@ -21,6 +21,7 @@ import {
   getWeeklyReview, decideExpense, bulkAccept, flagReview, closeWeek, addCorrection,
   type Expense, type ReviewStatus, type WeeklyReview,
 } from '@/api/cash';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * Weekly review — the teacher reconciles (spec 2026-09-25). The assistant submitted; here
@@ -97,32 +98,43 @@ function ItemCard({ e, review, isTeacher, onDecided }: { e: Expense; review: Wee
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger, marginTop: 2 }}>{e.reject_reason_label}{e.reject_note ? ` — ${e.reject_note}` : ''}</Text>
       ) : null}
       {e.messages_count > 0 ? (
+        <Surface id="teacher.cash_review.thread_link">
         <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/expense-thread', params: { id: String(e.id) } } as Href)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
           <Icon name="tickets" size={14} color={colors.brand} />
           <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('review.thread', { count: e.messages_count })}{e.has_receipt ? ` · ${t('review.receipt')}` : ''}</Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
 
       {isTeacher && !locked ? (
         panel === null ? (
+          <Surface id="teacher.cash_review.decision_buttons">
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
             {e.review_status !== 'accepted' ? (
+              <Surface id="teacher.cash_review.accept_button">
               <TouchableOpacity onPress={() => decide.mutate({ action: 'accept' })} disabled={decide.isPending} style={{ flex: 1, height: 38, borderRadius: radius.md, backgroundColor: colors.success + '18', borderWidth: 1, borderColor: colors.success, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.successDark }}>{t('review.accept')}</Text>
               </TouchableOpacity>
+              </Surface>
             ) : null}
             {e.review_status !== 'questioned' ? (
+              <Surface id="teacher.cash_review.question_button">
               <TouchableOpacity onPress={() => setPanel('question')} style={{ flex: 1, height: 38, borderRadius: radius.md, backgroundColor: colors.warning + '18', borderWidth: 1, borderColor: colors.warning, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.warningDark }}>{t('review.question')}</Text>
               </TouchableOpacity>
+              </Surface>
             ) : null}
             {e.review_status !== 'rejected' ? (
+              <Surface id="teacher.cash_review.reject_button">
               <TouchableOpacity onPress={() => setPanel('reject')} style={{ flex: 1, height: 38, borderRadius: radius.md, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{t('review.reject')}</Text>
               </TouchableOpacity>
+              </Surface>
             ) : null}
           </View>
+          </Surface>
         ) : (
+          <Surface id="teacher.cash_review.decision_panel">
           <View style={{ marginTop: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{panel === 'question' ? t('review.question_title') : t('review.reject_title')}</Text>
             {panel === 'reject' ? (
@@ -157,6 +169,7 @@ function ItemCard({ e, review, isTeacher, onDecided }: { e: Expense; review: Wee
               <View style={{ flex: 1 }}><Button title={t('common.cancel')} variant="outline" onPress={() => setPanel(null)} /></View>
             </View>
           </View>
+          </Surface>
         )
       ) : null}
     </View>
@@ -221,6 +234,7 @@ export default function CashReviewScreen() {
   const resultTint = r?.result === 'deficit' ? colors.danger : r?.result === 'surplus' ? colors.warningDark : colors.success;
 
   return (
+    <Surface id="screen.teacher.cash-review" screen>
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
@@ -242,6 +256,7 @@ export default function CashReviewScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* §6 — every line of the week, then what the review did to it. */}
+          <Surface id="teacher.cash_review.summary_card">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
             {r.opening_balance !== null ? <Line label={t('cash.opening')} value={`${money(r.opening_balance)} ${egp}`} /> : null}
             <Line label={t('cash.collected_teacher')} value={`${money(r.collected)} ${egp}`} />
@@ -265,16 +280,19 @@ export default function CashReviewScreen() {
               </View>
             ) : null}
           </View>
+          </Surface>
 
           {data.closed ? (
+            <Surface id="teacher.cash_review.closed_banner">
             <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('review.closed')}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('review.closed_hint')}</Text>
               </View>
               {/* Closed = in her book. */}
-              <RoseStamp ink="navy" size={52} />
+              <Surface id="teacher.cash_review.rose_stamp"><RoseStamp ink="navy" size={52} /></Surface>
             </View>
+            </Surface>
           ) : null}
           {!isTeacher ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.md }}>{t('review.readonly_hint')}</Text> : null}
           {isTeacher && data.counts.pending + data.counts.questioned > 0 ? (
@@ -282,6 +300,7 @@ export default function CashReviewScreen() {
           ) : null}
 
           {/* Filters */}
+          <Surface id="teacher.cash_review.filter_bar">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.sm }} style={{ flexGrow: 0 }}>
             {(['all', 'pending', 'questioned', 'rejected', 'accepted', 'late'] as Filter[]).map((f) => {
               const on = filter === f;
@@ -293,25 +312,32 @@ export default function CashReviewScreen() {
               );
             })}
           </ScrollView>
+          </Surface>
 
+          <Surface id="teacher.cash_review.expenses_list">
           {items.length === 0 ? (
             <EmptyState icon="success" title={t('review.none')} />
           ) : (
             items.map((e) => <ItemCard key={e.id} e={e} review={data} isTeacher={isTeacher} onDecided={invalidate} />)
           )}
+          </Surface>
 
           {/* §8 — below the list on purpose: it only exists after the list has been seen. */}
           {isTeacher && !data.closed && shownPending.length > 0 ? (
+            <Surface id="teacher.cash_review.bulk_accept_button">
             <View style={{ marginTop: spacing.sm, marginBottom: spacing.lg }}>
               <Button title={t('review.bulk')} variant="success" onPress={() => bulk.mutate()} loading={bulk.isPending} />
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 4, textAlign: 'center' }}>{t('review.bulk_hint', { amount: money(data.bulk_max ?? 500) })}</Text>
             </View>
+            </Surface>
           ) : null}
 
           {isTeacher && !data.closed ? (
             <>
               {/* §9 — flags beyond expenses. */}
+              <Surface id="teacher.cash_review.flags_section">
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginTop: spacing.lg, marginBottom: spacing.sm }}>{t('review.flags_title')}</Text>
+              <Surface id="teacher.cash_review.flag_count_card">
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('review.flag_count')}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{t('review.flag_count_hint')}</Text>
@@ -321,6 +347,8 @@ export default function CashReviewScreen() {
                   <Button title={t('review.flag_save')} onPress={() => flag.mutate({ kind: 'count', amount: Number(countFlag) })} disabled={countFlag === ''} loading={flag.isPending} />
                 </View>
               </View>
+              </Surface>
+              <Surface id="teacher.cash_review.flag_collection_card">
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('review.flag_collection')}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{t('review.flag_collection_hint')}</Text>
@@ -328,31 +356,40 @@ export default function CashReviewScreen() {
                   style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 8, textAlign: 'right', marginBottom: spacing.sm }} />
                 <Button title={t('review.flag_save')} onPress={() => flag.mutate({ kind: 'collection', note: collectionFlag.trim() })} disabled={collectionFlag.trim() === ''} loading={flag.isPending} />
               </View>
+              </Surface>
               {/* The real fix for a missing collection is to record it — a quiet dashed row, same shape as the handover button on the hub. */}
+              <Surface id="teacher.cash_review.record_collection_button">
               <TouchableOpacity onPress={() => router.push('/(teacher)/pending-collections' as Href)} activeOpacity={0.85}
                 style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, borderStyle: 'dashed', marginBottom: spacing.sm }}>
                 <Icon name="money" size={18} color={colors.brand} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('cash.surplus_record')}</Text>
                 <Icon name="back" size={16} color={colors.brand} />
               </TouchableOpacity>
+              </Surface>
               {(data.flags ?? []).map((f) => (
                 <Text key={f.id} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 2 }}>
                   • {f.kind === 'count' ? t('review.flag_count') : t('review.flag_collection')}{f.amount !== null ? ` ${money(f.amount)} ${egp}` : ''}{f.note ? ` — ${f.note}` : ''}
                 </Text>
               ))}
+              </Surface>
 
               {/* §10 — closing. A remaining gap never blocks it; undecided items do. */}
+              <Surface id="teacher.cash_review.close_week_section">
               <View style={{ marginTop: spacing.lg }}>
                 {(data.blocking ?? []).map((b) => (
                   <Text key={b} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: 2 }}>• {t(`review.block_${b}`)}</Text>
                 ))}
+                <Surface id="teacher.cash_review.close_week_button">
                 <Button title={t('review.close')} onPress={confirmClose} disabled={!data.can_close} loading={close.isPending} style={{ marginTop: spacing.sm }} />
+                </Surface>
               </View>
+              </Surface>
             </>
           ) : null}
 
           {/* §11 — after closing, corrections are adjustments in the current week. */}
           {isTeacher && data.closed ? (
+            <Surface id="teacher.cash_review.corrections_section">
             <View style={{ marginTop: spacing.md }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('review.corrections_title')}</Text>
               {(data.corrections ?? []).map((c) => (
@@ -368,10 +405,12 @@ export default function CashReviewScreen() {
                 <Button title={t('review.correction_add')} onPress={() => correct.mutate()} disabled={!Number(corrAmount) || corrNote.trim() === ''} loading={correct.isPending} />
               </View>
             </View>
+            </Surface>
           ) : null}
         </ScrollView>
       )}
       {burstNode}
     </KeyboardAvoidingView>
+    </Surface>
   );
 }

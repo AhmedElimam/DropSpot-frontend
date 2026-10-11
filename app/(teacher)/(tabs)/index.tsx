@@ -20,6 +20,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { ConnectionLine } from '@/components/ui/ConnectionStatus';
 import { TourTarget } from '@/tour/TourTarget';
+import { Surface } from '@/ui/surfaces';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
 import { PendingInvitations } from '@/components/teacher/PendingInvitations';
@@ -173,6 +174,7 @@ export default function TeacherHome() {
 
   const tourScroll = useTourScroll();
   return (
+    <Surface id="screen.teacher.home" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         {...tourScroll}
@@ -189,30 +191,39 @@ export default function TeacherHome() {
             onScan={canCash ? () => router.push('/(teacher)/scan' as Href) : undefined}
             scanBadge={offlineAttention}
             onSearch={() => router.push('/(teacher)/search' as Href)}
+            surfacePrefix="teacher.header"
           />
           {/* Name and date centred at the top (founder 2026-10-05). */}
+          <Surface id="teacher.home.greeting">
           <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero, textAlign: 'center' }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{formatDayDate(new Date(now))}</Text>
+          </Surface>
           {/* Live connection: Wi-Fi / mobile / offline, and what waits to be sent — tap for details. */}
-          <ConnectionLine style={{ marginTop: spacing.sm }} />
-          <TeacherSwitcher />
+          <Surface id="teacher.home.connection_line"><ConnectionLine style={{ marginTop: spacing.sm }} /></Surface>
+          <Surface id="teacher.home.teacher_switcher"><TeacherSwitcher /></Surface>
           {/* The gap sits OUTSIDE the measured box, so the hole stops at the tiles and leaves the date line alone. */}
+          <Surface id="teacher.home.stats">
           <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            {/* One id per tile: <Surface id="teacher.home.stat_sessions"> <Surface id="teacher.home.stat_present"> <Surface id="teacher.home.stat_attention"> */}
             {[
               { k: 'sessions', v: formatNumber(sessions.length), l: t('home.stat_sessions') },
               { k: 'present', v: rosterToday > 0 ? `${formatNumber(presentToday)}/${formatNumber(rosterToday)}` : formatNumber(presentToday), l: t('home.stat_present') },
               { k: 'attention', v: formatNumber(attentionTotal), l: t('home.stat_attention') },
             ].map((x) => (
-              <View key={x.k} style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.onHeroChipBorder, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+              <Surface key={x.k} id={`teacher.home.stat_${x.k}`}>
+              <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.onHeroChipBorder, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 26, color: x.k === 'attention' && attentionTotal > 0 ? colors.accent : colors.onHero }}>{x.v}</Text>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.onHeroSoft }} numberOfLines={1}>{x.l}</Text>
               </View>
+              </Surface>
             ))}
           </View></TourTarget>
+          </Surface>
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           {/* Spotlight — the session that matters now. */}
+          <Surface id="teacher.home.spotlight">
           <TourTarget id="home:spotlight">
           {sessionsQ.isLoading ? (
             <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.xl, alignItems: 'center', ...shadows.md }}>
@@ -236,14 +247,19 @@ export default function TeacherHome() {
             </TouchableOpacity>
           )}
           </TourTarget>
+          </Surface>
 
-          <PendingInvitations />
+          <Surface id="teacher.home.pending_invitations"><PendingInvitations /></Surface>
 
           {/* Shortcuts — coloured, labelled buttons; مدام روز in the middle, bare. */}
+          <Surface id="teacher.home.shortcuts">
           <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            {/* One id per shortcut: <Surface id="teacher.home.shortcut_add"> <Surface id="teacher.home.shortcut_collect"> <Surface id="teacher.home.shortcut_schedule">
+                <Surface id="teacher.home.shortcut_insights"> <Surface id="teacher.home.shortcut_students"> <Surface id="teacher.home.shortcut_rose"> */}
             {shortcuts.map((x) => (
-              <TouchableOpacity key={x.key} onPress={x.onPress} activeOpacity={0.85} accessibilityRole="button" style={{ width: tileWidth, alignItems: 'center' }}>
+              <Surface key={x.key} id={`teacher.home.shortcut_${x.key}`}>
+              <TouchableOpacity onPress={x.onPress} activeOpacity={0.85} accessibilityRole="button" style={{ width: tileWidth, alignItems: 'center' }}>
                 <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: x.key === 'rose' && rose.named ? 'transparent' : x.tint, alignItems: 'center', justifyContent: 'center' }}>
                   {/* مدام روز waves when something is waiting on her desk (founder 2026-10-08). */}
                   {x.key === 'rose' && rose.named ? <RoseCalling size={64} calling={!!x.badge} /> : <Icon name={x.icon} size={26} color={x.color} />}
@@ -255,19 +271,25 @@ export default function TeacherHome() {
                 </View>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary, marginTop: 6, textAlign: 'center' }} numberOfLines={1}>{x.label}</Text>
               </TouchableOpacity>
+              </Surface>
             ))}
           </View>
           </TourTarget>
+          </Surface>
 
           {/* «يحتاج انتباهك»: a two-column grid of small chips (icon, short name, count)
               instead of a full card per item — seven rows once ate half the page (founder
               2026-10-10). The count in the hero's tile is the same number. */}
           {attention.length > 0 ? (
+            <Surface id="teacher.home.needs_attention">
             <View style={{ marginTop: spacing.xl }}>
               <SectionHead icon="warning" color={colors.warning} title={t('home.needs_you')} action={t('home.attention_count', { count: attentionTotal })} />
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                {/* One id per chip: <Surface id="teacher.home.attention_sync"> <Surface id="teacher.home.attention_phones"> <Surface id="teacher.home.attention_booking">
+                    <Surface id="teacher.home.attention_cash"> <Surface id="teacher.home.attention_actions"> <Surface id="teacher.home.attention_tickets"> <Surface id="teacher.home.attention_complaints"> */}
                 {attention.map((a) => (
-                  <TouchableOpacity key={a.key} onPress={() => router.push(a.href as Href)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={`${a.title} — ${a.sub}`}
+                  <Surface key={a.key} id={`teacher.home.attention_${a.key}`}>
+                  <TouchableOpacity onPress={() => router.push(a.href as Href)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={`${a.title} — ${a.sub}`}
                     style={{ width: '48.5%', minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: a.tone === 'danger' ? colors.danger : colors.border }}>
                     {a.key === 'cash' && rose.named ? <RosePortrait size={30} nod={false} /> : (
                       <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: (a.tone === 'danger' ? colors.danger : colors.warning) + '1F', alignItems: 'center', justifyContent: 'center' }}>
@@ -279,12 +301,15 @@ export default function TeacherHome() {
                       <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{a.badge > 99 ? '99+' : formatNumber(a.badge)}</Text>
                     </View>
                   </TouchableOpacity>
+                  </Surface>
                 ))}
               </View>
             </View>
+            </Surface>
           ) : null}
 
           {rest.length > 0 ? (
+            <Surface id="teacher.home.rest_of_day">
             <View style={{ marginTop: spacing.xl }}>
               <SectionHead icon="calendar" color={colors.brand} title={t('home.rest_of_day')} action={t('home.all_sessions')} onAction={() => router.push('/(teacher)/sessions' as Href)} />
               {rest.map((s) => (
@@ -293,15 +318,17 @@ export default function TeacherHome() {
                 </SwipeRow>
               ))}
             </View>
+            </Surface>
           ) : null}
 
-          <View style={{ marginTop: spacing.xl }}><WhatsNewCard /></View>
+          <Surface id="teacher.home.whats_new"><View style={{ marginTop: spacing.xl }}><WhatsNewCard /></View></Surface>
         </View>
       </ScrollView>
       <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} />
       <ScheduleToolsSheet visible={scheduleOpen} onClose={() => setScheduleOpen(false)} />
       <SessionRosterSheet sessionId={rosterFor} onClose={() => setRosterFor(null)} onOpenFull={(id) => { setRosterFor(null); openSheet({ id }); }} />
     </View>
+    </Surface>
   );
 }
 
@@ -353,6 +380,7 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
       </View>
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
         {canScan ? (
+          <Surface id="teacher.home.spotlight_scan">
           <TouchableOpacity onPress={() => onScan(s)} activeOpacity={0.85} accessibilityRole="button"
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50, borderRadius: radius.lg, backgroundColor: '#fff' }}>
             {/* The button is white in both schemes, so its ink is fixed (onWhite), never a theme
@@ -360,12 +388,15 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
             <Icon name="scan" size={20} color={live ? onWhite.success : onWhite.brand} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: live ? onWhite.success : onWhite.brand }}>{t('sessions_tab.scan')}</Text>
           </TouchableOpacity>
+          </Surface>
         ) : null}
+        <Surface id="teacher.home.spotlight_sheet">
         <TouchableOpacity onPress={() => onOpen(s)} activeOpacity={0.85} accessibilityRole="button"
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50, borderRadius: radius.lg, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.7)' }}>
           <Icon name="attendance" size={20} color="#fff" outline />
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('sessions_tab.sheet')}</Text>
         </TouchableOpacity>
+        </Surface>
       </View>
     </LinearGradient>
   );

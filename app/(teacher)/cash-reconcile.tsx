@@ -33,6 +33,7 @@ import {
   getCashReconciliation, respondReconciliation, setOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights, getRoseSheet,
   type AssistantCashView, type TeacherCashView, type Drawer, type TeacherDrawer, type Handover, type ReconciliationResult, type ReconciliationStatus, type VenueRef, type Observation, type CashView,
 } from '@/api/cash';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * مدام روز — her DESK (founder 2026-10-07: «she has more than the cash keeping now»). ONE
@@ -150,15 +151,19 @@ function SurplusNotice({ d }: { d: Drawer }) {
   const { t } = useTranslation();
   if (d.result !== 'surplus') return null;
   return (
+    <Surface id="teacher.cash_reconcile.drawer_surplus_notice">
     <View style={{ backgroundColor: colors.warning + '18', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.warning, padding: spacing.md, marginTop: spacing.sm }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.warningDark }}>{t('cash.surplus_question')}</Text>
       <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>{t('cash.surplus_hint')}</Text>
+      <Surface id="teacher.cash_reconcile.surplus_record_button">
       <TouchableOpacity onPress={() => router.push('/(teacher)/pending-collections' as Href)} activeOpacity={0.85}
         style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, borderRadius: radius.md, backgroundColor: colors.warning, marginTop: spacing.sm }}>
         <Icon name="money" size={16} color="#fff" />
         <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('cash.surplus_record')}</Text>
       </TouchableOpacity>
+      </Surface>
     </View>
+    </Surface>
   );
 }
 
@@ -166,6 +171,7 @@ function Details({ d, extra }: { d: Drawer; extra?: React.ReactNode }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
+    <Surface id="teacher.cash_reconcile.drawer_details">
     <View>
       <TouchableOpacity onPress={() => setOpen((o) => !o)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingVertical: 4 }}>
         <Icon name={open ? 'up' : 'down'} size={14} color={colors.brand} />
@@ -180,6 +186,7 @@ function Details({ d, extra }: { d: Drawer; extra?: React.ReactNode }) {
         </View>
       ) : null}
     </View>
+    </Surface>
   );
 }
 
@@ -204,6 +211,7 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
   });
 
   return (
+    <Surface id="teacher.cash_reconcile.prompt_card">
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, ...shadows.md }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}>
@@ -230,16 +238,20 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'center', marginVertical: spacing.sm }}>{t('cash.question')}</Text>
           {/* Compact pair sized to the card: the full-size Button wrapped its label at half width. */}
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Surface id="teacher.cash_reconcile.prompt_yes_full_button">
             <TouchableOpacity onPress={() => respond.mutate({ full: true })} disabled={respond.isPending} activeOpacity={0.85}
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, backgroundColor: colors.success, opacity: respond.isPending ? 0.6 : 1 }}>
               {respond.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="success" size={16} color="#fff" />}
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }} numberOfLines={1}>{t('cash.yes_full')}</Text>
             </TouchableOpacity>
+            </Surface>
+            <Surface id="teacher.cash_reconcile.prompt_no_diff_button">
             <TouchableOpacity onPress={() => setMode('diff')} disabled={respond.isPending} activeOpacity={0.85}
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand }}>
               <Icon name="note" size={16} color={colors.brand} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }} numberOfLines={1}>{t('cash.no_diff')}</Text>
             </TouchableOpacity>
+            </Surface>
           </View>
         </>
       ) : (
@@ -255,8 +267,10 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
           <TextInput value={reason} onChangeText={setReason} placeholder={t('cash.reason_placeholder')} placeholderTextColor={colors.textTertiary} maxLength={500} multiline
             style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', minHeight: 56, marginBottom: spacing.sm }} />
           {needsReason ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger, marginBottom: spacing.sm }}>{t('cash.reason_required')}</Text> : null}
+          <Surface id="teacher.cash_reconcile.prompt_submit_button">
           <Button title={t('cash.submit')} onPress={() => respond.mutate({ full: false, registry: registryNum, reason: reason.trim() || undefined })}
             disabled={registry === '' || !Number.isFinite(registryNum) || needsReason} loading={respond.isPending} />
+          </Surface>
           {row.expected !== null ? (
             <TouchableOpacity onPress={() => setMode('ask')} style={{ alignItems: 'center', paddingVertical: spacing.sm }}>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{t('common.cancel')}</Text>
@@ -265,6 +279,7 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
         </View>
       )}
     </View>
+    </Surface>
   );
 }
 
@@ -281,6 +296,7 @@ function OpeningEntry({ d, onSaved }: { d: Drawer; onSaved: () => void }) {
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
   return (
+    <Surface id="teacher.cash_reconcile.opening_entry">
     <View style={{ marginTop: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('cash.opening_set')}</Text>
       <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{t('cash.opening_set_hint')}</Text>
@@ -291,6 +307,7 @@ function OpeningEntry({ d, onSaved }: { d: Drawer; onSaved: () => void }) {
       </View>
       {dialog}
     </View>
+    </Surface>
   );
 }
 
@@ -311,7 +328,7 @@ function DrawerCard({ d, name, isTeacher, onChanged, freshStamp = false }: { d: 
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{[name, d.venue?.name].filter(Boolean).join(' · ') || t('cash.week_of', { start: formatShortDate(d.week_start), end: formatShortDate(d.week_end) })}</Text>
           {name ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('cash.week_of', { start: formatShortDate(d.week_start), end: formatShortDate(d.week_end) })}</Text> : null}
         </View>
-        {stamped ? <RoseStamp ink="navy" size={44} animate={freshStamp} style={{ marginEnd: spacing.xs }} /> : null}
+        {stamped ? <Surface id="teacher.cash_reconcile.drawer_stamp"><RoseStamp ink="navy" size={44} animate={freshStamp} style={{ marginEnd: spacing.xs }} /></Surface> : null}
         <ResultPill d={d} />
       </View>
       <BigPair
@@ -325,6 +342,7 @@ function DrawerCard({ d, name, isTeacher, onChanged, freshStamp = false }: { d: 
       {/* The weekly review is the teacher's screen only (founder 2026-09-26); an assistant
           follows their expenses, and answers questions, from the expenses list. */}
       {isTeacher ? (
+        <Surface id="teacher.cash_reconcile.open_review_button">
         <TouchableOpacity onPress={openReview} activeOpacity={0.85}
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, marginTop: spacing.sm, backgroundColor: reviewWaiting > 0 ? colors.brand : colors.surfaceSunken }}>
           <Icon name={d.closed_at ? 'lock' : 'eye'} size={16} color={reviewWaiting > 0 ? '#fff' : colors.brand} />
@@ -332,6 +350,7 @@ function DrawerCard({ d, name, isTeacher, onChanged, freshStamp = false }: { d: 
             {d.closed_at ? t('review.closed') : reviewWaiting > 0 ? t('review.waiting', { count: money(reviewWaiting) }) : t('review.open')}
           </Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
     </View>
   );
@@ -431,8 +450,8 @@ const HandoverRow = memo(function HandoverRow({ h, onReview }: { h: Handover; on
       </Text>
       {onReview ? (
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
-          <View style={{ flex: 1 }}><Button title={t('cash.handover_confirm')} variant="success" onPress={() => onReview(h, 'confirm')} /></View>
-          <View style={{ flex: 1 }}><Button title={t('cash.handover_reject')} variant="outline" onPress={() => onReview(h, 'reject')} /></View>
+          <Surface id="teacher.cash_reconcile.handover_confirm_button"><View style={{ flex: 1 }}><Button title={t('cash.handover_confirm')} variant="success" onPress={() => onReview(h, 'confirm')} /></View></Surface>
+          <Surface id="teacher.cash_reconcile.handover_reject_button"><View style={{ flex: 1 }}><Button title={t('cash.handover_reject')} variant="outline" onPress={() => onReview(h, 'reject')} /></View></Surface>
         </View>
       ) : null}
     </View>
@@ -558,15 +577,16 @@ function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
   );
   return (
     <View>
-      <View style={row}>{label(t('cash.setting_expenses'), t('cash.setting_expenses_hint'))}<RoseSwitch value={on('expenses_enabled', v.settings.expenses_enabled)} onChange={(x) => flip('expenses_enabled', x)} /></View>
-      <View style={row}>{label(t('cash.setting_per_venue'), t('cash.setting_per_venue_hint'))}<RoseSwitch value={on('expenses_per_venue', v.settings.per_venue)} onChange={(x) => flip('expenses_per_venue', x)} disabled={v.venues.length === 0} /></View>
+      <Surface id="teacher.cash_reconcile.setting_expenses"><View style={row}>{label(t('cash.setting_expenses'), t('cash.setting_expenses_hint'))}<RoseSwitch value={on('expenses_enabled', v.settings.expenses_enabled)} onChange={(x) => flip('expenses_enabled', x)} /></View></Surface>
+      <Surface id="teacher.cash_reconcile.setting_per_venue"><View style={row}>{label(t('cash.setting_per_venue'), t('cash.setting_per_venue_hint'))}<RoseSwitch value={on('expenses_per_venue', v.settings.per_venue)} onChange={(x) => flip('expenses_per_venue', x)} disabled={v.venues.length === 0} /></View></Surface>
       {on('expenses_enabled', v.settings.expenses_enabled) ? (
-        <View style={row}>{label(t('cash.setting_reminder'), t('cash.setting_reminder_hint', { rose: rose.name }))}<RoseSwitch value={on('expense_reminder_enabled', v.settings.expense_reminder_enabled !== false)} onChange={(x) => flip('expense_reminder_enabled', x)} /></View>
+        <Surface id="teacher.cash_reconcile.setting_reminder"><View style={row}>{label(t('cash.setting_reminder'), t('cash.setting_reminder_hint', { rose: rose.name }))}<RoseSwitch value={on('expense_reminder_enabled', v.settings.expense_reminder_enabled !== false)} onChange={(x) => flip('expense_reminder_enabled', x)} /></View></Surface>
       ) : null}
-      <View style={row}>{label(t('cash.setting_insights', { rose: rose.name }), t('cash.setting_insights_hint'))}<RoseSwitch value={on('insights_enabled', v.settings.insights_enabled !== false)} onChange={(x) => flip('insights_enabled', x)} /></View>
-      <View style={row}>{label(t('cash.setting_rose_name'), t('cash.setting_rose_name_hint'))}<RoseSwitch value={on('rose_named', v.settings.rose_named !== false)} onChange={(x) => flip('rose_named', x)} /></View>
-      <View style={row}>{label(t('cash.setting_briefing', { rose: rose.name }), t('cash.setting_briefing_hint'))}<RoseSwitch value={on('rose_briefing_enabled', v.settings.rose_briefing_enabled !== false)} onChange={(x) => flip('rose_briefing_enabled', x)} /></View>
+      <Surface id="teacher.cash_reconcile.setting_insights"><View style={row}>{label(t('cash.setting_insights', { rose: rose.name }), t('cash.setting_insights_hint'))}<RoseSwitch value={on('insights_enabled', v.settings.insights_enabled !== false)} onChange={(x) => flip('insights_enabled', x)} /></View></Surface>
+      <Surface id="teacher.cash_reconcile.setting_rose_name"><View style={row}>{label(t('cash.setting_rose_name'), t('cash.setting_rose_name_hint'))}<RoseSwitch value={on('rose_named', v.settings.rose_named !== false)} onChange={(x) => flip('rose_named', x)} /></View></Surface>
+      <Surface id="teacher.cash_reconcile.setting_briefing"><View style={row}>{label(t('cash.setting_briefing', { rose: rose.name }), t('cash.setting_briefing_hint'))}<RoseSwitch value={on('rose_briefing_enabled', v.settings.rose_briefing_enabled !== false)} onChange={(x) => flip('rose_briefing_enabled', x)} /></View></Surface>
       {on('insights_enabled', v.settings.insights_enabled !== false) ? (
+        <Surface id="teacher.cash_reconcile.setting_insight_pushes">
         <View style={row}>{label(t('cash.setting_insight_pushes'))}
           <View style={{ flexDirection: 'row', gap: 6 }}>
             {[0, 1, 2, 3].map((n) => {
@@ -579,9 +599,10 @@ function SettingsBody({ v, onChanged }: { v: TeacherCashView; onChanged: () => v
             })}
           </View>
         </View>
+        </Surface>
       ) : null}
-      <View style={row}>{label(t('review.setting_bulk_max'), t('review.setting_bulk_max_hint'))}{numeric(bulkMax, setBulkMax, () => { const n = Number(bulkMax); if (Number.isFinite(n) && n !== (v.settings.review_bulk_max ?? 500)) save.mutate({ review_bulk_max: n }); })}</View>
-      <View style={[row, { borderBottomWidth: 0 }]}>{label(t('cash.setting_tolerance'))}{numeric(tol, setTol, () => { const n = Number(tol); if (Number.isFinite(n) && n !== v.settings.tolerance) save.mutate({ cash_tolerance: n }); })}</View>
+      <Surface id="teacher.cash_reconcile.setting_bulk_max"><View style={row}>{label(t('review.setting_bulk_max'), t('review.setting_bulk_max_hint'))}{numeric(bulkMax, setBulkMax, () => { const n = Number(bulkMax); if (Number.isFinite(n) && n !== (v.settings.review_bulk_max ?? 500)) save.mutate({ review_bulk_max: n }); })}</View></Surface>
+      <Surface id="teacher.cash_reconcile.setting_tolerance"><View style={[row, { borderBottomWidth: 0 }]}>{label(t('cash.setting_tolerance'))}{numeric(tol, setTol, () => { const n = Number(tol); if (Number.isFinite(n) && n !== v.settings.tolerance) save.mutate({ cash_tolerance: n }); })}</View></Surface>
     </View>
   );
 }
@@ -598,6 +619,7 @@ function Observations({ items }: { items: Observation[] }) {
   const open = (o: Observation) => router.push({ pathname: '/(teacher)/expenses', params: { from: o.trace.from, to: o.trace.to, ...(o.trace.category ? { category: o.trace.category } : {}), ...(o.trace.venue !== undefined ? { venue: String(o.trace.venue) } : {}) } } as Href);
   if (items.length === 0) return <EmptyState icon="info" title={t('cash.notes_none')} message={t('cash.notes_none_hint', { rose: rose.name })} />;
   return (
+    <Surface id="teacher.cash_reconcile.observations">
     <View>
       {items.map((o, i) => {
         const streak = o.type === 'streak';
@@ -616,13 +638,14 @@ function Observations({ items }: { items: Observation[] }) {
                   <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('cash.observation_open')}</Text>
                 </View>
                 <View style={{ flex: 1 }} />
-                <RoseStamp ink="navy" size={44} tilt={-12} />
+                <Surface id="teacher.cash_reconcile.observation_stamp"><RoseStamp ink="navy" size={44} tilt={-12} /></Surface>
               </View>
             </TouchableOpacity>
           </View>
         );
       })}
     </View>
+    </Surface>
   );
 }
 
@@ -714,6 +737,7 @@ function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, ...shadows.md }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.now_title')}</Text>
       {handovers > 0 ? (
+        <Surface id="teacher.cash_reconcile.now_handovers_row">
         <TouchableOpacity onPress={onOpenHandovers} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm }}>
           <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.warning + '22', alignItems: 'center', justifyContent: 'center' }}><Icon name="transfer" size={20} color={colors.warning} /></View>
           <View style={{ flex: 1 }}>
@@ -722,8 +746,10 @@ function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView
           </View>
           <Icon name="back" size={18} color={colors.textTertiary} />
         </TouchableOpacity>
+        </Surface>
       ) : null}
       {first ? (
+        <Surface id="teacher.cash_reconcile.now_review_row">
         <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/cash-review', params: { id: String(first.id) } } as Href)} activeOpacity={0.85}
           style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: handovers > 0 ? 1 : 0, borderTopColor: colors.borderLight }}>
           <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brand + '18', alignItems: 'center', justifyContent: 'center' }}><Icon name="eye" size={20} color={colors.brand} /></View>
@@ -733,6 +759,7 @@ function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView
           </View>
           <Icon name="back" size={18} color={colors.textTertiary} />
         </TouchableOpacity>
+        </Surface>
       ) : null}
       {items.length > 0 ? <View style={{ borderTopWidth: 1, borderTopColor: colors.borderLight }}>{items}</View> : null}
     </View>
@@ -742,6 +769,7 @@ function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView
 function Calm({ text, sub }: { text: string; sub?: string }) {
   // On the canvas now (it used to sit inside the hero), so a surface card with a green tile.
   return (
+    <Surface id="teacher.cash_reconcile.calm_card">
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md, ...shadows.sm }}>
       <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="success" size={22} color={colors.success} />
@@ -750,8 +778,9 @@ function Calm({ text, sub }: { text: string; sub?: string }) {
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{text}</Text>
         {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{sub}</Text> : null}
       </View>
-      <RoseStamp ink="navy" size={48} />
+      <Surface id="teacher.cash_reconcile.calm_stamp"><RoseStamp ink="navy" size={48} /></Surface>
     </View>
+    </Surface>
   );
 }
 
@@ -774,6 +803,7 @@ function PeriodBar({ period, label, canNext, onPeriod, onPrev, onNext }: {
     </TouchableOpacity>
   );
   return (
+    <Surface id="teacher.cash_reconcile.period_bar">
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.sm, marginBottom: spacing.md }}>
       <View style={{ flexDirection: 'row', gap: 6, marginBottom: spacing.sm }}>
         {(['week', 'month'] as const).map((p) => (
@@ -790,6 +820,7 @@ function PeriodBar({ period, label, canNext, onPeriod, onPrev, onNext }: {
         {arrow('back', onNext, !canNext)}
       </View>
     </View>
+    </Surface>
   );
 }
 
@@ -799,7 +830,9 @@ function MonthView({ m, onOpenWeek }: { m: CashMonth; onOpenWeek: (weekStart: st
   const egp = t('insights.egp');
   const tt = m.totals;
   return (
+    <Surface id="teacher.cash_reconcile.month_view">
     <View>
+      <Surface id="teacher.cash_reconcile.month_totals_card">
       <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('cash.month_collected')}</Text>
         <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.brand, marginTop: 2 }}>{money(tt.collected)} {egp}</Text>
@@ -824,7 +857,9 @@ function MonthView({ m, onOpenWeek }: { m: CashMonth; onOpenWeek: (weekStart: st
           </View>
         ) : null}
       </View>
+      </Surface>
 
+      <Surface id="teacher.cash_reconcile.month_weeks">
       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.month_weeks')}</Text>
       {m.weeks.length === 0 ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, textAlign: 'center', marginVertical: spacing.lg }}>{t('cash.month_no_weeks')}</Text>
@@ -848,7 +883,9 @@ function MonthView({ m, onOpenWeek }: { m: CashMonth; onOpenWeek: (weekStart: st
           <Icon name="back" size={18} color={colors.textTertiary} />
         </TouchableOpacity>
       ))}
+      </Surface>
     </View>
+    </Surface>
   );
 }
 
@@ -941,6 +978,7 @@ export default function CashReconcileScreen() {
   const teacherHandovers = data?.role === 'teacher' ? data.pending_handovers : [];
 
   return (
+    <Surface id="screen.teacher.cash-reconcile" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* The notch strip, in the hero's own colours. The list scrolls BELOW it, so the sticky
           segments stop under the status bar instead of sliding beneath the notch with the
@@ -956,7 +994,9 @@ export default function CashReconcileScreen() {
       >
         {/* Her band (founder 2026-10-07: «her frame takes the upper section, bigger, like the
             video»): the framed portrait large on navy, her bubble with the greeting and today's
-            sheet. The segments under it stay sticky, so switching never means scrolling back up. */}
+            sheet. The segments under it stay sticky, so switching never means scrolling back up.
+            The fallback keeps the child count, so stickyHeaderIndices still points at the segments. */}
+        <Surface id="teacher.cash_reconcile.hero" fallback={<View />}>
         <RoseHero
           greeting={ins?.context?.greeting ?? ''}
           sub={ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
@@ -977,8 +1017,10 @@ export default function CashReconcileScreen() {
             <RoseHeroCard icon="refresh" title={t('cash.load_failed')} onPress={() => refetch()} />
           ) : null}
         </RoseHero>
+        </Surface>
 
         {/* Segments — sticky, so switching never means scrolling back up. */}
+        <Surface id="teacher.cash_reconcile.segments" fallback={<View />}>
         <View style={{ backgroundColor: colors.background, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
           <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.full, padding: 4 }}>
             {segments.map((s) => {
@@ -999,6 +1041,7 @@ export default function CashReconcileScreen() {
             })}
           </View>
         </View>
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
           {!arrived || isLoading ? (
@@ -1010,10 +1053,12 @@ export default function CashReconcileScreen() {
               : <EmptyState icon="refresh" title={t('cash.load_failed')} />
           ) : segment === 'week' ? (
             <View>
+              <Surface id="teacher.cash_reconcile.export_pill">
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}>
                 <ExportPill busy={exporting === 'week' || exporting === 'month'}
                   onPress={() => (period === 'month' ? exportPdf('month', { month: monthKey }) : exportPdf('week', weekParam))} />
               </View>
+              </Surface>
               <PeriodBar
                 period={period}
                 label={period === 'month'
@@ -1038,11 +1083,14 @@ export default function CashReconcileScreen() {
                       «I have to scroll down to see my expenses»). The hero is short now; this
                       card opens the week segment instead. */}
                   {!isPast ? (
+                    <Surface id="teacher.cash_reconcile.now_card">
                     <View style={{ marginBottom: spacing.md }}>
                       <NowCard data={data} onDone={onDone} onOpenHandovers={() => setHandoverOpen(true)} onCountOwn={() => setSegment('week')} />
                     </View>
+                    </Surface>
                   ) : null}
                   {/* «تحصيلات الأسبوع»: who paid what this week, per student, filtered by kind. */}
+                  <Surface id="teacher.cash_reconcile.collections_entry">
                   <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/cash-collections', params: weekOffset > 0 ? { week: weekDay } : {} } as never)} activeOpacity={0.85} accessibilityRole="button"
                     style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.md, ...shadows.sm }}>
                     <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
@@ -1054,25 +1102,37 @@ export default function CashReconcileScreen() {
                     </View>
                     <Icon name="back" size={18} color={colors.textTertiary} />
                   </TouchableOpacity>
+                  </Surface>
+                  <Surface id="teacher.cash_reconcile.week_segment">
                   <WeekSegment data={data} onChanged={invalidate} onOpenHandover={() => setHandoverOpen(true)} freshStamp={freshStamp} />
+                  </Surface>
                 </>
               )}
             </View>
           ) : segment === 'expenses' ? (
+            <Surface id="teacher.cash_reconcile.expenses_panel">
             <ExpensesPanel embedded onExport={(week) => exportPdf('expenses', { week })} exporting={exporting === 'expenses'} />
+            </Surface>
           ) : segment === 'complaints' ? (
             <View>
+              <Surface id="teacher.cash_reconcile.export_pill">
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}>
                 <ExportPill busy={exporting === 'complaints'} onPress={() => exportPdf('complaints')} />
               </View>
+              </Surface>
+              <Surface id="teacher.cash_reconcile.complaints_panel">
               <RoseComplaintsPanel />
+              </Surface>
             </View>
           ) : (
             <View>
+              <Surface id="teacher.cash_reconcile.export_pill">
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}>
                 <ExportPill busy={exporting === 'notes'} onPress={() => exportPdf('notes')} />
               </View>
+              </Surface>
               {introSeen === false ? (
+                <Surface id="teacher.cash_reconcile.notes_intro">
                 <View style={{ backgroundColor: colors.accentLight, borderRadius: radius.xl, padding: spacing.lg, marginBottom: spacing.md }}>
                   {rose.named ? <RosePortrait size={56} style={{ marginBottom: spacing.xs }} /> : null}
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.intro_line1', { rose: rose.name })}</Text>
@@ -1081,6 +1141,7 @@ export default function CashReconcileScreen() {
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('cash.intro_dismiss')}</Text>
                   </TouchableOpacity>
                 </View>
+                </Surface>
               ) : null}
               <Observations items={ins?.enabled ? ins.observations : []} />
             </View>
@@ -1089,6 +1150,7 @@ export default function CashReconcileScreen() {
       </ScrollView>
 
       {/* Handovers: the assistant records one; the teacher confirms the pending ones or records a receipt. */}
+      <Surface id="teacher.cash_reconcile.handover_sheet">
       <Sheet open={handoverOpen} onClose={() => setHandoverOpen(false)} title={t('cash.handovers')}>
         {handoverOpen ? dialog : null}
         {data?.role === 'teacher' ? (
@@ -1120,22 +1182,28 @@ export default function CashReconcileScreen() {
           <HandoverSheetBody venues={data.venues} perVenue={data.settings.per_venue} onSaved={onHandover} />
         ) : null}
       </Sheet>
+      </Surface>
 
+      <Surface id="teacher.cash_reconcile.settings_sheet">
       <Sheet open={settingsOpen} onClose={() => setSettingsOpen(false)} title={t('cash.settings_title')}>
         {data?.role === 'teacher' ? <SettingsBody v={data} onChanged={invalidate} /> : null}
         {/* Her chapter of «شروحات», a tap away from her own settings. */}
         {data?.role === 'teacher' && roseVideo ? (
+          <Surface id="teacher.cash_reconcile.rose_tutorial_link">
           <TouchableOpacity onPress={() => { setSettingsOpen(false); router.push('/(teacher)/tutorial/rose' as Href); }} accessibilityRole="button"
             style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.accentLight }}>
             <Icon name="play" size={18} color={colors.accent} />
             <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('tutorials.rose_link')}</Text>
             <Icon name="back" size={16} color={colors.textTertiary} />
           </TouchableOpacity>
+          </Surface>
         ) : null}
       </Sheet>
-      {burstNode}
+      </Surface>
+      <Surface id="teacher.cash_reconcile.stamp_burst">{burstNode}</Surface>
       {handoverOpen ? null : dialog}
     </View>
+    </Surface>
   );
 }
 
@@ -1146,11 +1214,13 @@ function WeekSegment({ data, onChanged, onOpenHandover, freshStamp }: { data: Ca
   const isTeacher = data.role === 'teacher';
 
   const handoverButton = (
+    <Surface id="teacher.cash_reconcile.handover_button">
     <TouchableOpacity onPress={onOpenHandover} activeOpacity={0.85}
       style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, borderStyle: 'dashed', marginBottom: spacing.md }}>
       <Icon name="transfer" size={18} color={colors.brand} />
       <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{isTeacher ? t('cash.handover_received') : t('cash.handover_add')}</Text>
     </TouchableOpacity>
+    </Surface>
   );
 
   if (data.role === 'assistant') {
@@ -1159,10 +1229,14 @@ function WeekSegment({ data, onChanged, onOpenHandover, freshStamp }: { data: Ca
     return (
       <View>
         {shown.length === 0 && v.unanswered.length === 0 ? <EmptyState icon="success" title={t('cash.no_prompt')} message={t('cash.no_prompt_hint')} /> : null}
+        <Surface id="teacher.cash_reconcile.drawers">
         {shown.map((d) => <DrawerCard key={d.id} d={d} isTeacher={false} onChanged={onChanged} freshStamp={d.id === freshStamp} />)}
-        {v.collections ? <CollectionsList events={v.collections} byKind={v.collected_by_kind} own /> : null}
+        </Surface>
+        {v.collections ? <Surface id="teacher.cash_reconcile.collections_list"><CollectionsList events={v.collections} byKind={v.collected_by_kind} own /></Surface> : null}
         {handoverButton}
+        <Surface id="teacher.cash_reconcile.handovers_list">
         {v.handovers.map((h) => <HandoverRow key={h.id} h={h} />)}
+        </Surface>
       </View>
     );
   }
@@ -1172,6 +1246,7 @@ function WeekSegment({ data, onChanged, onOpenHandover, freshStamp }: { data: Ca
   return (
     <View>
       {/* The week in three numbers. */}
+      <Surface id="teacher.cash_reconcile.week_stats">
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md }}>
         {[
           { label: t('cash.collected_teacher'), value: money(v.collected_breakdown ? v.collected_breakdown.total : v.collected), tint: colors.textPrimary },
@@ -1184,16 +1259,20 @@ function WeekSegment({ data, onChanged, onOpenHandover, freshStamp }: { data: Ca
           </View>
         ))}
       </View>
+      </Surface>
       {/* Where the week's money sits — the base of every drawer's equation, from the collection ledger. */}
       {v.collected_breakdown ? (
+        <Surface id="teacher.cash_reconcile.collected_split_note">
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: -spacing.xs, marginBottom: spacing.md }}>
           {t('cash.collected_split', { assistants: money(v.collected_breakdown.cash_by_assistants), teacher: money(v.collected_breakdown.cash_by_teacher) })}
           {v.collected_breakdown.digital > 0 ? ` · ${t('cash.collected_digital', { amount: money(v.collected_breakdown.digital) })}` : ''}
           {v.collected_breakdown.unattributed > 0 ? ` · ${t('cash.collected_unattributed', { amount: money(v.collected_breakdown.unattributed) })}` : ''}
         </Text>
+        </Surface>
       ) : null}
-      {v.registry_now ? <RegistryNowCard r={v.registry_now} byKind={v.collected_breakdown?.by_kind} /> : null}
+      {v.registry_now ? <Surface id="teacher.cash_reconcile.registry_now_card"><RegistryNowCard r={v.registry_now} byKind={v.collected_breakdown?.by_kind} /></Surface> : null}
 
+      <Surface id="teacher.cash_reconcile.drawers">
       {v.drawers.length === 0 ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.lg, textAlign: 'center' }}>{t('cash.no_assistants')}</Text>
       ) : (
@@ -1202,20 +1281,26 @@ function WeekSegment({ data, onChanged, onOpenHandover, freshStamp }: { data: Ca
           ? <PromptCard key={d.id} row={d} onDone={() => onChanged()} />
           : <DrawerCard key={d.id} d={d} name={d.name} isTeacher onChanged={onChanged} freshStamp={d.id === freshStamp} />)
       )}
+      </Surface>
 
-      {v.collections ? <CollectionsList events={v.collections} byKind={v.collected_breakdown?.by_kind} own={false} /> : null}
+      {v.collections ? <Surface id="teacher.cash_reconcile.collections_list"><CollectionsList events={v.collections} byKind={v.collected_breakdown?.by_kind} own={false} /></Surface> : null}
 
       {handoverButton}
+      <Surface id="teacher.cash_reconcile.handovers_list">
       {v.week_handovers.map((h) => <HandoverRow key={h.id} h={h} />)}
+      </Surface>
 
       {olderGaps.length > 0 ? (
+        <Surface id="teacher.cash_reconcile.open_gaps">
         <View style={{ marginTop: spacing.md }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('cash.open_gaps_title')}</Text>
           {olderGaps.map((g) => <DrawerCard key={g.id} d={g} name={g.name} isTeacher onChanged={onChanged} />)}
         </View>
+        </Surface>
       ) : null}
 
       {v.running_totals.length > 0 ? (
+        <Surface id="teacher.cash_reconcile.running_totals">
         <View style={{ backgroundColor: colors.warning + '14', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.warning, padding: spacing.lg, marginTop: spacing.md }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: 2 }}>{t('cash.running_title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('cash.running_hint')}</Text>
@@ -1227,6 +1312,7 @@ function WeekSegment({ data, onChanged, onOpenHandover, freshStamp }: { data: Ca
             </View>
           ))}
         </View>
+        </Surface>
       ) : null}
     </View>
   );

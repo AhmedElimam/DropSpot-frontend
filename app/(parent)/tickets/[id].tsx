@@ -22,6 +22,7 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 import { useKeyboardShown } from '@/hooks/useKeyboardShown';
 import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 // Status accent on the Sanad ink/semantic ramp (used for the header pill tint).
 const statusColors = (): Record<string, [string, string]> => ({
@@ -82,6 +83,7 @@ export default function TicketDetail() {
   const isParent = user?.user_type_id === 4;
 
   return (
+    <Surface id="screen.parent.tickets.detail" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -91,6 +93,7 @@ export default function TicketDetail() {
         keyboardVerticalOffset={0}
       >
         {/* Header */}
+        <Surface id="parent.ticket.hero">
         <PageHero title={ticket.subject} subtitle={`${ticket.student_name} - ${ticket.teacher_name}`} onBack compact>
           <View style={{ marginTop: spacing.md }}>
 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -114,6 +117,7 @@ export default function TicketDetail() {
             </View>
 
             {!isParent && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Surface id="parent.ticket.mark_resolved">
               <TouchableOpacity
                 onPress={() => handleStatusChange('resolved')}
                 activeOpacity={0.75}
@@ -130,9 +134,11 @@ export default function TicketDetail() {
                   {t('tickets.mark_resolved')}
                 </Text>
               </TouchableOpacity>
+              </Surface>
             )}
 
             {ticket.status === 'resolved' && (
+              <Surface id="parent.ticket.close">
               <TouchableOpacity
                 onPress={() => handleStatusChange('closed')}
                 activeOpacity={0.75}
@@ -149,10 +155,12 @@ export default function TicketDetail() {
                   {t('tickets.close')}
                 </Text>
               </TouchableOpacity>
+              </Surface>
             )}
           </View>
           </View>
         </PageHero>
+        </Surface>
 
         {/* Messages */}
         <ScrollView
@@ -161,6 +169,7 @@ export default function TicketDetail() {
           contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
           showsVerticalScrollIndicator={false}
         >
+          <Surface id="parent.ticket.messages">
           {ticket.messages?.map((msg) => {
             const isMine = msg.user_id === user?.id;
             return (
@@ -215,6 +224,7 @@ export default function TicketDetail() {
               </View>
             );
           })}
+          </Surface>
           {addMessage.isError && (
             <View style={{ alignSelf: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.lg }}>
               <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.dangerText, textAlign: 'center' }}>
@@ -227,6 +237,7 @@ export default function TicketDetail() {
 
         {/* Input */}
         {ticket.status !== 'closed' && (
+          <Surface id="parent.ticket.composer">
           <View
             style={{
               flexDirection: 'row',
@@ -283,8 +294,10 @@ export default function TicketDetail() {
               )}
             </TouchableOpacity>
           </View>
+          </Surface>
         )}
       </KeyboardAvoidingView>
     </View>
+    </Surface>
   );
 }

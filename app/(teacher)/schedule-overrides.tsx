@@ -7,6 +7,7 @@ import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { TimePicker, formatTime12, format12InText } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
+import { Surface } from '@/ui/surfaces';
 import { FormScreen, FormCard, Field, Input, DateField, Banner, HeaderCount } from '@/components/ui/Form';
 import { useOverrideOptions, useCreateOverride, useCancelOverride } from '@/hooks/useScheduleTools';
 import { formatNumber } from '@/utils/format';
@@ -56,13 +57,15 @@ export default function ScheduleOverridesScreen() {
   };
 
   return (
+    <Surface id="screen.teacher.schedule-overrides" screen>
     <FormScreen title={t('teacher.overrides_title')} subtitle={t('teacher.overrides_sub')} loading={isLoading || !data}
       right={data && data.active.length > 0 ? <HeaderCount n={data.active.length} /> : null}>
       {data ? (
         <>
-          <Banner tone="info" text={t('teacher.overrides_intro', { eid: data.suggested.eid })} />
+          <Surface id="teacher.schedule_overrides.intro_banner"><Banner tone="info" text={t('teacher.overrides_intro', { eid: data.suggested.eid })} /></Surface>
 
           {data.active.length > 0 ? (
+            <Surface id="teacher.schedule_overrides.active">
             <FormCard icon="clock" title={t('teacher.overrides_active')} tint={colors.success}>
               {data.active.map((o) => (
                 <View key={o.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: colors.success, padding: spacing.md, marginBottom: spacing.sm }}>
@@ -72,15 +75,19 @@ export default function ScheduleOverridesScreen() {
                       {format12InText(o.slot_label)} ← {format12InText(o.new_time)}{o.end_date ? ` · ${t('teacher.until')} ${o.end_date}` : ''}
                     </Text>
                   </View>
+                  <Surface id="teacher.schedule_overrides.active.cancel_button">
                   <TouchableOpacity onPress={() => confirmCancel(o.id)} disabled={cancel.isPending} accessibilityRole="button" accessibilityLabel={t('teacher.overrides_cancel_confirm')}
                     style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
                     {cancel.isPending && cancel.variables === o.id ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="trash" size={18} color={colors.danger} />}
                   </TouchableOpacity>
+                  </Surface>
                 </View>
               ))}
             </FormCard>
+            </Surface>
           ) : null}
 
+          <Surface id="teacher.schedule_overrides.new_window">
           <FormCard icon="calendar" title={t('teacher.overrides_new')} tint={colors.accent}>
             <Field label={t('teacher.overrides_label_ph')} first hint={t('form_ui.optional')}>
               <Input value={label} onChangeText={setLabel} placeholder="رمضان" maxLength={60} />
@@ -90,7 +97,9 @@ export default function ScheduleOverridesScreen() {
               <View style={{ flex: 1 }}><Field label={t('teacher.pause_to')}><DateField value={end} minIso={start} onChange={setEnd} invalid={!datesValid} /></Field></View>
             </View>
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.schedule_overrides.slots">
           <FormCard icon="clock" title={t('teacher.overrides_pick_slots')} required hint={chosen.length ? t('form_ui.slots_n', { n: formatNumber(chosen.length) }) : t('teacher.overrides_new_start')}>
             {data.courses.map((group, gi) => (
               <View key={group.course_name ?? `g${gi}`} style={{ marginBottom: spacing.sm }}>
@@ -115,10 +124,12 @@ export default function ScheduleOverridesScreen() {
               </View>
             ))}
           </FormCard>
+          </Surface>
 
-          <Button title={t('teacher.overrides_apply')} onPress={submit} loading={create.isPending} disabled={!canSubmit} variant="primary" />
+          <Surface id="teacher.schedule_overrides.apply_button"><Button title={t('teacher.overrides_apply')} onPress={submit} loading={create.isPending} disabled={!canSubmit} variant="primary" /></Surface>
         </>
       ) : null}
     </FormScreen>
+    </Surface>
   );
 }

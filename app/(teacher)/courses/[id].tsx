@@ -19,6 +19,7 @@ import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useR
 import { getCourseFormOptions } from '@/api/courses';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 import type { CourseSchedule } from '@/api/courses';
 
 // Matches Course::PREFERRED_ACCURACY_METERS — a worse GPS fix is flagged low-confidence.
@@ -161,14 +162,17 @@ export default function CourseDetailScreen() {
   const venueOptions = [{ key: '', label: t('enroll_ui.no_venue') }, ...venues.map((v) => ({ key: v.id, label: v.address ? `${v.name} — ${v.address}` : v.name }))];
 
   return (
+    <Surface id="screen.teacher.courses.detail" screen>
     <FormScreen title={course.name} subtitle={course.grade_name ?? undefined}>
       {/* Where the phone check-in anchors — the card's colour IS the status. */}
-      {onboarding?.active ? <Banner tone="info" text={t('onboarding.location_hint')} /> : null}
+      {onboarding?.active ? <Surface id="teacher.course_detail.onboarding_banner"><Banner tone="info" text={t('onboarding.location_hint')} /></Surface> : null}
+      <Surface id="teacher.course_detail.location">
       <FormCard icon="location"
         title={t(!geofence ? 'course_ui.geofence_off_title' : located ? 'teacher.phone_checkin_auto_on' : 'teacher.phone_checkin_off')}
         hint={t(!geofence ? 'course_ui.geofence_off_card_hint' : located ? 'teacher.location_set_hint' : 'teacher.location_missing_hint')}
         tint={!geofence ? colors.borderStrong : located ? colors.success : colors.warning}>
         {canCourses ? (
+          <Surface id="teacher.course_detail.location.geofence">
           <View style={{ marginBottom: spacing.md }}>
             <SwitchRow title={t('course_ui.geofence_label')} hint={t(geofence ? 'course_ui.geofence_hint' : 'course_ui.geofence_off_hint')} value={geofence} onChange={setGeofence} first />
             {geofence ? (
@@ -177,6 +181,7 @@ export default function CourseDetailScreen() {
               </Field>
             ) : null}
           </View>
+          </Surface>
         ) : null}
         {located && course.latitude != null ? (
           <Text style={{ alignSelf: 'flex-start', fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary, writingDirection: 'ltr' }}>
@@ -185,14 +190,18 @@ export default function CourseDetailScreen() {
         ) : null}
         {located && course.location_low_confidence ? <Banner tone="warn" text={t('teacher.location_low_confidence')} style={{ marginTop: spacing.sm, marginBottom: 0 }} /> : null}
         {!isAssistant ? (
+          <Surface id="teacher.course_detail.location.capture_button">
           <View style={{ marginTop: spacing.md }}>
             <Button title={t(located ? 'teacher.recapture_location' : 'teacher.capture_location')} onPress={captureLocation} loading={capturing || saveLocation.isPending} variant={located ? 'outline' : 'primary'} />
           </View>
+          </Surface>
         ) : null}
       </FormCard>
+      </Surface>
 
       {canCourses ? (
         <>
+          <Surface id="teacher.course_detail.basics">
           <FormCard icon="book" title={t('teacher.section_basics')}>
             <Field label={t('teacher.course_name_label')} first>
               <Input value={name} onChangeText={setName} placeholder={t('teacher.course_name_label')} maxLength={255} />
@@ -209,7 +218,9 @@ export default function CourseDetailScreen() {
               ) : null}
             </Field>
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.course_detail.settings">
           <FormCard icon="attendance" title={t('teacher.settings_section')} tint={colors.accent}>
             <SwitchRow first title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />
             <SwitchRow title={t('teacher.sheet_default_label')} hint={t('teacher.sheet_default_hint')} value={sheetDefault} onChange={setSheetDefault} />
@@ -217,7 +228,9 @@ export default function CourseDetailScreen() {
               <NumberInput value={sheetMax} onChangeText={setSheetMax} decimals placeholder={t('teacher.optional')} />
             </Field>
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.course_detail.billing">
           <FormCard icon="money" title={t('teacher.billing_section')} tint={colors.success}>
             <Field label={t('teacher.per_cycle_label')} first>
               <Stepper value={perCycle ?? course.min_sessions_per_cycle} min={course.min_sessions_per_cycle} max={course.max_sessions_per_cycle} step={1} onChange={setPerCycle} suffix={t('teacher.sessions_unit')} />
@@ -231,20 +244,26 @@ export default function CourseDetailScreen() {
               value={hasBooking && !bookletIsDownPayment} disabled={bookletIsDownPayment} onChange={(v) => { setHasBooking(v); if (!v) setBookingPrice(''); }} />
             {hasBooking && !bookletIsDownPayment ? <View style={{ marginTop: spacing.sm }}><NumberInput value={bookingPrice} onChangeText={setBookingPrice} decimals placeholder={t('teacher.egp')} suffix={t('teacher.egp')} /></View> : null}
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.course_detail.save_button">
           <View style={{ marginBottom: spacing.lg }}>
             <Button title={t('teacher.save_settings')} onPress={onSaveSettings} loading={saveSettings.isPending} variant="primary" />
           </View>
+          </Surface>
         </>
       ) : null}
 
       {/* Weekly slots */}
+      <Surface id="teacher.course_detail.slots">
       <FormCard icon="calendar" title={t('teacher.slots_section')} tint={colors.accent}
         action={canSessions ? (
+          <Surface id="teacher.course_detail.slots.add_button">
           <TouchableOpacity onPress={() => router.push('/(teacher)/schedule-new' as Href)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 34, borderRadius: radius.full, backgroundColor: colors.accentLight }}>
             <Icon name="add" size={16} color={colors.accentText} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accentText }}>{t('teacher.add_slot')}</Text>
           </TouchableOpacity>
+          </Surface>
         ) : undefined}>
         {course.schedules.length === 0 ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{t('teacher.no_slots')}</Text>
@@ -261,31 +280,39 @@ export default function CourseDetailScreen() {
                 </Text>
               </View>
               {canCourses ? (
+                <Surface id="teacher.course_detail.slots.edit_button">
                 <TouchableOpacity onPress={() => setEditing(slot)} accessibilityRole="button" accessibilityLabel={t('teacher.edit_slot_title')}
                   style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
                   <Icon name="note" size={18} color={colors.brand} />
                 </TouchableOpacity>
+                </Surface>
               ) : null}
               {canCourses ? (
+                <Surface id="teacher.course_detail.slots.retire_button">
                 <TouchableOpacity onPress={() => retireSlot(slot)} disabled={removeSlot.isPending} accessibilityRole="button" accessibilityLabel={t('teacher.retire_slot_confirm')}
                   style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
                   {removeSlot.isPending && removeSlot.variables === slot.id ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="trash" size={18} color={colors.danger} />}
                 </TouchableOpacity>
+                </Surface>
               ) : null}
             </View>
           ))
         )}
       </FormCard>
+      </Surface>
 
-      <EditSlotSheet courseId={id} slot={editing} onClose={() => setEditing(null)} />
+      <Surface id="teacher.course_detail.edit_slot_sheet"><EditSlotSheet courseId={id} slot={editing} onClose={() => setEditing(null)} /></Surface>
 
       {/* Danger zone — hard-delete the whole course. Teacher only. */}
       {!isAssistant ? (
+        <Surface id="teacher.course_detail.danger_zone">
         <FormCard icon="warning" title={t('enroll_ui.danger_zone')} hint={t('enroll_ui.danger_zone_hint')} tint={colors.danger} style={{ borderColor: colors.danger + '55' }}>
           <Button title={deleteCourse.isPending ? t('enroll_ui.deleting') : t('enroll_ui.delete_course_title')} onPress={confirmDeleteCourse} loading={deleteCourse.isPending} variant="destructive" />
         </FormCard>
+        </Surface>
       ) : null}
     </FormScreen>
+    </Surface>
   );
 }
 

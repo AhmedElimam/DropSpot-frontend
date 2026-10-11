@@ -25,6 +25,7 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatDate, formatNumber, timeAgo } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
 import { ledgerMethodFor, type Complaint, type ComplaintBucket, type LedgerMethod } from '@/api/complaints';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * «الاعتراضات» — the staff bucket (founder 2026-10-03). Three segments: what waits for a
@@ -150,7 +151,9 @@ export default function ComplaintsScreen() {
   const busyId = approve.isPending ? approve.variables?.id : reject.isPending ? reject.variables?.id : review.isPending ? review.variables : null;
 
   return (
+    <Surface id="screen.teacher.complaints" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <Surface id="teacher.complaints.hero">
       <PageHero
         title={t('complaints.title')}
         subtitle={t('complaints.manage_sub')}
@@ -160,6 +163,8 @@ export default function ComplaintsScreen() {
           ...(!isAssistant ? [{ value: formatNumber(counts.review), label: t('complaints.bucket_review'), warn: counts.review > 0 }] : []),
         ]}
       />
+      </Surface>
+      <Surface id="teacher.complaints.segments">
       <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
         <View style={{ flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.full, padding: 4, borderWidth: 1, borderColor: colors.border }}>
           {segments.map((s) => {
@@ -178,14 +183,18 @@ export default function ComplaintsScreen() {
           })}
         </View>
       </View>
+      </Surface>
 
+      <Surface id="teacher.complaints.review_hint">
       {bucket === 'review' ? (
         <View style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, backgroundColor: colors.infoLight, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
           <Icon name="info" size={18} color={colors.infoText} outline />
           <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.infoText }}>{t('complaints.review_hint')}</Text>
         </View>
       ) : null}
+      </Surface>
 
+      <Surface id="teacher.complaints.list">
       {q.isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl4 }} />
       ) : (
@@ -208,8 +217,10 @@ export default function ComplaintsScreen() {
           )}
         />
       )}
+      </Surface>
 
       {/* Reject with a reason the student will read. */}
+      <Surface id="teacher.complaints.reject_sheet">
       <SheetModal visible={!!rejecting} onClose={() => setRejecting(null)} avoidKeyboard style={{ backgroundColor: colors.surface }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('complaints.reject_note_title')}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md }}>{t('complaints.reject_note_hint')}</Text>
@@ -223,14 +234,18 @@ export default function ComplaintsScreen() {
           placeholderTextColor={colors.textTertiary}
           style={{ minHeight: 84, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right', textAlignVertical: 'top' }}
         />
+        <Surface id="teacher.complaints.reject_sheet.send">
         <TouchableOpacity onPress={sendReject} disabled={reject.isPending} activeOpacity={0.85}
           style={{ marginTop: spacing.md, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, opacity: reject.isPending ? 0.6 : 1 }}>
           {reject.isPending ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="close" size={18} color={colors.onPrimary} />}
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>{t('complaints.reject')}</Text>
         </TouchableOpacity>
+        </Surface>
       </SheetModal>
+      </Surface>
 
       {/* Approve a grade: the corrected mark (0..max), prefilled with what the family asked for. */}
+      <Surface id="teacher.complaints.grade_sheet">
       <SheetModal visible={!!grading} onClose={() => setGrading(null)} avoidKeyboard style={{ backgroundColor: colors.surface }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('complaints.grade.approve_title')}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md }}>
@@ -254,14 +269,18 @@ export default function ComplaintsScreen() {
         ) : grading && markValue !== null ? (
           <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, marginTop: spacing.xs }}>{t('complaints.grade.approve_change', { from: formatMark(grading.recorded_mark), to: formatMark(markValue) })}</Text>
         ) : null}
+        <Surface id="teacher.complaints.grade_sheet.confirm">
         <TouchableOpacity onPress={sendGrade} disabled={!canApproveMark} activeOpacity={0.85} accessibilityRole="button"
           style={{ marginTop: spacing.md, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, opacity: approve.isPending ? 0.6 : canApproveMark ? 1 : 0.5 }}>
           {approve.isPending ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="success" size={18} color={colors.onPrimary} />}
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>{t('complaints.grade.approve_confirm')}</Text>
         </TouchableOpacity>
+        </Surface>
       </SheetModal>
+      </Surface>
 
       {/* Approve a payment: what was really paid, how, and — for cash — whose drawer it is in. */}
+      <Surface id="teacher.complaints.payment_sheet">
       <SheetModal visible={!!paying} onClose={() => setPaying(null)} avoidKeyboard style={{ backgroundColor: colors.surface }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('complaints.approve_payment_title')}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md }}>
@@ -283,6 +302,7 @@ export default function ComplaintsScreen() {
           {payError ?? (payDue !== null ? t('complaints.still_due', { amount: formatEGP(payDue) }) : '')}
         </Text>
 
+        <Surface id="teacher.complaints.payment_sheet.method">
         <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: spacing.md, marginBottom: spacing.xs }}>{t('complaints.method_label')}</Text>
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           {(['cash', 'digital'] as LedgerMethod[]).map((m) => {
@@ -295,7 +315,9 @@ export default function ComplaintsScreen() {
             );
           })}
         </View>
+        </Surface>
 
+        <Surface id="teacher.complaints.payment_sheet.receiver">
         {payMethod === 'cash' && receivers.length > 0 ? (
           <>
             <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: spacing.md, marginBottom: spacing.xs }}>{t('complaints.received_by_label')}</Text>
@@ -312,15 +334,20 @@ export default function ComplaintsScreen() {
             </View>
           </>
         ) : null}
+        </Surface>
 
+        <Surface id="teacher.complaints.payment_sheet.confirm">
         <TouchableOpacity onPress={sendPayment} disabled={!canApprovePay} activeOpacity={0.85} accessibilityRole="button"
           style={{ marginTop: spacing.lg, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, opacity: approve.isPending ? 0.6 : canApprovePay ? 1 : 0.5 }}>
           {approve.isPending ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="success" size={18} color={colors.onPrimary} />}
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>{t('complaints.approve_payment_confirm', { amount: payValue !== null ? formatEGP(payValue) : '—' })}</Text>
         </TouchableOpacity>
+        </Surface>
       </SheetModal>
+      </Surface>
       {burstNode}
     </View>
+    </Surface>
   );
 }
 
@@ -390,9 +417,11 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
         ) : null}
       </View>
       {c.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: spacing.sm }}>«{c.note}»</Text> : null}
+      <Surface id="teacher.complaints.row.photo">
       {isGrade && c.photo_url ? (
         <AnnotatedPhoto uri={c.photo_url} annotations={c.photo_annotations} height={170} style={{ marginTop: spacing.sm }} />
       ) : null}
+      </Surface>
 
       {decided ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, flexWrap: 'wrap' }}>
@@ -416,6 +445,7 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
             {c.decided_at ? ` · ${timeAgo(c.decided_at)}` : ''}
           </Text>
           {c.decision_note ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, width: '100%' }}>«{c.decision_note}»</Text> : null}
+          <Surface id="teacher.complaints.row.mark_reviewed">
           {bucket === 'review' ? (
             <TouchableOpacity onPress={onReview} disabled={busy} activeOpacity={0.85} accessibilityRole="button"
               style={{ marginStart: 'auto', height: 40, paddingHorizontal: spacing.md, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.brand }}>
@@ -423,19 +453,24 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('complaints.mark_reviewed')}</Text>
             </TouchableOpacity>
           ) : null}
+          </Surface>
         </View>
       ) : canDecide ? (
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+          <Surface id="teacher.complaints.row.approve_button">
           <TouchableOpacity onPress={onApprove} disabled={busy} activeOpacity={0.85} accessibilityRole="button"
             style={{ flex: 1, height: 46, borderRadius: radius.lg, backgroundColor: colors.success, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: busy ? 0.6 : 1 }}>
             {busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Icon name="success" size={18} color={colors.onPrimary} />}
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.onPrimary }}>{t('complaints.approve')}</Text>
           </TouchableOpacity>
+          </Surface>
+          <Surface id="teacher.complaints.row.reject_button">
           <TouchableOpacity onPress={onReject} disabled={busy} activeOpacity={0.85} accessibilityRole="button"
             style={{ flex: 1, height: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.danger, backgroundColor: colors.dangerLight, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Icon name="close" size={18} color={colors.dangerText} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>{t('complaints.reject')}</Text>
           </TouchableOpacity>
+          </Surface>
         </View>
       ) : isGrade ? null : (
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>{t('complaints.cannot_decide')}</Text>

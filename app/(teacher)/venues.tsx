@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { FormScreen, FormCard, Field, Input, HeaderCount, Banner } from '@/components/ui/Form';
 import { getVenues, createVenue, updateVenue, toggleVenue, deleteVenue, setVenueAssistants, type Venue } from '@/api/venues';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * أماكن التدريس — the teacher's own list of places. A venue is a NAME and the people who
@@ -61,14 +62,16 @@ export default function TeacherVenues() {
   const canSave = name.trim().length > 0 && !save.isPending;
 
   return (
+    <Surface id="screen.teacher.venues" screen>
     <FormScreen title={t('manage.venues_title')} subtitle={t('staff_ui.venues_subtitle')} loading={isLoading} scroll={false}
       right={venues.length > 0 ? <HeaderCount n={venues.length} /> : null}>
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xxl }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.brand} />}>
-        <Banner tone="info" icon="gps" text={t('staff_ui.venues_banner')} />
+        <Surface id="teacher.venues.banner"><Banner tone="info" icon="gps" text={t('staff_ui.venues_banner')} /></Surface>
 
         {/* Add / edit */}
+        <Surface id="teacher.venues.form">
         <FormCard icon={editing ? 'note' : 'add'} title={editing ? t('form_ui.editing', { name: editing.name }) : t('form_ui.new_venue')} tint={editing ? colors.accent : colors.brand}
           action={editing ? (
             <TouchableOpacity onPress={cancelEdit} hitSlop={8}><Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('common.cancel')}</Text></TouchableOpacity>
@@ -79,11 +82,15 @@ export default function TeacherVenues() {
           <Field label={t('staff_ui.address')} hint={t('form_ui.optional')}>
             <Input value={address} onChangeText={setAddress} placeholder={t('staff_ui.venue_address_ph')} maxLength={255} />
           </Field>
+          <Surface id="teacher.venues.save_button">
           <View style={{ marginTop: spacing.md }}>
             <Button title={editing ? t('staff_ui.save_edit_btn') : t('staff_ui.add_venue_btn')} onPress={() => canSave && save.mutate()} disabled={!canSave} loading={save.isPending} variant={editing ? 'accent' : 'primary'} />
           </View>
+          </Surface>
         </FormCard>
+        </Surface>
 
+        <Surface id="teacher.venues.list">
         {venues.length === 0 ? (
           <EmptyState icon="gps" title={t('staff_ui.no_venues_title')} message={t('staff_ui.no_venues_msg')} />
         ) : venues.map((v) => {
@@ -116,6 +123,7 @@ export default function TeacherVenues() {
 
               {open ? (
                 <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.md, gap: spacing.md, backgroundColor: colors.surfaceSunken }}>
+                  <Surface id="teacher.venues.assistants_picker">
                   {pool.length > 0 ? (
                     <View>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('form_ui.venue_assistants')}</Text>
@@ -136,18 +144,23 @@ export default function TeacherVenues() {
                   ) : (
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>{t('staff_ui.no_assistants_yet_hint')}</Text>
                   )}
+                  </Surface>
+                  <Surface id="teacher.venues.actions">
                   <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                    <Action label={t('staff_ui.edit_btn')} icon="note" onPress={() => startEdit(v)} />
-                    <Action label={v.is_active ? t('staff_ui.deactivate_btn') : t('staff_ui.activate_btn')} icon={v.is_active ? 'clock' : 'success'} busy={toggle.isPending} onPress={() => toggle.mutate(v.id)} />
-                    <Action label={t('staff_ui.delete')} icon="trash" tone={colors.danger} busy={remove.isPending} onPress={() => confirmDelete(v)} />
+                    <Surface id="teacher.venues.edit_button"><Action label={t('staff_ui.edit_btn')} icon="note" onPress={() => startEdit(v)} /></Surface>
+                    <Surface id="teacher.venues.toggle_button"><Action label={v.is_active ? t('staff_ui.deactivate_btn') : t('staff_ui.activate_btn')} icon={v.is_active ? 'clock' : 'success'} busy={toggle.isPending} onPress={() => toggle.mutate(v.id)} /></Surface>
+                    <Surface id="teacher.venues.delete_button"><Action label={t('staff_ui.delete')} icon="trash" tone={colors.danger} busy={remove.isPending} onPress={() => confirmDelete(v)} /></Surface>
                   </View>
+                  </Surface>
                 </View>
               ) : null}
             </View>
           );
         })}
+        </Surface>
       </ScrollView>
     </FormScreen>
+    </Surface>
   );
 }
 

@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { isQueued } from '@/api/offlineQueue';
 import { recordStudent, orderCardsForNewlyAdded, type DedupeMatch, type RecordStudentPayload, type ParentRelationship, type ExistingStudentOffer } from '@/api/studentRecord';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { Surface } from '@/ui/surfaces';
 
 const label = () => ({ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.xs } as const);
 const field = () => ({
@@ -197,18 +198,24 @@ export default function RecordStudent() {
   }
 
   return (
+    <Surface id="screen.teacher.record-student" screen>
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingTop: insets.top + spacing.md, paddingBottom: nav.pageEnd + insets.bottom + spacing.xxl }} keyboardShouldPersistTaps="handled">
         {/* Header + running count */}
+        <Surface id="teacher.record_student.header">
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
           <TouchableOpacity onPress={() => router.back()}><Icon name="forward" size={26} color={colors.textSecondary} /></TouchableOpacity>
           <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('enroll_ui.fast_register_title')}</Text>
+          <Surface id="teacher.record_student.count_badge">
           <View style={{ backgroundColor: colors.brandTint, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{count}</Text>
           </View>
+          </Surface>
         </View>
+        </Surface>
 
         {/* Course picker (choose once) */}
+        <Surface id="teacher.record_student.course_picker">
         <Text style={label()}>{t('invite_phone.course')}</Text>
         {eligible.length === 0 ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, marginBottom: spacing.lg }}>{t('enroll_ui.no_scheduled_courses')}</Text>
@@ -229,10 +236,12 @@ export default function RecordStudent() {
             })}
           </View>
         )}
+        </Surface>
 
         {courseId != null && (
           <>
             {/* Student name */}
+            <Surface id="teacher.record_student.student_name">
             <Text style={label()}>{t('invite_phone.student_name')}</Text>
             <TextInput
               ref={nameRef}
@@ -244,8 +253,10 @@ export default function RecordStudent() {
               returnKeyType="next"
             />
             {nameError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>{t('enroll_ui.name_arabic_error')}</Text> : <View style={{ height: spacing.md }} />}
+            </Surface>
 
             {/* Student's own phone — their login handle when the app launches */}
+            <Surface id="teacher.record_student.student_phone">
             <Text style={label()}>{t('invite_phone.student_phone')} <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}>{t('enroll_ui.optional_paren')}</Text></Text>
             <TextInput
               value={studentPhone}
@@ -261,8 +272,10 @@ export default function RecordStudent() {
               : studentPhoneError
                 ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>{t('enroll_ui.phone_invalid')}</Text>
                 : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>{t('enroll_ui.student_phone_hint')}</Text>}
+            </Surface>
 
             {/* Parent phone — the activation anchor */}
+            <Surface id="teacher.record_student.parent_phone">
             <Text style={label()}>{t('enroll_ui.parent_phone')}</Text>
             <TextInput
               value={parentPhone}
@@ -274,8 +287,10 @@ export default function RecordStudent() {
               onSubmitEditing={() => canSubmit && submit()}
             />
             <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>{t('enroll_ui.parent_phone_hint')}</Text>
+            </Surface>
 
             {/* Parent name — OPTIONAL (the parent can set/modify it at setup). */}
+            <Surface id="teacher.record_student.parent_name">
             <Text style={label()}>{t('enroll_ui.parent_name_optional')}</Text>
             <TextInput
               value={parentName}
@@ -284,8 +299,10 @@ export default function RecordStudent() {
               placeholderTextColor={colors.textTertiary}
               style={{ ...field(), marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
             />
+            </Surface>
 
             {/* Relationship — OPTIONAL, tap to toggle. */}
+            <Surface id="teacher.record_student.relationship">
             <Text style={label()}>{t('enroll_ui.relationship_optional')}</Text>
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
               {([['father', t('auth.father')], ['mother', t('auth.mother')], ['guardian', t('profile.role_parent')]] as const).map(([value, ar]) => {
@@ -306,36 +323,44 @@ export default function RecordStudent() {
                 );
               })}
             </View>
+            </Surface>
 
             {/* شروط التسجيل — the same sheet every door shows. */}
-            <EnrollmentTermsSheet terms={terms} />
+            <Surface id="teacher.record_student.terms_sheet"><EnrollmentTermsSheet terms={terms} /></Surface>
 
             {/* Save */}
+            <Surface id="teacher.record_student.save_button">
             <TouchableOpacity onPress={() => submit()} disabled={!canSubmit} activeOpacity={0.85}
               style={{ opacity: canSubmit ? 1 : 0.5, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm }}>
               {saving ? <ActivityIndicator color="#fff" /> : <Icon name="add" size={20} color="#fff" />}
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('enroll_ui.save_next')}</Text>
             </TouchableOpacity>
+            </Surface>
 
             {flash ? (
+              <Surface id="teacher.record_student.flash">
               <View style={{ marginTop: spacing.md, backgroundColor: colors.successLight, borderRadius: radius.lg, padding: spacing.md, alignItems: 'center' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.successText }}>✅ {flash}</Text>
               </View>
+              </Surface>
             ) : null}
 
             {/* Bulk card order for everyone added this session */}
             {enrollmentIds.length > 0 ? (
+              <Surface id="teacher.record_student.order_cards">
               <TouchableOpacity onPress={bulkOrderCards} disabled={orderingCards} activeOpacity={0.85}
                 style={{ marginTop: spacing.lg, borderWidth: 1.5, borderColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm }}>
                 {orderingCards ? <ActivityIndicator color={colors.brand} /> : <Icon name="card" size={18} color={colors.brand} />}
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('enroll_ui.order_cards_for_added', { count: enrollmentIds.length })}</Text>
               </TouchableOpacity>
+              </Surface>
             ) : null}
           </>
         )}
       </ScrollView>
 
       {/* Dedupe modal — a student with this parent phone already exists */}
+      <Surface id="teacher.record_student.dedupe_modal">
       <Modal visible={dedupe !== null} transparent animationType="fade" onRequestClose={() => setDedupe(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: spacing.lg }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg }}>
@@ -350,18 +375,22 @@ export default function RecordStudent() {
                 </TouchableOpacity>
               ))}
             </View>
+            <Surface id="teacher.record_student.dedupe_modal.create_new">
             <TouchableOpacity onPress={() => submit('new')} activeOpacity={0.85} style={{ backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('enroll_ui.create_new_student')}</Text>
             </TouchableOpacity>
+            </Surface>
             <TouchableOpacity onPress={() => setDedupe(null)} activeOpacity={0.7} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
+      </Surface>
 
       {/* QR-style popup — the entered phone is already one of THIS teacher's students.
           Same shape the scanner shows on a "wrong group" card: profile + enroll-here. */}
+      <Surface id="teacher.record_student.existing_modal">
       <Modal visible={ownStudent !== null} transparent animationType="fade" onRequestClose={() => setOwnStudent(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: spacing.lg }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, alignItems: 'center' }}>
@@ -397,9 +426,11 @@ export default function RecordStudent() {
               </TouchableOpacity>
             ) : (
               <>
+                <Surface id="teacher.record_student.existing_modal.enroll_here">
                 <TouchableOpacity onPress={() => ownStudent && submit('link', ownStudent.student_id)} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', alignSelf: 'stretch' }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('enroll_ui.enroll_in_course', { course: ownStudent?.target_course_name })}</Text>
                 </TouchableOpacity>
+                </Surface>
                 <TouchableOpacity onPress={() => setOwnStudent(null)} activeOpacity={0.7} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
                   <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
@@ -408,6 +439,8 @@ export default function RecordStudent() {
           </View>
         </View>
       </Modal>
+      </Surface>
     </KeyboardAvoidingView>
+    </Surface>
   );
 }

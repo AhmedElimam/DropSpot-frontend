@@ -8,6 +8,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
+import { Surface } from '@/ui/surfaces';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FormScreen, FormCard, Field, Input, NumberInput, Chips, DayPicker, OptionRow, SwitchRow, DateField, TimeRangeRow } from '@/components/ui/Form';
 import { getRevisionCreateOptions, createRevision, type BillingMode } from '@/api/revisions';
@@ -76,11 +77,13 @@ export default function RevisionCreate() {
   const tint = isExam ? colors.accent : colors.brand;
 
   return (
+    <Surface id="screen.teacher.revision-create" screen>
     <FormScreen title={t('revision_create.title')} loading={isLoading}>
       {(grades ?? []).length === 0 ? (
         <EmptyState icon="book" title={t('revision_create.no_groups')} />
       ) : (
         <>
+          <Surface id="teacher.revision_create.type">
           <FormCard icon={isExam ? 'trophy' : 'book'} title={t('revision_create.type')} tint={tint}>
             <Chips fill tint={tint}
               options={[{ key: 'revision' as const, label: t('revision_create.revision'), icon: 'book' }, { key: 'quiz_exam' as const, label: t('revision_create.exam'), icon: 'trophy' }]}
@@ -89,12 +92,16 @@ export default function RevisionCreate() {
               <Input value={title} onChangeText={setTitle} placeholder={t('revision_create.title_ph')} maxLength={120} />
             </Field>
             {isExam ? (
+              <Surface id="teacher.revision_create.type.max_mark">
               <Field label={t('revision_create.max_mark')} required>
                 <NumberInput value={maxMark} onChangeText={setMaxMark} placeholder="50" />
               </Field>
+              </Surface>
             ) : null}
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.revision_create.grade">
           <FormCard icon="children" title={t('revision_create.grade')} required hint={grade ? t('revision_create.merge_courses') : t('revision_create.pick_grade')}>
             <Chips options={(grades ?? []).map((g) => ({ key: g.grade_id, label: g.grade_name }))} value={gradeId} onChange={selectGrade} />
             {grade ? (
@@ -104,18 +111,24 @@ export default function RevisionCreate() {
               </View>
             ) : null}
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.revision_create.billing">
           <FormCard icon="money" title={t('revision_create.billing')} tint={colors.success}>
             <Chips fill tint={colors.success}
               options={[{ key: 'free' as BillingMode, label: t('revision_create.bill_free') }, { key: 'bucket' as BillingMode, label: t('revision_create.bill_bucket') }, { key: 'spread' as BillingMode, label: t('revision_create.bill_spread') }]}
               value={billing} onChange={setBilling} />
             {billing === 'spread' ? (
+              <Surface id="teacher.revision_create.billing.fee_total">
               <Field label={t('revision_create.fee_total')} required>
                 <NumberInput value={feeTotal} onChangeText={setFeeTotal} decimals placeholder="0" suffix={t('teacher.egp')} />
               </Field>
+              </Surface>
             ) : null}
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.revision_create.timing">
           <FormCard icon="calendar" title={t('revision_create.timing')} required tint={colors.accent}>
             <Chips fill tint={colors.accent}
               options={[{ key: 'once', label: t('revision_create.once'), icon: 'calendar' }, { key: 'weekly', label: t('revision_create.weekly'), icon: 'refresh' }]}
@@ -137,22 +150,30 @@ export default function RevisionCreate() {
                 <View style={{ flex: 1 }}><Field label={t('revision_create.time')} required><TimePicker value={otTime || null} onChange={setOtTime} /></Field></View>
               </View>
             )}
+            <Surface id="teacher.revision_create.timing.duration">
             <Field label={isExam ? t('revision_create.exam_duration') : t('revision_create.duration')}>
               {/* Fixed hour choices — the teacher picks whole hours, no minutes math. */}
               <Chips options={DURATIONS.map((d) => ({ key: d.m, label: d.l }))} value={duration} onChange={setDuration} tint={colors.accent} />
             </Field>
+            </Surface>
+            <Surface id="teacher.revision_create.timing.location">
             <Field label={t('revision_create.location')} hint={t('form_ui.optional')}>
               <Input value={location} onChangeText={setLocation} placeholder={t('teacher.optional')} maxLength={120} />
             </Field>
+            </Surface>
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.revision_create.notify">
           <FormCard icon="bell" title={t('revision_create.notify')} hint={t('revision_create.notify_hint')}>
             <SwitchRow title={t('revision_create.notify')} value={notify} onChange={setNotify} first />
           </FormCard>
+          </Surface>
 
-          <Button title={t('revision_create.submit')} onPress={submit} loading={busy} disabled={!canSubmit} variant="primary" />
+          <Surface id="teacher.revision_create.submit_button"><Button title={t('revision_create.submit')} onPress={submit} loading={busy} disabled={!canSubmit} variant="primary" /></Surface>
         </>
       )}
     </FormScreen>
+    </Surface>
   );
 }

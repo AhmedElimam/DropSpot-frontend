@@ -8,6 +8,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { collectPayment, waivePayment, reversePayment, type PayKind } from '@/api/payments';
 import type { ScanPending } from '@/api/teacher';
+import { Surface } from '@/ui/surfaces';
 
 interface DueRow {
   kind: PayKind;
@@ -165,6 +166,7 @@ export function PayDuesModal({
   };
 
   return (
+    <Surface id="teacher.pay_dues_modal.sheet">
     <SheetModal visible={visible} onClose={onClose} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom, maxHeight: '85%' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('teacher.dues_title')}</Text>
@@ -175,13 +177,16 @@ export function PayDuesModal({
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.lg }}>{name}</Text>
 
           {!online ? (
+            <Surface id="teacher.pay_dues_modal.offline_banner">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.warning + '22', borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.danger }} />
               <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{t('teacher.pay_offline')}</Text>
             </View>
+            </Surface>
           ) : null}
 
           <ScrollView showsVerticalScrollIndicator={false}>
+            <Surface id="teacher.pay_dues_modal.due_rows">
             {rows.map((row) => {
               const amt = Number(row.input) || 0;
               const after = Math.max(0, row.remaining - amt);
@@ -202,9 +207,11 @@ export function PayDuesModal({
                       keyboardType="numeric"
                       style={{ flex: 1, height: 44, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}
                     />
+                    <Surface id="teacher.pay_dues_modal.pay_full_button">
                     <TouchableOpacity onPress={() => payFull(row.kind)} style={{ paddingHorizontal: spacing.md, height: 44, justifyContent: 'center', borderRadius: radius.md, borderWidth: 1, borderColor: colors.brand }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.pay_full')}</Text>
                     </TouchableOpacity>
+                    </Surface>
                   </View>
 
                   <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 6 }}>
@@ -216,6 +223,7 @@ export function PayDuesModal({
                     const isWaive = amt <= 0 && canWaive;
                     const enabled = online && (amt > 0 || isWaive);
                     return (
+                      <Surface id={isWaive ? 'teacher.pay_dues_modal.waive_button' : 'teacher.pay_dues_modal.collect_button'}>
                       <TouchableOpacity
                         onPress={() => (amt > 0 ? collect(row) : isWaive ? waive(row) : undefined)}
                         disabled={busy === row.kind || !enabled}
@@ -224,28 +232,35 @@ export function PayDuesModal({
                       >
                         {busy === row.kind ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{isWaive ? t('teacher.waive_button') : t('collections.confirm')}</Text>}
                       </TouchableOpacity>
+                      </Surface>
                     );
                   })()}
                 </View>
               );
             })}
+            </Surface>
           </ScrollView>
 
           {/* Just-collected → cancel-the-payment (undo). */}
+          <Surface id="teacher.pay_dues_modal.collected_list">
           {collected.map((c) => (
             <View key={`done-${c.kind}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.successText }}>{t('student_profile_ui.collected_label_amount', { label: c.label, amount: c.amount })}</Text>
               {canReverse ? (
+                <Surface id="teacher.pay_dues_modal.refuse_button">
                 <TouchableOpacity onPress={() => undo(c)} disabled={busy === c.kind} activeOpacity={0.8} style={{ paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.md, borderWidth: 1, borderColor: colors.danger }}>
                   {busy === c.kind ? <ActivityIndicator color={colors.danger} size="small" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{t('cash.refuse_confirm')}</Text>}
                 </TouchableOpacity>
+                </Surface>
               ) : null}
             </View>
           ))}
+          </Surface>
 
           <TouchableOpacity onPress={onClose} style={{ paddingVertical: spacing.sm, alignItems: 'center' }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.close')}</Text>
           </TouchableOpacity>
     </SheetModal>
+    </Surface>
   );
 }

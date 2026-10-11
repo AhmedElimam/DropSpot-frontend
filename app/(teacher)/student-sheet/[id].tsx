@@ -7,6 +7,7 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTi
 import { InlineSheetHost } from '@/components/ui/SheetModal';
 import { colors, radius } from '@/theme/index';
 import { StudentProfile } from '@/components/teacher/StudentProfile';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * The student's full profile as a sheet over the collections list (founder 2026-10-06: the RN
@@ -22,18 +23,22 @@ import { StudentProfile } from '@/components/teacher/StudentProfile';
  */
 export default function StudentSheet() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
-  return Platform.OS === 'android' ? <AndroidSheet id={id} name={name} /> : (
+  return (
+    <Surface id="screen.teacher.student_sheet" screen>
+    {Platform.OS === 'android' ? <AndroidSheet id={id} name={name} /> : (
     // The profile's own sheets (collect, correct, past attendance, paid before joining…) draw
     // inside this page sheet, not as a second native modal iOS may refuse to present.
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <InlineSheetHost>
           <View style={{ flex: 1, backgroundColor: colors.background }}>
-            <StudentProfile id={id} sheet initialName={name} onClose={() => (router.canGoBack() ? router.back() : undefined)} />
+            <Surface id="teacher.student_sheet.profile"><StudentProfile id={id} sheet initialName={name} onClose={() => (router.canGoBack() ? router.back() : undefined)} /></Surface>
           </View>
         </InlineSheetHost>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+    )}
+    </Surface>
   );
 }
 
@@ -96,7 +101,7 @@ function AndroidSheet({ id, name }: { id: string; name?: string }) {
       <Pressable style={{ height: insets.top + PEEK }} onPress={close} accessibilityRole="button" accessibilityLabel="إغلاق" />
       <Animated.View style={[{ flex: 1, backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: 'hidden' }, sheetStyle]}>
         <InlineSheetHost>
-          <StudentProfile id={id} sheet initialName={name} onClose={close} heroGesture={drag} />
+          <Surface id="teacher.student_sheet.profile"><StudentProfile id={id} sheet initialName={name} onClose={close} heroGesture={drag} /></Surface>
         </InlineSheetHost>
       </Animated.View>
     </GestureHandlerRootView>

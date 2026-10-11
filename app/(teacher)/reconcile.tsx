@@ -22,6 +22,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { getPendingActions, getRejectedActions, type OutboxAction } from '@/db/outbox';
 import { PendingActionsSection, PendingMarksSection, RejectedActionsSection } from '@/components/teacher/OutboxSections';
 import { backgroundLastRun } from '@/background/lastRun';
+import { Surface } from '@/ui/surfaces';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -103,7 +104,9 @@ export default function Reconcile() {
   const effectiveSessions = sessions && sessions.length > 0 ? sessions : cachedSessions;
 
   return (
+    <Surface id="screen.teacher.reconcile" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <Surface id="teacher.reconcile.header">
       <LinearGradient
         colors={gradients.hero}
         start={{ x: 0, y: 0 }}
@@ -118,10 +121,12 @@ export default function Reconcile() {
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>{t('teacher.reconcile_subtitle')}</Text>
         </View>
       </LinearGradient>
+      </Surface>
 
       {/* §7: passive, DISMISSIBLE confirmation that attendance was recorded on the
           teacher's behalf. The records are audit-logged regardless, so dismissing loses nothing. */}
       {autoSynced > 0 ? (
+        <Surface id="teacher.reconcile.auto_synced_notice">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.successLight, borderBottomWidth: 1, borderBottomColor: colors.success, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
           <Icon name="success" size={18} color={colors.success} />
           <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.successText }}>
@@ -131,6 +136,7 @@ export default function Reconcile() {
             <Icon name="close" size={18} color={colors.successText} />
           </TouchableOpacity>
         </View>
+        </Surface>
       ) : null}
 
       {buckets === null ? (
@@ -144,15 +150,16 @@ export default function Reconcile() {
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom }} showsVerticalScrollIndicator={false}>
           {/* The same sum the header badge shows, split by kind — so what is listed below is
               visibly ALL of it (founder 2026-10-11: «doesn't fully show data»). */}
-          <OnPhoneStrip scans={pendingCount} marks={pendingMarks.length} actions={pendingActions.length} rejected={rejectedTotal} bgAt={bgRunAt} />
-          {pendingCount > 0 ? <DurabilityBanner count={pendingCount} aging={aging} /> : null}
+          <Surface id="teacher.reconcile.on_phone_strip"><OnPhoneStrip scans={pendingCount} marks={pendingMarks.length} actions={pendingActions.length} rejected={rejectedTotal} bgAt={bgRunAt} /></Surface>
+          {pendingCount > 0 ? <Surface id="teacher.reconcile.durability_banner"><DurabilityBanner count={pendingCount} aging={aging} /></Surface> : null}
 
-          {rejected.length > 0 ? <RejectedSection scans={rejected} onChange={load} /> : null}
-          {rejectedMarks.length > 0 ? <RejectedMarksSection marks={rejectedMarks} onChange={load} /> : null}
-          {rejectedActions.length > 0 ? <RejectedActionsSection actions={rejectedActions} onChange={load} /> : null}
-          {pendingMarks.length > 0 ? <PendingMarksSection marks={pendingMarks} onChange={load} /> : null}
-          {pendingActions.length > 0 ? <PendingActionsSection actions={pendingActions} onChange={load} /> : null}
+          {rejected.length > 0 ? <Surface id="teacher.reconcile.rejected_scans"><RejectedSection scans={rejected} onChange={load} /></Surface> : null}
+          {rejectedMarks.length > 0 ? <Surface id="teacher.reconcile.rejected_marks"><RejectedMarksSection marks={rejectedMarks} onChange={load} /></Surface> : null}
+          {rejectedActions.length > 0 ? <Surface id="teacher.reconcile.rejected_actions"><RejectedActionsSection actions={rejectedActions} onChange={load} /></Surface> : null}
+          {pendingMarks.length > 0 ? <Surface id="teacher.reconcile.pending_marks"><PendingMarksSection marks={pendingMarks} onChange={load} /></Surface> : null}
+          {pendingActions.length > 0 ? <Surface id="teacher.reconcile.pending_actions"><PendingActionsSection actions={pendingActions} onChange={load} /></Surface> : null}
 
+          <Surface id="teacher.reconcile.buckets">
           {buckets.map((bucket, i) => (
             <BucketCard
               key={`${bucket.startTime}-${i}`}
@@ -162,9 +169,11 @@ export default function Reconcile() {
               onSessionsStale={refetchSessions}
             />
           ))}
+          </Surface>
         </ScrollView>
       )}
     </View>
+    </Surface>
   );
 }
 
@@ -267,6 +276,7 @@ function RejectedSection({ scans, onChange }: { scans: OfflineScan[]; onChange: 
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.dangerText, marginTop: 4 }}>{s.last_error}</Text>
             ) : null}
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
+              <Surface id="teacher.reconcile.rejected_scans.requeue">
               <TouchableOpacity
                 onPress={() => requeue(s.id)}
                 activeOpacity={0.8}
@@ -275,6 +285,8 @@ function RejectedSection({ scans, onChange }: { scans: OfflineScan[]; onChange: 
                 <Icon name="refresh" size={16} color={colors.primary} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>{t('teacher.rejected_requeue')}</Text>
               </TouchableOpacity>
+              </Surface>
+              <Surface id="teacher.reconcile.rejected_scans.dismiss">
               <TouchableOpacity
                 onPress={() => dismiss(s.id)}
                 activeOpacity={0.8}
@@ -283,6 +295,7 @@ function RejectedSection({ scans, onChange }: { scans: OfflineScan[]; onChange: 
                 <Icon name="trash" size={16} color={colors.textSecondary} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('teacher.rejected_dismiss')}</Text>
               </TouchableOpacity>
+              </Surface>
             </View>
           </View>
         ))}
@@ -317,16 +330,20 @@ function RejectedMarksSection({ marks, onChange }: { marks: OfflineMark[]; onCha
             {m.course_name ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{m.course_name}</Text> : null}
             {m.last_error ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.dangerText, marginTop: 4 }}>{m.last_error}</Text> : null}
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
+              <Surface id="teacher.reconcile.rejected_marks.requeue">
               <TouchableOpacity onPress={async () => { await requeueMark(m.id); await onChange(); }} activeOpacity={0.8}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.primary }}>
                 <Icon name="refresh" size={16} color={colors.primary} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.primary }}>{t('teacher.rejected_requeue')}</Text>
               </TouchableOpacity>
+              </Surface>
+              <Surface id="teacher.reconcile.rejected_marks.dismiss">
               <TouchableOpacity onPress={async () => { await deleteMarks([m.id]); await onChange(); }} activeOpacity={0.8}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border }}>
                 <Icon name="trash" size={16} color={colors.textSecondary} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('teacher.rejected_dismiss')}</Text>
               </TouchableOpacity>
+              </Surface>
             </View>
           </View>
         ))}
@@ -410,12 +427,15 @@ function BucketCard({
       <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.pick_session_for_bucket')}</Text>
 
       {originalMissing ? (
+        <Surface id="teacher.reconcile.bucket.missing_notice">
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: colors.warningLight, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm }}>
           <Icon name="info" size={16} color={colors.warningText} />
           <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.warningText, lineHeight: 18 }}>{t('teacher.original_session_missing')}</Text>
         </View>
+        </Surface>
       ) : null}
 
+      <Surface id="teacher.reconcile.bucket.session_picker">
       <View style={{ gap: spacing.sm }}>
         {sessions.length === 0 ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary }}>{t('teacher.no_sessions_today')}</Text>
@@ -446,11 +466,13 @@ function BucketCard({
           })
         )}
       </View>
+      </Surface>
 
       {summary ? (
         <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginTop: spacing.md }}>{summary}</Text>
       ) : null}
 
+      <Surface id="teacher.reconcile.bucket.sync_button">
       <TouchableOpacity
         onPress={sync}
         disabled={!selected || syncing}
@@ -463,6 +485,7 @@ function BucketCard({
       >
         {syncing ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('teacher.sync_bucket')}</Text>}
       </TouchableOpacity>
+      </Surface>
     </View>
   );
 }

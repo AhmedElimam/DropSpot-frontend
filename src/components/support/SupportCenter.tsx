@@ -15,6 +15,7 @@ import { PageHero } from '@/components/ui/PageHero';
 import {
   getSupportCategories, getMyAdminTickets, createAdminTicket, type AdminTicket,
 } from '@/api/adminTickets';
+import { Surface } from '@/ui/surfaces';
 
 const MIN_MESSAGE = 20;
 
@@ -62,8 +63,9 @@ export function SupportCenter({ title }: { title: string }) {
   };
 
   return (
+    <Surface id="screen.family.support" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <PageHero title={title} onBack={true} compact />
+      <Surface id="family.support.hero"><PageHero title={title} onBack={true} compact /></Surface>
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
         <ScrollView showsVerticalScrollIndicator={false}
@@ -71,12 +73,14 @@ export function SupportCenter({ title }: { title: string }) {
           keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
+          <Surface id="family.support.compose_card">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.xs }}>{t('family_ui.contact_admin')}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginBottom: spacing.lg }}>
               {t('family_ui.support_intro')}
             </Text>
 
+            <Surface id="family.support.reason_select">
             <SelectField
               label={t('resolution.ticket_reason')}
               placeholder={categories.isLoading ? t('family_ui.support_loading') : t('resolution.ticket_reason_ph')}
@@ -85,6 +89,7 @@ export function SupportCenter({ title }: { title: string }) {
               onChange={setCategory}
               emptyHint={t('family_ui.support_categories_empty')}
             />
+            </Surface>
 
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginTop: spacing.lg, marginBottom: spacing.xs }}>{t('support.message')}</Text>
             <TextInput
@@ -108,6 +113,7 @@ export function SupportCenter({ title }: { title: string }) {
             {/* Enabled-but-validated would be kinder here, but the two rules are visible
                 above the button (a reason, and a long-enough message), so a disabled
                 button never leaves the sender guessing what is missing. */}
+            <Surface id="family.support.send_button">
             <TouchableOpacity
               onPress={send}
               disabled={!canSend}
@@ -122,8 +128,11 @@ export function SupportCenter({ title }: { title: string }) {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('family_ui.support_send')}</Text>
               )}
             </TouchableOpacity>
+            </Surface>
           </View>
+          </Surface>
 
+          <Surface id="family.support.my_messages">
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginTop: spacing.xl, marginBottom: spacing.sm }}>{t('family_ui.support_my_messages')}</Text>
 
           {tickets.isLoading ? (
@@ -133,9 +142,11 @@ export function SupportCenter({ title }: { title: string }) {
           ) : (
             (tickets.data ?? []).map((ticket) => <TicketRow key={ticket.id} ticket={ticket} />)
           )}
+          </Surface>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
+    </Surface>
   );
 }
 
@@ -156,12 +167,14 @@ function TicketRow({ ticket }: { ticket: AdminTicket }) {
         </View>
       </View>
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }} numberOfLines={3}>{ticket.message}</Text>
+      <Surface id="family.support.admin_reply">
       {ticket.admin_note ? (
         <View style={{ marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textTertiary, marginBottom: 2 }}>{t('family_ui.support_admin_reply')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textPrimary }}>{ticket.admin_note}</Text>
         </View>
       ) : null}
+      </Surface>
     </View>
   );
 }

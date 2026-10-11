@@ -4,6 +4,7 @@ import { colors, spacing, radius, fonts } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { formatEGP } from '@/utils/currency';
 import type { PendingDue } from '@/api/invoices';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * One outstanding non-invoice due (a booklet fee or a booking down-payment),
@@ -65,6 +66,7 @@ export function PendingDueCard({ due, showStudent }: { due: PendingDue; showStud
       </View>
 
       {/* How to pay — informational only. */}
+      <Surface id="family.invoices.due_payment_methods">
       <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
         {hasDigital ? (
           <View style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm }}>
@@ -103,6 +105,7 @@ export function PendingDueCard({ due, showStudent }: { due: PendingDue; showStud
           </View>
         ) : null}
       </View>
+      </Surface>
     </View>
   );
 }

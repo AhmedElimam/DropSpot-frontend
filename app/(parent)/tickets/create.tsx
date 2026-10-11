@@ -23,6 +23,7 @@ import { SuccessConfirmation } from '@/components/ui/SuccessConfirmation';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 export default function CreateTicket() {
   const { t } = useTranslation();
@@ -81,6 +82,7 @@ export default function CreateTicket() {
   }
 
   return (
+    <Surface id="screen.parent.tickets.create" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -90,10 +92,13 @@ export default function CreateTicket() {
           contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl4 }}
           keyboardShouldPersistTaps="handled"
         >
+          <Surface id="parent.tickets_create.hero">
           <PageHero title={t('tickets.create')} onBack compact />
+          </Surface>
 
           <View style={{ padding: spacing.lg, gap: spacing.lg }}>
             {/* Student + Teacher selection */}
+            <Surface id="parent.tickets_create.child_picker">
             <View style={{ gap: spacing.md }}>
               <Text style={textPresets.label}>{t('tickets.select_child')}</Text>
               {(children ?? []).map((child) => {
@@ -210,9 +215,11 @@ export default function CreateTicket() {
                 );
               })}
             </View>
+            </Surface>
 
             {/* Subject */}
             {selectedChild && (
+              <Surface id="parent.tickets_create.subject">
               <View>
                 <Text style={[textPresets.label, { marginBottom: spacing.sm }]}>{t('tickets.subject')}</Text>
                 <TextInput
@@ -234,10 +241,12 @@ export default function CreateTicket() {
                   }}
                 />
               </View>
+              </Surface>
             )}
 
             {/* Description */}
             {selectedChild && (
+              <Surface id="parent.tickets_create.description">
               <View>
                 <Text style={[textPresets.label, { marginBottom: spacing.sm }]}>{t('tickets.description')}</Text>
                 <TextInput
@@ -261,6 +270,7 @@ export default function CreateTicket() {
                   }}
                 />
               </View>
+              </Surface>
             )}
 
             {/* Error feedback — calm, instructive, with a human fallback */}
@@ -277,6 +287,7 @@ export default function CreateTicket() {
 
             {/* Submit */}
             {selectedChild && (
+              <Surface id="parent.tickets_create.submit">
               <TouchableOpacity
                 onPress={handleSubmit}
                 disabled={!isValid || createMutation.isPending}
@@ -300,10 +311,12 @@ export default function CreateTicket() {
                   )}
                 </LinearGradient>
               </TouchableOpacity>
+              </Surface>
             )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
+    </Surface>
   );
 }

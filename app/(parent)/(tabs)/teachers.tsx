@@ -20,6 +20,7 @@ import { PageHero } from '@/components/ui/PageHero';
 import { formatTime12 } from '@/components/ui/TimePicker';
 import { formatNumber } from '@/utils/format';
 import type { Child } from '@/api/children';
+import { Surface } from '@/ui/surfaces';
 
 type ChildTeacher = Child['teachers'][number];
 /** One teacher, and every child of this family who studies with them. */
@@ -88,12 +89,14 @@ export default function ParentTeachers() {
   const many = list.length > 1;
 
   return (
+    <Surface id="screen.parent.teachers" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="parent.teachers.hero">
         <PageHero
           title={t('parent.teachers')}
           subtitle={many ? t('family_ui.teachers_sub_many') : t('family_ui.teachers_sub_one')}
@@ -104,7 +107,9 @@ export default function ParentTeachers() {
             ...(many ? [{ value: formatNumber(list.length), label: t('family_ui.stat_children') }] : []),
           ] : undefined}
         />
+        </Surface>
 
+        <Surface id="parent.teachers.list">
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl4 }} />
         ) : !list.length ? (
@@ -120,8 +125,10 @@ export default function ParentTeachers() {
             ))}
           </View>
         )}
+        </Surface>
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 
@@ -191,11 +198,14 @@ function TeacherCardView({ card, showChildName, removingKey, onTicket, onRemove 
             ) : null}
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 }}>
+              <Surface id="parent.teachers.contact_teacher">
               <TouchableOpacity onPress={() => onTicket(child)} activeOpacity={0.85} accessibilityRole="button"
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42, borderRadius: radius.lg, backgroundColor: colors.brand }}>
                 <Icon name="ticket" size={16} color={colors.onPrimary} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.onPrimary }}>{t('family_ui.contact_teacher')}</Text>
               </TouchableOpacity>
+              </Surface>
+              <Surface id="parent.teachers.remove_teacher">
               {removing ? (
                 <ActivityIndicator size="small" color={colors.danger} style={{ paddingHorizontal: spacing.md }} />
               ) : (
@@ -204,6 +214,7 @@ function TeacherCardView({ card, showChildName, removingKey, onTicket, onRemove 
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.dangerText }}>{t('parent.remove')}</Text>
                 </TouchableOpacity>
               )}
+              </Surface>
             </View>
           </View>
         );

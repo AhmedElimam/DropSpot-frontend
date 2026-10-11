@@ -31,6 +31,7 @@ import {
 import { TeacherTip } from '@/components/TeacherTip';
 import { Button } from '@/components/ui/Button';
 import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
+import { Surface } from '@/ui/surfaces';
 
 type Review =
   | { kind: 'match'; student: LookupStudent; value: string }
@@ -216,6 +217,7 @@ export default function TeacherEnroll() {
   if (!permission) return <View style={{ flex: 1, backgroundColor: '#000' }} />;
   if (!permission.granted && ready) {
     return (
+      <Surface id="screen.teacher.enroll" screen>
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
         <Icon name="scan" size={56} color={colors.brand} />
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.lg }}>{t('teacher.camera_permission_title')}</Text>
@@ -226,13 +228,16 @@ export default function TeacherEnroll() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }}>{t('teacher.grant_camera')}</Text>
         </TouchableOpacity>
       </View>
+      </Surface>
     );
   }
 
   // ---- Step 1: pick the course (schedule master) ----
   if (!ready) {
     return (
+      <Surface id="screen.teacher.enroll" screen>
       <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+        <Surface id="teacher.enroll.tip">
         <TeacherTip
           tip="invitation"
           icon="add"
@@ -240,6 +245,7 @@ export default function TeacherEnroll() {
           bodyKey="onboarding.tip_invitation_body"
           bulletKeys={['onboarding.tip_invitation_b1', 'onboarding.tip_invitation_b2']}
         />
+        </Surface>
         <View style={{ padding: spacing.xl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
@@ -254,6 +260,7 @@ export default function TeacherEnroll() {
         {isLoading ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.xl }} />
         ) : (
+          <Surface id="teacher.enroll.course_picker">
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.sm }}>
             {(classes ?? []).length === 0 ? (
               <Text style={{ fontFamily: fonts.regular, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xl }}>
@@ -278,14 +285,17 @@ export default function TeacherEnroll() {
               ))
             )}
           </ScrollView>
+          </Surface>
         )}
       </View>
+      </Surface>
     );
   }
 
   // ---- Step 2: scan + review ----
   scanPausedRef.current = !!(busy || review || done);
   return (
+    <Surface id="screen.teacher.enroll" screen>
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       {isFocused ? (
         <CameraView
@@ -299,6 +309,7 @@ export default function TeacherEnroll() {
       ) : <View style={{ flex: 1 }} />}
 
       {/* Top bar: chosen course + change */}
+      <Surface id="teacher.enroll.header">
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, backgroundColor: 'rgba(23,28,59,0.72)', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <TouchableOpacity onPress={() => { setCourse(null); setReview(null); }} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color="#fff" />
@@ -308,9 +319,11 @@ export default function TeacherEnroll() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }} numberOfLines={1}>{course!.course_name}</Text>
         </View>
       </View>
+      </Surface>
 
       {/* Scan frame */}
       {!review && !done ? (
+        <Surface id="teacher.enroll.frame">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
           <View style={{ width: 240, height: 240, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)', borderRadius: 24 }} />
           <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: '#fff', marginTop: spacing.lg }}>
@@ -318,12 +331,14 @@ export default function TeacherEnroll() {
           </Text>
           {busy ? <ActivityIndicator color="#fff" style={{ marginTop: spacing.md }} /> : null}
         </View>
+        </Surface>
       ) : null}
 
       {/* Invite by phone — opens the SAME full invite-by-phone form as the manage hub
           (name + student & parent phones + down-payment + dedupe, all validated). One
           consistent phone-invite path, with the scanned course pre-selected. */}
       {!review && !done ? (
+        <Surface id="teacher.enroll.invite_by_phone">
         <TouchableOpacity
           onPress={() => course && router.push({ pathname: '/(teacher)/invite-phone', params: { courseId: String(course.course_id) } })}
           activeOpacity={0.85}
@@ -332,20 +347,24 @@ export default function TeacherEnroll() {
           <Icon name="phone" size={18} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('invites.by_phone')}</Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
 
       {/* No student behind this card — a small bottom card, back to scanning. */}
       {review?.kind === 'miss' ? (
+        <Surface id="teacher.enroll.miss_card">
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: insets.bottom + spacing.xl }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('enroll_ui.no_student_for_card')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: spacing.xs }}>{t('enroll_ui.check_card_rescan')}</Text>
           <Button title={t('enroll_ui.rescan')} onPress={() => setReview(null)} style={{ marginTop: spacing.lg }} />
         </View>
+        </Surface>
       ) : null}
 
       {/* The popup after a successful scan: who was scanned, then «شروط التسجيل», then
           accept / reject. The camera underneath is ignored while it is open. */}
       {review && review.kind !== 'miss' ? (
+        <Surface id="teacher.enroll.review_sheet">
         <SheetModal visible onClose={dismiss} avoidKeyboard style={{ backgroundColor: colors.background, maxHeight: '92%', overflow: 'hidden' }}>
               {/* Header: the student. */}
               <View style={{ backgroundColor: colors.surface, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.lg, borderBottomWidth: 1, borderColor: colors.border }}>
@@ -379,23 +398,28 @@ export default function TeacherEnroll() {
                 </View>
                 {/* Cross-tenant disclosure: a confirmed report's colored flag (label +
                     color); legacy confirmed-without-flag falls back to the fixed notice. */}
+                <Surface id="teacher.enroll.review_sheet.flag">
                 {review.kind !== 'offline' && review.student.report_flag ? <FlagChip flag={review.student.report_flag} /> : null}
                 {review.kind !== 'offline' && review.student.report_notice && review.student.report_notice_message ? (
                   <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: review.kind === 'precard' ? colors.warning : colors.danger, marginTop: spacing.md }}>
                     {review.student.report_notice_message}
                   </Text>
                 ) : null}
+                </Surface>
               </View>
 
               {/* Body: the shared terms sheet (position in the month, دفعة, booklet). */}
               <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.sm }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <Surface id="teacher.enroll.review_sheet.terms">
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('enroll_ui.terms_title')}</Text>
                 <EnrollmentTermsSheet terms={terms} />
+                </Surface>
               </ScrollView>
 
               {/* Footer: reject / accept. */}
               <View style={{ flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.lg, backgroundColor: colors.surface, borderTopWidth: 1, borderColor: colors.border }}>
-                <Button title={t('invites.reject')} variant="outline" onPress={dismiss} style={{ flex: 1 }} />
+                <Surface id="teacher.enroll.review_sheet.reject"><Button title={t('invites.reject')} variant="outline" onPress={dismiss} style={{ flex: 1 }} /></Surface>
+                <Surface id="teacher.enroll.review_sheet.accept">
                 <Button
                   title={t('enroll_ui.accept_enroll')}
                   variant="success"
@@ -404,12 +428,15 @@ export default function TeacherEnroll() {
                   disabled={terms.overpaid || terms.isLoading}
                   style={{ flex: 2 }}
                 />
+                </Surface>
               </View>
         </SheetModal>
+        </Surface>
       ) : null}
 
       {/* Success flash */}
       {done ? (
+        <Surface id="teacher.enroll.success_flash">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(31,147,102,0.96)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }} pointerEvents="none">
           <View style={{ width: 110, height: 110, borderRadius: 55, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' }}>
             <Icon name="success" size={64} color="#fff" />
@@ -417,8 +444,10 @@ export default function TeacherEnroll() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', textAlign: 'center', marginTop: spacing.lg }}>{done}</Text>
           <Text style={{ fontFamily: fonts.medium, fontSize: 18, color: '#fff', marginTop: spacing.sm }}>{t('enroll_ui.enrolled_in_course')}</Text>
         </View>
+        </Surface>
       ) : null}
     </View>
+    </Surface>
   );
 }
 

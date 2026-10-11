@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { isValidElement, type ReactNode } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Linking, Switch } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +21,7 @@ import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
 import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
 
 /**
  * Settings (founder 2026-10-03: «some love on the settings page»). A short hero with the
@@ -46,8 +47,10 @@ export default function TeacherSettings() {
   // The tour scrolls this page to reach «شروحات التطبيق» further down (founder 2026-10-09).
   const tourScroll = useTourScroll();
   return (
+    <Surface id="screen.teacher.settings" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView {...tourScroll} contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+        <Surface id="teacher.settings.profile_hero">
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
@@ -72,36 +75,45 @@ export default function TeacherSettings() {
             </View>
           </View>
           {user?.is_distinguished_member ? (
+            <Surface id="teacher.settings.member_badge">
             <View style={{ marginTop: spacing.md, alignSelf: 'flex-start' }}>
               <DistinguishedBadge />
             </View>
+            </Surface>
           ) : user?.is_founding_teacher ? (
+            <Surface id="teacher.settings.member_badge">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, alignSelf: 'flex-start', backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: 'rgba(255,209,102,0.9)', paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999 }}>
               <Icon name="star" size={14} color="#FFD166" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.onHero }}>عضو مؤسس</Text>
             </View>
+            </Surface>
           ) : null}
         </LinearGradient>
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
+          <Surface id="teacher.settings.section_account">
           <SectionLabel text={t('common.section_account')} />
           {/* The teacher's own brand logo (shown to parents) — its own card, teacher-only. */}
-          {!isAssistant ? <TeacherLogoRow /> : null}
+          {!isAssistant ? <Surface id="teacher.settings.row_logo"><TeacherLogoRow /></Surface> : null}
           <Group>
             {!isAssistant ? (
-              <Row icon="children" tint={colors.brand} tintBg={colors.brandTint} label={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} />
+              <Surface id="teacher.settings.row_assistants"><Row icon="children" tint={colors.brand} tintBg={colors.brandTint} label={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /></Surface>
             ) : null}
-            <Row icon="lock" tint={colors.success} tintBg={colors.successLight} label={t('auth.change_password')} sub={t('setup.password_hint')} onPress={() => router.push('/change-password')} />
+            <Surface id="teacher.settings.row_change_password"><Row icon="lock" tint={colors.success} tintBg={colors.successLight} label={t('auth.change_password')} sub={t('setup.password_hint')} onPress={() => router.push('/change-password')} /></Surface>
           </Group>
+          </Surface>
 
+          <Surface id="teacher.settings.section_app">
           <SectionLabel text={t('common.section_app')} />
-          <TourRow home={'/(teacher)/(tabs)' as Href} />
-          <ThemeRow />
+          <Surface id="teacher.settings.row_tour"><TourRow home={'/(teacher)/(tabs)' as Href} /></Surface>
+          <Surface id="teacher.settings.row_theme"><ThemeRow /></Surface>
           <Group>
-            <Row icon="bell" tint={colors.accent} tintBg={colors.accentLight} label={t('teacher.notifications')} sub={t('teacher.notifications_hint')} onPress={() => Linking.openSettings()} />
+            <Surface id="teacher.settings.row_notifications"><Row icon="bell" tint={colors.accent} tintBg={colors.accentLight} label={t('teacher.notifications')} sub={t('teacher.notifications_hint')} onPress={() => Linking.openSettings()} /></Surface>
             {/* Revision / special-session switch — teacher only: the revision engine it opens is
                 teacher-only on the server. Shown only when the super-admin enabled the flag. */}
             {!isAssistant && flags?.revise_mode ? (
+              <Surface id="teacher.settings.row_revise_switch">
               <Row
                 icon="reports"
                 tint={colors.brand}
@@ -118,25 +130,33 @@ export default function TeacherSettings() {
                   />
                 }
               />
+              </Surface>
             ) : null}
-            <Row icon="star" tint={colors.warningDark} tintBg={colors.warningLight} label={t('whats_new.title')} sub={t('whats_new.all')} onPress={() => router.push('/whats-new' as Href)} />
+            <Surface id="teacher.settings.row_whats_new"><Row icon="star" tint={colors.warningDark} tintBg={colors.warningLight} label={t('whats_new.title')} sub={t('whats_new.all')} onPress={() => router.push('/whats-new' as Href)} /></Surface>
             {/* «شروحات» — the teacher's how-to videos (assistants: none yet). */}
             {!isAssistant ? (
+              <Surface id="teacher.settings.row_tutorials">
               <TourTarget id="settings:tutorials">
                 <Row icon="play" tint={colors.accent} tintBg={colors.accentLight} label={t('tutorials.title')} sub={t('tutorials.row_sub')} onPress={() => router.push('/(teacher)/tutorials' as Href)} />
               </TourTarget>
+              </Surface>
             ) : null}
             {/* The setup guide is the teacher's: every step in it is theirs to take. */}
             {!isAssistant ? (
-              <Row icon="help" tint={colors.info} tintBg={colors.infoLight} label={t('onboarding.getting_started_row')} sub={t('onboarding.getting_started_row_sub')} onPress={() => router.push('/(teacher)/getting-started' as Href)} />
+              <Surface id="teacher.settings.row_getting_started"><Row icon="help" tint={colors.info} tintBg={colors.infoLight} label={t('onboarding.getting_started_row')} sub={t('onboarding.getting_started_row_sub')} onPress={() => router.push('/(teacher)/getting-started' as Href)} /></Surface>
             ) : null}
           </Group>
+          </Surface>
 
+          <Surface id="teacher.settings.support">
           <View style={{ marginTop: spacing.sm }}>
             <SupportContact href={'/(teacher)/resolution' as Href} />
           </View>
+          </Surface>
 
+          <Surface id="teacher.settings.section_session">
           <SectionLabel text={t('common.section_session')} />
+          <Surface id="teacher.settings.logout">
           <TouchableOpacity
             onPress={() => logout.mutate()}
             activeOpacity={0.75}
@@ -148,11 +168,14 @@ export default function TeacherSettings() {
             <Icon name="logout" size={22} color={colors.dangerText} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.dangerText }}>{t('common.logout')}</Text>
           </TouchableOpacity>
+          </Surface>
 
-          <DeleteAccountButton />
+          <Surface id="teacher.settings.delete_account"><DeleteAccountButton /></Surface>
+          </Surface>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 
@@ -168,7 +191,10 @@ function SectionLabel({ text }: { text: string }) {
 
 /** One surface card holding several rows, separated by hairlines. */
 function Group({ children }: { children: ReactNode }) {
-  const rows = (Array.isArray(children) ? children : [children]).filter(Boolean);
+  // A row the backend switched off (a <Surface> whose id is hidden) leaves no hairline behind.
+  const hidden = useHiddenSurfaces();
+  const rows = (Array.isArray(children) ? children : [children]).filter(Boolean)
+    .filter((r) => !(isValidElement(r) && r.type === Surface && hidden.has((r.props as { id: string }).id)));
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: spacing.md, ...shadows.sm }}>
       {rows.map((r, i) => (

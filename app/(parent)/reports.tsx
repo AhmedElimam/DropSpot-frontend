@@ -17,6 +17,7 @@ import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { PageHero } from '@/components/ui/PageHero';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 type TabKey = 'attendance' | 'grades';
 
@@ -112,12 +113,14 @@ export default function ReportsScreen() {
   }
 
   return (
+    <Surface id="screen.parent.reports" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="parent.reports.hero">
         <PageHero
           title={t('reports.title')}
           subtitle={`${formatNumber(children?.length ?? 0)} ${t('nav.children')}`}
@@ -127,8 +130,10 @@ export default function ReportsScreen() {
             { value: formatNumber(totalAbsent), label: t('attendance.absent'), warn: totalAbsent > 0 },
           ]}
         />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
+          <Surface id="parent.reports.tabs">
           <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 4 }}>
             {tabs.map((tab) => (
               <TouchableOpacity
@@ -146,11 +151,13 @@ export default function ReportsScreen() {
               </TouchableOpacity>
             ))}
           </View>
+          </Surface>
         </View>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md, gap: spacing.md }}>
           {activeTab === 'attendance' && (
-            <>
+            <Surface id="parent.reports.attendance_tab">
+              <Surface id="parent.reports.attendance_summary">
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
                 <SectionHead icon="attendance" color={colors.success} title={t('attendance.attendance_summary')} />
                 <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.surfaceSunken, marginTop: spacing.md, marginBottom: spacing.lg, overflow: 'hidden' }}>
@@ -175,7 +182,9 @@ export default function ReportsScreen() {
                   </View>
                 </View>
               </View>
+              </Surface>
 
+              <Surface id="parent.reports.attendance_children">
               {sortedByAttendance.map((child) => {
                 const rate = child.attendance_rate ?? 0;
                 const pc = child.present_count ?? 0;
@@ -233,11 +242,13 @@ export default function ReportsScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </>
+              </Surface>
+            </Surface>
           )}
 
           {activeTab === 'grades' && (
-            <>
+            <Surface id="parent.reports.grades_tab">
+              <Surface id="parent.reports.grade_summary">
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
                 <SectionHead icon="grades" color={colors.brand} title={t('reports.grade_summary')} />
                 <View style={{ alignItems: 'center', marginTop: spacing.md, marginBottom: spacing.lg }}>
@@ -248,6 +259,7 @@ export default function ReportsScreen() {
                   <LinearGradient colors={overallAvg >= 90 ? gradients.success : gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${overallAvg}%`, height: '100%', borderRadius: 4 }} />
                 </View>
               </View>
+              </Surface>
 
               {gradeQueries.isLoading ? (
                 <View style={{ padding: spacing.xl, alignItems: 'center' }}>
@@ -256,6 +268,7 @@ export default function ReportsScreen() {
               ) : sortedByGrade.length > 0 && sortedByGrade.some((c) => (gradeMap[c.student_id]?.count ?? 0) > 0) ? (
                 <>
                   {teacherAvgList.length > 0 && (
+                    <Surface id="parent.reports.top_teachers">
                     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
                       <SectionHead icon="trophy" color={colors.accentWarm} title={t('reports.top_teachers')} />
                       <View style={{ gap: spacing.md, marginTop: spacing.md }}>
@@ -276,8 +289,10 @@ export default function ReportsScreen() {
                         ))}
                       </View>
                     </View>
+                    </Surface>
                   )}
 
+                  <Surface id="parent.reports.grades_children">
                   {sortedByGrade.map((child) => {
                     const avg = gradeMap[child.student_id]?.avg ?? 0;
                     const count = gradeMap[child.student_id]?.count ?? 0;
@@ -323,6 +338,7 @@ export default function ReportsScreen() {
                       </TouchableOpacity>
                     );
                   })}
+                  </Surface>
                 </>
               ) : (
                 <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xxl, alignItems: 'center', ...shadows.sm, gap: spacing.md }}>
@@ -332,10 +348,11 @@ export default function ReportsScreen() {
                   </Text>
                 </View>
               )}
-            </>
+            </Surface>
           )}
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }

@@ -8,6 +8,7 @@ import { colors, spacing } from '@/theme/index';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { Button } from '@/components/ui/Button';
+import { Surface } from '@/ui/surfaces';
 import { FormScreen, FormCard, Field, Chips, DayPicker, NumberInput, Banner, TimeRangeRow } from '@/components/ui/Form';
 import { useTeacherCourses } from '@/hooks/useStudents';
 import { useCreateSchedule } from '@/hooks/useSchedules';
@@ -63,15 +64,19 @@ export default function ScheduleNew() {
   const list = courses ?? [];
 
   return (
+    <Surface id="screen.teacher.schedule-new" screen>
     <FormScreen title={t('teacher.add_schedule_title')} subtitle={t('teacher.add_schedule_hint')} loading={isLoading}>
       {list.length === 0 ? (
         <EmptyState icon="calendar" title={t('teacher.schedule_no_courses')} message={t('teacher.add_schedule_hint')} />
       ) : (
         <>
+          <Surface id="teacher.schedule_new.course">
           <FormCard icon="book" title={t('teacher.schedule_course')} required>
             <Chips options={list.map((c) => ({ key: c.id, label: c.name }))} value={courseId} onChange={setCourseId} />
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.schedule_new.day_time">
           <FormCard icon="calendar" title={t('teacher.schedule_day')} required tint={colors.accent}>
             <DayPicker value={day} onChange={setDay} tint={colors.accent} />
             <Field label={t('teacher.schedule_start')} required>
@@ -83,14 +88,18 @@ export default function ScheduleNew() {
             </Field>
             {orderBad ? <Banner tone="danger" text={t('teacher.schedule_end_after')} style={{ marginTop: spacing.md, marginBottom: 0 }} /> : null}
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.schedule_new.capacity">
           <FormCard icon="children" title={t('teacher.schedule_capacity')} hint={t('teacher.schedule_capacity_ph')} tint={colors.success}>
             <NumberInput value={capacity} onChangeText={setCapacity} placeholder={t('teacher.optional')} maxLength={4} />
           </FormCard>
+          </Surface>
 
-          <Button title={t('teacher.schedule_submit')} onPress={submit} loading={create.isPending} variant="primary" />
+          <Surface id="teacher.schedule_new.submit_button"><Button title={t('teacher.schedule_submit')} onPress={submit} loading={create.isPending} variant="primary" /></Surface>
         </>
       )}
     </FormScreen>
+    </Surface>
   );
 }

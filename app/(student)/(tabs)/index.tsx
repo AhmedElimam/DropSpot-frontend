@@ -31,6 +31,7 @@ import { Image } from 'expo-image';
 import { PercentRing } from '@/components/ui/PercentRing';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { getStudentTeachers, type StudentTeacher } from '@/api/studentOverview';
+import { Surface } from '@/ui/surfaces';
 
 const statusDot = (): Record<string, string> => ({
   live: colors.success,
@@ -84,6 +85,7 @@ export default function StudentDashboard() {
   return (
     // Container painted the hero color so a top overscroll reveals the header tone,
     // not the page background (which looked like an ugly gap).
+    <Surface id="screen.student.index" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         {...tourScroll}
@@ -91,13 +93,16 @@ export default function StudentDashboard() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="student.home.hero">
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl + insets.top, paddingBottom: spacing.xl4 + spacing.xl }}
         >
+          <Surface id="student.home.header_bar">
           <HeaderBrandBar onBell={() => router.navigate('/(student)/notifications' as never)} unread={unread} />
+          </Surface>
           {/* Name and date centred at the top (founder 2026-10-05). */}
           <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero, textAlign: 'center' }}>
             {t('common.greeting', { name: firstName })}
@@ -107,6 +112,7 @@ export default function StudentDashboard() {
           </Text>
           <ConnectionLine style={{ marginTop: spacing.sm }} />
 
+          <Surface id="student.home.stats">
           <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>
             {[
               { k: 'today', v: formatNumber(list.length), l: t('session.today_sessions') },
@@ -119,10 +125,13 @@ export default function StudentDashboard() {
               </View>
             ))}
           </View></TourTarget>
+          </Surface>
         </LinearGradient>
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           {/* Spotlight — the session that matters now, or a calm card when the day is done. */}
+          <Surface id="student.home.spotlight">
           <TourTarget id="home:spotlight">
           {sessionsLoading ? (
             <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.xl, alignItems: 'center', ...shadows.md }}>
@@ -144,24 +153,32 @@ export default function StudentDashboard() {
             </TouchableOpacity>
           )}
           </TourTarget>
+          </Surface>
 
           <View style={{ gap: spacing.md, marginTop: spacing.md }}>
-            <CardOrderBanner scope="student" />
-            <WhatsNewCard />
+            <Surface id="student.home.card_order_banner"><CardOrderBanner scope="student" /></Surface>
+            <Surface id="student.home.whats_new"><WhatsNewCard /></Surface>
+            <Surface id="student.home.billing_alerts">
             {(billingAlerts ?? []).map((alert, i) => (
               <BillingOverdueCard key={`bill-${alert.student_id}-${i}`} alert={alert} />
             ))}
+            </Surface>
+            <Surface id="student.home.risk_alerts">
             {(risks ?? []).map((risk, i) => (
               <AttendanceRiskCard key={`${risk.student_id}-${risk.course_name ?? i}`} risk={risk} />
             ))}
+            </Surface>
           </View>
 
           {/* Shortcuts — four coloured, labelled buttons. */}
+          <Surface id="student.home.shortcuts">
           <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             {shortcuts.map((x) => <ShortcutTile key={x.key} icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
           </View></TourTarget>
+          </Surface>
 
           {/* My teachers — who teaches which course, and how attendance stands there. */}
+          <Surface id="student.home.teachers">
           <View style={{ marginTop: spacing.xl }}>
             <SectionHead icon="teacher" color={colors.brand} title={t('home.teachers_title')} />
             {teachersQ.isLoading ? (
@@ -176,8 +193,10 @@ export default function StudentDashboard() {
               </View>
             )}
           </View>
+          </Surface>
 
           {/* Today */}
+          <Surface id="student.home.today_sessions">
           <View style={{ marginTop: spacing.xl }}>
             <SectionHead icon="sessions" color={colors.brand} title={t('session.today_sessions')} action={t('common.view_all')} onAction={() => router.navigate('/(student)/(tabs)/check-in')} />
             {sessionsLoading ? (
@@ -192,8 +211,10 @@ export default function StudentDashboard() {
               </View>
             )}
           </View>
+          </Surface>
 
           {/* Attendance this month — the rate as a ring, the three counts beside it. */}
+          <Surface id="student.home.attendance_overview">
           <View style={{ marginTop: spacing.xl }}>
             <SectionHead icon="attendance" color={colors.success} title={t('home.attendance_overview')} action={t('attendance.tap_for_detail')} onAction={() => router.push('/(student)/attendance')} />
             <TouchableOpacity onPress={() => router.push('/(student)/attendance')} activeOpacity={0.85} accessibilityRole="button" accessibilityHint={t('attendance.tap_for_detail')}
@@ -217,9 +238,11 @@ export default function StudentDashboard() {
               </View>
             </TouchableOpacity>
           </View>
+          </Surface>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 

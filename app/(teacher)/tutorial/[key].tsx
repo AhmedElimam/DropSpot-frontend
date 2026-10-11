@@ -17,6 +17,7 @@ import { SheetModal } from '@/components/ui/SheetModal';
 import { formatNumber } from '@/utils/format';
 import { useTutorials } from '@/hooks/useTutorials';
 import type { Tutorial } from '@/api/tutorials';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * One «شروحات» chapter, played the way TikTok plays a video (founder 2026-10-09: «in-video
@@ -78,13 +79,14 @@ export default function TutorialPlayer() {
   });
 
   return (
+    <Surface id="screen.teacher.tutorial.detail" screen>
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" />
       <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#000' }, backdrop]} />
       <GestureDetector gesture={swipe}>
         <Animated.View style={[{ flex: 1, overflow: 'hidden', backgroundColor: '#000' }, card]}>
           {chapter ? (
-            <Player chapter={chapter} insets={insets} onClose={close} />
+            <Surface id="teacher.tutorial.player"><Player chapter={chapter} insets={insets} onClose={close} /></Surface>
           ) : (
             <View style={{ flex: 1, paddingTop: insets.top }}>
               <CloseButton onPress={close} top={insets.top} label={t('common.close')} />
@@ -98,6 +100,7 @@ export default function TutorialPlayer() {
         </Animated.View>
       </GestureDetector>
     </GestureHandlerRootView>
+    </Surface>
   );
 }
 
@@ -183,18 +186,25 @@ function Player({ chapter, insets, onClose }: { chapter: Tutorial; insets: { top
           <CloseButton onPress={onClose} top={insets.top} label={t('common.close')} />
 
           {/* The side column, TikTok's like/comment/share place: speed and the moments. */}
+          <Surface id="teacher.tutorial.side_column">
           <View style={{ position: 'absolute', end: 12, bottom: insets.bottom + 120, alignItems: 'center', gap: 22 }}>
+            <Surface id="teacher.tutorial.speed_button">
             <SideButton label={t('tutorials.speed')} onPress={nextSpeed}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: rate === 1 ? '#FFFFFF' : GOLD, writingDirection: 'ltr' }}>{`${rate}x`}</Text>
             </SideButton>
+            </Surface>
+            <Surface id="teacher.tutorial.moments_button">
             {moments.length ? (
               <SideButton label={t('tutorials.moments_short')} onPress={() => setShowMoments(true)}>
                 <Icon name="list" size={24} color="#FFFFFF" />
               </SideButton>
             ) : null}
+            </Surface>
           </View>
+          </Surface>
 
           {/* The caption corner: what this is, and what Madam Rose is explaining right now. */}
+          <Surface id="teacher.tutorial.caption">
           <TouchableOpacity activeOpacity={0.8} onPress={() => moments.length && setShowMoments(true)}
             style={{ position: 'absolute', start: 16, end: 84, bottom: insets.bottom + 34 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#FFFFFF', ...SHADOW }} numberOfLines={1}>
@@ -207,12 +217,16 @@ function Player({ chapter, insets, onClose }: { chapter: Tutorial; insets: { top
               </Text>
             ) : null}
           </TouchableOpacity>
+          </Surface>
         </>
       ) : null}
 
+      <Surface id="teacher.tutorial.timeline">
       <Timeline time={currentTime} duration={duration} moments={moments} bottom={insets.bottom} scrub={scrub}
         onScrub={setScrub} onSeek={seekTo} />
+      </Surface>
 
+      <Surface id="teacher.tutorial.moments_sheet">
       <SheetModal visible={showMoments} onClose={() => setShowMoments(false)} style={{ backgroundColor: '#11152E', paddingTop: spacing.md, paddingHorizontal: spacing.lg, maxHeight: '72%' }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#FFFFFF', marginBottom: spacing.sm }}>{t('tutorials.moments')}</Text>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + spacing.lg }}>
@@ -225,6 +239,7 @@ function Player({ chapter, insets, onClose }: { chapter: Tutorial; insets: { top
           ))}
         </ScrollView>
       </SheetModal>
+      </Surface>
     </View>
   );
 }

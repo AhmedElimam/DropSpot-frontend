@@ -17,6 +17,7 @@ import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
 import { formatNumber } from '@/utils/format';
 import { GradeComplaintSheet, GradeComplaintStatus, gradeTargetFromExam, gradeTargetFromRecord, type GradeComplaintTarget } from '@/components/complaints/GradeComplaintSheet';
+import { Surface } from '@/ui/surfaces';
 
 type TabKey = 'grades' | 'exams';
 
@@ -63,12 +64,14 @@ export default function StudentMarksScreen() {
   ];
 
   return (
+    <Surface id="screen.student.marks" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="student.marks.hero">
         <PageHero
           title={t('reports.my_marks')}
           subtitle={t('reports.my_marks_sub')}
@@ -79,8 +82,10 @@ export default function StudentMarksScreen() {
             { value: formatNumber(exams?.length ?? 0), label: t('reports.exam_results') },
           ]}
         />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          <Surface id="student.marks.tabs">
           <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 4 }}>
             {tabs.map((tab) => (
               <TouchableOpacity
@@ -101,8 +106,10 @@ export default function StudentMarksScreen() {
               </TouchableOpacity>
             ))}
           </View>
+          </Surface>
 
           {activeTab === 'grades' && (
+            <Surface id="student.marks.grades">
             <View style={cardStyle()}>
               <Text style={[textPresets.h3, { marginBottom: spacing.md }]}>{t('reports.grades')}</Text>
               {gradesLoading ? (
@@ -150,9 +157,11 @@ export default function StudentMarksScreen() {
                 </>
               )}
             </View>
+            </Surface>
           )}
 
           {activeTab === 'exams' && (
+            <Surface id="student.marks.exams">
             <View style={cardStyle()}>
               <Text style={[textPresets.h3, { marginBottom: spacing.md }]}>{t('reports.exam_results')}</Text>
               {examsLoading ? (
@@ -195,11 +204,15 @@ export default function StudentMarksScreen() {
                 </View>
               )}
             </View>
+            </Surface>
           )}
         </View>
       </ScrollView>
 
+      <Surface id="student.marks.complaint_sheet">
       <GradeComplaintSheet visible={!!gradeTarget} onClose={() => setGradeTarget(null)} target={gradeTarget} />
+      </Surface>
     </View>
+    </Surface>
   );
 }

@@ -23,6 +23,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getMyCardStatus } from '@/api/profile';
 import { PageHero } from '@/components/ui/PageHero';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
+import { Surface } from '@/ui/surfaces';
 
 /** The gold rule the printed card carries — the one mark this screen borrows. */
 const GOLD = '#C9A227';
@@ -59,18 +60,21 @@ export default function StudentProfile() {
     : 0;
 
   return (
+    <Surface id="screen.student.profile" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="student.profile.hero">
         <PageHero title={user?.name ?? ''} avatar={avatarSeed.student(user?.student_id, avatarSeed.user(user?.id, user?.name ?? '?'))}>
         {/* The student code lives on the card below, where it belongs — it is card data, not profile data. */}
         <View style={{ alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.onHeroChip, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.onHero }}>{t('profile.role_student')}</Text>
         </View>
         </PageHero>
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {/* The card block.
@@ -81,6 +85,7 @@ export default function StudentProfile() {
 
               Light on purpose: the hero above is already a deep-ink gradient, and a second
               dark slab under it read as one heavy mass. */}
+          <Surface id="student.profile.card_block">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm, overflow: 'hidden' }}>
             <View style={{ height: 3, backgroundColor: cardState === 'in_hand' ? colors.success : GOLD }} />
             <View style={{ padding: spacing.xl, alignItems: 'center' }}>
@@ -119,6 +124,7 @@ export default function StudentProfile() {
               ) : null}
 
               {qrValue ? (
+                <Surface id="student.profile.card_qr">
                 <View style={{ alignSelf: 'stretch', marginTop: spacing.lg, alignItems: 'center' }}>
                   <TouchableOpacity onPress={() => setShowQr((v) => !v)} activeOpacity={0.85} accessibilityRole="button"
                     style={{ alignSelf: 'stretch', minHeight: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, backgroundColor: colors.brandTint, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
@@ -137,6 +143,7 @@ export default function StudentProfile() {
                     </>
                   ) : null}
                 </View>
+                </Surface>
               ) : null}
 
               {user?.student_code ? (
@@ -146,6 +153,7 @@ export default function StudentProfile() {
               ) : null}
 
               {cardState === 'none' ? (
+                <Surface id="student.profile.order_card">
                 <TouchableOpacity
                   onPress={() => router.push('/(student)/order-card' as Href)}
                   activeOpacity={0.85}
@@ -155,10 +163,13 @@ export default function StudentProfile() {
                   <Icon name="add" size={17} color={colors.onPrimary} />
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>{t('family_ui.card_order_cta')}</Text>
                 </TouchableOpacity>
+                </Surface>
               ) : null}
             </View>
           </View>
+          </Surface>
 
+          <Surface id="student.profile.account">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.account')}
@@ -168,6 +179,7 @@ export default function StudentProfile() {
                 without a row like this the resend button would exist on a screen no one
                 could reach. Hidden once the number is proved. */}
             {user?.own_number_verified === false ? (
+              <Surface id="student.profile.verify_number">
               <TouchableOpacity
                 onPress={() => router.push('/verify-own-number' as Href)}
                 accessibilityRole="button"
@@ -184,7 +196,9 @@ export default function StudentProfile() {
                 </View>
                 <Icon name="back" size={18} color={colors.textTertiary} />
               </TouchableOpacity>
+              </Surface>
             ) : null}
+            <Surface id="student.profile.notification_preferences">
             <TouchableOpacity
               onPress={() => router.push('/notification-preferences' as Href)}
               accessibilityRole="button"
@@ -196,6 +210,8 @@ export default function StudentProfile() {
               <Text style={[textPresets.body, { flex: 1 }]}>{t('profile.notifications')}</Text>
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
+            </Surface>
+            <Surface id="student.profile.name_correction">
             <TouchableOpacity
               onPress={() => router.push('/request-name-correction' as Href)}
               accessibilityRole="button"
@@ -207,6 +223,8 @@ export default function StudentProfile() {
               <Text style={[textPresets.body, { flex: 1 }]}>{t('family_ui.name_fix_title')}</Text>
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
+            </Surface>
+            <Surface id="student.profile.change_password">
             <TouchableOpacity
               onPress={() => router.push('/change-password')}
               accessibilityRole="button"
@@ -218,6 +236,7 @@ export default function StudentProfile() {
               <Text style={[textPresets.body, { flex: 1 }]}>{t('auth.change_password')}</Text>
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
+            </Surface>
             {/* Tier C — the identity fields a student can never self-edit. Shown as a plain
                 note (not a dead control) so the lock is legible and points to the teacher. */}
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
@@ -227,7 +246,9 @@ export default function StudentProfile() {
               </Text>
             </View>
           </View>
+          </Surface>
 
+          <Surface id="student.profile.account_info">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.account_info')}
@@ -251,25 +272,29 @@ export default function StudentProfile() {
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{attendanceRate}%</Text>
             </View>
           </View>
+          </Surface>
 
           <View style={{ marginBottom: spacing.md }}>
-            <TourRow home={'/(student)/(tabs)' as Href} />
-            <ThemeRow />
-            <SupportContact href={'/(student)/support' as Href} />
+            <Surface id="student.profile.tour"><TourRow home={'/(student)/(tabs)' as Href} /></Surface>
+            <Surface id="student.profile.theme"><ThemeRow /></Surface>
+            <Surface id="student.profile.support"><SupportContact href={'/(student)/support' as Href} /></Surface>
           </View>
 
+          <Surface id="student.profile.logout">
           <TouchableOpacity onPress={() => logout.mutate()} activeOpacity={0.85} style={{ borderRadius: radius.md, overflow: 'hidden' }}>
             <LinearGradient colors={[colors.dangerDark, colors.danger]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: 52, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <Icon name="logout" size={20} color="#fff" outline />
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('common.logout')}</Text>
             </LinearGradient>
           </TouchableOpacity>
+          </Surface>
 
-          <DeleteAccountButton />
+          <Surface id="student.profile.delete_account"><DeleteAccountButton /></Surface>
 
           <Text style={[textPresets.caption, { textAlign: 'center', marginTop: spacing.md }]}>DrosSpot v1.0.0</Text>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }

@@ -22,6 +22,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 import { useKeyboardShown } from '@/hooks/useKeyboardShown';
+import { Surface } from '@/ui/surfaces';
 
 const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
@@ -78,6 +79,7 @@ export default function TeacherTicketDetail() {
   const sc = statusColors()[ticket.status] || statusColors().open;
 
   return (
+    <Surface id="screen.teacher.tickets.detail" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -86,6 +88,7 @@ export default function TeacherTicketDetail() {
         // nothing to offset. The old 90 was a header that no longer exists: empty space.
         keyboardVerticalOffset={0}
       >
+        <Surface id="teacher.tickets.detail.hero">
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
@@ -106,7 +109,9 @@ export default function TeacherTicketDetail() {
             </View>
           </View>
 
+          <Surface id="teacher.tickets.detail.status_row">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Surface id="teacher.tickets.detail.status_chip">
             <View
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -117,8 +122,10 @@ export default function TeacherTicketDetail() {
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ticket.status === 'open' ? colors.onHero : sc[0] }} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t(`tickets.status_${ticket.status}`)}</Text>
             </View>
+            </Surface>
 
             {/* Changing status is part of reply_tickets («الرد على التذاكر وتغيير حالتها»). */}
+            <Surface id="teacher.tickets.detail.mark_resolved">
             {can(ABILITY.REPLY_TICKETS) && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
               <TouchableOpacity
                 onPress={() => handleStatusChange('resolved')}
@@ -128,7 +135,9 @@ export default function TeacherTicketDetail() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('tickets.mark_resolved')}</Text>
               </TouchableOpacity>
             )}
+            </Surface>
 
+            <Surface id="teacher.tickets.detail.close">
             {can(ABILITY.REPLY_TICKETS) && ticket.status === 'resolved' && (
               <TouchableOpacity
                 onPress={() => handleStatusChange('closed')}
@@ -138,9 +147,13 @@ export default function TeacherTicketDetail() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('tickets.close')}</Text>
               </TouchableOpacity>
             )}
+            </Surface>
           </View>
+          </Surface>
         </LinearGradient>
+        </Surface>
 
+        <Surface id="teacher.tickets.detail.thread">
         <ScrollView
           ref={scrollRef}
           style={{ flex: 1 }}
@@ -187,8 +200,10 @@ export default function TeacherTicketDetail() {
             </View>
           )}
         </ScrollView>
+        </Surface>
 
         {/* Without reply_tickets there is no reply box and no "locked" notice — just the thread. */}
+        <Surface id="teacher.tickets.detail.reply_box">
         {ticket.status !== 'closed' && !can(ABILITY.REPLY_TICKETS) ? (
           <View style={{ height: insets.bottom }} />
         ) : ticket.status !== 'closed' ? (
@@ -211,6 +226,7 @@ export default function TeacherTicketDetail() {
                 borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: 14, color: colors.textPrimary, textAlign: 'right',
               }}
             />
+            <Surface id="teacher.tickets.detail.send_button">
             <TouchableOpacity
               onPress={handleSend}
               disabled={!newMessage.trim() || addMessage.isPending}
@@ -220,9 +236,12 @@ export default function TeacherTicketDetail() {
             >
               {addMessage.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={20} color="#fff" />}
             </TouchableOpacity>
+            </Surface>
           </View>
         ) : null}
+        </Surface>
       </KeyboardAvoidingView>
     </View>
+    </Surface>
   );
 }

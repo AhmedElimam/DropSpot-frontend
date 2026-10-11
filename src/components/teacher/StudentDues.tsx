@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { formatDayDate, formatNumber } from '@/utils/format';
 import { collectStudentCharge, type StudentDetail } from '@/api/students';
 import { isQueued } from '@/api/offlineQueue';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * What a student owes and how to collect it — shared by the full profile and the quick
@@ -82,16 +83,20 @@ export function StudentDuesCard({ billing: b, canCollect, onCollect }: { billing
       </View>
       <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: overdue ? colors.danger : colors.textPrimary }}>{t('student_profile_ui.egp_amount', { amount: formatNumber(remaining) })}</Text>
       {canCollect ? (
+        <Surface id="teacher.student_profile.dues_row_collect_button">
         <TouchableOpacity onPress={() => onCollect(target)} accessibilityRole="button" activeOpacity={0.85}
           style={{ backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 7, paddingHorizontal: spacing.md }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#fff' }}>{t('collections.collect')}</Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
     </View>
   );
 
   return (
+    <Surface id="teacher.student_profile.dues_card">
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: b.has_pending ? tone : colors.border, overflow: 'hidden', ...shadows.sm }}>
+      <Surface id="teacher.student_profile.dues_summary">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, backgroundColor: toneBg }}>
         <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="money" size={24} color={tone} />
@@ -108,7 +113,9 @@ export function StudentDuesCard({ billing: b, canCollect, onCollect }: { billing
           ) : null}
         </View>
       </View>
+      </Surface>
       {count > 0 ? (
+        <Surface id="teacher.student_profile.dues_lines">
         <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
           {bills.map((x) => row(`bill-${x.id}`, 'money', x.month ? t('student_profile_ui.bill_month', { month: x.month }) : t('student_profile_ui.cycle_bill'),
             [x.course, Number(x.paid) > 0 ? t('student_profile_ui.paid_of', { paid: formatNumber(Number(x.paid)), total: formatNumber(Number(x.amount)) }) : null].filter(Boolean).join(' · ') || null,
@@ -119,14 +126,18 @@ export function StudentDuesCard({ billing: b, canCollect, onCollect }: { billing
           {booking ? row('booking', 'card', t('teacher.due_booking'), booking.secures ? t('student_profile_ui.secures', { what: booking.secures }) : null,
             Number(booking.remaining), false, { kind: 'booking', label: t('teacher.due_booking'), remaining: Number(booking.remaining) }) : null}
           {canCollect && count > 1 ? (
+            <Surface id="teacher.student_profile.collect_all_button">
             <TouchableOpacity onPress={() => onCollect({ kind: 'all', label: t('student_profile_ui.all_dues'), remaining: owed })} accessibilityRole="button" activeOpacity={0.85}
               style={{ marginTop: spacing.sm, marginBottom: spacing.xs, minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.success, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
               <Icon name="success" size={18} color="#fff" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('student_profile_ui.collect_all_amount', { amount: formatNumber(owed) })}</Text>
             </TouchableOpacity>
+            </Surface>
           ) : null}
         </View>
+        </Surface>
       ) : null}
     </View>
+    </Surface>
   );
 }

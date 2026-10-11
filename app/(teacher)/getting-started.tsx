@@ -6,6 +6,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * Getting Started — a persistent, always-available reference of the onboarding
@@ -22,6 +23,7 @@ export default function GettingStarted() {
   const tips = state?.tips;
 
   const groups: {
+    id: string;
     title: string;
     items: {
       icon: IconName;
@@ -32,6 +34,7 @@ export default function GettingStarted() {
     }[];
   }[] = [
     {
+      id: 'teacher.getting_started.group_setup',
       title: t('onboarding.gs_group_setup'),
       items: [
         { icon: 'book', titleKey: 'onboarding.gs_course_title', bodyKey: 'onboarding.gs_course_body', done: steps?.course_form, go: '/(teacher)/courses/create' as Href },
@@ -39,6 +42,7 @@ export default function GettingStarted() {
       ],
     },
     {
+      id: 'teacher.getting_started.group_daily',
       title: t('onboarding.gs_group_daily'),
       items: [
         { icon: 'add', titleKey: 'onboarding.gs_invite_title', bodyKey: 'onboarding.tip_invitation_body', done: tips?.invitation, go: '/(teacher)/enroll' as Href },
@@ -50,21 +54,28 @@ export default function GettingStarted() {
   ];
 
   return (
+    <Surface id="screen.teacher.getting-started" screen>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Surface id="teacher.getting_started.header">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('onboarding.getting_started_title')}</Text>
       </View>
+      </Surface>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}>
+        <Surface id="teacher.getting_started.intro">
         <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginBottom: spacing.lg }}>
           {t('onboarding.getting_started_intro')}
         </Text>
+        </Surface>
 
+        <Surface id="teacher.getting_started.groups">
         {groups.map((g) => (
-          <View key={g.title} style={{ marginBottom: spacing.lg }}>
+          <Surface key={g.title} id={g.id}>
+          <View style={{ marginBottom: spacing.lg }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginBottom: spacing.md }}>{g.title}</Text>
             {g.items.map((item) => (
               <TouchableOpacity
@@ -87,8 +98,11 @@ export default function GettingStarted() {
               </TouchableOpacity>
             ))}
           </View>
+          </Surface>
         ))}
+        </Surface>
       </ScrollView>
     </View>
+    </Surface>
   );
 }

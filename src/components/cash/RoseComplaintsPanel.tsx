@@ -14,6 +14,7 @@ import { formatMark } from '@/utils/markInput';
 import { formatEGP } from '@/utils/currency';
 import { timeAgo } from '@/utils/format';
 import type { Complaint } from '@/api/complaints';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * «الاعتراضات» on مدام روز's desk (founder 2026-10-07: her tab carries more than the cash
@@ -39,11 +40,14 @@ export function RoseComplaintsPanel() {
   const loading = pending.isLoading || history.isLoading || (!isAssistant && review.isLoading);
 
   return (
+    <Surface id="teacher.cash.complaints.panel">
     <View>
+      <Surface id="teacher.cash.complaints.intro_line">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
         <Icon name="note" size={16} color={colors.textTertiary} outline />
         <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>{t('cash.complaints_line', { rose: rose.name })}</Text>
       </View>
+      </Surface>
 
       {loading ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.xl }} /> : null}
 
@@ -54,29 +58,38 @@ export function RoseComplaintsPanel() {
       ) : null}
 
       {pendingRows.length > 0 ? (
+        <Surface id="teacher.cash.complaints.pending_section">
         <Section title={t('cash.complaints_pending_title')} count={pendingRows.length} tint={colors.warning}>
           {pendingRows.map((c) => <Row key={c.id} c={c} onPress={open} />)}
         </Section>
+        </Surface>
       ) : null}
 
       {reviewRows.length > 0 ? (
+        <Surface id="teacher.cash.complaints.review_section">
         <Section title={t('cash.complaints_review_title')} count={reviewRows.length} tint={colors.brand}>
           {reviewRows.map((c) => <Row key={c.id} c={c} onPress={open} stamped />)}
         </Section>
+        </Surface>
       ) : null}
 
       {decided.length > 0 ? (
+        <Surface id="teacher.cash.complaints.recent_section">
         <Section title={t('cash.complaints_recent')}>
           {decided.map((c) => <Row key={c.id} c={c} onPress={open} stamped />)}
         </Section>
+        </Surface>
       ) : null}
 
+      <Surface id="teacher.cash.complaints.open_button">
       <TouchableOpacity onPress={open} activeOpacity={0.85} accessibilityRole="button"
         style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 46, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, borderStyle: 'dashed', marginBottom: spacing.md }}>
         <Icon name="note" size={18} color={colors.brand} />
         <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('cash.complaints_open')}</Text>
       </TouchableOpacity>
+      </Surface>
     </View>
+    </Surface>
   );
 }
 
@@ -129,7 +142,7 @@ const Row = memo(function Row({ c, onPress, stamped = false }: { c: Complaint; o
           {decidedLine ?? t(isAttendance ? 'complaints.file_attendance' : isGrade ? 'complaints.grade.file' : 'complaints.file_payment')}{when ? ` · ${timeAgo(when)}` : ''}
         </Text>
       </View>
-      {stamped && c.status !== 'pending' ? <RoseStamp ink="red" size={44} /> : <Icon name="back" size={18} color={colors.textTertiary} />}
+      {stamped && c.status !== 'pending' ? <Surface id="teacher.cash.complaints.row_stamp" fallback={<Icon name="back" size={18} color={colors.textTertiary} />}><RoseStamp ink="red" size={44} /></Surface> : <Icon name="back" size={18} color={colors.textTertiary} />}
     </TouchableOpacity>
   );
 });

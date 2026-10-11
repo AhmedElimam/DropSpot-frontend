@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { colors, spacing } from '@/theme/index';
 import { Button } from '@/components/ui/Button';
+import { Surface } from '@/ui/surfaces';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { FormScreen, FormCard, Field, Chips, DateStrip, NumberInput, OptionRow, Banner, upcomingDays } from '@/components/ui/Form';
 import { getSessionCreateOptions, createOneOffSession, type SessionSlotOption } from '@/api/teacherSessions';
@@ -46,7 +47,9 @@ export default function ExamCreateScreen() {
   };
 
   return (
+    <Surface id="screen.teacher.exam-create" screen>
     <FormScreen title={t('teacher.exam_create_title')} subtitle={t('teacher.exam_create_hint')} loading={isLoading}>
+      <Surface id="teacher.exam_create.type">
       <FormCard icon="quiz" title={t('teacher.exam_create_type')} tint={isExam ? colors.accent : colors.brand}>
         <Chips fill tint={isExam ? colors.accent : colors.brand}
           options={[{ key: 'quiz_exam' as const, label: t('teacher.exam_type_exam'), icon: 'trophy' }, { key: 'normal_sheet' as const, label: t('teacher.exam_type_special'), icon: 'quiz' }]}
@@ -57,7 +60,9 @@ export default function ExamCreateScreen() {
           </Field>
         ) : null}
       </FormCard>
+      </Surface>
 
+      <Surface id="teacher.exam_create.slot">
       <FormCard icon="book" title={t('teacher.exam_create_pick_slot')} required>
         {isError && !slots ? (
           <TouchableOpacity onPress={() => refetch()} activeOpacity={0.8}><Banner tone="danger" text={t('teacher.exam_create_load_failed')} style={{ marginBottom: 0 }} /></TouchableOpacity>
@@ -69,7 +74,9 @@ export default function ExamCreateScreen() {
           ))
         )}
       </FormCard>
+      </Surface>
 
+      <Surface id="teacher.exam_create.date_time">
       <FormCard icon="calendar" title={t('teacher.exam_create_date')} required tint={colors.success}>
         <DateStrip days={days} value={dateIso} onChange={setDateIso} />
         <View style={{ flexDirection: 'row', gap: spacing.md }}>
@@ -81,8 +88,10 @@ export default function ExamCreateScreen() {
           </View>
         </View>
       </FormCard>
+      </Surface>
 
-      <Button title={t('teacher.exam_create_submit')} onPress={submit} loading={create.isPending} disabled={!slotId} />
+      <Surface id="teacher.exam_create.submit_button"><Button title={t('teacher.exam_create_submit')} onPress={submit} loading={create.isPending} disabled={!slotId} /></Surface>
     </FormScreen>
+    </Surface>
   );
 }

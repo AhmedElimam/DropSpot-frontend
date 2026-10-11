@@ -13,6 +13,7 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { isArabicName } from '@/utils/validators';
 import { updateMyName, confirmMyName } from '@/api/profile';
 import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * Tier A — a parent corrects their OWN display name. Direct self-edit (self-owned
@@ -77,29 +78,39 @@ export default function ChangeNameScreen() {
   };
 
   return (
+    <Surface id="screen.parent.change-name" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <Surface id="parent.change_name.hero">
       <PageHero title={isFirstLogin ? t('family_ui.confirm_name_title') : t('family_ui.edit_name')} onBack={!isFirstLogin} compact />
+      </Surface>
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: spacing.lg }}>
+          <Surface id="parent.change_name.intro">
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.lg, lineHeight: 22 }}>
             {isFirstLogin
               ? t('family_ui.confirm_name_intro')
               : t('family_ui.edit_name_intro')}
           </Text>
+          </Surface>
 
+          <Surface id="parent.change_name.form">
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('family_ui.first_name_required_label')}</Text>
           <TextInput value={first} onChangeText={setFirst} placeholder={t('family_ui.first_name')} placeholderTextColor={colors.textTertiary} style={input} />
 
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('family_ui.last_name')}</Text>
           <TextInput value={last} onChangeText={setLast} placeholder={t('family_ui.leave_blank_none')} placeholderTextColor={colors.textTertiary} style={input} />
+          </Surface>
 
+          <Surface id="parent.change_name.save">
           <TouchableOpacity onPress={onSave} disabled={save.isPending} activeOpacity={0.85}
             style={{ backgroundColor: colors.primary, borderRadius: radius.lg, minHeight: control.minHeight, alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm, opacity: save.isPending ? 0.6 : 1 }}>
             {save.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{isFirstLogin ? t('family_ui.save_correct_name') : t('common.save')}</Text>}
           </TouchableOpacity>
+          </Surface>
 
           {isFirstLogin ? (
+            <Surface id="parent.change_name.name_is_correct">
             <TouchableOpacity onPress={() => confirm.mutate()} disabled={confirm.isPending} activeOpacity={0.85}
               accessibilityRole="button"
               style={{ borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.lg, minHeight: control.minHeight, alignItems: 'center', justifyContent: 'center', marginTop: spacing.md, opacity: confirm.isPending ? 0.6 : 1 }}>
@@ -107,9 +118,11 @@ export default function ChangeNameScreen() {
                 ? <ActivityIndicator color={colors.textSecondary} />
                 : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textSecondary }}>{t('family_ui.name_is_correct')}</Text>}
             </TouchableOpacity>
+            </Surface>
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
+    </Surface>
   );
 }

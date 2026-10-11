@@ -11,6 +11,7 @@ import { useChildren } from '@/hooks/useChildren';
 import { generatePreCard, type PreCardToken } from '@/api/preCardInvitation';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * Pre-Card Invitation QR (spec §4). The parent, in-person with the teacher,
@@ -63,14 +64,19 @@ export default function InviteCodeScreen() {
   };
 
   return (
+    <Surface id="screen.parent.child.invite_code" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
+      <Surface id="parent.invite_code.hero">
       <PageHero title={t('auth.invite_code_label')} subtitle={child?.name ?? undefined} onBack={true} compact />
+      </Surface>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl * 2, alignItems: 'center' }}>
+        <Surface id="parent.invite_code.intro">
         <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.xl }}>
           {t('family_ui.invite_code_intro')}
         </Text>
+        </Surface>
 
         {gen.isPending && !token ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.xxl }} />
@@ -81,13 +87,16 @@ export default function InviteCodeScreen() {
             {/* QR + overlay when expired */}
             {/* Scanners want dark modules on white whatever the app's scheme — never theme the QR
                 itself (the dark palette's ink is light, which made the code vanish). */}
+            <Surface id="parent.invite_code.qr">
             <View style={{ backgroundColor: '#FFFFFF', padding: spacing.xl, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
               <View style={{ opacity: expired ? 0.15 : 1 }}>
                 <QRCode value={token.token} size={220} backgroundColor="#FFFFFF" color="#171C3B" />
               </View>
             </View>
+            </Surface>
 
             {/* Countdown */}
+            <Surface id="parent.invite_code.countdown">
             {!expired ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.lg }}>
                 <Icon name="clock" size={18} color={remaining <= 60 ? colors.warning : colors.textSecondary} />
@@ -98,8 +107,10 @@ export default function InviteCodeScreen() {
             ) : (
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger, marginTop: spacing.lg }}>{t('family_ui.invite_code_expired')}</Text>
             )}
+            </Surface>
 
             {/* Numeric fallback */}
+            <Surface id="parent.invite_code.numeric_code">
             <View style={{ marginTop: spacing.xl, alignItems: 'center' }}>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>
                 {t('family_ui.invite_code_numeric_hint')}
@@ -108,8 +119,10 @@ export default function InviteCodeScreen() {
                 {token.numeric_code}
               </Text>
             </View>
+            </Surface>
 
             {/* Regenerate */}
+            <Surface id="parent.invite_code.regenerate">
             <TouchableOpacity
               onPress={regenerate}
               disabled={gen.isPending}
@@ -127,10 +140,12 @@ export default function InviteCodeScreen() {
                 </>
               )}
             </TouchableOpacity>
+            </Surface>
           </>
         ) : null}
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 

@@ -15,6 +15,7 @@ import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useCourseFormOptions, useCreateCourse } from '@/hooks/useCourses';
 import { useTeacherOnboarding, useMarkOnboardingStep } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 type Slot = { day_of_week: number; start_time: string; end_time: string };
@@ -132,17 +133,21 @@ export default function CourseCreateScreen() {
   const venueOptions = [{ key: '', label: t('enroll_ui.no_venue') }, ...(options?.venues ?? []).map((v) => ({ key: v.id, label: v.address ? `${v.name} — ${v.address}` : v.name }))];
 
   return (
+    <Surface id="screen.teacher.courses.create" screen>
     <FormScreen title={t('teacher.create_course')} subtitle={t('teacher.create_course_sub')} loading={isLoading || !options}>
       {options ? (
         <>
           {showExplainer ? (
+            <Surface id="teacher.course_create.explainer">
             <Banner tone="info" icon="book">
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('onboarding.course_form_title')}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: 2 }}>{t('onboarding.course_form_body')}</Text>
             </Banner>
+            </Surface>
           ) : null}
 
           {/* ── Basics ── */}
+          <Surface id="teacher.course_create.basics">
           <FormCard icon="book" title={t('teacher.section_basics')} required>
             <Field label={t('teacher.course_name')} required first>
               <Input value={name} onChangeText={setName} placeholder={t('teacher.course_name_ph')} maxLength={255} />
@@ -154,6 +159,7 @@ export default function CourseCreateScreen() {
               <Chips options={options.terms.map((tm) => ({ key: tm.id, label: tm.name + (tm.ended ? ` — ${t('teacher.term_ended_tag')}` : '') }))} value={termId} onChange={setTermId} />
             </Field>
             {/* Venue — optional. With none yet, show the way to add one rather than nothing. */}
+            <Surface id="teacher.course_create.basics.venue">
             <Field label={t('enroll_ui.venue_label')} hint={t('form_ui.optional')}>
               {(options.venues?.length ?? 0) > 0 ? (
                 <SelectField value={venueId ?? ''} options={venueOptions} placeholder={t('enroll_ui.no_venue')} onChange={(id) => setVenueId(id || null)} />
@@ -165,9 +171,12 @@ export default function CourseCreateScreen() {
                 </TouchableOpacity>
               ) : null}
             </Field>
+            </Surface>
           </FormCard>
+          </Surface>
 
           {/* ── Start ── */}
+          <Surface id="teacher.course_create.start">
           <FormCard icon="calendar" title={t('teacher.start_when')} hint={t('teacher.start_hint')} tint={colors.success}>
             <Chips fill tint={colors.success}
               options={[{ key: 'now' as const, label: t('teacher.start_now'), icon: 'clock' }, { key: 'date' as const, label: t('teacher.start_on_date'), icon: 'calendar' }]}
@@ -176,14 +185,18 @@ export default function CourseCreateScreen() {
               <View style={{ marginTop: spacing.md }}><DateStrip days={days} value={startDate} onChange={setStartDate} /></View>
             ) : null}
           </FormCard>
+          </Surface>
 
           {/* ── Weekly schedule ── */}
+          <Surface id="teacher.course_create.slots">
           <FormCard icon="clock" title={t('teacher.slots_section')} hint={t('teacher.slots_hint')} tint={colors.accent}
             action={(
+              <Surface id="teacher.course_create.slots.add_button">
               <TouchableOpacity onPress={addSlot} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 34, borderRadius: radius.full, backgroundColor: colors.accentLight }}>
                 <Icon name="add" size={16} color={colors.accentText} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accentText }}>{t('teacher.add_day')}</Text>
               </TouchableOpacity>
+              </Surface>
             )}>
             {slots.length === 0 ? (
               <TouchableOpacity onPress={addSlot} activeOpacity={0.85} style={{ alignItems: 'center', paddingVertical: spacing.lg, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.borderStrong }}>
@@ -215,8 +228,10 @@ export default function CourseCreateScreen() {
               })
             )}
           </FormCard>
+          </Surface>
 
           {/* ── Billing (required) ── */}
+          <Surface id="teacher.course_create.billing">
           <FormCard icon="money" title={t('teacher.billing_section')} required tint={colors.success}>
             <View style={{ flexDirection: 'row', gap: spacing.md }}>
               <View style={{ flex: 1 }}>
@@ -228,16 +243,22 @@ export default function CourseCreateScreen() {
             </View>
             {perSession ? <Banner tone="success" icon="money" text={t('teacher.per_session_hint', { price: perSession })} style={{ marginTop: spacing.md, marginBottom: 0 }} /> : null}
 
+            <Surface id="teacher.course_create.billing.booklet">
             <SwitchRow title={t('teacher.booklet_price')} value={hasBooklet} onChange={(v) => { setHasBooklet(v); if (!v) setBookletPrice(''); }} />
             {hasBooklet ? <View style={{ marginTop: spacing.sm }}><NumberInput value={bookletPrice} onChangeText={setBookletPrice} decimals placeholder={t('teacher.egp')} suffix={t('teacher.egp')} /></View> : null}
+            </Surface>
 
+            <Surface id="teacher.course_create.billing.booking">
             <SwitchRow title={t('teacher.booking_price')} hint={bookletIsDownPayment ? t('teacher.booking_is_booklet') : undefined}
               value={hasBooking && !bookletIsDownPayment} disabled={bookletIsDownPayment} onChange={(v) => { setHasBooking(v); if (!v) setBookingPrice(''); }} />
             {hasBooking && !bookletIsDownPayment ? <View style={{ marginTop: spacing.sm }}><NumberInput value={bookingPrice} onChangeText={setBookingPrice} decimals placeholder={t('teacher.egp')} suffix={t('teacher.egp')} /></View> : null}
+            </Surface>
             {explainerDue ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.brand, marginTop: spacing.sm }}>{t('onboarding.price_hint')}</Text> : null}
           </FormCard>
+          </Surface>
 
           {/* ── Attendance & details ── */}
+          <Surface id="teacher.course_create.geofence">
           <FormCard icon="location" title={t('course_ui.geofence_label')} tint={geofence ? colors.success : colors.borderStrong}>
             <SwitchRow title={t('course_ui.geofence_label')} hint={t(geofence ? 'course_ui.geofence_hint' : 'course_ui.geofence_off_hint')} value={geofence} onChange={setGeofence} first />
             {geofence ? (
@@ -246,7 +267,9 @@ export default function CourseCreateScreen() {
               </Field>
             ) : null}
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.course_create.details">
           <FormCard icon="settings" title={t('teacher.section_details')}>
             <SwitchRow first title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />
             <Field label={t('teacher.capacity')} hint={t('form_ui.optional')}>
@@ -256,10 +279,12 @@ export default function CourseCreateScreen() {
               <Input value={description} onChangeText={setDescription} placeholder={t('teacher.optional')} multiline />
             </Field>
           </FormCard>
+          </Surface>
 
-          <Button title={t('teacher.create_course')} onPress={submit} loading={create.isPending} disabled={!canSubmit} variant="primary" />
+          <Surface id="teacher.course_create.submit_button"><Button title={t('teacher.create_course')} onPress={submit} loading={create.isPending} disabled={!canSubmit} variant="primary" /></Surface>
         </>
       ) : null}
     </FormScreen>
+    </Surface>
   );
 }

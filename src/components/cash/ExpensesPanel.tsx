@@ -21,6 +21,7 @@ import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useRose } from '@/hooks/useRose';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { getExpenses, addExpense, deleteExpense, assignExpenseVenue, suggestCategory, type Expense, type VenueRef, type ExpenseTrace, type RecurringSuggestion } from '@/api/cash';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * The expense ledger (spec 2026-09-25 §6, minimum §11.1). Fastest path from "I just bought
@@ -102,7 +103,7 @@ const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, perVenue
           <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t('insights.egp')}</Text>
         </View>
         {/* Accepted in the weekly review: in her book. */}
-        {e.review_status === 'accepted' ? <RoseStamp ink="navy" size={34} /> : null}
+        {e.review_status === 'accepted' ? <Surface id="teacher.cash.expenses.row_stamp"><RoseStamp ink="navy" size={34} /></Surface> : null}
       </View>
 
       {hasTags ? (
@@ -110,18 +111,24 @@ const ExpenseRow = memo(function ExpenseRow({ e, showLogger, canDelete, perVenue
           {e.is_late ? <Tag icon="clock" text={t('expenses.late')} tint={colors.warningDark} /> : null}
           {state ? <Tag text={t(`review.state_${state}`)} tint={REVIEW_TINT()[state]} /> : null}
           {e.messages_count > 0 || e.review_status === 'questioned' ? (
+            <Surface id="teacher.cash.expenses.thread_tag">
             <Tag icon="tickets" text={t('review.thread', { count: e.messages_count })} tint={colors.brand}
               onPress={() => router.push({ pathname: '/(teacher)/expense-thread', params: { id: String(e.id) } } as Href)} />
+            </Surface>
           ) : null}
           {venueLabel ? (
+            <Surface id="teacher.cash.expenses.venue_tag">
             <Tag icon="location" text={`${venueLabel}${canAssign ? ` · ${t('expenses.assign_venue')}` : ''}`} tint={e.venue_kind === 'unassigned' ? colors.warningDark : colors.textSecondary}
               onPress={canAssign ? () => onAssign(e) : undefined} />
+            </Surface>
           ) : null}
           {canDelete ? (
+            <Surface id="teacher.cash.expenses.delete_button">
             <TouchableOpacity onPress={() => onDelete(e)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('expenses.delete')}
               style={{ marginStart: 'auto', width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSunken }}>
               <Icon name="trash" size={15} color={colors.textTertiary} />
             </TouchableOpacity>
+            </Surface>
           ) : null}
         </View>
       ) : null}
@@ -316,13 +323,16 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
   );
 
   const content = (
-    <>
+    <Surface id="teacher.cash.expenses.panel">
         {onExport && !trace ? (
+          <Surface id="teacher.cash.expenses.export_pill">
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}>
             <ExportPill busy={exporting} onPress={() => onExport(weekKey)} />
           </View>
+          </Surface>
         ) : null}
         {/* The summary: which week, its total, and the one button. */}
+        <Surface id="teacher.cash.expenses.summary_card">
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm }}>
           {trace ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -336,6 +346,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
             </View>
           ) : (
             // RTL: the previous week is on the right («forward» ›), the next on the left.
+            <Surface id="teacher.cash.expenses.week_stepper">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               {arrow('forward', () => setWeekDay((d) => new Date(d.getTime() - 7 * DAY_MS)), false, t('expenses.prev_week'))}
               <View style={{ flex: 1, alignItems: 'center' }}>
@@ -344,6 +355,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
               </View>
               {arrow('back', () => setWeekDay((d) => new Date(d.getTime() + 7 * DAY_MS)), isCurrentWeek, t('expenses.next_week'))}
             </View>
+            </Surface>
           )}
 
           <View style={{ height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.md }} />
@@ -362,16 +374,20 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2, textAlign: 'center' }}>{t('expenses.disabled_hint')}</Text>
             </View>
           ) : (
+            <Surface id="teacher.cash.expenses.compose_button">
             <TouchableOpacity onPress={() => openComposer()} activeOpacity={0.85} accessibilityRole="button"
               style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 48, borderRadius: radius.lg, backgroundColor: colors.brand, marginTop: spacing.md }}>
               <Icon name="add" size={19} color="#fff" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('expenses.compose')}</Text>
             </TouchableOpacity>
+            </Surface>
           )}
         </View>
+        </Surface>
 
         {/* Quick add — what this person logs often; one tap opens the sheet filled in. */}
         {enabled && (data?.quick_add.length ?? 0) > 0 ? (
+          <Surface id="teacher.cash.expenses.quick_add">
           <View style={{ marginBottom: spacing.lg }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary, marginBottom: spacing.sm }}>{t('expenses.quick_add_title')}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
@@ -388,10 +404,12 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
               ))}
             </View>
           </View>
+          </Surface>
         ) : null}
 
         {/* What she remembers is due — her suggestion, the person's tap. */}
         {(data?.recurring.length ?? 0) > 0 && enabled ? (
+          <Surface id="teacher.cash.expenses.recurring_card">
           <View style={{ backgroundColor: colors.brand + '0F', borderRadius: radius.xl, borderWidth: 1, borderColor: colors.brand + '33', padding: spacing.md, marginBottom: spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs }}>
               {rose.named ? <RosePortrait size={30} nod={false} /> : <Icon name="note" size={16} color={colors.brand} />}
@@ -406,16 +424,20 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
               </View>
             ))}
           </View>
+          </Surface>
         ) : null}
 
         {perVenue && (data?.unassigned_count ?? 0) > 0 ? (
+          <Surface id="teacher.cash.expenses.unassigned_notice">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.warning + '14', borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.lg }}>
             <Icon name="location" size={16} color={colors.warningDark} />
             <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.warningDark }}>{t('expenses.unassigned_hint', { count: data?.unassigned_count })}</Text>
           </View>
+          </Surface>
         ) : null}
 
         {/* The entries, by day. */}
+        <Surface id="teacher.cash.expenses.list">
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : items.length === 0 ? (
@@ -433,11 +455,13 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
             </View>
           ))
         )}
-    </>
+        </Surface>
+    </Surface>
   );
 
   // The form: amount, one tap on a category, the rest optional. Over the list, gone when saved.
   const composer = (
+    <Surface id="teacher.cash.expenses.composer">
     <SheetModal visible={composerOpen} onClose={closeComposer} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom, maxHeight: '90%' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('expenses.add_title')}</Text>
@@ -463,7 +487,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
           })}
         </View>
         {perVenue ? (
-          <>
+          <Surface id="teacher.cash.expenses.composer_venue_picker">
             <FieldLabel>{t('expenses.venue')}</FieldLabel>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
               {[...venues.map((v) => ({ key: v.id as number | 'general', label: v.name ?? '' })), { key: 'general' as const, label: t('expenses.general') }].map((c) => (
@@ -471,7 +495,7 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
               ))}
             </View>
             {venueChoice === null ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.sm }}>{t('expenses.venue_required')}</Text> : null}
-          </>
+          </Surface>
         ) : null}
         <FieldLabel>{t('expenses.note')}</FieldLabel>
         <TextInput
@@ -483,15 +507,20 @@ export function ExpensesPanel({ embedded = false, initialTrace = null, onExport,
           style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', marginBottom: spacing.md }}
         />
         {isCurrentWeek ? (
+          <Surface id="teacher.cash.expenses.composer_day_picker">
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: spacing.md }}>
             {(['today', 'yesterday'] as const).map((k) => <Chip key={k} on={dayChoice === k} label={t(`expenses.${k}`)} onPress={() => setDayChoice(k)} />)}
           </View>
+          </Surface>
         ) : data ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.md }}>{t('expenses.past_week_date', { date: formatShortDate(data.week.end) })}</Text>
         ) : null}
+        <Surface id="teacher.cash.expenses.composer_submit_button">
         <Button title={t('expenses.add')} onPress={() => add.mutate()} disabled={!canAdd} loading={add.isPending} />
+        </Surface>
       </ScrollView>
     </SheetModal>
+    </Surface>
   );
 
   // Embedded in مدام روز's hub the OUTER screen scrolls and pulls to refresh; nesting a

@@ -23,6 +23,7 @@ import { formatNumber } from '@/utils/format';
 import { useState } from 'react';
 import { ComplaintSheet, ComplaintPill } from '@/components/student/ComplaintSheet';
 import { useMyComplaints } from '@/hooks/useComplaints';
+import { Surface } from '@/ui/surfaces';
 
 const statusConfig = (): Record<string, { color: string }> => ({
   paid: { color: colors.success },
@@ -74,12 +75,14 @@ export default function StudentInvoicesPage() {
   }
 
   return (
+    <Surface id="screen.student.invoices" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="student.invoices.hero">
         <PageHero
           title={t('invoices.title')}
           subtitle={formatDate(new Date())}
@@ -90,8 +93,10 @@ export default function StudentInvoicesPage() {
             { value: formatNumber(overdueCount), label: t('invoices.overdue'), warn: overdueCount > 0 },
           ]}
         />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md }}>
+          <Surface id="student.invoices.list">
           {groups.length === 0 ? (
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, ...shadows.sm }}>
               <EmptyState icon="invoices" title={t('invoices.no_invoices')} />
@@ -101,18 +106,24 @@ export default function StudentInvoicesPage() {
               <View key={group.teacher} style={{ gap: spacing.md }}>
                 {/* Per-teacher header — each teacher's bills stand on their own. */}
                 <View style={{ marginTop: spacing.sm }}><SectionHead icon="teacher" color={colors.brand} title={group.teacher} /></View>
+                <Surface id="student.invoices.pending_dues">
                 {group.dues.map((due) => (
                   <PendingDueCard key={`due-${due.id}`} due={due} />
                 ))}
+                </Surface>
+                <Surface id="student.invoices.invoice_cards">
                 {group.invoices.map((invoice) => (
                   <InvoiceCard key={invoice.id} invoice={invoice} />
                 ))}
+                </Surface>
               </View>
             ))
           )}
+          </Surface>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 
@@ -159,7 +170,8 @@ function InvoiceCard({ invoice }: { invoice: Invoice }) {
         </View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>{formatEGP(invoice.amount)}</Text>
       </View>
-      <PaymentSection invoice={invoice} />
+      <Surface id="student.invoices.payment_section"><PaymentSection invoice={invoice} /></Surface>
+      <Surface id="student.invoices.complaint">
       {complaint ? (
         <View style={{ marginTop: spacing.md, alignSelf: 'flex-start' }}><ComplaintPill status={complaint.status} /></View>
       ) : invoice.status !== 'paid' ? (
@@ -170,6 +182,7 @@ function InvoiceCard({ invoice }: { invoice: Invoice }) {
         </TouchableOpacity>
       ) : null}
       <ComplaintSheet visible={complainOpen} onClose={() => setComplainOpen(false)} target={{ type: 'payment', invoiceId: Number(invoice.id), invoiceNumber: invoice.number, amount: invoice.amount, remaining: invoice.remaining }} />
+      </Surface>
     </TouchableOpacity>
   );
 }

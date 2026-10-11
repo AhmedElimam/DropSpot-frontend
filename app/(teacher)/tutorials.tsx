@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useTutorials } from '@/hooks/useTutorials';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * «شروحات التطبيق» (founder 2026-10-08: «an educational video of everything in the app, in
@@ -27,7 +28,9 @@ export default function TutorialsScreen() {
   const list = data ?? [];
 
   return (
+    <Surface id="screen.teacher.tutorials" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <Surface id="teacher.tutorials.hero">
       <LinearGradient colors={[...gradients.auth]} style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl }}>
         <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')}
           style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.12)', justifyContent: 'center', alignItems: 'center' }}>
@@ -36,6 +39,8 @@ export default function TutorialsScreen() {
         <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#FFFFFF', marginTop: spacing.md }}>{t('tutorials.title')}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', marginTop: 4, lineHeight: 22 }}>{t('tutorials.hero_sub')}</Text>
       </LinearGradient>
+      </Surface>
+      <Surface id="teacher.tutorials.list">
       <ScrollView showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.md, flexGrow: 1 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
@@ -66,6 +71,8 @@ export default function TutorialsScreen() {
           ))
         )}
       </ScrollView>
+      </Surface>
     </View>
+    </Surface>
   );
 }
