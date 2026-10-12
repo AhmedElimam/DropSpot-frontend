@@ -884,7 +884,6 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.schedule_overrides.slots` — element · app/(teacher)/schedule-overrides.tsx
 - `teacher.schedule_tools.row_courses` — element · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_new_course` — element · assistant: manage_courses · src/components/teacher/ScheduleToolsSheet.tsx
-- `teacher.schedule_tools.row_new_slot` — element · assistant: manage_sessions · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_pause` — element · assistant: cancel_sessions · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_revisions` — element · assistant: teacher · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_schedule_merge` — element · assistant: manage_courses · src/components/teacher/ScheduleToolsSheet.tsx
