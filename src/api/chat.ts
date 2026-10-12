@@ -1,8 +1,12 @@
 import client from './client';
 import { STAGING_HEADER, STAGING_KEY } from '@/config/env';
+import { roomParams, roomPath, roomCourseId, type RoomId } from '@/chat/room';
 
 /**
  * Course group chat — the STUDENT side of the room (Course Group Chat spec).
+ *
+ * Every course-scoped call takes a ROOM id (src/chat/room.ts): the course id for the
+ * students' room, minus it for the parents' room.
  *
  * Every endpoint is absent (404) while the `course_chat` feature flag is off; callers gate
  * on the flag before calling, and treat a 404 as "not available" rather than an error.
@@ -22,6 +26,12 @@ export interface ChatChannelSummary {
   last_preview: string | null;
   last_sender: string | null;
   last_mine: boolean;
+  /** students | parents — a course has both rooms. Absent on older servers (= students). */
+  audience?: 'students' | 'parents';
+  /** A parent following a child's room: reads, never writes. */
+  read_only?: boolean;
+  /** A parent's list: which of their children the room is for (first names). */
+  children?: string[];
 }
 
 export interface ChatSender {
@@ -30,6 +40,8 @@ export interface ChatSender {
   /** The course teacher or an assistant — the client shows a badge so a child always knows an adult is speaking. */
   is_staff: boolean;
   is_teacher: boolean;
+  /** A parents' room: «وليّ أمر أحمد» under the name. */
+  label?: string | null;
 }
 
 export type ChatAttachmentKind = 'image' | 'file' | 'voice';
@@ -137,8 +149,14 @@ export interface ChatMute {
 
 export interface ChatRoom {
   course: { id: number; name: string; teacher_name: string | null; members: number };
-  role: 'teacher' | 'assistant' | 'student' | null;
+  /** `parent` writes in a parents' room; `observer` is a parent following a child's room. */
+  role: ChatRole;
   can_post: boolean;
+  audience?: 'students' | 'parents';
+  /** The room's private socket channel, without `private-`. */
+  socket_channel?: string;
+  /** A students' room: its children's parents follow it (everyone in it is told). */
+  followed_by_parents?: boolean;
   /** Why posting is refused right now — a full sentence to show as-is. */
   post_blocked_reason: string | null;
   locked: boolean;
@@ -162,6 +180,8 @@ export interface ChatRoom {
   /** Reactions that changed lately on messages this poll did not resend: id → summary. */
   reaction_updates?: Record<string, ChatReaction[]>;
 }
+
+export type ChatRole = 'teacher' | 'assistant' | 'student' | 'parent' | 'observer' | null;
 
 export interface ChatWindow {
   mode: 'latest' | 'after' | 'around';
@@ -190,7 +210,9 @@ export interface ChatMediaPage {
 export interface ChatMember {
   id: number;
   name: string;
-  role: 'teacher' | 'assistant' | 'student';
+  role: 'teacher' | 'assistant' | 'student' | 'parent';
+  /** A parent in a parents' room: «وليّ أمر أحمد». */
+  label?: string | null;
   is_moderator: boolean;
   is_you: boolean;
   hidden_by_you: boolean;
@@ -204,6 +226,8 @@ export interface ChatMember {
 export interface ChatInfo {
   course: { id: number; name: string; teacher_name: string | null };
   role: ChatRoom['role'];
+  audience?: 'students' | 'parents';
+  followed_by_parents?: boolean;
   is_moderator: boolean;
   locked: boolean;
   announcements_only: boolean;
@@ -240,7 +264,7 @@ export async function getChatChannels(): Promise<ChatChannelSummary[]> {
  * rules as text — a muted student cannot attach a photo either.
  */
 export async function uploadChatAttachment(
-  courseId: number,
+  room: RoomId,
   input: { kind: ChatAttachmentKind; uri: string; name: string; mime: string; duration?: number; body?: string; parentId?: number | null },
 ): Promise<ChatMessage> {
   const form = new FormData();
@@ -250,7 +274,8 @@ export async function uploadChatAttachment(
   if (input.duration != null) form.append('duration', String(Math.round(input.duration)));
   // React Native's FormData takes {uri, name, type} for a file part.
   form.append('file', { uri: input.uri, name: input.name, type: input.mime } as unknown as Blob);
-  const { data } = await client.post(`/chat/courses/${courseId}/attachments`, form, {
+  const { data } = await client.post(roomPath(room, 'attachments'), form, {
+    params: roomParams(room),
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 120000,
   });
@@ -310,32 +335,32 @@ export function cleanAttachmentName(raw: string): string {
   return name.replace(/\s+/g, ' ').trim();
 }
 
-export async function getChatRoom(courseId: number, query?: number | ChatRoomQuery): Promise<ChatRoom> {
+export async function getChatRoom(room: RoomId, query?: number | ChatRoomQuery): Promise<ChatRoom> {
   const q: ChatRoomQuery = typeof query === 'number' ? { beforeId: query } : (query ?? {});
   const params: Record<string, string | number> = {};
   if (q.beforeId) params.before_id = q.beforeId;
   if (q.afterId) params.after_id = q.afterId;
   if (q.aroundId) params.around_id = q.aroundId;
   if (q.aroundDate) params.around_date = q.aroundDate;
-  const { data } = await client.get(`/chat/courses/${courseId}/messages`, { params: Object.keys(params).length ? params : undefined });
+  const { data } = await client.get(roomPath(room, 'messages'), { params: roomParams(room, params) });
   return data as ChatRoom;
 }
 
 /** One tab of the room's shelf, newest first. */
-export async function getChatMedia(courseId: number, type: ChatMediaType, beforeId?: number): Promise<ChatMediaPage> {
-  const { data } = await client.get(`/chat/courses/${courseId}/media`, { params: { type, ...(beforeId ? { before_id: beforeId } : {}) } });
+export async function getChatMedia(room: RoomId, type: ChatMediaType, beforeId?: number): Promise<ChatMediaPage> {
+  const { data } = await client.get(roomPath(room, 'media'), { params: roomParams(room, { type, ...(beforeId ? { before_id: beforeId } : {}) }) });
   return data as ChatMediaPage;
 }
 
 /** The room's info page: members (moderators flagged), counts, switches. */
-export async function getChatInfo(courseId: number): Promise<ChatInfo> {
-  const { data } = await client.get(`/chat/courses/${courseId}/info`);
+export async function getChatInfo(room: RoomId): Promise<ChatInfo> {
+  const { data } = await client.get(roomPath(room, 'info'), { params: roomParams(room) });
   return data as ChatInfo;
 }
 
 /** Messages per Cairo day between two dates (YYYY-MM-DD). */
-export async function getChatCalendar(courseId: number, from: string, to: string): Promise<ChatCalendar> {
-  const { data } = await client.get(`/chat/courses/${courseId}/calendar`, { params: { from, to } });
+export async function getChatCalendar(room: RoomId, from: string, to: string): Promise<ChatCalendar> {
+  const { data } = await client.get(roomPath(room, 'calendar'), { params: roomParams(room, { from, to }) });
   return data as ChatCalendar;
 }
 
@@ -345,12 +370,12 @@ export async function unmuteChatUser(muteId: number): Promise<void> {
 }
 
 /** «يكتب…» — fire and forget; the server answers 204 whether or not anyone is listening. */
-export async function postChatTyping(courseId: number): Promise<void> {
-  await client.post(`/chat/courses/${courseId}/typing`);
+export async function postChatTyping(room: RoomId): Promise<void> {
+  await client.post(roomPath(room, 'typing'), undefined, { params: roomParams(room) });
 }
 
-export async function sendChatMessage(courseId: number, body: string, parentId?: number | null): Promise<ChatMessage> {
-  const { data } = await client.post(`/chat/courses/${courseId}/messages`, parentId ? { body, parent_id: parentId } : { body });
+export async function sendChatMessage(room: RoomId, body: string, parentId?: number | null): Promise<ChatMessage> {
+  const { data } = await client.post(roomPath(room, 'messages'), parentId ? { body, parent_id: parentId } : { body }, { params: roomParams(room) });
   return data.message as ChatMessage;
 }
 
@@ -374,8 +399,8 @@ export async function reportChatMessage(messageId: number, reason: string, note?
 }
 
 /** Hide another member's messages from MY view only. They are never told. */
-export async function blockChatUser(courseId: number, userId: number): Promise<string> {
-  const { data } = await client.post('/chat/blocks', { course_id: courseId, user_id: userId });
+export async function blockChatUser(room: RoomId, userId: number): Promise<string> {
+  const { data } = await client.post('/chat/blocks', { course_id: roomCourseId(room), user_id: userId }, { params: roomParams(room) });
   return String(data?.message ?? '');
 }
 
@@ -384,8 +409,8 @@ export async function unblockChatUser(userId: number): Promise<void> {
 }
 
 /** Silence a course's pushes without leaving it. Reading is unaffected. */
-export async function setChatNotify(courseId: number, notify: boolean): Promise<void> {
-  await client.post(`/chat/courses/${courseId}/notifications`, { notify });
+export async function setChatNotify(room: RoomId, notify: boolean): Promise<void> {
+  await client.post(roomPath(room, 'notifications'), { notify }, { params: roomParams(room) });
 }
 
 // ---------------------------------------------------------------------------
@@ -417,8 +442,8 @@ export interface ChatReportsResponse {
   mute_max_hours: number;
 }
 
-export async function getChatReports(courseId: number): Promise<ChatReportsResponse> {
-  const { data } = await client.get(`/chat/courses/${courseId}/reports`);
+export async function getChatReports(room: RoomId): Promise<ChatReportsResponse> {
+  const { data } = await client.get(roomPath(room, 'reports'), { params: roomParams(room) });
   return data as ChatReportsResponse;
 }
 
@@ -430,11 +455,11 @@ export async function resolveChatReport(
 }
 
 /** Time-limited, reason required, parent notified — the server enforces all three (§3). */
-export async function muteChatUser(courseId: number, userId: number, hours: number, reason: string): Promise<string> {
-  const { data } = await client.post(`/chat/courses/${courseId}/mutes`, { user_id: userId, hours, reason });
+export async function muteChatUser(room: RoomId, userId: number, hours: number, reason: string): Promise<string> {
+  const { data } = await client.post(roomPath(room, 'mutes'), { user_id: userId, hours, reason }, { params: roomParams(room) });
   return String(data?.message ?? '');
 }
 
-export async function setChatSettings(courseId: number, settings: { is_locked?: boolean; announcements_only?: boolean }): Promise<void> {
-  await client.post(`/chat/courses/${courseId}/settings`, settings);
+export async function setChatSettings(room: RoomId, settings: { is_locked?: boolean; announcements_only?: boolean }): Promise<void> {
+  await client.post(roomPath(room, 'settings'), settings, { params: roomParams(room) });
 }

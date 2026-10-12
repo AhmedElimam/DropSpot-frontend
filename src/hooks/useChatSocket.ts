@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { ChatMessage, ChatReaction, ChatRealtime } from '@/api/chat';
 import { useRealtimeChannels, type RealtimeStatus } from '@/hooks/useRealtimeChannels';
+import { roomSocketChannel } from '@/chat/room';
 
 /**
  * A live subscription to one room's private channel, when the server says a broadcaster is
@@ -23,7 +24,8 @@ export function useChatSocket(
   enabled = true,
 ): { connected: boolean; status: ChatSocketStatus } {
   const channels = useMemo(
-    () => (realtime?.channel_prefix && courseId > 0 ? [`${realtime.channel_prefix}${courseId}`] : []),
+    // A room id: the course for the students' room, minus it for the parents' room.
+    () => (realtime?.channel_prefix && courseId !== 0 ? [roomSocketChannel(courseId, realtime.channel_prefix)] : []),
     [realtime?.channel_prefix, courseId],
   );
   return useRealtimeChannels(realtime, channels, {

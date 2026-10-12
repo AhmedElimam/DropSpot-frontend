@@ -16,6 +16,7 @@ import {
 } from '@/hooks/useChat';
 import { attachmentHeaders, type ChatMediaType, type ChatMember, type ChatMessage } from '@/api/chat';
 import { useChatJump } from '@/chat/jumpStore';
+import { isParentsRoom } from '@/chat/room';
 import { chunk, fromYmd, groupByMonth, lastDays, ymd } from '@/chat/roomView';
 import { ChatCalendarSheet } from '@/components/chat/ChatCalendarSheet';
 import { ChatReportsSheet } from '@/components/chat/ChatReportsSheet';
@@ -63,6 +64,9 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
   const info = useChatInfo(courseId);
   const data = info.data;
   const moderator = !!data?.is_moderator;
+  // A parent following a child's room reads it; blocking members there is not theirs to do.
+  const observer = data?.role === 'observer';
+  const parentsRoom = isParentsRoom(courseId);
   const [tab, setTab] = useState<Tab>('members');
   const [search, setSearch] = useState('');
   const [headers, setHeaders] = useState<Record<string, string> | null>(null);
@@ -102,7 +106,7 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
 
   // ── Members ────────────────────────────────────────────────────────────────────────
   const onMember = (m: ChatMember) => {
-    if (m.is_you || m.is_moderator) return;
+    if (m.is_you || m.is_moderator || observer) return;
     if (moderator) {
       const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
       if (m.mute) {
@@ -152,7 +156,7 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
       const out: Row[] = [];
       if (mods.length) out.push({ type: 'section', key: 's-mods', title: `${t('chat.moderators')} · ${formatNumber(mods.length)}` });
       mods.forEach((m) => out.push({ type: 'member', key: `m-${m.id}`, member: m }));
-      if (students.length) out.push({ type: 'section', key: 's-students', title: `${t('chat.students')} · ${formatNumber(students.length)}` });
+      if (students.length) out.push({ type: 'section', key: 's-students', title: `${parentsRoom ? t('chat.parents') : t('chat.students')} · ${formatNumber(students.length)}` });
       students.forEach((m) => out.push({ type: 'member', key: `m-${m.id}`, member: m }));
       if (!out.length) out.push({ type: 'empty', key: 'e', text: t('chat.members_none_match') });
       return out;
@@ -206,7 +210,9 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
         <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: senderColor(courseId), alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.onHeroChipBorder, ...shadows.md }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 36, color: colors.onPrimary }}>{(data.course.name || '؟').trim().charAt(0)}</Text>
         </View>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.onHero, marginTop: spacing.md, textAlign: 'center' }} numberOfLines={2}>{data.course.name}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.onHero, marginTop: spacing.md, textAlign: 'center' }} numberOfLines={2}>
+          {parentsRoom ? t('chat.parents_room_name', { course: data.course.name }) : data.course.name}
+        </Text>
         {data.course.teacher_name ? (
           <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>{t('chat.info_teacher', { name: data.course.teacher_name })}</Text>
         ) : null}
@@ -214,6 +220,15 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
           {[t('chat.info_members', { n: formatNumber(counts.members) }), t('chat.info_moderators', { n: formatNumber(counts.moderators) }),
             data.first_message_at ? t('chat.info_since', { date: formatDateOnly(data.first_message_at, { month: 'long', year: 'numeric' }) }) : null].filter(Boolean).join(' · ')}
         </Text>
+        {/* Who reads this room besides its members — said plainly, on its own page. */}
+        {parentsRoom || data.followed_by_parents ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm, maxWidth: '100%' }}>
+            <Icon name={parentsRoom ? 'children' : 'eye'} size={13} color={colors.onHeroSoft} outline />
+            <Text style={{ flexShrink: 1, fontFamily: fonts.medium, fontSize: 12, color: colors.onHeroSoft, textAlign: 'center' }}>
+              {parentsRoom ? t('chat.notice_parents_room') : observer ? t('chat.notice_following') : t('chat.notice_parents_follow')}
+            </Text>
+          </View>
+        ) : null}
         {data.locked || data.announcements_only ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm, backgroundColor: colors.onHeroChip, borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
             <Icon name={data.locked ? 'lock' : 'info'} size={13} color={colors.onHero} outline />
@@ -293,7 +308,7 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
       case 'empty':
         return <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, textAlign: 'center', marginTop: spacing.xl, marginHorizontal: spacing.xl }}>{r.text}</Text>;
       case 'member':
-        return <MemberRow m={r.member} viewerIsModerator={moderator} onPress={() => onMember(r.member)} />;
+        return <MemberRow m={r.member} viewerIsModerator={moderator} readOnly={observer} onPress={() => onMember(r.member)} />;
       case 'photos':
         return (
           <View style={{ flexDirection: 'row', gap, marginHorizontal: spacing.lg, marginBottom: gap }}>
@@ -404,9 +419,9 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
 }
 
 /** One member: who, their role (moderators flagged), and — for a moderator — how they are doing. */
-function MemberRow({ m, viewerIsModerator, onPress }: { m: ChatMember; viewerIsModerator: boolean; onPress: () => void }) {
+function MemberRow({ m, viewerIsModerator, readOnly = false, onPress }: { m: ChatMember; viewerIsModerator: boolean; readOnly?: boolean; onPress: () => void }) {
   const { t } = useTranslation();
-  const tappable = !m.is_you && !m.is_moderator;
+  const tappable = !m.is_you && !m.is_moderator && !readOnly;
   const chips: { key: string; text: string; bg: string; ink: string; icon?: IconName }[] = [];
   if (m.mute) chips.push({ key: 'mute', text: t('chat.muted_until', { time: formatDateTime(m.mute.until) }), bg: colors.dangerLight, ink: colors.dangerText, icon: 'mute' });
   if (m.open_reports) chips.push({ key: 'rep', text: t('chat.member_reports', { n: formatNumber(m.open_reports) }), bg: colors.warningLight, ink: colors.warningText, icon: 'flag' });
@@ -432,13 +447,14 @@ function MemberRow({ m, viewerIsModerator, onPress }: { m: ChatMember; viewerIsM
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{m.name}</Text>
           {m.is_you ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{t('chat.you_paren')}</Text> : null}
-          {m.role !== 'student' ? (
+          {m.is_moderator ? (
             <View style={{ backgroundColor: chat.staffInk, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{m.role === 'teacher' ? t('chat.teacher_badge') : t('chat.assistant_badge')}</Text>
             </View>
           ) : null}
           {m.is_moderator ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.accentText }}>{t('chat.moderator_flag')}</Text> : null}
         </View>
+        {m.label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1, textAlign: 'right' }} numberOfLines={1}>{m.label}</Text> : null}
         {activity ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2, textAlign: 'right' }} numberOfLines={1}>{activity}</Text> : null}
         {chips.length ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>

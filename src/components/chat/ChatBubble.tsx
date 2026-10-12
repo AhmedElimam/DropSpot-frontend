@@ -177,6 +177,11 @@ export const ChatBubble = memo(function ChatBubble({
                 {message.sender.is_teacher ? t('chat.teacher_badge') : t('chat.assistant_badge')}
               </Text>
             </View>
+          ) : message.sender.label ? (
+            // A parents' room: whose parent is speaking («وليّ أمر أحمد»).
+            <Text style={{ flexShrink: 1, fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }} numberOfLines={1}>
+              {message.sender.label}
+            </Text>
           ) : null}
         </View>
       ) : null}

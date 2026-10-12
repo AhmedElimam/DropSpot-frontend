@@ -71,7 +71,7 @@ export function useChatRoom(courseId: number, active: boolean, live = false) {
   return useQuery({
     queryKey: ['chat', 'room', courseId],
     queryFn: () => pollChatRoom(courseId, qc.getQueryData<ChatRoom>(['chat', 'room', courseId])),
-    enabled: on && courseId > 0,
+    enabled: on && courseId !== 0,
     refetchInterval: (query) => {
       if (!active) return false;
       const limits = query.state.data?.limits;
@@ -270,7 +270,7 @@ export function useChatReports(courseId: number, enabled: boolean) {
   return useQuery({
     queryKey: ['chat', 'reports', courseId],
     queryFn: () => getChatReports(courseId),
-    enabled: on && enabled && courseId > 0,
+    enabled: on && enabled && courseId !== 0,
     staleTime: 10_000,
     refetchInterval: enabled ? 30_000 : false,
     refetchIntervalInBackground: false,
@@ -322,7 +322,7 @@ export function useChatInfo(courseId: number, enabled = true) {
   return useQuery({
     queryKey: ['chat', 'info', courseId],
     queryFn: () => getChatInfo(courseId),
-    enabled: on && enabled && courseId > 0,
+    enabled: on && enabled && courseId !== 0,
     staleTime: 20_000,
   });
 }
@@ -335,7 +335,7 @@ export function useChatMedia(courseId: number, type: ChatMediaType, enabled = tr
     queryFn: ({ pageParam }) => getChatMedia(courseId, type, pageParam || undefined),
     initialPageParam: 0,
     getNextPageParam: (last) => last.next_before_id ?? undefined,
-    enabled: on && enabled && courseId > 0,
+    enabled: on && enabled && courseId !== 0,
     staleTime: 30_000,
   });
 }
@@ -346,7 +346,7 @@ export function useChatCalendar(courseId: number, from: string, to: string, enab
   return useQuery({
     queryKey: ['chat', 'calendar', courseId, from, to],
     queryFn: () => getChatCalendar(courseId, from, to),
-    enabled: on && enabled && courseId > 0 && !!from && !!to,
+    enabled: on && enabled && courseId !== 0 && !!from && !!to,
     staleTime: 60_000,
   });
 }

@@ -23,7 +23,7 @@ import { discardChatOutbox, enqueueChatMessage, flushChatOutbox, retryChatOutbox
 import { mergeOutbox } from '@/chat/outboxCore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useChatSocket } from '@/hooks/useChatSocket';
-import { attachmentFileName, getChatRoom, postChatTyping, reactChatMessage, type ChatMessage, type ChatReaction, type ChatReplyRef } from '@/api/chat';
+import { attachmentFileName, getChatRoom, postChatTyping, reactChatMessage, type ChatMessage, type ChatReaction, type ChatReplyRef, type ChatRoom } from '@/api/chat';
 import { MessageActionsOverlay, type MessageAction } from '@/components/chat/MessageActionsOverlay';
 import type { BubbleRect } from '@/components/chat/ChatBubble';
 import { ChatReportsSheet } from '@/components/chat/ChatReportsSheet';
@@ -40,6 +40,7 @@ import { ChatWallpaper } from '@/components/chat/ChatWallpaper';
 import { TypingBubble } from '@/components/chat/TypingBubble';
 import type { VoiceClip } from '@/components/chat/VoiceRecorder';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { isParentsRoom, roomIdOf } from '@/chat/room';
 import { formatDateTime, formatDayDate, relativeDay } from '@/utils/format';
 
 /**
@@ -95,6 +96,10 @@ export function ChatRoomScreen({ courseId, infoHref }: {
   // The server decides what this person is; the UI only follows. Anything below gated on
   // this is also refused server-side, so the gate is about not offering a dead button.
   const isModerator = room.data?.role === 'teacher' || room.data?.role === 'assistant';
+  // A parent following their child's room (founder 2026-10-12): reads everything, writes,
+  // reacts and replies nothing — the server refuses all three; the room does not offer them.
+  const observer = room.data?.role === 'observer';
+  const parentsRoom = isParentsRoom(courseId);
   const reports = useChatReports(courseId, isModerator && focused);
   const openReports = reports.data?.reports?.length ?? 0;
 
@@ -179,7 +184,7 @@ export function ChatRoomScreen({ courseId, infoHref }: {
   const pillTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRetries = useRef(0);
 
-  const notify = channels.data?.find((c) => c.course_id === courseId)?.notify ?? true;
+  const notify = channels.data?.find((c) => roomIdOf(c) === courseId)?.notify ?? true;
 
   // Live frames merge into the same cache the poll fills; hidden ids drop out of it.
   const { connected, status: socketStatus } = useChatSocket(courseId, room.data?.realtime, {
@@ -549,6 +554,11 @@ export function ChatRoomScreen({ courseId, infoHref }: {
     const close = (fn: () => void) => () => { setHeld(null); fn(); };
     const mineMsg = m.sender.id === me?.id;
     const out: MessageAction[] = [];
+    // A following parent: the one thing they can do with a message is tell the teacher.
+    if (observer) {
+      if (!m.hidden) out.push({ key: 'report', label: t('chat.report'), icon: 'flag', onPress: close(() => { setReporting(m); setReportReason(null); setReportNote(''); }) });
+      return out;
+    }
     if (room.data?.can_post && !m.hidden) out.push({ key: 'reply', label: t('chat.reply_action'), icon: 'reply', onPress: close(() => startReply(m)) });
     if (mineMsg) {
       out.push({ key: 'delete', label: t('chat.delete'), icon: 'trash', destructive: true, onPress: close(() => Alert.alert(t('chat.message_actions'), t('chat.delete_confirm'), [
@@ -600,11 +610,11 @@ export function ChatRoomScreen({ courseId, infoHref }: {
         highlight={m.id === highlightId}
         onReply={canWrite ? stableReply : undefined}
         onQuotePress={stableQuote}
-        onReact={stableReact}
+        onReact={observer ? undefined : stableReact}
         myId={myId}
       />
     );
-  }, [myId, onHold, stableRetry, highlightId, canWrite, stableReply, stableQuote, stableReact]);
+  }, [myId, onHold, stableRetry, highlightId, canWrite, stableReply, stableQuote, stableReact, observer]);
 
   /** The moderator's room-wide switches. Neither singles out a student. */
   const roomMenu = () => {
@@ -700,13 +710,15 @@ export function ChatRoomScreen({ courseId, infoHref }: {
           </Text>
         </View>
           <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.onHero }} numberOfLines={1}>{data.course.name}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.onHero }} numberOfLines={1}>
+            {parentsRoom ? t('chat.parents_room_name', { course: data.course.name }) : data.course.name}
+          </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             {/* The dot is the socket's word, not a guess: green only once the private channel is
                 subscribed; amber while it tries or after it failed (the poll carries the room then). */}
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: connected ? '#8FE3A2' : (socketStatus === 'off' ? colors.onHeroFaint : '#F3C969') }} />
             <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft }} numberOfLines={1}>
-              {typingLabel ?? `${connected ? t('chat.live') : t('chat.polling')} · ${t('chat.members_count', { count: data.course.members })}`}
+              {typingLabel ?? [connected ? t('chat.live') : t('chat.polling'), observer ? t('chat.following_short') : null, t('chat.members_count', { count: data.course.members })].filter(Boolean).join(' · ')}
             </Text>
           </View>
         </View>
@@ -796,7 +808,9 @@ export function ChatRoomScreen({ courseId, infoHref }: {
                 {typingLabel && !win ? <TypingBubble label={typingLabel} /> : null}
               </View>
             }
-            ListFooterComponent={loadingOlder ? <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: spacing.md }} /> : null}
+            ListFooterComponent={loadingOlder
+              ? <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: spacing.md }} />
+              : (win ? !win.hasMoreBefore : (noMoreOlder || messages.length < pageSize)) ? <RoomNotice room={data} parentsRoom={parentsRoom} /> : null}
           />
 
           {messages.length === 0 && !room.isFetching ? (
@@ -868,7 +882,7 @@ export function ChatRoomScreen({ courseId, infoHref }: {
           />
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.lg, paddingBottom: spacing.lg + insets.bottom, backgroundColor: chat.bar, borderTopWidth: 1, borderTopColor: chat.barBorder }}>
-            <Icon name="lock" size={16} color={colors.textTertiary} />
+            <Icon name={observer ? 'eye' : 'lock'} size={16} color={observer ? colors.brand : colors.textTertiary} outline={observer} />
             <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 21, color: colors.textSecondary }}>
               {data.post_blocked_reason}
             </Text>
@@ -909,7 +923,7 @@ export function ChatRoomScreen({ courseId, infoHref }: {
         mine={!!held && held.message.sender.id === me?.id}
         myId={me?.id}
         myReaction={held && me ? (held.message.reactions ?? []).find((r) => r.user_ids.includes(me.id))?.emoji ?? null : null}
-        canReact={!!held && !held.message.hidden && !held.message.local}
+        canReact={!!held && !held.message.hidden && !held.message.local && !observer}
         actions={held ? heldActions(held.message) : []}
         onReact={(e) => { if (held) react(held.message, e); setHeld(null); }}
         onClose={() => setHeld(null)}
@@ -982,6 +996,30 @@ export function ChatRoomScreen({ courseId, infoHref }: {
           </View>
         </View>
       </Modal>
+    </View>
+  );
+}
+
+/**
+ * The first line of the room's history, like a messenger's «messages are encrypted» chip:
+ * who can read this room. In a students' room everyone is told that the children's parents
+ * follow it (founder 2026-10-12 opened the rooms to parents; nobody should learn that by
+ * surprise); a parents' room says that no student is in it.
+ */
+function RoomNotice({ room, parentsRoom }: { room: ChatRoom; parentsRoom: boolean }) {
+  const { t } = useTranslation();
+  const text = parentsRoom
+    ? t('chat.notice_parents_room')
+    : room.role === 'observer'
+      ? t('chat.notice_following')
+      : room.followed_by_parents
+        ? t('chat.notice_parents_follow')
+        : null;
+  if (!text) return null;
+  return (
+    <View style={{ alignSelf: 'center', maxWidth: '86%', flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: spacing.md, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.lg, backgroundColor: colors.accentWarmTint }}>
+      <Icon name={parentsRoom ? 'children' : 'eye'} size={13} color={colors.accentWarm} outline={!parentsRoom} />
+      <Text style={{ flexShrink: 1, fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, color: colors.textSecondary, textAlign: 'center' }}>{text}</Text>
     </View>
   );
 }

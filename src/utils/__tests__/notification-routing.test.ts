@@ -59,3 +59,17 @@ describe('complaint notifications open where they are about', () => {
     expect(notificationRouteFor({ role: 'student', type: 'brand_new_type', data: { route: '/(student)/marks?x=1' } })).toBe('/(student)/marks?x=1');
   });
 });
+
+describe('chat pushes open the right room (founder 2026-10-12: parents in the chat)', () => {
+  it('a parents\' room message opens that room — minus the course id — for parent and teacher', () => {
+    const data = { course_id: '12', channel_id: '40', room: 'parents' };
+    expect(notificationRouteFor({ role: 'parent', type: 'chat_message', data })).toBe('/(parent)/chat/-12');
+    expect(notificationRouteFor({ role: 'teacher', type: 'chat_message', data })).toBe('/(teacher)/conversations/chat/-12');
+  });
+
+  it('a students\' room push keeps the course id; a child\'s mute opens the child\'s room for the parent', () => {
+    expect(notificationRouteFor({ role: 'teacher', type: 'chat_message', data: { course_id: '12', room: 'students' } })).toBe('/(teacher)/conversations/chat/12');
+    expect(notificationRouteFor({ role: 'parent', type: 'chat_muted_parent', data: { course_id: 12 } })).toBe('/(parent)/chat/12');
+    expect(notificationRouteFor({ role: 'parent', type: 'chat_message', data: {} })).toBe('/(parent)/(tabs)/community');
+  });
+});
