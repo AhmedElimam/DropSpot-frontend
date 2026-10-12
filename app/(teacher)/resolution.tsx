@@ -24,6 +24,7 @@ import { createAdminTicket, getMyAdminTickets, getSupportCategories, type AdminT
 import { SelectField } from '@/components/ui/SelectField';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { Surface } from '@/ui/surfaces';
+import { formatShortDate } from '@/utils/format';
 
 /**
  * Resolution Center — the teacher's consolidated review hub. Aggregates the review
@@ -222,12 +223,33 @@ export default function ResolutionCenter() {
               <SectionTitle>{t('resolution.termination')}</SectionTitle>
               {candidates.data.map((c: TerminationCandidate) => (
                 <View key={`term-${c.id}`} style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.danger + '55', padding: spacing.lg, marginBottom: spacing.sm }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  {/* Who, and a tap opens them — the decision is made looking at the student. */}
+                  <TouchableOpacity onPress={() => router.push(`/(teacher)/students/${c.student_id}` as Href)} activeOpacity={0.8} accessibilityRole="button"
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                     <Icon name="warning" size={18} color={colors.danger} />
-                    <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.student_name ?? '—'}</Text>
-                  </View>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 4 }}>
-                    {[c.course_name, t('resolution.absences_n', { n: c.absences })].filter(Boolean).join(' · ')}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{c.student_name ?? '—'}</Text>
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 1 }} numberOfLines={1}>
+                        {[c.student_code, c.course_name].filter(Boolean).join(' · ')}
+                      </Text>
+                    </View>
+                    <View style={{ minWidth: 34, height: 34, borderRadius: 17, backgroundColor: colors.dangerLight, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.dangerText }}>{c.absences}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: spacing.sm }}>{t('resolution.absences_n', { n: c.absences })}</Text>
+                  {/* The run itself: which sessions, oldest to newest, and when they last came. */}
+                  {c.absent_dates && c.absent_dates.length ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm }}>
+                      {[...c.absent_dates].reverse().map((d, i) => (
+                        <View key={`${d}-${i}`} style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.sm, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border }}>
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{formatShortDate(d)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>
+                    {c.last_present_at ? t('resolution.last_present', { date: formatShortDate(c.last_present_at) }) : t('resolution.never_present')}
                   </Text>
                   <Surface id="teacher.resolution.termination.terminate_button">
                   <TouchableOpacity

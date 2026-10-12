@@ -103,6 +103,10 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
     case 'expense_reminder':
       return can('scan_attendance') ? '/(teacher)/expenses' : null;
 
+    // New streaks of unexcused absences (attendance:notify-termination-candidates).
+    case 'termination_candidate':
+      return '/(teacher)/resolution';
+
     // ── phone / tickets ──
     case 'device_pending_scans':
       return '/(teacher)/reconcile';
@@ -143,6 +147,7 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
       return '/(parent)/today';
     case 'attendance':
     case 'absence':
+    case 'attendance_risk':
     case 'left_early':
     case 'grade':
     case 'special_session':

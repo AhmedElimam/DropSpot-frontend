@@ -10,6 +10,10 @@ describe('notificationRouteFor (feed + push taps)', () => {
     expect(notificationRouteFor({ role: 'teacher', type: 'assistant_checkin_review', data: { session_instance_id: 44 } })).toBe('/(teacher)/sessions/44');
     expect(notificationRouteFor({ role: 'teacher', type: 'invitation_accepted', data: { student_id: 9 } })).toBe('/(teacher)/students/9');
     expect(notificationRouteFor({ role: 'teacher', type: 'admin_ticket_reply', data: { admin_ticket_id: 1 } })).toBe('/(teacher)/resolution');
+    // A new streak of unexcused absences (2026-10-12) opens the Resolution Center.
+    expect(notificationRouteFor({ role: 'teacher', type: 'termination_candidate', data: { count: 2 } })).toBe('/(teacher)/resolution');
+    // …and the parent's line about it opens that child.
+    expect(notificationRouteFor({ role: 'parent', type: 'attendance_risk', data: { student_id: 5 } })).toBe('/(parent)/child/5');
   });
 
   it('never sends an assistant to a screen the server would refuse them', () => {

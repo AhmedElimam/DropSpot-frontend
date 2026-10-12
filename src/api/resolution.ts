@@ -63,6 +63,12 @@ export interface TerminationCandidate {
   course_name: string | null;
   absences: number;
   last_absent_at: string | null;
+  /** The first absence of the run (servers since 2026-10-12). */
+  streak_started_at?: string | null;
+  /** Each absent session of the run, newest first. */
+  absent_dates?: string[];
+  /** The last session they actually came to, if any since joining. */
+  last_present_at?: string | null;
 }
 
 export interface ExcuseItem {
