@@ -526,6 +526,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.course_detail.slots.add_button` — element · assistant: manage_sessions · app/(teacher)/courses/[id].tsx
 - `teacher.course_detail.slots.edit_button` — element · assistant: manage_courses · app/(teacher)/courses/[id].tsx
 - `teacher.course_detail.slots.retire_button` — element · assistant: manage_courses · app/(teacher)/courses/[id].tsx
+- `teacher.courses.filter_kind` — element · app/(teacher)/courses/index.tsx
 - `teacher.courses.list` — element · app/(teacher)/courses/index.tsx
 - `teacher.courses.new_button` — element · assistant: manage_courses · app/(teacher)/courses/index.tsx
 - `teacher.enroll.course_picker` — element · app/(teacher)/enroll.tsx
