@@ -31,6 +31,8 @@ import { useMyComplaints } from '@/hooks/useComplaints';
 import { GradeComplaintSheet, GradeComplaintStatus, gradeTargetFromExam, gradeTargetFromRecord, type GradeComplaintTarget } from '@/components/complaints/GradeComplaintSheet';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Surface } from '@/ui/surfaces';
+import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
+import { tracksAttendance } from '@/utils/privateLesson';
 
 type TabKey = 'attendance' | 'grades' | 'exams' | 'settings';
 
@@ -231,6 +233,11 @@ export default function ChildDetailScreen() {
                             {fmtDateTime(s.scheduled_at)}{s.teacher_name ? ` · ${s.teacher_name}` : ''}
                           </Text>
                         </View>
+                        {!tracksAttendance(s) ? (
+                          <Surface id="parent.child.upcoming_sessions.private_label" ctx={{ session: s }}>
+                            <PrivateLessonChip of={s} short />
+                          </Surface>
+                        ) : null}
                       </View>
                     ))}
                   </View>

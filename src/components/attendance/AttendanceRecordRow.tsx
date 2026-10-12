@@ -6,6 +6,9 @@ import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ComplaintPill } from '@/components/student/ComplaintSheet';
+import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
+import { tracksAttendance } from '@/utils/privateLesson';
+import { Surface } from '@/ui/surfaces';
 import { formatDate, formatTime } from '@/utils/format';
 import type { AttendanceRecord } from '@/types/attendance';
 import type { Complaint } from '@/api/complaints';
@@ -36,32 +39,36 @@ export const AttendanceRecordRow = memo(function AttendanceRecordRow({ record, c
   last?: boolean;
 }) {
   const { t } = useTranslation();
-  const tone = statusTone(record.status);
   const when = record.session_time ? new Date(record.session_time) : null;
   const valid = when && !isNaN(when.getTime());
   const attended = record.status === 'present' || record.status === 'late';
+  // A private lesson's record is a schedule fact, not an outcome: no badge, no method, no «اعتراض».
+  const tracked = tracksAttendance(record);
+  const tone = tracked ? statusTone(record.status) : statusTone(null);
 
-  const icon = record.status === 'present' ? 'present' : record.status === 'late' ? 'late' : record.status === 'excused' ? 'excused' : 'absent';
+  const icon = !tracked ? 'book' : record.status === 'present' ? 'present' : record.status === 'late' ? 'late' : record.status === 'excused' ? 'excused' : 'absent';
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.borderLight }}>
       <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: tone.bg, alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
-        <Icon name={icon} size={18} color={tone.fg} />
+        <Icon name={icon} size={18} color={tone.fg} outline={!tracked} />
       </View>
 
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{record.course_name ?? '—'}</Text>
-          <StatusBadge status={record.status ?? ''} size="sm" />
+          {tracked ? <StatusBadge status={record.status ?? ''} size="sm" /> : (
+            <Surface id="attendance.record_row.private_label" ctx={{ record }}><PrivateLessonChip of={record} style={{ flexShrink: 1 }} /></Surface>
+          )}
         </View>
         <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
           {[valid ? formatDate(when, { weekday: 'long', day: 'numeric', month: 'short' }) : null, valid ? formatTime(when) : null, record.teacher_name].filter(Boolean).join(' · ')}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: 6 }}>
-          {attended && record.check_in_method ? <StatusBadge status={record.check_in_method} size="sm" /> : null}
+          {tracked && attended && record.check_in_method ? <StatusBadge status={record.check_in_method} size="sm" /> : null}
           {complaint ? (
             <ComplaintPill status={complaint.status} />
-          ) : onComplain && record.session_instance_id ? (
+          ) : tracked && onComplain && record.session_instance_id ? (
             <TouchableOpacity onPress={() => onComplain(record)} hitSlop={6} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Icon name="note" size={13} color={colors.brand} outline />
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('complaints.file_attendance')}</Text>

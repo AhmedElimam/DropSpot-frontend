@@ -3,7 +3,9 @@ export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 // phone self check-in, or a manual teacher entry.
 export type CheckInMethod = 'card_scan' | 'phone_permitted' | 'manual';
 
-export interface AttendanceRecord {
+import type { AttendanceModeFields } from './attendance-mode';
+
+export interface AttendanceRecord extends AttendanceModeFields {
   id: number;
   session_instance_id: number;
   student_id: number;

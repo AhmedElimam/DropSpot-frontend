@@ -64,8 +64,9 @@ export default function TeacherSessions() {
 
   const dayKey = key(selected);
   const list = byDay.get(dayKey) ?? [];
-  const present = list.reduce((n, s) => n + (s.checked_in_count ?? 0), 0);
-  const roster = list.reduce((n, s) => n + (s.enrolled_count ?? 0), 0);
+  // A private lesson (tracks_attendance false) has no attendance: it adds nothing to «present of roster».
+  const present = list.reduce((n, s) => n + (s.tracks_attendance === false ? 0 : s.checked_in_count ?? 0), 0);
+  const roster = list.reduce((n, s) => n + (s.tracks_attendance === false ? 0 : s.enrolled_count ?? 0), 0);
   const isThisWeek = key(weekStart(today)) === from;
 
   return (

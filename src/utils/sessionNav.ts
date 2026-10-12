@@ -17,16 +17,37 @@ export function isSessionHighlighted(s: TeacherSession, now: number): boolean {
   return now >= start - HIGHLIGHT_BEFORE_MIN() * 60_000 && now <= end;
 }
 
-/** The session that is live now, else the next one still to come today, else null. */
-export function pickCurrentSession(sessions: TeacherSession[], now: number): TeacherSession | null {
-  const live = sessions.find((s) => isSessionHighlighted(s, now));
+/**
+ * A private lesson (course attendance_mode 'none', founder 2026-10-12) has no attendance at
+ * all, so it can never be a scan target. A missing field is an older server: a door course.
+ */
+export function isScannableSession(s: Pick<TeacherSession, 'tracks_attendance'>): boolean {
+  return s.tracks_attendance !== false;
+}
+
+/**
+ * The session that is live now, else the next one still to come today, else null.
+ * With `{ scannable: true }` a private lesson is never picked — use that when the answer
+ * becomes a scan target; the Home spotlight shows any session (a private one draws its label).
+ */
+export function pickCurrentSession(sessions: TeacherSession[], now: number, opts: { scannable?: boolean } = {}): TeacherSession | null {
+  const pool = opts.scannable ? sessions.filter(isScannableSession) : sessions;
+  const live = pool.find((s) => isSessionHighlighted(s, now));
   if (live) return live;
-  const upcoming = sessions
+  const upcoming = pool
     .filter((s) => s.scheduled_at && new Date(s.scheduled_at).getTime() > now)
     .sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime());
   return upcoming[0] ?? null;
 }
 
-export function goToScan(session: TeacherSession) {
+/** The session a scan should land in now — never a private lesson. */
+export function pickScanSession(sessions: TeacherSession[], now: number): TeacherSession | null {
+  return pickCurrentSession(sessions, now, { scannable: true });
+}
+
+/** Opens the scanner on this session. A private lesson has nothing to scan: no-op, returns false. */
+export function goToScan(session: TeacherSession): boolean {
+  if (!isScannableSession(session)) return false;
   router.push(`/(teacher)/scan?name=${encodeURIComponent(session.course_name ?? '')}&id=${session.id}` as Href);
+  return true;
 }

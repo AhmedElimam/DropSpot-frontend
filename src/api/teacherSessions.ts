@@ -18,6 +18,11 @@ export interface SessionRow {
   enrolled_count?: number;
   absent_count?: number;
   duration_minutes?: number | null;
+  /** door (card scan, absences…) | none (a private lesson: no attendance at all). Absent on older servers = door. */
+  attendance_mode?: 'door' | 'none';
+  tracks_attendance?: boolean;
+  /** The server's words for a private lesson («درس خصوصي · بدون تسجيل حضور»); null on a course with a door. */
+  attendance_label?: string | null;
 }
 
 export interface SessionsPage {
@@ -75,6 +80,11 @@ export interface SessionDetail {
   /** §1 — 'normal_sheet' | 'quiz_exam'. A big exam's marks report separately. */
   type?: 'normal_sheet' | 'quiz_exam';
   is_exam?: boolean;
+  /** door | none — a private lesson has no attendance (no scan, absences, excuses or swaps); marks only. Absent = door. */
+  attendance_mode?: 'door' | 'none';
+  tracks_attendance?: boolean;
+  /** The server's words for a private lesson; always drawn when present. */
+  attendance_label?: string | null;
   attendees: SessionAttendee[];
   /** Students swapped INTO this session — shown in a separate, non-default tab. */
   swap_ins?: SwapInAttendee[];

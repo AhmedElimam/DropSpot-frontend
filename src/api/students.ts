@@ -207,6 +207,11 @@ export interface StudentCourse {
   backfill_days?: BackfillDay[];
   /** Which day each session number of the current cycle fell / falls on — for the position picker. */
   timeline_positions?: { n: number; date: string | null; label: string | null; is_past: boolean }[];
+  /** door | none — a private lesson has no attendance (schedule, money and marks only). Absent on older servers = door. */
+  attendance_mode?: 'door' | 'none';
+  tracks_attendance?: boolean;
+  /** The server's words for a private lesson; always drawn when present. */
+  attendance_label?: string | null;
 }
 
 /** One ملزمة still owed under this teacher — the unit «تم تحصيل الملزمة» acts on. */

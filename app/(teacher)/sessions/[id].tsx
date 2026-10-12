@@ -77,7 +77,12 @@ export default function SessionDetailScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   // «الحضور» = mark who came; «الدرجات» = type every attended student's sheet / exam mark in a row.
-  const [mode, setMode] = useState<'attendance' | 'marks'>('attendance');
+  const [modeChoice, setMode] = useState<'attendance' | 'marks'>('attendance');
+  // A private lesson (attendance_mode 'none', founder 2026-10-12) has NO attendance — no scan,
+  // no absences, no excuses, no swaps; only marks. Its sheet opens on the marks tab and stays
+  // there. A missing field means an older server: a door course.
+  const noDoor = s?.tracks_attendance === false;
+  const mode: 'attendance' | 'marks' = noDoor ? 'marks' : modeChoice;
 
   const swapIns = s?.swap_ins ?? [];
   const hasSwaps = swapIns.length > 0;
@@ -103,16 +108,18 @@ export default function SessionDetailScreen() {
   const marksList = useMemo(() => {
     const q = search.trim().toLowerCase();
     const rank = (a: SessionAttendee | SwapInAttendee) => {
-      const came = a.status === 'present' || a.status === 'late';
+      // In a private lesson nobody "came": every enrolled student can carry a mark.
+      const came = noDoor || a.status === 'present' || a.status === 'late';
       return !came ? 2 : a.mark == null ? 0 : 1;
     };
     return baseList
       .filter((a) => (!q ? true : (a.name ?? '').toLowerCase().includes(q) || (a.student_code ?? '').toLowerCase().includes(q)))
       .slice()
       .sort((a, b) => rank(a) - rank(b));
-  }, [baseList, search]);
-  const attendedCount = baseList.filter((a) => a.status === 'present' || a.status === 'late').length;
-  const markedCount = baseList.filter((a) => (a.status === 'present' || a.status === 'late') && a.mark != null).length;
+  }, [baseList, search, noDoor]);
+  const canCarryMark = (a: SessionAttendee | SwapInAttendee) => noDoor || a.status === 'present' || a.status === 'late';
+  const attendedCount = baseList.filter(canCarryMark).length;
+  const markedCount = baseList.filter((a) => canCarryMark(a) && a.mark != null).length;
   const saveMark = useCallback(async (studentId: number, value: number | null) => {
     try {
       await controls.grade.mutateAsync({ studentId, mark: value });
@@ -187,7 +194,7 @@ export default function SessionDetailScreen() {
   };
 
   const renderAttendee = ({ item }: { item: SessionAttendee | SwapInAttendee }) => {
-    const color = STATUS_COLOR()[item.status] ?? STATUS_COLOR().not_recorded;
+    const color = noDoor ? STATUS_COLOR().not_recorded : STATUS_COLOR()[item.status] ?? STATUS_COLOR().not_recorded;
     const fromLabel = 'from_label' in item ? item.from_label : null;
     const awaiting = bucketOf(item.status) === 'awaiting';
     return (
@@ -197,7 +204,8 @@ export default function SessionDetailScreen() {
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{item.name ?? '—'}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
-            {!awaiting ? (
+            {/* A private lesson has no attendance status to show. */}
+            {!awaiting && !noDoor ? (
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color }}>{t(STATUS_KEY[item.status] ?? 'teacher.not_recorded')}{item.checked_in_at ? ` · ${item.checked_in_at}` : ''}</Text>
             ) : (
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{item.student_code ?? (item.card_less ? t('teacher.card_less') : '')}</Text>
@@ -210,7 +218,8 @@ export default function SessionDetailScreen() {
           </View>
           {fromLabel ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand, marginTop: 2 }} numberOfLines={1}>{t('teacher.swapped_from', { from: fromLabel })}</Text> : null}
         </View>
-        <Surface id="teacher.session_detail.row_quick_marks" assistantNeeds="mark_attendance_manual">
+        {noDoor ? null : (
+        <Surface id="teacher.session_detail.row_quick_marks" ctx={{ session: s }} assistantNeeds="mark_attendance_manual">
         <View style={{ flexDirection: 'row', gap: 6 }}>
           {(['present', 'absent'] as const).map((st) => {
             const on = item.status === st || (st === 'present' && item.status === 'late');
@@ -224,6 +233,7 @@ export default function SessionDetailScreen() {
           })}
         </View>
         </Surface>
+        )}
       </TouchableOpacity>
     );
   };
@@ -272,10 +282,20 @@ export default function SessionDetailScreen() {
                   {dayLabel(s.scheduled_at)}{s.time ? ` · ${s.time}` : ''}{s.location ? ` · ${s.location}` : ''}
                 </Text>
               </View>
-              <Surface id="teacher.session_detail.header.ring"><AttendanceRing present={counts.present} total={total} onHero size={84} /></Surface>
+              {noDoor ? null : <Surface id="teacher.session_detail.header.ring" ctx={{ session: s }}><AttendanceRing present={counts.present} total={total} onHero size={84} /></Surface>}
             </View>
 
-            <Surface id="teacher.session_detail.header.stats">
+            {noDoor ? (
+              // No attendance to count: the server's words say what this session is.
+              <Surface id="teacher.session_detail.header.private_label" ctx={{ session: s }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+                <Icon name="grades" size={18} color={colors.onHero} />
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, lineHeight: 19, color: colors.onHero }}>{s.attendance_label ?? t('course_ui.private_marks_only')}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHeroSoft }}>{`${formatNumber(markedCount)}/${formatNumber(total)}`}</Text>
+              </View>
+              </Surface>
+            ) : (
+            <Surface id="teacher.session_detail.header.stats" ctx={{ session: s }}>
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
               {stats.map((x) => {
                 const on = filter === x.key;
@@ -292,6 +312,7 @@ export default function SessionDetailScreen() {
               })}
             </View>
             </Surface>
+            )}
           </>
         ) : null}
       </LinearGradient>
@@ -310,7 +331,7 @@ export default function SessionDetailScreen() {
           data={mode === 'marks' ? marksList : list}
           keyExtractor={(a) => String(a.student_id)}
           renderItem={mode === 'marks'
-            ? ({ item }) => <MarkRow a={item} max={s.sheet_max_mark} onSave={saveMark} />
+            ? ({ item }) => <MarkRow a={item} max={s.sheet_max_mark} onSave={saveMark} noDoor={noDoor} />
             : renderAttendee}
           // Clipping detaches off-screen rows, which drops a focused mark field's keyboard on Android.
           removeClippedSubviews={mode !== 'marks'} initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7}
@@ -319,8 +340,9 @@ export default function SessionDetailScreen() {
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <View style={{ marginBottom: spacing.sm, gap: spacing.sm }}>
-              {/* Two tabs on one session: who came, and their marks. */}
-              <Surface id="teacher.session_detail.mode_tabs">
+              {/* Two tabs on one session: who came, and their marks. A private lesson has only marks. */}
+              {noDoor ? null : (
+              <Surface id="teacher.session_detail.mode_tabs" ctx={{ session: s }}>
               <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4, borderWidth: 1, borderColor: colors.border }}>
                 {([['attendance', 'attendance', t('marks_ui.tab_attendance'), null], ['marks', 'grades', t('marks_ui.tab_marks'), attendedCount > 0 ? `${formatNumber(markedCount)}/${formatNumber(attendedCount)}` : null]] as const).map(([k, icon, label, badge]) => {
                   const on = mode === k;
@@ -335,6 +357,7 @@ export default function SessionDetailScreen() {
                 })}
               </View>
               </Surface>
+              )}
               {mode === 'marks' ? (
                 <Surface id="teacher.session_detail.marks_header">
                 <MarksHeader kind={(s.type ?? 'normal_sheet') as SessionKind} kindBusy={controls.setType.isPending} onKind={setKind}
@@ -377,7 +400,7 @@ export default function SessionDetailScreen() {
                 </Surface>
               ) : null}
 
-              {mode === 'attendance' && started && !s.is_cancelled && awaitingRows.length > 0 ? (
+              {!noDoor && mode === 'attendance' && started && !s.is_cancelled && awaitingRows.length > 0 ? (
                 <Surface id="teacher.session_detail.rest_absent_button" ctx={{ session: s }} assistantNeeds="mark_attendance_manual">
                 <TouchableOpacity onPress={markRestAbsent} disabled={bulkBusy} activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md }}>
@@ -404,7 +427,7 @@ export default function SessionDetailScreen() {
       )}
 
       {/* Scan straight into this session. */}
-      {s && live && mode === 'attendance' ? (
+      {s && live && mode === 'attendance' && !noDoor ? (
         <Surface id="teacher.session_detail.scan_fab" ctx={{ session: s }} assistantNeeds="scan_attendance">
         <TouchableOpacity onPress={() => goToScan({ id: s.id, course_name: s.course_name } as TeacherSession)} activeOpacity={0.9} accessibilityRole="button"
           style={{ position: 'absolute', bottom: nav.pageEnd + insets.bottom + spacing.sm, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8, height: 54, paddingHorizontal: spacing.xl, borderRadius: 27, backgroundColor: colors.success, ...shadows.md }}>
@@ -494,7 +517,8 @@ export default function SessionDetailScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <Surface id="teacher.session_detail.student_sheet.mark_attendance" assistantNeeds="mark_attendance_manual">
+                {noDoor ? null : (
+                <Surface id="teacher.session_detail.student_sheet.mark_attendance" ctx={{ session: s }} assistantNeeds="mark_attendance_manual">
                 <>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.mark_attendance')}</Text>
                   <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
@@ -511,6 +535,7 @@ export default function SessionDetailScreen() {
                   </View>
                 </>
                 </Surface>
+                )}
 
                 <Surface id="teacher.session_detail.student_sheet.grade">
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>

@@ -9,6 +9,9 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { formatNumber, formatTime } from '@/utils/format';
 import type { SessionInstance } from '@/types/session-instance';
+import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
+import { tracksAttendance } from '@/utils/privateLesson';
+import { Surface } from '@/ui/surfaces';
 
 export type SessionPhase = 'live' | 'soon' | 'later' | 'done' | 'cancelled';
 
@@ -44,7 +47,10 @@ export const TodaySessionCard = memo(function TodaySessionCard({ session, now, t
   const { phase, minutesToStart, progress } = sessionPhase(session, now);
   const start = new Date(session.scheduled_at);
   const end = new Date(start.getTime() + (session.duration_minutes || 60) * 60000);
-  const outcome = session.attendance_status ?? null;
+  // A private lesson records no outcome and offers no check-in: the card shows the time,
+  // where it stands against the clock, and the server's label — nothing attendance-shaped.
+  const tracked = tracksAttendance(session);
+  const outcome = tracked ? (session.attendance_status ?? null) : null;
 
   const pill = outcome
     ? null
@@ -102,7 +108,7 @@ export const TodaySessionCard = memo(function TodaySessionCard({ session, now, t
 
         {outcome ? (
           <StatusBadge status={outcome} size="sm" />
-        ) : checkable ? (
+        ) : tracked && checkable ? (
           <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: selected ? colors.brand : colors.borderStrong, alignItems: 'center', justifyContent: 'center' }}>
             {selected ? <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand }} /> : null}
           </View>
@@ -121,7 +127,11 @@ export const TodaySessionCard = memo(function TodaySessionCard({ session, now, t
             <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: pill.fg }}>{pill.label}</Text>
           </View>
         ) : null}
-        {session.status === 'scheduled' || phase === 'live' ? (
+        {!tracked ? (
+          <Surface id="student.check_in.session_card.private_label" ctx={{ session }}>
+            <PrivateLessonChip of={session} style={{ flexShrink: 1 }} />
+          </Surface>
+        ) : session.status === 'scheduled' || phase === 'live' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Icon name={session.phone_checkin_allowed ? 'phone' : 'card'} size={12} color={session.phone_checkin_allowed ? colors.successText : colors.textTertiary} outline={!session.phone_checkin_allowed} />
             <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: session.phone_checkin_allowed ? colors.successText : colors.textTertiary }}>
@@ -138,7 +148,7 @@ export const TodaySessionCard = memo(function TodaySessionCard({ session, now, t
       ) : null}
 
       {/* Only while it is running: before it starts the «later / starts in» pill already says it. */}
-      {session.phone_checkin_allowed && phase === 'live' && !inWindow && !outcome ? (
+      {tracked && session.phone_checkin_allowed && phase === 'live' && !inWindow && !outcome ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 6 }}>{t('attendance.outside_window')}</Text>
       ) : null}
     </TouchableOpacity>

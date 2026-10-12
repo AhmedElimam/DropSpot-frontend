@@ -2604,6 +2604,13 @@
     "venue_assistants": "مساعدو هذا المكان"
   },
   "course_ui": {
+    "private_section": "نوع الحضور",
+    "private_label": "درس خصوصي — بدون تسجيل حضور",
+    "private_off_hint": "المقرر العادي: كارنيه وتسجيل حضور وغياب تلقائي.",
+    "private_max": "الحد الأقصى {{n}} طلاب.",
+    "private_marks_only": "درس خصوصي — درجات فقط، بلا حضور",
+    "private_chip": "خصوصي",
+    "private_no_attendance_stats": "لا يُسجَّل حضور في هذا المقرر",
     "geofence_label": "تسجيل الحضور بالهاتف (بالموقع)",
     "geofence_hint": "يسمح للطالب بتسجيل حضوره من هاتفه وهو داخل نصف القطر حول موقع الحصة.",
     "geofence_off_hint": "بالبطاقة أو يدويًا فقط — لا يُسجَّل الحضور من الهاتف.",
@@ -3068,6 +3075,8 @@
     "deleting": "…جارٍ الحذف"
   },
   "family_ui": {
+    "private_lesson": "درس خصوصي · بدون تسجيل حضور",
+    "private_chip": "خصوصي",
     "other": "أخرى",
     "role_teacher": "معلّم",
     "role_parent": "وليّ أمر",

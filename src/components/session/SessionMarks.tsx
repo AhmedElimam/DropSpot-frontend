@@ -53,16 +53,19 @@ type RowStudent = { student_id: number; name: string | null; status: string; mar
 /**
  * One row of the «الدرجات» tab: the student and a number field. Saves on «تم» / leaving the
  * field, only when the value changed. Only a student who attended can carry a mark (the
- * server needs their attendance record), so the others show why the field is closed.
+ * server needs their attendance record), so the others show why the field is closed —
+ * except in a private lesson (`noDoor`): there is no attendance, so the field is always open.
  */
-export const MarkRow = memo(function MarkRow({ a, max, onSave }: {
+export const MarkRow = memo(function MarkRow({ a, max, onSave, noDoor = false }: {
   a: RowStudent; max: number | null; onSave: (studentId: number, mark: number | null) => Promise<void>;
+  /** The session's course tracks no attendance (attendance_mode 'none'): never gate on it. */
+  noDoor?: boolean;
 }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(a.mark != null ? String(a.mark) : '');
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'invalid' | 'error'>('idle');
   useEffect(() => { setDraft(a.mark != null ? String(a.mark) : ''); }, [a.mark]);
-  const attended = a.status === 'present' || a.status === 'late';
+  const attended = noDoor || a.status === 'present' || a.status === 'late';
 
   const commit = async () => {
     const raw = toLatinNumber(draft);

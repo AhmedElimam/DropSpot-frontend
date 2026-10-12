@@ -15,6 +15,11 @@ export interface CourseSummary {
   radius_horizontal_meters: number | null;
   has_location: boolean;
   phone_checkin_active: boolean;
+  /** door (card scan, absences…) | none (a private lesson: no attendance at all). Absent on older servers = door. */
+  attendance_mode?: 'door' | 'none';
+  tracks_attendance?: boolean;
+  /** The server's words for a private lesson («درس خصوصي · بدون تسجيل حضور»); null on a course with a door. */
+  attendance_label?: string | null;
   slot_count: number;
   upcoming_count: number;
   /** Weekly schedule label — weekday + start time, e.g. «الأحد 9:00 AM، الثلاثاء 5:00 PM». */
@@ -40,6 +45,11 @@ export interface CourseDetail {
   // Settings
   radius_horizontal_meters: number;
   allow_session_swap: boolean;
+  attendance_mode?: 'door' | 'none';
+  tracks_attendance?: boolean;
+  attendance_label?: string | null;
+  /** Whether a private lesson may be offered, its cap and its words — the server decides. */
+  private_courses?: PrivateCoursesOptions;
   sheet_expected_by_default: boolean;
   sheet_max_mark: number | null;
   sessions_per_billing_cycle: number | null;
@@ -65,9 +75,19 @@ export interface CourseDetail {
   venue_name?: string | null;
 }
 
+/** Private lessons (founder 2026-10-12): everything about them comes from the server. */
+export interface PrivateCoursesOptions {
+  enabled: boolean;
+  max_students: number;
+  label: string;
+  hint: string;
+  note: string;
+}
+
 export interface CourseSettingsPayload {
   /** Rename the course (schedule master). Grade is not editable. */
   name?: string;
+  attendance_mode?: 'door' | 'none';
   radius_horizontal_meters?: number;
   phone_checkin_enabled?: boolean;
   allow_session_swap?: boolean;
@@ -98,6 +118,7 @@ export interface CourseFormOptions {
   current_term_id: string | null;
   default_radius: number;
   booklet_is_down_payment?: boolean;
+  private_courses?: PrivateCoursesOptions;
 }
 
 export interface CreateCoursePayload {
@@ -117,6 +138,8 @@ export interface CreateCoursePayload {
   slots?: { day_of_week: number; start_time: string; end_time: string }[];
   // Per-course session-swap permission (default on).
   allow_session_swap?: boolean;
+  /** 'none' = a private lesson with no door. Omitted = door. */
+  attendance_mode?: 'door' | 'none';
   // Pricing at creation (empty = disabled/none) — mirrors the web create form.
   sessions_per_billing_cycle?: number;
   cycle_price?: number | null;

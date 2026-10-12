@@ -71,5 +71,9 @@ function extractRecord(item: any): AttendanceRecord {
     teacher_id: a.teacher_id,
     location: a.location,
     can_excuse: a.can_excuse,
+    // Private-lesson contract (2026-10-12): a record of such a course carries tracks_attendance false.
+    attendance_mode: a.attendance_mode ?? undefined,
+    tracks_attendance: a.tracks_attendance ?? undefined,
+    attendance_label: a.attendance_label ?? null,
   };
 }

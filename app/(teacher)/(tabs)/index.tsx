@@ -129,8 +129,9 @@ export default function TeacherHome() {
   const sessions = sessionsQ.data ?? [];
   const current = pickCurrentSession(sessions, now);
   const rest = sessions.filter((s) => s.id !== current?.id);
-  const presentToday = sessions.reduce((n, s) => n + (s.checked_in_count ?? 0), 0);
-  const rosterToday = sessions.reduce((n, s) => n + (s.enrolled_count ?? 0), 0);
+  // A private lesson has no attendance, so it adds nothing to «present of roster».
+  const presentToday = sessions.reduce((n, s) => n + (s.tracks_attendance === false ? 0 : s.checked_in_count ?? 0), 0);
+  const rosterToday = sessions.reduce((n, s) => n + (s.tracks_attendance === false ? 0 : s.enrolled_count ?? 0), 0);
   // One push per tap: a second touch landing within 0.7 s (a double tap, or a touch delivered
   // twice) must not stack the session page twice (founder 2026-10-04).
   const lastOpen = useRef(0);
@@ -358,6 +359,9 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
   const startsIn = s.scheduled_at ? Math.max(0, Math.round((new Date(s.scheduled_at).getTime() - now) / 60_000)) : null;
   const total = s.enrolled_count ?? 0;
   const present = s.checked_in_count ?? 0;
+  // A private lesson (attendance_mode 'none', founder 2026-10-12): nothing to scan, no ring;
+  // the server's label says what it is. A missing field = an older server = a door course.
+  const noDoor = s.tracks_attendance === false;
   return (
     <LinearGradient colors={live ? gradients.success : gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
       style={{ borderRadius: radius.xxl, padding: spacing.lg, ...shadows.md }}>
@@ -378,12 +382,20 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('teacher.position_of', { n: formatNumber(s.cycle_position.n), of: formatNumber(s.cycle_position.of) })}</Text>
             </View>
           ) : null}
+          {noDoor ? (
+            <Surface id="teacher.home.spotlight_private_label" ctx={{ session: s }}>
+            <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 3, paddingHorizontal: 9, marginTop: spacing.sm }}>
+              <Icon name="grades" size={13} color="#fff" />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>{s.attendance_label ?? t('course_ui.private_marks_only')}</Text>
+            </View>
+            </Surface>
+          ) : null}
         </View>
-        {total > 0 ? <AttendanceRing present={present} total={total} onDark /> : null}
+        {total > 0 && !noDoor ? <Surface id="teacher.home.spotlight_ring" ctx={{ session: s }}><AttendanceRing present={present} total={total} onDark /></Surface> : null}
       </View>
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
-        {canScan ? (
-          <Surface id="teacher.home.spotlight_scan">
+        {canScan && !noDoor ? (
+          <Surface id="teacher.home.spotlight_scan" ctx={{ session: s }}>
           <TouchableOpacity onPress={() => onScan(s)} activeOpacity={0.85} accessibilityRole="button"
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50, borderRadius: radius.lg, backgroundColor: '#fff' }}>
             {/* The button is white in both schemes, so its ink is fixed (onWhite), never a theme

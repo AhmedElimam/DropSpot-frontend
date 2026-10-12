@@ -1,15 +1,16 @@
 import client from './client';
 import type { GradeComplaintState } from './complaints';
+import type { AttendanceModeFields } from '@/types/attendance-mode';
 
 /** One course the student attends under a teacher, with how attendance stands there. */
-export interface StudentCourseStanding {
+export interface StudentCourseStanding extends AttendanceModeFields {
   id: number;
   name: string;
   present: number;
   absent: number;
   excused: number;
   total: number;
-  /** present ÷ recorded, as a whole percent; null before anything was recorded. */
+  /** present ÷ recorded, as a whole percent; null before anything was recorded — and always null for a private lesson. */
   rate: number | null;
   next_session_at: string | null;
 }
@@ -31,7 +32,7 @@ export async function getStudentTeachers(studentId: number): Promise<StudentTeac
 }
 
 /** A past session under one teacher, in the attendance-record shape the shared row reads. */
-export interface StudentTeacherPastSession {
+export interface StudentTeacherPastSession extends AttendanceModeFields {
   id: number;
   session_instance_id: number;
   student_id: number;
@@ -45,7 +46,7 @@ export interface StudentTeacherPastSession {
   type: string;
 }
 
-export interface StudentTeacherUpcoming {
+export interface StudentTeacherUpcoming extends AttendanceModeFields {
   id: number;
   course_name: string | null;
   scheduled_at: string | null;

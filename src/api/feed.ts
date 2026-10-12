@@ -1,6 +1,7 @@
 import client from './client';
+import type { AttendanceModeFields } from '@/types/attendance-mode';
 
-export interface FeedSession {
+export interface FeedSession extends AttendanceModeFields {
   session_instance_id: string;
   course_name?: string;
   status?: string | null;

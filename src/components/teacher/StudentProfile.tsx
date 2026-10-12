@@ -853,6 +853,9 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                   const unrecorded = (c.backfill_days ?? []).filter((d) => d.recorded == null).length;
                   const canPosition = canManage && !!c.enrollment_id && !!cy;
                   const openPosition = () => setPositionFor({ enrollmentId: c.enrollment_id!, courseName: c.name, position: cy!.position, threshold: cy!.threshold, positions: c.timeline_positions ?? [] });
+                  // A private lesson (attendance_mode 'none', founder 2026-10-12) tracks no attendance:
+                  // no attended / absent numbers, no paper register. Position and held stay.
+                  const noDoor = c.tracks_attendance === false;
                   return (
                     <View key={c.id} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, overflow: 'hidden', ...shadows.sm }}>
                       {/* Name */}
@@ -860,7 +863,14 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                         <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
                           <Icon name="book" size={20} color={colors.brand} />
                         </View>
-                        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={2}>{c.name ?? '—'}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={2}>{c.name ?? '—'}</Text>
+                          {noDoor ? (
+                            <Surface id="teacher.student_profile.course_private_label" ctx={{ student: s, course: c }}>
+                            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.accentText, marginTop: 2 }} numberOfLines={2}>{c.attendance_label ?? t('course_ui.private_marks_only')}</Text>
+                            </Surface>
+                          ) : null}
+                        </View>
                       </View>
 
                       {cy ? (
@@ -899,12 +909,14 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                           </TouchableOpacity>
                           </Surface>
 
-                          {/* Attendance in this cycle, in three numbers. */}
-                          <Surface id="teacher.student_profile.cycle_stats">
+                          {/* Attendance in this cycle, in three numbers — a private lesson keeps only «held». */}
+                          <Surface id="teacher.student_profile.cycle_stats" ctx={{ student: s, course: c }}>
                           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                             {[
-                              { v: cy.attended, l: t('student_profile_ui.attended'), fg: colors.successText, bg: colors.successLight },
-                              { v: cy.absent, l: t('student_profile_ui.absent'), fg: cy.absent > 0 ? colors.dangerText : colors.textSecondary, bg: cy.absent > 0 ? colors.dangerLight : colors.surfaceSunken },
+                              ...(noDoor ? [] : [
+                                { v: cy.attended, l: t('student_profile_ui.attended'), fg: colors.successText, bg: colors.successLight },
+                                { v: cy.absent, l: t('student_profile_ui.absent'), fg: cy.absent > 0 ? colors.dangerText : colors.textSecondary, bg: cy.absent > 0 ? colors.dangerLight : colors.surfaceSunken },
+                              ]),
                               { v: cy.held, l: t('student_profile_ui.sessions_held'), fg: colors.textPrimary, bg: colors.surfaceSunken },
                             ].map((x) => (
                               <View key={x.l} style={{ flex: 1, backgroundColor: x.bg, borderRadius: radius.lg, paddingVertical: spacing.sm, alignItems: 'center' }}>
@@ -918,8 +930,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                       ) : null}
 
                       {/* The paper register: days held with no record for this student. */}
-                      {c.enrollment_id && unrecorded > 0 ? (
-                        <Surface id="teacher.student_profile.backfill_button" ctx={{ student: s }} assistantNeeds="mark_attendance_manual">
+                      {c.enrollment_id && unrecorded > 0 && !noDoor ? (
+                        <Surface id="teacher.student_profile.backfill_button" ctx={{ student: s, course: c }} assistantNeeds="mark_attendance_manual">
                         <TouchableOpacity onPress={() => openBackfill(c)} accessibilityRole="button" activeOpacity={0.85}
                           style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, paddingHorizontal: spacing.md }}>
                           <Icon name="calendar" size={18} color={colors.brand} />

@@ -23,6 +23,8 @@ import { ComplaintSheet, type ComplaintTarget } from '@/components/student/Compl
 import { GradeComplaintSheet, GradeComplaintStatus, gradeTargetFromExam, type GradeComplaintTarget } from '@/components/complaints/GradeComplaintSheet';
 import type { AttendanceRecord } from '@/types/attendance';
 import { Surface } from '@/ui/surfaces';
+import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
+import { tracksAttendance } from '@/utils/privateLesson';
 
 /**
  * One teacher, from the student's side (founder 2026-10-03: «click to see more details on
@@ -108,6 +110,17 @@ export default function StudentTeacherPage() {
             <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>
               {d.courses.map((c) => {
                 const tone = toneOf(c.rate);
+                if (!tracksAttendance(c)) {
+                  // A private lesson under this teacher: the label where the bar would be.
+                  return (
+                    <Surface key={c.id} id="student.teacher.standing.private_course" ctx={{ course: c }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.textPrimary }} numberOfLines={1}>{c.name}</Text>
+                        <PrivateLessonChip of={c} style={{ flexShrink: 1 }} />
+                      </View>
+                    </Surface>
+                  );
+                }
                 return (
                   <View key={c.id}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -147,6 +160,11 @@ export default function StudentTeacherPage() {
                       {[ok ? formatDateOnly(when, { weekday: 'long' }) : null, ok ? formatTime(when) : null, t('student_teacher.minutes', { n: formatNumber(s.duration_minutes) }), s.location].filter(Boolean).join(' · ')}
                     </Text>
                   </View>
+                  {!tracksAttendance(s) ? (
+                    <Surface id="student.teacher.upcoming.private_label" ctx={{ session: s }}>
+                      <PrivateLessonChip of={s} short />
+                    </Surface>
+                  ) : null}
                 </View>
               );
             })}
