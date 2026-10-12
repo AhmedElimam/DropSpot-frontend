@@ -16,13 +16,18 @@ const STAGING = process.env.EXPO_PUBLIC_APP_ENV === 'staging';
 const APP_ID = STAGING ? 'com.drosspot.app.stg' : 'com.drosspot.app';
 // Firebase config files are keyed by package / bundle id, so a staging build needs the
 // staging apps registered in Firebase and their files beside the production ones.
-const androidGoogleServices = STAGING ? './google-services.staging.json' : './google-services.json';
-if (STAGING && !existsSync(resolve(__dirname, androidGoogleServices))) {
-  throw new Error('Staging build: google-services.staging.json is missing (register com.drosspot.app.stg in Firebase and download it).');
+// Until com.drosspot.app.stg is registered in Firebase the staging build falls back to the
+// production files: iOS then only logs a bundle-id mismatch (no push on staging anyway), and
+// Android's Gradle refuses loudly ("No matching client found for package name") — which is
+// the point; the CI workflow also requires the staging file before it starts.
+const hasStagingAndroid = existsSync(resolve(__dirname, './google-services.staging.json'));
+if (STAGING && !hasStagingAndroid) {
+  console.warn('[app.config] Staging build without google-services.staging.json — an Android build will fail until com.drosspot.app.stg is registered in Firebase.');
 }
+const androidGoogleServices = STAGING && hasStagingAndroid ? './google-services.staging.json' : './google-services.json';
 const iosGoogleServicesStaging = existsSync(resolve(__dirname, 'GoogleService-Info.staging.plist'))
   ? { googleServicesFile: './GoogleService-Info.staging.plist' }
-  : {};
+  : iosGoogleServices;
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,

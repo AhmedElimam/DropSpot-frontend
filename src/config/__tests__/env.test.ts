@@ -59,7 +59,7 @@ describe('app.config: the staging app is a separate app', () => {
     expect(c.scheme).toBe('drosspot');
   });
 
-  it('staging is its own app on its own OTA channel, and refuses to build without its Firebase file', () => {
+  it('staging is its own app on its own OTA channel', () => {
     const c = configFor({ EXPO_PUBLIC_APP_ENV: 'staging' });
     expect(c.name).toBe('DrosSpot Staging');
     expect(c.ios.bundleIdentifier).toBe('com.drosspot.app.stg');
@@ -69,6 +69,11 @@ describe('app.config: the staging app is a separate app', () => {
     expect(c.extra.appId).toBe('com.drosspot.app.stg');
     expect(c.extra.appEnv).toBe('staging');
     expect(c.scheme).toBe('drosspot-stg');
-    expect(() => configFor({ EXPO_PUBLIC_APP_ENV: 'staging' }, false)).toThrow(/google-services.staging.json/);
+    // Without its own Firebase file it falls back to production's (Android's Gradle then
+    // refuses the package loudly; iOS only logs) and says so.
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(configFor({ EXPO_PUBLIC_APP_ENV: 'staging' }, false).android.googleServicesFile).toBe('./google-services.json');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('google-services.staging.json'));
+    warn.mockRestore();
   });
 });
