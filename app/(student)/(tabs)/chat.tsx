@@ -10,7 +10,7 @@ import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index'
 import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { ChatRoomsList } from '@/components/chat/ChatRoomsList';
+import { ChatInbox, ChatInboxList } from '@/components/chat/ChatInbox';
 import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { TogetherComingSoon } from '@/components/student/TogetherComingSoon';
@@ -34,7 +34,11 @@ export default function StudentChatTab() {
   const threadsEnabled = useThreadsEnabled();
   return (
     <Surface id="screen.student.chat" screen>
-      {chatEnabled || threadsEnabled ? <StudentConversations /> : <TogetherComingSoon />}
+      {threadsEnabled
+        ? <StudentConversations />
+        : chatEnabled
+          ? <ChatInbox role="student" onOpen={(room) => router.push(`/(student)/chat/${room}` as Href)} />
+          : <TogetherComingSoon />}
     </Surface>
   );
 }
@@ -89,9 +93,7 @@ function StudentConversations() {
           {showThreads ? (
             <ThreadsFeed onOpen={(id) => router.push(`/(student)/chat/thread/${id}` as Href)} />
           ) : (
-            <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', ...shadows.sm }}>
-              <ChatRoomsList onOpen={(courseId) => router.push(`/(student)/chat/${courseId}` as Href)} />
-            </View>
+            <ChatInboxList onOpen={(room) => router.push(`/(student)/chat/${room}` as Href)} />
           )}
         </View>
       </ScrollView>

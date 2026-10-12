@@ -10,7 +10,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Icon } from '@/components/ui/Icon';
-import { ChatRoomsList } from '@/components/chat/ChatRoomsList';
+import { ChatInbox, ChatInboxList } from '@/components/chat/ChatInbox';
 import { useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
 import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
 import { ComposeThreadSheet } from '@/components/threads/ComposeThreadSheet';
@@ -34,6 +34,21 @@ import { Surface } from '@/ui/surfaces';
  * A pushed screen over the tabs, so it carries its own back.
  */
 export default function TeacherConversations() {
+  const chatEnabled = useChatEnabled();
+  const threadsEnabled = useThreadsEnabled();
+  // Chat alone (threads hidden, founder 2026-10-12): the shared conversations screen.
+  if (chatEnabled && !threadsEnabled) {
+    return (
+      <Surface id="screen.teacher.conversations" screen>
+        <ChatInbox role="teacher" onBack onOpen={(room) => router.push(`/(teacher)/conversations/chat/${room}` as Href)} />
+      </Surface>
+    );
+  }
+  return <ConversationsWithThreads />;
+}
+
+/** Threads and chat as two segments, while threads are on. */
+function ConversationsWithThreads() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const chatEnabled = useChatEnabled();
@@ -106,8 +121,8 @@ export default function TeacherConversations() {
           </Surface>
         ) : showChat ? (
           <Surface id="teacher.conversations.chat">
-          <View style={{ backgroundColor: colors.surface, marginHorizontal: spacing.lg, marginTop: threadsEnabled ? 0 : -spacing.lg, borderRadius: radius.xl, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
-            <ChatRoomsList onOpen={(courseId) => router.push(`/(teacher)/conversations/chat/${courseId}` as Href)} />
+          <View style={{ marginHorizontal: spacing.lg, marginTop: threadsEnabled ? 0 : -spacing.lg }}>
+            <ChatInboxList onOpen={(room) => router.push(`/(teacher)/conversations/chat/${room}` as Href)} />
           </View>
           </Surface>
         ) : (

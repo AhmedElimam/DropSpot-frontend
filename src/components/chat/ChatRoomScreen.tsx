@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, ActivityIndicator, Alert, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Keyboard, ActivityIndicator, Alert, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { useTranslation } from 'react-i18next';
@@ -40,6 +40,7 @@ import { ChatWallpaper } from '@/components/chat/ChatWallpaper';
 import { TypingBubble } from '@/components/chat/TypingBubble';
 import type { VoiceClip } from '@/components/chat/VoiceRecorder';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { useKeyboardDropOnLeave } from '@/hooks/useKeyboardDropOnLeave';
 import { isParentsRoom, roomIdOf } from '@/chat/room';
 import { formatDateTime, formatDayDate, relativeDay } from '@/utils/format';
 
@@ -73,6 +74,7 @@ export function ChatRoomScreen({ courseId, infoHref }: {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
+  useKeyboardDropOnLeave();
   const qc = useQueryClient();
   const me = useAuthStore((s) => s.user);
 
@@ -692,7 +694,7 @@ export function ChatRoomScreen({ courseId, infoHref }: {
           paddingTop: insets.top + spacing.sm, paddingBottom: spacing.md, paddingHorizontal: spacing.sm,
         }}
       >
-        <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 44, justifyContent: 'center', alignItems: 'center' }} accessibilityRole="button" accessibilityLabel={t('common.back')}>
+        <TouchableOpacity onPress={() => { Keyboard.dismiss(); router.back(); }} style={{ width: 40, height: 44, justifyContent: 'center', alignItems: 'center' }} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Icon name="forward" size={26} color={colors.onHero} />
         </TouchableOpacity>
         {/* Tap the room's name or picture for its info page — members, moderators, the shelf. */}

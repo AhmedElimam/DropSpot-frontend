@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity, FlatList, ScrollView, TextInput, ActivityIndicator, Alert, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, ScrollView, TextInput, ActivityIndicator, Alert, Keyboard, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +29,7 @@ import { openFile } from '@/components/chat/AttachmentBubble';
 import { domainOf, firstLink, openLink } from '@/components/chat/linkify';
 import { formatDateOnly, formatDateTime, formatNumber, foldForSearch, timeAgo } from '@/utils/format';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { useKeyboardDropOnLeave } from '@/hooks/useKeyboardDropOnLeave';
 
 type Tab = 'members' | ChatMediaType;
 
@@ -62,6 +63,7 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const info = useChatInfo(courseId);
+  useKeyboardDropOnLeave();
   const data = info.data;
   const moderator = !!data?.is_moderator;
   // A parent following a child's room reads it; blocking members there is not theirs to do.
@@ -203,7 +205,7 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
       {/* The room at a glance, on the ink hero every screen wears. */}
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingTop: insets.top + spacing.sm, paddingBottom: spacing.xl4, paddingHorizontal: spacing.lg, alignItems: 'center' }}>
         <View style={{ alignSelf: 'stretch', flexDirection: 'row' }}>
-          <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 40, height: 44, justifyContent: 'center' }}>
+          <TouchableOpacity onPress={() => { Keyboard.dismiss(); router.back(); }} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 40, height: 44, justifyContent: 'center' }}>
             <Icon name="forward" size={26} color={colors.onHero} />
           </TouchableOpacity>
         </View>
