@@ -7,7 +7,24 @@ import client from './client';
  * tap, not a card scan). FINANCE — teacher-only; the API rejects assistants.
  */
 
+/** One invoice inside a student's bill, with what the collect sheet needs to correct it. */
+export interface RosterBillItem {
+  invoice_id: number;
+  number: string;
+  course: string | null;
+  amount: number;
+  paid: number;
+  remaining: number;
+  due_date: string | null;
+  overdue: boolean;
+  enrollment_id?: number | null; // where a correction is posted (cycle-amount)
+  sessions?: number | null; // the sessions the bill is for
+  month?: string | null; // YYYY-MM the bill belongs to
+  line?: string | null;
+}
+
 export interface RosterBill {
+  items?: RosterBillItem[];
   total: number; // remaining owed
   paid: number; // already collected across the student's invoices
   original: number;

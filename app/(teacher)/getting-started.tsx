@@ -6,6 +6,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * Getting Started — a persistent, always-available reference of the onboarding
@@ -22,6 +23,7 @@ export default function GettingStarted() {
   const tips = state?.tips;
 
   const groups: {
+    id: string;
     title: string;
     items: {
       icon: IconName;
@@ -32,6 +34,7 @@ export default function GettingStarted() {
     }[];
   }[] = [
     {
+      id: 'teacher.getting_started.group_setup',
       title: t('onboarding.gs_group_setup'),
       items: [
         { icon: 'book', titleKey: 'onboarding.gs_course_title', bodyKey: 'onboarding.gs_course_body', done: steps?.course_form, go: '/(teacher)/courses/create' as Href },
@@ -39,33 +42,41 @@ export default function GettingStarted() {
       ],
     },
     {
+      id: 'teacher.getting_started.group_daily',
       title: t('onboarding.gs_group_daily'),
       items: [
         { icon: 'add', titleKey: 'onboarding.gs_invite_title', bodyKey: 'onboarding.tip_invitation_body', done: tips?.invitation, go: '/(teacher)/enroll' as Href },
         { icon: 'scan', titleKey: 'onboarding.gs_attendance_title', bodyKey: 'onboarding.tip_attendance_body', done: tips?.attendance, go: '/(teacher)/scan' as Href },
-        { icon: 'money', titleKey: 'onboarding.gs_billing_title', bodyKey: 'onboarding.tip_billing_body', done: tips?.billing, go: '/(teacher)/collect' as Href },
+        { icon: 'money', titleKey: 'onboarding.gs_billing_title', bodyKey: 'onboarding.tip_billing_body', done: tips?.billing, go: '/(teacher)/pending-collections' as Href },
         { icon: 'reports', titleKey: 'onboarding.gs_reports_title', bodyKey: 'onboarding.tip_reports_body', done: tips?.reports, go: '/(teacher)/resolution' as Href },
       ],
     },
   ];
 
   return (
+    <Surface id="screen.teacher.getting-started" screen>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Surface id="teacher.getting_started.header">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('onboarding.getting_started_title')}</Text>
       </View>
+      </Surface>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.lg }}>
+        <Surface id="teacher.getting_started.intro">
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginBottom: spacing.lg }}>
           {t('onboarding.getting_started_intro')}
         </Text>
+        </Surface>
 
+        <Surface id="teacher.getting_started.groups">
         {groups.map((g) => (
-          <View key={g.title} style={{ marginBottom: spacing.lg }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.md }}>{g.title}</Text>
+          <Surface key={g.title} id={g.id}>
+          <View style={{ marginBottom: spacing.lg }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginBottom: spacing.md }}>{g.title}</Text>
             {g.items.map((item) => (
               <TouchableOpacity
                 key={item.titleKey}
@@ -78,17 +89,20 @@ export default function GettingStarted() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}>{t(item.titleKey)}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t(item.titleKey)}</Text>
                     {item.done ? <Icon name="success" size={16} color={colors.success} /> : null}
                   </View>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, color: colors.textSecondary, textAlign: 'right', marginTop: 4 }}>{t(item.bodyKey)}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, color: colors.textSecondary, marginTop: 4 }}>{t(item.bodyKey)}</Text>
                 </View>
                 {item.go ? <Icon name="back" size={18} color={colors.textTertiary} /> : null}
               </TouchableOpacity>
             ))}
           </View>
+          </Surface>
         ))}
+        </Surface>
       </ScrollView>
     </View>
+    </Surface>
   );
 }

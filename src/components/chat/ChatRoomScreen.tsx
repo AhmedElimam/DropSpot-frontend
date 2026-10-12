@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert, Modal, Keyboard, type NativeScrollEvent, type NativeSyntheticEvent,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Keyboard, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';

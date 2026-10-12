@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { useAuthStore } from '@/stores/authStore';
 import { setImpersonationWrite } from '@/api/impersonation';
@@ -13,6 +15,7 @@ import { setImpersonationWrite } from '@/api/impersonation';
  * honoured, so this never decides who may write.
  */
 export function ImpersonationBanner() {
+  const { t } = useTranslation();
   const impersonation = useAuthStore((s) => s.impersonation);
   const leaveImpersonation = useAuthStore((s) => s.leaveImpersonation);
   const setImpersonation = useAuthStore((s) => s.setImpersonation);
@@ -42,7 +45,7 @@ export function ImpersonationBanner() {
       await setImpersonationWrite(next);
       await setImpersonation({ ...impersonation, write: next });
     } catch {
-      Alert.alert('تعذّر تغيير الوضع');
+      Alert.alert(t('family_ui.imp_mode_change_failed'));
     } finally {
       setBusy(false);
     }
@@ -61,7 +64,7 @@ export function ImpersonationBanner() {
       }}
     >
       <Text style={{ flex: 1, color: '#fff', fontFamily: fonts.bold, fontSize: 13 }} numberOfLines={1}>
-        تتصفّح بحساب: {impersonation.name} · {impersonation.write ? 'كتابة' : 'قراءة فقط'}
+        {t('family_ui.imp_banner', { name: impersonation.name, mode: impersonation.write ? t('family_ui.imp_mode_write') : t('family_ui.imp_mode_read') })}
       </Text>
 
       {/* Offered for EVERY impersonated role, students included (founder 2026-09-16). The
@@ -73,7 +76,7 @@ export function ImpersonationBanner() {
         style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 6 }}
       >
         <Text style={{ color: '#fff', fontFamily: fonts.medium, fontSize: 12 }}>
-          {impersonation.write ? 'إيقاف الكتابة' : 'تفعيل الكتابة'}
+          {impersonation.write ? t('family_ui.imp_write_off') : t('family_ui.imp_write_on')}
         </Text>
       </TouchableOpacity>
 
@@ -85,7 +88,7 @@ export function ImpersonationBanner() {
         {busy ? (
           <ActivityIndicator size="small" color="#b91c1c" />
         ) : (
-          <Text style={{ color: '#b91c1c', fontFamily: fonts.bold, fontSize: 12 }}>خروج</Text>
+          <Text style={{ color: '#b91c1c', fontFamily: fonts.bold, fontSize: 12 }}>{t('family_ui.imp_exit')}</Text>
         )}
       </TouchableOpacity>
     </View>

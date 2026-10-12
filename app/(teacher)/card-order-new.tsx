@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Alert, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, KeyboardAvoidingView } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { Surface } from '@/ui/surfaces';
 import { getTeacherStudents, getStudentDetail, orderCardForEnrollment, type StudentCourse } from '@/api/students';
 
 /**
@@ -68,16 +70,20 @@ export default function CardOrderNew() {
   const PICK_STYLE = { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm } as const;
 
   return (
+    <Surface id="screen.teacher.card-order-new" screen>
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Surface id="teacher.card_order_new.header">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('teacher.order_card')}</Text>
       </View>
+      </Surface>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
         {/* Step 1 — student */}
+        <Surface id="teacher.card_order_new.student_picker">
         <Label text={t('teacher.pick_student')} />
         {!studentId ? (
           <>
@@ -101,9 +107,11 @@ export default function CardOrderNew() {
             <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         )}
+        </Surface>
 
         {/* Step 2 — enrollment */}
         {studentId ? (
+          <Surface id="teacher.card_order_new.enrollment_picker">
           <>
             <Label text={t('teacher.pick_enrollment')} />
             {detail.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.md }} /> : (
@@ -118,15 +126,19 @@ export default function CardOrderNew() {
               })
             )}
           </>
+          </Surface>
         ) : null}
 
         {/* Step 3 — delivery + payment */}
         {enrollmentId ? (
           <>
+            <Surface id="teacher.card_order_new.delivery_address">
             <Label text={t('teacher.co_delivery_address')} />
             <TextInput value={address} onChangeText={setAddress} placeholder={t('teacher.co_delivery_ph')} placeholderTextColor={colors.textTertiary} multiline
               style={{ minHeight: 70, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right', textAlignVertical: 'top' }} />
+            </Surface>
 
+            <Surface id="teacher.card_order_new.payment_method">
             <Label text={t('teacher.co_payment_method')} />
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               {(['cash_on_delivery', 'pay_now'] as const).map((p) => (
@@ -138,8 +150,10 @@ export default function CardOrderNew() {
                 </TouchableOpacity>
               ))}
             </View>
+            </Surface>
 
             {payment === 'pay_now' ? (
+              <Surface id="teacher.card_order_new.proof_picker">
               <TouchableOpacity onPress={pickImage} activeOpacity={0.8}
                 style={{ borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed', borderRadius: radius.md, padding: spacing.lg, alignItems: 'center', marginTop: spacing.sm }}>
                 {imageUri ? (
@@ -154,16 +168,20 @@ export default function CardOrderNew() {
                   </>
                 )}
               </TouchableOpacity>
+              </Surface>
             ) : null}
 
+            <Surface id="teacher.card_order_new.submit_button">
             <TouchableOpacity onPress={submit} disabled={!canSubmit} activeOpacity={0.85}
               style={{ marginTop: spacing.xl, minHeight: 50, borderRadius: radius.lg, backgroundColor: canSubmit ? colors.primary : colors.border, justifyContent: 'center', alignItems: 'center' }}>
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('teacher.co_submit_order')}</Text>}
             </TouchableOpacity>
+            </Surface>
           </>
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
+    </Surface>
   );
 }
 

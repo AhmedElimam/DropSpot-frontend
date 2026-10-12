@@ -45,6 +45,11 @@ export interface Palette {
   onPrimary: string;
   /** Bottom tab bar. */
   tabActive: string; tabInactive: string; tabBar: string;
+  /** The app's emblem: the brand indigo by day, SILVER by night (founder 2026-10-06: «a silver
+   *  logo on dark mode instead of black or dark blue»). `logoButton` is the raised centre tab
+   *  that carries it, and `logoRing` its rim — orange behind an indigo-on-white mark by day, a
+   *  deep navy with a silver rim by night (silver on orange would not read). */
+  logo: string; logoButton: string; logoRing: string;
   /** The neon signature (dark) / brand (light): focus rings, live dots, glows. */
   neon: string; neonTint: string;
   /** Shadow colour for the elevation presets. */
@@ -122,6 +127,9 @@ export const light: Palette = {
   tabActive: '#34419B',
   tabInactive: '#939AB0',
   tabBar: '#FFFFFF',
+  logo: '#34419B',
+  logoButton: '#34419B',
+  logoRing: '#34419B',
   neon: '#34419B',
   neonTint: '#E3E7F7',
   shadow: '#1A2140',
@@ -192,6 +200,9 @@ export const dark: Palette = {
   tabActive: '#FF9A2E',
   tabInactive: '#6F7BB8',
   tabBar: '#0C1330',
+  logo: '#C9CFD9',
+  logoButton: '#1C2656',
+  logoRing: '#C9CFD9',
   neon: '#FF9A2E',
   neonTint: '#3F2A10',
   shadow: '#000000',

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { FormScreen, FormCard, Field, Input, HeaderCount, Banner } from '@/components/ui/Form';
 import { getVenues, createVenue, updateVenue, toggleVenue, deleteVenue, setVenueAssistants, type Venue } from '@/api/venues';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * أماكن التدريس — the teacher's own list of places. A venue is a NAME and the people who
@@ -35,56 +37,62 @@ export default function TeacherVenues() {
     // The course forms read their dropdown from this list.
     qc.invalidateQueries({ queryKey: ['course-form-options'] });
   };
-  const fail = (e: any, fallback: string) => Alert.alert('تعذّر الحفظ', e?.response?.data?.message ?? fallback);
+  const fail = (e: any, fallback: string) => Alert.alert(t('staff_ui.save_failed'), e?.response?.data?.message ?? fallback);
 
   const save = useMutation({
     mutationFn: () => editing ? updateVenue(editing.id, { name: name.trim(), address: address.trim() || null }) : createVenue({ name: name.trim(), address: address.trim() || null }),
     onSuccess: () => { setName(''); setAddress(''); setEditing(null); invalidate(); },
-    onError: (e) => fail(e, 'تحقّق من الاسم — لا يمكن تكرار مكان بنفس الاسم.'),
+    onError: (e) => fail(e, t('staff_ui.venue_name_conflict')),
   });
-  const toggle = useMutation({ mutationFn: (id: number) => toggleVenue(id), onSuccess: invalidate, onError: (e) => fail(e, 'تعذّر تغيير حالة المكان.') });
-  const remove = useMutation({ mutationFn: (id: number) => deleteVenue(id), onSuccess: invalidate, onError: (e) => fail(e, 'تعذّر حذف المكان.') });
-  const assistants = useMutation({ mutationFn: (v: { id: number; ids: number[] }) => setVenueAssistants(v.id, v.ids), onSuccess: invalidate, onError: (e) => fail(e, 'تعذّر تحديث المساعدين.') });
+  const toggle = useMutation({ mutationFn: (id: number) => toggleVenue(id), onSuccess: invalidate, onError: (e) => fail(e, t('staff_ui.venue_toggle_failed')) });
+  const remove = useMutation({ mutationFn: (id: number) => deleteVenue(id), onSuccess: invalidate, onError: (e) => fail(e, t('staff_ui.venue_delete_failed')) });
+  const assistants = useMutation({ mutationFn: (v: { id: number; ids: number[] }) => setVenueAssistants(v.id, v.ids), onSuccess: invalidate, onError: (e) => fail(e, t('staff_ui.venue_assistants_failed')) });
 
   const startEdit = (v: Venue) => { setEditing(v); setName(v.name); setAddress(v.address ?? ''); setExpanded(null); };
   const cancelEdit = () => { setEditing(null); setName(''); setAddress(''); };
   const confirmDelete = (v: Venue) => {
-    Alert.alert('حذف المكان',
-      v.courses_count > 0 ? `«${v.name}» مرتبط بـ ${v.courses_count} مقرر. الحذف يفكّ الارتباط فقط — المقررات تكمل عملها كما هي.` : `حذف «${v.name}»؟`,
-      [{ text: 'إلغاء', style: 'cancel' }, { text: 'احذف', style: 'destructive', onPress: () => remove.mutate(v.id) }]);
+    Alert.alert(t('staff_ui.delete_venue_title'),
+      v.courses_count > 0 ? t('staff_ui.delete_venue_linked', { name: v.name, count: v.courses_count }) : t('staff_ui.delete_venue_confirm', { name: v.name }),
+      [{ text: t('common.cancel'), style: 'cancel' }, { text: t('staff_ui.delete_btn'), style: 'destructive', onPress: () => remove.mutate(v.id) }]);
   };
 
-  if (isError) return <ErrorState onRetry={refetch} />;
+  if (isError && !data) return <ErrorState onRetry={refetch} />;
   const venues = data?.locations ?? [];
   const pool = data?.assignable_assistants ?? [];
   const canSave = name.trim().length > 0 && !save.isPending;
 
   return (
-    <FormScreen title="أماكن التدريس" subtitle="تنظّم بها مقرراتك وتحدّد أي مساعد يعمل في كل مكان" loading={isLoading} scroll={false}
+    <Surface id="screen.teacher.venues" screen>
+    <FormScreen title={t('manage.venues_title')} subtitle={t('staff_ui.venues_subtitle')} loading={isLoading} scroll={false}
       right={venues.length > 0 ? <HeaderCount n={venues.length} /> : null}>
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xxl }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.brand} />}>
-        <Banner tone="info" icon="gps" text="لا علاقة للمكان بموقع تسجيل الحضور، وربط المقرر بمكان اختياري دائمًا." />
+        <Surface id="teacher.venues.banner"><Banner tone="info" icon="gps" text={t('staff_ui.venues_banner')} /></Surface>
 
         {/* Add / edit */}
+        <Surface id="teacher.venues.form">
         <FormCard icon={editing ? 'note' : 'add'} title={editing ? t('form_ui.editing', { name: editing.name }) : t('form_ui.new_venue')} tint={editing ? colors.accent : colors.brand}
           action={editing ? (
-            <TouchableOpacity onPress={cancelEdit} hitSlop={8}><Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>إلغاء</Text></TouchableOpacity>
+            <TouchableOpacity onPress={cancelEdit} hitSlop={8}><Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('common.cancel')}</Text></TouchableOpacity>
           ) : undefined}>
-          <Field label="اسم المكان" required first>
-            <Input value={name} onChangeText={setName} placeholder="مثال: سنتر النور" maxLength={120} />
+          <Field label={t('staff_ui.venue_name_label')} required first>
+            <Input value={name} onChangeText={setName} placeholder={t('staff_ui.venue_name_ph')} maxLength={120} />
           </Field>
-          <Field label="العنوان" hint={t('form_ui.optional')}>
-            <Input value={address} onChangeText={setAddress} placeholder="الشارع، الحي…" maxLength={255} />
+          <Field label={t('staff_ui.address')} hint={t('form_ui.optional')}>
+            <Input value={address} onChangeText={setAddress} placeholder={t('staff_ui.venue_address_ph')} maxLength={255} />
           </Field>
+          <Surface id="teacher.venues.save_button">
           <View style={{ marginTop: spacing.md }}>
-            <Button title={editing ? 'احفظ التعديل' : 'أضِف المكان'} onPress={() => canSave && save.mutate()} disabled={!canSave} loading={save.isPending} variant={editing ? 'accent' : 'primary'} />
+            <Button title={editing ? t('staff_ui.save_edit_btn') : t('staff_ui.add_venue_btn')} onPress={() => canSave && save.mutate()} disabled={!canSave} loading={save.isPending} variant={editing ? 'accent' : 'primary'} />
           </View>
+          </Surface>
         </FormCard>
+        </Surface>
 
+        <Surface id="teacher.venues.list">
         {venues.length === 0 ? (
-          <EmptyState icon="gps" title="لا أماكن بعد" message="أضِف أول مكان من الأعلى، وسيظهر بعدها في صفحة إنشاء المقرر." />
+          <EmptyState icon="gps" title={t('staff_ui.no_venues_title')} message={t('staff_ui.no_venues_msg')} />
         ) : venues.map((v) => {
           const open = expanded === v.id;
           const assigned = new Set(v.assistants.map((a) => a.id));
@@ -115,6 +123,7 @@ export default function TeacherVenues() {
 
               {open ? (
                 <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.md, gap: spacing.md, backgroundColor: colors.surfaceSunken }}>
+                  <Surface id="teacher.venues.assistants_picker">
                   {pool.length > 0 ? (
                     <View>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('form_ui.venue_assistants')}</Text>
@@ -133,20 +142,25 @@ export default function TeacherVenues() {
                       </View>
                     </View>
                   ) : (
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>لا مساعدين لديك بعد — أضِفهم من «المساعدون» ثم أسندهم لأماكنهم.</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>{t('staff_ui.no_assistants_yet_hint')}</Text>
                   )}
+                  </Surface>
+                  <Surface id="teacher.venues.actions">
                   <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                    <Action label="تعديل" icon="note" onPress={() => startEdit(v)} />
-                    <Action label={v.is_active ? 'إيقاف' : 'تفعيل'} icon={v.is_active ? 'clock' : 'success'} busy={toggle.isPending} onPress={() => toggle.mutate(v.id)} />
-                    <Action label="حذف" icon="trash" tone={colors.danger} busy={remove.isPending} onPress={() => confirmDelete(v)} />
+                    <Surface id="teacher.venues.edit_button"><Action label={t('staff_ui.edit_btn')} icon="note" onPress={() => startEdit(v)} /></Surface>
+                    <Surface id="teacher.venues.toggle_button"><Action label={v.is_active ? t('staff_ui.deactivate_btn') : t('staff_ui.activate_btn')} icon={v.is_active ? 'clock' : 'success'} busy={toggle.isPending} onPress={() => toggle.mutate(v.id)} /></Surface>
+                    <Surface id="teacher.venues.delete_button"><Action label={t('staff_ui.delete')} icon="trash" tone={colors.danger} busy={remove.isPending} onPress={() => confirmDelete(v)} /></Surface>
                   </View>
+                  </Surface>
                 </View>
               ) : null}
             </View>
           );
         })}
+        </Surface>
       </ScrollView>
     </FormScreen>
+    </Surface>
   );
 }
 

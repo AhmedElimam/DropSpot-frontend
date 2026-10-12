@@ -12,6 +12,7 @@ export interface AssistantAction {
   label: string | null;
   amount: number;
   student_id?: number | null;
+  assistant_id?: number | null;
   assistant_name: string;
   created_at: string | null;
 }

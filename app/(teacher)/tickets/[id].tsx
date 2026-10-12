@@ -14,14 +14,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { formatTime } from '@/utils/format';
 import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
-import { useTicket, useAddMessage, useUpdateTicketStatus } from '@/hooks/useTickets';
+import { useTicket, useAddMessage, useUpdateTicketStatus, useSendStudentReport } from '@/hooks/useTickets';
+import type { PendingFile } from '@/api/tickets';
+import { AttachButton, MessageAttachments, PendingFiles } from '@/components/tickets/Attachments';
+import { Alert } from '@/ui/dialog';
 import { useAuthStore } from '@/stores/authStore';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 import { useKeyboardShown } from '@/hooks/useKeyboardShown';
+import { Surface } from '@/ui/surfaces';
 
 const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
@@ -39,11 +42,12 @@ export default function TeacherTicketDetail() {
   const insets = useSafeAreaInsets();
   const keyboardShown = useKeyboardShown();
   const user = useAuthStore((s) => s.user);
-  const { can } = useActiveAbilities();
   const { data: ticket, isLoading, refetch } = useTicket(id ?? '');
   const addMessage = useAddMessage(id ?? '');
   const updateStatus = useUpdateTicketStatus(id ?? '');
   const [newMessage, setNewMessage] = useState('');
+  const [files, setFiles] = useState<PendingFile[]>([]);
+  const sendReport = useSendStudentReport(id ?? '');
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -52,9 +56,17 @@ export default function TeacherTicketDetail() {
     }
   }, [ticket?.messages?.length]);
 
+  const canSend = !!newMessage.trim() || files.length > 0;
   const handleSend = () => {
-    if (!newMessage.trim()) return;
-    addMessage.mutate(newMessage.trim(), { onSuccess: () => setNewMessage('') });
+    if (!canSend) return;
+    addMessage.mutate({ message: newMessage.trim(), files }, { onSuccess: () => { setNewMessage(''); setFiles([]); } });
+  };
+  // The student's performance report, into the thread — no download on either side.
+  const handleReport = () => {
+    Alert.alert(t('tickets.send_report'), t('tickets.send_report_confirm', { name: ticket?.student_name ?? '' }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('tickets.send_report_do'), onPress: () => sendReport.mutate(undefined, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) }) },
+    ]);
   };
 
   const handleStatusChange = (status: string) => updateStatus.mutate(status);
@@ -78,6 +90,7 @@ export default function TeacherTicketDetail() {
   const sc = statusColors()[ticket.status] || statusColors().open;
 
   return (
+    <Surface id="screen.teacher.tickets.detail" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -86,6 +99,7 @@ export default function TeacherTicketDetail() {
         // nothing to offset. The old 90 was a header that no longer exists: empty space.
         keyboardVerticalOffset={0}
       >
+        <Surface id="teacher.tickets.detail.hero">
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
@@ -106,7 +120,9 @@ export default function TeacherTicketDetail() {
             </View>
           </View>
 
+          <Surface id="teacher.tickets.detail.status_row">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Surface id="teacher.tickets.detail.status_chip">
             <View
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -117,9 +133,11 @@ export default function TeacherTicketDetail() {
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ticket.status === 'open' ? colors.onHero : sc[0] }} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t(`tickets.status_${ticket.status}`)}</Text>
             </View>
+            </Surface>
 
             {/* Changing status is part of reply_tickets («الرد على التذاكر وتغيير حالتها»). */}
-            {can(ABILITY.REPLY_TICKETS) && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+            <Surface id="teacher.tickets.detail.mark_resolved" assistantNeeds="reply_tickets">
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
               <TouchableOpacity
                 onPress={() => handleStatusChange('resolved')}
                 activeOpacity={0.75}
@@ -128,8 +146,10 @@ export default function TeacherTicketDetail() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('tickets.mark_resolved')}</Text>
               </TouchableOpacity>
             )}
+            </Surface>
 
-            {can(ABILITY.REPLY_TICKETS) && ticket.status === 'resolved' && (
+            <Surface id="teacher.tickets.detail.close" assistantNeeds="reply_tickets">
+            {ticket.status === 'resolved' && (
               <TouchableOpacity
                 onPress={() => handleStatusChange('closed')}
                 activeOpacity={0.75}
@@ -138,9 +158,13 @@ export default function TeacherTicketDetail() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('tickets.close')}</Text>
               </TouchableOpacity>
             )}
+            </Surface>
           </View>
+          </Surface>
         </LinearGradient>
+        </Surface>
 
+        <Surface id="teacher.tickets.detail.thread">
         <ScrollView
           ref={scrollRef}
           style={{ flex: 1 }}
@@ -170,9 +194,12 @@ export default function TeacherTicketDetail() {
                     {msg.user_name}
                   </Text>
                 )}
-                <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: isMine ? '#fff' : colors.textPrimary }}>
-                  {msg.message}
-                </Text>
+                {msg.message ? (
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 24, color: isMine ? '#fff' : colors.textPrimary }}>
+                    {msg.message}
+                  </Text>
+                ) : null}
+                <MessageAttachments items={msg.attachments} onDark={isMine} />
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: isMine ? 'rgba(255,255,255,0.6)' : colors.textTertiary, marginTop: 6, alignSelf: 'flex-end' }}>
                   {formatTime(msg.created_at)}
                 </Text>
@@ -187,18 +214,32 @@ export default function TeacherTicketDetail() {
             </View>
           )}
         </ScrollView>
+        </Surface>
 
-        {/* Without reply_tickets there is no reply box and no "locked" notice — just the thread. */}
-        {ticket.status !== 'closed' && !can(ABILITY.REPLY_TICKETS) ? (
-          <View style={{ height: insets.bottom }} />
-        ) : ticket.status !== 'closed' ? (
+        {/* Without reply_tickets there is no reply box and no "locked" notice — just the thread
+            (the fallback keeps the safe-area spacer under it). */}
+        <Surface id="teacher.tickets.detail.reply_box" assistantNeeds="reply_tickets" fallback={ticket.status !== 'closed' ? <View style={{ height: insets.bottom }} /> : null}>
+        {ticket.status !== 'closed' ? (
+          <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>
+          {ticket.can_send_report ? (
+            <Surface id="teacher.tickets.detail.send_report">
+            <TouchableOpacity onPress={handleReport} disabled={sendReport.isPending} activeOpacity={0.8} accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginHorizontal: spacing.md, marginTop: spacing.sm, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: colors.accentWarmTint, borderWidth: 1, borderColor: colors.accentWarm }}>
+              {sendReport.isPending ? <ActivityIndicator size="small" color={colors.accentWarm} /> : <Icon name="reports" size={16} color={colors.accentWarm} />}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accentText }}>{t('tickets.send_report')}</Text>
+            </TouchableOpacity>
+            </Surface>
+          ) : null}
+          <PendingFiles files={files} onRemove={(uri) => setFiles((f) => f.filter((x) => x.uri !== uri))} />
           <View
             style={{
               flexDirection: 'row', alignItems: 'flex-end', padding: spacing.md,
-              paddingBottom: spacing.md + (keyboardShown ? 0 : insets.bottom), backgroundColor: colors.surface,
-              borderTopWidth: 1, borderTopColor: colors.border, gap: spacing.sm,
+              paddingBottom: spacing.md + (keyboardShown ? 0 : insets.bottom), gap: spacing.sm,
             }}
           >
+            <Surface id="teacher.tickets.detail.attach_button">
+            <AttachButton files={files} onAdd={(f) => setFiles((cur) => [...cur, f])} disabled={addMessage.isPending} />
+            </Surface>
             <TextInput
               value={newMessage}
               onChangeText={setNewMessage}
@@ -211,18 +252,23 @@ export default function TeacherTicketDetail() {
                 borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: 14, color: colors.textPrimary, textAlign: 'right',
               }}
             />
+            <Surface id="teacher.tickets.detail.send_button">
             <TouchableOpacity
               onPress={handleSend}
-              disabled={!newMessage.trim() || addMessage.isPending}
+              disabled={!canSend || addMessage.isPending}
               activeOpacity={0.85}
               accessibilityRole="button"
-              style={{ width: 52, height: 52, borderRadius: radius.lg, backgroundColor: newMessage.trim() ? colors.brand : colors.border, justifyContent: 'center', alignItems: 'center' }}
+              style={{ width: 52, height: 52, borderRadius: radius.lg, backgroundColor: canSend ? colors.brand : colors.border, justifyContent: 'center', alignItems: 'center' }}
             >
               {addMessage.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={20} color="#fff" />}
             </TouchableOpacity>
+            </Surface>
+          </View>
           </View>
         ) : null}
+        </Surface>
       </KeyboardAvoidingView>
     </View>
+    </Surface>
   );
 }

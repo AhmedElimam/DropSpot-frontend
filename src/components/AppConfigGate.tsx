@@ -3,13 +3,15 @@ import { View, Text, AppState, TouchableOpacity, Linking, Platform, type AppStat
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius } from '@/theme/index';
+import { colors, spacing, radius, setThemeOverrides } from '@/theme/index';
+import { useThemeStore } from '@/stores/themeStore';
 import { Icon } from '@/components/ui/Icon';
 import { useAppConfigStore } from '@/stores/appConfigStore';
 import { syncAppConfig } from '@/stores/appConfigSync';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { isVersionBelow } from '@/utils/semver';
-import { checkForOtaUpdate } from '@/updates/otaUpdates';
+import { checkForOtaUpdate, reloadIfReady } from '@/updates/otaUpdates';
+import { reportCapabilities } from '@/capabilities';
 import { storeLinksFor } from '@/utils/storeLinks';
 
 /**
@@ -21,6 +23,8 @@ import { storeLinksFor } from '@/utils/storeLinks';
  */
 const OTA_CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
 let lastOtaCheck = 0;
+let lastConfigSync = 0;
+const CONFIG_SYNC_EVERY_MS = 15 * 60_000;
 
 /** Open the first link the device accepts: the store app, else the web listing. */
 async function openFirst(urls: string[]): Promise<void> {
@@ -40,13 +44,29 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
   const min = cfg.min_supported_app_version;
   const migration = cfg.migration;
 
+  // Colours the backend repaints (config/mobile_ui.php → theme): applied to the live tokens,
+  // then the root rebuilds its tree on the new palette — only when something really changed.
+  const theme = useAppConfigStore((s) => s.config.ui?.theme);
   useEffect(() => {
-    useAppConfigStore.getState().hydrate().finally(() => { void syncAppConfig(); });
+    if (setThemeOverrides(theme)) useThemeStore.getState().repainted();
+  }, [theme]);
+
+  useEffect(() => {
+    useAppConfigStore.getState().hydrate().finally(() => { void syncAppConfig(); void reportCapabilities(); });
+    lastConfigSync = Date.now();
     void checkForOtaUpdate();
     lastOtaCheck = Date.now();
+    let wentBackgroundAt = 0;
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
-      if (s !== 'active') return;
-      void syncAppConfig();
+      if (s !== 'active') { if (!wentBackgroundAt) wentBackgroundAt = Date.now(); return; }
+      const away = wentBackgroundAt ? Date.now() - wentBackgroundAt : 0;
+      wentBackgroundAt = 0;
+      // A fix downloaded earlier is applied now, if the person was really away — a restart
+      // on return from a two-minute absence interrupts nothing (src/updates/otaUpdates.ts).
+      void reloadIfReady(away).then((reloaded) => { if (reloaded) return; });
+      // Flags, rules and the minimum version change rarely: once per 15 min on return is
+      // enough (it ran on every single return; founder 2026-10-09: «light on all devices»).
+      if (Date.now() - lastConfigSync >= CONFIG_SYNC_EVERY_MS) { lastConfigSync = Date.now(); void syncAppConfig(); }
       // An OTA check is a manifest fetch and, when one is waiting, a full bundle
       // download. Firing it on EVERY resume meant a teacher who switches apps twenty
       // times during a session paid for twenty of them. A release is not published

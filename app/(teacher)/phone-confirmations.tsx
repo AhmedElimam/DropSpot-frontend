@@ -1,6 +1,8 @@
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, TextInput } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,10 +13,10 @@ import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePhoneConfirmations, PHONE_CONFIRMATIONS_KEY } from '@/hooks/usePhoneConfirmations';
 import { acknowledgePhone, sendPhoneConfirmationCode, confirmPhoneCode, type PhoneConfirmation } from '@/api/phoneConfirmations';
 import { requestStudentEdit, flagParentNumber } from '@/api/students';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * «أرقام تحتاج تأكيد» — spec §5.
@@ -42,9 +44,9 @@ type Sheet =
   | null;
 
 export default function PhoneConfirmationsScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
-  const { can } = useActiveAbilities();
   const { data, isLoading, refetch } = usePhoneConfirmations();
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
@@ -85,7 +87,7 @@ export default function PhoneConfirmationsScreen() {
       closeSheet();
       Alert.alert('', done);
     } catch (e) {
-      Alert.alert('خطأ', getFriendlyErrorMessage(e));
+      Alert.alert(t('staff_ui.error'), getFriendlyErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -98,9 +100,9 @@ export default function PhoneConfirmationsScreen() {
     try {
       await sendPhoneConfirmationCode(it.student_id, it.scope, it.subject_id);
       setOtpSent(true);
-      Alert.alert('', 'أُرسل الرمز إلى الرقم. اطلبه من الأسرة وأدخله هنا.');
+      Alert.alert('', t('staff_ui.phone_code_sent'));
     } catch (e) {
-      Alert.alert('خطأ', getFriendlyErrorMessage(e));
+      Alert.alert(t('staff_ui.error'), getFriendlyErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -109,31 +111,31 @@ export default function PhoneConfirmationsScreen() {
   const submitCode = (it: PhoneConfirmation) => {
     const code = otpCode.trim();
     if (code.length < 4) {
-      Alert.alert('', 'أدخل الرمز المكوَّن من ٦ أرقام.');
+      Alert.alert('', t('staff_ui.phone_code_too_short'));
       return;
     }
     return run(
       () => confirmPhoneCode(it.student_id, it.scope, it.subject_id, code),
-      'تم تأكيد الرقم بالرمز — أثبتت الأسرة ملكيته.',
+      t('staff_ui.phone_code_confirmed'),
     );
   };
 
   const submitAck = (it: PhoneConfirmation) =>
     run(
       () => acknowledgePhone(it.student_id, it.scope, it.subject_id, note.trim() || undefined),
-      'تم تأكيد الرقم — لن يظهر في القائمة مرة أخرى.',
+      t('staff_ui.phone_ack_done'),
     );
 
   const submitEdit = (it: PhoneConfirmation) => {
     const phone = newNumber.trim();
     if (phone.length < 8) {
-      Alert.alert('', 'أدخل الرقم الصحيح أولًا.');
+      Alert.alert('', t('staff_ui.phone_enter_correct_first'));
       return;
     }
     if (it.scope === 'student') {
       return run(
-        () => requestStudentEdit(it.student_id, { phone, reason: 'تصحيح رقم الطالب من قائمة الأرقام التي تحتاج تأكيد' }),
-        'تم إرسال التصحيح. يُطبَّق فورًا داخل مهلة تصحيح الأخطاء، وإلا فبعد مراجعة الإدارة.',
+        () => requestStudentEdit(it.student_id, { phone, reason: t('staff_ui.phone_edit_student_reason') }),
+        t('staff_ui.phone_edit_sent_student'),
       );
     }
     // A parent's number is a login credential — attached as a proposal on an escalation,
@@ -141,21 +143,21 @@ export default function PhoneConfirmationsScreen() {
     return run(
       () => flagParentNumber(it.student_id, {
         parent_id: it.subject_id,
-        reason: note.trim() || 'رقم وليّ الأمر غير صحيح — أُرفق الرقم الصحيح',
+        reason: note.trim() || t('staff_ui.phone_parent_wrong_reason'),
         proposed_number: phone,
       }),
-      'أُرسل الرقم الصحيح للإدارة لمراجعته قبل تطبيقه.',
+      t('staff_ui.phone_edit_sent_parent'),
     );
   };
 
   const submitEscalate = (it: PhoneConfirmation) => {
     if (note.trim().length < 3) {
-      Alert.alert('', 'اذكر سبب البلاغ باختصار.');
+      Alert.alert('', t('staff_ui.phone_escalate_reason_required'));
       return;
     }
     return run(
       () => flagParentNumber(it.student_id, { parent_id: it.subject_id, reason: note.trim() }),
-      'تم إرسال البلاغ للإدارة.',
+      t('staff_ui.phone_escalate_sent'),
     );
   };
 
@@ -173,7 +175,7 @@ export default function PhoneConfirmationsScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
-              {isParent ? `رقم وليّ الأمر${it.subject_name ? ` — ${it.subject_name}` : ''}` : 'رقم الطالب'}
+              {isParent ? (it.subject_name ? t('staff_ui.phone_parent_number_named', { name: it.subject_name }) : t('staff_ui.phone_parent_number')) : t('teacher.student_number')}
             </Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>
               {it.reason}
@@ -186,6 +188,7 @@ export default function PhoneConfirmationsScreen() {
 
         {/* Proof first. A code the family reads back is stronger than anyone's word (§7),
             so it leads the row; vouching stays for the families who cannot receive SMS. */}
+        <Surface id="teacher.phone_confirmations.confirm_by_code">
         <TouchableOpacity
           onPress={() => { setOtpCode(''); setOtpSent(false); setSheet({ kind: 'otp', item: it }); }}
           activeOpacity={0.85}
@@ -195,10 +198,12 @@ export default function PhoneConfirmationsScreen() {
           }}
         >
           <Icon name="call" size={16} color="#fff" />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>تأكيد بالرمز</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('staff_ui.phone_confirm_by_code')}</Text>
         </TouchableOpacity>
+        </Surface>
 
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
+          <Surface id="teacher.phone_confirmations.number_correct">
           <TouchableOpacity
             onPress={() => { setNote(''); setSheet({ kind: 'ack', item: it }); }}
             activeOpacity={0.85}
@@ -209,25 +214,29 @@ export default function PhoneConfirmationsScreen() {
             }}
           >
             <Icon name="success" size={15} color={colors.success} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.success }}>الرقم صحيح</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.success }}>{t('staff_ui.phone_number_correct')}</Text>
           </TouchableOpacity>
+          </Surface>
 
-          {(it.scope === 'student' ? can(ABILITY.MANAGE_STUDENTS) : can(ABILITY.REPORT_INCIDENTS)) ? (
-            <TouchableOpacity
-              onPress={() => { setNote(''); setNewNumber(''); setSheet({ kind: 'edit', item: it }); }}
-              activeOpacity={0.85}
-              style={{
-                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-                backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border,
-                borderRadius: radius.lg, paddingVertical: 10,
-              }}
-            >
-              <Icon name="note" size={15} color={colors.textPrimary} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>تعديل الرقم</Text>
-            </TouchableOpacity>
-          ) : null}
+          {/* A student's number is a roster edit (manage_students); a parent's is a login
+              credential, so correcting it is an escalation (report_incidents). */}
+          <Surface id="teacher.phone_confirmations.edit_number" assistantNeeds={it.scope === 'student' ? 'manage_students' : 'report_incidents'}>
+          <TouchableOpacity
+            onPress={() => { setNote(''); setNewNumber(''); setSheet({ kind: 'edit', item: it }); }}
+            activeOpacity={0.85}
+            style={{
+              flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+              backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border,
+              borderRadius: radius.lg, paddingVertical: 10,
+            }}
+          >
+            <Icon name="note" size={15} color={colors.textPrimary} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('staff_ui.edit_number')}</Text>
+          </TouchableOpacity>
+          </Surface>
 
-          {it.can_escalate && can(ABILITY.REPORT_INCIDENTS) ? (
+          <Surface id="teacher.phone_confirmations.escalate" assistantNeeds="report_incidents">
+          {it.can_escalate ? (
             <TouchableOpacity
               onPress={() => { setNote(''); setSheet({ kind: 'escalate', item: it }); }}
               activeOpacity={0.85}
@@ -240,18 +249,21 @@ export default function PhoneConfirmationsScreen() {
               <Icon name="warning" size={16} color={colors.warningText} />
             </TouchableOpacity>
           ) : null}
+          </Surface>
         </View>
       </View>
     );
   };
 
-  const sheetTitle = sheet?.kind === 'ack' ? 'تأكيد صحة الرقم'
-    : sheet?.kind === 'otp' ? 'تأكيد بالرمز'
-      : sheet?.kind === 'edit' ? 'تعديل الرقم'
-        : 'إبلاغ الإدارة';
+  const sheetTitle = sheet?.kind === 'ack' ? t('staff_ui.phone_ack_title')
+    : sheet?.kind === 'otp' ? t('staff_ui.phone_confirm_by_code')
+      : sheet?.kind === 'edit' ? t('staff_ui.edit_number')
+        : t('staff_ui.phone_escalate_title');
 
   return (
+    <Surface id="screen.teacher.phone-confirmations" screen>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Surface id="teacher.phone_confirmations.header">
       <View style={{
         flexDirection: 'row', alignItems: 'center', gap: spacing.md,
         paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
@@ -263,9 +275,11 @@ export default function PhoneConfirmationsScreen() {
         >
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>أرقام تحتاج تأكيد</Text>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('home.phones_title')}</Text>
       </View>
+      </Surface>
 
+      <Surface id="teacher.phone_confirmations.list">
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
@@ -277,15 +291,16 @@ export default function PhoneConfirmationsScreen() {
           {groups.length === 0 ? (
             <EmptyState
               icon="success"
-              title="كل الأرقام مؤكَّدة"
-              message="لا توجد أرقام بانتظار التأكيد على طلابك."
+              title={t('staff_ui.phone_all_confirmed')}
+              message={t('staff_ui.phone_none_pending')}
             />
           ) : (
             <>
+              <Surface id="teacher.phone_confirmations.intro">
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md, lineHeight: 20 }}>
-                أرقام لم يُثبت أصحابها ملكيتها بعد. لا يمنع ذلك الحضور ولا التحصيل — لكنه يمنع
-                وصول رسائل التفعيل والإشعارات للأسرة.
+                {t('staff_ui.phone_intro')}
               </Text>
+              </Surface>
               {groups.map(([studentId, g]) => (
                 <View
                   key={studentId}
@@ -310,30 +325,31 @@ export default function PhoneConfirmationsScreen() {
           )}
         </ScrollView>
       )}
+      </Surface>
 
+      <Surface id="teacher.phone_confirmations.sheet">
       <SheetModal visible={sheet !== null} onClose={closeSheet} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{sheetTitle}</Text>
 
             {sheet?.kind === 'ack' ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs, lineHeight: 20 }}>
-                أنت تؤكّد أن هذا الرقم صحيح رغم عدم تأكيده برسالة — مثلًا لأن الأسرة لا تملك
-                هاتفًا يستقبل الرسائل. سيُسجَّل التأكيد باسمك، ولن يظهر الرقم في القائمة مجددًا.
+                {t('staff_ui.phone_ack_body')}
               </Text>
             ) : null}
             {sheet?.kind === 'otp' ? (
               <>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs, lineHeight: 20 }}>
                   {otpSent
-                    ? 'اطلب من الأسرة الرمز الذي وصلها الآن وأدخله هنا. الرمز صالح لمدة أسبوع.'
-                    : 'يُرسَل رمز إلى هذا الرقم الآن. اطلبه من الأسرة وهي أمامك وأدخله — هذا إثبات لملكية الرقم، أقوى من تأكيدك الشخصي.'}
+                    ? t('staff_ui.phone_otp_sent_hint')
+                    : t('staff_ui.phone_otp_send_hint')}
                 </Text>
                 {otpSent ? (
                   <TextInput
                     value={otpCode}
                     onChangeText={setOtpCode}
-                    keyboardType="number-pad"
+                    keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="sms-otp"
                     maxLength={8}
-                    placeholder="٦ أرقام"
+                    placeholder={t('staff_ui.phone_code_placeholder')}
                     placeholderTextColor={colors.textTertiary}
                     style={{
                       marginTop: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg,
@@ -347,13 +363,13 @@ export default function PhoneConfirmationsScreen() {
             {sheet?.kind === 'edit' ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs, lineHeight: 20 }}>
                 {sheet.item.scope === 'student'
-                  ? 'يُطبَّق التصحيح فورًا داخل مهلة تصحيح الأخطاء، وبعدها يمرّ على مراجعة الإدارة.'
-                  : 'رقم وليّ الأمر بيانات دخول — يُرسَل الرقم الصحيح للإدارة لتتحقق منه قبل تطبيقه.'}
+                  ? t('staff_ui.phone_edit_student_hint')
+                  : t('staff_ui.phone_edit_parent_hint')}
               </Text>
             ) : null}
             {sheet?.kind === 'escalate' ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs, lineHeight: 20 }}>
-                بلاغ بأن الرقم غير صحيح. بعد تأكيد الإدارة يظهر التنبيه لكل معلم يشارك هذا الطالب.
+                {t('staff_ui.phone_escalate_body')}
               </Text>
             ) : null}
 
@@ -362,7 +378,7 @@ export default function PhoneConfirmationsScreen() {
                 value={newNumber}
                 onChangeText={setNewNumber}
                 keyboardType="phone-pad"
-                placeholder="الرقم الصحيح"
+                placeholder={t('staff_ui.phone_correct_number_ph')}
                 placeholderTextColor={colors.textTertiary}
                 style={{
                   marginTop: spacing.lg, backgroundColor: colors.surfaceSunken,
@@ -378,7 +394,7 @@ export default function PhoneConfirmationsScreen() {
               value={note}
               onChangeText={setNote}
               multiline
-              placeholder={sheet?.kind === 'escalate' ? 'سبب البلاغ' : 'ملاحظة (اختياري)'}
+              placeholder={sheet?.kind === 'escalate' ? t('staff_ui.phone_escalate_reason_ph') : t('staff_ui.note_optional')}
               placeholderTextColor={colors.textTertiary}
               style={{
                 marginTop: spacing.md, minHeight: 72, backgroundColor: colors.surfaceSunken,
@@ -395,8 +411,9 @@ export default function PhoneConfirmationsScreen() {
                 disabled={busy}
                 style={{ flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>إلغاء</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>{t('common.cancel')}</Text>
               </TouchableOpacity>
+              <Surface id="teacher.phone_confirmations.sheet.submit">
               <TouchableOpacity
                 onPress={() => {
                   if (!sheet) return;
@@ -415,14 +432,17 @@ export default function PhoneConfirmationsScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>
-                    {sheet?.kind === 'ack' ? 'تأكيد'
-                      : sheet?.kind === 'otp' ? (otpSent ? 'تأكيد الرمز' : 'إرسال الرمز')
-                        : sheet?.kind === 'edit' ? 'إرسال' : 'إبلاغ'}
+                    {sheet?.kind === 'ack' ? t('common.confirm')
+                      : sheet?.kind === 'otp' ? (otpSent ? t('staff_ui.phone_confirm_code_btn') : t('staff_ui.send_code'))
+                        : sheet?.kind === 'edit' ? t('staff_ui.send') : t('staff_ui.report_btn')}
                   </Text>
                 )}
               </TouchableOpacity>
+              </Surface>
             </View>
       </SheetModal>
+      </Surface>
     </View>
+    </Surface>
   );
 }

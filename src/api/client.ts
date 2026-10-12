@@ -1,4 +1,10 @@
-import axios from 'axios';
+import { track } from '@/lib/analytics';
+import { IS_STAGING, STAGING_KEY, STAGING_HEADER } from '@/config/env';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
+import { uuid } from '@/utils/uuid';
+import { matchQueueRule, parkedBody, queuedLabel, syntheticQueuedResponse } from './offlineQueue';
+import { enqueueAction } from '@/db/outbox';
+import { useOfflineStore } from '@/stores/offlineStore';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
@@ -23,11 +29,18 @@ import { resolveAppId } from '@/utils/appIdentity';
  */
 /** Production API — every released (non-dev) build talks to this. */
 const PRODUCTION_API_URL = 'https://drosspot.app/api/v1';
+/** Staging API — a staging build (EXPO_PUBLIC_APP_ENV=staging) talks only to this. */
+const STAGING_API_URL = 'https://stg.drosspot.app/api/v1';
 
 function resolveApiUrl(): string {
   // An explicit override always wins (staging, a custom backend, etc.).
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  // A staging build is pinned to the staging server, dev or release alike.
+  if (IS_STAGING) {
+    return STAGING_API_URL;
   }
 
   // Any release build (store/TestFlight/APK) → production. The dev LAN/emulator
@@ -69,11 +82,11 @@ if (__DEV__) {
 const client = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-  // The API lives on a shared host that can be slow to warm on a cold cellular
-  // connection (common on Android/Samsung after the process is killed in the
-  // background). A tight 15s ceiling turned those warm-ups into hard failures →
-  // the reload screen on first load; 30s lets the first request through.
-  timeout: 30000,
+  // 15 s, not 30: on a weak link every screen and every button waited half a minute
+  // before admitting it (founder 2026-10-10: the demo stalled «loading» on a bad
+  // connection). The shared host's cold warm-up that once needed 30 s is covered by the
+  // query retry in app/_layout.tsx instead.
+  timeout: 15000,
 });
 
 client.interceptors.request.use(async (config) => {
@@ -111,8 +124,49 @@ client.interceptors.request.use(async (config) => {
   const appId = resolveAppId();
   if (appId) config.headers['X-App-Id'] = appId;
   config.headers['X-App-Platform'] = Platform.OS;
+  // The staging door (src/config/env.ts): a staging build carries the key on every request.
+  if (STAGING_KEY) config.headers[STAGING_HEADER] = STAGING_KEY;
+
+  // Every write carries a one-time key: the server answers a repeat of the same key from
+  // memory instead of running it twice (a payment collected once, however many retries).
+  const method = (config.method ?? 'get').toLowerCase();
+  if (method !== 'get' && method !== 'head' && !config.headers['X-Idempotency-Key']) {
+    config.headers['X-Idempotency-Key'] = uuid();
+  }
+  // Actions that may wait on the phone (src/api/offlineQueue.ts). With no connection, or
+  // right after a request dropped, they are parked at once — no 15 s wait on a dead radio.
+  // Teacher and assistant only: their app is the one that replays the outbox (the teacher
+  // layout opens it and runs the sync). A parent's request parked here would never be sent.
+  const role = useAuthStore.getState().role;
+  if (!config.__replay && (role === 'teacher' || role === 'assistant')) {
+    const rule = matchQueueRule(method, config.url);
+    if (rule) {
+      config.__queueRule = rule;
+      const net = useOfflineStore.getState();
+      if (!net.online || net.weak) {
+        await parkRequest(config);
+        config.adapter = () => Promise.resolve(syntheticQueuedResponse(config));
+      }
+    }
+  }
   return config;
 });
+
+/** Store the request for replay and tell the person it is saved. */
+async function parkRequest(config: InternalAxiosRequestConfig): Promise<void> {
+  const body = parkedBody(config.__queueRule!, config.data);
+  const label = queuedLabel(config.__queueRule!, body);
+  await enqueueAction({
+    key: String(config.headers['X-Idempotency-Key']),
+    method: (config.method ?? 'post').toLowerCase(),
+    url: String(config.url),
+    body,
+    label,
+    teacher_id: useAuthStore.getState().activeTeacherId ?? null,
+  });
+  useOfflineStore.getState().noteQueued(label);
+  track('offline_action_queued', { action: config.__queueRule!.label });
+}
 
 // Single-flight token refresh. When the access token has expired, an app open/resume
 // fires several requests at once and they ALL 401. Without a shared refresh, each one
@@ -137,7 +191,7 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshBase = getApiBaseOverride() ?? BUNDLED_API_URL;
   let data: any;
   try {
-    ({ data } = await axios.post(`${refreshBase}/auth/refresh`, { refresh_token: rt }, { timeout: 30000 }));
+    ({ data } = await axios.post(`${refreshBase}/auth/refresh`, { refresh_token: rt }, { timeout: 15000 }));
   } catch (e: any) {
     const status = e?.response?.status;
     // The server explicitly rejected the refresh token → session over.
@@ -192,10 +246,37 @@ export function shouldAttemptRefresh(status: number | undefined, url: string | u
   return !NO_REFRESH_PATHS.some((p) => (url ?? '').includes(p));
 }
 
+/** Loaded on first use: the popup module reaches the dialog, the router and the stores, which must not load with this client (tests, headless tasks). */
+function serverMeta(meta: unknown): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    (require('@/ui/serverPopup') as typeof import('@/ui/serverPopup')).handleServerMeta(meta);
+  } catch {
+    // never let a steering hint break a response
+  }
+}
+
 client.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    useOfflineStore.getState().noteNetworkOk();
+    // The backend may steer the app with this answer (meta.popup / meta.navigate).
+    if (res?.data?.meta) serverMeta(res.data.meta);
+    return res;
+  },
   async (error) => {
     const original = error.config;
+    if (error.response?.data?.meta) serverMeta(error.response.data.meta);
+    // No answer at all (offline, timeout, DNS): a dropout, not a verdict.
+    if (!error.response && original) {
+      useOfflineStore.getState().noteNetworkFailure();
+      // A queueable write that dropped is parked and reported as saved; a replay from the
+      // outbox is left to fail so the queue keeps it.
+      if (original.__queueRule && !original.__replay) {
+        await parkRequest(original);
+        return syntheticQueuedResponse(original);
+      }
+    }
+    // Which 401s may be refreshed over: shouldAttemptRefresh (NO_REFRESH_PATHS above).
     if (shouldAttemptRefresh(error.response?.status, original?.url, !!original?._retry)) {
       original._retry = true;
       try {

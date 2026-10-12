@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Modal, Platform, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { Platform, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { configRule } from '@/stores/appConfigStore';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -61,7 +62,7 @@ export default function InviteAcceptScreen() {
   const parentNameHasLatin = hasLatinLetters(parentName);
   const nameOk = !needsName || (name.trim().length > 0 && !nameHasLatin);
   const isValid =
-    password.length >= 6 && password === confirmPassword && nameOk &&
+    password.length >= configRule('password_min_length') && password === confirmPassword && nameOk &&
     parentName.trim().length > 0 && !parentNameHasLatin && parentPhone.trim().length > 0 &&
     parentRelation && terms;
   const canSubmit = isValid && !acceptMutation.isPending;
@@ -152,7 +153,7 @@ export default function InviteAcceptScreen() {
             style={{ ...field(), marginBottom: nameHasLatin ? spacing.xs : spacing.lg, borderColor: nameHasLatin ? colors.danger : name ? colors.brand : colors.borderStrong }}
           />
           {nameHasLatin ? (
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>{t('auth.name_arabic_only')}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg }}>{t('auth.name_arabic_only')}</Text>
           ) : null}
         </>
       )}
@@ -167,7 +168,7 @@ export default function InviteAcceptScreen() {
         style={{ ...field(), marginBottom: parentNameHasLatin ? spacing.xs : spacing.lg, borderColor: parentNameHasLatin ? colors.danger : parentName ? colors.brand : colors.borderStrong }}
       />
       {parentNameHasLatin ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>{t('auth.name_arabic_only')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg }}>{t('auth.name_arabic_only')}</Text>
       ) : null}
 
       <Text style={label()}>{t('auth.parent_phone')}</Text>
@@ -216,7 +217,7 @@ export default function InviteAcceptScreen() {
         style={{ ...field(), marginBottom: confirmPassword && password !== confirmPassword ? spacing.xs : spacing.lg, borderColor: confirmPassword ? (confirmPassword === password ? colors.success : colors.danger) : colors.borderStrong }}
       />
       {confirmPassword && password !== confirmPassword ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg, textAlign: 'right' }}>{t('auth.password_mismatch')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginBottom: spacing.lg }}>{t('auth.password_mismatch')}</Text>
       ) : null}
 
       <TermsConsentRow role="student" checked={terms} onToggle={setTerms} />

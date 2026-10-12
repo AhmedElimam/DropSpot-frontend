@@ -1,7 +1,8 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
@@ -22,10 +23,15 @@ import { Avatar } from '@/components/layout/Avatar';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
+import { ConnectionLine } from '@/components/ui/ConnectionStatus';
+import { TourTarget } from '@/tour/TourTarget';
+import { useTourScroll } from '@/tour/useTourScroll';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { ActionTile } from '@/components/ui/ShortcutTile';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { timeAgo, formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
+import { Slot } from '@/ui/Slot';
 
 /**
  * Parent Home — "Sanad" simple mode, built for an older parent (founder 2026-10-03: «some
@@ -71,27 +77,36 @@ export default function ParentHome() {
   const allWell = kids.length > 0 && well === kids.length;
   const attention = (billingAlerts?.length ?? 0) + (risks?.length ?? 0);
 
+  const tourScroll = useTourScroll();
   return (
+    <Surface id="screen.parent.index" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
+        {...tourScroll}
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="parent.home.hero">
         <LinearGradient
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl + insets.top, paddingBottom: spacing.xl4 + spacing.lg }}
         >
+          <Surface id="parent.home.header_bar">
           <HeaderBrandBar onBell={() => router.push('/(parent)/notifications')} unread={unread} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft }}>{t('home.welcome')}</Text>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, marginTop: 2 }} numberOfLines={1}>
+          </Surface>
+          {/* Greeting and name centred at the top (founder 2026-10-05). */}
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, textAlign: 'center' }}>{t('home.welcome')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, marginTop: 2, textAlign: 'center' }} numberOfLines={1}>
             {user?.name || 'ولي الأمر'}
           </Text>
+          <ConnectionLine style={{ marginTop: spacing.sm }} />
 
           {kids.length > 0 ? (
-            <View style={{ flexDirection: 'row', marginTop: spacing.lg, gap: spacing.sm }}>
+            <Surface id="parent.home.stats">
+            <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>
               {[
                 { k: 'kids', v: formatNumber(kids.length), l: t('home.children_section') },
                 { k: 'well', v: formatNumber(well), l: t('home.standing_good'), good: true },
@@ -102,14 +117,18 @@ export default function ParentHome() {
                   <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.onHeroSoft }} numberOfLines={1}>{x.l}</Text>
                 </View>
               ))}
-            </View>
+            </View></TourTarget>
+            </Surface>
           ) : null}
         </LinearGradient>
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
+          <Slot id="parent.home.top" style={{ marginBottom: spacing.lg }} />
           {/* The verdict card: one plain sentence about the household. */}
           {kids.length > 0 ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.md }}>
+            <Surface id="parent.home.verdict">
+            <TourTarget id="home:spotlight"><View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.md }}>
               <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: allWell ? colors.successLight : colors.warningLight, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name={allWell ? 'success' : 'warning'} size={26} color={allWell ? colors.success : colors.warningDark} />
               </View>
@@ -117,27 +136,33 @@ export default function ParentHome() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t(allWell ? 'home.all_well' : 'home.some_attention')}</Text>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{t('home.children_hint')}</Text>
               </View>
-            </View>
+            </View></TourTarget>
+            </Surface>
           ) : null}
 
           <View style={{ gap: spacing.md, marginTop: spacing.md }}>
-            <CardOrderBanner scope="parent" />
-            <WhatsNewCard />
+            <Surface id="parent.home.card_order_banner"><CardOrderBanner scope="parent" /></Surface>
+            <Surface id="parent.home.whats_new"><WhatsNewCard /></Surface>
             {/* Overdue billing (may block check-in) then auto-termination risk */}
+            <Surface id="parent.home.billing_alerts">
             {(billingAlerts ?? []).map((alert, i) => (
               <BillingOverdueCard key={`bill-${alert.student_id}-${i}`} alert={alert} showName />
             ))}
+            </Surface>
+            <Surface id="parent.home.risk_alerts">
             {(risks ?? []).map((risk, i) => (
               <AttendanceRiskCard key={`${risk.student_id}-${risk.course_name ?? i}`} risk={risk} showName />
             ))}
+            </Surface>
             {/* §3 — pending phone pre-card invitations awaiting the family's consent */}
-            <PendingSiblingClaims t={t} />
-            <PendingInvites t={t} />
+            <Surface id="parent.home.sibling_claims"><PendingSiblingClaims t={t} /></Surface>
+            <Surface id="parent.home.pending_invites"><PendingInvites t={t} /></Surface>
           </View>
 
           {/* Children */}
+          <Surface id="parent.home.children">
           <View style={{ marginTop: spacing.xl }}>
-            <SectionHead icon="children" color={colors.brand} title={t('home.children_section')} />
+            <SectionHead icon="children" color={colors.brand} title={t('home.children_section')} action={t('notifications.view_all')} onAction={() => router.push('/(parent)/children' as Href)} />
             {childrenLoading ? (
               <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl }} />
             ) : (
@@ -146,19 +171,23 @@ export default function ParentHome() {
               </View>
             )}
           </View>
+          </Surface>
 
           {/* Actions — big, coloured, two per row. */}
+          <Surface id="parent.home.actions">
           <View style={{ marginTop: spacing.xl }}>
             <SectionHead icon="star" color={colors.accent} title={t('home.actions_section')} />
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.sm }}>
-              <ActionTile icon="calendar" color={colors.brand} tint={colors.brandTint} title={t('today.title')} subtitle={t('today.subtitle')} onPress={() => router.push('/(parent)/today')} />
-              <ActionTile icon="invoices" color={colors.success} tint={colors.successLight} title={t('home.invoices_title')} onPress={() => router.push('/(parent)/(tabs)/invoices')} />
-              <ActionTile icon="reports" color={colors.info} tint={colors.infoLight} title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')} onPress={() => router.push('/(parent)/report-cards')} />
-              <ActionTile icon="ticket" color={colors.accentWarm} tint={colors.accentWarmTint} title={t('home.support_title')} subtitle={t('home.support_sub')} onPress={() => router.push('/(parent)/tickets')} />
+              <Surface id="parent.home.action_today"><ActionTile icon="calendar" color={colors.brand} tint={colors.brandTint} title={t('today.title')} subtitle={t('today.subtitle')} onPress={() => router.push('/(parent)/today')} /></Surface>
+              <Surface id="parent.home.action_invoices"><ActionTile icon="invoices" color={colors.success} tint={colors.successLight} title={t('home.invoices_title')} onPress={() => router.push('/(parent)/(tabs)/invoices')} /></Surface>
+              <Surface id="parent.home.action_report_cards"><ActionTile icon="reports" color={colors.info} tint={colors.infoLight} title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')} onPress={() => router.push('/(parent)/report-cards')} /></Surface>
+              <Surface id="parent.home.action_tickets"><ActionTile icon="ticket" color={colors.accentWarm} tint={colors.accentWarmTint} title={t('parent.teacher_tickets_title')} subtitle={t('parent.teacher_tickets_sub')} onPress={() => router.push('/(parent)/tickets')} /></Surface>
             </View>
           </View>
+          </Surface>
 
           {/* Latest update */}
+          <Surface id="parent.home.latest_update">
           <View style={{ marginTop: spacing.xl }}>
             <SectionHead icon="bell" color={colors.warningDark} title={t('home.latest_update')} action={t('notifications.view_all')} onAction={() => router.push('/(parent)/notifications')} />
             {latest ? (
@@ -180,9 +209,12 @@ export default function ParentHome() {
               </View>
             )}
           </View>
+          </Surface>
+          <Slot id="parent.home.bottom" style={{ marginTop: spacing.xl }} />
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 

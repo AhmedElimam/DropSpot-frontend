@@ -12,6 +12,12 @@ export interface AppConfigRules {
   dormancy_days: number;
   billing_allowance_days: number;
   offline_bucket_gap_min: number;
+  /** The «إعادة الإرسال» countdown on every code screen. */
+  otp_resend_seconds: number;
+  /** App screens and the API agree on this floor. */
+  password_min_length: number;
+  /** How long before a session the app treats it as «قريبة». */
+  session_early_min: number;
 }
 
 export interface AppConfigContact {
@@ -23,8 +29,61 @@ export interface AppConfigContact {
   card_vodafone_number: string; // blank unless the super-admin sets one
 }
 
+/** One inline validation rule the backend code declares (config/mobile_ui.php on the server). */
+export interface UiValidationRule { pattern?: string; min_words?: number; min?: number; max?: number; message?: string }
+/**
+ * A button the backend draws (in a popup or a slot block). `action`: dismiss ·
+ * navigate:<path> · url:<https…> · popup:<id> · api:<method> </path>. An `api:` button may
+ * carry a flat `body` to send and a `confirm` line asked first (src/ui/serverPopup.ts).
+ */
+export interface UiPopupButton { label: string; action: string; style?: 'cancel' | 'destructive'; body?: Record<string, string | number | boolean | null>; confirm?: string }
+export interface UiPopup { title: string; body?: string | null; buttons: UiPopupButton[]; persona?: 'rose' }
+export type UiTone = 'info' | 'success' | 'warning' | 'danger' | 'brand';
+/**
+ * UI the backend ADDS into a slot the app leaves open (src/ui/Slot.tsx): a notice line, a
+ * card with up to 3 buttons, or one button. `when` is a condition evaluated on the phone;
+ * `id` lets `hidden` switch the block off as `<slot>#<id>`.
+ */
+export interface UiBlock { type: 'notice' | 'card' | 'button'; title?: string; body?: string; tone?: UiTone; icon?: string; buttons?: UiPopupButton[]; when?: string; id?: string; persona?: 'rose'; /** ISO date after which the block is dropped on the phone too (a cached manifest may still carry it). */ expires_at?: string }
+/** Colour tokens the backend repaints, per scheme (src/theme/index.ts setThemeOverrides). */
+export type UiTheme = Partial<Record<'light' | 'dark', Record<string, string>>>;
+/**
+ * What the app obeys from BACKEND CODE (server config/mobile_ui.php, served as `ui`):
+ * surfaces switched off (a tab, a card, a button, a screen — see src/ui/surfaces.tsx), the
+ * notice a hidden screen shows, inline validation rules (src/utils/validators.ts), named
+ * popups (src/ui/serverPopup.ts).
+ */
+/** A condition on a surface: when `when` is false, the surface is hidden or disabled (with a reason). */
+export interface UiCondition { when: string; else?: 'hide' | 'disable'; reason?: string }
+export interface UiManifest {
+  hidden: string[];
+  /** Surface id → the reason shown when it is tapped; the element shows but does nothing. */
+  disabled?: Record<string, string>;
+  /** Surface id → a condition evaluated on the phone (src/ui/conditions.ts) against the screen's context. */
+  conditions?: Record<string, UiCondition>;
+  notices: Record<string, string>;
+  validation: Record<string, UiValidationRule>;
+  popups: Record<string, UiPopup>;
+  /** Slot id → the blocks drawn there (docs/MOBILE_SLOTS.md). */
+  slots?: Record<string, UiBlock[]>;
+  theme?: UiTheme;
+  /**
+   * Surface id → who among a teacher's staff sees it: 'teacher', 'any', or an ability key.
+   * Overrides the surface's bundled `assistantNeeds` (src/ui/surfaces.tsx).
+   */
+  gates?: Record<string, string>;
+}
+
+/** One assistant ability as the server names it (`abilities` in /app-config). */
+export interface AbilityDef { key: string; label: string; takeaway?: boolean; default?: boolean }
+
 export interface AppConfigPayload {
   schema_version: number;
+  ui?: UiManifest;
+  /** The assistant-ability catalog, so a key this build never saw still has a name. */
+  abilities?: AbilityDef[];
+  /** 'off' stops the app sending JS errors to /app-errors (src/lib/errorReport.ts); anything else = on. */
+  error_reporting?: 'on' | 'off';
   min_supported_app_version: string;
   /**
    * Set by the server when THIS app identity has been retired (its store listing is
@@ -76,8 +135,23 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
     dormancy_days: 30,
     billing_allowance_days: 15,
     offline_bucket_gap_min: 60, // = buckets.ts ONE_HOUR_MS
+    otp_resend_seconds: 60,
+    password_min_length: 6,
+    session_early_min: 30,
   },
   copy: {},
+  ui: {
+    hidden: [],
+    disabled: {},
+    conditions: {},
+    slots: {},
+    theme: {},
+    gates: {},
+    notices: {},
+    // Mirrors src/utils/validators.ts' own constants, which stay the fallback.
+    validation: { arabic_name: { pattern: '^[ء-يـ\\s]+$' }, egypt_phone: { pattern: '^01[0-9]{9}$' }, triple_name: { min_words: 3 } },
+    popups: {},
+  },
   pricing: { tiers: [] },
   contact: {
     support_email: 'drosspot.support@gmail.com',

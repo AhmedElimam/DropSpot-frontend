@@ -19,6 +19,7 @@ import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getTeacherCardOrders, type TeacherCardOrder, type RosterStudent } from '@/api/students';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 type Segment = 'students' | 'cards';
 type Quick = 'all' | 'low' | 'overdue' | 'exempt';
@@ -204,6 +205,7 @@ export default function TeacherStudents() {
   const listPad = { flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg, paddingTop: spacing.sm };
 
   return (
+    <Surface id="screen.teacher.students" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Compact header (founder: "the header takes a huge chunk of the space"): one line
           for title · count · cards · add, one for search, one for the filter pills. */}
@@ -212,29 +214,32 @@ export default function TeacherStudents() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t(segment === 'cards' ? 'teacher.seg_cards' : 'teacher.tab_students')}</Text>
           {segment === 'students' ? (
+            <Surface id="teacher.students.count_pill">
             <View style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }}>{formatNumber(counts.all)}</Text>
             </View>
+            </Surface>
           ) : null}
           <View style={{ flex: 1 }} />
-          {canStudents ? (
-            <TouchableOpacity onPress={() => setSegment(segment === 'cards' ? 'students' : 'cards')} accessibilityRole="button" accessibilityState={{ selected: segment === 'cards' }}
-              accessibilityLabel={t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 10, borderRadius: 12, backgroundColor: segment === 'cards' ? colors.heroChipActive : colors.onHeroChip }}>
-              <Icon name={segment === 'cards' ? 'children' : 'card'} size={17} color={segment === 'cards' ? colors.brand : colors.onHero} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: segment === 'cards' ? colors.brand : colors.onHero }}>{t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}</Text>
-            </TouchableOpacity>
-          ) : null}
-          {canStudents ? (
-            <TouchableOpacity onPress={() => setAddOpen(true)} accessibilityRole="button" accessibilityLabel={t('add_student.title')}
-              style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="add" size={22} color={colors.onAccent} />
-            </TouchableOpacity>
-          ) : null}
+          <Surface id="teacher.students.segment_toggle" assistantNeeds="manage_students">
+          <TouchableOpacity onPress={() => setSegment(segment === 'cards' ? 'students' : 'cards')} accessibilityRole="button" accessibilityState={{ selected: segment === 'cards' }}
+            accessibilityLabel={t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 10, borderRadius: 12, backgroundColor: segment === 'cards' ? colors.heroChipActive : colors.onHeroChip }}>
+            <Icon name={segment === 'cards' ? 'children' : 'card'} size={17} color={segment === 'cards' ? colors.brand : colors.onHero} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: segment === 'cards' ? colors.brand : colors.onHero }}>{t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}</Text>
+          </TouchableOpacity>
+          </Surface>
+          <Surface id="teacher.students.add_student" assistantNeeds="manage_students">
+          <TouchableOpacity onPress={() => setAddOpen(true)} accessibilityRole="button" accessibilityLabel={t('add_student.title')}
+            style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="add" size={22} color={colors.onAccent} />
+          </TouchableOpacity>
+          </Surface>
         </View>
 
         {segment === 'students' ? (
           <>
+            <Surface id="teacher.students.search">
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.lg, paddingHorizontal: spacing.md, marginTop: spacing.sm }}>
               <Icon name="search" size={17} color={colors.onHeroSoft} />
               <TextInput
@@ -246,9 +251,11 @@ export default function TeacherStudents() {
               />
               {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color={colors.onHeroSoft} /></TouchableOpacity> : null}
             </View>
+            </Surface>
 
             {/* The numbers are the filter — pills now, not tall tiles. A sideways scroll, edge
                 to edge: with «معفى» added the pills no longer fit one screen width. */}
+            <Surface id="teacher.students.quick_filters">
             <ScrollView horizontal showsHorizontalScrollIndicator={false}
               style={{ marginTop: spacing.sm, marginHorizontal: -spacing.lg }}
               contentContainerStyle={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg }}>
@@ -264,6 +271,7 @@ export default function TeacherStudents() {
                 );
               })}
             </ScrollView>
+            </Surface>
           </>
         ) : null}
       </LinearGradient>
@@ -271,11 +279,14 @@ export default function TeacherStudents() {
       {segment === 'students' ? (
         <>
           {(courses?.length ?? 0) > 1 ? (
+            <Surface id="teacher.students.course_chips">
             <View style={{ paddingTop: spacing.sm }}>
               <FilterChips options={courseOptions} value={courseId ?? 0} onChange={(k) => setCourseId(k === 0 ? null : k)} />
             </View>
+            </Surface>
           ) : null}
 
+          <Surface id="teacher.students.roster">
           {studentsLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : (
@@ -303,6 +314,7 @@ export default function TeacherStudents() {
                 </View>
               )}
               ListHeaderComponent={quick !== 'all' || search ? (
+                <Surface id="teacher.students.filter_summary">
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.xs }}>
                   <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{t('students_ui.showing', { n: formatNumber(shownCount) })}</Text>
                   <TouchableOpacity onPress={() => { setQuick('all'); setSearch(''); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }} hitSlop={8}>
@@ -310,16 +322,19 @@ export default function TeacherStudents() {
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('session_ui.clear_filter')}</Text>
                   </TouchableOpacity>
                 </View>
+                </Surface>
               ) : null}
               ListEmptyComponent={roster.length
                 ? <EmptyState icon="search" title={t('teacher.no_students_in_filter')} />
                 : <EmptyState icon="children" title={t('teacher.no_students')} message={t('teacher.no_students_hint')} />}
             />
           )}
+          </Surface>
         </>
       ) : (
-        <>
+        <Surface id="teacher.students.cards_segment">
           {/* Card orders — order a card for an existing enrolment + track requests. */}
+          <Surface id="teacher.students.order_card">
           <View style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, marginBottom: spacing.sm }}>
             <TouchableOpacity
               onPress={() => router.push('/(teacher)/card-order-new' as Href)}
@@ -330,7 +345,9 @@ export default function TeacherStudents() {
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('teacher.order_card')}</Text>
             </TouchableOpacity>
           </View>
+          </Surface>
 
+          <Surface id="teacher.students.card_orders">
           {cardOrders.isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
           ) : (
@@ -347,10 +364,12 @@ export default function TeacherStudents() {
               ListEmptyComponent={<EmptyState icon="card" title={t('teacher.no_card_orders')} message={t('teacher.order_card_sub')} />}
             />
           )}
-        </>
+          </Surface>
+        </Surface>
       )}
 
       <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} />
     </View>
+    </Surface>
   );
 }

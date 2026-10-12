@@ -79,13 +79,13 @@ export default function AcceptTermsScreen() {
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
           {isUpdate && (
             <View style={{ backgroundColor: colors.brand + '10', borderWidth: 1, borderColor: colors.brand + '33', borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand, textAlign: 'right', marginBottom: changes.length ? spacing.sm : 0 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand, marginBottom: changes.length ? spacing.sm : 0 }}>
                 {changes.length ? t('terms.update_whats_new') : t('terms.update_body')}
               </Text>
               {changes.map((line, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.xs }}>
                   <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand, marginTop: 8 }} />
-                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 22, color: colors.textSecondary, textAlign: 'right' }}>
+                  <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 22, color: colors.textSecondary }}>
                     {line}
                   </Text>
                 </View>
@@ -93,14 +93,14 @@ export default function AcceptTermsScreen() {
             </View>
           )}
 
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, lineHeight: 24, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.lg }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, lineHeight: 24, color: colors.textPrimary, marginBottom: spacing.lg }}>
             {intro}
           </Text>
 
           {bullets.map((line, i) => (
             <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.md }}>
               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand, marginTop: 9 }} />
-              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 23, color: colors.textSecondary, textAlign: 'right' }}>
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 23, color: colors.textSecondary }}>
                 {line}
               </Text>
             </View>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
@@ -13,11 +14,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { SelectField } from '@/components/ui/SelectField';
 import { FormScreen, FormCard, Field, Input, NumberInput, Stepper, SwitchRow, Banner, DayPicker, TimeRangeRow } from '@/components/ui/Form';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule, useUpdateSchedule, useDeleteCourse } from '@/hooks/useCourses';
 import { getCourseFormOptions } from '@/api/courses';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 import type { CourseSchedule } from '@/api/courses';
 
 // Matches Course::PREFERRED_ACCURACY_METERS — a worse GPS fix is flagged low-confidence.
@@ -27,10 +28,8 @@ export default function CourseDetailScreen() {
   const { t } = useTranslation();
   // An assistant sees only what they can change (founder 2026-09-26): settings and slot
   // removal need manage_courses, a new slot manage_sessions; the check-in anchor and
-  // deleting the course are the teacher's alone.
-  const { can, isAssistant } = useActiveAbilities();
-  const canCourses = can(ABILITY.MANAGE_COURSES);
-  const canSessions = can(ABILITY.MANAGE_SESSIONS);
+  // deleting the course are the teacher's alone. Each gate is the Surface's
+  // `assistantNeeds`, so the server's `ui.gates` can open a control without an app update.
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: course, isLoading } = useCourseDetail(id);
   // Teacher's down-payment IS the booklet → a separate booking price doesn't apply.
@@ -139,9 +138,9 @@ export default function CourseDetailScreen() {
 
   // Hard-delete the whole course (schedule master). Server blocks it while active students remain (422).
   const confirmDeleteCourse = () => {
-    Alert.alert('حذف المقرر نهائيًا', 'سيُمحى المقرر وكل ما يخصه (المواعيد، الحصص، السجلات) نهائيًا. لا يمكن التراجع. غير متاح إن كان به طلاب نشطون.', [
+    Alert.alert(t('enroll_ui.delete_course_title'), t('enroll_ui.delete_course_body'), [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: 'حذف نهائيًا', style: 'destructive', onPress: () => deleteCourse.mutate(undefined, { onSuccess: () => router.back(), onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? 'تعذّر حذف المقرر') }) },
+      { text: t('enroll_ui.delete_forever'), style: 'destructive', onPress: () => deleteCourse.mutate(undefined, { onSuccess: () => router.back(), onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('enroll_ui.delete_course_failed')) }) },
     ]);
   };
 
@@ -157,17 +156,19 @@ export default function CourseDetailScreen() {
   }
 
   const located = course.has_location;
-  const venueOptions = [{ key: '', label: 'بدون مكان محدد' }, ...venues.map((v) => ({ key: v.id, label: v.address ? `${v.name} — ${v.address}` : v.name }))];
+  const venueOptions = [{ key: '', label: t('enroll_ui.no_venue') }, ...venues.map((v) => ({ key: v.id, label: v.address ? `${v.name} — ${v.address}` : v.name }))];
 
   return (
+    <Surface id="screen.teacher.courses.detail" screen>
     <FormScreen title={course.name} subtitle={course.grade_name ?? undefined}>
       {/* Where the phone check-in anchors — the card's colour IS the status. */}
-      {onboarding?.active ? <Banner tone="info" text={t('onboarding.location_hint')} /> : null}
+      {onboarding?.active ? <Surface id="teacher.course_detail.onboarding_banner"><Banner tone="info" text={t('onboarding.location_hint')} /></Surface> : null}
+      <Surface id="teacher.course_detail.location">
       <FormCard icon="location"
         title={t(!geofence ? 'course_ui.geofence_off_title' : located ? 'teacher.phone_checkin_auto_on' : 'teacher.phone_checkin_off')}
         hint={t(!geofence ? 'course_ui.geofence_off_card_hint' : located ? 'teacher.location_set_hint' : 'teacher.location_missing_hint')}
         tint={!geofence ? colors.borderStrong : located ? colors.success : colors.warning}>
-        {canCourses ? (
+          <Surface id="teacher.course_detail.location.geofence" assistantNeeds="manage_courses">
           <View style={{ marginBottom: spacing.md }}>
             <SwitchRow title={t('course_ui.geofence_label')} hint={t(geofence ? 'course_ui.geofence_hint' : 'course_ui.geofence_off_hint')} value={geofence} onChange={setGeofence} first />
             {geofence ? (
@@ -176,39 +177,43 @@ export default function CourseDetailScreen() {
               </Field>
             ) : null}
           </View>
-        ) : null}
+          </Surface>
         {located && course.latitude != null ? (
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary, writingDirection: 'ltr', textAlign: 'right' }}>
+          <Text style={{ alignSelf: 'flex-start', fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary, writingDirection: 'ltr' }}>
             {course.latitude.toFixed(6)}, {course.longitude?.toFixed(6)}{course.location_accuracy_meters != null ? ` · ±${Math.round(course.location_accuracy_meters)}m` : ''}
           </Text>
         ) : null}
         {located && course.location_low_confidence ? <Banner tone="warn" text={t('teacher.location_low_confidence')} style={{ marginTop: spacing.sm, marginBottom: 0 }} /> : null}
-        {!isAssistant ? (
+          <Surface id="teacher.course_detail.location.capture_button" assistantNeeds="teacher">
           <View style={{ marginTop: spacing.md }}>
             <Button title={t(located ? 'teacher.recapture_location' : 'teacher.capture_location')} onPress={captureLocation} loading={capturing || saveLocation.isPending} variant={located ? 'outline' : 'primary'} />
           </View>
-        ) : null}
+          </Surface>
       </FormCard>
+      </Surface>
 
-      {canCourses ? (
-        <>
+          <Surface id="teacher.course_detail.basics" assistantNeeds="manage_courses">
           <FormCard icon="book" title={t('teacher.section_basics')}>
             <Field label={t('teacher.course_name_label')} first>
               <Input value={name} onChangeText={setName} placeholder={t('teacher.course_name_label')} maxLength={255} />
             </Field>
-            <Field label="مكان التدريس" hint={t('form_ui.optional')}>
+            <Field label={t('enroll_ui.venue_label')} hint={t('form_ui.optional')}>
               {venues.length > 0 ? (
-                <SelectField value={venueId ?? ''} options={venueOptions} placeholder="بدون مكان محدد" onChange={(v) => setVenueId(v || null)} />
-              ) : !isAssistant ? (
+                <SelectField value={venueId ?? ''} options={venueOptions} placeholder={t('enroll_ui.no_venue')} onChange={(v) => setVenueId(v || null)} />
+              ) : (
+                <Surface id="teacher.course_detail.basics.add_venues_link" assistantNeeds="teacher">
                 <TouchableOpacity onPress={() => router.push('/(teacher)/venues' as Href)} activeOpacity={0.8}
                   style={{ minHeight: 48, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.brandTint }}>
                   <Icon name="add" size={16} color={colors.brand} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>أضِف أماكن التدريس أولًا</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('enroll_ui.add_venues_first')}</Text>
                 </TouchableOpacity>
-              ) : null}
+                </Surface>
+              )}
             </Field>
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.course_detail.settings" assistantNeeds="manage_courses">
           <FormCard icon="attendance" title={t('teacher.settings_section')} tint={colors.accent}>
             <SwitchRow first title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />
             <SwitchRow title={t('teacher.sheet_default_label')} hint={t('teacher.sheet_default_hint')} value={sheetDefault} onChange={setSheetDefault} />
@@ -216,7 +221,9 @@ export default function CourseDetailScreen() {
               <NumberInput value={sheetMax} onChangeText={setSheetMax} decimals placeholder={t('teacher.optional')} />
             </Field>
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.course_detail.billing" assistantNeeds="manage_courses">
           <FormCard icon="money" title={t('teacher.billing_section')} tint={colors.success}>
             <Field label={t('teacher.per_cycle_label')} first>
               <Stepper value={perCycle ?? course.min_sessions_per_cycle} min={course.min_sessions_per_cycle} max={course.max_sessions_per_cycle} step={1} onChange={setPerCycle} suffix={t('teacher.sessions_unit')} />
@@ -230,21 +237,25 @@ export default function CourseDetailScreen() {
               value={hasBooking && !bookletIsDownPayment} disabled={bookletIsDownPayment} onChange={(v) => { setHasBooking(v); if (!v) setBookingPrice(''); }} />
             {hasBooking && !bookletIsDownPayment ? <View style={{ marginTop: spacing.sm }}><NumberInput value={bookingPrice} onChangeText={setBookingPrice} decimals placeholder={t('teacher.egp')} suffix={t('teacher.egp')} /></View> : null}
           </FormCard>
+          </Surface>
 
+          <Surface id="teacher.course_detail.save_button" assistantNeeds="manage_courses">
           <View style={{ marginBottom: spacing.lg }}>
             <Button title={t('teacher.save_settings')} onPress={onSaveSettings} loading={saveSettings.isPending} variant="primary" />
           </View>
-        </>
-      ) : null}
+          </Surface>
 
       {/* Weekly slots */}
+      <Surface id="teacher.course_detail.slots">
       <FormCard icon="calendar" title={t('teacher.slots_section')} tint={colors.accent}
-        action={canSessions ? (
+        action={(
+          <Surface id="teacher.course_detail.slots.add_button" assistantNeeds="manage_sessions">
           <TouchableOpacity onPress={() => router.push('/(teacher)/schedule-new' as Href)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 34, borderRadius: radius.full, backgroundColor: colors.accentLight }}>
             <Icon name="add" size={16} color={colors.accentText} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accentText }}>{t('teacher.add_slot')}</Text>
           </TouchableOpacity>
-        ) : undefined}>
+          </Surface>
+        )}>
         {course.schedules.length === 0 ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{t('teacher.no_slots')}</Text>
         ) : (
@@ -259,32 +270,34 @@ export default function CourseDetailScreen() {
                   {t('form_ui.students_n', { n: formatNumber(slot.headcount) })}{slot.capacity != null ? ` / ${formatNumber(slot.capacity)}` : ''} · {t('teacher.upcoming_count', { count: slot.upcoming_count })}
                 </Text>
               </View>
-              {canCourses ? (
+                <Surface id="teacher.course_detail.slots.edit_button" assistantNeeds="manage_courses">
                 <TouchableOpacity onPress={() => setEditing(slot)} accessibilityRole="button" accessibilityLabel={t('teacher.edit_slot_title')}
                   style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
                   <Icon name="note" size={18} color={colors.brand} />
                 </TouchableOpacity>
-              ) : null}
-              {canCourses ? (
+                </Surface>
+                <Surface id="teacher.course_detail.slots.retire_button" assistantNeeds="manage_courses">
                 <TouchableOpacity onPress={() => retireSlot(slot)} disabled={removeSlot.isPending} accessibilityRole="button" accessibilityLabel={t('teacher.retire_slot_confirm')}
                   style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
                   {removeSlot.isPending && removeSlot.variables === slot.id ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="trash" size={18} color={colors.danger} />}
                 </TouchableOpacity>
-              ) : null}
+                </Surface>
             </View>
           ))
         )}
       </FormCard>
+      </Surface>
 
-      <EditSlotSheet courseId={id} slot={editing} onClose={() => setEditing(null)} />
+      <Surface id="teacher.course_detail.edit_slot_sheet"><EditSlotSheet courseId={id} slot={editing} onClose={() => setEditing(null)} /></Surface>
 
       {/* Danger zone — hard-delete the whole course. Teacher only. */}
-      {!isAssistant ? (
-        <FormCard icon="warning" title="منطقة الخطر" hint="حذف المقرر نهائيًا يزيل مواعيده وحصصه وسجلّاته. لا يمكن التراجع. غير متاح إن كان به طلاب نشطون." tint={colors.danger} style={{ borderColor: colors.danger + '55' }}>
-          <Button title={deleteCourse.isPending ? '…جارٍ الحذف' : 'حذف المقرر نهائيًا'} onPress={confirmDeleteCourse} loading={deleteCourse.isPending} variant="destructive" />
+        <Surface id="teacher.course_detail.danger_zone" assistantNeeds="teacher">
+        <FormCard icon="warning" title={t('enroll_ui.danger_zone')} hint={t('enroll_ui.danger_zone_hint')} tint={colors.danger} style={{ borderColor: colors.danger + '55' }}>
+          <Button title={deleteCourse.isPending ? t('enroll_ui.deleting') : t('enroll_ui.delete_course_title')} onPress={confirmDeleteCourse} loading={deleteCourse.isPending} variant="destructive" />
         </FormCard>
-      ) : null}
+        </Surface>
     </FormScreen>
+    </Surface>
   );
 }
 

@@ -30,7 +30,14 @@ NetInfo.configure({
   reachabilityShortTimeout: 60 * 1000,
   reachabilityRequestTimeout: 10 * 1000,
 });
-import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
+import { QueryClient, focusManager } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { persistOptions } from '@/lib/queryPersist';
+import { PERSIST_MAX_AGE_MS } from '@/lib/queryPersistRules';
+import { OfflinePill } from '@/components/OfflinePill';
+import { DialogHost } from '@/ui/dialog';
+import { StagingRibbon } from '@/components/StagingRibbon';
+import { AnalyticsTracker } from '@/components/AnalyticsTracker';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '@/stores/authStore';
@@ -40,8 +47,10 @@ import { SurveyModal } from '@/components/SurveyModal';
 import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
 import { TermsUpdateModal } from '@/components/auth/TermsUpdateModal';
 import { AppConfigGate } from '@/components/AppConfigGate';
+import { installErrorReporting } from '@/lib/errorReport';
 import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
+import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
 import { colors } from '@/theme/index';
 import { shouldRefetchOnFocus } from '@/api/queryFocus';
 
@@ -99,14 +108,22 @@ const queryClient = new QueryClient({
       // again: the session is over (an impersonation token, for one, cannot be renewed at
       // all). Retrying held the screen on a spinner through the full 2s/4s/8s backoff —
       // per query, several at once — before the app finally admitted it was signed out.
+      // ...and a dropout (no answer at all) gets ONE more try, not three: with the 15 s
+      // ceiling in src/api/client.ts a screen with nothing cached now says so in ~30 s,
+      // not 90 (founder 2026-10-10). The cold-start blip the retries were for is one retry.
       retry: (failureCount, error) => {
         const status = (error as { response?: { status?: number } })?.response?.status;
         if (status === 401 || status === 403) return false;
+        if (status === undefined) return failureCount < 1;
 
         return failureCount < 3;
       },
       retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
       staleTime: 30000,
+      // The cache is also kept on disk (src/lib/queryPersist.ts) so screens open offline with
+      // their last data. A query dropped from memory is dropped from disk at the next save, so
+      // memory must keep it as long as the disk does (the React Query persistence rule).
+      gcTime: PERSIST_MAX_AGE_MS,
       // Returning to the app refreshes only data older than 2 minutes, not every stale query
       // of every mounted screen at once (src/api/queryFocus.ts).
       refetchOnWindowFocus: (query) => shouldRefetchOnFocus(query.state.dataUpdatedAt),
@@ -114,6 +131,8 @@ const queryClient = new QueryClient({
   },
 });
 setQueryClient(queryClient);
+// JS errors go to /admin/app-errors with version, update, screen and stack (src/lib/errorReport.ts).
+installErrorReporting();
 
 function HydrationGate({ children }: { children: React.ReactNode }) {
   const isLoading = useAuthStore((s) => s.isLoading);
@@ -196,6 +215,8 @@ export default function RootLayout() {
   // mounted screen is rebuilt on the new palette (react-navigation's StaticContainer would
   // otherwise keep them exactly as they were — an inline `colors.x` is read at render only).
   const scheme = useThemeStore((s) => s.scheme);
+  // The backend repainted a token (config/mobile_ui.php → theme): rebuild on the new colours.
+  const paintEpoch = useThemeStore((s) => s.paintEpoch);
 
   useEffect(() => {
     if (fontError) {
@@ -236,20 +257,23 @@ export default function RootLayout() {
   return (
     // gesture-handler components (the notifications swipe) need this at the very root.
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <SafeAreaProvider>
         {/* Status bar icons follow the scheme: dark on the day mist, light on the night navy.
             The auth screens, deep ink in both schemes, set their own while mounted. */}
         <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
         <HydrationGate>
           <AppConfigGate>
-          <View key={scheme} style={{ flex: 1, backgroundColor: colors.background }}>
+          <View key={`${scheme}-${paintEpoch}`} style={{ flex: 1, backgroundColor: colors.background }}>
             {/* Persistent impersonation banner sits above every screen. */}
             <ImpersonationBanner />
             <View style={{ flex: 1 }}>
               {/* A consistent content background so screen transitions never flash the
-                  navigator's default (white) card between two routes. */}
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+                  navigator's default (white) card between two routes. freezeOnBlur off: the
+                  root stack pushes pages OVER a whole role (notification preferences, change
+                  password, «ما الجديد»…), and a frozen role thawed mid-swipe-back stuttered
+                  the gesture (founder 2026-10-12, same cause as the role stacks on 10-08). */}
+              <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />
             </View>
             {/* Super-admin survey prompt — checked on app-open/login, once across platforms. */}
             <SurveyModal />
@@ -261,11 +285,20 @@ export default function RootLayout() {
             <TermsUpdateModal />
             {/* «ما الجديد» — once per installed version, after the two above. */}
             <WhatsNewModal />
+            {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}
+            <SpotlightOverlay />
+            {/* «بدون إنترنت» — a few seconds when the connection drops, then out of the way. */}
+            <OfflinePill />
+            {/* The app's own popup in place of the system alert — one host for every screen. */}
+            <DialogHost />
+            <StagingRibbon />
+            {/* Firebase Analytics: screens as route patterns, the role, off while impersonating. */}
+            <AnalyticsTracker />
           </View>
           </AppConfigGate>
         </HydrationGate>
       </SafeAreaProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
     </GestureHandlerRootView>
   );
 }

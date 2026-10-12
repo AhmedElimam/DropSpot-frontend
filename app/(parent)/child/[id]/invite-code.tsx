@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView } from 'rea
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import QRCode from 'react-native-qrcode-svg';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows } from '@/theme/index';
@@ -10,6 +11,7 @@ import { useChildren } from '@/hooks/useChildren';
 import { generatePreCard, type PreCardToken } from '@/api/preCardInvitation';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * Pre-Card Invitation QR (spec §4). The parent, in-person with the teacher,
@@ -18,6 +20,7 @@ import { PageHero } from '@/components/ui/PageHero';
  * and forward later.
  */
 export default function InviteCodeScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string }>();
   const { data: children } = useChildren();
@@ -28,11 +31,11 @@ export default function InviteCodeScreen() {
 
   const gen = useMutation({
     mutationFn: (studentId: number) => generatePreCard(studentId),
-    onSuccess: (t) => {
-      setToken(t);
+    onSuccess: (tok) => {
+      setToken(tok);
       // The API's expires_in_seconds can be a float (Carbon diff) — floor it so the
       // countdown never shows fractional "milliseconds".
-      setRemaining(Math.max(0, Math.floor(t.expires_in_seconds)));
+      setRemaining(Math.max(0, Math.floor(tok.expires_in_seconds)));
     },
   });
 
@@ -61,31 +64,39 @@ export default function InviteCodeScreen() {
   };
 
   return (
+    <Surface id="screen.parent.child.invite_code" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
-      <PageHero title="رمز التسجيل" subtitle={child?.name ?? undefined} onBack={true} compact />
+      <Surface id="parent.invite_code.hero">
+      <PageHero title={t('auth.invite_code_label')} subtitle={child?.name ?? undefined} onBack={true} compact />
+      </Surface>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl, paddingBottom: insets.bottom + spacing.xxl * 2, alignItems: 'center' }}>
+        <Surface id="parent.invite_code.intro">
         <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.xl }}>
-          اعرض هذا الرمز للمعلم الآن ليُسجّل ابنك في حصصه. صالح لدقائق قليلة فقط — للاستخدام الفوري أمام المعلم، ولا يُرسل عبر واتساب.
+          {t('family_ui.invite_code_intro')}
         </Text>
+        </Surface>
 
         {gen.isPending && !token ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.xxl }} />
         ) : gen.isError && !token ? (
-          <ErrorBlock message={(gen.error as any)?.response?.data?.message || 'تعذّر إنشاء الرمز'} onRetry={regenerate} />
+          <ErrorBlock message={(gen.error as any)?.response?.data?.message || t('family_ui.invite_code_failed')} onRetry={regenerate} />
         ) : token ? (
           <>
             {/* QR + overlay when expired */}
             {/* Scanners want dark modules on white whatever the app's scheme — never theme the QR
                 itself (the dark palette's ink is light, which made the code vanish). */}
+            <Surface id="parent.invite_code.qr">
             <View style={{ backgroundColor: '#FFFFFF', padding: spacing.xl, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
               <View style={{ opacity: expired ? 0.15 : 1 }}>
                 <QRCode value={token.token} size={220} backgroundColor="#FFFFFF" color="#171C3B" />
               </View>
             </View>
+            </Surface>
 
             {/* Countdown */}
+            <Surface id="parent.invite_code.countdown">
             {!expired ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.lg }}>
                 <Icon name="clock" size={18} color={remaining <= 60 ? colors.warning : colors.textSecondary} />
@@ -94,20 +105,24 @@ export default function InviteCodeScreen() {
                 </Text>
               </View>
             ) : (
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger, marginTop: spacing.lg }}>انتهت صلاحية الرمز</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.danger, marginTop: spacing.lg }}>{t('family_ui.invite_code_expired')}</Text>
             )}
+            </Surface>
 
             {/* Numeric fallback */}
+            <Surface id="parent.invite_code.numeric_code">
             <View style={{ marginTop: spacing.xl, alignItems: 'center' }}>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>
-                إن تعذّر مسح الرمز، أعطِ المعلم هذا الرقم:
+                {t('family_ui.invite_code_numeric_hint')}
               </Text>
               <Text style={{ fontFamily: fonts.bold, fontSize: 30, lineHeight: 40, letterSpacing: 6, color: colors.textPrimary, marginTop: spacing.xs, opacity: expired ? 0.3 : 1 }}>
                 {token.numeric_code}
               </Text>
             </View>
+            </Surface>
 
             {/* Regenerate */}
+            <Surface id="parent.invite_code.regenerate">
             <TouchableOpacity
               onPress={regenerate}
               disabled={gen.isPending}
@@ -120,25 +135,28 @@ export default function InviteCodeScreen() {
                 <>
                   <Icon name="refresh" size={18} color={expired ? colors.onPrimary : colors.brand} />
                   <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: expired ? colors.onPrimary : colors.brand }}>
-                    إنشاء رمز جديد
+                    {t('family_ui.invite_code_new')}
                   </Text>
                 </>
               )}
             </TouchableOpacity>
+            </Surface>
           </>
         ) : null}
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 
 function ErrorBlock({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <View style={{ alignItems: 'center', marginTop: spacing.xxl }}>
       <Icon name="error" size={40} color={colors.danger} />
       <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.md }}>{message}</Text>
       <TouchableOpacity onPress={onRetry} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, minHeight: 48, paddingHorizontal: spacing.xxl, justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>إعادة المحاولة</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onPrimary }}>{t('common.retry')}</Text>
       </TouchableOpacity>
     </View>
   );

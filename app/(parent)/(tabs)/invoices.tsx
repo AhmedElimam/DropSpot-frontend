@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +24,7 @@ import { SectionHead } from '@/components/ui/SectionHead';
 import { formatNumber } from '@/utils/format';
 import { ComplaintSheet, ComplaintPill } from '@/components/student/ComplaintSheet';
 import { useMyComplaints } from '@/hooks/useComplaints';
+import { Surface } from '@/ui/surfaces';
 
 const statusConfig = (): Record<string, { color: string }> => ({
   paid: { color: colors.success },
@@ -66,7 +68,7 @@ export default function InvoicesPage() {
     );
   }
 
-  if (isError) {
+  if (isError && !invoices) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ErrorState onRetry={() => refetch()} />
@@ -75,12 +77,14 @@ export default function InvoicesPage() {
   }
 
   return (
+    <Surface id="screen.parent.invoices" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="parent.invoices.hero">
         <PageHero
           title={t('invoices.title')}
           subtitle={formatDate(new Date())}
@@ -91,8 +95,10 @@ export default function InvoicesPage() {
             { value: formatNumber(overdueCount), label: t('invoices.overdue'), warn: overdueCount > 0 },
           ]}
         />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.md }}>
+          <Surface id="parent.invoices.list">
           {groups.length === 0 ? (
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, ...shadows.sm }}>
               <EmptyState icon="invoices" title={t('invoices.no_invoices')} />
@@ -102,18 +108,24 @@ export default function InvoicesPage() {
               <View key={group.teacher} style={{ gap: spacing.md }}>
                 {/* Per-teacher header — each teacher's bills stand on their own. */}
                 <View style={{ marginTop: spacing.sm }}><SectionHead icon="teacher" color={colors.brand} title={group.teacher} /></View>
+                <Surface id="parent.invoices.pending_dues">
                 {group.dues.map((due) => (
                   <PendingDueCard key={`due-${due.id}`} due={due} showStudent />
                 ))}
+                </Surface>
+                <Surface id="parent.invoices.invoice_cards">
                 {group.invoices.map((invoice) => (
                   <InvoiceCard key={invoice.id} invoice={invoice} />
                 ))}
+                </Surface>
               </View>
             ))
           )}
+          </Surface>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 
@@ -182,14 +194,17 @@ function InvoiceCard({ invoice }: { invoice: Invoice }) {
         </View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.primary }}>{formatEGP(invoice.amount)}</Text>
       </View>
-      <PaymentSection invoice={invoice} />
+      <Surface id="parent.invoices.payment_section"><PaymentSection invoice={invoice} /></Surface>
       {hasReceipt ? (
+        <Surface id="parent.invoices.download_receipt">
         <TouchableOpacity onPress={openReceipt} disabled={opening} activeOpacity={0.85} accessibilityRole="button"
           style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 46, borderRadius: radius.md, backgroundColor: colors.successLight, borderWidth: 1, borderColor: colors.success }}>
           {opening ? <ActivityIndicator color={colors.successText} /> : <Icon name="download" size={18} color={colors.successText} />}
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.successText }}>{t('invoices.download_receipt')}</Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
+      <Surface id="parent.invoices.complaint">
       {complaint ? (
         <View style={{ marginTop: spacing.md, alignSelf: 'flex-start' }}><ComplaintPill status={complaint.status} /></View>
       ) : invoice.status !== 'paid' && invoice.student_id ? (
@@ -199,7 +214,8 @@ function InvoiceCard({ invoice }: { invoice: Invoice }) {
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('complaints.file_payment')}</Text>
         </TouchableOpacity>
       ) : null}
-      <ComplaintSheet visible={complainOpen} onClose={() => setComplainOpen(false)} forStudentId={invoice.student_id ?? null} target={{ type: 'payment', invoiceId: Number(invoice.id), invoiceNumber: invoice.number, amount: invoice.amount }} />
+      <ComplaintSheet visible={complainOpen} onClose={() => setComplainOpen(false)} forStudentId={invoice.student_id ?? null} target={{ type: 'payment', invoiceId: Number(invoice.id), invoiceNumber: invoice.number, amount: invoice.amount, remaining: invoice.remaining }} />
+      </Surface>
     </TouchableOpacity>
   );
 }

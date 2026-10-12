@@ -68,7 +68,7 @@ function FloatingRefresh({ Base, forwardedRef, refreshControl, onScroll, scrollE
   forwardedRef: unknown;
 }) {
   const insets = useSafeAreaInsets();
-  const { refreshing = false, onRefresh, tintColor } = refreshControl!.props;
+  const { refreshing = false, onRefresh } = refreshControl!.props;
 
   const pull = useSharedValue(refreshing ? PULL_REST : 0);
   const refreshingRef = useRef(refreshing);
@@ -170,7 +170,11 @@ function FloatingRefresh({ Base, forwardedRef, refreshControl, onScroll, scrollE
             ...shadows.md,
           }, circle]}
         >
-          <ActivityIndicator animating={refreshing} hidesWhenStopped={false} color={tintColor ?? colors.brand} />
+          {/* Always the brand ink, never the screen's tint: the circle is the CARD colour, and a
+              screen tinting for its own header (white on her navy band, primary at night) made a
+              spinner that vanished into it — «a white circle without loading» (founder 2026-10-08).
+              Brand reads on the card in both schemes. */}
+          <ActivityIndicator animating={refreshing} hidesWhenStopped={false} color={colors.brand} />
         </Animated.View>
       </View>
     </>

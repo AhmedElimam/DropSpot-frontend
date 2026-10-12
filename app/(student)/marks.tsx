@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
 import { formatNumber } from '@/utils/format';
+import { GradeComplaintSheet, GradeComplaintStatus, gradeTargetFromExam, gradeTargetFromRecord, type GradeComplaintTarget } from '@/components/complaints/GradeComplaintSheet';
+import { Surface } from '@/ui/surfaces';
 
 type TabKey = 'grades' | 'exams';
 
@@ -35,6 +37,8 @@ export default function StudentMarksScreen() {
   const insets = useSafeAreaInsets();
   const studentId = useAuthStore((s) => s.user?.student_id) ?? null;
   const [activeTab, setActiveTab] = useState<TabKey>('grades');
+  // «اعتراض على الدرجة» on a sheet mark or an exam (founder 2026-10-05).
+  const [gradeTarget, setGradeTarget] = useState<GradeComplaintTarget | null>(null);
 
   const { data: grades, isLoading: gradesLoading, refetch: refetchGrades } = useQuery({
     queryKey: ['grades', studentId],
@@ -60,12 +64,14 @@ export default function StudentMarksScreen() {
   ];
 
   return (
+    <Surface id="screen.student.marks" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="student.marks.hero">
         <PageHero
           title={t('reports.my_marks')}
           subtitle={t('reports.my_marks_sub')}
@@ -76,8 +82,10 @@ export default function StudentMarksScreen() {
             { value: formatNumber(exams?.length ?? 0), label: t('reports.exam_results') },
           ]}
         />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          <Surface id="student.marks.tabs">
           <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 4 }}>
             {tabs.map((tab) => (
               <TouchableOpacity
@@ -98,8 +106,10 @@ export default function StudentMarksScreen() {
               </TouchableOpacity>
             ))}
           </View>
+          </Surface>
 
           {activeTab === 'grades' && (
+            <Surface id="student.marks.grades">
             <View style={cardStyle()}>
               <Text style={[textPresets.h3, { marginBottom: spacing.md }]}>{t('reports.grades')}</Text>
               {gradesLoading ? (
@@ -138,14 +148,20 @@ export default function StudentMarksScreen() {
                           </View>
                         ) : null}
                       </View>
+                      <GradeComplaintStatus
+                        complaint={g.complaint}
+                        onComplain={g.score != null ? () => setGradeTarget(gradeTargetFromRecord(g, t('reports.grades'))) : undefined}
+                      />
                     </View>
                   ))}
                 </>
               )}
             </View>
+            </Surface>
           )}
 
           {activeTab === 'exams' && (
+            <Surface id="student.marks.exams">
             <View style={cardStyle()}>
               <Text style={[textPresets.h3, { marginBottom: spacing.md }]}>{t('reports.exam_results')}</Text>
               {examsLoading ? (
@@ -158,8 +174,9 @@ export default function StudentMarksScreen() {
                 <View style={{ gap: spacing.sm }}>
                   {exams.map((e, i) => {
                     const pass = e.pct != null ? e.pct >= 50 : true;
+                    const target = gradeTargetFromExam(e, t('reports.exam_results'));
                     return (
-                      <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: i < exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                      <View key={`${e.source ?? 's'}-${e.attendance_record_id ?? e.revision_attendance_id ?? i}`} style={{ paddingVertical: spacing.md, borderBottomWidth: i < exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                           <View style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md, backgroundColor: pass ? colors.successLight : colors.dangerLight }}>
                             <Icon name="reports" size={20} color={pass ? colors.success : colors.danger} />
@@ -175,15 +192,27 @@ export default function StudentMarksScreen() {
                             {e.pct != null ? <Text style={textPresets.caption}>{e.pct}%</Text> : null}
                           </View>
                         </View>
+                        <View style={{ paddingStart: 44 + spacing.md }}>
+                          <GradeComplaintStatus
+                            complaint={e.complaint}
+                            onComplain={target ? () => setGradeTarget(target) : undefined}
+                          />
+                        </View>
                       </View>
                     );
                   })}
                 </View>
               )}
             </View>
+            </Surface>
           )}
         </View>
       </ScrollView>
+
+      <Surface id="student.marks.complaint_sheet">
+      <GradeComplaintSheet visible={!!gradeTarget} onClose={() => setGradeTarget(null)} target={gradeTarget} />
+      </Surface>
     </View>
+    </Surface>
   );
 }

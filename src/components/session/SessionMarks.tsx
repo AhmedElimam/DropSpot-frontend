@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/layout/Avatar';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 export type SessionKind = 'normal_sheet' | 'quiz_exam';
 
@@ -16,6 +17,7 @@ export function SessionKindToggle({ value, busy, onChange, compact = false }: {
 }) {
   const { t } = useTranslation();
   return (
+    <Surface id="teacher.session_marks.kind_toggle">
     <View>
       <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: 3 }}>
         {(['normal_sheet', 'quiz_exam'] as const).map((k) => {
@@ -37,6 +39,7 @@ export function SessionKindToggle({ value, busy, onChange, compact = false }: {
         {t(value === 'quiz_exam' ? 'marks_ui.kind_exam_hint' : 'marks_ui.kind_sheet_hint')}
       </Text>
     </View>
+    </Surface>
   );
 }
 
@@ -84,6 +87,7 @@ export const MarkRow = memo(function MarkRow({ a, max, onSave }: {
         </Text>
       </View>
       {attended ? (
+        <Surface id="teacher.session_marks.mark_input">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <TextInput
             value={draft}
@@ -103,6 +107,7 @@ export const MarkRow = memo(function MarkRow({ a, max, onSave }: {
               : max != null ? <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary }}>{`/${formatNumber(max)}`}</Text> : null}
           </View>
         </View>
+        </Surface>
       ) : (
         <Icon name="lock" size={18} color={colors.textTertiary} />
       )}
@@ -129,18 +134,22 @@ export function MarksHeader({ kind, kindBusy, onKind, max, onMax, done, of }: {
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.md }}>
       <SessionKindToggle value={kind} busy={kindBusy} onChange={onKind} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <Surface id="teacher.session_marks.progress">
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('marks_ui.progress', { n: formatNumber(done), of: formatNumber(of) })}</Text>
           <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.surfaceSunken, marginTop: 6, overflow: 'hidden' }}>
             <View style={{ width: `${pct}%`, height: 6, backgroundColor: colors.success }} />
           </View>
         </View>
+        </Surface>
+        <Surface id="teacher.session_marks.max_input">
         <View style={{ alignItems: 'center' }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textTertiary, marginBottom: 2 }}>{t('marks_ui.max')}</Text>
           <TextInput value={maxDraft} onChangeText={setMaxDraft} onEndEditing={saveMax} onSubmitEditing={saveMax} keyboardType="decimal-pad" returnKeyType="done"
             placeholder="—" placeholderTextColor={colors.textTertiary}
             style={{ width: 64, height: 38, borderRadius: radius.md, backgroundColor: colors.surfaceSunken, textAlign: 'center', fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, paddingVertical: 0 }} />
         </View>
+        </Surface>
       </View>
     </View>
   );

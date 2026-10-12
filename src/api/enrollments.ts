@@ -62,16 +62,30 @@ export async function setCyclePosition(
  * not — a part-session, a discount, a number agreed with the family. Teacher only; the
  * previous invoice is cancelled beside the new one rather than edited.
  */
+/** Attendance from before the app, as a count for one month; attended 0 removes the month. */
+export async function setPriorMonth(enrollmentId: number, month: string, attended: number, held?: number | null) {
+  const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/prior-months`, {
+    month, attended, ...(held != null ? { held } : {}),
+  });
+  return (data.data ?? data) as { months: { month: string; label: string; attended: number; held: number | null }[] };
+}
+
+/**
+ * One plain statement about a bill (founder 2026-10-06): how much, for how many sessions, and
+ * how much of it is paid. The bill itself is edited — nothing new issued, nothing cancelled.
+ */
 export async function setCycleAmount(
   enrollmentId: number,
-  amount: number,
-  sessions?: number | null,
+  bill: { amount: number; sessions?: number | null; paid?: number | null; invoiceId?: number | null },
 ): Promise<{ invoice: { id: number; amount: number; paid_amount: number; status: string } | null }> {
   const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/cycle-amount`, {
-    amount,
-    // Written onto the invoice line so the figure says WHAT it buys. Optional — a
-    // correction is not always about sessions.
-    ...(sessions ? { sessions } : {}),
+    amount: bill.amount,
+    // Written onto the bill's line so the figure says WHAT it buys.
+    ...(bill.sessions ? { sessions: bill.sessions } : {}),
+    // What the family has paid so far; more than is recorded gets recorded, less is refused.
+    ...(bill.paid != null ? { paid: bill.paid } : {}),
+    // Which bill — an older month's included; absent = the open cycle's.
+    ...(bill.invoiceId ? { invoice_id: bill.invoiceId } : {}),
   });
   return data.data ?? data;
 }
@@ -103,4 +117,24 @@ function extract(item: any): Enrollment {
     course: a.course,
     teacher: a.teacher,
   };
+}
+
+// ── «تسجيل شهر سابق»: a month before the student joined — its sessions and its fee, owed now ──
+export interface PriorBillingDay { id: number | string; date: string; label: string; time: string; recorded: string | null }
+export interface PriorBillingMonth {
+  month: string;
+  label: string;
+  days: PriorBillingDay[];
+  invoice: { id: number; number: string; amount: string; paid: string; remaining: string; status: string } | null;
+  suggested_amount: string | null;
+}
+
+export async function getPriorBillingMonths(enrollmentId: number): Promise<{ months: PriorBillingMonth[]; course: { id: number; name: string | null; cycle_price: string | null } }> {
+  const { data } = await client.get(`/teacher/enrollments/${enrollmentId}/prior-billing-months`);
+  return data.data ?? data;
+}
+
+export async function recordPriorBillingMonth(enrollmentId: number, payload: { month: string; session_ids: (number | string)[]; amount?: number }): Promise<{ month: PriorBillingMonth; created: number; billed: boolean; message: string }> {
+  const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/prior-billing-months`, payload);
+  return { ...(data.data ?? data), message: String(data.message ?? '') };
 }

@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Switch, RefreshControl, KeyboardAvoidingView, Alert } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Switch, RefreshControl, KeyboardAvoidingView } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, Redirect, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +22,10 @@ import {
   useRemoveAssistant,
 } from '@/hooks/useAssistants';
 import type { ManagedAssistant, AbilityDef } from '@/api/assistants';
+import { assistantRank, type AssistantRank } from '@/utils/assistantRank';
+import { RankBadge, RecruitCelebration } from '@/components/teacher/AssistantRank';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { Surface } from '@/ui/surfaces';
 
 const STATUS_META: Record<string, { key: string; variant: BadgeVariant }> = {
   accepted: { key: 'assistants.status_active', variant: 'success' },
@@ -74,11 +78,11 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
     // and revoking the ability later cannot reach a file already on their phone.
     if (turningOn && takeaway.includes(key) && sharedWith > 0) {
       Alert.alert(
-        'مساعد مشترك',
-        'هذا المساعد يعمل مع معلّمين آخرين. تقرير الطالب ملف كامل يخرج من المنصة ويبقى معه، ولا يمكن سحبه بعد ذلك حتى لو أوقفت الصلاحية.\n\nهل تريد منحه هذه الصلاحية؟',
+        t('staff_ui.shared_assistant_title'),
+        t('staff_ui.shared_assistant_body'),
         [
-          { text: 'إلغاء', style: 'cancel' },
-          { text: 'امنح الصلاحية', style: 'destructive', onPress: () => grant(key) },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('staff_ui.grant_ability'), style: 'destructive', onPress: () => grant(key) },
         ],
       );
 
@@ -96,8 +100,15 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
             <Badge label={showInactive ? t('assistants.status_inactive') : t(meta.key)} variant={showInactive ? 'default' : meta.variant} size="sm" />
           </View>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginTop: 2 }}>{a.phone ?? ''}</Text>
+          {/* The rank their permissions earn — it moves as abilities are granted or taken back. */}
+          <Surface id="teacher.assistants.card.rank_badge">
+          <View style={{ marginTop: spacing.sm }}>
+            <RankBadge rank={assistantRank(a.abilities, catalog.map((c) => c.key))} />
+          </View>
+          </Surface>
         </View>
         {/* Active toggle only meaningful once the assistant accepted. */}
+        <Surface id="teacher.assistants.card.active_toggle">
         {a.status === 'accepted' ? (
           toggle.isPending && toggle.variables === a.id ? (
             <ActivityIndicator size="small" color={colors.primary} />
@@ -105,24 +116,28 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
             <Switch value={a.is_active} onValueChange={() => toggle.mutate(a.id)} />
           )
         ) : null}
+        </Surface>
       </View>
 
+      <Surface id="teacher.assistants.card.shared_note">
       {sharedWith > 0 ? (
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.warningLight, borderWidth: 1, borderColor: colors.warning }}>
           <Icon name="info" size={16} color={colors.warning} />
           <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>
-            مساعد مشترك — يعمل أيضًا مع {sharedWith === 1 ? 'معلّم آخر' : `${sharedWith} معلّمين آخرين`}. ننصح بعدم منحه صلاحية إصدار تقارير PDF.
+            {sharedWith === 1 ? t('staff_ui.shared_assistant_note_one') : t('staff_ui.shared_assistant_note_many', { count: sharedWith })}
           </Text>
         </View>
       ) : null}
+      </Surface>
 
       {/* WHERE they work — separate from WHAT they may do. A teacher with two centres
           gives the same abilities to two assistants and still keeps each to their own
           place: outside their venues they see no students, no dues, and collect nothing.
           Choosing NO venue is not a cage — an unpinned assistant works everywhere (founder). */}
+      <Surface id="teacher.assistants.card.venue_scope">
       {venues.length > 0 && a.status === 'accepted' ? (
         <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginBottom: spacing.sm }}>أماكن العمل</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('staff_ui.work_venues')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
             <TouchableOpacity
               onPress={() => setScope.mutate({ id: a.id, allVenues: true })}
@@ -131,7 +146,7 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: a.all_venues ? colors.primaryLight : colors.surfaceSunken, borderWidth: 1, borderColor: a.all_venues ? colors.primary : colors.border }}
             >
               <Icon name={a.all_venues ? 'success' : 'add'} size={13} color={a.all_venues ? colors.primary : colors.textTertiary} />
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: a.all_venues ? colors.primary : colors.textSecondary }}>كل الأماكن</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: a.all_venues ? colors.primary : colors.textSecondary }}>{t('insights.venue_all')}</Text>
             </TouchableOpacity>
             {venues.map((v) => {
               const on = !a.all_venues && (a.venue_ids ?? []).includes(v.id);
@@ -155,19 +170,21 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
           </View>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>
             {a.all_venues
-              ? 'يعمل في كل الأماكن — وأي مكان تضيفه لاحقًا. اختر مكانًا لتقييده.'
-              : 'خارج أماكنه لا يرى الطالب ولا تحصيلاته. وإلغاء كل الأماكن يعيده للعمل في كل الأماكن.'}
+              ? t('staff_ui.all_venues_hint')
+              : t('staff_ui.scoped_venues_hint')}
           </Text>
         </View>
       ) : null}
+      </Surface>
 
       {/* Ability chips — tap to grant/revoke (disabled while a pending invite). */}
+      <Surface id="teacher.assistants.card.abilities">
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md }}>
         {catalog.map((ab) => {
           const on = a.abilities.includes(ab.key);
           return (
+            <Surface key={ab.key} id={`teacher.assistants.ability.${ab.key}`}>
             <TouchableOpacity
-              key={ab.key}
               onPress={() => toggleAbility(ab.key)}
               disabled={updateAbilities.isPending}
               activeOpacity={0.8}
@@ -179,11 +196,14 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
                 <Icon name="download" size={12} color={sharedWith > 0 ? colors.warning : colors.textTertiary} />
               ) : null}
             </TouchableOpacity>
+            </Surface>
           );
         })}
       </View>
+      </Surface>
 
       {/* End the relationship — quiet, at the foot of the card, always behind a confirm. */}
+      <Surface id="teacher.assistants.card.remove_button">
       <TouchableOpacity
         onPress={confirmRemove}
         disabled={remove.isPending}
@@ -194,11 +214,13 @@ function AssistantCard({ a, catalog, takeaway, venues }: { a: ManagedAssistant; 
         {remove.isPending ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="trash" size={15} color={colors.danger} />}
         <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{t(isInvite ? 'assistants.cancel_invite' : 'assistants.remove')}</Text>
       </TouchableOpacity>
+      </Surface>
     </View>
   );
 }
 
 export default function TeacherAssistants() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const role = useAuthStore((s) => s.role);
   const { data, isLoading, refetch } = useAssistants();
@@ -213,6 +235,20 @@ export default function TeacherAssistants() {
   const [cPhone, setCPhone] = useState('');
   const [cPass, setCPass] = useState('');
   const [createErr, setCreateErr] = useState<string | null>(null);
+  // The recruit moment: who just joined (or was invited), shown over the screen.
+  const [joined, setJoined] = useState<{ name: string; phone: string | null; rank: AssistantRank; invited: boolean } | null>(null);
+  const endJoined = useCallback(() => setJoined(null), []);
+  const celebrate = async (id: number, invited: boolean, fallback: { name: string; phone: string }) => {
+    const fresh = await refetch();
+    const row = fresh.data?.assistants.find((x) => x.id === id);
+    const keys = (fresh.data?.all_abilities ?? []).map((c) => c.key);
+    setJoined({
+      name: row?.name || fallback.name,
+      phone: row?.phone || fallback.phone || null,
+      rank: assistantRank(row?.abilities ?? ['scan_attendance', 'report_incidents', 'edit_bill_amount'], keys),
+      invited,
+    });
+  };
 
   // Assistant management is teacher-only; an assistant is bounced (backend also 403s).
   if (role === 'assistant') return <Redirect href={'/(teacher)/(tabs)' as Href} />;
@@ -224,9 +260,10 @@ export default function TeacherAssistants() {
   const submitInvite = () => {
     if (phone.trim().length < 6) return;
     setInviteErr(null);
-    invite.mutate(phone.trim(), {
-      onSuccess: () => setPhone(''),
-      onError: (e) => setInviteErr(apiMsg(e, 'تعذّرت الدعوة')),
+    const typed = phone.trim();
+    invite.mutate(typed, {
+      onSuccess: (r) => { setPhone(''); void celebrate(r.id, true, { name: t('staff_ui.new_assistant_fallback_name'), phone: typed }); },
+      onError: (e) => setInviteErr(apiMsg(e, t('staff_ui.invite_failed'))),
     });
   };
 
@@ -236,8 +273,12 @@ export default function TeacherAssistants() {
     create.mutate(
       { first_name: cFirst.trim(), phone_number: cPhone.trim(), password: cPass },
       {
-        onSuccess: () => { setCFirst(''); setCPhone(''); setCPass(''); setShowCreate(false); },
-        onError: (e) => setCreateErr(apiMsg(e, 'تعذّر الإنشاء')),
+        onSuccess: (r) => {
+          const fallback = { name: cFirst.trim(), phone: cPhone.trim() };
+          setCFirst(''); setCPhone(''); setCPass(''); setShowCreate(false);
+          void celebrate(r.id, false, fallback);
+        },
+        onError: (e) => setCreateErr(apiMsg(e, t('staff_ui.create_failed'))),
       },
     );
   };
@@ -248,13 +289,16 @@ export default function TeacherAssistants() {
   };
 
   return (
+    <Surface id="screen.teacher.assistants" screen>
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Surface id="teacher.assistants.header">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>المساعدون</Text>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('assistants.title')}</Text>
       </View>
+      </Surface>
 
       <ScrollView showsVerticalScrollIndicator={false}
         // The tab bar floats over the content (position: absolute), so its height has to
@@ -264,43 +308,62 @@ export default function TeacherAssistants() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Invite an existing assistant by phone */}
+        <Surface id="teacher.assistants.invite_card">
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>دعوة مساعد قائم</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('staff_ui.invite_existing_title')}</Text>
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <TextInput value={phone} onChangeText={setPhone} placeholder="رقم هاتف المساعد" placeholderTextColor={colors.textTertiary} keyboardType="phone-pad" style={{ ...field, flex: 1 }} />
+            <TextInput value={phone} onChangeText={setPhone} placeholder={t('staff_ui.assistant_phone_ph')} placeholderTextColor={colors.textTertiary} keyboardType="phone-pad" style={{ ...field, flex: 1 }} />
+            <Surface id="teacher.assistants.invite_button">
             <TouchableOpacity onPress={submitInvite} disabled={invite.isPending} activeOpacity={0.85} style={{ paddingHorizontal: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.brand, justifyContent: 'center', alignItems: 'center', minWidth: 84 }}>
-              {invite.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>دعوة</Text>}
+              {invite.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('staff_ui.invite_btn')}</Text>}
             </TouchableOpacity>
+            </Surface>
           </View>
           {inviteErr ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger, marginTop: spacing.sm }}>{inviteErr}</Text> : null}
         </View>
+        </Surface>
 
         {/* Create a brand-new assistant account */}
+        <Surface id="teacher.assistants.create_section">
+        <Surface id="teacher.assistants.create_toggle">
         <TouchableOpacity onPress={() => setShowCreate((v) => !v)} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, marginBottom: showCreate ? spacing.sm : spacing.lg }}>
           <Icon name={showCreate ? 'down' : 'add'} size={18} color={colors.brand} />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>إنشاء حساب مساعد جديد</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('staff_ui.create_new_title')}</Text>
         </TouchableOpacity>
+        </Surface>
+        <Surface id="teacher.assistants.create_form">
         {showCreate ? (
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, gap: spacing.sm }}>
-            <TextInput value={cFirst} onChangeText={setCFirst} placeholder="اسم المساعد" placeholderTextColor={colors.textTertiary} style={field} />
-            <TextInput value={cPhone} onChangeText={setCPhone} placeholder="رقم الهاتف" placeholderTextColor={colors.textTertiary} keyboardType="phone-pad" style={field} />
-            <PasswordInput value={cPass} onChangeText={setCPass} placeholder="كلمة المرور (6 أحرف على الأقل)" placeholderTextColor={colors.textTertiary} style={field} />
+            <TextInput value={cFirst} onChangeText={setCFirst} placeholder={t('staff_ui.assistant_name_ph')} placeholderTextColor={colors.textTertiary} style={field} />
+            <TextInput value={cPhone} onChangeText={setCPhone} placeholder={t('auth.phone')} placeholderTextColor={colors.textTertiary} keyboardType="phone-pad" style={field} />
+            <PasswordInput value={cPass} onChangeText={setCPass} placeholder={t('staff_ui.password_min_ph')} placeholderTextColor={colors.textTertiary} style={field} />
             {createErr ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.danger }}>{createErr}</Text> : null}
+            <Surface id="teacher.assistants.create_button">
             <TouchableOpacity onPress={submitCreate} disabled={create.isPending} activeOpacity={0.85} style={{ minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginTop: spacing.xs }}>
-              {create.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>إنشاء</Text>}
+              {create.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('staff_ui.create')}</Text>}
             </TouchableOpacity>
+            </Surface>
           </View>
         ) : null}
+        </Surface>
+        </Surface>
 
-        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginBottom: spacing.md }}>مساعدوك</Text>
+        <Surface id="teacher.assistants.list">
+        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{t('staff_ui.your_assistants')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textTertiary, marginTop: 2, marginBottom: spacing.md }}>
+          {t('staff_ui.rank_intro')}
+        </Text>
         {isLoading ? (
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : !data?.assistants.length ? (
-          <EmptyState icon="children" title="لا يوجد مساعدون" message="ادعُ مساعدًا قائمًا أو أنشئ حسابًا جديدًا." />
+          <EmptyState icon="children" title={t('staff_ui.no_assistants_title')} message={t('staff_ui.no_assistants_msg')} />
         ) : (
           data.assistants.map((a) => <AssistantCard key={a.id} a={a} catalog={catalog} takeaway={takeaway} venues={venues} />)
         )}
+        </Surface>
       </ScrollView>
+      <Surface id="teacher.assistants.recruit_celebration"><RecruitCelebration who={joined} onDone={endJoined} /></Surface>
     </KeyboardAvoidingView>
+    </Surface>
   );
 }

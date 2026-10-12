@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +16,8 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { getTeacherInsights, getInsightsPdfUrl, type TeacherInsights, type TrendDay, type InsightsRangeKey } from '@/api/insights';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { openRemotePdf } from '@/utils/openPdf';
+import i18n from '@/i18n';
+import { Surface } from '@/ui/surfaces';
 
 const VENUE_KEY = 'insights_venue_filter';
 
@@ -32,12 +35,12 @@ function CashLine({ label, value, tint }: { label: string; value: string; tint?:
  * The server sends its own list with the bundle and that one wins once it lands — this
  * is a placeholder, not a second source of truth.
  */
-const FALLBACK_PRESETS: { key: InsightsRangeKey; label: string }[] = [
-  { key: 'month', label: 'هذا الشهر' },
-  { key: 'last_month', label: 'الشهر الماضي' },
-  { key: 'last30', label: 'آخر ٣٠ يومًا' },
-  { key: 'last90', label: 'آخر ٣ شهور' },
-  { key: 'all', label: 'كل الوقت' },
+const FALLBACK_PRESETS = (): { key: InsightsRangeKey; label: string }[] => [
+  { key: 'month', label: i18n.t('invoices.this_month') },
+  { key: 'last_month', label: i18n.t('invoices.last_month') },
+  { key: 'last30', label: i18n.t('desk_ui.range_last30') },
+  { key: 'last90', label: i18n.t('desk_ui.range_last90') },
+  { key: 'all', label: i18n.t('desk_ui.range_all') },
 ];
 
 /**
@@ -113,7 +116,8 @@ export default function InsightsScreen() {
   ], [venueList, perVenueRef.current, t]);
 
   const money = (v: number) => `${formatNumber(Math.round(v))} ${t('insights.egp')}`;
-  const presets = d?.presets?.length ? d.presets : FALLBACK_PRESETS;
+  const fallbackPresets = useMemo(FALLBACK_PRESETS, [t]);
+  const presets = d?.presets?.length ? d.presets : fallbackPresets;
   const rangeLabel = d?.range?.label ?? presets.find((p) => p.key === range)?.label ?? '';
 
   // Ask for a fresh signed link every time, then download + share it — the same flow as
@@ -124,7 +128,7 @@ export default function InsightsScreen() {
     try {
       const url = await getInsightsPdfUrl({ range, venue: venueParam });
       if (!url) throw new Error('no url');
-      await openRemotePdf(url, `تحليلات-${rangeLabel || range}`);
+      await openRemotePdf(url, t('desk_ui.insights_pdf_filename', { range: rangeLabel || range }));
     } catch {
       Alert.alert(t('common.error'), t('insights.export_failed'));
     } finally {
@@ -133,7 +137,9 @@ export default function InsightsScreen() {
   };
 
   return (
+    <Surface id="screen.teacher.insights" screen>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Surface id="teacher.insights.header">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
@@ -142,6 +148,7 @@ export default function InsightsScreen() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('insights.title')}</Text>
           {switching ? <ActivityIndicator size="small" color={colors.brand} /> : null}
         </View>
+        <Surface id="teacher.insights.export_pdf">
         <TouchableOpacity
           onPress={exportPdf}
           disabled={exporting || !d || switching}
@@ -158,18 +165,24 @@ export default function InsightsScreen() {
           )}
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('insights.export_pdf')}</Text>
         </TouchableOpacity>
+        </Surface>
       </View>
+      </Surface>
 
       {/* The two filter rows, spaced so a thumb can't land on the wrong one. */}
+      <Surface id="teacher.insights.filters">
       <View style={{ gap: spacing.sm, paddingBottom: spacing.sm }}>
         {/* Period bar — every number below answers the question this row is asking. */}
-        <FilterChips options={presets} value={range} onChange={setRange} />
+        <Surface id="teacher.insights.filters.range"><FilterChips options={presets} value={range} onChange={setRange} /></Surface>
 
         {/* Venue filter — every figure below follows it, including the cash block. */}
+        <Surface id="teacher.insights.filters.venue">
         {venueList.length > 0 ? (
           <FilterChips options={venueOptions} value={venue} onChange={setVenue} tone="soft" icon="gps" />
         ) : null}
+        </Surface>
       </View>
+      </Surface>
 
       {q.isLoading || !venueReady ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
@@ -192,6 +205,7 @@ export default function InsightsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
           {/* Attendance */}
+          <Surface id="teacher.insights.attendance">
           <Section title={t('insights.attendance')} />
           <Row>
             <StatsCard label={t('insights.attendance_rate')} value={`${d.attendance.rate}%`} color={colors.success} bgColor={colors.success + '18'} />
@@ -201,10 +215,12 @@ export default function InsightsScreen() {
             <StatsCard label={t('insights.active_students')} value={d.attendance.active_students} />
             <StatsCard label={t('insights.sessions_held')} value={d.attendance.sessions_held} />
           </Row>
-          <TrendBars trend={d.attendance.trend} max={d.attendance.trend_max} label={t('insights.trend_days', { days: d.attendance.trend.length })} />
-          <PerCourse insights={d} title={t('insights.per_course')} />
+          <Surface id="teacher.insights.attendance.trend"><TrendBars trend={d.attendance.trend} max={d.attendance.trend_max} label={t('insights.trend_days', { days: d.attendance.trend.length })} /></Surface>
+          <Surface id="teacher.insights.attendance.per_course"><PerCourse insights={d} title={t('insights.per_course')} /></Surface>
+          </Surface>
 
           {/* Absence */}
+          <Surface id="teacher.insights.absence">
           <Section title={t('insights.absence')} />
           <Row>
             <StatsCard label={t('insights.absent_count')} value={d.absence.absent} color={colors.danger} bgColor={colors.danger + '18'} />
@@ -214,6 +230,7 @@ export default function InsightsScreen() {
             <StatsCard label={t('insights.termination_candidates')} value={d.absence.termination_candidates} />
             <StatsCard label={t('insights.dormant')} value={d.absence.dormant} />
           </Row>
+          <Surface id="teacher.insights.absence.top_at_risk">
           {d.absence.top_at_risk.length > 0 ? (
             <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginTop: spacing.sm }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('insights.top_at_risk')}</Text>
@@ -225,8 +242,11 @@ export default function InsightsScreen() {
               ))}
             </View>
           ) : null}
+          </Surface>
+          </Surface>
 
           {/* Financial */}
+          <Surface id="teacher.insights.financial">
           <Section title={t('insights.financial')} />
           <Row>
             <StatsCard label={`${t('insights.collected')} — ${rangeLabel}`} value={money(d.financial.collected ?? d.financial.collected_this_month)} color={colors.success} bgColor={colors.success + '18'} />
@@ -237,14 +257,18 @@ export default function InsightsScreen() {
             <StatsCard label={t('insights.new_students_period')} value={d.growth.new_students} color={colors.brand} bgColor={colors.brand + '18'} />
           </Row>
           {/* Paid before the teacher joined the system — beside collected, never inside it. */}
+          <Surface id="teacher.insights.financial.settled_before_joining">
           {(d.financial.settled_before_joining ?? 0) > 0 ? (
             <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, marginTop: spacing.xs, marginHorizontal: spacing.lg }}>
               {t('insights.settled_before_joining', { amount: money(d.financial.settled_before_joining ?? 0) })}
             </Text>
           ) : null}
+          </Surface>
+          </Surface>
 
           {/* Collected vs actual (addendum §5). "Actual" only for reconciled weeks; unreconciled
               weeks are listed apart with the actual UNKNOWN — never zero, never = collected. */}
+          <Surface id="teacher.insights.cash">
           {d.cash ? (
             <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('insights.cash_title')}</Text>
@@ -270,9 +294,11 @@ export default function InsightsScreen() {
               ) : null}
             </View>
           ) : null}
+          </Surface>
         </ScrollView>
       )}
     </View>
+    </Surface>
   );
 }
 

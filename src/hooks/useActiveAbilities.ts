@@ -17,7 +17,10 @@ export const ABILITY = {
   MARK_MANUAL: 'mark_attendance_manual',
   REPLY_TICKETS: 'reply_tickets',
   MANAGE_STUDENTS: 'manage_students',
+  EDIT_BILL_AMOUNT: 'edit_bill_amount',
   MANAGE_SESSIONS: 'manage_sessions',
+  /** Cancel / restore a session and pause a period — they move the billing cycle (2026-10-06). */
+  CANCEL_SESSIONS: 'cancel_sessions',
   MANAGE_COURSES: 'manage_courses',
   REVIEW_PAYMENT_PROOFS: 'review_payment_proofs',
   ISSUE_GUEST_PASSES: 'issue_guest_passes',

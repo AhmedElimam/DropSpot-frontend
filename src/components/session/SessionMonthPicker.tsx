@@ -11,6 +11,7 @@ import { useTeacherSessionsWindow } from '@/hooks/useTeacherSessionHistory';
 import { formatNumber } from '@/utils/format';
 import { DAY_SHORT, WEEK_ORDER, PHASE_DOT, dayKey, phasesByDay } from '@/utils/sessionDays';
 import type { SessionPhase } from '@/utils/sessionPhase';
+import { Surface } from '@/ui/surfaces';
 
 const MONTH_FMT = new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' });
 const LEGEND: SessionPhase[] = ['live', 'upcoming', 'done', 'cancelled'];
@@ -54,6 +55,7 @@ export function SessionMonthPicker({
     <SheetModal visible={visible} onClose={onClose} style={{ backgroundColor: colors.background, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
 
           {/* Month bar — earlier months to the right (RTL). */}
+          <Surface id="teacher.session_month_picker.month_bar">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <TouchableOpacity onPress={() => shift(-1)} hitSlop={8} accessibilityLabel={t('session_ui.prev_month')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="forward" size={20} color={colors.textPrimary} />
@@ -68,8 +70,10 @@ export function SessionMonthPicker({
               <Icon name="back" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
+          </Surface>
 
           {/* Weekday header */}
+          <Surface id="teacher.session_month_picker.calendar">
           <View style={{ flexDirection: 'row', marginTop: spacing.lg }}>
             {WEEK_ORDER.map((d) => (
               <Text key={d} style={{ flex: 1, textAlign: 'center', fontFamily: fonts.medium, fontSize: 11, color: colors.textTertiary }}>{DAY_SHORT[d]}</Text>
@@ -94,8 +98,10 @@ export function SessionMonthPicker({
             })}
           </View>
           {q.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.sm }} /> : null}
+          </Surface>
 
           {/* Legend — what a dot means. */}
+          <Surface id="teacher.session_month_picker.legend">
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.md, marginTop: spacing.md }}>
             {LEGEND.map((p) => (
               <View key={p} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -104,12 +110,15 @@ export function SessionMonthPicker({
               </View>
             ))}
           </View>
+          </Surface>
 
+          <Surface id="teacher.session_month_picker.today_button">
           <TouchableOpacity onPress={() => { onPick(new Date(now)); onClose(); }} activeOpacity={0.85}
             style={{ marginTop: spacing.lg, minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
             <Icon name="calendar" size={18} color={colors.onAccent} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onAccent }}>{t('session_ui.go_today')}</Text>
           </TouchableOpacity>
+          </Surface>
     </SheetModal>
   );
 }

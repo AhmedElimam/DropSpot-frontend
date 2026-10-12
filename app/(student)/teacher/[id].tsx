@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useMyComplaints } from '@/hooks/useComplaints';
 import { getStudentTeacherDetail } from '@/api/studentOverview';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { formatDate, formatNumber, formatTime } from '@/utils/format';
+import { formatDate, formatDateOnly, formatNumber, formatTime } from '@/utils/format';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
 import { SectionHead } from '@/components/ui/SectionHead';
@@ -20,7 +20,9 @@ import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
 import { AttendanceRecordList } from '@/components/attendance/AttendanceRecordList';
 import { ComplaintSheet, type ComplaintTarget } from '@/components/student/ComplaintSheet';
+import { GradeComplaintSheet, GradeComplaintStatus, gradeTargetFromExam, type GradeComplaintTarget } from '@/components/complaints/GradeComplaintSheet';
 import type { AttendanceRecord } from '@/types/attendance';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * One teacher, from the student's side (founder 2026-10-03: «click to see more details on
@@ -42,6 +44,8 @@ export default function StudentTeacherPage() {
   const complaints = useMyComplaints();
   const { refreshing, onRefresh } = usePullRefresh(q.refetch, complaints.refetch);
   const [complaintTarget, setComplaintTarget] = useState<ComplaintTarget | null>(null);
+  // «اعتراض على الدرجة» on a sheet mark or an exam, as on the marks page (founder 2026-10-06).
+  const [gradeTarget, setGradeTarget] = useState<GradeComplaintTarget | null>(null);
   const d = q.data;
 
   const rate = d && d.total > 0 ? Math.round((d.present / d.total) * 100) : null;
@@ -72,12 +76,14 @@ export default function StudentTeacherPage() {
   }
 
   return (
+    <Surface id="screen.student.teacher.detail" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="student.teacher.hero">
         <PageHero
           title={d.name}
           subtitle={d.courses.map((c) => c.name).join(' · ')}
@@ -90,9 +96,11 @@ export default function StudentTeacherPage() {
             { value: formatNumber(d.exams.length), label: t('student_teacher.exams_count') },
           ]}
         />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {/* Standing under this teacher, course by course. */}
+          <Surface id="student.teacher.standing">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <AttendanceOverview present={d.present} absent={d.absent} excused={d.excused} ringSize={96} />
             <View style={{ height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.md }} />
@@ -114,8 +122,10 @@ export default function StudentTeacherPage() {
               })}
             </View>
           </View>
+          </Surface>
 
           {/* Next sessions. */}
+          <Surface id="student.teacher.upcoming">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <SectionHead icon="calendar" color={colors.brand} title={t('student_teacher.upcoming')} />
             {d.upcoming.length === 0 ? (
@@ -126,23 +136,25 @@ export default function StudentTeacherPage() {
               return (
                 <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: i < d.upcoming.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
                   <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: s.type === 'quiz_exam' ? colors.accentLight : colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 22, color: s.type === 'quiz_exam' ? colors.accent : colors.brand, includeFontPadding: false }}>{ok ? formatDate(when, { day: 'numeric' }) : '—'}</Text>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 10, lineHeight: 13, color: s.type === 'quiz_exam' ? colors.accent : colors.brand }} numberOfLines={1} adjustsFontSizeToFit>{ok ? formatDate(when, { month: 'short' }) : ''}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 23, color: s.type === 'quiz_exam' ? colors.accent : colors.brand, includeFontPadding: false }} numberOfLines={1} adjustsFontSizeToFit>{ok ? formatDateOnly(when, { day: 'numeric' }) : '—'}</Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 10, lineHeight: 13, color: s.type === 'quiz_exam' ? colors.accent : colors.brand }} numberOfLines={1} adjustsFontSizeToFit>{ok ? formatDateOnly(when, { month: 'short' }) : ''}</Text>
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>
                       {s.type === 'quiz_exam' ? `${t('student_teacher.exam_label')} · ` : ''}{s.course_name ?? '—'}
                     </Text>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
-                      {[ok ? formatDate(when, { weekday: 'long' }) : null, ok ? formatTime(when) : null, t('student_teacher.minutes', { n: formatNumber(s.duration_minutes) }), s.location].filter(Boolean).join(' · ')}
+                      {[ok ? formatDateOnly(when, { weekday: 'long' }) : null, ok ? formatTime(when) : null, t('student_teacher.minutes', { n: formatNumber(s.duration_minutes) }), s.location].filter(Boolean).join(' · ')}
                     </Text>
                   </View>
                 </View>
               );
             })}
           </View>
+          </Surface>
 
           {/* Sheet marks with their average. */}
+          <Surface id="student.teacher.marks">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <SectionHead icon="grades" color={colors.brand} title={t('student_teacher.marks')} />
@@ -170,12 +182,18 @@ export default function StudentTeacherPage() {
                       {formatNumber(m.score)}{m.max_score != null ? `/${formatNumber(m.max_score)}` : ''}
                     </Text>
                   </View>
+                  <GradeComplaintStatus
+                    complaint={m.complaint}
+                    onComplain={(m.attendance_record_id ?? m.id) ? () => setGradeTarget({ source: 'session', recordId: (m.attendance_record_id ?? m.id) as number, title: m.course_name ?? t('student_teacher.marks'), date: m.date, mark: m.score, max: m.max_score }) : undefined}
+                  />
                 </View>
               );
             })}
           </View>
+          </Surface>
 
           {/* Exam results. */}
+          <Surface id="student.teacher.exams">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <SectionHead icon="reports" color={colors.accent} title={t('student_teacher.exams')} />
             {d.exams.length === 0 ? (
@@ -183,7 +201,8 @@ export default function StudentTeacherPage() {
             ) : d.exams.map((e, i) => {
               const pass = e.pct != null ? e.pct >= 50 : true;
               return (
-                <View key={`${e.date}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: i < d.exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                <View key={`${e.source}-${e.attendance_record_id ?? e.revision_attendance_id ?? i}`} style={{ paddingVertical: spacing.md, borderBottomWidth: i < d.exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
                   <View style={{ width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: pass ? colors.successLight : colors.dangerLight }}>
                     <Icon name="reports" size={20} color={pass ? colors.success : colors.danger} />
                   </View>
@@ -198,11 +217,21 @@ export default function StudentTeacherPage() {
                     {e.pct != null ? <Text style={textPresets.caption}>{formatNumber(e.pct)}%</Text> : null}
                   </View>
                 </View>
+                <GradeComplaintStatus
+                  complaint={e.complaint}
+                  onComplain={(() => {
+                    const target = gradeTargetFromExam(e, t('student_teacher.exams'));
+                    return target ? () => setGradeTarget(target) : undefined;
+                  })()}
+                />
+                </View>
               );
             })}
           </View>
+          </Surface>
 
           {/* The attendance record under this teacher. */}
+          <Surface id="student.teacher.past_attendance">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <SectionHead icon="attendance" color={colors.success} title={t('student_teacher.past')} />
             <AttendanceRecordList
@@ -212,10 +241,17 @@ export default function StudentTeacherPage() {
               limit={8}
             />
           </View>
+          </Surface>
         </View>
       </ScrollView>
 
+      <Surface id="student.teacher.complaint_sheet">
       <ComplaintSheet visible={!!complaintTarget} onClose={() => setComplaintTarget(null)} target={complaintTarget} />
+      </Surface>
+      <Surface id="student.teacher.grade_complaint_sheet">
+      <GradeComplaintSheet visible={!!gradeTarget} onClose={() => setGradeTarget(null)} target={gradeTarget} />
+      </Surface>
     </View>
+    </Surface>
   );
 }

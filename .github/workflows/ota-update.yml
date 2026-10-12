@@ -1,0 +1,79 @@
+name: Publish OTA update (EAS Update)
+
+# Ships the JS to every installed store build whose native layer matches — no store review,
+# live within minutes (the app fetches on launch and applies on the next return from the
+# background after two minutes away, or at the next cold start).
+#
+# The runtime version is a FINGERPRINT of the native layer (app.json), computed here from
+# the config alone (.fingerprintignore keeps a local ios/ out of it). One publish therefore
+# reaches iOS and Android alike, whatever their store version numbers, as long as both
+# were built from the same native dependencies. A build made BEFORE a native change
+# (a new module, an SDK bump, a permission) stops matching and keeps its last update until
+# the stores accept the new binary — that is the only thing OTA cannot cross.
+#
+# Older builds still on the appVersion runtime (1.2.8 and before): check out that
+# version's commit, cherry-pick the fix, and run this workflow from that ref.
+#
+# Required secret: EXPO_TOKEN (expo.dev → account → Access tokens).
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "EAS branch (production reaches the store builds; staging the preview builds)"
+        required: true
+        default: production
+        type: choice
+        options: [production, staging]
+      message:
+        description: "What changed (shown in eas update:list)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fail early without EXPO_TOKEN
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          [ -n "$EXPO_TOKEN" ] || { echo "::error::EXPO_TOKEN secret is missing (expo.dev → Access tokens)."; exit 1; }
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check and test
+        run: |
+          npx tsc --noEmit -p .
+          npx jest --ci
+
+      - name: Show what is being published
+        run: |
+          echo "version: $(node -p "require('./app.json').expo.version")"
+          echo "runtime (fingerprint):"
+          npx expo-updates fingerprint:generate --platform ios | head -c 200; echo
+          npx expo-updates fingerprint:generate --platform android | head -c 200; echo
+
+      - name: Publish
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          # The staging branch is exported AS the staging app (its own runtime fingerprint
+          # and API URL), so it can never land on a production install.
+          EXPO_PUBLIC_APP_ENV: ${{ inputs.branch == 'staging' && 'staging' || 'production' }}
+          EXPO_PUBLIC_API_URL: ${{ inputs.branch == 'staging' && 'https://stg.drosspot.app/api/v1' || 'https://drosspot.app/api/v1' }}
+          EXPO_PUBLIC_STAGING_KEY: ${{ inputs.branch == 'staging' && secrets.STAGING_ACCESS_KEY || '' }}
+        run: npx eas-cli update --branch "${{ inputs.branch }}" --message "${{ inputs.message }}" --non-interactive

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
+import { colors, spacing, radius, textPresets, shadows, gradients } from '@/theme/index';
 import { useChildren } from '@/hooks/useChildren';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 export default function ChildrenList() {
   const { t } = useTranslation();
@@ -30,7 +31,7 @@ export default function ChildrenList() {
     );
   }
 
-  if (isError) {
+  if (isError && !children) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ErrorState onRetry={() => refetch()} />
@@ -47,15 +48,26 @@ export default function ChildrenList() {
   }
 
   return (
+    <Surface id="screen.parent.children" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <PageHero title={t('parent.my_children')} subtitle={t('common.children_count', { count: children.length })} />
+        {/* Teacher tickets sit on the hero as a small chip, like the scanner on the teacher home
+            (founder 2026-10-06) — one tap from the children list, not buried in the profile. */}
+        <Surface id="parent.children.hero">
+        <PageHero
+          title={t('parent.my_children')}
+          subtitle={t('common.children_count', { count: children.length })}
+          onBack
+          action={{ icon: 'ticket', label: t('parent.tickets_chip'), accessibilityLabel: t('parent.teacher_tickets_title'), onPress: () => router.push('/(parent)/tickets') }}
+        />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          <Surface id="parent.children.list">
           {children.map((child) => {
             const rate = child.attendance_rate ?? 0;
             const rateColor = rate >= 90 ? colors.success : rate >= 75 ? colors.brand : colors.warning;
@@ -87,6 +99,7 @@ export default function ChildrenList() {
                   </View>
                 </View>
 
+                <Surface id="parent.children.attendance_bar">
                 <View style={{ marginTop: spacing.lg }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
                     <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('attendance.attendance_rate')}</Text>
@@ -98,7 +111,9 @@ export default function ChildrenList() {
                     <View style={{ width: `${rate}%`, height: '100%', borderRadius: 4, backgroundColor: rateColor }} />
                   </View>
                 </View>
+                </Surface>
 
+                <Surface id="parent.children.attendance_counts">
                 <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.xs }}>
                   <View style={{ flex: 1, alignItems: 'center', backgroundColor: colors.successLight, borderRadius: radius.md, paddingVertical: 10 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.successText }}>{child.present_count ?? 0}</Text>
@@ -117,6 +132,7 @@ export default function ChildrenList() {
                     <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.infoText }}>{t('attendance.excused')}</Text>
                   </View>
                 </View>
+                </Surface>
 
                 {child.student_code && (
                   <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center' }}>
@@ -125,17 +141,21 @@ export default function ChildrenList() {
                   </View>
                 )}
 
+                <Surface id="parent.children.view_details">
                 <Button
                   title={t('reports.view_details')}
                   onPress={() => router.push(`/(parent)/child/${child.id}`)}
                   variant="primary"
                   style={{ marginTop: spacing.lg }}
                 />
+                </Surface>
               </TouchableOpacity>
             );
           })}
+          </Surface>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }

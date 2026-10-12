@@ -47,6 +47,13 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
   if (type.startsWith('chat_')) return course ? `/(teacher)/tickets/chat/${course}` : '/(teacher)/tickets';
 
   switch (type) {
+    // ── مدام روز's 11 am «ورقة النهارده»: the day's sessions ──
+    case 'rose_briefing':
+      return '/(teacher)/sessions';
+    // ── complaints («الاعتراضات») ──
+    case 'complaint_filed':
+    case 'complaint_review':
+      return '/(teacher)/complaints';
     // ── students ──
     case 'invitation_accepted':
     case 'guardian_disputed':
@@ -55,6 +62,7 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
     case 'left_early':
     case 'assistant_checkin_review':
     case 'assistant_session_created':
+    case 'assistant_session_cancelled':
       return session ? `/(teacher)/sessions/${session}` : '/(teacher)/sessions';
     case 'booking_request':
       return can('manage_students') ? '/(teacher)/booking-requests' : null;
@@ -101,9 +109,15 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
     case 'expense_reminder':
       return can('scan_attendance') ? '/(teacher)/expenses' : null;
 
+    // New streaks of unexcused absences (attendance:notify-termination-candidates).
+    case 'termination_candidate':
+      return '/(teacher)/resolution';
+
     // ── phone / tickets ──
     case 'device_pending_scans':
       return '/(teacher)/reconcile';
+    // A parent opened a ticket (founder 2026-10-06), or replied on one.
+    case 'ticket_new':
     case 'ticket_reply': {
       const ticket = id(data, 'ticket_id');
       return ticket ? `/(teacher)/tickets/${ticket}` : '/(teacher)/tickets';
@@ -120,6 +134,10 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
   if (ADMIN_TICKET_TYPES.has(type)) return '/(parent)/support';
 
   switch (type) {
+    // A decided complaint: a payment one lands on the invoices; attendance / grade ones on
+    // the children list (the decision names no child to open directly).
+    case 'complaint_decided':
+      return data?.type === 'payment' ? '/(parent)/(tabs)/invoices' : '/(parent)/children';
     case 'payment_received':
     case 'invoice':
     case 'invoice_new':
@@ -135,6 +153,7 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
       return '/(parent)/today';
     case 'attendance':
     case 'absence':
+    case 'attendance_risk':
     case 'left_early':
     case 'grade':
     case 'special_session':
@@ -180,6 +199,9 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
   }
 
   switch (type) {
+    // A decided complaint opens where the disputed record lives.
+    case 'complaint_decided':
+      return data?.type === 'grade' ? '/(student)/marks' : data?.type === 'payment' ? '/(student)/(tabs)/invoices' : '/(student)/attendance';
     case 'invoice_new':
     case 'invoice_overdue':
     case 'payment_received':
@@ -202,8 +224,23 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
   }
 }
 
+/**
+ * A route the SERVER put on the notification (`data.route`) wins over the table, so a new
+ * notification type reaches the right screen with no app change — as long as the path is
+ * this role's own ('/(teacher)/…' for a teacher or assistant) and carries no scheme.
+ */
+export function serverRoute(role: UserRole | null, data: Record<string, unknown> | null | undefined): string | null {
+  const r = data?.route;
+  if (typeof r !== 'string' || !/^\/\((teacher|parent|student|admin)\)\/[^\s]*$/.test(r)) return null;
+  const group = r.slice(2, r.indexOf(')'));
+  const own = role === 'assistant' ? 'teacher' : role;
+  return group === own ? r : null;
+}
+
 export function notificationRouteFor({ role, type, data, can }: NotificationRouteInput): string | null {
   const allow = can ?? (() => true);
+  const sent = serverRoute(role, data);
+  if (sent) return sent;
   switch (role) {
     case 'teacher':
       return teacherRoute(type, data, false, () => true);

@@ -106,6 +106,19 @@ const ICON_MAP = {
   people: 'people',
   flipCamera: 'camera-reverse',
   lightbulb: 'bulb',
+  /** «اعتراض على الدرجة»: photograph the paper, pick it, draw on it, undo a line. */
+  image: 'image',
+  brush: 'brush',
+  // The photo editor's shape tools («علِّم على الخطأ»).
+  shapeCircle: 'ellipse-outline',
+  shapeArrow: 'arrow-forward',
+  undo: 'arrow-undo',
+  // Threads («النقاشات») — also the student's «مجموعاتي» coming-soon tab.
+  // The «شروحات» player's own controls.
+  redo: 'arrow-redo',
+  list: 'list',
+  // Brand glyph — no outline variant, never pass `outline`.
+  whatsapp: 'logo-whatsapp',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;

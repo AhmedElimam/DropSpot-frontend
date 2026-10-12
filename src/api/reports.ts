@@ -1,4 +1,5 @@
 import client from './client';
+import type { GradeComplaintState } from './complaints';
 import { extractList, extractAttrs } from './utils';
 
 export interface ExamResult {
@@ -8,6 +9,12 @@ export interface ExamResult {
   max?: number | null;
   pct?: number | null;
   source?: 'session' | 'revision';
+  /** The grade record a complaint names: the session's attendance record… */
+  attendance_record_id?: number | null;
+  /** …or the merged exam's revision attendance. */
+  revision_attendance_id?: number | null;
+  /** «اعتراض على الدرجة» on this result, if one was filed (else null). */
+  complaint?: GradeComplaintState | null;
 }
 
 export interface ReportCard {

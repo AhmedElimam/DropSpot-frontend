@@ -22,12 +22,40 @@ export const gradients: GradientSet = { ...gradientSets.light };
 
 let scheme: Scheme = 'light';
 
+/**
+ * Colour tokens repainted by BACKEND code (server config/mobile_ui.php → theme, per scheme),
+ * laid over the palette on every apply. Only known Palette keys and hex values get through;
+ * anything else is ignored, so a bad manifest never paints a screen wrong.
+ */
+let overrides: Partial<Record<Scheme, Record<string, string>>> = {};
+
+export function setThemeOverrides(next: Partial<Record<Scheme, Record<string, string>>> | undefined): boolean {
+  const clean: Partial<Record<Scheme, Record<string, string>>> = {};
+  for (const key of ['light', 'dark'] as const) {
+    const tokens = next?.[key];
+    if (!tokens || typeof tokens !== 'object') continue;
+    const kept: Record<string, string> = {};
+    for (const [k, v] of Object.entries(tokens)) {
+      if (k in palettes.light && typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)) kept[k] = v;
+    }
+    if (Object.keys(kept).length) clean[key] = kept;
+  }
+  const changed = JSON.stringify(clean) !== JSON.stringify(overrides);
+  overrides = clean;
+  if (changed) paint(scheme);
+  return changed;
+}
+
+function paint(next: Scheme): void {
+  Object.assign(colors, palettes[next], overrides[next] ?? {});
+  Object.assign(gradients, gradientSets[next]);
+}
+
 /** Switch every live token to `next`. Idempotent; returns whether anything changed. */
 export function applyScheme(next: Scheme): boolean {
   const changed = next !== scheme;
   scheme = next;
-  Object.assign(colors, palettes[next]);
-  Object.assign(gradients, gradientSets[next]);
+  paint(next);
   return changed;
 }
 

@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 export default function SwapRequestScreen() {
   const { t } = useTranslation();
@@ -71,16 +72,20 @@ export default function SwapRequestScreen() {
   const step = originalId ? 2 : 1;
 
   return (
+    <Surface id="screen.student.swap" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="student.swap.hero">
         <PageHero title={t('swap.title')} subtitle={t('swap.subtitle')} onBack={goBack} />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {/* STEP 1 — pick the session you'll miss */}
+          <Surface id="student.swap.step1_original">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
               <Text style={textPresets.subtitle}>{t('swap.step1')}</Text>
@@ -100,7 +105,7 @@ export default function SwapRequestScreen() {
               />
             ) : upcomingLoading ? (
               <ActivityIndicator color={colors.primary} />
-            ) : upcomingError ? (
+            ) : upcomingError && !upcoming ? (
               <ErrorState onRetry={() => refetchUpcoming()} />
             ) : !upcoming || upcoming.length === 0 ? (
               <EmptyState icon="calendar" title={t('swap.no_upcoming')} />
@@ -118,9 +123,11 @@ export default function SwapRequestScreen() {
               </View>
             )}
           </View>
+          </Surface>
 
           {/* STEP 2 — pick an alternate session */}
           {step === 2 && (
+            <Surface id="student.swap.step2_candidates">
             <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
               <Text style={[textPresets.subtitle, { marginBottom: spacing.md }]}>{t('swap.step2')}</Text>
 
@@ -151,6 +158,7 @@ export default function SwapRequestScreen() {
                 </Text>
               )}
 
+              <Surface id="student.swap.submit">
               <TouchableOpacity
                 onPress={submit}
                 disabled={!targetId || requestMutation.isPending}
@@ -165,11 +173,14 @@ export default function SwapRequestScreen() {
                   )}
                 </LinearGradient>
               </TouchableOpacity>
+              </Surface>
             </View>
+            </Surface>
           )}
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 

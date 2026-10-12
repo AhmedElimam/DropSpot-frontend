@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PageHero } from '@/components/ui/PageHero';
 import { SectionHead } from '@/components/ui/SectionHead';
+import { Surface } from '@/ui/surfaces';
 
 const cardStyle = () => ({
   backgroundColor: colors.surface,
@@ -47,15 +48,19 @@ export default function TodayScreen() {
   const children = data?.children ?? [];
 
   return (
+    <Surface id="screen.parent.today" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="parent.today.hero">
         <PageHero title={t('today.title')} subtitle={t('today.subtitle')} onBack compact />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg }}>
+          <Surface id="parent.today.feed">
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl4 }} />
           ) : children.length === 0 ? (
@@ -63,9 +68,11 @@ export default function TodayScreen() {
           ) : (
             children.map((child) => <ChildToday key={child.id} child={child} t={t} />)
           )}
+          </Surface>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 
@@ -105,10 +112,12 @@ function SessionRow({ session, last, t }: { session: FeedSession; last: boolean;
         )}
       </View>
       {session.note ? (
+        <Surface id="parent.today.session_note">
         <View style={{ marginTop: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary, marginBottom: 2 }}>{t('today.note_label')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textSecondary }}>{session.note}</Text>
         </View>
+        </Surface>
       ) : null}
     </View>
   );

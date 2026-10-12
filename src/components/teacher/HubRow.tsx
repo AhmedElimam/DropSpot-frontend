@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
@@ -13,7 +13,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
  * `badge` > 0 turns the row warm (amber border, count bubble): "this needs you".
  */
 export const HubRow = memo(function HubRow({
-  icon, title, sub, onPress, tint, badge = 0, loud = false,
+  icon, title, sub, onPress, tint, badge = 0, loud = false, leading,
 }: {
   icon: IconName;
   title: string;
@@ -23,6 +23,8 @@ export const HubRow = memo(function HubRow({
   badge?: number;
   /** Warm styling even without a count (an unanswered prompt). */
   loud?: boolean;
+  /** Replaces the icon tile — مدام روز's portrait on her row (founder 2026-10-07). */
+  leading?: ReactNode;
 }) {
   const warm = loud || badge > 0;
   const color = tint ?? colors.brand;
@@ -38,9 +40,11 @@ export const HubRow = memo(function HubRow({
         padding: spacing.md, minHeight: 64, marginBottom: spacing.sm,
       }}
     >
-      <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: (warm ? colors.warning : color) + '18', justifyContent: 'center', alignItems: 'center' }}>
-        <Icon name={icon} size={22} color={warm ? colors.warning : color} />
-      </View>
+      {leading ?? (
+        <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: (warm ? colors.warning : color) + '18', justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name={icon} size={22} color={warm ? colors.warning : color} />
+        </View>
+      )}
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{title}</Text>
         {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.textSecondary, marginTop: 2 }} numberOfLines={2}>{sub}</Text> : null}

@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import i18n from '@/i18n';
 import { useOfflineStore } from '@/stores/offlineStore';
@@ -80,6 +80,9 @@ function useSyncSession(id?: string) {
   return (fresh: SessionDetail) => {
     qc.setQueryData(['teacher-session-detail', id], fresh);
     qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
+    // The home's today card shows this session's counts too (founder 2026-10-11: it did not
+    // change after the sheet closed) — it is mounted, so this refetches it at once.
+    qc.invalidateQueries({ queryKey: ['teacher-sessions-today'] });
   };
 }
 

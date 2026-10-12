@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Alert, type ViewStyle } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, type ViewStyle } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -12,7 +13,6 @@ import { onWhite } from '@/theme/onWhite';
 import { scanCard, grantDoorExemption, admitOnce, transferHere, getMyTeachers, type ScanResult, type ScanOffer } from '@/api/teacher';
 import { scanRevision, addRevisionGuest } from '@/api/revisions';
 import { issueGuestPass } from '@/api/guestPasses';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import * as WebBrowser from 'expo-web-browser';
 import { previewPayment, previewAllPayments, collectPayment, waivePayment, type PayKind } from '@/api/payments';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
@@ -23,6 +23,8 @@ import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { Icon } from '@/components/ui/Icon';
 import { TeacherTip } from '@/components/TeacherTip';
 import { PayDuesModal } from '@/components/teacher/PayDuesModal';
+import { Surface } from '@/ui/surfaces';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { ScanPending } from '@/api/teacher';
 
 /** True when a scanned student owes anything (bill / booklet(s) / booking). */
@@ -52,9 +54,14 @@ function bracket(pos: 'tl' | 'tr' | 'bl' | 'br'): ViewStyle {
 // The aiming frame (must match the on-screen box in the render) plus slack, so a
 // card only registers when it's lined up INSIDE the frame — not read from anywhere
 // in view.
-const FRAME_W = 250;
-const FRAME_H = 190;
+// Square (founder 2026-10-11: «it looks rectangular»): a card's QR is square and so is the box.
+const FRAME_W = 240;
+const FRAME_H = 240;
 const FRAME_SLACK = 56;
+const WIN_W = Dimensions.get('window').width;
+const WIN_H = Dimensions.get('window').height;
+/** The shade outside the aiming box — still, cheap, and it makes the box the bright part. */
+const VIGNETTE = 'rgba(0,0,0,0.42)';
 
 type Pt = { x: number; y: number };
 
@@ -89,11 +96,9 @@ export default function TeacherScan() {
   const role = useAuthStore((s) => s.role);
   // Forgiving a debt (waive) is a teacher-only decision; assistants can collect only.
   const canWaive = role === 'teacher';
-  // Issuing a guest pass: teacher, or an assistant granted `issue_guest_passes`.
-  const { can, isAssistant } = useActiveAbilities();
-  const canIssuePass = can(ABILITY.ISSUE_GUEST_PASSES);
-  // Exemptions and one-off admits ride on scan_attendance, like the scan itself.
-  const canScan = can(ABILITY.SCAN);
+  // Issuing a guest pass: teacher, or an assistant granted `issue_guest_passes`; exemptions
+  // and one-off admits ride on scan_attendance, a transfer on manage_students — each is the
+  // button's Surface `assistantNeeds`, so the server's `ui.gates` can open it to an assistant.
 
   // ---- Revision mode (from the picker) — scan into a specific revision session.
   // Online-only: no offline buffering (guest creation / SMS / spread split can't
@@ -114,7 +119,7 @@ export default function TeacherScan() {
       ? params.payKind
       : null;
   const payMode = payAll || !!payKind;
-  const payWhatLabel = payKind === 'bill' ? 'فاتورة' : payKind === 'booklet' ? 'ملزمة' : 'دفعة حجز';
+  const payWhatLabel = payKind === 'bill' ? t('payment_proofs.invoice') : payKind === 'booklet' ? t('collections.booklet') : t('collections.booking');
 
   const currentSessions = (sessions ?? []).filter((s) => s.is_current);
   const sessionName = params.name || (currentSessions.length === 1 ? currentSessions[0].course_name ?? '' : '');
@@ -161,7 +166,6 @@ export default function TeacherScan() {
   // 2026-10-03) instead of a passing red flash: who they are, whether they are ours, what
   // they owe (collect from here), and their profile when they are enrolled with this teacher.
   const [noSession, setNoSession] = useState<{ name: string; message: string; code: string; enrolledHere: boolean | null; profileId: number | null; pending: ScanPending | null } | null>(null);
-  const canManageStudents = can(ABILITY.MANAGE_STUDENTS);
   // Merged pay-on-scan popup: after an attendance scan surfaces dues, open ONE popup
   // listing every kind (bill / booklets / booking) with the paid/remaining + pay-full UI.
   const [duesFor, setDuesFor] = useState<{ code: string; name: string; pending: ScanPending } | null>(null);
@@ -176,10 +180,19 @@ export default function TeacherScan() {
     }
   }, []);
 
+  // One feedback timer at a time, cleared on unmount: two overlapping ones let an old card's
+  // timer clear the next card's feedback (and `busy`) early.
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); }, []);
+  const clearFeedbackLater = useCallback(() => {
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = setTimeout(() => { feedbackTimer.current = null; setFeedback(null); setBusy(false); }, FEEDBACK_MS);
+  }, []);
+
   const flash = useCallback((success: boolean, message: string, studentName?: string | null, pending?: import('@/api/teacher').ScanPending | null) => {
     Vibration.vibrate(success ? 60 : [0, 120, 90, 120]);
     setFeedback({ success, message, student_name: studentName ?? null, pending: pending ?? null });
-    setTimeout(() => { setFeedback(null); setBusy(false); }, FEEDBACK_MS);
+    clearFeedbackLater();
   }, []);
 
   // `locked` pauses scanning too — while the scanner is locked no card is read.
@@ -249,7 +262,7 @@ export default function TeacherScan() {
             return;
           }
           if (res.success) {
-            flash(true, 'لا توجد مستحقات', (res.student && res.student.name) || null);
+            flash(true, t('desk_ui.no_dues'), (res.student && res.student.name) || null);
           } else {
             flash(false, res.message || t('teacher.scan_failed'), (res.student && res.student.name) || null);
           }
@@ -277,7 +290,7 @@ export default function TeacherScan() {
             return;
           }
           if (res.code === 'NOTHING_DUE') {
-            flash(true, 'لا توجد مستحقات', (res.student && res.student.name) || null);
+            flash(true, t('desk_ui.no_dues'), (res.student && res.student.name) || null);
           } else {
             flash(false, res.message || t('teacher.scan_failed'), (res.student && res.student.name) || null);
           }
@@ -367,7 +380,7 @@ export default function TeacherScan() {
           Vibration.vibrate(40);
           setFeedback({ success: true, message: t('teacher.saved_offline'), student_name: null });
         }
-        setTimeout(() => { setFeedback(null); setBusy(false); }, FEEDBACK_MS);
+        clearFeedbackLater();
       }
     },
     [paused, payMode, payKind, revisionMode, revisionId, revisionInstanceId, flash, t, online],
@@ -397,7 +410,7 @@ export default function TeacherScan() {
               if (res.success) {
                 flash(true, t('teacher.waive_done'), (res.student && res.student.name) || pc.name || null);
               } else if (res.code === 'NOTHING_DUE') {
-                flash(true, 'لا توجد مستحقات', (res.student && res.student.name) || null);
+                flash(true, t('desk_ui.no_dues'), (res.student && res.student.name) || null);
               } else {
                 flash(false, res.message || t('teacher.scan_failed'), (res.student && res.student.name) || null);
               }
@@ -415,16 +428,28 @@ export default function TeacherScan() {
       flash(
         true,
         remaining > 0
-          ? `تم تحصيل ${res.amount} ج.م — المتبقي ${res.remaining} ج.م`
-          : 'تم التحصيل بالكامل — أُرسل إشعار SMS',
+          ? t('desk_ui.collected_partial', { amount: res.amount, remaining: res.remaining })
+          : t('desk_ui.collected_full_sms'),
         (res.student && res.student.name) || null,
       );
     } else if (res.code === 'NOTHING_DUE') {
-      flash(true, 'لا توجد مستحقات', (res.student && res.student.name) || null);
+      flash(true, t('desk_ui.no_dues'), (res.student && res.student.name) || null);
     } else {
       flash(false, res.message || t('teacher.scan_failed'), (res.student && res.student.name) || null);
     }
   }, [payConfirm, payKind, payInput, payWhatLabel, flash, t]);
+  // ONE stable handler for the camera, gated by a ref. Passing `undefined` while paused (it used to
+  // be `paused ? undefined : handleScan`) flips the native barcode switch, and on Android that
+  // tears the whole camera down and builds it again — twice per scanned card, ~120 times a door
+  // session: a stall, a CPU spike, heat (founder 2026-10-09: «light on all devices»).
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  const handleScanRef = useRef(handleScan);
+  handleScanRef.current = handleScan;
+  const onCameraScan = useCallback((e: Parameters<typeof handleScan>[0]) => {
+    if (pausedRef.current) return;
+    handleScanRef.current(e);
+  }, []);
 
   const confirmExemption = useCallback(async () => {
     if (!overdueBlock) return;
@@ -513,6 +538,7 @@ export default function TeacherScan() {
 
   if (!permission.granted) {
     return (
+      <Surface id="screen.teacher.scan" screen>
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
         <Icon name="scan" size={56} color={colors.brand} />
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.lg }}>
@@ -525,13 +551,19 @@ export default function TeacherScan() {
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }}>{t('teacher.grant_camera')}</Text>
         </TouchableOpacity>
       </View>
+      </Surface>
     );
   }
 
+  // The bracket colour says the mode without words: amber for money, lilac for a revision.
+  const frameTint = payMode ? colors.accentWarm : revisionMode ? '#C4B5FD' : '#FFFFFF';
+
   return (
+    <Surface id="screen.teacher.scan" screen>
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       {/* Attendance-only tip — never in payment or revision scanning modes. */}
       {!payMode && !revisionMode && (
+        <Surface id="teacher.scan.tip">
         <TeacherTip
           tip="attendance"
           icon="scan"
@@ -539,10 +571,12 @@ export default function TeacherScan() {
           bodyKey="onboarding.tip_attendance_body"
           bulletKeys={['onboarding.tip_attendance_b1', 'onboarding.tip_attendance_b2']}
         />
+        </Surface>
       )}
-      {/* Mounted only while focused — leaving the screen unmounts it and frees the
-          camera (it no longer keeps rolling in the background). */}
-      {isFocused ? (
+      {/* Mounted only while focused — leaving the screen unmounts it and frees the camera. On
+          Android it is ALSO unmounted while idle or locked: `active` is iOS-only in expo-camera,
+          so there the sensor and the barcode analyser kept running on the desk (the heat). */}
+      {isFocused && (Platform.OS === 'ios' || cameraActive) ? (
         <CameraView
           style={{ flex: 1 }}
           active={cameraActive}
@@ -553,29 +587,42 @@ export default function TeacherScan() {
           // reliable (a long mixed list makes the scanner favour the wide barcode and
           // miss QR, especially a QR shown on a screen/PDF).
           barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128'] }}
-          onBarcodeScanned={paused ? undefined : handleScan}
+          onBarcodeScanned={onCameraScan}
         />
       ) : (
-        <View style={{ flex: 1 }} />
+        <View style={{ flex: 1, backgroundColor: '#000' }} />
       )}
 
       {/* Header: session / revision / payment context */}
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, backgroundColor: payMode ? 'rgba(11,59,52,0.86)' : revisionMode ? 'rgba(76,29,149,0.82)' : 'rgba(23,28,59,0.72)', flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+      <Surface id="teacher.scan.header">
+      <LinearGradient
+        colors={payMode ? ['rgba(9,66,58,0.96)', 'rgba(9,66,58,0.55)'] : revisionMode ? ['rgba(66,24,132,0.96)', 'rgba(66,24,132,0.55)'] : ['rgba(13,18,48,0.96)', 'rgba(13,18,48,0.55)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}
+      >
+        <Surface id="teacher.scan.header.back_button">
         <TouchableOpacity
-          onPress={() => (router.canGoBack() ? router.back() : router.replace((payMode ? '/(teacher)/collect' : revisionMode ? '/(teacher)/revisions' : '/(teacher)/(tabs)') as Href))}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace((payMode ? '/(teacher)/pending-collections' : revisionMode ? '/(teacher)/revisions' : '/(teacher)/(tabs)') as Href))}
           accessibilityRole="button"
           accessibilityLabel={t('teacher.switch_session')}
-          style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
+          style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', justifyContent: 'center', alignItems: 'center' }}
         >
           <Icon name="forward" size={22} color="#fff" />
         </TouchableOpacity>
+        </Surface>
+        {/* The mode, at a glance: a tinted chip with its own icon before the words. */}
+        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: payMode ? 'rgba(231,145,58,0.28)' : revisionMode ? 'rgba(196,181,253,0.28)' : 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)', justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name={payMode ? 'money' : revisionMode ? 'book' : 'scan'} size={20} color="#fff" />
+        </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-            {payMode ? 'تحصيل الدفعات' : revisionMode ? t('teacher.revision_scanning_for') : t('teacher.scanning_for')}
+          <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, letterSpacing: 0.2, color: 'rgba(255,255,255,0.72)' }}>
+            {payMode ? t('desk_ui.pay_mode_header') : revisionMode ? t('teacher.revision_scanning_for') : t('teacher.scanning_for')}
           </Text>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }} numberOfLines={1}>
-            {payMode ? (payAll ? 'كل المستحقات' : payKind === 'bill' ? 'دفع الفواتير' : payKind === 'booklet' ? 'دفع الملازم' : 'دفع دفعة الحجز') : revisionMode ? (params.revisionTitle || t('teacher.revisions_title')) : (sessionName || t('teacher.scan_mode'))}
+            {payMode ? (payAll ? t('desk_ui.pay_all_dues') : payKind === 'bill' ? t('desk_ui.pay_bills') : payKind === 'booklet' ? t('desk_ui.pay_booklets') : t('desk_ui.pay_booking')) : revisionMode ? (params.revisionTitle || t('teacher.revisions_title')) : (sessionName || t('teacher.scan_mode'))}
           </Text>
+          <Surface id="teacher.scan.header.offline_notice">
           {!revisionMode && !payMode && !online ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
               <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.warning }} />
@@ -588,101 +635,125 @@ export default function TeacherScan() {
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.warningLight }}>{t('teacher.pay_offline_short')}</Text>
             </View>
           ) : null}
+          </Surface>
         </View>
         {/* Safe-lock toggle — hidden in payment mode (a locked pay screen is unsafe).
             Tap to lock, hold to unlock. */}
         {!payMode ? (
+          <Surface id="teacher.scan.header.lock_button">
           <TouchableOpacity
             onPress={() => { if (!locked) { setLocked(true); Vibration.vibrate(30); } }}
             onLongPress={() => { if (locked) { setLocked(false); Vibration.vibrate(30); } }}
             delayLongPress={700}
             accessibilityRole="button"
-            accessibilityLabel={locked ? 'إلغاء وضع القفل — اضغط مطولاً' : 'تفعيل وضع القفل'}
-            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: locked ? '#b91c1c' : 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
+            accessibilityLabel={locked ? t('desk_ui.lock_release_hint') : t('desk_ui.lock_engage')}
+            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: locked ? '#b91c1c' : 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: locked ? '#dc2626' : 'rgba(255,255,255,0.22)', justifyContent: 'center', alignItems: 'center' }}
           >
             <Icon name="lock" size={20} color="#fff" />
           </TouchableOpacity>
+          </Surface>
         ) : null}
-        <TouchableOpacity onPress={() => setTorch((v) => !v)} accessibilityRole="button" accessibilityLabel={t('teacher.torch')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: torch ? colors.accentWarm : 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}>
+        <Surface id="teacher.scan.header.torch_button">
+        <TouchableOpacity onPress={() => setTorch((v) => !v)} accessibilityRole="button" accessibilityLabel={t('teacher.torch')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: torch ? colors.accentWarm : 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: torch ? colors.accentWarm : 'rgba(255,255,255,0.22)', justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="eye" size={22} color="#fff" />
         </TouchableOpacity>
-      </View>
+        </Surface>
+      </LinearGradient>
+      </Surface>
 
       {/* Scan frame + hint (hidden while the scanner is locked) */}
       {!locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup && !noSession && (
+        <Surface id="teacher.scan.frame">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
-          <View style={{ width: 250, height: 190, borderRadius: 22, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)' }}>
-            <View style={bracket('tl')} />
-            <View style={bracket('tr')} />
-            <View style={bracket('bl')} />
-            <View style={bracket('br')} />
+          {/* A vignette around the aiming box — four still rectangles, no compositing — so the
+              card's spot is the bright part of the picture (founder 2026-10-11: «UI love on
+              the camera pages»). The box is where the scanner reads (FRAME_W/H). */}
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: (WIN_H - FRAME_H) / 2, backgroundColor: VIGNETTE }} />
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: (WIN_H - FRAME_H) / 2, backgroundColor: VIGNETTE }} />
+          <View style={{ position: 'absolute', left: 0, top: (WIN_H - FRAME_H) / 2, width: (WIN_W - FRAME_W) / 2, height: FRAME_H, backgroundColor: VIGNETTE }} />
+          <View style={{ position: 'absolute', right: 0, top: (WIN_H - FRAME_H) / 2, width: (WIN_W - FRAME_W) / 2, height: FRAME_H, backgroundColor: VIGNETTE }} />
+          <View style={{ width: FRAME_W, height: FRAME_H, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }}>
+            <View style={[bracket('tl'), { borderColor: frameTint }]} />
+            <View style={[bracket('tr'), { borderColor: frameTint }]} />
+            <View style={[bracket('bl'), { borderColor: frameTint }]} />
+            <View style={[bracket('br'), { borderColor: frameTint }]} />
           </View>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: '#fff', marginTop: spacing.lg, textAlign: 'center', paddingHorizontal: spacing.xl }}>
-            {busy ? t('teacher.checking') : t('teacher.point_camera')}
-          </Text>
-          {busy ? <ActivityIndicator color="#fff" style={{ marginTop: spacing.md }} /> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.xl, paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(13,18,48,0.62)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
+            {busy ? <ActivityIndicator color="#fff" size="small" /> : <Icon name={payMode ? 'money' : 'card'} size={16} color={frameTint} />}
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff', textAlign: 'center' }}>
+              {busy ? t('teacher.checking') : t('teacher.point_camera')}
+            </Text>
+          </View>
         </View>
+        </Surface>
       )}
 
       {/* Idle overlay — the camera is off to spare the battery; any tap wakes it. */}
       {idle && !locked ? (
+        <Surface id="teacher.scan.idle_overlay">
         <TouchableOpacity
           activeOpacity={1}
           onPress={touch}
           accessibilityRole="button"
-          accessibilityLabel="الكاميرا متوقفة — اضغط للاستئناف"
+          accessibilityLabel={t('desk_ui.camera_idle_a11y')}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}
         >
           <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
             <Icon name="scan" size={44} color="#fff" />
           </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: spacing.lg }}>الكاميرا في وضع الراحة</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: spacing.lg }}>{t('desk_ui.camera_idle_title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginTop: spacing.sm, textAlign: 'center' }}>
-            لا بطاقات منذ دقائق، فأُطفئت الكاميرا لتوفير البطارية. اضغط في أي مكان للاستئناف.
+            {t('desk_ui.camera_idle_body')}
           </Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
 
       {/* Locked overlay — scanning is paused. The overlay ITSELF is the unlock target:
           hold anywhere to resume (it covers the header, so the header lock button can't
           receive the long-press). Tap does nothing so a stray tap can't unlock. */}
       {locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup && !noSession ? (
+        <Surface id="teacher.scan.locked_overlay">
         <TouchableOpacity
           activeOpacity={1}
           onLongPress={() => { setLocked(false); touch(); Vibration.vibrate(30); }}
           delayLongPress={700}
           accessibilityRole="button"
-          accessibilityLabel="إلغاء وضع القفل — اضغط مطولاً"
+          accessibilityLabel={t('desk_ui.lock_release_hint')}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}
         >
           <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
             <Icon name="lock" size={48} color="#fff" />
           </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: spacing.lg }}>الماسح مقفل</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: spacing.lg }}>{t('desk_ui.scanner_locked_title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginTop: spacing.sm, textAlign: 'center' }}>
-            المسح متوقّف — اضغط مطولاً في أي مكان للاستئناف.
+            {t('desk_ui.scanner_locked_body')}
           </Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
 
       {/* Bottom action: enter the special/exam session picker (when the revision
           switch is on) OR issue a guest pass (already inside a special session, and
           only when the operator may issue one). */}
-      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && !otherGroup && !noSession && (revisionMode ? canIssuePass : reviseOn !== false && !isAssistant) ? (
+      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && !otherGroup && !noSession && (revisionMode || reviseOn !== false) ? (
+        <Surface id="teacher.scan.bottom_action" assistantNeeds={revisionMode ? 'issue_guest_passes' : 'teacher'}>
         <TouchableOpacity
           onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
-          style={{ position: 'absolute', bottom: insets.bottom + spacing.xxxl, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: revisionMode ? colors.accentWarm : 'rgba(255,255,255,0.16)', borderRadius: radius.full }}
+          style={{ position: 'absolute', bottom: insets.bottom + spacing.xxxl, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.xl, paddingVertical: spacing.md, backgroundColor: revisionMode ? colors.accentWarm : 'rgba(13,18,48,0.62)', borderWidth: 1, borderColor: revisionMode ? colors.accentWarm : 'rgba(255,255,255,0.22)', borderRadius: radius.full }}
         >
           <Icon name={revisionMode ? 'card' : 'book'} size={18} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>
             {revisionMode ? t('teacher.guest_pass_issue') : t('teacher.revision_open')}
           </Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
 
       {/* Off-roster guest prompt */}
       {guestPrompt ? (
+        <Surface id="teacher.scan.guest_prompt">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(76,29,149,0.96)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
           <Icon name="child" size={56} color="#fff" />
           <Text style={{ fontFamily: fonts.regular, fontSize: 16, color: 'rgba(255,255,255,0.8)', marginTop: spacing.lg }}>{t('teacher.guest_offroster')}</Text>
@@ -690,37 +761,43 @@ export default function TeacherScan() {
           <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.85)', marginTop: spacing.md, textAlign: 'center' }}>
             {isSpread ? t('teacher.guest_billed') : t('teacher.guest_free')}
           </Text>
+          <Surface id="teacher.scan.guest_prompt.add">
           <TouchableOpacity onPress={confirmGuest} activeOpacity={0.85} style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 52, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher.guest_add')}</Text>
           </TouchableOpacity>
-          {canIssuePass ? (
+          </Surface>
+            <Surface id="teacher.scan.guest_prompt.issue_pass" assistantNeeds="issue_guest_passes">
             <TouchableOpacity onPress={() => { setGuestPrompt(null); setGErr(''); setPhoneOpen(true); }} activeOpacity={0.85} style={{ marginTop: spacing.md }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('teacher.guest_pass_issue')}</Text>
             </TouchableOpacity>
-          ) : null}
+            </Surface>
+          <Surface id="teacher.scan.guest_prompt.ignore">
           <TouchableOpacity onPress={() => { setGuestPrompt(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('teacher.guest_ignore')}</Text>
           </TouchableOpacity>
+          </Surface>
         </View>
+        </Surface>
       ) : null}
 
       {/* Payment confirmation — nothing is collected until تأكيد التحصيل. Supports a
           PARTIAL amount (default = full) with a "pay full" shortcut and a live remainder. */}
       {payConfirm ? (
+        <Surface id="teacher.scan.pay_confirm">
         <KeyboardAvoidingView behavior="padding" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(11,59,52,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
           <Icon name="money" size={48} color="#fff" />
           {payConfirm.name ? (
             <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#fff', textAlign: 'center', marginTop: spacing.sm }}>{payConfirm.name}</Text>
           ) : null}
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.8)', marginTop: spacing.sm }}>
-            {`المطلوب تحصيله (${payWhatLabel})`}
+            {t('desk_ui.amount_due_for', { what: payWhatLabel })}
           </Text>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 36, color: '#fff', marginTop: 2 }}>{formatMoney(payConfirm.owed)} ج.م</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 36, color: '#fff', marginTop: 2 }}>{t('desk_ui.money', { amount: formatMoney(payConfirm.owed) })}</Text>
           {payConfirm.paid > 0 ? (
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>مدفوع سابقًا: {formatMoney(payConfirm.paid)} ج.م</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>{t('desk_ui.paid_before', { amount: formatMoney(payConfirm.paid) })}</Text>
           ) : null}
 
-          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: spacing.lg, alignSelf: 'stretch', textAlign: 'center' }}>المبلغ المُحصَّل الآن</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: spacing.lg, alignSelf: 'stretch', textAlign: 'center' }}>{t('desk_ui.amount_now_label')}</Text>
           <TextInput
             value={payInput}
             onChangeText={setPayInput}
@@ -729,37 +806,46 @@ export default function TeacherScan() {
             placeholderTextColor="rgba(0,0,0,0.4)"
             style={{ marginTop: spacing.sm, alignSelf: 'stretch', backgroundColor: '#fff', borderRadius: radius.lg, height: 54, fontFamily: fonts.bold, fontSize: 22, color: '#111', textAlign: 'center' }}
           />
+          <Surface id="teacher.scan.pay_confirm.pay_full">
           <TouchableOpacity onPress={() => setPayInput(String(payConfirm.owed))} activeOpacity={0.85} style={{ marginTop: spacing.sm }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff', textDecorationLine: 'underline' }}>دفع بالكامل</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff', textDecorationLine: 'underline' }}>{t('teacher.pay_full')}</Text>
           </TouchableOpacity>
+          </Surface>
 
           <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.85)', marginTop: spacing.md }}>
-            المتبقي بعد الدفع: {formatMoney(Math.max(0, payConfirm.owed - (Number(payInput) || 0)))} ج.م
+            {t('desk_ui.remaining_after_pay', { amount: formatMoney(Math.max(0, payConfirm.owed - (Number(payInput) || 0))) })}
           </Text>
 
           {/* Amount > 0 → collect; amount 0/cleared → waive (write-off, teacher-only mode). */}
+          <Surface id="teacher.scan.pay_confirm.confirm_button">
           <TouchableOpacity onPress={confirmPay} disabled={Number.isNaN(Number(payInput)) || (!canWaive && !(Number(payInput) > 0))} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: Number(payInput) > 0 ? '#0b3b34' : '#92400E' }}>{Number(payInput) > 0 ? 'تأكيد التحصيل' : t('teacher.waive_button')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: Number(payInput) > 0 ? '#0b3b34' : '#92400E' }}>{Number(payInput) > 0 ? t('collections.confirm') : t('teacher.waive_button')}</Text>
           </TouchableOpacity>
+          </Surface>
+          <Surface id="teacher.scan.pay_confirm.cancel">
           <TouchableOpacity onPress={() => setPayConfirm(null)} activeOpacity={0.85} style={{ marginTop: spacing.md }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>إلغاء</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('common.cancel')}</Text>
           </TouchableOpacity>
+          </Surface>
         </KeyboardAvoidingView>
+        </Surface>
       ) : null}
 
       {/* Overdue-bill block — cannot check in; offer an in-the-moment 15-day exemption */}
       {overdueBlock ? (
+        <Surface id="teacher.scan.overdue_block">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(146,64,14,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
           <Icon name="warning" size={56} color="#fff" />
           {overdueBlock.name ? (
             <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#fff', textAlign: 'center', marginTop: spacing.md }}>{overdueBlock.name}</Text>
           ) : null}
-          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff', marginTop: spacing.md }}>دفعة متأخرة</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff', marginTop: spacing.md }}>{t('desk_ui.overdue_payment_title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.85)', marginTop: 4, textAlign: 'center', paddingHorizontal: spacing.lg }}>
-            {overdueBlock.message || 'لا يمكن تسجيل الحضور بسبب وجود مستحقات متأخرة.'}
+            {overdueBlock.message || t('desk_ui.overdue_block_body')}
           </Text>
           {/* Primary: collect the overdue dues now (pay → re-scan to check in). */}
           {hasDues(overdueBlock.pending) ? (
+            <Surface id="teacher.scan.overdue_block.collect_now">
             <TouchableOpacity
               onPress={() => {
                 const b = overdueBlock;
@@ -769,23 +855,28 @@ export default function TeacherScan() {
               activeOpacity={0.85}
               style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}
             >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#92400E' }}>تحصيل المستحقات الآن</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#92400E' }}>{t('teacher.collect_dues_now')}</Text>
             </TouchableOpacity>
+            </Surface>
           ) : null}
           {/* Secondary: waive with a 15-day exemption + check in. */}
-          {canScan ? (
+            <Surface id="teacher.scan.overdue_block.grant_exemption" assistantNeeds="scan_attendance">
             <TouchableOpacity onPress={confirmExemption} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textDecorationLine: 'underline' }}>منح إعفاء 15 يومًا وتسجيل الحضور</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textDecorationLine: 'underline' }}>{t('desk_ui.grant_exemption_checkin')}</Text>
             </TouchableOpacity>
-          ) : null}
+            </Surface>
+          <Surface id="teacher.scan.overdue_block.cancel">
           <TouchableOpacity onPress={() => { setOverdueBlock(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>إلغاء</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('common.cancel')}</Text>
           </TouchableOpacity>
+          </Surface>
         </View>
+        </Surface>
       ) : null}
 
       {/* Same-grade "wrong group": admit for this session only, or transfer here */}
       {otherGroup ? (
+        <Surface id="teacher.scan.other_group">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,16,43,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
           <Icon name="children" size={52} color="#fff" />
           {otherGroup.name ? (
@@ -802,12 +893,14 @@ export default function TeacherScan() {
               a student whose group is at another centre may simply be in the wrong
               building — worth a second's thought before admitting or transferring. */}
           {otherGroup.offer.different_venue ? (
+            <Surface id="teacher.scan.other_group.venue_warning">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, paddingVertical: 8, paddingHorizontal: spacing.lg, borderRadius: radius.full, backgroundColor: 'rgba(201,162,39,0.18)', borderWidth: 1, borderColor: '#C9A227' }}>
               <Icon name="gps" size={15} color="#F5C542" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#F5C542', textAlign: 'center' }}>
-                {`مكان مختلف — مجموعته في ${otherGroup.offer.current_venue_name ?? 'مكان آخر'}`}
+                {t('desk_ui.different_venue', { venue: otherGroup.offer.current_venue_name ?? t('desk_ui.other_venue') })}
               </Text>
             </View>
+            </Surface>
           ) : null}
 
           {otherBusy ? (
@@ -815,7 +908,7 @@ export default function TeacherScan() {
           ) : (
             <>
               {/* Primary: admit for THIS session only (billing stays with their group). */}
-              {canScan ? (
+                <Surface id="teacher.scan.other_group.admit_once" assistantNeeds="scan_attendance">
                 <TouchableOpacity
                   onPress={() => runOtherGroup('once')}
                   activeOpacity={0.85}
@@ -823,10 +916,10 @@ export default function TeacherScan() {
                 >
                   <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher.other_group_once')}</Text>
                 </TouchableOpacity>
-              ) : null}
+                </Surface>
 
               {/* Secondary: permanently move them into this group (roster change). */}
-              {canManageStudents ? (
+                <Surface id="teacher.scan.other_group.transfer" assistantNeeds="manage_students">
                 <TouchableOpacity
                   onPress={() => Alert.alert(t('teacher.other_group_transfer'), t('teacher.other_group_transfer_confirm'), [
                     { text: t('common.cancel'), style: 'cancel' },
@@ -837,27 +930,33 @@ export default function TeacherScan() {
                 >
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textDecorationLine: 'underline' }}>{t('teacher.other_group_transfer')}</Text>
                 </TouchableOpacity>
-              ) : null}
+                </Surface>
 
               {otherGroup.profileId ? (
+                <Surface id="teacher.scan.other_group.open_profile">
                 <TouchableOpacity onPress={() => openProfile(otherGroup.profileId!)} activeOpacity={0.85} style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Icon name="profile" size={16} color="#fff" outline />
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('teacher.open_student_profile')}</Text>
                 </TouchableOpacity>
+                </Surface>
               ) : null}
 
+              <Surface id="teacher.scan.other_group.cancel">
               <TouchableOpacity onPress={() => { setOtherGroup(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('common.cancel')}</Text>
               </TouchableOpacity>
+              </Surface>
             </>
           )}
         </View>
+        </Surface>
       ) : null}
 
       {/* No session running for this student right now — held until dismissed. Our own
           student: a «من طلابك» pill, their dues (collect here) and their profile. A
           stranger's card: the fact, and nothing to go to. */}
       {noSession ? (
+        <Surface id="teacher.scan.no_session">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,28,59,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
           <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
             <Icon name="clock" size={48} color="#fff" outline />
@@ -882,6 +981,7 @@ export default function TeacherScan() {
 
           {/* What they owe, at a glance — the same chips as the check-in flash. */}
           {hasDues(noSession.pending) ? (
+            <Surface id="teacher.scan.no_session.dues_chips">
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: spacing.md }}>
               {noSession.pending!.bill && noSession.pending!.bill.total > 0 ? (
                 <PendingChip text={noSession.pending!.bill.overdue ? t('teacher.flag_bill_overdue') : t('teacher.flag_bill_due')} />
@@ -891,10 +991,12 @@ export default function TeacherScan() {
               ) : null}
               {noSession.pending!.booking && noSession.pending!.booking.total > 0 ? <PendingChip text={t('teacher.flag_booking')} /> : null}
             </View>
+            </Surface>
           ) : null}
 
           {/* Primary: collect their dues if any; otherwise their profile (when ours). */}
           {hasDues(noSession.pending) ? (
+            <Surface id="teacher.scan.no_session.collect_now">
             <TouchableOpacity
               onPress={() => { const n = noSession; setNoSession(null); setDuesFor({ code: n.code, name: n.name, pending: n.pending! }); }}
               activeOpacity={0.85}
@@ -902,9 +1004,11 @@ export default function TeacherScan() {
             >
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher.collect_dues_now')}</Text>
             </TouchableOpacity>
+            </Surface>
           ) : null}
           {noSession.profileId ? (
-            hasDues(noSession.pending) ? (
+            <Surface id="teacher.scan.no_session.open_profile">
+            {hasDues(noSession.pending) ? (
               <TouchableOpacity onPress={() => openProfile(noSession.profileId!)} activeOpacity={0.85} style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Icon name="profile" size={16} color="#fff" outline />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('teacher.open_student_profile')}</Text>
@@ -918,16 +1022,21 @@ export default function TeacherScan() {
                 <Icon name="profile" size={18} color={onWhite.brand} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher.open_student_profile')}</Text>
               </TouchableOpacity>
-            )
+            )}
+            </Surface>
           ) : null}
+          <Surface id="teacher.scan.no_session.close">
           <TouchableOpacity onPress={() => { setNoSession(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('common.close')}</Text>
           </TouchableOpacity>
+          </Surface>
         </View>
+        </Surface>
       ) : null}
 
       {/* Issue-guest-pass form (name + optional phone + optional flat fee) */}
       {phoneOpen ? (
+        <Surface id="teacher.scan.guest_pass_form">
         <KeyboardAvoidingView behavior="padding" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,16,43,0.97)', justifyContent: 'center', padding: spacing.xl }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', textAlign: 'center' }}>{t('teacher.guest_pass_title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: spacing.sm }}>{t('teacher.guest_pass_hint')}</Text>
@@ -954,37 +1063,50 @@ export default function TeacherScan() {
             keyboardType="numeric"
             style={{ marginTop: spacing.md, backgroundColor: '#fff', borderRadius: radius.lg, paddingHorizontal: spacing.lg, height: 54, fontFamily: fonts.medium, fontSize: 18, color: '#111', textAlign: 'center' }}
           />
+          <Surface id="teacher.scan.guest_pass_form.paid_now">
           <TouchableOpacity onPress={() => setGPaid((v) => !v)} activeOpacity={0.8} style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View style={{ width: 26, height: 26, borderRadius: 8, borderWidth: 2, borderColor: '#fff', backgroundColor: gPaid ? '#fff' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
               {gPaid ? <Icon name="success" size={18} color={colors.accentWarm} /> : null}
             </View>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff' }}>{t('teacher.guest_pass_paid_now')}</Text>
           </TouchableOpacity>
+          </Surface>
           {gErr ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.warningLight, textAlign: 'center', marginTop: spacing.md }}>{gErr}</Text> : null}
+          <Surface id="teacher.scan.guest_pass_form.submit">
           <TouchableOpacity onPress={submitPhone} disabled={busy} activeOpacity={0.85} style={{ marginTop: spacing.xl, backgroundColor: colors.accentWarm, borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', alignItems: 'center' }}>
             {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('teacher.guest_pass_submit')}</Text>}
           </TouchableOpacity>
+          </Surface>
+          <Surface id="teacher.scan.guest_pass_form.cancel">
           <TouchableOpacity onPress={() => { setPhoneOpen(false); setGErr(''); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.md, alignItems: 'center' }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('teacher.guest_cancel')}</Text>
           </TouchableOpacity>
+          </Surface>
         </KeyboardAvoidingView>
+        </Surface>
       ) : null}
 
       {/* Full-screen success/failure flash */}
       {feedback ? (
+        <Surface id="teacher.scan.feedback">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: feedback.success ? 'rgba(31,147,102,0.96)' : 'rgba(203,58,76,0.96)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }} pointerEvents="none">
-          <View style={{ width: 110, height: 110, borderRadius: 55, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' }}>
-            <Icon name={feedback.success ? 'success' : 'warning'} size={64} color="#fff" />
+          <View style={{ width: 124, height: 124, borderRadius: 62, borderWidth: 3, borderColor: 'rgba(255,255,255,0.35)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: 'rgba(255,255,255,0.22)', justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name={feedback.success ? 'success' : 'warning'} size={60} color="#fff" />
+            </View>
           </View>
-          {feedback.student_name ? (
-            <Text style={{ fontFamily: fonts.bold, fontSize: 30, color: '#fff', textAlign: 'center', marginTop: spacing.lg }}>{feedback.student_name}</Text>
-          ) : null}
-          <Text style={{ fontFamily: fonts.medium, fontSize: 19, lineHeight: 28, color: '#fff', textAlign: 'center', marginTop: spacing.sm }}>
-            {feedback.message || (feedback.success ? t('teacher.checked_in') : t('teacher.scan_failed'))}
-          </Text>
+          <View style={{ alignSelf: 'stretch', marginTop: spacing.xl, paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, borderRadius: radius.xl, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
+            {feedback.student_name ? (
+              <Text style={{ fontFamily: fonts.bold, fontSize: 28, lineHeight: 36, color: '#fff', textAlign: 'center' }} numberOfLines={2}>{feedback.student_name}</Text>
+            ) : null}
+            <Text style={{ fontFamily: fonts.medium, fontSize: 18, lineHeight: 27, color: 'rgba(255,255,255,0.92)', textAlign: 'center', marginTop: feedback.student_name ? 4 : 0 }}>
+              {feedback.message || (feedback.success ? t('teacher.checked_in') : t('teacher.scan_failed'))}
+            </Text>
+          </View>
           {/* PASSIVE flags — a reminder only. No buttons; auto-dismisses with the flash.
               Collection happens later on the Pending Collections screen, never here. */}
           {feedback.success && feedback.pending && (feedback.pending.bill || !!feedback.pending.booklets?.length || feedback.pending.booking) ? (
+            <Surface id="teacher.scan.feedback.dues_chips">
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: spacing.lg }}>
               {feedback.pending.bill ? (
                 <PendingChip text={feedback.pending.bill.escalated ? t('teacher.flag_bill_escalated') : (feedback.pending.bill.overdue ? t('teacher.flag_bill_overdue') : t('teacher.flag_bill_due'))} />
@@ -994,11 +1116,14 @@ export default function TeacherScan() {
               ) : null}
               {feedback.pending.booking ? <PendingChip text={t('teacher.flag_booking') + (feedback.pending.booking.secures ? ` — ${feedback.pending.booking.secures}` : '')} /> : null}
             </View>
+            </Surface>
           ) : null}
         </View>
+        </Surface>
       ) : null}
 
       {/* Merged pay-on-scan popup — collect all of the student's dues in one place. */}
+      <Surface id="teacher.scan.pay_dues_modal">
       <PayDuesModal
         visible={!!duesFor}
         card={duesFor?.code ?? ''}
@@ -1009,7 +1134,9 @@ export default function TeacherScan() {
         canReverse={canWaive}
         onClose={() => { setDuesFor(null); setBusy(false); }}
       />
+      </Surface>
     </View>
+    </Surface>
   );
 }
 

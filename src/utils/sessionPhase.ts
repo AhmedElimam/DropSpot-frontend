@@ -1,6 +1,8 @@
+import { configRule } from '@/stores/appConfigStore';
 export type SessionPhase = 'live' | 'upcoming' | 'done' | 'cancelled';
 
-const EARLY_MIN = 30;
+/** A backend rule (/admin/config → session_early_min), read at call time. */
+const EARLY_MIN = () => configRule('session_early_min');
 
 /**
  * Where a session stands now, from its status and its own clock: live from 30 min before
@@ -17,6 +19,6 @@ export function sessionPhase(
   const start = new Date(s.scheduled_at).getTime();
   if (Number.isNaN(start)) return 'upcoming';
   const end = start + (s.duration_minutes ?? 60) * 60_000;
-  if (now >= start - EARLY_MIN * 60_000 && now <= end) return 'live';
+  if (now >= start - EARLY_MIN() * 60_000 && now <= end) return 'live';
   return now > end ? 'done' : 'upcoming';
 }

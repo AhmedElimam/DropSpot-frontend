@@ -147,12 +147,12 @@ export default function RegisterScreen() {
           {/* Why-it-matters, at the point of entry — before the confirm popup. */}
           <View style={{ flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.warningLight, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg }}>
             <Icon name="warning" size={18} color={colors.warning} style={{ marginTop: 2 }} />
-            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.warningText, textAlign: 'right' }}>
+            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.warningText }}>
               {t('auth.parent_phone_warning')}
             </Text>
           </View>
 
-          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: 6, textAlign: 'right' }}>{t('auth.parent_relation')}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: 6 }}>{t('auth.parent_relation')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.xl }}>
             {RELATIONS.map(({ key, icon }) => {
               const on = parentRelation === key;

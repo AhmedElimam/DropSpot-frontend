@@ -3,6 +3,7 @@ import i18n from '@/i18n';
 import { getAppConfig } from '@/api/appConfig';
 import { useAppConfigStore } from '@/stores/appConfigStore';
 import { ensureApiBaseHydrated, getApiBaseOverride, setApiBaseOverride } from '@/api/apiBase';
+import { setErrorReportingEnabled } from '@/lib/errorReport';
 
 /** Apply the curated copy overlay onto i18n (dotted keys handled by addResource). */
 function applyCopyOverlay(copy: Record<string, string>): void {
@@ -64,6 +65,7 @@ async function fetchAndApply(): Promise<void> {
   const cfg = await getAppConfig();
   useAppConfigStore.getState().setConfig(cfg);
   applyCopyOverlay(cfg.copy ?? {});
+  setErrorReportingEnabled(cfg.error_reporting !== 'off');
   await reconcileApiBase(cfg.api_base_url);
 }
 

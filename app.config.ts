@@ -9,16 +9,35 @@ const iosGoogleServices = existsSync(resolve(__dirname, 'GoogleService-Info.plis
   ? { googleServicesFile: './GoogleService-Info.plist' }
   : {};
 
+// stg.drosspot.app (founder 2026-10-12): EXPO_PUBLIC_APP_ENV=staging makes a SEPARATE app —
+// its own bundle id / package, name, scheme and OTA channel — that only talks to the staging
+// server. Absent (every existing workflow and store build) = production, unchanged.
+const STAGING = process.env.EXPO_PUBLIC_APP_ENV === 'staging';
+const APP_ID = STAGING ? 'com.drosspot.app.stg' : 'com.drosspot.app';
+// Firebase config files are keyed by package / bundle id, so a staging build needs the
+// staging apps registered in Firebase and their files beside the production ones.
+const androidGoogleServices = STAGING ? './google-services.staging.json' : './google-services.json';
+if (STAGING && !existsSync(resolve(__dirname, androidGoogleServices))) {
+  throw new Error('Staging build: google-services.staging.json is missing (register com.drosspot.app.stg in Firebase and download it).');
+}
+const iosGoogleServicesStaging = existsSync(resolve(__dirname, 'GoogleService-Info.staging.plist'))
+  ? { googleServicesFile: './GoogleService-Info.staging.plist' }
+  : {};
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'DrosSpot',
+  name: STAGING ? 'DrosSpot Staging' : 'DrosSpot',
   slug: 'DrosSpot',
+  // A staging build updates from its own OTA branch, never production's.
+  updates: STAGING && config.updates
+    ? { ...config.updates, requestHeaders: { ...(config.updates.requestHeaders ?? {}), 'expo-channel-name': 'staging' } }
+    : config.updates,
   // ONE place to bump the version: app.json → expo.version. Both CI workflows read it
   // from there too, so Android and iOS can never ship different version names.
   version: config.version ?? '0.0.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
-  scheme: 'drosspot',
+  scheme: STAGING ? 'drosspot-stg' : 'drosspot',
   // FOLLOWS THE PHONE (2026-10-04). It was forced to 'light' while the app had one
   // palette; with the Mist / Midnight schemes it must not be — 'light' made iOS answer
   // «light» forever, so «follow the phone» never saw dark mode. Native controls are pinned
@@ -31,7 +50,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // Android; iOS gets it from the root layout (SystemUI) once JS runs, behind the splash.
   backgroundColor: '#F4F1EB',
   ios: {
-    bundleIdentifier: 'com.drosspot.app',
+    bundleIdentifier: APP_ID,
     // App Store Connect rejects a re-used build number. CI stamps the run number via
     // IOS_BUILD_NUMBER, but never BELOW the floor in app.json — a workflow's run counter
     // is independent of what App Store Connect has already seen (and resets if the file
@@ -55,10 +74,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       usesNonExemptEncryption: false,
     },
     // Present only once GoogleService-Info.plist exists (see the const above).
-    ...iosGoogleServices,
+    ...(STAGING ? iosGoogleServicesStaging : iosGoogleServices),
   },
   android: {
-    package: 'com.drosspot.app',
+    package: APP_ID,
     // Google Play refuses a versionCode it has already accepted. CI stamps the run
     // number (ANDROID_VERSION_CODE), exactly as iOS gets IOS_BUILD_NUMBER — never lower
     // than the floor in app.json, so a local build can't go backwards either.
@@ -66,7 +85,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       parseInt(process.env.ANDROID_VERSION_CODE || '0', 10) || 0,
       config.android?.versionCode ?? 1,
     ),
-    googleServicesFile: './google-services.json',
+    googleServicesFile: androidGoogleServices,
     // Resize the screen when the keyboard opens so scroll/bottom-anchored content
     // is never hidden behind it (Modals additionally wrap in KeyboardAvoidingView).
     softwareKeyboardLayoutMode: 'resize',
@@ -131,7 +150,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         // framework module 'RNFBApp…'" and "'RCTConvert' must be imported from module before
         // required". Linking them statically drops the module wrapper so React headers compile
         // textually as normal. (Expo SDK 54+ prebuilt-core Podfile reads ios.forceStaticLinking.)
-        forceStaticLinking: ['RNFBApp', 'RNFBMessaging'],
+        forceStaticLinking: ['RNFBApp', 'RNFBMessaging', 'RNFBAnalytics'],
       },
     },
   ],
@@ -159,6 +178,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   'expo-router',
   'expo-sqlite',
   'expo-secure-store',
+  // Periodic headless wake-up (src/background/refreshTask.ts): iOS gets the `processing`
+  // background mode + the permitted BGTaskScheduler identifier, Android its WorkManager.
+  'expo-background-task',
   // Bundle the custom notification tones into BOTH platforms (iOS app bundle +
   // Android res/raw). iOS references notify_ios by filename in the APNs payload;
   // Android plays notify_android via the 'drosspot-alerts' channel (push-notifications.ts).
@@ -250,7 +272,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // Dead-man switch identity (App\Support\AppRelease reads it as X-App-Id). This key
     // lives in app.json too, but THIS file's `extra` replaces that object wholesale, so
     // it has to be restated here or resolveAppId() loses its level-2 fallback.
-    appId: 'com.drosspot.app',
+    appId: APP_ID,
+    appEnv: STAGING ? 'staging' : 'production',
     apiUrl: process.env.API_URL || 'http://localhost:8000/api/v1',
     eas: {
       projectId: 'f537825e-3329-40d0-827a-aa708f228509',

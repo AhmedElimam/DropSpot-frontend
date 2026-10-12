@@ -1,8 +1,10 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { SupportContact } from '@/components/SupportContact';
 import { ThemeRow } from '@/components/ThemeRow';
+import { TourRow } from '@/tour/TourRow';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients, control } from '@/theme/index';
@@ -15,6 +17,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { PageHero } from '@/components/ui/PageHero';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
+import { Surface } from '@/ui/surfaces';
 
 interface SettingItem {
   key: string;
@@ -47,7 +50,7 @@ export default function ParentSettings() {
     },
     {
       key: 'parent.edit_name',
-      title: 'تعديل الاسم',
+      title: t('family_ui.edit_name'),
       icon: 'note',
       color: colors.primary,
       onPress: () => router.push('/(parent)/change-name' as Href),
@@ -60,33 +63,37 @@ export default function ParentSettings() {
     },
     {
       key: 'parent.request_name_correction',
-      title: 'طلب تصحيح اسم الطفل',
+      title: t('family_ui.child_name_fix'),
       icon: 'note',
       color: colors.primary,
       onPress: () => {
         const kids = children ?? [];
         const go = (k: { student_id: number; name: string }) =>
           router.push(`/request-name-correction?studentId=${k.student_id}&studentName=${encodeURIComponent(k.name)}` as Href);
-        if (kids.length === 0) { Alert.alert('', 'لا يوجد أطفال مرتبطون بحسابك'); return; }
+        if (kids.length === 0) { Alert.alert('', t('family_ui.no_children_linked')); return; }
         if (kids.length === 1) { go(kids[0]); return; }
-        Alert.alert('اختر الطفل', 'لأي طفل تريد طلب تصحيح الاسم؟', [
+        Alert.alert(t('family_ui.pick_child_title'), t('family_ui.pick_child_body'), [
           ...kids.slice(0, 4).map((k) => ({ text: k.name, onPress: () => go(k) })),
-          { text: 'إلغاء', style: 'cancel' as const },
+          { text: t('common.cancel'), style: 'cancel' as const },
         ]);
       },
     },
   ];
 
   return (
+    <Surface id="screen.parent.profile" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+        <Surface id="parent.profile.hero">
         <PageHero title={user?.name ?? ''} subtitle={user?.phone ?? undefined} avatar={avatarSeed.user(user?.id, user?.name ?? '?')}>
         <View style={{ alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.onHeroChip, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.onHero }}>{t('profile.role_parent')}</Text>
         </View>
         </PageHero>
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          <Surface id="parent.profile.account">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.account')}
@@ -110,11 +117,13 @@ export default function ParentSettings() {
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
               <Icon name="lock" size={16} color={colors.textTertiary} outline />
               <Text style={[textPresets.caption, { flex: 1, lineHeight: 18 }]}>
-                كود الطالب وصفّه ورقم هاتفه يديرها المعلّم. لتغيير أيٍّ منها، تواصل مع معلّم الطالب.
+                {t('family_ui.parent_locked_fields')}
               </Text>
             </View>
           </View>
+          </Surface>
 
+          <Surface id="parent.profile.account_info">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>
               {t('profile.account_info')}
@@ -130,24 +139,46 @@ export default function ParentSettings() {
               <Text style={[textPresets.bodySmall, { fontFamily: fonts.medium, color: colors.textPrimary }]}>{children?.length ?? 0}</Text>
             </View>
           </View>
+          </Surface>
+
+          {/* The family's conversations with its teachers — easy to miss as a home tile alone. */}
+          <Surface id="parent.profile.tickets_entry">
+          <TouchableOpacity
+            onPress={() => router.push('/(parent)/tickets' as Href)}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}
+          >
+            <Icon name="ticket" size={20} color={colors.accentWarm} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('parent.teacher_tickets_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{t('parent.teacher_tickets_sub')}</Text>
+            </View>
+            <Icon name="back" size={16} color={colors.textTertiary} />
+          </TouchableOpacity>
+          </Surface>
 
           <View style={{ marginBottom: spacing.md }}>
-            <ThemeRow />
-            <SupportContact href={'/(parent)/support' as Href} />
+            <Surface id="parent.profile.tour"><TourRow home={'/(parent)/(tabs)' as Href} /></Surface>
+            <Surface id="parent.profile.theme"><ThemeRow /></Surface>
+            <Surface id="parent.profile.support"><SupportContact href={'/(parent)/support' as Href} /></Surface>
           </View>
 
+          <Surface id="parent.profile.logout">
           <TouchableOpacity onPress={() => logout.mutate()} activeOpacity={0.85} style={{ borderRadius: radius.lg, overflow: 'hidden' }}>
             <LinearGradient colors={[colors.dangerDark, colors.danger]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ minHeight: control.minHeight, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <Icon name="logout" size={20} color="#fff" outline />
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('common.logout')}</Text>
             </LinearGradient>
           </TouchableOpacity>
+          </Surface>
 
-          <DeleteAccountButton />
+          <Surface id="parent.profile.delete_account"><DeleteAccountButton /></Surface>
 
           <Text style={[textPresets.caption, { textAlign: 'center', marginTop: spacing.md }]}>DrosSpot v1.0.0</Text>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }

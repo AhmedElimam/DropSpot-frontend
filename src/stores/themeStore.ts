@@ -56,6 +56,9 @@ interface ThemeState {
   preference: ThemePreference;
   /** The scheme the live tokens currently carry. */
   scheme: Scheme;
+  /** Bumped when the backend repaints tokens (setThemeOverrides); the root re-keys on it too. */
+  paintEpoch: number;
+  repainted: () => void;
   hydrated: boolean;
   returnTo: { href: Href; at: number } | null;
   /** Read the saved choice and apply it against the phone's scheme. Safe to call twice. */
@@ -79,8 +82,10 @@ export const useThemeStore = create<ThemeState>((set, get) => {
   return {
     preference: 'system',
     scheme: currentScheme(),
+    paintEpoch: 0,
     hydrated: false,
     returnTo: null,
+    repainted: () => set({ paintEpoch: get().paintEpoch + 1 }),
 
     hydrate: async (system) => {
       let preference: ThemePreference = 'system';

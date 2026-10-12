@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
@@ -58,17 +59,17 @@ export function TeacherTip({ tip, icon, titleKey, bodyKey, bulletKeys, cta }: Te
             <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
               <Icon name={icon} size={28} color={colors.brand} />
             </View>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary, textAlign: 'right' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>
               {t(titleKey)}
             </Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, textAlign: 'right', marginTop: spacing.sm }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, marginTop: spacing.sm }}>
               {t(bodyKey)}
             </Text>
 
             {bulletKeys?.map((k) => (
               <View key={k} style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, alignItems: 'flex-start' }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand, marginTop: 9 }} />
-                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'right' }}>
+                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary }}>
                   {t(k)}
                 </Text>
               </View>

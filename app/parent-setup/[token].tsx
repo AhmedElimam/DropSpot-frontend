@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { configRule } from '@/stores/appConfigStore';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -55,7 +56,7 @@ export default function ParentSetupScreen() {
 
   const nameValid = name.trim().length >= 2;
   const submit = () => {
-    if (!token || password.length < 6 || !termsAccepted || !nameValid) return;
+    if (!token || password.length < configRule('password_min_length') || !termsAccepted || !nameValid) return;
     setupMutation.mutate(
       { token: token as string, password, terms_accepted: termsAccepted, name: name.trim(), ...(relationship ? { relationship } : {}) },
       { onSuccess: () => router.replace('/(parent)/(tabs)') },
@@ -151,9 +152,9 @@ export default function ParentSetupScreen() {
 
       <TouchableOpacity
         onPress={submit}
-        disabled={password.length < 6 || !termsAccepted || !nameValid || setupMutation.isPending}
+        disabled={password.length < configRule('password_min_length') || !termsAccepted || !nameValid || setupMutation.isPending}
         activeOpacity={0.85}
-        style={{ borderRadius: radius.lg, overflow: 'hidden', opacity: password.length < 6 || !termsAccepted || !nameValid ? 0.5 : 1 }}
+        style={{ borderRadius: radius.lg, overflow: 'hidden', opacity: password.length < configRule('password_min_length') || !termsAccepted || !nameValid ? 0.5 : 1 }}
       >
         <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
           style={{ minHeight: control.minHeight, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' }}>

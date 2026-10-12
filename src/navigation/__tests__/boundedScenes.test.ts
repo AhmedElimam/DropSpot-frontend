@@ -89,4 +89,29 @@ describe('each role layout lists exactly its visible tabs', () => {
       expect(src).toContain("useFeatureFlags().data?.freeze_hidden_tabs === true");
     });
   }
+
+  // enableFreeze(true) makes every native stack freeze the screens it covers; a covered
+  // screen thawed by a swipe back flushes its whole tree mid-gesture (founder 2026-10-08,
+  // again 2026-10-12 from pages on the ROOT stack). Every Stack in app/ opts out.
+  it('every native stack in app/ sets freezeOnBlur: false', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const root = path.join(__dirname, '../../../app');
+    const layouts: string[] = [];
+    const walk = (d: string) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const f = path.join(d, e.name);
+        if (e.isDirectory()) walk(f);
+        else if (e.name === '_layout.tsx') layouts.push(f);
+      }
+    };
+    walk(root);
+    const stacks = layouts.filter((f) => /<Stack[\s>]/.test(fs.readFileSync(f, 'utf8')));
+    expect(stacks.length).toBeGreaterThanOrEqual(6);
+    for (const f of stacks) {
+      const src: string = fs.readFileSync(f, 'utf8');
+      const opening = src.match(/<Stack[\s\S]*?screenOptions=\{\{[\s\S]*?\}\}/)?.[0] ?? '';
+      expect([path.relative(root, f), opening.includes('freezeOnBlur: false')]).toEqual([path.relative(root, f), true]);
+    }
+  });
 });

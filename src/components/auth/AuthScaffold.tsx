@@ -85,11 +85,11 @@ export function AuthScaffold({ title, subtitle, eyebrow, hero = 'compact', onBac
 
             <View style={{ marginTop: tall ? spacing.lg : spacing.md, alignItems: tall ? 'center' : 'flex-start' }}>
               {eyebrow ? (
-                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginBottom: 2, textAlign: tall ? 'center' : 'right' }}>{eyebrow}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.72)', marginBottom: 2, textAlign: tall ? 'center' : 'auto' }}>{eyebrow}</Text>
               ) : null}
-              <Text style={{ fontFamily: fonts.bold, fontSize: tall ? 28 : 24, lineHeight: tall ? 40 : 34, color: '#fff', textAlign: tall ? 'center' : 'right' }}>{title}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: tall ? 28 : 24, lineHeight: tall ? 40 : 34, color: '#fff', textAlign: tall ? 'center' : 'auto' }}>{title}</Text>
               {subtitle ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: 'rgba(255,255,255,0.78)', marginTop: spacing.xs, textAlign: tall ? 'center' : 'right' }}>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: 'rgba(255,255,255,0.78)', marginTop: spacing.xs, textAlign: tall ? 'center' : 'auto' }}>
                   {subtitle}
                 </Text>
               ) : null}
@@ -136,7 +136,7 @@ export function AuthBanner({ tone, text }: { tone: 'danger' | 'success' | 'info'
   return (
     <View accessibilityRole="alert" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: bg, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg }}>
       <Icon name={icon} size={20} color={ic} style={{ marginTop: 1 }} />
-      <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, lineHeight: 21, color: fg, textAlign: 'right' }}>{text}</Text>
+      <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, lineHeight: 21, color: fg }}>{text}</Text>
     </View>
   );
 }

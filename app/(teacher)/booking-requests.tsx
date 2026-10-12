@@ -1,6 +1,7 @@
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +16,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { getBookingRequests, acceptBookingRequest, rejectBookingRequest, type BookingRequest } from '@/api/bookingRequests';
 import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
+import { Surface } from '@/ui/surfaces';
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '';
@@ -75,29 +77,37 @@ export default function BookingRequestsScreen() {
         </View>
       </View>
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+        <Surface id="teacher.booking_requests.accept_button">
         <TouchableOpacity onPress={() => confirmAccept(r)} disabled={accept.isPending || reject.isPending} activeOpacity={0.85}
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, backgroundColor: colors.success }}>
           <Icon name="success" size={18} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('booking_requests.accept')}</Text>
         </TouchableOpacity>
+        </Surface>
+        <Surface id="teacher.booking_requests.reject_button">
         <TouchableOpacity onPress={() => confirmReject(r)} disabled={accept.isPending || reject.isPending} activeOpacity={0.85}
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.danger }}>
           <Icon name="close" size={18} color={colors.danger} />
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.danger }}>{t('booking_requests.reject')}</Text>
         </TouchableOpacity>
+        </Surface>
       </View>
     </View>
   );
 
   return (
+    <Surface id="screen.teacher.booking-requests" screen>
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Surface id="teacher.booking_requests.header">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('booking_requests.title')}</Text>
       </View>
+      </Surface>
 
+      <Surface id="teacher.booking_requests.list">
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
@@ -106,7 +116,7 @@ export default function BookingRequestsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>{t('booking_requests.intro')}</Text>
+          <Surface id="teacher.booking_requests.intro"><Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>{t('booking_requests.intro')}</Text></Surface>
           {rows.length === 0 ? (
             <EmptyState icon="success" title={t('booking_requests.none')} message={t('booking_requests.none_hint')} />
           ) : (
@@ -114,27 +124,33 @@ export default function BookingRequestsScreen() {
           )}
         </ScrollView>
       )}
+      </Surface>
 
       {/* Accept sheet: the student, then the same «شروط التسجيل» every door shows. */}
+      <Surface id="teacher.booking_requests.accept_sheet">
       <SheetModal visible={!!accepting} onClose={() => setAccepting(null)} avoidKeyboard style={{ backgroundColor: colors.background, maxHeight: '90%', paddingBottom: insets.bottom + spacing.lg }}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.xl }} keyboardShouldPersistTaps="handled">
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('booking_requests.accept_confirm_title')}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.lg }}>
                 {accepting ? t('booking_requests.accept_confirm_hint', { name: accepting.student_name, course: accepting.course_name ?? '' }) : ''}
               </Text>
-              <EnrollmentTermsSheet terms={terms} />
+              <Surface id="teacher.booking_requests.accept_sheet.terms"><EnrollmentTermsSheet terms={terms} /></Surface>
               <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
                 <TouchableOpacity onPress={() => setAccepting(null)} disabled={accept.isPending} activeOpacity={0.85}
                   style={{ flex: 1, height: 50, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
+                <Surface id="teacher.booking_requests.accept_sheet.confirm">
                 <TouchableOpacity onPress={() => accepting && accept.mutate(accepting)} disabled={accept.isPending || terms.overpaid || terms.isLoading} activeOpacity={0.85}
                   style={{ flex: 2, height: 50, borderRadius: radius.lg, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', opacity: terms.overpaid ? 0.5 : 1 }}>
                   {accept.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('booking_requests.accept')}</Text>}
                 </TouchableOpacity>
+                </Surface>
               </View>
             </ScrollView>
       </SheetModal>
+      </Surface>
     </View>
+    </Surface>
   );
 }

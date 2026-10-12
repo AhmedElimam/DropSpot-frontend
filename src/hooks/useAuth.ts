@@ -1,3 +1,4 @@
+import { track } from '@/lib/analytics';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore, resolveRole } from '@/stores/authStore';
 import {
@@ -32,6 +33,7 @@ export function useLogin() {
       const role = resolveRole(data.user);
       await setTokens(data.tokens.access_token, data.tokens.refresh_token);
       await setSession(data.user, role);
+      track('login', { method: 'password', role });
     },
   });
 }

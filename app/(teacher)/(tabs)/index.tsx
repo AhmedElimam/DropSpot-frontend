@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
@@ -17,10 +18,16 @@ import type { TeacherSession } from '@/api/teacher';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
+import { ConnectionLine } from '@/components/ui/ConnectionStatus';
+import { TourTarget } from '@/tour/TourTarget';
+import { Surface } from '@/ui/surfaces';
+import { Slot } from '@/ui/Slot';
+import { useTourScroll } from '@/tour/useTourScroll';
 import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
 import { PendingInvitations } from '@/components/teacher/PendingInvitations';
 import { HubRow } from '@/components/teacher/HubRow';
 import { AddStudentSheet } from '@/components/teacher/AddStudentSheet';
+import { ScheduleToolsSheet } from '@/components/teacher/ScheduleToolsSheet';
 import { SessionCard, sessionPhase, type SessionCardData } from '@/components/session/TeacherSessionCard';
 import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { SessionRosterSheet } from '@/components/session/SessionRosterSheet';
@@ -37,6 +44,8 @@ import { formatNumber, formatDayDate } from '@/utils/format';
 import { pickCurrentSession, goToScan } from '@/utils/sessionNav';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useRose } from '@/hooks/useRose';
+import { RosePortrait } from '@/components/rose/RoseStamp';
+import { RoseCalling } from '@/components/rose/RoseCalling';
 import { useComplaints } from '@/hooks/useComplaints';
 
 function greetingKey(now: number): string {
@@ -58,6 +67,7 @@ export default function TeacherHome() {
   const { can, isAssistant } = useActiveAbilities();
   const canCash = can(ABILITY.SCAN);
   const canStudents = can(ABILITY.MANAGE_STUDENTS);
+  const canCancel = can(ABILITY.CANCEL_SESSIONS);
   const now = useMinuteClock();
   const rose = useRose();
 
@@ -81,17 +91,20 @@ export default function TeacherHome() {
   const openTickets = (ticketsQ.data ?? []).filter((x) => x.status === 'open').length;
   const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch);
   const [addOpen, setAddOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   // Swipe on a session card (founder 2026-10-04): right → left cancels it (after a
   // confirmation), left → right shows its «كشف الحضور» in a sheet.
   const qc = useQueryClient();
   const [rosterFor, setRosterFor] = useState<string | null>(null);
-  const confirmCancel = (s: { id: string; course_name?: string | null }) => {
-    Alert.alert(t('teacher.cancel_session_title'), [s.course_name, t('teacher.cancel_session_hint')].filter(Boolean).join('\n\n'), [
+  const confirmCancel = (s: { id: string; course_name?: string | null; status?: string; scheduled_at?: string | null; duration_minutes?: number | null }) => {
+    const past = s.status === 'completed' || sessionPhase(s as TeacherSession, now) === 'done';
+    Alert.alert(t('teacher.cancel_session_title'), [s.course_name, t(past ? 'teacher.cancel_past_session_hint' : 'teacher.cancel_session_hint')].filter(Boolean).join('\n\n'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('teacher.cancel_session_confirm'), style: 'destructive', onPress: async () => {
           try {
-            await cancelSession(s.id);
+            const d = await cancelSession(s.id);
+            if (d?.notice) Alert.alert(t('teacher.cancel_session_title'), d.notice);
             qc.invalidateQueries({ queryKey: ['teacher-session-detail', s.id] });
             qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
             await sessionsQ.refetch();
@@ -102,10 +115,11 @@ export default function TeacherHome() {
       },
     ]);
   };
-  // Only a session that has not ended and is not already cancelled can be cancelled; the
-  // server refuses a completed one, so the swipe is not offered there.
+  // The server's rule (2026-10-06): a session anyone was checked into happened and stays; one
+  // nobody attended can be cancelled even after it ended (it leaves the billing cycle).
   const swipesFor = (s: TeacherSession): { action?: SwipeAction; leftAction: SwipeAction } => {
-    const cancellable = s.status !== 'cancelled' && s.status !== 'completed' && sessionPhase(s, now) !== 'done';
+    const ended = s.status === 'completed' || sessionPhase(s, now) === 'done';
+    const cancellable = canCancel && s.status !== 'cancelled' && (!ended || (s.checked_in_count ?? 1) === 0);
     return {
       action: cancellable ? { icon: 'close', label: t('teacher.cancel_session'), color: colors.danger, onTrigger: () => confirmCancel(s) } : undefined,
       leftAction: { icon: 'attendance', label: t('sessions_tab.sheet'), color: colors.success, onTrigger: () => setRosterFor(s.id) },
@@ -129,30 +143,42 @@ export default function TeacherHome() {
   const scan = (s: SessionCardData) => goToScan(s as TeacherSession);
 
   const attention = [
-    offlineAttention > 0 && { key: 'sync', icon: 'warning' as IconName, title: pending > 0 ? t('teacher.pending_scans', { count: pending }) : t('teacher.rejected_title', { count: rejected }), sub: t('teacher.tap_to_reconcile'), badge: offlineAttention, href: '/(teacher)/reconcile' },
-    (phonesQ.data?.count ?? 0) > 0 && { key: 'phones', icon: 'phone' as IconName, title: t('home.phones_title'), sub: t('home.phones_sub', { count: phonesQ.data?.count ?? 0 }), badge: phonesQ.data?.count ?? 0, href: '/(teacher)/phone-confirmations' },
-    (bookingQ.data?.length ?? 0) > 0 && { key: 'booking', icon: 'bell' as IconName, title: t('booking_requests.title'), sub: t('booking_requests.manage_sub'), badge: bookingQ.data?.length ?? 0, href: '/(teacher)/booking-requests' },
-    cashAttention > 0 && { key: 'cash', icon: 'money' as IconName, title: cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title, sub: cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : t('home.cash_attention_sub'), badge: cashAttention, href: '/(teacher)/cash-reconcile' },
-    (actionsQ.data?.length ?? 0) > 0 && { key: 'actions', icon: 'eye' as IconName, title: t('assistant_actions.title'), sub: t('assistant_actions.manage_sub'), badge: actionsQ.data?.length ?? 0, href: '/(teacher)/assistant-actions' },
-    openTickets > 0 && { key: 'tickets', icon: 'tickets' as IconName, title: t('home.tickets_title'), sub: t('home.tickets_sub'), badge: openTickets, href: '/(teacher)/tickets' },
-    pendingComplaints > 0 && { key: 'complaints', icon: 'note' as IconName, title: t('home.complaints_title'), sub: t('home.complaints_sub', { count: pendingComplaints }), badge: pendingComplaints, href: '/(teacher)/complaints' },
-  ].filter(Boolean) as { key: string; icon: IconName; title: string; sub: string; badge: number; href: string }[];
+    offlineAttention > 0 && { key: 'sync', icon: (rejected > 0 ? 'error' : 'refresh') as IconName, short: rejected > 0 ? t('connection.rejected') : t('connection.pending'), tone: rejected > 0 ? 'danger' : 'warn', title: pending > 0 ? t('offline.pending_any', { count: pending }) : t('teacher.rejected_title', { count: rejected }), sub: t('teacher.tap_to_reconcile'), badge: offlineAttention, href: '/(teacher)/reconcile' },
+    (phonesQ.data?.count ?? 0) > 0 && { key: 'phones', icon: 'phone' as IconName, short: t('home.phones_title'), tone: 'warn', title: t('home.phones_title'), sub: t('home.phones_sub', { count: phonesQ.data?.count ?? 0 }), badge: phonesQ.data?.count ?? 0, href: '/(teacher)/phone-confirmations' },
+    (bookingQ.data?.length ?? 0) > 0 && { key: 'booking', icon: 'bell' as IconName, short: t('booking_requests.title'), tone: 'warn', title: t('booking_requests.title'), sub: t('booking_requests.manage_sub'), badge: bookingQ.data?.length ?? 0, href: '/(teacher)/booking-requests' },
+    cashAttention > 0 && { key: 'cash', icon: 'money' as IconName, short: rose.named ? rose.name : t('home.cash_short'), tone: 'warn', title: cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title, sub: cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : t('home.cash_attention_sub'), badge: cashAttention, href: '/(teacher)/cash-reconcile' },
+    (actionsQ.data?.length ?? 0) > 0 && { key: 'actions', icon: 'eye' as IconName, short: t('home.actions_short'), tone: 'warn', title: t('assistant_actions.title'), sub: t('assistant_actions.manage_sub'), badge: actionsQ.data?.length ?? 0, href: '/(teacher)/assistant-actions' },
+    openTickets > 0 && { key: 'tickets', icon: 'tickets' as IconName, short: t('home.tickets_short'), tone: 'warn', title: t('home.tickets_title'), sub: t('home.tickets_sub'), badge: openTickets, href: '/(teacher)/tickets' },
+    pendingComplaints > 0 && { key: 'complaints', icon: 'note' as IconName, short: t('home.complaints_title'), tone: 'warn', title: t('home.complaints_title'), sub: t('home.complaints_sub', { count: pendingComplaints }), badge: pendingComplaints, href: '/(teacher)/complaints' },
+  ].filter(Boolean) as { key: string; icon: IconName; short: string; tone: 'warn' | 'danger'; title: string; sub: string; badge: number; href: string }[];
+  // The one that needs a decision first, then by how much is waiting.
+  attention.sort((a, b) => (a.tone === b.tone ? b.badge - a.badge : a.tone === 'danger' ? -1 : 1));
   const attentionTotal = attention.reduce((n, a) => n + a.badge, 0);
 
-  const shortcuts: { key: string; icon: IconName; label: string; color: string; tint: string; badge?: number; onPress: () => void }[] = [
+  // Five shortcuts, مدام روز in the middle (founder 2026-10-08), her portrait bare — no tile.
+  const sideShortcuts = [
     canStudents && { key: 'add', icon: 'add' as IconName, label: t('add_student.title'), color: colors.brand, tint: colors.brandTint, onPress: () => setAddOpen(true) },
-    canCash && { key: 'collect', icon: 'money' as IconName, label: t('home.collect'), color: colors.success, tint: colors.successLight, onPress: () => router.push('/(teacher)/collect' as Href) },
-    canCash && { key: 'rose', icon: 'note' as IconName, label: rose.name, color: colors.accent, tint: colors.accentLight, badge: cashAttention, onPress: () => router.push('/(teacher)/cash-reconcile' as Href) },
+    canCash && { key: 'collect', icon: 'money' as IconName, label: t('home.collect'), color: colors.success, tint: colors.successLight, onPress: () => router.push('/(teacher)/pending-collections' as Href) },
+    // The scheduling tools in a sheet, like «إضافة طالب».
+    { key: 'schedule', icon: 'calendar' as IconName, label: t('home.schedule_short'), color: colors.accent, tint: colors.accentLight, onPress: () => setScheduleOpen(true) },
     !isAssistant
       ? { key: 'insights', icon: 'reports' as IconName, label: t('home.insights_short'), color: colors.info, tint: colors.infoLight, onPress: () => router.push('/(teacher)/insights' as Href) }
       : { key: 'students', icon: 'children' as IconName, label: t('teacher.tab_students'), color: colors.info, tint: colors.infoLight, onPress: () => router.push('/(teacher)/students' as Href) },
-  ].filter(Boolean) as never;
+  ].filter(Boolean) as { key: string; icon: IconName; label: string; color: string; tint: string; badge?: number; onPress: () => void }[];
+  const roseShortcut = canCash ? { key: 'rose', icon: 'note' as IconName, label: rose.name, color: colors.accent, tint: colors.accentLight, badge: cashAttention, onPress: () => router.push('/(teacher)/cash-reconcile' as Href) } : null;
+  const shortcuts = roseShortcut
+    ? [...sideShortcuts.slice(0, Math.ceil(sideShortcuts.length / 2)), roseShortcut, ...sideShortcuts.slice(Math.ceil(sideShortcuts.length / 2))]
+    : sideShortcuts;
+  const tileWidth = shortcuts.length >= 5 ? '19.5%' : '24%';
 
   const firstName = (user?.name ?? '').split(' ')[0];
 
+  const tourScroll = useTourScroll();
   return (
+    <Surface id="screen.teacher.home" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
+        {...tourScroll}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -165,32 +191,48 @@ export default function TeacherHome() {
             unread={unread}
             onScan={canCash ? () => router.push('/(teacher)/scan' as Href) : undefined}
             scanBadge={offlineAttention}
+            onSearch={() => router.push('/(teacher)/search' as Href)}
+            surfacePrefix="teacher.header"
           />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>{formatDayDate(new Date(now))}</Text>
-          <TeacherSwitcher />
-          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+          {/* Name and date centred at the top (founder 2026-10-05). */}
+          <Surface id="teacher.home.greeting">
+          <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero, textAlign: 'center' }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{formatDayDate(new Date(now))}</Text>
+          </Surface>
+          {/* Live connection: Wi-Fi / mobile / offline, and what waits to be sent — tap for details. */}
+          <Surface id="teacher.home.connection_line"><ConnectionLine style={{ marginTop: spacing.sm }} /></Surface>
+          <Surface id="teacher.home.teacher_switcher"><TeacherSwitcher /></Surface>
+          {/* The gap sits OUTSIDE the measured box, so the hole stops at the tiles and leaves the date line alone. */}
+          <Surface id="teacher.home.stats">
+          <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            {/* One id per tile: <Surface id="teacher.home.stat_sessions"> <Surface id="teacher.home.stat_present"> <Surface id="teacher.home.stat_attention"> */}
             {[
               { k: 'sessions', v: formatNumber(sessions.length), l: t('home.stat_sessions') },
               { k: 'present', v: rosterToday > 0 ? `${formatNumber(presentToday)}/${formatNumber(rosterToday)}` : formatNumber(presentToday), l: t('home.stat_present') },
               { k: 'attention', v: formatNumber(attentionTotal), l: t('home.stat_attention') },
             ].map((x) => (
-              <View key={x.k} style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.onHeroChipBorder, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+              <Surface key={x.k} id={`teacher.home.stat_${x.k}`}>
+              <View style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.onHeroChipBorder, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 26, color: x.k === 'attention' && attentionTotal > 0 ? colors.accent : colors.onHero }}>{x.v}</Text>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.onHeroSoft }} numberOfLines={1}>{x.l}</Text>
               </View>
+              </Surface>
             ))}
-          </View>
+          </View></TourTarget>
+          </Surface>
         </LinearGradient>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
+          <Slot id="teacher.home.top" style={{ marginBottom: spacing.lg }} />
           {/* Spotlight — the session that matters now. */}
+          <Surface id="teacher.home.spotlight">
+          <TourTarget id="home:spotlight">
           {sessionsQ.isLoading ? (
             <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.xl, alignItems: 'center', ...shadows.md }}>
               <ActivityIndicator color={colors.primary} />
             </View>
           ) : current ? (
-            <SwipeRow {...swipesFor(current)} style={{ borderRadius: radius.xxl }}>
+            <SwipeRow {...swipesFor(current)} style={{ borderRadius: radius.xxl }} radius={radius.xxl}>
               <Spotlight s={current} now={now} canScan={canCash} onScan={scan} onOpen={openSheet} />
             </SwipeRow>
           ) : (
@@ -206,15 +248,23 @@ export default function TeacherHome() {
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
           )}
+          </TourTarget>
+          </Surface>
 
-          <PendingInvitations />
+          <Surface id="teacher.home.pending_invitations"><PendingInvitations /></Surface>
 
-          {/* Shortcuts — four coloured, labelled buttons. */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.lg }}>
+          {/* Shortcuts — coloured, labelled buttons; مدام روز in the middle, bare. */}
+          <Surface id="teacher.home.shortcuts">
+          <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            {/* One id per shortcut: <Surface id="teacher.home.shortcut_add"> <Surface id="teacher.home.shortcut_collect"> <Surface id="teacher.home.shortcut_schedule">
+                <Surface id="teacher.home.shortcut_insights"> <Surface id="teacher.home.shortcut_students"> <Surface id="teacher.home.shortcut_rose"> */}
             {shortcuts.map((x) => (
-              <TouchableOpacity key={x.key} onPress={x.onPress} activeOpacity={0.85} accessibilityRole="button" style={{ width: '24%', alignItems: 'center' }}>
-                <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: x.tint, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={x.icon} size={26} color={x.color} />
+              <Surface key={x.key} id={`teacher.home.shortcut_${x.key}`}>
+              <TouchableOpacity onPress={x.onPress} activeOpacity={0.85} accessibilityRole="button" style={{ width: tileWidth, alignItems: 'center' }}>
+                <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: x.key === 'rose' && rose.named ? 'transparent' : x.tint, alignItems: 'center', justifyContent: 'center' }}>
+                  {/* مدام روز waves when something is waiting on her desk (founder 2026-10-08). */}
+                  {x.key === 'rose' && rose.named ? <RoseCalling size={64} calling={!!x.badge} /> : <Icon name={x.icon} size={26} color={x.color} />}
                   {x.badge ? (
                     <View style={{ position: 'absolute', top: -4, end: -4, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.background }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{x.badge}</Text>
@@ -223,33 +273,65 @@ export default function TeacherHome() {
                 </View>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary, marginTop: 6, textAlign: 'center' }} numberOfLines={1}>{x.label}</Text>
               </TouchableOpacity>
+              </Surface>
             ))}
           </View>
+          </TourTarget>
+          </Surface>
 
+          {/* «يحتاج انتباهك»: a two-column grid of small chips (icon, short name, count)
+              instead of a full card per item — seven rows once ate half the page (founder
+              2026-10-10). The count in the hero's tile is the same number. */}
           {attention.length > 0 ? (
+            <Surface id="teacher.home.needs_attention">
             <View style={{ marginTop: spacing.xl }}>
-              <SectionHead icon="warning" color={colors.warning} title={t('home.needs_you')} />
-              {attention.map((a) => <HubRow key={a.key} icon={a.icon} title={a.title} sub={a.sub} badge={a.badge} onPress={() => router.push(a.href as Href)} />)}
+              <SectionHead icon="warning" color={colors.warning} title={t('home.needs_you')} action={t('home.attention_count', { count: attentionTotal })} />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                {/* One id per chip: <Surface id="teacher.home.attention_sync"> <Surface id="teacher.home.attention_phones"> <Surface id="teacher.home.attention_booking">
+                    <Surface id="teacher.home.attention_cash"> <Surface id="teacher.home.attention_actions"> <Surface id="teacher.home.attention_tickets"> <Surface id="teacher.home.attention_complaints"> */}
+                {attention.map((a) => (
+                  <Surface key={a.key} id={`teacher.home.attention_${a.key}`}>
+                  <TouchableOpacity onPress={() => router.push(a.href as Href)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={`${a.title} — ${a.sub}`}
+                    style={{ width: '48.5%', minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: a.tone === 'danger' ? colors.danger : colors.border }}>
+                    {a.key === 'cash' && rose.named ? <RosePortrait size={30} nod={false} /> : (
+                      <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: (a.tone === 'danger' ? colors.danger : colors.warning) + '1F', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name={a.icon} size={16} color={a.tone === 'danger' ? colors.danger : colors.warningDark} />
+                      </View>
+                    )}
+                    <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 17, color: colors.textPrimary }} numberOfLines={2}>{a.short}</Text>
+                    <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: a.tone === 'danger' ? colors.danger : colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{a.badge > 99 ? '99+' : formatNumber(a.badge)}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  </Surface>
+                ))}
+              </View>
             </View>
+            </Surface>
           ) : null}
 
           {rest.length > 0 ? (
+            <Surface id="teacher.home.rest_of_day">
             <View style={{ marginTop: spacing.xl }}>
               <SectionHead icon="calendar" color={colors.brand} title={t('home.rest_of_day')} action={t('home.all_sessions')} onAction={() => router.push('/(teacher)/sessions' as Href)} />
               {rest.map((s) => (
-                <SwipeRow key={s.id} {...swipesFor(s)} style={{ borderRadius: radius.xl }}>
+                <SwipeRow key={s.id} {...swipesFor(s)} style={{ borderRadius: radius.xl }} radius={radius.xl}>
                   <SessionCard s={s} now={now} onOpen={openSheet} compact />
                 </SwipeRow>
               ))}
             </View>
+            </Surface>
           ) : null}
 
-          <View style={{ marginTop: spacing.xl }}><WhatsNewCard /></View>
+          <Surface id="teacher.home.whats_new"><View style={{ marginTop: spacing.xl }}><WhatsNewCard /></View></Surface>
+          <Slot id="teacher.home.bottom" style={{ marginTop: spacing.xl }} />
         </View>
       </ScrollView>
       <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} />
+      <ScheduleToolsSheet visible={scheduleOpen} onClose={() => setScheduleOpen(false)} />
       <SessionRosterSheet sessionId={rosterFor} onClose={() => setRosterFor(null)} onOpenFull={(id) => { setRosterFor(null); openSheet({ id }); }} />
     </View>
+    </Surface>
   );
 }
 
@@ -301,6 +383,7 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
       </View>
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
         {canScan ? (
+          <Surface id="teacher.home.spotlight_scan">
           <TouchableOpacity onPress={() => onScan(s)} activeOpacity={0.85} accessibilityRole="button"
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50, borderRadius: radius.lg, backgroundColor: '#fff' }}>
             {/* The button is white in both schemes, so its ink is fixed (onWhite), never a theme
@@ -308,12 +391,15 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
             <Icon name="scan" size={20} color={live ? onWhite.success : onWhite.brand} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: live ? onWhite.success : onWhite.brand }}>{t('sessions_tab.scan')}</Text>
           </TouchableOpacity>
+          </Surface>
         ) : null}
+        <Surface id="teacher.home.spotlight_sheet">
         <TouchableOpacity onPress={() => onOpen(s)} activeOpacity={0.85} accessibilityRole="button"
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50, borderRadius: radius.lg, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.7)' }}>
           <Icon name="attendance" size={20} color="#fff" outline />
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('sessions_tab.sheet')}</Text>
         </TouchableOpacity>
+        </Surface>
       </View>
     </LinearGradient>
   );

@@ -14,8 +14,10 @@ interface OtpInputProps {
 }
 
 /**
- * A 6-cell code entry. One invisible TextInput holds the digits (so the keyboard, paste
- * and the OS's SMS one-time-code suggestion all work) and the cells only DISPLAY them.
+ * A 6-cell code entry. One TextInput holds the digits and the cells only DISPLAY them.
+ * The field lies over the cells at full size, with transparent text — not a 1 px dot — so
+ * a long-press opens the system paste menu and iOS offers the code from the SMS above
+ * the keyboard as it does for any ordinary field (founder 2026-10-10: neither worked).
  * Cells are laid out left-to-right explicitly: a code is a number, and the SMS shows it
  * that way, so the eye should match digit for digit even inside an RTL app.
  */
@@ -64,18 +66,24 @@ export function OtpInput({ value, onChange, onComplete, length = 6, error, autoF
       <TextInput
         ref={ref}
         value={value}
+        // No maxLength: a pasted «123 456» or an AutoFill with a stray space is cleaned here.
         onChangeText={(t) => onChange(t.replace(/[^0-9]/g, '').slice(0, length))}
         keyboardType="number-pad"
-        maxLength={length}
         autoFocus={autoFocus}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         // The OS offers the code it just saw in the SMS above the keyboard.
         textContentType="oneTimeCode"
         autoComplete="sms-otp"
+        importantForAutofill="yes"
+        autoCorrect={false}
+        spellCheck={false}
+        contextMenuHidden={false}
         caretHidden
-        // Present but invisible: it must stay focusable and receive the keyboard.
-        style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
+        selectionColor="transparent"
+        accessibilityLabel="رمز التحقق"
+        // Over the cells, same size, invisible text: taps focus it, a long-press pastes.
+        style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, color: 'transparent', backgroundColor: 'transparent', fontSize: 26, textAlign: 'center' }}
       />
     </Pressable>
   );

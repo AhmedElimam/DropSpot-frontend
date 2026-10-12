@@ -19,6 +19,12 @@ export function weekStart(d: Date): Date {
   return addDays(x, -((x.getDay() + 1) % 7));
 }
 
+/** The Saturday–Friday window a date falls in, as the sessions list asks the server for it. */
+export function weekWindow(d: Date): { from: string; to: string } {
+  const start = weekStart(d);
+  return { from: dayKey(start), to: dayKey(addDays(start, 6)) };
+}
+
 type PhaseInput = { status: string; scheduled_at: string | null; duration_minutes?: number | null; date?: string | null };
 
 /** Sessions bucketed by local day, each with its phase now — what the day markers draw. */

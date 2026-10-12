@@ -1,4 +1,5 @@
 import client from './client';
+import i18n from '@/i18n';
 import { useAuthStore } from '@/stores/authStore';
 
 /**
@@ -35,29 +36,30 @@ export interface AdminTicket {
  * screen reads as broken; the keys are the same ones the server validates against, so a
  * ticket composed from the fallback still stores correctly.
  */
-const FALLBACK_CATEGORIES: Record<'staff' | 'family', SupportCategory[]> = {
+// Built at call time (not import time) so the backend's copy overlay can override the labels.
+const FALLBACK_CATEGORIES = (): Record<'staff' | 'family', SupportCategory[]> => ({
   staff: [
-    { key: 'billing', label: 'فواتير ومدفوعات' },
-    { key: 'cards', label: 'بطاقات وحضور' },
-    { key: 'app', label: 'مشكلة في التطبيق' },
-    { key: 'account', label: 'حساب وبيانات' },
-    { key: 'students', label: 'طلاب وأولياء أمور' },
-    { key: 'other', label: 'أخرى' },
+    { key: 'billing', label: i18n.t('family_ui.cat_staff_billing') },
+    { key: 'cards', label: i18n.t('family_ui.cat_staff_cards') },
+    { key: 'app', label: i18n.t('family_ui.cat_app') },
+    { key: 'account', label: i18n.t('family_ui.cat_staff_account') },
+    { key: 'students', label: i18n.t('family_ui.cat_staff_students') },
+    { key: 'other', label: i18n.t('family_ui.other') },
   ],
   family: [
-    { key: 'billing', label: 'مدفوعات وفواتير' },
-    { key: 'cards', label: 'البطاقة والحضور' },
-    { key: 'teacher', label: 'مشكلة مع معلّم' },
-    { key: 'account', label: 'بيانات الحساب (الاسم أو الرقم)' },
-    { key: 'app', label: 'مشكلة في التطبيق' },
-    { key: 'other', label: 'أخرى' },
+    { key: 'billing', label: i18n.t('family_ui.cat_family_billing') },
+    { key: 'cards', label: i18n.t('family_ui.cat_family_cards') },
+    { key: 'teacher', label: i18n.t('family_ui.cat_family_teacher') },
+    { key: 'account', label: i18n.t('family_ui.cat_family_account') },
+    { key: 'app', label: i18n.t('family_ui.cat_app') },
+    { key: 'other', label: i18n.t('family_ui.other') },
   ],
-};
+});
 
 function fallbackCategories(): SupportCategory[] {
   const role = useAuthStore.getState().role;
 
-  return FALLBACK_CATEGORIES[role === 'teacher' || role === 'assistant' ? 'staff' : 'family'];
+  return FALLBACK_CATEGORIES()[role === 'teacher' || role === 'assistant' ? 'staff' : 'family'];
 }
 
 /**
@@ -110,7 +112,7 @@ export async function createAdminTicket(payload: {
       // The legacy path requires a subject; the reason stands in when none was typed.
       const { data } = await client.post('/teacher/admin-tickets', {
         ...payload,
-        subject: payload.subject?.trim() || fallbackCategories().find((c) => c.key === payload.category)?.label || 'رسالة للإدارة',
+        subject: payload.subject?.trim() || fallbackCategories().find((c) => c.key === payload.category)?.label || i18n.t('family_ui.admin_message_default'),
       });
       return (data.data ?? data) as AdminTicket;
     }

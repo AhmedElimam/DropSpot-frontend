@@ -1,4 +1,5 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * The attendance sheet used to live under the Students tab (founder 2026-10-02: "position
@@ -7,5 +8,9 @@ import { Redirect, useLocalSearchParams } from 'expo-router';
  */
 export default function LegacySessionRedirect() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  return <Redirect href={`/(teacher)/sessions/${id}` as never} />;
+  return (
+    <Surface id="screen.teacher.students.session" screen>
+      <Redirect href={`/(teacher)/sessions/${id}` as never} />
+    </Surface>
+  );
 }

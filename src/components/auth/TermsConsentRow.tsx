@@ -50,7 +50,7 @@ export function TermsConsentRow({
         >
           {checked ? <Icon name="success" size={16} color={colors.textInverse} /> : null}
         </View>
-        <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'right' }}>
+        <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary }}>
           {checkboxLabel}
         </Text>
       </TouchableOpacity>

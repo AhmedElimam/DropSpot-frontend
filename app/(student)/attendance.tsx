@@ -19,6 +19,7 @@ import { SectionHead } from '@/components/ui/SectionHead';
 import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
 import { AttendanceRecordList } from '@/components/attendance/AttendanceRecordList';
 import { ComplaintSheet, type ComplaintTarget } from '@/components/student/ComplaintSheet';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * The student's full attendance record (founder 2026-10-03: «on check-in percentage I want
@@ -42,12 +43,14 @@ export default function StudentAttendanceDetail() {
   const toneOf = (rate: number | null) => rate === null ? colors.textTertiary : rate >= 90 ? colors.success : rate >= 75 ? colors.brand : colors.accent;
 
   return (
+    <Surface id="screen.student.attendance" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="student.attendance.hero">
         <PageHero
           title={t('attendance.detail_title')}
           subtitle={t('attendance.detail_sub')}
@@ -58,15 +61,19 @@ export default function StudentAttendanceDetail() {
             { value: formatNumber(stats?.absent ?? 0), label: t('attendance.absent'), warn: (stats?.absent ?? 0) > 0 },
           ]}
         />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          <Surface id="student.attendance.overview">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             {statsLoading ? <ActivityIndicator color={colors.primary} /> : (
               <AttendanceOverview present={stats?.present ?? 0} late={stats?.late ?? 0} absent={stats?.absent ?? 0} excused={stats?.excused ?? 0} ringSize={112} />
             )}
           </View>
+          </Surface>
 
           {/* Course by course, under each teacher — tap a teacher to open their page. */}
+          <Surface id="student.attendance.by_course">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <SectionHead icon="teacher" color={colors.brand} title={t('attendance.by_course')} />
             {teachersQ.isLoading ? (
@@ -107,8 +114,10 @@ export default function StudentAttendanceDetail() {
               </View>
             ))}
           </View>
+          </Surface>
 
           {/* Every recorded session, filterable, month by month. */}
+          <Surface id="student.attendance.history">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <SectionHead icon="calendar" color={colors.brand} title={t('attendance.history_title')} />
             <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{t('attendance.history_sub')}</Text>
@@ -121,10 +130,14 @@ export default function StudentAttendanceDetail() {
               />
             )}
           </View>
+          </Surface>
         </View>
       </ScrollView>
 
+      <Surface id="student.attendance.complaint_sheet">
       <ComplaintSheet visible={!!complaintTarget} onClose={() => setComplaintTarget(null)} target={complaintTarget} />
+      </Surface>
     </View>
+    </Surface>
   );
 }

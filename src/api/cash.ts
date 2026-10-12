@@ -52,8 +52,10 @@ export interface CashSettings extends CashSettingsLite {
   insights_enabled?: boolean;
   insight_pushes_per_day?: number;
   review_bulk_max?: number;
-  /** Teacher switch: her screens say «مدام روز» (true) or «مديرة الحسابات». Assistants always see the name. */
+  /** Teacher switch: her screens say «مدام روز» (true) or «المساعدة الشخصية». Assistants always see the name. */
   rose_named?: boolean;
+  /** Teacher switch: her 11 am «ورقة النهارده» (today's sessions, venues, overdue bills, complaints) to the teacher and assistants. */
+  rose_briefing_enabled?: boolean;
 }
 
 /** A مدام روز suggestion the person confirms with a tap (v2 §5). Nothing is logged by her. */
@@ -86,6 +88,55 @@ export interface CashInsights {
   enabled: boolean;
   context: { name: string; greeting: string; season: string | null };
   observations: Observation[];
+}
+
+/** «ورقة النهارده» as her desk reads it now: today's sessions, the door, the money, what waits — in this reader's scope. Empty lines = nothing to say. */
+export interface RoseSheetSession { id?: number; ended?: boolean; checked_in?: number; status?: string | null; time: string; title: string; venue: string | null; exam: boolean; present: number | null; absent: number | null }
+export interface RoseSheetItem { title: string; sub: string; amount: number | null; student_id: number | null; lines?: string[] }
+export type RoseSheetFactKind = 'dues' | 'dues_clear' | 'collected' | 'complaints' | 'review';
+export interface RoseSheet {
+  date: string;
+  lines: string[];
+  name: string;
+  /** The same sheet in pieces (server ≥ 2026-10-08) — absent on an older server: fall back to `lines`. */
+  head?: string;
+  sessions?: RoseSheetSession[];
+  /** Each fact, and (server ≥ 2026-10-08) what stands behind it — for the tap on her desk. */
+  facts?: { kind: RoseSheetFactKind | string; text: string; items?: RoseSheetItem[] }[];
+}
+
+export async function getRoseSheet(): Promise<RoseSheet> {
+  const { data } = await client.get('/teacher/cash/briefing');
+  const d = data.data ?? {};
+  return {
+    date: String(d.date ?? ''),
+    lines: Array.isArray(d.lines) ? d.lines.map(String) : [],
+    name: String(d.name ?? ''),
+    head: typeof d.head === 'string' ? d.head : undefined,
+    sessions: Array.isArray(d.sessions) ? d.sessions.map((x: any) => ({
+      id: x.id != null ? Number(x.id) : undefined, ended: x.ended == null ? undefined : !!x.ended,
+      checked_in: x.checked_in == null ? undefined : Number(x.checked_in), status: x.status ?? null, time: String(x.time ?? ''), title: String(x.title ?? ''), venue: x.venue ? String(x.venue) : null, exam: !!x.exam,
+      present: x.present === null || x.present === undefined ? null : Number(x.present),
+      absent: x.absent === null || x.absent === undefined ? null : Number(x.absent),
+    })) : undefined,
+    facts: Array.isArray(d.facts) ? d.facts.map((x: any) => ({
+      kind: String(x.kind ?? ''), text: String(x.text ?? ''),
+      items: Array.isArray(x.items) ? x.items.map((i: any) => ({
+        title: String(i.title ?? ''), sub: String(i.sub ?? ''),
+        amount: i.amount == null ? null : Number(i.amount), student_id: i.student_id == null ? null : Number(i.student_id),
+        lines: Array.isArray(i.lines) ? i.lines.map(String) : undefined,
+      })) : undefined,
+    })) : undefined,
+  };
+}
+
+/** Her desk as a PDF: the whole of it, or one section, for the week / month on screen. */
+export type RoseReportSection = 'all' | 'week' | 'month' | 'expenses' | 'complaints' | 'notes' | 'sheet';
+export async function getRoseReportUrl(params: { section: RoseReportSection; week?: string; month?: string }): Promise<string> {
+  const { data } = await client.get('/teacher/cash/report-url', { params });
+  const url = data?.data?.url;
+  if (!url) throw new Error('no url');
+  return String(url);
 }
 
 export async function getCashInsights(): Promise<CashInsights> {
@@ -330,7 +381,7 @@ export async function reviewHandover(id: number, decision: 'confirm' | 'reject')
   await client.post(`/teacher/cash/handovers/${id}/${decision}`);
 }
 
-export async function updateCashSettings(patch: Partial<{ expenses_enabled: boolean; expenses_per_venue: boolean; cash_tolerance: number; expense_reminder_enabled: boolean; insights_enabled: boolean; insight_pushes_per_day: number; review_bulk_max: number; rose_named: boolean }>): Promise<CashSettings> {
+export async function updateCashSettings(patch: Partial<{ expenses_enabled: boolean; expenses_per_venue: boolean; cash_tolerance: number; expense_reminder_enabled: boolean; insights_enabled: boolean; insight_pushes_per_day: number; review_bulk_max: number; rose_named: boolean; rose_briefing_enabled: boolean }>): Promise<CashSettings> {
   const { data } = await client.post('/teacher/cash/settings', patch);
   noteRoseSetting(data.data as CashSettings);
   return data.data as CashSettings;
@@ -464,4 +515,50 @@ export interface CashMonth {
 export async function getCashMonth(month: string): Promise<CashMonth> {
   const { data } = await client.get('/teacher/cash/month', { params: { month } });
   return data.data as CashMonth;
+}
+
+// ---- «تحصيلات الأسبوع»: who paid what this week, per student (GET /teacher/cash/collections) ----
+
+export type CollectionKind = 'bill' | 'booklet' | 'booking' | 'guest_pass';
+
+export interface CollectionItem {
+  kind: CollectionKind;
+  /** The charge (invoice / booklet / booking id) — what «إلغاء الدفع» reverses. */
+  subject_id: number;
+  /** «فاتورة أكتوبر», «ملزمة · <group>», «حجز · <group>». */
+  label: string | null;
+  amount: number;
+  /** Given back from this charge inside the week (the amount is already net of it). */
+  reversed: number;
+  method: 'cash' | 'digital';
+  collected_at: string | null;
+  /** «أنت» for the teacher's own hand, else the assistant's name. */
+  collector: string | null;
+}
+
+export interface CollectionStudent {
+  /** null = the revision guests, who have no student account. */
+  student_id: number | null;
+  name: string;
+  total: number;
+  kinds: CollectionKind[];
+  last_at: string | null;
+  items: CollectionItem[];
+}
+
+export interface CollectionsWeek {
+  week: { start: string; end: string };
+  /** 'mine' for an assistant: only what they collected. */
+  scope: 'teacher' | 'mine';
+  total: number;
+  cash: number;
+  digital: number;
+  students_count: number;
+  by_kind: Record<CollectionKind, { amount: number; count: number; students: number }>;
+  students: CollectionStudent[];
+}
+
+export async function getCashCollections(weekDay?: string): Promise<CollectionsWeek> {
+  const { data } = await client.get('/teacher/cash/collections', { params: weekDay ? { week: weekDay } : undefined });
+  return data.data as CollectionsWeek;
 }

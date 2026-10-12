@@ -38,7 +38,7 @@ export function TeacherSwitcher() {
         onPress={() => setOpen(true)}
         activeOpacity={0.85}
         accessibilityRole="button"
-        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.md, alignSelf: 'flex-start', marginTop: spacing.sm }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.md, alignSelf: 'center', marginTop: spacing.sm }}
       >
         <Icon name="teacher" size={14} color={colors.onHero} />
         <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.onHero, maxWidth: 180 }} numberOfLines={1}>{active.name ?? '—'}</Text>

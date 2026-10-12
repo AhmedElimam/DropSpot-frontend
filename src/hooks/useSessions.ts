@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useOnScreen } from '@/hooks/useAmbientMotion';
 import { getStudentSessions, getTodayStudentSessions, getUpcomingStudentSessions } from '@/api/sessions';
 import { useAuthStore } from '@/stores/authStore';
 import type { SessionInstance } from '@/types/session-instance';
@@ -10,11 +11,14 @@ function useStudentId(): number {
 
 export function useTodaySessions() {
   const studentId = useStudentId();
+  const onScreen = useOnScreen();
   return useQuery({
     queryKey: ['sessions', 'today', studentId],
     queryFn: () => getTodayStudentSessions(studentId),
     enabled: studentId > 0,
-    refetchInterval: 60000,
+    // Polled only while the screen using it is in front: the home and check-in tabs both use
+    // it and stay mounted, so each used to poll on its own, hidden or not.
+    refetchInterval: onScreen ? 60000 : false,
   });
 }
 

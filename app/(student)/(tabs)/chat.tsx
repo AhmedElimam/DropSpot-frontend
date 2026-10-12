@@ -13,6 +13,8 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { ChatRoomsList } from '@/components/chat/ChatRoomsList';
 import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { TogetherComingSoon } from '@/components/student/TogetherComingSoon';
+import { Surface } from '@/ui/surfaces';
 
 type Segment = 'threads' | 'chat';
 
@@ -26,7 +28,18 @@ type Segment = 'threads' | 'chat';
  * that one surface. Threads lead when both are on: a question with a running clock ages
  * faster than a room does.
  */
-export default function StudentConversations() {
+export default function StudentChatTab() {
+  // «مجموعاتي» (main, 2026-10-06): the coming-soon screen while both flags are off.
+  const chatEnabled = useChatEnabled();
+  const threadsEnabled = useThreadsEnabled();
+  return (
+    <Surface id="screen.student.chat" screen>
+      {chatEnabled || threadsEnabled ? <StudentConversations /> : <TogetherComingSoon />}
+    </Surface>
+  );
+}
+
+function StudentConversations() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const chatEnabled = useChatEnabled();

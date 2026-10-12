@@ -10,17 +10,24 @@ import { useFileComplaint } from '@/hooks/useComplaints';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatDate } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
-import type { ComplaintClaim } from '@/api/complaints';
+import type { ComplaintClaim, PaidMethod } from '@/api/complaints';
+import { cleanMarkInput, formatMark, parseMarkInput } from '@/utils/markInput';
+
+const PAID_METHODS: PaidMethod[] = ['cash', 'vodafone_cash', 'instapay'];
 
 /** What the student is disputing — one session's mark, or one invoice. */
 export type ComplaintTarget =
   | { type: 'attendance'; sessionInstanceId: number; courseName: string; sessionAt: string | null; recordedStatus: string | null }
-  | { type: 'payment'; invoiceId: number; invoiceNumber: string; amount: number };
+  | { type: 'payment'; invoiceId: number; invoiceNumber: string; amount: number;
+      /** Still due. A part-paid invoice is disputed for (at most) this, never its face value. */
+      remaining?: number };
 
 /**
  * «اعتراض» — the student's sheet (founder 2026-10-03). Attendance: pick what really
- * happened (I was there / I was not), add a line, send. Payment: say the invoice was paid
- * and not recorded, add a line, send. Each kind lives where its record is — the session
+ * happened (I was there / I was not), add a line, send. Payment: say HOW it was paid (cash,
+ * Vodafone Cash, InstaPay) and HOW MUCH (at most what is still due — a part for a part-paid
+ * invoice), add a line, send. The method decides where the money is recorded: cash goes to the
+ * drawer of whoever took it, a transfer to none (founder review 2026-10-05). Each kind lives where its record is — the session
  * list and the invoice card — so this sheet only needs the one target.
  */
 export function ComplaintSheet({ visible, onClose, target, forStudentId }: {
@@ -34,6 +41,8 @@ export function ComplaintSheet({ visible, onClose, target, forStudentId }: {
   const [claim, setClaim] = useState<ComplaintClaim | null>(null);
   const [note, setNote] = useState('');
   const [sent, setSent] = useState(false);
+  const [paidMethod, setPaidMethod] = useState<PaidMethod | null>(null);
+  const [amountText, setAmountText] = useState('');
 
   useEffect(() => {
     if (visible) {
@@ -41,6 +50,8 @@ export function ComplaintSheet({ visible, onClose, target, forStudentId }: {
       // Default to the opposite of what is recorded — that is what a dispute usually says.
       const attending = target?.type === 'attendance' && (target.recordedStatus === 'present' || target.recordedStatus === 'late');
       setClaim(target?.type === 'attendance' ? (attending ? 'absent' : 'present') : null);
+      setPaidMethod(null);
+      setAmountText(target?.type === 'payment' ? formatMark(target.remaining ?? target.amount) : '');
       file.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -48,14 +59,24 @@ export function ComplaintSheet({ visible, onClose, target, forStudentId }: {
 
   if (!target) return null;
   const isAttendance = target.type === 'attendance';
-  const canSend = !file.isPending && (!isAttendance || !!claim);
+  const due = target.type === 'payment' ? (target.remaining ?? target.amount) : 0;
+  const amount = parseMarkInput(amountText);
+  const amountError = isAttendance || !amountText.trim()
+    ? null
+    : amount === null || amount <= 0
+      ? t('complaints.amount_min')
+      : amount > due + 0.001
+        ? t('complaints.amount_max', { amount: formatEGP(due) })
+        : null;
+  const paymentReady = !!paidMethod && amount !== null && amount > 0 && !amountError;
+  const canSend = !file.isPending && (isAttendance ? !!claim : paymentReady);
 
   const send = () => {
     if (!canSend) return;
     file.mutate(
       isAttendance
         ? { type: 'attendance', session_instance_id: target.sessionInstanceId, claim: claim!, note: note.trim() || undefined, student_id: forStudentId ?? undefined }
-        : { type: 'payment', invoice_id: target.invoiceId, note: note.trim() || undefined, student_id: forStudentId ?? undefined },
+        : { type: 'payment', invoice_id: target.invoiceId, paid_method: paidMethod!, claimed_amount: amount!, note: note.trim() || undefined, student_id: forStudentId ?? undefined },
       { onSuccess: () => setSent(true) },
     );
   };
@@ -111,10 +132,40 @@ export function ComplaintSheet({ visible, onClose, target, forStudentId }: {
               </View>
             </>
           ) : (
-            <View style={{ backgroundColor: colors.infoLight, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
-              <Icon name="info" size={18} color={colors.infoText} outline />
-              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.infoText }}>{t(asParent ? 'complaints.payment_hint_child' : 'complaints.payment_hint')}</Text>
-            </View>
+            <>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>{t('complaints.paid_how')}</Text>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                {PAID_METHODS.map((m) => {
+                  const on = paidMethod === m;
+                  return (
+                    <TouchableOpacity key={m} onPress={() => setPaidMethod(m)} activeOpacity={0.85} accessibilityRole="radio" accessibilityState={{ selected: on }}
+                      style={{ flex: 1, minHeight: 48, borderRadius: radius.lg, borderWidth: on ? 2 : 1, borderColor: on ? colors.accent : colors.border, backgroundColor: on ? `${colors.accent}1A` : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: on ? colors.accent : colors.textSecondary }} numberOfLines={1} adjustsFontSizeToFit>{t(`complaints.paid_${m}`)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <View>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.xs }}>{t('complaints.paid_how_much')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <TextInput
+                    value={amountText}
+                    onChangeText={(v) => setAmountText(cleanMarkInput(v))}
+                    keyboardType="decimal-pad"
+                    accessibilityLabel={t('complaints.paid_how_much')}
+                    style={{ flex: 1, minHeight: 50, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: amountError ? colors.danger : colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, textAlign: 'center' }}
+                  />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>{t('complaints.currency')}</Text>
+                </View>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: amountError ? colors.dangerText : colors.textSecondary, marginTop: spacing.xs }}>
+                  {amountError ?? t('complaints.still_due', { amount: formatEGP(due) })}
+                </Text>
+              </View>
+              <View style={{ backgroundColor: colors.infoLight, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+                <Icon name="info" size={18} color={colors.infoText} outline />
+                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.infoText }}>{t(asParent ? 'complaints.payment_hint_child' : 'complaints.payment_hint')}</Text>
+              </View>
+            </>
           )}
 
           <View>

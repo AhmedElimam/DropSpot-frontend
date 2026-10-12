@@ -1,3 +1,4 @@
+import { track } from '@/lib/analytics';
 import { syncOfflineBatch } from '@/api/teacher';
 import { syncOfflineMarks } from '@/api/teacherSessions';
 import { getPendingScans, deleteScans, markScanRejected, type OfflineScan } from './offlineScans';
@@ -7,6 +8,13 @@ import { getQueryClient } from '@/lib/queryClientRef';
 import { getFreshScheduleEntries, localDateKey, type ScheduleCacheEntry } from './scheduleCache';
 import { matchAutoSession } from './autoSyncMatch';
 import { useOfflineStore } from '@/stores/offlineStore';
+import { useAuthStore } from '@/stores/authStore';
+import client from '@/api/client';
+import { getPendingActions, deleteActions, markActionRejected } from './outbox';
+import { isNetworkFailure } from './marksSync';
+import { getFriendlyErrorMessage } from '@/utils/errors';
+import { Alert } from '@/ui/dialog';
+import i18n from '@/i18n';
 
 /**
  * Window-bounded AUTOMATIC offline sync (main spec). Only the UNAMBIGUOUS case is
@@ -31,7 +39,7 @@ function teacherKey(id: number | null): string {
  * failure → the scans stay buffered untouched for the next pass.
  */
 export async function runAutoSync(now: Date = new Date()): Promise<number> {
-  const marksSynced = await runMarkSync();
+  const marksSynced = (await runMarkSync()) + (await runOutboxSync());
   const pending = await getPendingScans();
   if (!pending.length) return marksSynced;
 
@@ -130,6 +138,64 @@ export async function runMarkSync(): Promise<number> {
   return synced;
 }
 
+/**
+ * Replay the actions parked offline (src/db/outbox.ts), oldest first, each with the
+ * idempotency key it was first sent with. Accepted → dropped; a server refusal (4xx) →
+ * parked for a decision with the server's words; no answer, or a hiccup the server may
+ * resolve on its own (401 refresh, 409 in flight, 429, 5xx) → stop here and keep the
+ * order for the next pass. An assistant's action waits until the same teacher context is
+ * active again, like a buffered scan.
+ */
+export async function runOutboxSync(): Promise<number> {
+  const pending = await getPendingActions().catch(() => []);
+  if (!pending.length) return 0;
+  const activeTeacher = useAuthStore.getState().activeTeacherId ?? null;
+  let synced = 0;
+  for (const a of pending) {
+    if (a.teacher_id !== null && activeTeacher !== null && a.teacher_id !== activeTeacher) continue;
+    try {
+      const res = await client.request({
+        method: a.method, url: a.url, data: a.body ? JSON.parse(a.body) : undefined,
+        headers: { 'X-Idempotency-Key': a.key }, __replay: true,
+      });
+      await deleteActions([a.id]);
+      synced++;
+      if (/\/teacher\/students\/record$|\/students\/enroll-by-scan$/.test(a.url)) noteStudentFlag(res?.data?.data ?? res?.data);
+    } catch (e) {
+      if (isNetworkFailure(e)) break;
+      const status = (e as { response?: { status?: number; data?: { message?: unknown } } }).response?.status ?? 0;
+      if (status === 401 || status === 408 || status === 409 || status === 429 || status >= 500) break;
+      const msg = (e as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+      await markActionRejected(a.id, typeof msg === 'string' && msg.trim() ? msg.trim() : getFriendlyErrorMessage(e));
+    }
+  }
+  // Whatever those actions changed, every screen re-asks for (mounted ones now, the rest when opened).
+  if (synced) void getQueryClient()?.invalidateQueries();
+  return synced;
+}
+
+/**
+ * A student recorded or scanned with no connection and matched to an existing account on
+ * replay may carry a confirmed report from another teacher — the popup the door would have
+ * shown (founder 2026-10-10). Said once, in the app's own popup, when the replay lands.
+ */
+function noteStudentFlag(body: unknown): void {
+  const b = body as { student_name?: string; report_notice?: boolean; report_notice_message?: string | null; report_flag?: { label: string; tooltip?: string | null } | null } | null;
+  if (!b || (!b.report_notice && !b.report_flag)) return;
+  const lines = [
+    b.report_flag ? `⚑ ${b.report_flag.label}${b.report_flag.tooltip ? ` — ${b.report_flag.tooltip}` : ''}` : null,
+    b.report_notice_message ?? (b.report_notice ? i18n.t('offline.synced_flag_notice') : null),
+  ].filter(Boolean);
+  Alert.alert(i18n.t('offline.synced_flag_title', { name: b.student_name ?? '' }), lines.join('\n\n'));
+}
+
+/** The «إرسال الآن» button: one pass now, past the cool-down, never two at once. */
+export async function syncNow(): Promise<void> {
+  if (inFlight) return;
+  lastRunAt = 0;
+  await triggerAutoSync();
+}
+
 // --- Rate-limited trigger ---------------------------------------------------
 // Fires on connectivity-restored and on foreground. A flapping connection must not
 // hammer the endpoint (§5): at most one run in flight, and no more than one run per
@@ -150,15 +216,21 @@ export async function triggerAutoSync(nowMs: number = Date.now()): Promise<void>
 
   inFlight = true;
   lastRunAt = nowMs;
+  let ok = false;
+  useOfflineStore.getState().setSyncing(true);
   try {
     const synced = await runAutoSync();
+    ok = true;
     if (synced > 0) {
       useOfflineStore.getState().bumpAutoSynced(synced);
-      await useOfflineStore.getState().refresh();
+      track('offline_synced', { count: synced });
     }
+    // Always recount: what is left (or newly refused) shows on the header indicator.
+    await useOfflineStore.getState().refresh();
   } catch {
     // best-effort — a failed pass leaves everything buffered
   } finally {
     inFlight = false;
+    useOfflineStore.getState().setSyncing(false, ok);
   }
 }

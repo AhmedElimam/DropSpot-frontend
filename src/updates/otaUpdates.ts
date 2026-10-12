@@ -1,31 +1,77 @@
 /**
- * Silent, non-blocking OTA update check (Mechanism A). Fetches a newer JS bundle
- * in the background and lets it activate on the NEXT launch — it never reloads
- * mid-session or blocks the UI, and a failed check is a no-op.
+ * Over-the-air JS updates (EAS Update). Checked silently on cold start and every few hours
+ * on foreground (AppConfigGate): a newer bundle is fetched in the background and — since
+ * 2026-10-11 — applied the next time the app comes back from the background after a real
+ * absence (reloadIfReady), not only at the next cold start: a teacher who never quits the
+ * app used to carry a fix around for days. Never mid-session: a reload is a restart.
  *
- * expo-updates is loaded via a guarded require so this compiles and runs whether
- * or not the package is installed yet (it's inert in Expo Go / dev and until the
- * founder runs `npx expo install expo-updates` + a native rebuild). See
- * OTA_AND_CONFIG.md for activation + rollback.
+ * expo-updates is loaded via a guarded require so this runs where the module is missing
+ * (Jest, Expo Go) as a no-op.
  */
-export async function checkForOtaUpdate(): Promise<void> {
-  let Updates: any;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    Updates = require('expo-updates');
-  } catch {
-    return; // not installed (scaffold state) — no-op
-  }
+type UpdatesApi = {
+  isEnabled: boolean;
+  updateId: string | null;
+  runtimeVersion: string | null;
+  isEmbeddedLaunch: boolean;
+  checkForUpdateAsync: () => Promise<{ isAvailable?: boolean }>;
+  fetchUpdateAsync: () => Promise<{ isNew?: boolean }>;
+  reloadAsync: () => Promise<void>;
+};
 
+let api: UpdatesApi | null | undefined;
+/** A newer bundle is on the phone, waiting for a restart. */
+let downloaded = false;
+
+function load(): UpdatesApi | null {
+  if (api !== undefined) return api;
   try {
-    if (!Updates?.isEnabled) return; // disabled in dev client / Expo Go
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    api = require('expo-updates') as UpdatesApi;
+  } catch {
+    api = null; // not installed — scaffold state
+  }
+  return api;
+}
+
+export async function checkForOtaUpdate(): Promise<void> {
+  const Updates = load();
+  if (!Updates?.isEnabled || downloaded) return;
+  try {
     const res = await Updates.checkForUpdateAsync();
     if (res?.isAvailable) {
-      await Updates.fetchUpdateAsync();
-      // Downloaded — it activates on next cold start. Never Updates.reloadAsync()
-      // here: a teacher mid-scan must not be interrupted by a reload.
+      const fetched = await Updates.fetchUpdateAsync();
+      if (fetched?.isNew !== false) downloaded = true;
     }
   } catch {
     // Bad network / server down — silent, by design.
   }
 }
+
+/** The app was in the background at least this long: a restart now interrupts nothing. */
+export const RELOAD_AFTER_BACKGROUND_MS = 2 * 60_000;
+
+/**
+ * Apply a downloaded update by restarting the JS — only when the person has clearly been
+ * away (the app sat in the background for RELOAD_AFTER_BACKGROUND_MS or more), so a
+ * teacher mid-scan or mid-payment is never cut off. Returns true when it reloads.
+ */
+export async function reloadIfReady(backgroundedForMs: number): Promise<boolean> {
+  const Updates = load();
+  if (!Updates?.isEnabled || !downloaded || backgroundedForMs < RELOAD_AFTER_BACKGROUND_MS) return false;
+  try {
+    await Updates.reloadAsync();
+    return true;
+  } catch {
+    return false; // next cold start applies it anyway
+  }
+}
+
+/** What runs right now, for an error report: the embedded bundle or an update's id. */
+export function runningUpdate(): { update_id: string | null; runtime: string | null; embedded: boolean } {
+  const Updates = load();
+  if (!Updates?.isEnabled) return { update_id: null, runtime: null, embedded: true };
+  return { update_id: Updates.updateId ?? null, runtime: Updates.runtimeVersion ?? null, embedded: !!Updates.isEmbeddedLaunch };
+}
+
+/** Test seam. */
+export function __resetOtaForTests(): void { api = undefined; downloaded = false; }

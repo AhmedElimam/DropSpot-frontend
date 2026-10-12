@@ -18,6 +18,18 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SwipeRow } from '@/components/ui/SwipeRow';
 import { timeAgo, formatNumber } from '@/utils/format';
 import { notificationCategory, type NotificationCategory } from '@/utils/notificationCategory';
+import { RoseShield } from '@/components/rose/RoseStamp';
+import { useRose } from '@/hooks/useRose';
+
+/**
+ * Hers: every message the server sends in مدام روز's voice carries `data.rose` (cash prompts,
+ * nudges, the 11 am sheet, expense reminders, observations, complaints routed through her);
+ * the types below are hers whatever their payload. Such a row wears her LOGO — the crest's
+ * shield — instead of a type icon (founder 2026-10-07).
+ */
+const ROSE_TYPES: ReadonlySet<string> = new Set(['rose_briefing', 'cash_insight', 'expense_reminder', 'cash_reconciliation']);
+export const isRoseNotification = (n: Pick<Notification, 'type' | 'data'>): boolean =>
+  ROSE_TYPES.has(n.type) || (n.data != null && typeof n.data === 'object' && 'rose' in n.data && n.data.rose != null);
 
 /** Icon + tint by type, so a glance tells money from attendance from مدام روز. */
 const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
@@ -58,6 +70,7 @@ const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
   booking_request: { icon: 'add', tint: colors.brand },
   booking_request_result: { icon: 'success', tint: colors.success },
   ticket_reply: { icon: 'tickets', tint: colors.brand },
+  ticket_new: { icon: 'ticket', tint: colors.accent },
   admin_ticket: { icon: 'note', tint: colors.brand },
   admin_ticket_reply: { icon: 'note', tint: colors.brand },
   admin_ticket_resolved: { icon: 'success', tint: colors.success },
@@ -68,11 +81,13 @@ const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
   cash_handover: { icon: 'transfer', tint: colors.brand },
   cash_reconciliation: { icon: 'money', tint: colors.brand },
   cash_insight: { icon: 'star', tint: colors.brand },
+  rose_briefing: { icon: 'calendar', tint: colors.brand },
   expense_reminder: { icon: 'money', tint: colors.brand },
   financial_report: { icon: 'reports', tint: colors.brand },
   assistant_course_created: { icon: 'book', tint: colors.warning },
   assistant_schedule_created: { icon: 'calendar', tint: colors.warning },
   assistant_session_created: { icon: 'calendar', tint: colors.warning },
+  assistant_session_cancelled: { icon: 'close', tint: colors.danger },
   assistant_checkin_review: { icon: 'attendance', tint: colors.warning },
   assistant_action_review: { icon: 'money', tint: colors.warning },
   assistant_report_review: { icon: 'note', tint: colors.warning },
@@ -123,12 +138,16 @@ const FeedRow = memo(function FeedRow({
   onToggleRead: (n: Notification) => void;
 }) {
   const { t } = useTranslation();
+  const rose = useRose();
   const look = LOOK()[n.type] ?? { icon: 'bell' as IconName, tint: colors.brand };
   const unread = !n.is_read;
+  // Her logo only while her name is on: a teacher who switched it off reads «المساعدة الشخصية» with the plain icon.
+  const hers = rose.named && isRoseNotification(n);
   return (
     <SwipeRow
+      radius={radius.xl}
       style={{ marginHorizontal: spacing.lg, marginBottom: spacing.sm }}
-      action={{ icon: unread ? 'success' : 'bell', label: t(unread ? 'notifications.swipe_read' : 'notifications.swipe_unread'), color: unread ? colors.success : colors.brand, onTrigger: () => onToggleRead(n) }}
+      action={{ icon: unread ? 'success' : 'bell', label: t(unread ? 'notifications.swipe_read' : 'notifications.swipe_unread'), color: unread ? colors.success : colors.brand, onTrigger: () => onToggleRead(n), afterSettle: true }}
     >
       <TouchableOpacity
         onPress={() => onOpen(n)}
@@ -143,9 +162,15 @@ const FeedRow = memo(function FeedRow({
           padding: spacing.lg,
         }}
       >
-        <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: unread ? look.tint : look.tint + '1A', justifyContent: 'center', alignItems: 'center' }}>
-          <Icon name={look.icon} size={22} color={unread ? '#fff' : look.tint} />
-        </View>
+        {hers ? (
+          <View style={{ width: 44, height: 48, justifyContent: 'center', alignItems: 'center' }}>
+            <RoseShield size={46} />
+          </View>
+        ) : (
+          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: unread ? look.tint : look.tint + '1A', justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name={look.icon} size={22} color={unread ? '#fff' : look.tint} />
+          </View>
+        )}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={{ flex: 1, fontFamily: unread ? fonts.bold : fonts.medium, fontSize: 15, color: unread ? colors.textPrimary : colors.textSecondary }} numberOfLines={2}>{n.title}</Text>

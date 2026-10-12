@@ -271,6 +271,25 @@ export const useAuthStore = create<AuthState>((set, get) => {
       await SecureStore.deleteItemAsync('imp_admin_token');
       await SecureStore.deleteItemAsync('imp_admin_refresh');
       await SecureStore.deleteItemAsync('imp_admin_user');
+      // The screens' saved data (src/lib/queryPersist.ts) goes too: the next person to sign in
+      // on this phone must never open onto the last one's students.
+      // Memory first: a sign-out the server forced (expired session) never passes through the
+      // hooks that clear the cache, and whatever stayed in memory would be saved straight back.
+      try {
+        const { getQueryClient } = await import('@/lib/queryClientRef');
+        getQueryClient()?.clear();
+        const { forgetPersistedQueries } = await import('@/lib/queryPersist');
+        await forgetPersistedQueries();
+        // The phone stops waking for a session that is gone (src/background/refreshTask.ts).
+        const { unregisterBackgroundRefresh } = await import('@/background/refreshTask');
+        await unregisterBackgroundRefresh();
+        const { clearOutbox } = await import('@/db/outbox');
+        await clearOutbox();
+        const { resetAnalytics } = await import('@/lib/analytics');
+        resetAnalytics();
+      } catch {
+        // best-effort
+      }
       set({ user: null, role: null, activeTeacherId: null, impersonation: null, isAuthenticated: false });
     },
 

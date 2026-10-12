@@ -16,6 +16,10 @@ export interface Invoice {
   id: string;
   number: string;
   amount: number;
+  /** Already paid (a part-paid invoice keeps its status until covered). */
+  paid_amount?: number;
+  /** Still due — what «دفعت ولم يُسجَّل» may claim, at most. */
+  remaining?: number;
   due_date: string;
   status: 'paid' | 'pending' | 'overdue';
   paid_at?: string | null;

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, KeyboardAvoidingView, Alert, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView, Switch } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
+import { Alert } from '@/ui/dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +17,7 @@ import {
   type CreateInvitationPayload, type DedupeMatch,
 } from '@/api/invitation';
 import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * Phone invitation — full parity with the web /invitations page: pick a course
@@ -136,7 +139,7 @@ export default function InvitePhone() {
   if (isLoading) {
     return <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={colors.brand} /></View>;
   }
-  if (isError) {
+  if (isError && !options) {
     return <View style={{ flex: 1, backgroundColor: colors.background }}><ErrorState onRetry={() => refetch()} /></View>;
   }
 
@@ -145,11 +148,14 @@ export default function InvitePhone() {
     // shrinks the window — the keyboard would overlay the lower inputs (down-payment /
     // paid). Let KeyboardAvoidingView do the work on BOTH platforms so focused fields
     // stay above the keyboard.
+    <Surface id="screen.teacher.invite-phone" screen>
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background }}>
+      <Surface id="teacher.invite_phone.header">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.sm, paddingBottom: spacing.sm }}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}><Icon name="forward" size={22} color={colors.textPrimary} /></TouchableOpacity>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('invite_phone.title')}</Text>
       </View>
+      </Surface>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
         {eligible.length === 0 ? (
@@ -157,6 +163,7 @@ export default function InvitePhone() {
         ) : (
           <>
             {/* Course */}
+            <Surface id="teacher.invite_phone.course_picker">
             <View style={card}>
               <Lbl>{t('invite_phone.course')}</Lbl>
               {eligible.map((c) => {
@@ -175,9 +182,11 @@ export default function InvitePhone() {
                 );
               })}
             </View>
+            </Surface>
 
             {/* Term */}
             {(options?.terms.length ?? 0) > 1 ? (
+              <Surface id="teacher.invite_phone.term_picker">
               <View style={card}>
                 <Lbl>{t('invite_phone.term')}</Lbl>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
@@ -192,9 +201,11 @@ export default function InvitePhone() {
                   })}
                 </View>
               </View>
+              </Surface>
             ) : null}
 
             {/* Student + phones */}
+            <Surface id="teacher.invite_phone.student_card">
             <View style={card}>
               <Lbl>{t('invite_phone.student_name')}</Lbl>
               <TextInput value={name} onChangeText={setName} placeholder={t('invite_phone.name_ph')} placeholderTextColor={colors.textTertiary} maxLength={120} style={{ ...input, borderColor: nameError ? colors.danger : colors.border }} />
@@ -211,19 +222,23 @@ export default function InvitePhone() {
               {parentPhoneError ? <Text style={errText}>{t('invite_phone.phone_format_error')}</Text> : null}
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>{t('invite_phone.phone_hint')}</Text>
             </View>
+            </Surface>
 
             {/* شروط التسجيل — the same sheet every door shows. */}
-            {courseId != null ? <EnrollmentTermsSheet terms={terms} /> : null}
+            {courseId != null ? <Surface id="teacher.invite_phone.terms_sheet"><EnrollmentTermsSheet terms={terms} /></Surface> : null}
 
+            <Surface id="teacher.invite_phone.send_button">
             <TouchableOpacity onPress={() => send()} disabled={!canSubmit} activeOpacity={0.85}
               style={{ minHeight: 52, borderRadius: radius.lg, backgroundColor: canSubmit ? colors.brand : colors.border, justifyContent: 'center', alignItems: 'center' }}>
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('invite_phone.send')}</Text>}
             </TouchableOpacity>
+            </Surface>
           </>
         )}
       </ScrollView>
 
       {/* Dedupe prompt — same student on this parent phone? */}
+      <Surface id="teacher.invite_phone.dedupe_modal">
       <Modal visible={!!matches} transparent animationType="fade" onRequestClose={() => setMatches(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: spacing.xl }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl }}>
@@ -235,16 +250,20 @@ export default function InvitePhone() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('invite_phone.same_student')}: {m.name ?? `#${m.id}`}</Text>
               </TouchableOpacity>
             ))}
+            <Surface id="teacher.invite_phone.dedupe_modal.new_student">
             <TouchableOpacity onPress={() => send({ dedupe_decision: 'new' })} disabled={busy} activeOpacity={0.85}
               style={{ backgroundColor: colors.brand, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.xs }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff', textAlign: 'center' }}>{t('invite_phone.new_student')}</Text>
             </TouchableOpacity>
+            </Surface>
             <TouchableOpacity onPress={() => setMatches(null)} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
+      </Surface>
     </KeyboardAvoidingView>
+    </Surface>
   );
 }

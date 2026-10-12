@@ -185,6 +185,14 @@ export interface BackfillDay {
   before_enrolment: boolean;
 }
 
+/** One month of attendance from before the app. */
+export interface PriorMonth {
+  month: string; // YYYY-MM
+  label: string;
+  attended: number;
+  held: number | null;
+}
+
 export interface StudentCourse {
   id: number;
   name: string | null;
@@ -192,6 +200,10 @@ export interface StudentCourse {
   cycle?: CycleProgress;
   /** This cycle's bill as it stands (strings with 2 decimals). `prior_paid` = settled before the teacher joined. */
   cycle_invoice?: { id: number; amount: string; paid: string; prior_paid: string; remaining: string; status: string } | null;
+  /** Bills still open to a correction — this month's and an older month's still owed (2026-10-06). */
+  correctable_bills?: CorrectableBill[];
+  /** Attendance from before the app, counted per month («سبتمبر · ٨ حصص»). History only. */
+  prior_months?: PriorMonth[];
   backfill_days?: BackfillDay[];
   /** Which day each session number of the current cycle fell / falls on — for the position picker. */
   timeline_positions?: { n: number; date: string | null; label: string | null; is_past: boolean }[];
@@ -271,7 +283,7 @@ export interface StudentDetail {
   phone_vouched?: boolean;
   /** Teacher can remove this TERMINATED (dropped, still-visible) student from the roster now. */
   can_remove_from_roster?: boolean;
-  attendance_stats: { total: number; attended: number; absent: number; excused: number };
+  attendance_stats: { total: number; attended: number; absent: number; excused: number; prior_attended?: number; prior_held?: number };
   attendance: StudentAttendanceRow[];
   billing: {
     has_overdue: boolean;
@@ -290,6 +302,10 @@ export interface StudentDetail {
     pending?: { bill: string; booklet: string; booking: string };
     /** One entry per ملزمة still owed, so the profile can offer collection per charge. */
     booklets?: PendingBooklet[];
+    /** One entry per bill still owed, by month — collected from the profile by its id. */
+    bills?: PendingBill[];
+    /** The booking دفعة still owed, with what it secures. */
+    booking?: { remaining: string; paid: string; secures: string | null } | null;
     /** A course has a booklet price but the teacher-wide booklets switch is off (set on the web /invoices page). */
     booklets_disabled_hint?: boolean;
     /** Collected charges the teacher can CANCEL (per-charge). Empty for assistants. */
@@ -336,6 +352,17 @@ export async function reverseStudentPayment(
  * kiosk and the collections list (paid_at, receipt, oversight, audit) — so the insights
  * are right the same second. Teacher, or an assistant with scan_attendance (403 otherwise).
  */
+export interface PendingBill {
+  id: number;
+  course: string | null;
+  month: string | null;
+  amount: string;
+  paid: string;
+  remaining: string;
+  due_date: string | null;
+  overdue: boolean;
+}
+
 export async function collectStudentCharge(
   studentId: string | number,
   kind: 'bill' | 'booklet' | 'booking',
@@ -367,6 +394,17 @@ export async function removeStudentFromRoster(studentId: string | number): Promi
 export async function getStudentPerformanceUrl(id: string | number): Promise<string> {
   const { data } = await client.get(`/teacher/students/${id}/performance-pdf-url`);
   return data?.data?.url ?? data?.url;
+}
+
+export type ReportWhatsApp = { sent: boolean; phone: string; parent_name: string | null; text: string; url: string };
+
+/**
+ * The performance PDF to the parent on WhatsApp when the student has no open ticket.
+ * `sent` = the business number already sent it; otherwise open `phone` with `text`.
+ */
+export async function sendStudentReportWhatsApp(id: string | number): Promise<ReportWhatsApp> {
+  const { data } = await client.post(`/teacher/students/${id}/report-whatsapp`);
+  return data?.data ?? data;
 }
 
 /**
@@ -490,4 +528,22 @@ export async function submitChildNameCorrection(
   payload: { first_name?: string; last_name?: string; reason: string },
 ): Promise<void> {
   await client.post(`/parent/children/${studentId}/edit-request`, payload);
+}
+
+/** A cycle bill the teacher may correct, named by its month. */
+export interface CorrectableBill {
+  invoice_id: number;
+  cycle_id: number;
+  amount: number;
+  paid: number;
+  remaining: number;
+  status: string;
+  /** The open month's bill (else an older month's still owed). */
+  current: boolean;
+  month: string | null;
+  /** Sessions attended out of the cycle's length — «حضر ٠/٨» tells a course that never ran apart. */
+  sessions?: number;
+  threshold?: number;
+  /** Open cycle, nothing attended in 3+ weeks: probably a bill for a course that never ran. */
+  never_ran?: boolean;
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { configRule } from '@/stores/appConfigStore';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
@@ -45,7 +46,7 @@ export default function ChangePasswordScreen() {
   const setSession = useAuthStore((s) => s.setSession);
 
   const mismatch = confirm.length > 0 && next !== confirm;
-  const canSubmit = current.length > 0 && next.length >= 6 && next === confirm && !change.isPending;
+  const canSubmit = current.length > 0 && next.length >= configRule('password_min_length') && next === confirm && !change.isPending;
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -88,7 +89,7 @@ export default function ChangePasswordScreen() {
         <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
             {isForced && (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.lg }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginBottom: spacing.lg }}>
                 {t('onboarding.set_password_hint')}
               </Text>
             )}

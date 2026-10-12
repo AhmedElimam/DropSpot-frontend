@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Share, Alert, KeyboardAvoidingView, Switch, ImageBackground } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Share, KeyboardAvoidingView, Switch, ImageBackground } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -14,8 +15,10 @@ import { RichTextEditor, type RichTextEditorRef } from '@/components/RichTextEdi
 import { useCourses } from '@/hooks/useCourses';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { mintInviteLink, type MintedInviteLink } from '@/api/invitation';
+import { isNetworkFailure } from '@/db/marksSync';
 import { getPaymentMethods, saveBookingTemplate, uploadBookingLinkImage, type BookingTemplate } from '@/api/paymentMethods';
 import { isArabicName } from '@/utils/validators';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * Invite-by-link (mobile parity for the web "رابط مُعبّأ" channel): the teacher picks
@@ -137,7 +140,7 @@ export default function InviteLink() {
   };
 
   const FONTS: { key: 'default' | 'cairo' | 'tajawal' | 'amiri'; label: string }[] = [
-    { key: 'default', label: 'افتراضي' }, { key: 'cairo', label: 'Cairo' }, { key: 'tajawal', label: 'Tajawal' }, { key: 'amiri', label: 'Amiri' },
+    { key: 'default', label: t('billing_settings.font_default') }, { key: 'cairo', label: 'Cairo' }, { key: 'tajawal', label: 'Tajawal' }, { key: 'amiri', label: 'Amiri' },
   ];
   const BRAND_SWATCHES = ['#4C1D95', '#2563eb', '#059669', '#dc2626', '#d97706', '#0891b2', '#be185d', '#334155'];
   const BG_SWATCHES = ['#F3F1FA', '#ffffff', '#f0f9ff', '#f0fdf4', '#fff7ed', '#fef2f2', '#f8fafc'];
@@ -158,7 +161,7 @@ export default function InviteLink() {
       const res = await mintInviteLink(courseId, name.trim() || undefined, { collectPayment, issueInvoice });
       setMinted(res);
     } catch (e: any) {
-      Alert.alert(t('common.error'), e?.response?.data?.message ?? t('invite_link.failed'));
+      Alert.alert(t('common.error'), e?.response?.data?.message ?? (isNetworkFailure(e) ? t('offline.need_connection_link') : t('invite_link.failed')));
     } finally {
       setBusy(false);
     }
@@ -173,18 +176,24 @@ export default function InviteLink() {
   const card = { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.lg, marginBottom: spacing.lg } as const;
 
   return (
+    <Surface id="screen.teacher.invite-link" screen>
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
+      <Surface id="teacher.invite_link.header">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}><Icon name="forward" size={22} color={colors.textPrimary} /></TouchableOpacity>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('invite_link.title')}</Text>
       </View>
+      </Surface>
 
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}>
+        <Surface id="teacher.invite_link.intro">
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginBottom: spacing.lg }}>
           {t('invite_link.intro')}
         </Text>
+        </Surface>
 
         {minted ? (
+          <Surface id="teacher.invite_link.minted_card">
           <View style={card}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.success, marginBottom: spacing.xs }}>{t('invite_link.ready')}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md }}>
@@ -193,20 +202,26 @@ export default function InviteLink() {
             <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textPrimary }} selectable>{minted.url}</Text>
             </View>
+            <Surface id="teacher.invite_link.minted_card.share">
             <TouchableOpacity onPress={share} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md }}>
               <Icon name="send" size={18} color="#fff" />
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('invite_link.share')}</Text>
             </TouchableOpacity>
+            </Surface>
+            <Surface id="teacher.invite_link.minted_card.another">
             <TouchableOpacity onPress={() => { setMinted(null); setName(''); }} activeOpacity={0.85} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('invite_link.another')}</Text>
             </TouchableOpacity>
+            </Surface>
           </View>
+          </Surface>
         ) : isLoading ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.xl }} />
         ) : eligible.length === 0 ? (
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xl }}>{t('invite_link.no_courses')}</Text>
         ) : (
           <>
+            <Surface id="teacher.invite_link.course_picker">
             <View style={card}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('invite_link.course')}</Text>
               {eligible.map((c) => (
@@ -221,15 +236,20 @@ export default function InviteLink() {
                 </TouchableOpacity>
               ))}
             </View>
+            </Surface>
 
+            <Surface id="teacher.invite_link.student_name">
             <View style={card}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('invite_link.student_name_optional')}</Text>
               <TextInput value={name} onChangeText={setName} placeholder={t('invite_link.name_ph_optional')} placeholderTextColor={colors.textTertiary} maxLength={120} style={{ ...input, borderColor: nameError ? colors.danger : colors.border }} />
               {nameError ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginTop: 6 }}>{t('invite_phone.name_arabic_error')}</Text> : null}
             </View>
+            </Surface>
 
             {/* Per-link booking options. */}
+            <Surface id="teacher.invite_link.options">
             <View style={card}>
+              <Surface id="teacher.invite_link.options.collect_payment">
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xs }}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('invite_link.collect_payment')}</Text>
@@ -237,6 +257,8 @@ export default function InviteLink() {
                 </View>
                 <Switch value={collectPayment} onValueChange={setCollectPayment} trackColor={{ true: colors.brand }} />
               </View>
+              </Surface>
+              <Surface id="teacher.invite_link.options.issue_invoice">
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xs, marginTop: spacing.sm }}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('invite_link.issue_invoice')}</Text>
@@ -244,14 +266,19 @@ export default function InviteLink() {
                 </View>
                 <Switch value={issueInvoice} onValueChange={setIssueInvoice} trackColor={{ true: colors.brand }} />
               </View>
+              </Surface>
             </View>
+            </Surface>
 
+            <Surface id="teacher.invite_link.mint_button">
             <TouchableOpacity onPress={submit} disabled={!canSubmit} activeOpacity={0.85} style={{ opacity: canSubmit ? 1 : 0.5, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center' }}>
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('invite_link.mint')}</Text>}
             </TouchableOpacity>
+            </Surface>
 
             {/* Editable rules/conditions template shown atop the family booking page. */}
-            {!isAssistant && tpl ? (
+            {tpl ? (
+              <Surface id="teacher.invite_link.template" assistantNeeds="teacher">
               <View style={[card, { marginTop: spacing.lg }]}>
                 <TouchableOpacity onPress={() => setTplOpen((o) => !o)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                   <Icon name="note" size={18} color={colors.brand} outline />
@@ -264,21 +291,22 @@ export default function InviteLink() {
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('invite_link.template_hint')}</Text>
 
                     {/* Live preview of the family page. */}
+                    <Surface id="teacher.invite_link.template.preview">
                     {(() => {
                       const innerCard = (
                         <View style={{ backgroundColor: '#fff', borderRadius: radius.lg, padding: spacing.md }}>
                           {tpl.booking_logo_url ? (
                             <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 120, height: 54, alignSelf: 'center', marginBottom: spacing.sm }} contentFit="contain" />
                           ) : null}
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: brand, textAlign: 'center' }}>{(tpl.booking_title || '').trim() || 'حجز مكان'}</Text>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: brand, textAlign: 'center' }}>{(tpl.booking_title || '').trim() || t('enroll_ui.preview_booking_title')}</Text>
                           {(tpl.booking_intro || '').trim() ? (
                             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: onWhite.muted, textAlign: 'center', marginTop: 4 }}>{tpl.booking_intro}</Text>
                           ) : null}
                           <View style={{ backgroundColor: '#f3ecfd', borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.sm }}>
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: brand, textAlign: 'center' }}>تسجيل الطالب في «المقرر»</Text>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: brand, textAlign: 'center' }}>{t('enroll_ui.preview_enroll_in_course')}</Text>
                           </View>
                           <View style={{ backgroundColor: brand, borderRadius: radius.md, paddingVertical: spacing.sm, marginTop: spacing.sm }}>
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff', textAlign: 'center' }}>أوافق على التسجيل</Text>
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff', textAlign: 'center' }}>{t('enroll_ui.preview_agree')}</Text>
                           </View>
                         </View>
                       );
@@ -291,8 +319,10 @@ export default function InviteLink() {
                         <View style={{ backgroundColor: bg, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border }}>{innerCard}</View>
                       );
                     })()}
+                    </Surface>
 
                     {/* Logo */}
+                    <Surface id="teacher.invite_link.template.logo">
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
                       {tpl.booking_logo_url ? <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 40, height: 40, borderRadius: 8 }} contentFit="contain" /> : null}
                       <TouchableOpacity onPress={pickLogo} disabled={uploading} activeOpacity={0.85} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
@@ -304,12 +334,16 @@ export default function InviteLink() {
                         </TouchableOpacity>
                       ) : null}
                     </View>
+                    </Surface>
 
                     {/* Title + intro */}
+                    <Surface id="teacher.invite_link.template.title_intro">
                     <TextInput value={tpl.booking_title ?? ''} onChangeText={(v) => setTplField({ booking_title: v })} placeholder={t('invite_link.page_title_ph')} placeholderTextColor={colors.textTertiary} maxLength={120} style={{ ...input, marginBottom: spacing.sm }} />
                     <TextInput value={tpl.booking_intro ?? ''} onChangeText={(v) => setTplField({ booking_intro: v })} placeholder={t('invite_link.page_intro_ph')} placeholderTextColor={colors.textTertiary} multiline maxLength={500} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm, minHeight: 64, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, textAlign: 'right', textAlignVertical: 'top', marginBottom: spacing.md }} />
+                    </Surface>
 
                     {/* Brand + background colours */}
+                    <Surface id="teacher.invite_link.template.colors">
                     <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('invite_link.brand_color')}</Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
                       {BRAND_SWATCHES.map((c) => (
@@ -324,8 +358,10 @@ export default function InviteLink() {
                           style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: bg.toLowerCase() === c.toLowerCase() ? 3 : 1, borderColor: bg.toLowerCase() === c.toLowerCase() ? colors.textPrimary : colors.border }} />
                       ))}
                     </View>
+                    </Surface>
 
                     {/* Background image (modern blurred) */}
+                    <Surface id="teacher.invite_link.template.bg_image">
                     <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('invite_link.bg_image')}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
                       {tpl.booking_bg_image_url ? <Image source={{ uri: tpl.booking_bg_image_url }} style={{ width: 44, height: 44, borderRadius: 8 }} contentFit="cover" /> : null}
@@ -338,8 +374,10 @@ export default function InviteLink() {
                         </TouchableOpacity>
                       ) : null}
                     </View>
+                    </Surface>
 
                     {/* Page font */}
+                    <Surface id="teacher.invite_link.template.font">
                     <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('billing_settings.font')}</Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
                       {FONTS.map((f) => {
@@ -352,7 +390,9 @@ export default function InviteLink() {
                         );
                       })}
                     </View>
+                    </Surface>
 
+                    <Surface id="teacher.invite_link.template.rules_editor">
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginBottom: spacing.xs }}>{t('invite_link.rules_label')}</Text>
                     {initialHtml !== null ? (
                       <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, overflow: 'hidden' }}>
@@ -371,17 +411,22 @@ export default function InviteLink() {
                     {uploading ? (
                       <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: spacing.sm }}>{t('invite_link.image_uploading')}</Text>
                     ) : null}
+                    </Surface>
+                    <Surface id="teacher.invite_link.template.save">
                     <TouchableOpacity onPress={saveTemplate} disabled={saveTpl.isPending} activeOpacity={0.85}
                       style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', opacity: saveTpl.isPending ? 0.6 : 1 }}>
                       {saveTpl.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('invite_link.save_template')}</Text>}
                     </TouchableOpacity>
+                    </Surface>
                   </View>
                 ) : null}
               </View>
+              </Surface>
             ) : null}
           </>
         )}
       </ScrollView>
     </KeyboardAvoidingView>
+    </Surface>
   );
 }

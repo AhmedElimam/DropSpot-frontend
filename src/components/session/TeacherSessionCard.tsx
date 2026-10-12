@@ -6,6 +6,7 @@ import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { AttendanceBar } from './AttendanceVisuals';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 import { sessionPhase, type SessionPhase } from '@/utils/sessionPhase';
 
@@ -66,20 +67,25 @@ export const SessionCard = memo(function SessionCard({
       }}
     >
       {/* Time column */}
+      <Surface id="teacher.session_card.time">
       <View style={{ width: 70, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, borderEndWidth: 1, borderEndColor: phase === 'live' ? colors.success + '40' : colors.borderLight }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 22, color: phase === 'live' ? colors.successText : colors.textPrimary }}>{clock || '—'}</Text>
         {meridiem ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, lineHeight: 14, color: colors.textTertiary }}>{meridiem}</Text> : null}
         {s.duration_minutes ? <Text style={{ fontFamily: fonts.regular, fontSize: 10, lineHeight: 14, color: colors.textTertiary, marginTop: 2 }}>{t('session_ui.minutes', { n: formatNumber(s.duration_minutes) })}</Text> : null}
       </View>
+      </Surface>
 
       <View style={{ flex: 1, padding: spacing.md, gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{s.course_name ?? '—'}</Text>
+          <Surface id="teacher.session_card.phase_chip">
           <View style={{ backgroundColor: p.chipBg, borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 9 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: p.chipText }}>{t(p.key)}</Text>
           </View>
+          </Surface>
         </View>
 
+        <Surface id="teacher.session_card.meta">
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
           {s.cycle_position ? (
             <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: 1, paddingHorizontal: 8 }}>
@@ -93,8 +99,10 @@ export const SessionCard = memo(function SessionCard({
             </View>
           ) : null}
         </View>
+        </Surface>
 
         {phase !== 'cancelled' && total > 0 ? (
+          <Surface id="teacher.session_card.attendance_bar">
           <View style={{ gap: 4, marginTop: 2 }}>
             <AttendanceBar present={present} absent={absent} total={total} height={6} />
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>
@@ -102,33 +110,42 @@ export const SessionCard = memo(function SessionCard({
               {absent > 0 ? ` · ${t('session_ui.absent_n', { n: formatNumber(absent) })}` : ''}
             </Text>
           </View>
+          </Surface>
         ) : null}
 
         {/* The compact card's only way into the session (see Shell above). */}
         {compact ? (
+          <Surface id="teacher.session_card.open_details_button">
           <TouchableOpacity onPress={() => onOpen(s)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('session_ui.open_details')}
             style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 38, marginTop: 4, borderRadius: radius.md, borderWidth: 1.5, borderColor: phase === 'live' ? colors.success : colors.brand }}>
             <Icon name="attendance" size={16} color={phase === 'live' ? colors.successText : colors.brand} outline />
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: phase === 'live' ? colors.successText : colors.brand }}>{t('session_ui.open_details')}</Text>
             <Icon name="back" size={14} color={phase === 'live' ? colors.successText : colors.brand} />
           </TouchableOpacity>
+          </Surface>
         ) : null}
 
         {actionable ? (
+          <Surface id="teacher.session_card.actions">
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 4 }}>
             {onScan ? (
+              <Surface id="teacher.session_card.actions.scan">
               <TouchableOpacity onPress={() => onScan(s)} activeOpacity={0.85} accessibilityRole="button"
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42, borderRadius: radius.md, backgroundColor: phase === 'live' ? colors.success : colors.brand }}>
                 <Icon name="scan" size={17} color="#fff" />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('sessions_tab.scan')}</Text>
               </TouchableOpacity>
+              </Surface>
             ) : null}
+            <Surface id="teacher.session_card.actions.sheet">
             <TouchableOpacity onPress={() => onOpen(s)} activeOpacity={0.85} accessibilityRole="button"
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42, borderRadius: radius.md, borderWidth: 1.5, borderColor: phase === 'live' ? colors.success : colors.brand, backgroundColor: colors.surface }}>
               <Icon name="attendance" size={17} color={phase === 'live' ? colors.success : colors.brand} outline />
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: phase === 'live' ? colors.success : colors.brand }}>{t('sessions_tab.sheet')}</Text>
             </TouchableOpacity>
+            </Surface>
           </View>
+          </Surface>
         ) : null}
       </View>
     </Shell>

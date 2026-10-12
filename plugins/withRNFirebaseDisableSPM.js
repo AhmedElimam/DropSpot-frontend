@@ -35,6 +35,15 @@ module.exports = function withRNFirebaseDisableSPM(config) {
         );
       }
 
+      // (1b) Analytics WITHOUT the advertising-ID pod: no IDFA, no App Tracking prompt, and
+      //      allowed for apps used by children (src/lib/analytics.ts — founder 2026-10-10).
+      if (!contents.includes('$RNFirebaseAnalyticsWithoutAdIdSupport')) {
+        contents = contents.replace(
+          /^target ['"].*$/m,
+          (match) => `$RNFirebaseAnalyticsWithoutAdIdSupport = true\n\n${match}`,
+        );
+      }
+
       // (2) Allow non-modular header includes on all pod targets, inside the existing
       //     `post_install do |installer|` block that the Expo/RN template always emits.
       if (!contents.includes('CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES')) {

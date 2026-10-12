@@ -48,7 +48,7 @@ export default function ForgotPasswordScreen() {
             <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{(i + 1).toLocaleString('ar-EG')}</Text>
             </View>
-            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textSecondary, textAlign: 'right' }}>{s}</Text>
+            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textSecondary }}>{s}</Text>
           </View>
         ))}
       </View>

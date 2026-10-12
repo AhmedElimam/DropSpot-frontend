@@ -3,9 +3,8 @@ import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
+import { colors, spacing, radius, shadows, nav } from '@/theme/index';
 import { useTickets } from '@/hooks/useTickets';
 import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -20,6 +19,8 @@ import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
 import { ComposeThreadSheet } from '@/components/threads/ComposeThreadSheet';
 import { ReportsSheet, SettingsSheet } from '@/components/threads/ThreadSheets';
 import type { IconName } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 // Left-edge accent per ticket state.
 const statusColors = (): Record<string, [string, string]> => ({
@@ -45,6 +46,7 @@ const priorityColors = (): Record<string, string> => ({
  * rather than competing for a sixth slot on a five-tab bar. The segment defaults to Chat
  * when the feature is on, because a class room ages faster than a ticket does — and when
  * the flag is off, the segments do not appear at all and this is the ticket list it was.
+ * A pushed screen since tickets left the tab bar (2026-10-04) — so it carries its back.
  */
 export default function TeacherConversations() {
   const { t } = useTranslation();
@@ -71,39 +73,37 @@ export default function TeacherConversations() {
   const openThread = (id: number) => router.push(`/(teacher)/tickets/threads/${id}` as Href);
 
   return (
+    <Surface id="screen.teacher.tickets" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl4 + insets.top, paddingBottom: segmented ? spacing.xl : spacing.xl4 }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 28, color: colors.onHero, letterSpacing: -0.5 }}>
-            {segmented ? t('chat.conversations') : t('tickets.title')}
-          </Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.onHeroSoft, marginTop: 4 }}>
-            {showThreads
+        <Surface id="teacher.tickets.hero">
+          <PageHero
+            onBack
+            title={segmented ? t('chat.conversations') : t('tickets.title')}
+            subtitle={showThreads
               ? t('threads.subtitle_teacher')
               : showChat
                 ? t('chat.members_count', { count: (channels ?? []).length })
                 : t('tickets.count', { count: tickets?.length ?? 0 })}
-          </Text>
-        </LinearGradient>
+          />
+        </Surface>
 
         {segmented ? (
+          <Surface id="teacher.tickets.segments">
           <View style={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: -spacing.lg, marginBottom: spacing.md }}>
             {threadsEnabled ? <Segment label={t('threads.tab')} icon="threads" active={tab === 'threads'} badge={threadsBadge} onPress={() => setTab('threads')} /> : null}
             {chatEnabled ? <Segment label={t('chat.tab_chat')} icon="chat" active={tab === 'chat'} badge={chatUnread} onPress={() => setTab('chat')} /> : null}
             <Segment label={t('chat.tab_tickets')} icon="tickets" active={tab === 'tickets'} badge={openTickets} onPress={() => setTab('tickets')} />
           </View>
+          </Surface>
         ) : null}
 
         {showThreads ? (
+          <Surface id="teacher.tickets.threads">
           <View style={{ paddingHorizontal: spacing.lg }}>
             <ThreadsFeed
               onOpen={openThread}
@@ -122,15 +122,19 @@ export default function TeacherConversations() {
             <SettingsSheet visible={settingsOpen} settings={threadsFeed?.settings} onClose={() => setSettingsOpen(false)} />
             <ReportsSheet visible={reportsOpen} onClose={() => setReportsOpen(false)} onOpenThread={(id) => { setReportsOpen(false); openThread(id); }} />
           </View>
+          </Surface>
         ) : showChat ? (
+          <Surface id="teacher.tickets.chat">
           <View style={{ backgroundColor: colors.surface, marginHorizontal: spacing.lg, borderRadius: radius.xl, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <ChatRoomsList onOpen={(courseId) => router.push(`/(teacher)/tickets/chat/${courseId}` as Href)} />
           </View>
+          </Surface>
         ) : (
+          <Surface id="teacher.tickets.list">
           <View style={{ paddingHorizontal: spacing.lg, marginTop: segmented ? 0 : -spacing.lg, gap: spacing.md }}>
             {isLoading ? (
               <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
-            ) : isError ? (
+            ) : isError && !tickets ? (
               <ErrorState onRetry={() => refetch()} />
             ) : !tickets?.length ? (
               <EmptyState icon="tickets" title={t('tickets.empty')} />
@@ -186,9 +190,11 @@ export default function TeacherConversations() {
               })
             )}
           </View>
+          </Surface>
         )}
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 

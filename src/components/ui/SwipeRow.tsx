@@ -10,6 +10,13 @@ export interface SwipeAction {
   label: string;
   color: string;
   onTrigger: () => void;
+  /**
+   * Fire only once the row has sprung back. For an action that RESTYLES the row itself
+   * (read ⇄ unread): firing mid-motion restyled the row and the panel while they slid.
+   * Off by default: an action that opens something (a sheet, a confirmation) fires at the
+   * threshold, so it appears at once (founder 2026-10-11: «a delay until the modal shows»).
+   */
+  afterSettle?: boolean;
 }
 
 const PANEL_W = 96;
@@ -35,7 +42,7 @@ const EDGE_GUARD = 28;
  * threshold ("it doesn't swipe to read, it stays the same"). The root layout mounts the
  * GestureHandlerRootView this needs.
  */
-export function SwipeRow({ action, leftAction, children, style }: {
+export function SwipeRow({ action, leftAction, children, style, radius = 20 }: {
   /** Revealed on the RIGHT edge by a swipe from right to left. */
   action?: SwipeAction;
   /** Revealed on the LEFT edge by a swipe from left to right (founder 2026-10-04: a second
@@ -43,13 +50,25 @@ export function SwipeRow({ action, leftAction, children, style }: {
   leftAction?: SwipeAction;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /** The row's own corner radius: the panel's OUTER corners take it, so the green or red
+   *  block reads as part of the card, not a tile beside it (founder 2026-10-11). */
+  radius?: number;
 }) {
   const ref = useRef<SwipeableMethods>(null);
   // The library reports PHYSICAL directions, never flipped for RTL: 'left' = the row moved
   // left (finger right → left, the right panel shows); 'right' = the opposite.
-  const fire = (direction: 'left' | 'right') => {
-    const a = direction === 'left' ? action : leftAction;
+  // An action that restyles the row (afterSettle) is remembered at the threshold and fired
+  // once the row has sprung back (onSwipeableClose); every other action fires at once.
+  const pending = useRef<SwipeAction | null>(null);
+  const arm = (direction: 'left' | 'right') => {
+    const a = (direction === 'left' ? action : leftAction) ?? null;
     ref.current?.close();
+    if (a?.afterSettle) { pending.current = a; return; }
+    a?.onTrigger();
+  };
+  const settled = () => {
+    const a = pending.current;
+    pending.current = null;
     a?.onTrigger();
   };
   return (
@@ -64,9 +83,10 @@ export function SwipeRow({ action, leftAction, children, style }: {
       // A deliberate sideways drag, not the first few points of a back swipe or a scroll.
       dragOffsetFromLeftEdge={16}
       dragOffsetFromRightEdge={16}
-      renderRightActions={action ? (progress) => <Panel progress={progress} action={action} /> : undefined}
-      renderLeftActions={leftAction ? (progress) => <Panel progress={progress} action={leftAction} /> : undefined}
-      onSwipeableWillOpen={(d) => fire(d === 'left' ? 'left' : 'right')}
+      renderRightActions={action ? (progress) => <Panel progress={progress} action={action} radius={radius} edge="right" /> : undefined}
+      renderLeftActions={leftAction ? (progress) => <Panel progress={progress} action={leftAction} radius={radius} edge="left" /> : undefined}
+      onSwipeableWillOpen={(d) => arm(d === 'left' ? 'left' : 'right')}
+      onSwipeableClose={settled}
       containerStyle={style}
     >
       {children}
@@ -74,13 +94,18 @@ export function SwipeRow({ action, leftAction, children, style }: {
   );
 }
 
-function Panel({ progress, action }: { progress: SharedValue<number>; action: SwipeAction }) {
+function Panel({ progress, action, radius, edge }: { progress: SharedValue<number>; action: SwipeAction; radius: number; edge: 'left' | 'right' }) {
   const anim = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 0.4, 1], [0, 0.9, 1], 'clamp'),
     transform: [{ scale: interpolate(progress.value, [0, 1], [0.7, 1], 'clamp') }],
   }));
+  // Only the corners on the screen's edge are rounded; the inner edge meets the sliding
+  // card flush, so no sliver of background shows between them.
+  const corners = edge === 'right'
+    ? { borderTopRightRadius: radius, borderBottomRightRadius: radius }
+    : { borderTopLeftRadius: radius, borderBottomLeftRadius: radius };
   return (
-    <View style={{ width: PANEL_W, backgroundColor: action.color, alignItems: 'center', justifyContent: 'center', borderRadius: 20 }}>
+    <View style={{ width: PANEL_W, backgroundColor: action.color, alignItems: 'center', justifyContent: 'center', ...corners }}>
       <Animated.View style={[{ alignItems: 'center', gap: 4 }, anim]}>
         <Icon name={action.icon} size={24} color="#fff" />
         <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>{action.label}</Text>

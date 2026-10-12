@@ -1,12 +1,15 @@
+import { track } from '@/lib/analytics';
 import { SheetModal } from '@/components/ui/SheetModal';
-import { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Alert } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { FlatList, ScrollView } from '@/components/ui/Refreshable';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, type Href } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getStudentDetail } from '@/api/students';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, gradients } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -15,11 +18,19 @@ import { formatNumber } from '@/utils/format';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { formatEGP } from '@/utils/currency';
-import { getPendingCollections, collectFromRoster, cancelDueFromRoster, type RosterStudent, type CollectKind } from '@/api/pendingCollections';
+import { BillingYearSheet, type BillingYearTarget } from '@/components/teacher/BillingYearSheet';
+import { CollectSheet } from '@/components/teacher/CollectSheet';
+import { isQueued } from '@/api/offlineQueue';
+import { getPendingCollections, collectFromRoster, cancelDueFromRoster, type RosterStudent, type RosterBillItem, type CollectKind } from '@/api/pendingCollections';
+import { setCycleAmount } from '@/api/enrollments';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import { reverseStudentPayment } from '@/api/students';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { TeacherTip } from '@/components/TeacherTip';
+import { Surface } from '@/ui/surfaces';
+import i18n from '@/i18n';
 
 interface Target {
   studentId: number;
@@ -27,7 +38,15 @@ interface Target {
   kind: CollectKind;
   label: string;
   remaining: number;
+  /** A bill's own invoices — the ones still owed can be corrected before collecting. */
+  items?: RosterBillItem[];
 }
+
+// desk_ui.month_1 … desk_ui.month_12 — the twelve calendar months, January first.
+const monthName = (ym?: string | null) => { const n = ym ? Number(ym.slice(5, 7)) : 0; return n >= 1 && n <= 12 ? i18n.t(`desk_ui.month_${n}`) : null; };
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+type BillEdit = { amount: string; sessions: string };
 
 type State = 'overdue' | 'due' | 'settled';
 type Filter = 'owing' | 'overdue' | 'settled' | 'all';
@@ -67,9 +86,11 @@ export default function TeacherPendingCollections() {
   const { data: flags } = useFeatureFlags();
   // Undoing a payment and cancelling a due are the teacher's; the server refuses every
   // assistant, so they never see those buttons (founder 2026-09-26).
-  const { isAssistant } = useActiveAbilities();
-  const canCancelDue = !!flags?.cancel_pending_due && !isAssistant;
-  const canReverse = !isAssistant;
+  const { can } = useActiveAbilities();
+  // Correcting a bill while collecting is the bill-edit ability's, like everywhere else.
+  const canEditBill = can('edit_bill_amount');
+  // Refusing a payment and cancelling a due are the teacher's (Surface assistantNeeds="teacher").
+  const canCancelDue = !!flags?.cancel_pending_due;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['pending-collections'],
@@ -78,28 +99,89 @@ export default function TeacherPendingCollections() {
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   const [target, setTarget] = useState<Target | null>(null);
-  const [amount, setAmount] = useState('');
+  const [yearFor, setYearFor] = useState<BillingYearTarget | null>(null);
+  // Tapping a student opens their profile as a native sheet over the list (founder
+  // 2026-10-06). The profile is fetched as the finger lifts, so the sheet usually rises with
+  // it already there; the list refreshes when the sheet goes away.
+  const openStudent = (studentId: number, name: string) => {
+    void qc.prefetchQuery({ queryKey: ['teacher-student', String(studentId)], queryFn: () => getStudentDetail(studentId), staleTime: 15_000 });
+    router.push({ pathname: '/(teacher)/student-sheet/[id]', params: { id: String(studentId), name } } as unknown as Href);
+  };
+  const seen = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (seen.current) void refetch();
+    seen.current = true;
+  }, [refetch]));
+  const [amountTyped, setAmount] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // «عدّل وحصّل» (founder 2026-10-09: «adjust payment and for how many sessions … on
+  // collecting»): the bill's still-owed invoices, each with its amount and sessions open to
+  // correct right here. The correction edits that same bill (cycle-amount), then the money
+  // is taken — one sheet, no trip to the student's page first.
+  const [edits, setEdits] = useState<Record<number, BillEdit>>({});
+  const editable = useMemo(
+    () => (canEditBill && target?.kind === 'bill' ? (target.items ?? []).filter((i) => i.remaining > 0.001 && i.enrollment_id) : []),
+    [canEditBill, target],
+  );
 
   const openCollect = (tg: Target) => {
     setTarget(tg);
-    setAmount(String(tg.remaining));
+    setAmount(null);
+    setEdits(Object.fromEntries((tg.items ?? []).map((i) => [i.invoice_id, { amount: String(round2(i.amount)), sessions: i.sessions ? String(i.sessions) : '' }])));
   };
+
+  // What is owed once the corrections are in: each edited invoice's new figure less what is
+  // already paid on it, in place of its old remainder.
+  const owed = useMemo(() => {
+    if (!target) return 0;
+    return round2(editable.reduce((n, i) => {
+      const a = Number(edits[i.invoice_id]?.amount);
+      return Number.isFinite(a) && a > 0 ? n - i.remaining + Math.max(0, a - i.paid) : n;
+    }, target.remaining));
+  }, [target, editable, edits]);
+  // The amount to collect follows the bill until the person types their own.
+  const amount = amountTyped ?? String(owed);
+
+  const changedLines = () => editable.filter((i) => {
+    const e = edits[i.invoice_id];
+    return e && (Number(e.amount) !== round2(i.amount) || (Number(e.sessions) || 0) !== (i.sessions ?? 0));
+  });
 
   const submit = async () => {
     if (!target) return;
     const amt = Number(amount);
     if (!(amt > 0)) return;
+    const changes = changedLines();
+    for (const i of changes) {
+      const a = Number(edits[i.invoice_id].amount);
+      if (!(a > 0)) return Alert.alert('', t('collections.bill_amount_required'));
+      if (a + 0.01 < i.paid) return Alert.alert('', t('collections.bill_below_paid', { amount: formatEGP(i.paid) }));
+    }
     setBusy(true);
     try {
-      const res = await collectFromRoster(target.studentId, target.kind, amt);
+      for (const i of changes) {
+        const e = edits[i.invoice_id];
+        const s = Number(e.sessions);
+        await setCycleAmount(i.enrollment_id as number, { amount: Number(e.amount), sessions: s > 0 ? s : null, invoiceId: i.invoice_id });
+      }
+    } catch (e) {
+      setBusy(false);
+      await qc.invalidateQueries({ queryKey: ['pending-collections'] });
+      return Alert.alert(t('common.error'), getFriendlyErrorMessage(e));
+    }
+    try {
+      const res = await collectFromRoster(target.studentId, target.kind, Math.min(amt, owed > 0 ? owed : amt));
       await qc.invalidateQueries({ queryKey: ['pending-collections'] });
       setTarget(null);
+      track('payment_collected', { kind: target.kind, value: Math.round(amt), currency: 'EGP', source: 'roster', offline: isQueued(res) });
+      if (isQueued(res)) return Alert.alert('', res.message);
       Alert.alert('', res.remaining && Number(res.remaining) > 0
         ? t('collections.collected_partial', { amount: res.amount, remaining: res.remaining })
         : t('collections.collected_full'));
     } catch {
-      Alert.alert(t('common.error'), t('collections.collect_failed'));
+      await qc.invalidateQueries({ queryKey: ['pending-collections'] });
+      if (changes.length) setTarget(null);
+      Alert.alert(t('common.error'), t(changes.length ? 'collections.bill_saved_collect_failed' : 'collections.collect_failed'));
     } finally {
       setBusy(false);
     }
@@ -108,12 +190,12 @@ export default function TeacherPendingCollections() {
   // Cancel a student's collected payment straight from a roster row (per-student, in-UI —
   // no toast). Shown to the teacher only; the reverse endpoint re-checks.
   const cancelPayment = (studentId: number, name: string, kind: CollectKind, chargeId?: number) => {
-    Alert.alert('إلغاء الدفع', `إلغاء دفع «${name}»؟ ستعود مستحقّاته كما كانت.`, [
+    Alert.alert(t('cash.refuse_confirm'), t('desk_ui.reverse_payment_body', { name }), [
       { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'إلغاء الدفع', style: 'destructive', onPress: async () => {
+        text: t('cash.refuse_confirm'), style: 'destructive', onPress: async () => {
           try { await reverseStudentPayment(studentId, kind, chargeId); await qc.invalidateQueries({ queryKey: ['pending-collections'] }); }
-          catch { Alert.alert(t('common.error'), 'تعذّر إلغاء الدفع'); }
+          catch { Alert.alert(t('common.error'), t('desk_ui.reverse_payment_failed')); }
         },
       },
     ]);
@@ -125,19 +207,19 @@ export default function TeacherPendingCollections() {
   // is tapped from shows a remainder, not a total.
   const cancelDue = (studentId: number, name: string, kind: CollectKind, remaining: number, chargeId?: number) => {
     Alert.alert(
-      'إلغاء المستحق',
-      `إلغاء مستحق «${name}» بقيمة ${formatEGP(remaining)} دون تحصيل؟ لن يُطلب من الطالب دفعه.`,
+      t('desk_ui.cancel_due'),
+      t('desk_ui.cancel_due_body', { name, amount: formatEGP(remaining) }),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'إلغاء المستحق', style: 'destructive', onPress: async () => {
+          text: t('desk_ui.cancel_due'), style: 'destructive', onPress: async () => {
             try {
               await cancelDueFromRoster(studentId, kind, chargeId);
               await qc.invalidateQueries({ queryKey: ['pending-collections'] });
             } catch (e: any) {
               // Show the server's own sentence when it sent one — it names the actual
               // reason; the generic line is only for a dead network.
-              Alert.alert(t('common.error'), e?.message || 'تعذّر إلغاء المستحق — تحقّق من الاتصال');
+              Alert.alert(t('common.error'), e?.message || t('desk_ui.cancel_due_failed'));
             }
           },
         },
@@ -179,11 +261,15 @@ export default function TeacherPendingCollections() {
 
     return (
       <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: tone.stripe, padding: spacing.md, marginBottom: spacing.sm }}>
-        {/* Who, and what they owe — the number is the headline. */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        {/* Who, and what they owe — the number is the headline. A tap opens the student. */}
+        <TouchableOpacity onPress={() => openStudent(s.student_id, s.name)} activeOpacity={0.7} accessibilityRole="button" accessibilityHint={t('desk_ui.view_student_hint')}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
           <GeneratedAvatar seed={avatarSeed.student(s.student_id)} size={42} label={s.name} />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
+              <Icon name="back" size={13} color={colors.textTertiary} />
+            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
               <View style={{ backgroundColor: tone.bg, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: tone.fg }}>{t(tone.label)}</Text>
@@ -195,9 +281,10 @@ export default function TeacherPendingCollections() {
             <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: r.state === 'settled' ? colors.successText : tone.fg }}>{formatEGP(r.state === 'settled' ? r.paid : r.remaining)}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t(r.state === 'settled' ? 'collections.paid' : 'collections.remaining')}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* One line per due: what it is, how much of it is in, and the actions. */}
+        <Surface id="teacher.pending_collections.due_lines">
         {lines.map((l) => {
           const pct = l.original > 0 ? Math.min(1, l.paid / l.original) : 0;
           return (
@@ -215,43 +302,62 @@ export default function TeacherPendingCollections() {
                   </Text>
                 </View>
                 {l.remaining > 0 ? (
+                  <Surface id="teacher.pending_collections.collect_button" ctx={{ line: l }}>
                   <TouchableOpacity
-                    onPress={() => openCollect({ studentId: s.student_id, name: s.name, kind: l.kind, label: l.collectLabel, remaining: l.remaining })}
+                    onPress={() => openCollect({ studentId: s.student_id, name: s.name, kind: l.kind, label: l.collectLabel, remaining: l.remaining, items: l.kind === 'bill' ? s.bill?.items : undefined })}
                     activeOpacity={0.85} accessibilityRole="button"
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 36, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: colors.success }}>
                     <Icon name="money" size={15} color="#fff" />
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{formatEGP(l.remaining)}</Text>
                   </TouchableOpacity>
+                  </Surface>
                 ) : (
                   <Icon name="success" size={22} color={colors.success} />
                 )}
               </View>
               {/* Progress: how much of this due is in. */}
+              <Surface id="teacher.pending_collections.progress_bar">
               <View style={{ height: 5, borderRadius: 3, backgroundColor: colors.surfaceSunken, marginTop: spacing.sm, overflow: 'hidden' }}>
                 <View style={{ width: `${Math.round(pct * 100)}%`, height: 5, borderRadius: 3, backgroundColor: l.overdue && pct < 1 ? colors.danger : colors.success }} />
               </View>
-              {(canReverse && l.paid > 0) || (canCancelDue && l.remaining > 0) ? (
-                <View style={{ flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm }}>
-                  {canReverse && l.paid > 0 ? (
-                    <TouchableOpacity onPress={() => cancelPayment(s.student_id, s.name, l.kind, l.chargeId)} hitSlop={8}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.dangerText }}>إلغاء الدفع</Text>
+              </Surface>
+              {l.paid > 0 || (canCancelDue && l.remaining > 0) ? (
+                <View style={{ flexDirection: 'row', gap: spacing.lg }}>
+                  {l.paid > 0 ? (
+                    <Surface id="teacher.pending_collections.refuse_button" ctx={{ line: l }} assistantNeeds="teacher">
+                    <TouchableOpacity onPress={() => cancelPayment(s.student_id, s.name, l.kind, l.chargeId)} hitSlop={8} style={{ marginTop: spacing.sm }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.dangerText }}>{t('cash.refuse_confirm')}</Text>
                     </TouchableOpacity>
+                    </Surface>
                   ) : null}
                   {canCancelDue && l.remaining > 0 ? (
-                    <TouchableOpacity onPress={() => cancelDue(s.student_id, s.name, l.kind, l.remaining, l.chargeId)} hitSlop={8}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.warningText }}>إلغاء المستحق</Text>
+                    <Surface id="teacher.pending_collections.cancel_due_button" assistantNeeds="teacher">
+                    <TouchableOpacity onPress={() => cancelDue(s.student_id, s.name, l.kind, l.remaining, l.chargeId)} hitSlop={8} style={{ marginTop: spacing.sm }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.warningText }}>{t('desk_ui.cancel_due')}</Text>
                     </TouchableOpacity>
+                    </Surface>
                   ) : null}
                 </View>
               ) : null}
             </View>
           );
         })}
+        </Surface>
+        {/* «السنة»: the student's months — which month each bill is, edit it, bill a missing one. */}
+        <Surface id="teacher.pending_collections.year_bills_button">
+        <TouchableOpacity onPress={() => setYearFor({ studentId: s.student_id, name: s.name })} hitSlop={6} accessibilityRole="button"
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+          <Icon name="calendar" size={15} color={colors.brand} />
+          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('desk_ui.year_bills_month_by_month')}</Text>
+          <Icon name="back" size={14} color={colors.brand} />
+        </TouchableOpacity>
+        </Surface>
       </View>
     );
   };
 
   return (
+    <Surface id="screen.teacher.pending-collections" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Ink hero: what is still out, what is late, what came in — then search and filters. */}
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -263,6 +369,7 @@ export default function TeacherPendingCollections() {
           <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }}>{t('collections.title')}</Text>
         </View>
 
+        <Surface id="teacher.pending_collections.stats">
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
           {[
             { label: t('collections.stat_out'), value: formatEGP(totals.remaining), icon: 'money' as IconName, tint: colors.accent },
@@ -278,14 +385,18 @@ export default function TeacherPendingCollections() {
             </View>
           ))}
         </View>
+        </Surface>
 
+        <Surface id="teacher.pending_collections.search_bar">
         <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.onHeroChip, borderRadius: radius.lg, paddingHorizontal: spacing.md, marginTop: spacing.md }}>
           <Icon name="search" size={17} color={colors.onHeroSoft} />
           <TextInput value={search} onChangeText={setSearch} placeholder={t('collections.search_ph')} placeholderTextColor={colors.onHeroFaint}
             style={{ flex: 1, height: 40, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 14, color: colors.onHero, textAlign: 'right', paddingVertical: 0 }} />
           {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color={colors.onHeroSoft} /></TouchableOpacity> : null}
         </View>
+        </Surface>
 
+        <Surface id="teacher.pending_collections.filter_pills">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: spacing.sm, marginHorizontal: -spacing.lg }}
           contentContainerStyle={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg }}>
           {pills.map((x) => {
@@ -300,13 +411,15 @@ export default function TeacherPendingCollections() {
             );
           })}
         </ScrollView>
+        </Surface>
       </LinearGradient>
 
       {isLoading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={colors.brand} /></View>
-      ) : isError ? (
+      ) : isError && !data ? (
         <ErrorState onRetry={() => refetch()} />
       ) : (
+        <Surface id="teacher.pending_collections.list">
         <FlatList showsVerticalScrollIndicator={false}
           removeClippedSubviews
           initialNumToRender={8}
@@ -317,61 +430,83 @@ export default function TeacherPendingCollections() {
           keyExtractor={(r) => String(r.s.student_id)}
           renderItem={renderStudent}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl, flexGrow: 1 }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl + 64, flexGrow: 1 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
           ListEmptyComponent={rows.length
             ? <EmptyState icon="search" title={t('collections.empty_filter')} />
             : <EmptyState icon="money" title={t('collections.empty')} />}
         />
+        </Surface>
       )}
 
-      {/* Collect modal — amount input, default = full remainder. */}
-      <SheetModal visible={!!target} onClose={() => setTarget(null)} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xl, paddingBottom: spacing.xl + insets.bottom }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
-              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="money" size={24} color={colors.success} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{target?.label}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: 2 }}>{target?.name}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{formatEGP(target?.remaining ?? 0)}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{t('collections.remaining')}</Text>
-              </View>
-            </View>
+      {/* One page, two ways in (founder 2026-10-06: «a page made for two tabs is a bit much»):
+          the list above, and — always in reach of the thumb — scanning the card. */}
+      <Surface id="teacher.pending_collections.scan_fab">
+      <TouchableOpacity onPress={() => router.push('/(teacher)/scan?payKind=all' as Href)} activeOpacity={0.9} accessibilityRole="button"
+        style={{ position: 'absolute', bottom: insets.bottom + spacing.lg, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 54, paddingHorizontal: spacing.xl, borderRadius: radius.full, backgroundColor: colors.brand, shadowColor: '#000', shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
+        <Icon name="scan" size={22} color="#fff" />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: '#fff' }}>{t('desk_ui.scan_card_to_collect')}</Text>
+      </TouchableOpacity>
+      </Surface>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <TextInput
-                value={amount}
-                onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))}
-                keyboardType="numeric"
-                style={{ flex: 1, height: 52, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, paddingHorizontal: spacing.md, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'center' }}
-              />
-              {[{ label: t('collections.full'), v: target?.remaining ?? 0 }, { label: t('collections.half'), v: Math.round((target?.remaining ?? 0) / 2) }].map((q) => {
-                const on = Number(amount) === q.v;
-                return (
-                  <TouchableOpacity key={q.label} onPress={() => setAmount(String(q.v))}
-                    style={{ paddingHorizontal: spacing.md, height: 52, justifyContent: 'center', borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, backgroundColor: on ? colors.brand : 'transparent' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? '#fff' : colors.brand }}>{q.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: spacing.sm }}>{t('collections.partial_hint')}</Text>
+      <Surface id="teacher.pending_collections.tip">
+      <TeacherTip
+        tip="billing"
+        icon="money"
+        titleKey="onboarding.tip_billing_title"
+        bodyKey="onboarding.tip_billing_body"
+        bulletKeys={['onboarding.tip_billing_b1', 'onboarding.tip_billing_b2']}
+      />
+      </Surface>
 
-            <TouchableOpacity
-              onPress={submit}
-              disabled={busy || !(Number(amount) > 0)}
-              activeOpacity={0.85}
-              style={{ marginTop: spacing.lg, minHeight: 48, borderRadius: radius.md, backgroundColor: Number(amount) > 0 ? colors.success : colors.border, justifyContent: 'center', alignItems: 'center' }}
-            >
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('collections.confirm')}</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setTarget(null)} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.close')}</Text>
-            </TouchableOpacity>
-      </SheetModal>
+      {/* Collect sheet — shared with the student's page (CollectSheet); the bill corrections ride inside. */}
+      <Surface id="teacher.pending_collections.collect_sheet">
+      <CollectSheet
+        visible={!!target}
+        onClose={() => setTarget(null)}
+        title={target?.label ?? ''}
+        name={target?.name}
+        owed={owed}
+        amount={amountTyped}
+        onAmount={setAmount}
+        busy={busy}
+        onSubmit={submit}
+      >
+            <Surface id="teacher.pending_collections.bill_corrections">
+            {editable.map((i) => {
+              const e = edits[i.invoice_id] ?? { amount: '', sessions: '' };
+              const set = (patch: Partial<BillEdit>) => setEdits((m) => ({ ...m, [i.invoice_id]: { ...e, ...patch } }));
+              const title = [i.course, monthName(i.month)].filter(Boolean).join(' · ');
+              return (
+                <View key={i.invoice_id} style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
+                  {title ? <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginBottom: spacing.sm }}>{title}</Text> : null}
+                  <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                    <BillField label={t('collections.bill_amount')} value={e.amount} onChange={(v) => set({ amount: v.replace(/[^0-9.]/g, '') })} />
+                    <BillField label={t('collections.bill_sessions')} value={e.sessions} onChange={(v) => set({ sessions: v.replace(/[^0-9]/g, '') })} />
+                  </View>
+                  {i.paid > 0.001 ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 6 }}>{t('collections.bill_paid_part', { amount: formatEGP(i.paid) })}</Text> : null}
+                </View>
+              );
+            })}
+            {editable.length ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: -spacing.xs, marginBottom: spacing.md }}>{t('collections.bill_edit_hint')}</Text> : null}
+            </Surface>
+      </CollectSheet>
+      </Surface>
+      <Surface id="teacher.pending_collections.year_sheet">
+      <BillingYearSheet target={yearFor} onClose={() => setYearFor(null)} />
+      </Surface>
+    </View>
+    </Surface>
+  );
+}
+
+/** A small labelled number box for correcting a bill inside the collect sheet. */
+function BillField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{label}</Text>
+      <TextInput value={value} onChangeText={onChange} keyboardType="numeric" selectTextOnFocus
+        style={{ height: 44, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderStrong, paddingHorizontal: spacing.md, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, textAlign: 'center' }} />
     </View>
   );
 }

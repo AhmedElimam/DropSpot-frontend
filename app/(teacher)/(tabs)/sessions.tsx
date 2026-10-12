@@ -16,9 +16,11 @@ import { SessionCard, type SessionCardData } from '@/components/session/TeacherS
 import { formatNumber, formatDayDate } from '@/utils/format';
 import { goToScan } from '@/utils/sessionNav';
 import { DAY_SHORT, dayKey as key, addDays, weekStart, phasesByDay } from '@/utils/sessionDays';
+import { isNetworkFailure } from '@/db/marksSync';
 import { DayMarker } from '@/components/session/DayMarker';
 import { SessionMonthPicker } from '@/components/session/SessionMonthPicker';
 import type { TeacherSession } from '@/api/teacher';
+import { Surface } from '@/ui/surfaces';
 
 const MONTH_FMT = new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' });
 
@@ -43,6 +45,9 @@ export default function TeacherSessions() {
   const from = key(days[0]);
   const to = key(days[6]);
   const q = useTeacherSessionsWindow(from, to);
+  // The week asked for has no saved copy and the server did not answer (a week never opened
+  // online, offline): what shows underneath is another week's placeholder or nothing.
+  const unsaved = q.isError && isNetworkFailure(q.error) && (!q.data || q.isPlaceholderData);
   const { refreshing, onRefresh } = usePullRefresh(q.refetch);
   const now = useMinuteClock();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -64,6 +69,7 @@ export default function TeacherSessions() {
   const isThisWeek = key(weekStart(today)) === from;
 
   return (
+    <Surface id="screen.teacher.sessions" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.sm, paddingBottom: spacing.md, paddingHorizontal: spacing.lg, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
@@ -71,31 +77,38 @@ export default function TeacherSessions() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t('teacher.tab_sessions')}</Text>
           {/* Date filter — any day, from a month calendar. */}
+          <Surface id="teacher.sessions.date_picker">
           <TouchableOpacity onPress={() => setPickerOpen(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('session_ui.pick_date')}
             style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: colors.onHeroChip }}>
             <Icon name="calendar" size={14} color={colors.onHero} />
             <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }} numberOfLines={1}>{MONTH_FMT.format(selected)}</Text>
             <Icon name="down" size={13} color={colors.onHeroSoft} />
           </TouchableOpacity>
+          </Surface>
           <View style={{ flex: 1 }} />
           {!isThisWeek || dayKey !== key(today) ? (
+            <Surface id="teacher.sessions.today_button">
             <TouchableOpacity onPress={() => setSelected(today)} activeOpacity={0.85} style={{ paddingHorizontal: 10, height: 32, borderRadius: radius.full, backgroundColor: colors.accent, justifyContent: 'center' }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onAccent }}>{t('teacher.today')}</Text>
             </TouchableOpacity>
+            </Surface>
           ) : null}
-          {can(ABILITY.MANAGE_SESSIONS) ? (
-            <TouchableOpacity onPress={() => router.push('/(teacher)/schedule-new' as Href)} accessibilityRole="button" accessibilityLabel={t('teacher.add_schedule')} activeOpacity={0.85}
-              style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center' }}>
-              <Icon name="add" size={22} color={colors.onAccent} />
-            </TouchableOpacity>
-          ) : null}
+          <Surface id="teacher.sessions.add_schedule" assistantNeeds="manage_sessions">
+          <TouchableOpacity onPress={() => router.push('/(teacher)/schedule-new' as Href)} accessibilityRole="button" accessibilityLabel={t('teacher.add_schedule')} activeOpacity={0.85}
+            style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="add" size={22} color={colors.onAccent} />
+          </TouchableOpacity>
+          </Surface>
         </View>
 
         {/* Week strip — earlier weeks to the right (RTL), later to the left. */}
+        <Surface id="teacher.sessions.week_strip">
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, gap: 4 }}>
+          <Surface id="teacher.sessions.prev_week">
           <TouchableOpacity onPress={() => setSelected(addDays(selected, -7))} hitSlop={8} accessibilityLabel={t('session_ui.prev_week')} style={{ padding: 4 }}>
             <Icon name="forward" size={20} color={colors.onHeroSoft} />
           </TouchableOpacity>
+          </Surface>
           <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between' }}>
             {days.map((d) => {
               const k = key(d);
@@ -111,12 +124,16 @@ export default function TeacherSessions() {
               );
             })}
           </View>
+          <Surface id="teacher.sessions.next_week">
           <TouchableOpacity onPress={() => setSelected(addDays(selected, 7))} hitSlop={8} accessibilityLabel={t('session_ui.next_week')} style={{ padding: 4 }}>
             <Icon name="back" size={20} color={colors.onHeroSoft} />
           </TouchableOpacity>
+          </Surface>
         </View>
+        </Surface>
       </LinearGradient>
 
+      <Surface id="teacher.sessions.list">
       <FlatList showsVerticalScrollIndicator={false}
         data={list}
         keyExtractor={(s) => s.id}
@@ -127,6 +144,7 @@ export default function TeacherSessions() {
         contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
+          <Surface id="teacher.sessions.day_summary">
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.sm }}>
             <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{formatDayDate(selected)}</Text>
             {list.length > 0 ? (
@@ -136,9 +154,19 @@ export default function TeacherSessions() {
               </Text>
             ) : null}
           </View>
+          </Surface>
         }
         ListEmptyComponent={
-          q.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} /> : (
+          q.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} /> : unsaved ? (
+            // No answer and nothing saved for this week: say so, never «no sessions» (which reads as a fact).
+            <View style={{ alignItems: 'center', paddingTop: spacing.xl4, paddingHorizontal: spacing.xl }}>
+              <View style={{ width: 72, height: 72, borderRadius: 24, backgroundColor: colors.warningLight, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="warning" size={34} color={colors.warningDark} />
+              </View>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginTop: spacing.md }}>{t('offline.not_saved_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: 4, textAlign: 'center' }}>{t('offline.not_saved_week')}</Text>
+            </View>
+          ) : (
             <View style={{ alignItems: 'center', paddingTop: spacing.xl4 }}>
               <View style={{ width: 72, height: 72, borderRadius: 24, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="calendar" size={34} color={colors.accent} />
@@ -149,8 +177,10 @@ export default function TeacherSessions() {
           )
         }
       />
+      </Surface>
 
       <SessionMonthPicker visible={pickerOpen} value={selected} now={now} onPick={setSelected} onClose={() => setPickerOpen(false)} />
     </View>
+    </Surface>
   );
 }

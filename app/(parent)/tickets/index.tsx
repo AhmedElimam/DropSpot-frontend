@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 // Left-edge accent per ticket state — mapped onto the Sanad ink/semantic ramp.
 const statusColors = (): Record<string, [string, string]> => ({
@@ -35,18 +36,22 @@ export default function TicketsList() {
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
   return (
+    <Surface id="screen.parent.tickets" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <PageHero title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} action={{ icon: 'add', label: t('tickets.new'), onPress: () => router.push('/(parent)/tickets/create') }} />
+        <Surface id="parent.tickets.hero">
+        <PageHero onBack title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} action={{ icon: 'add', label: t('tickets.new'), onPress: () => router.push('/(parent)/tickets/create') }} />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          <Surface id="parent.tickets.list">
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
-          ) : isError ? (
+          ) : isError && !tickets ? (
             <ErrorState onRetry={() => refetch()} />
           ) : !tickets?.length ? (
             <EmptyState
@@ -116,8 +121,10 @@ export default function TicketsList() {
               );
             })
           )}
+          </Surface>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { search as searchApi, type SearchResult } from '@/api/search';
 
 export function useSearch() {
@@ -27,6 +27,9 @@ export function useSearch() {
       }
     }, 400);
   }, []);
+
+  // Leaving the screen mid-typing cancels the pending search (it used to fire after unmount).
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
   return { results, isLoading, hasSearched, search };
 }

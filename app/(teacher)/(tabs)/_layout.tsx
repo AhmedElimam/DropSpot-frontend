@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { useHiddenSurfaces } from '@/ui/surfaces';
 import { useMemo } from 'react';
 import { Tabs } from 'expo-router';
 import { colors } from '@/theme/index';
@@ -38,6 +39,11 @@ const icons: Record<string, IconName> = {
 
 /** Teacher (and assistant) tabs: home · sessions · manage · students · settings. */
 export default function TeacherTabsLayout() {
+  // A tab the backend code switched off (server config/mobile_ui.php → `tab.teacher.<name>`)
+  // leaves the bar; the raised centre falls back to the middle of what is left.
+  const hiddenSurfaces = useHiddenSurfaces();
+  const tabs = TAB_ORDER.filter((n) => !hiddenSurfaces.has(`tab.teacher.${n}`));
+  const center = tabs.includes(CENTER_TAB) ? CENTER_TAB : (tabs[Math.floor(tabs.length / 2)] ?? CENTER_TAB);
   // Freezing the hidden tabs (react-freeze) is a FLAG, off by default (2026-10-01): with 5+
   // tabs it is the documented cause of memory growth (react-native-screens #2971).
   // Super-admin flag «تجميد التبويبات المخفية», read from /app-config at launch.
@@ -58,7 +64,7 @@ export default function TeacherTabsLayout() {
     <Tabs
       // Hardware back between tabs follows the visit history, not "jump to the first tab".
       backBehavior="history"
-      tabBar={(props) => <NotchTabBar {...props} tabs={TAB_ORDER} center={CENTER_TAB} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
+      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
       screenOptions={screenOptions}
       screenLayout={sceneLayout}
     >

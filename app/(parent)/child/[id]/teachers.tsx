@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -20,6 +21,7 @@ import { Button } from '@/components/ui/Button';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { PageHero } from '@/components/ui/PageHero';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 export default function TeacherManagement() {
   const { t } = useTranslation();
@@ -70,15 +72,19 @@ export default function TeacherManagement() {
   };
 
   return (
+    <Surface id="screen.parent.child.teachers" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="parent.child_teachers.hero">
         <PageHero title={t('parent.manage_teachers')} subtitle={child?.name} onBack stats={[{ value: formatNumber(teachers.length), label: t('parent.teachers') }]} />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          <Surface id="parent.child_teachers.list">
           {!teachers.length ? (
             <EmptyState icon="teacher" title={t('parent.no_teachers')} />
           ) : (
@@ -111,6 +117,7 @@ export default function TeacherManagement() {
                         </Text>
                       )}
                     </View>
+                    <Surface id="parent.child_teachers.remove_teacher">
                     {isRemoving ? (
                       <ActivityIndicator size="small" color={colors.danger} />
                     ) : (
@@ -131,19 +138,24 @@ export default function TeacherManagement() {
                         </Text>
                       </TouchableOpacity>
                     )}
+                    </Surface>
                   </View>
+                  <Surface id="parent.child_teachers.contact_support">
                   <Button
                     variant="outline"
                     title={t('profile.contact_support')}
                     onPress={() => router.push('/(parent)/tickets')}
                     style={{ marginTop: spacing.md }}
                   />
+                  </Surface>
                 </View>
               );
             })
           )}
+          </Surface>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }

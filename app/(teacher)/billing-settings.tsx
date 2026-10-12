@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Switch, Alert, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Switch, KeyboardAvoidingView } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +11,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { getPaymentMethods, updatePaymentMethods, type PaymentMethods } from '@/api/paymentMethods';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { Surface } from '@/ui/surfaces';
 
 const VODAFONE_RE = /^01[0125]\d{8}$/;
 
@@ -52,6 +54,7 @@ export default function BillingSettingsScreen() {
   };
 
   return (
+    <Surface id="screen.teacher.billing-settings" screen>
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
@@ -67,12 +70,15 @@ export default function BillingSettingsScreen() {
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <Surface id="teacher.billing_settings.intro_note">
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.infoLight, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
             <Icon name="info" size={18} color={colors.infoText} outline />
             <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.infoText }}>{t('billing_settings.intro')}</Text>
           </View>
+          </Surface>
 
           {/* Vodafone Cash */}
+          <Surface id="teacher.billing_settings.vodafone_card">
           <View style={card()}>
             <View style={rowBetween}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -104,8 +110,10 @@ export default function BillingSettingsScreen() {
               </View>
             ) : null}
           </View>
+          </Surface>
 
           {/* InstaPay */}
+          <Surface id="teacher.billing_settings.instapay_card">
           <View style={card()}>
             <View style={rowBetween}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -137,8 +145,10 @@ export default function BillingSettingsScreen() {
               </View>
             ) : null}
           </View>
+          </Surface>
 
           {/* Cash in person */}
+          <Surface id="teacher.billing_settings.cash_card">
           <View style={card()}>
             <View style={rowBetween}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -156,9 +166,11 @@ export default function BillingSettingsScreen() {
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: spacing.sm }}>{t('billing_settings.physical_hint')}</Text>
           </View>
+          </Surface>
 
           {/* Booking & booklets — teacher-level payment models. Per-course amounts
               (booklet price, down-payment) are set on each course page. */}
+          <Surface id="teacher.billing_settings.booking_card">
           <View style={card()}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
               <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.brand + '18', justifyContent: 'center', alignItems: 'center' }}>
@@ -168,6 +180,7 @@ export default function BillingSettingsScreen() {
             </View>
 
             {/* Booklets master switch */}
+            <Surface id="teacher.billing_settings.offers_booklets_switch">
             <View style={[rowBetween, { marginTop: spacing.sm }]}>
               <Text style={[settingLabel(), { flex: 1, paddingEnd: spacing.md }]}>{t('billing_settings.offers_booklets')}</Text>
               <Switch value={form.offers_booklets} onValueChange={(v) => set({ offers_booklets: v })} trackColor={{ true: colors.brand }} />
@@ -175,8 +188,10 @@ export default function BillingSettingsScreen() {
             <Text style={hint()}>{t('billing_settings.offers_booklets_hint')}</Text>
 
             <View style={divider()} />
+            </Surface>
 
             {/* Down-payment (دفعة) at booking */}
+            <Surface id="teacher.billing_settings.down_payment_switch">
             <View style={rowBetween}>
               <Text style={[settingLabel(), { flex: 1, paddingEnd: spacing.md }]}>{t('billing_settings.requires_down_payment')}</Text>
               <Switch value={form.requires_down_payment} onValueChange={(v) => set({ requires_down_payment: v })} trackColor={{ true: colors.brand }} />
@@ -184,6 +199,7 @@ export default function BillingSettingsScreen() {
             <Text style={hint()}>{t('billing_settings.requires_down_payment_hint')}</Text>
 
             {form.requires_down_payment ? (
+              <Surface id="teacher.billing_settings.secures_picker">
               <View style={{ marginTop: spacing.md }}>
                 <Text style={[settingLabel(), { marginBottom: spacing.sm }]}>{t('billing_settings.secures_label')}</Text>
                 <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>
@@ -202,22 +218,30 @@ export default function BillingSettingsScreen() {
                   })}
                 </View>
               </View>
+              </Surface>
             ) : null}
 
             <View style={divider()} />
+            </Surface>
 
             {/* Booklet fee counts as the booking charge */}
+            <Surface id="teacher.billing_settings.booklet_secures_booking_switch">
             <View style={rowBetween}>
               <Text style={[settingLabel(), { flex: 1, paddingEnd: spacing.md }]}>{t('billing_settings.booklet_secures_booking')}</Text>
               <Switch value={form.booklet_secures_booking} onValueChange={(v) => set({ booklet_secures_booking: v })} trackColor={{ true: colors.brand }} />
             </View>
             <Text style={hint()}>{t('billing_settings.booklet_secures_booking_hint')}</Text>
+            </Surface>
           </View>
+          </Surface>
 
+          <Surface id="teacher.billing_settings.save_button">
           <Button title={t('common.save')} onPress={submit} loading={save.isPending} disabled={!canSave} variant="primary" />
+          </Surface>
         </ScrollView>
       )}
     </KeyboardAvoidingView>
+    </Surface>
   );
 }
 

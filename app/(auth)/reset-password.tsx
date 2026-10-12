@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { configRule } from '@/stores/appConfigStore';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -13,7 +14,8 @@ import { OtpInput } from '@/components/auth/OtpInput';
 import { PasswordStrength } from '@/components/auth/PasswordStrength';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
 
-const RESEND_COOLDOWN = 60;
+/** The countdown is a backend rule (/admin/config → otp_resend_seconds), read when the screen opens. */
+const RESEND_COOLDOWN = () => configRule('otp_resend_seconds');
 
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
@@ -26,14 +28,14 @@ export default function ResetPasswordScreen() {
   const resend = useForgotPassword();
 
   // The code was just sent (we arrived from the previous screen) → the countdown runs.
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN());
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => clearTimeout(id);
   }, [cooldown]);
 
-  const canSubmit = code.length === 6 && password.length >= 6 && !reset.isPending;
+  const canSubmit = code.length === 6 && password.length >= configRule('password_min_length') && !reset.isPending;
 
   const handleReset = () => {
     if (!canSubmit || !phone) return;
@@ -46,7 +48,7 @@ export default function ResetPasswordScreen() {
 
   const handleResend = () => {
     if (cooldown > 0 || resend.isPending || !phone) return;
-    resend.mutate(phone, { onSuccess: () => { setCooldown(RESEND_COOLDOWN); setCode(''); reset.reset(); } });
+    resend.mutate(phone, { onSuccess: () => { setCooldown(RESEND_COOLDOWN()); setCode(''); reset.reset(); } });
   };
 
   return (
@@ -65,9 +67,9 @@ export default function ResetPasswordScreen() {
       ) : null}
 
       {reset.isError ? <AuthBanner tone="danger" text={getFriendlyErrorMessage(reset.error)} /> : null}
-      {resend.isSuccess && cooldown > RESEND_COOLDOWN - 5 ? <AuthBanner tone="success" text={t('auth.reset_code_sent')} /> : null}
+      {resend.isSuccess && cooldown > RESEND_COOLDOWN() - 5 ? <AuthBanner tone="success" text={t('auth.reset_code_sent')} /> : null}
 
-      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.sm, textAlign: 'right' }}>{t('auth.otp_code')}</Text>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('auth.otp_code')}</Text>
       <OtpInput value={code} onChange={(v) => { setCode(v); if (reset.isError) reset.reset(); }} onComplete={() => passwordRef.current?.focus()} error={reset.isError} />
 
       <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, marginBottom: spacing.xl, flexWrap: 'wrap' }}>

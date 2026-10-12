@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -15,6 +16,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PageHero } from '@/components/ui/PageHero';
 import { formatNumber } from '@/utils/format';
+import { Surface } from '@/ui/surfaces';
 
 const pct = (v: ReportCard['overall_score']): string =>
   v === null || v === undefined || v === '' ? '—' : `${Math.round(Number(v))}%`;
@@ -53,15 +55,19 @@ export default function ReportCardsScreen() {
   }
 
   return (
+    <Surface id="screen.parent.report-cards" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="parent.report_cards.hero">
         <PageHero title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')} onBack stats={[{ value: formatNumber(list.length), label: t('reports.report_cards') }]} />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          <Surface id="parent.report_cards.list">
           {isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl4 }} />
           ) : list.length === 0 ? (
@@ -71,9 +77,11 @@ export default function ReportCardsScreen() {
               <ReportRow key={r.id} report={r} opening={openingId === r.id} onOpen={() => openReport(r)} t={t} />
             ))
           )}
+          </Surface>
         </View>
       </ScrollView>
     </View>
+    </Surface>
   );
 }
 
@@ -108,13 +116,16 @@ function ReportRow({ report, opening, onOpen, t }: {
         </Text>
       ) : null}
 
+      <Surface id="parent.report_cards.scores">
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
         <ScoreChip label={t('reports.overall')} value={pct(report.overall_score)} />
         <ScoreChip label={t('reports.academic')} value={pct(report.academic_score)} />
         <ScoreChip label={t('reports.attendance')} value={pct(report.attendance_score)} />
       </View>
+      </Surface>
 
       {/* §1/§2 — big-exam results, shown separately from the academic average. */}
+      <Surface id="parent.report_cards.exam_results">
       {(report.exam_results ?? []).length > 0 ? (
         <View style={{ marginTop: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('reports.exam_results')}</Text>
@@ -130,7 +141,9 @@ function ReportRow({ report, opening, onOpen, t }: {
           ))}
         </View>
       ) : null}
+      </Surface>
 
+      <Surface id="parent.report_cards.download_pdf">
       <TouchableOpacity
         onPress={onOpen}
         disabled={opening}
@@ -146,6 +159,7 @@ function ReportRow({ report, opening, onOpen, t }: {
           {opening ? t('reports.opening') : t('reports.download_pdf')}
         </Text>
       </TouchableOpacity>
+      </Surface>
     </View>
   );
 }

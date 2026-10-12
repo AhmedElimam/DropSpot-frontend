@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
+import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useTodaySessions } from '@/hooks/useSessions';
 import { useCheckIn, useCoverageStats, useAttendanceRecords, useSubmitExcuse } from '@/hooks/useAttendance';
 import { useAuthStore } from '@/stores/authStore';
@@ -30,6 +31,7 @@ import { AttendanceRecordRow } from '@/components/attendance/AttendanceRecordRow
 import { TodaySessionCard } from '@/components/student/TodaySessionCard';
 import { useQuery } from '@tanstack/react-query';
 import { getStudentTeachers } from '@/api/studentOverview';
+import { Surface } from '@/ui/surfaces';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -66,11 +68,8 @@ export default function CheckInTab() {
 
   const todaySessions = sessions ?? [];
   // A 30-second clock so «starts in N minutes» and the live bar move while the tab is open.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
+  // …only while the tab is in front of you (useMinuteClock pauses when hidden or backgrounded).
+  const now = useMinuteClock(30_000);
   // The session payload carries only the teacher's NAME; the student's teachers list has
   // the id (avatar seed) and the logo, so match on the name.
   const studentIdForTeachers = useAuthStore((st) => st.user?.student_id ?? null);
@@ -204,12 +203,14 @@ export default function CheckInTab() {
   }
 
   return (
+    <Surface id="screen.student.check-in" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="student.check_in.hero">
         <PageHero
           title={t('attendance.check_in')}
           subtitle={formatDate(new Date())}
@@ -219,10 +220,12 @@ export default function CheckInTab() {
             { value: formatNumber(stats?.absent ?? 0), label: t('attendance.absent'), warn: (stats?.absent ?? 0) > 0 },
           ]}
         />
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
           {/* PRIMARY: the card at the door — one compact strip, code as a chip (founder 2026-10-03:
               the tab needed «love»; the old block gave the code half a screen). */}
+          <Surface id="student.check_in.card_strip">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.md, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
               <Icon name="card" size={24} color={colors.brand} />
@@ -238,10 +241,12 @@ export default function CheckInTab() {
               </View>
             ) : null}
           </View>
+          </Surface>
 
           {/* Today's sessions (founder 2026-10-03: «needs some love»): a header that says how
               many and how many can be checked into now, then one card per session with the
               teacher's logo, the time range, a live/soon/later pill and the outcome. */}
+          <Surface id="student.check_in.today_sessions">
           <View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm, paddingHorizontal: 2 }}>
               <SectionHead icon="sessions" color={colors.brand} title={t('session.today_sessions')} />
@@ -290,12 +295,13 @@ export default function CheckInTab() {
               </View>
             )}
           </View>
+          </Surface>
 
           {/* Check-in button shows BY DEFAULT once a session is selected. Whether
               phone check-in is permitted, the window is open, and the student is
               at the classroom are all validated on tap. */}
           {selectedSessionData && (
-            <>
+            <Surface id="student.check_in.phone_check_in">
               {phoneAllowed && selectedSessionData.checkin_permission_expires_at ? (
                 <View style={{ backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                   <Icon name="success" size={18} color={colors.successText} />
@@ -325,6 +331,7 @@ export default function CheckInTab() {
                 </View>
               )}
 
+              <Surface id="student.check_in.check_in_button">
               <TouchableOpacity
                 onPress={handleCheckIn}
                 disabled={!canTap}
@@ -347,10 +354,12 @@ export default function CheckInTab() {
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
-            </>
+              </Surface>
+            </Surface>
           )}
 
           {/* Excuse for a recorded absence — a row that says what it is for, not a loud button. */}
+          <Surface id="student.check_in.excuse_entry">
           <TouchableOpacity
             onPress={() => { setExcuseVisible(true); setExcuseRecordId(null); setExcuseSent(false); setExcuseText(''); }}
             activeOpacity={0.8}
@@ -371,8 +380,10 @@ export default function CheckInTab() {
             ) : null}
             <Icon name="back" size={18} color={colors.textTertiary} />
           </TouchableOpacity>
+          </Surface>
 
           {/* Attendance at a glance — tap for the full record, course by course. */}
+          <Surface id="student.check_in.attendance_overview">
           <TouchableOpacity onPress={() => router.push('/(student)/attendance')} activeOpacity={0.85} accessibilityRole="button" accessibilityHint={t('attendance.tap_for_detail')}
             style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
@@ -384,8 +395,10 @@ export default function CheckInTab() {
             </View>
             <AttendanceOverview present={stats?.present ?? 0} late={stats?.late ?? 0} absent={stats?.absent ?? 0} excused={stats?.excused ?? 0} />
           </TouchableOpacity>
+          </Surface>
 
           {/* The last five sessions; the whole record lives on its own page. */}
+          <Surface id="student.check_in.recent_records">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <SectionHead icon="calendar" color={colors.brand} title={t('attendance.recent_title')} />
             <Text style={[textPresets.bodySmall, { marginTop: 2 }]}>{t('attendance.recent_sub')}</Text>
@@ -403,19 +416,25 @@ export default function CheckInTab() {
               ))}
             </View>
             {(records ?? []).length > 0 ? (
+              <Surface id="student.check_in.open_detail">
               <TouchableOpacity onPress={() => router.push('/(student)/attendance')} activeOpacity={0.85} accessibilityRole="button"
                 style={{ marginTop: spacing.md, minHeight: 44, borderRadius: radius.md, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
                 <Icon name="calendar" size={16} color={colors.brand} outline />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.brand }}>{t('attendance.open_detail')}</Text>
               </TouchableOpacity>
+              </Surface>
             ) : null}
           </View>
+          </Surface>
         </View>
       </ScrollView>
 
+      <Surface id="student.check_in.complaint_sheet">
       <ComplaintSheet visible={!!complaintTarget} onClose={() => setComplaintTarget(null)} target={complaintTarget} />
+      </Surface>
 
       {/* Excuse modal — pick which absence, then explain */}
+      <Surface id="student.check_in.excuse_sheet">
       <SheetModal visible={excuseVisible} onClose={() => setExcuseVisible(false)} avoidKeyboard style={{ backgroundColor: colors.surface, maxHeight: '85%' }}>
             {/* The sheet itself is the only way out (handle, swipe, dim, back) — a close
                 button and a second handle here made it dismiss three ways at once. */}
@@ -513,6 +532,8 @@ export default function CheckInTab() {
             )}
             </ScrollView>
       </SheetModal>
+      </Surface>
     </View>
+    </Surface>
   );
 }

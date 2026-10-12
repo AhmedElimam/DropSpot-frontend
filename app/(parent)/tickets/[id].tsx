@@ -15,6 +15,8 @@ import { fonts } from '@/theme/typography';
 import { formatTime } from '@/utils/format';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
 import { useTicket, useAddMessage, useUpdateTicketStatus } from '@/hooks/useTickets';
+import type { PendingFile } from '@/api/tickets';
+import { AttachButton, MessageAttachments, PendingFiles } from '@/components/tickets/Attachments';
 import { useAuthStore } from '@/stores/authStore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -22,6 +24,7 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 import { useKeyboardShown } from '@/hooks/useKeyboardShown';
 import { PageHero } from '@/components/ui/PageHero';
+import { Surface } from '@/ui/surfaces';
 
 // Status accent on the Sanad ink/semantic ramp (used for the header pill tint).
 const statusColors = (): Record<string, [string, string]> => ({
@@ -41,6 +44,7 @@ export default function TicketDetail() {
   const addMessage = useAddMessage(id ?? '');
   const updateStatus = useUpdateTicketStatus(id ?? '');
   const [newMessage, setNewMessage] = useState('');
+  const [files, setFiles] = useState<PendingFile[]>([]);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -49,11 +53,13 @@ export default function TicketDetail() {
     }
   }, [ticket?.messages?.length]);
 
+  const canSend = !!newMessage.trim() || files.length > 0;
   const handleSend = () => {
-    if (!newMessage.trim()) return;
-    addMessage.mutate(newMessage.trim(), {
+    if (!canSend) return;
+    addMessage.mutate({ message: newMessage.trim(), files }, {
       onSuccess: () => {
         setNewMessage('');
+        setFiles([]);
       },
     });
   };
@@ -82,6 +88,7 @@ export default function TicketDetail() {
   const isParent = user?.user_type_id === 4;
 
   return (
+    <Surface id="screen.parent.tickets.detail" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -91,6 +98,7 @@ export default function TicketDetail() {
         keyboardVerticalOffset={0}
       >
         {/* Header */}
+        <Surface id="parent.ticket.hero">
         <PageHero title={ticket.subject} subtitle={`${ticket.student_name} - ${ticket.teacher_name}`} onBack compact>
           <View style={{ marginTop: spacing.md }}>
 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -114,6 +122,7 @@ export default function TicketDetail() {
             </View>
 
             {!isParent && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+              <Surface id="parent.ticket.mark_resolved">
               <TouchableOpacity
                 onPress={() => handleStatusChange('resolved')}
                 activeOpacity={0.75}
@@ -130,9 +139,11 @@ export default function TicketDetail() {
                   {t('tickets.mark_resolved')}
                 </Text>
               </TouchableOpacity>
+              </Surface>
             )}
 
             {ticket.status === 'resolved' && (
+              <Surface id="parent.ticket.close">
               <TouchableOpacity
                 onPress={() => handleStatusChange('closed')}
                 activeOpacity={0.75}
@@ -149,10 +160,12 @@ export default function TicketDetail() {
                   {t('tickets.close')}
                 </Text>
               </TouchableOpacity>
+              </Surface>
             )}
           </View>
           </View>
         </PageHero>
+        </Surface>
 
         {/* Messages */}
         <ScrollView
@@ -161,6 +174,7 @@ export default function TicketDetail() {
           contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
           showsVerticalScrollIndicator={false}
         >
+          <Surface id="parent.ticket.messages">
           {ticket.messages?.map((msg) => {
             const isMine = msg.user_id === user?.id;
             return (
@@ -191,16 +205,19 @@ export default function TicketDetail() {
                     {msg.user_name}
                   </Text>
                 )}
-                <Text
-                  style={{
-                    fontFamily: fonts.regular,
-                    fontSize: 16,
-                    lineHeight: 24,
-                    color: isMine ? '#fff' : colors.textPrimary,
-                  }}
-                >
-                  {msg.message}
-                </Text>
+                {msg.message ? (
+                  <Text
+                    style={{
+                      fontFamily: fonts.regular,
+                      fontSize: 16,
+                      lineHeight: 24,
+                      color: isMine ? '#fff' : colors.textPrimary,
+                    }}
+                  >
+                    {msg.message}
+                  </Text>
+                ) : null}
+                <MessageAttachments items={msg.attachments} onDark={isMine} />
                 <Text
                   style={{
                     fontFamily: fonts.regular,
@@ -215,6 +232,7 @@ export default function TicketDetail() {
               </View>
             );
           })}
+          </Surface>
           {addMessage.isError && (
             <View style={{ alignSelf: 'center', backgroundColor: colors.dangerLight, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.lg }}>
               <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.dangerText, textAlign: 'center' }}>
@@ -227,18 +245,21 @@ export default function TicketDetail() {
 
         {/* Input */}
         {ticket.status !== 'closed' && (
+          <Surface id="parent.ticket.composer">
+          <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>
+          <PendingFiles files={files} onRemove={(uri) => setFiles((f) => f.filter((x) => x.uri !== uri))} />
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'flex-end',
               padding: spacing.md,
               paddingBottom: spacing.md + (keyboardShown ? 0 : insets.bottom),
-              backgroundColor: colors.surface,
-              borderTopWidth: 1,
-              borderTopColor: colors.border,
               gap: spacing.sm,
             }}
           >
+            <Surface id="parent.ticket.attach_button">
+            <AttachButton files={files} onAdd={(f) => setFiles((cur) => [...cur, f])} disabled={addMessage.isPending} />
+            </Surface>
             <TextInput
               value={newMessage}
               onChangeText={setNewMessage}
@@ -264,14 +285,14 @@ export default function TicketDetail() {
             />
             <TouchableOpacity
               onPress={handleSend}
-              disabled={!newMessage.trim() || addMessage.isPending}
+              disabled={!canSend || addMessage.isPending}
               activeOpacity={0.85}
               accessibilityRole="button"
               style={{
                 width: 52,
                 height: 52,
                 borderRadius: radius.lg,
-                backgroundColor: newMessage.trim() ? colors.brand : colors.border,
+                backgroundColor: canSend ? colors.brand : colors.border,
                 justifyContent: 'center',
                 alignItems: 'center',
               }}
@@ -283,8 +304,11 @@ export default function TicketDetail() {
               )}
             </TouchableOpacity>
           </View>
+          </View>
+          </Surface>
         )}
       </KeyboardAvoidingView>
     </View>
+    </Surface>
   );
 }

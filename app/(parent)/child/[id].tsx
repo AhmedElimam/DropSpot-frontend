@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { View, Text, TouchableOpacity, Modal, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { ScrollView, FlatList } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -27,7 +28,9 @@ import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
 import { AttendanceRecordRow } from '@/components/attendance/AttendanceRecordRow';
 import { ComplaintSheet, type ComplaintTarget } from '@/components/student/ComplaintSheet';
 import { useMyComplaints } from '@/hooks/useComplaints';
+import { GradeComplaintSheet, GradeComplaintStatus, gradeTargetFromExam, gradeTargetFromRecord, type GradeComplaintTarget } from '@/components/complaints/GradeComplaintSheet';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
+import { Surface } from '@/ui/surfaces';
 
 type TabKey = 'attendance' | 'grades' | 'exams' | 'settings';
 
@@ -61,6 +64,8 @@ export default function ChildDetailScreen() {
   // A parent may dispute a child's mark the way the student can (founder 2026-10-03).
   const [complaintTarget, setComplaintTarget] = useState<ComplaintTarget | null>(null);
   const complaints = useMyComplaints();
+  // …and a grade or exam mark («اعتراض على الدرجة», founder 2026-10-05).
+  const [gradeTarget, setGradeTarget] = useState<GradeComplaintTarget | null>(null);
 
   const selectedIndex = Math.max(0, (children ?? []).findIndex((c) => c.id === params.id));
   const child = (children ?? [])[selectedIndex];
@@ -141,12 +146,14 @@ export default function ChildDetailScreen() {
   }
 
   return (
+    <Surface id="screen.parent.child.detail" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        <Surface id="parent.child.hero">
         <PageHero
           title={child.name}
           subtitle={`${child.grade ?? ''}${child.student_code ? ` · ${child.student_code}` : ''}`}
@@ -160,6 +167,7 @@ export default function ChildDetailScreen() {
         >
           {/* Quick shortcut to the pre-card registration QR (else buried in Settings). */}
           {child.can_generate_pre_card ? (
+            <Surface id="parent.child.invite_code_chip">
             <TouchableOpacity
               onPress={() => router.push(`/(parent)/child/${child.id}/invite-code`)}
               accessibilityRole="button"
@@ -169,10 +177,13 @@ export default function ChildDetailScreen() {
               <Icon name="scan" size={16} color={colors.onHero} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('auth.invite_code_label')}</Text>
             </TouchableOpacity>
+            </Surface>
           ) : null}
         </PageHero>
+        </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
+          <Surface id="parent.child.tabs">
           <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 4 }}>
             {tabs.map((tab) => (
               <TouchableOpacity
@@ -195,12 +206,14 @@ export default function ChildDetailScreen() {
               </TouchableOpacity>
             ))}
           </View>
+          </Surface>
         </View>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md, gap: spacing.md }}>
           {activeTab === 'attendance' && (
-            <>
+            <Surface id="parent.child.attendance_tab">
               {upcoming && upcoming.length > 0 && (
+                <Surface id="parent.child.upcoming_sessions">
                 <View style={cardStyle()}>
                   <SectionHead icon="calendar" color={colors.brand} title={t('session.upcoming_sessions')} />
                   <View style={{ marginTop: spacing.md }}>
@@ -222,7 +235,9 @@ export default function ChildDetailScreen() {
                     ))}
                   </View>
                 </View>
+                </Surface>
               )}
+              <Surface id="parent.child.attendance_history">
               <View style={cardStyle()}>
                 <SectionHead icon="attendance" color={colors.success} title={t('attendance.history_title')} />
                 <Text style={[textPresets.bodySmall, { marginTop: 2, marginBottom: spacing.md }]}>{t('attendance.history_sub_child')}</Text>
@@ -265,11 +280,13 @@ export default function ChildDetailScreen() {
                   </>
                 )}
               </View>
-            </>
+              </Surface>
+            </Surface>
           )}
 
           {activeTab === 'grades' && (
-            <>
+            <Surface id="parent.child.grades_tab">
+              <Surface id="parent.child.grades">
               <View style={cardStyle()}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
                   <SectionHead icon="grades" color={colors.brand} title={t('reports.grades')} />
@@ -310,21 +327,28 @@ export default function ChildDetailScreen() {
                             </View>
                           ) : null}
                         </View>
+                        <GradeComplaintStatus
+                          complaint={g.complaint}
+                          onComplain={g.score != null ? () => setGradeTarget(gradeTargetFromRecord(g, t('reports.grades'))) : undefined}
+                        />
                       </View>
                     ))}
                   </>
                 )}
               </View>
+              </Surface>
+              <Surface id="parent.child.view_report_cards">
               <Button
                 variant="primary"
                 title={t('reports.view_reports')}
                 onPress={() => router.push(`/(parent)/report-cards?studentId=${child.student_id}`)}
               />
-            </>
+              </Surface>
+            </Surface>
           )}
 
           {activeTab === 'exams' && (
-            <>
+            <Surface id="parent.child.exams_tab">
               <View style={cardStyle()}>
                 <SectionHead icon="reports" color={colors.accent} title={t('reports.exam_results')} />
                 {examsLoading ? (
@@ -337,8 +361,9 @@ export default function ChildDetailScreen() {
                   <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
                     {exams.map((e, i) => {
                       const pass = e.pct != null ? e.pct >= 50 : true;
+                      const target = gradeTargetFromExam(e, t('reports.exam_results'));
                       return (
-                        <View key={i} style={{ paddingVertical: spacing.md, borderBottomWidth: i < exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+                        <View key={`${e.source ?? 's'}-${e.attendance_record_id ?? e.revision_attendance_id ?? i}`} style={{ paddingVertical: spacing.md, borderBottomWidth: i < exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <View style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginEnd: spacing.md, backgroundColor: pass ? colors.successLight : colors.dangerLight }}>
                               <Icon name="reports" size={20} color={pass ? colors.success : colors.danger} />
@@ -354,17 +379,24 @@ export default function ChildDetailScreen() {
                               {e.pct != null ? <Text style={textPresets.caption}>{e.pct}%</Text> : null}
                             </View>
                           </View>
+                          <View style={{ paddingStart: 44 + spacing.md }}>
+                            <GradeComplaintStatus
+                              complaint={e.complaint}
+                              onComplain={target ? () => setGradeTarget(target) : undefined}
+                            />
+                          </View>
                         </View>
                       );
                     })}
                   </View>
                 )}
               </View>
-            </>
+            </Surface>
           )}
 
           {activeTab === 'settings' && (
-            <>
+            <Surface id="parent.child.settings_tab">
+              <Surface id="parent.child.settings_info">
               <View style={cardStyle()}>
                 <SectionHead icon="settings" color={colors.textSecondary} title={t('child_settings.title')} />
                 <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
@@ -378,8 +410,10 @@ export default function ChildDetailScreen() {
                   </View>
                 </View>
               </View>
+              </Surface>
 
               {child.can_generate_pre_card && (
+                <Surface id="parent.child.pre_card_invite">
                 <View style={cardStyle()}>
                   <Text style={textPresets.h3}>تسجيل عند المعلم قبل استلام البطاقة</Text>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginTop: spacing.sm }}>
@@ -392,9 +426,11 @@ export default function ChildDetailScreen() {
                     style={{ marginTop: spacing.lg }}
                   />
                 </View>
+                </Surface>
               )}
 
               {child.teachers && child.teachers.length > 0 && (
+                <Surface id="parent.child.teachers">
                 <View style={cardStyle()}>
                   <SectionHead icon="teacher" color={colors.brand} title={t('parent.teachers')} />
                   <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
@@ -409,22 +445,31 @@ export default function ChildDetailScreen() {
                       </View>
                     ))}
                   </View>
+                  <Surface id="parent.child.manage_teachers">
                   <Button
                     variant="primary"
                     title={t('parent.manage_teachers')}
                     onPress={() => router.push(`/(parent)/child/${child.id}/teachers`)}
                     style={{ marginTop: spacing.md }}
                   />
+                  </Surface>
                 </View>
+                </Surface>
               )}
 
-            </>
+            </Surface>
           )}
         </View>
       </ScrollView>
 
+      <Surface id="parent.child.complaint_sheet">
       <ComplaintSheet visible={!!complaintTarget} onClose={() => setComplaintTarget(null)} target={complaintTarget} forStudentId={child.student_id} />
+      </Surface>
+      <Surface id="parent.child.grade_complaint_sheet">
+      <GradeComplaintSheet visible={!!gradeTarget} onClose={() => setGradeTarget(null)} target={gradeTarget} forStudentId={child.student_id} />
+      </Surface>
 
+      <Surface id="parent.child.child_picker">
       <Modal visible={showPicker} transparent animationType="fade" onRequestClose={() => setShowPicker(false)}>
         <TouchableOpacity style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center' }} activeOpacity={1} onPress={() => setShowPicker(false)}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, width: '80%', maxHeight: 300, overflow: 'hidden', ...shadows.lg }}>
@@ -458,6 +503,8 @@ export default function ChildDetailScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+      </Surface>
     </View>
+    </Surface>
   );
 }

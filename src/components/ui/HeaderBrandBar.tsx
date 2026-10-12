@@ -1,8 +1,12 @@
+import type { ReactNode } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius } from '@/theme/index';
 import { fonts } from '@/theme/typography';
 import { Icon } from '@/components/ui/Icon';
 import { BrandMark } from '@/components/ui/BrandMark';
+import { TourTarget } from '@/tour/TourTarget';
+import { Surface } from '@/ui/surfaces';
 
 interface HeaderBrandBarProps {
   /** Tapping the notifications bell. */
@@ -18,6 +22,13 @@ interface HeaderBrandBarProps {
   onScan?: () => void;
   /** Badge on the scanner button: offline scans waiting to sync or to be decided. */
   scanBadge?: number;
+  /** «ابحث في التطبيق» — the feature search (teacher / assistant home). */
+  onSearch?: () => void;
+  /**
+   * When set, each button becomes a backend-switchable surface named `<prefix>.<bell|scan|search|brand>`
+   * (the teacher home passes "teacher.header"). Absent: nothing is wrapped (student / parent homes).
+   */
+  surfacePrefix?: string;
 }
 
 // A function, not a constant: the hero tokens change with the scheme (light: ink on mist,
@@ -36,27 +47,37 @@ function Badge({ count }: { count: number }) {
  * The shared top bar for every role's home hero: the brand logo on the visual
  * LEFT and the notifications bell on the visual RIGHT. The app is force-RTL, so a
  * plain `row` lays children right→left — the bell (first child) sits at the right,
- * the logo (last child) at the left, exactly as intended.
+ * the logo (last child) at the left, exactly as intended. (The connection status lives
+ * under each home's greeting — ConnectionLine.)
  */
-export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scanBadge = 0 }: HeaderBrandBarProps) {
+export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scanBadge = 0, onSearch, surfacePrefix }: HeaderBrandBarProps) {
+  const { t } = useTranslation();
+  // Ids the teacher home declares (for scripts/list-surfaces.py):
+  // <Surface id="teacher.header.bell"> <Surface id="teacher.header.scan"> <Surface id="teacher.header.search"> <Surface id="teacher.header.brand">
+  const surface = (name: string, node: ReactNode) => (surfacePrefix ? <Surface id={`${surfacePrefix}.${name}`}>{node}</Surface> : node);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
       {/* First child → visual RIGHT in RTL: the notifications bell, then (optionally) the scanner. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <TouchableOpacity onPress={onBell} accessibilityRole="button" accessibilityLabel="الإشعارات" style={iconButton()}>
+        {surface('bell', <TourTarget id="header:bell"><TouchableOpacity onPress={onBell} accessibilityRole="button" accessibilityLabel={t('misc_ui.notifications')} style={iconButton()}>
           <Icon name="bell" size={22} color={colors.onHero} outline />
           {unread ? <Badge count={unread} /> : null}
-        </TouchableOpacity>
-        {onScan ? (
-          <TouchableOpacity onPress={onScan} accessibilityRole="button" accessibilityLabel="الكاميرا" style={iconButton()}>
+        </TouchableOpacity></TourTarget>)}
+        {onScan ? surface('scan', (
+          <TourTarget id="header:scan"><TouchableOpacity onPress={onScan} accessibilityRole="button" accessibilityLabel={t('misc_ui.camera')} style={iconButton()}>
             <Icon name="scan" size={22} color={colors.onHero} outline />
             {scanBadge ? <Badge count={scanBadge} /> : null}
-          </TouchableOpacity>
-        ) : null}
+          </TouchableOpacity></TourTarget>
+        )) : null}
+        {onSearch ? surface('search', (
+          <TourTarget id="header:search"><TouchableOpacity onPress={onSearch} accessibilityRole="button" accessibilityLabel={t('misc_ui.search_app')} style={iconButton()}>
+            <Icon name="search" size={21} color={colors.onHero} outline />
+          </TouchableOpacity></TourTarget>
+        )) : null}
       </View>
 
       {/* Last child → visual LEFT in RTL: the transparent brand logo. */}
-      <BrandMark size={logoSize} />
+      {surface('brand', <BrandMark size={logoSize} />)}
     </View>
   );
 }

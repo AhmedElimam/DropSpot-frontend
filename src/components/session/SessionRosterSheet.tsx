@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, TextInput, Switch, Alert, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, TextInput, Switch, useWindowDimensions } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Avatar } from '@/components/layout/Avatar';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
-import { formatNumber } from '@/utils/format';
+import { formatNumber, foldForSearch } from '@/utils/format';
 import type { SessionAttendee } from '@/api/teacherSessions';
+import { Surface } from '@/ui/surfaces';
 
 type Status = 'present' | 'late' | 'absent' | 'excused';
 
@@ -47,8 +49,7 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
 }) {
   const { t } = useTranslation();
   const { height } = useWindowDimensions();
-  const { can } = useActiveAbilities();
-  const canMark = can(ABILITY.MARK_MANUAL);
+  const insets = useSafeAreaInsets();
   const q = useSessionDetail(sessionId ?? undefined);
   const controls = useSessionControls(sessionId ?? '');
   const s = sessionId ? q.data : undefined;
@@ -67,6 +68,15 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
   const attendees = [...all].sort((a, b) => rank(a.student_id) - rank(b.student_id));
   const present = attendees.filter((a) => a.status === 'present' || a.status === 'late').length;
 
+  // Find a student in a long roster (founder 2026-10-06): by name — «احمد» finds «أحمد» — or
+  // by code. Filtering never reorders: the rows keep the order the sheet opened with.
+  const [search, setSearch] = useState('');
+  useEffect(() => { setSearch(''); }, [sessionId]);
+  const needle = foldForSearch(search);
+  const shown = needle
+    ? attendees.filter((a) => foldForSearch(a.name).includes(needle) || foldForSearch(a.student_code).includes(needle))
+    : attendees;
+
   // One student open at a time, with their drafts.
   const [openId, setOpenId] = useState<number | null>(null);
   const [gradeDraft, setGradeDraft] = useState('');
@@ -84,6 +94,7 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
 
   return (
     <SheetModal visible={!!sessionId} onClose={onClose} avoidKeyboard>
+      <Surface id="teacher.roster_sheet.header">
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md }}>
         <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="attendance" size={22} color={colors.brand} />
@@ -96,14 +107,38 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
         </View>
         {controls.mark.isPending ? <ActivityIndicator color={colors.primary} /> : null}
       </View>
+      </Surface>
 
       {q.isLoading || (!s && !!sessionId && !q.isError) ? (
         <ActivityIndicator color={colors.primary} style={{ paddingVertical: spacing.xl }} />
       ) : attendees.length === 0 ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }}>{t('home.roster_empty')}</Text>
       ) : (
-        <ScrollView style={{ maxHeight: height * 0.6 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {attendees.map((a) => {
+        <>
+        {attendees.length > 3 ? (
+          <Surface id="teacher.roster_sheet.search">
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, marginBottom: spacing.sm }}>
+            <Icon name="search" size={17} color={colors.textTertiary} />
+            <TextInput value={search} onChangeText={setSearch} placeholder={t('misc_ui.search_name_or_code')} placeholderTextColor={colors.textTertiary}
+              returnKeyType="search" autoCorrect={false} clearButtonMode="never"
+              style={{ flex: 1, height: 44, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right', paddingVertical: 0 }} />
+            {search ? (
+              <TouchableOpacity onPress={() => setSearch('')} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('misc_ui.clear_search')}>
+                <Icon name="close" size={16} color={colors.textTertiary} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          </Surface>
+        ) : null}
+        {shown.length === 0 ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.lg }}>{t('misc_ui.no_student_named', { name: search.trim() })}</Text>
+        ) : null}
+        {/* The list takes what the sheet has left — title, search, the «open the full sheet»
+            button and the sheet's own margins (≈300 pt) — not a flat 60 % of the screen, which
+            overflowed the sheet and slid the bottom under its margin (founder 2026-10-08). */}
+        <Surface id="teacher.roster_sheet.list">
+        <ScrollView style={{ maxHeight: Math.max(200, Math.min(height * 0.6, height - insets.top - insets.bottom - 300)) }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {shown.map((a) => {
             const color = STATUS_COLOR()[a.status] ?? STATUS_COLOR().not_recorded;
             const open = openId === a.student_id;
             return (
@@ -125,8 +160,9 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
                   <Icon name={open ? 'up' : 'down'} size={16} color={colors.textTertiary} />
                 </TouchableOpacity>
 
-                {/* One tap per student: the four marks, the current one filled. */}
-                {canMark && editable ? (
+                {/* One tap per student: the four marks, the current one filled — mark_attendance_manual. */}
+                {editable ? (
+                  <Surface id="teacher.roster_sheet.quick_marks" assistantNeeds="mark_attendance_manual">
                   <View style={{ flexDirection: 'row', gap: 6, marginTop: spacing.sm }}>
                     {MARKS.map((m) => {
                       const c = STATUS_COLOR()[m.status];
@@ -141,13 +177,16 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
                       );
                     })}
                   </View>
+                  </Surface>
                 ) : null}
 
                 {/* Tapped name: grade, sheet handed in, note to the parent. */}
                 {open && s ? (
+                  <Surface id="teacher.roster_sheet.student_details">
                   <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
                     {!s.sheet_excluded ? (
                       <>
+                        <Surface id="teacher.roster_sheet.student_details.grade">
                         <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>
                           {t('teacher.sheet_grade')}{s.sheet_max_mark != null ? ` (${t('teacher.out_of', { max: s.sheet_max_mark })})` : ''}
                         </Text>
@@ -160,29 +199,39 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
                               { onError: (e) => fail(e, 'teacher.grade_failed') },
                             )} />
                         </View>
+                        </Surface>
+                        <Surface id="teacher.roster_sheet.student_details.sheet_marked">
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: 6, paddingHorizontal: spacing.md }}>
                           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('teacher.sheet_marked')}</Text>
                           <Switch value={a.sheet_marked} onValueChange={() => controls.sheet.mutate(a.student_id)} trackColor={{ true: colors.brand }} />
                         </View>
+                        </Surface>
                       </>
                     ) : null}
+                    <Surface id="teacher.roster_sheet.student_details.note">
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{t('teacher.parent_note')}</Text>
                     <TextInput value={noteDraft} onChangeText={setNoteDraft} placeholder={t('teacher.parent_note_placeholder')} placeholderTextColor={colors.textTertiary} multiline
                       style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, minHeight: 64, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlignVertical: 'top' }} />
                     <Button title={t('teacher.save_note')} variant="secondary" loading={controls.note.isPending}
                       onPress={() => controls.note.mutate({ studentId: a.student_id, note: noteDraft.trim() }, { onError: (e) => fail(e, 'common.error') })} />
+                    </Surface>
                   </View>
+                  </Surface>
                 ) : null}
               </View>
             );
           })}
         </ScrollView>
+        </Surface>
+        </>
       )}
 
       {sessionId ? (
+        <Surface id="teacher.roster_sheet.open_full_button">
         <View style={{ marginTop: spacing.lg }}>
           <Button title={t('home.roster_open_full')} onPress={() => onOpenFull(sessionId)} variant="outline" />
         </View>
+        </Surface>
       ) : null}
     </SheetModal>
   );

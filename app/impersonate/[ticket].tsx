@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import i18n from '@/i18n';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { colors, spacing, radius } from '@/theme/index';
@@ -40,13 +41,13 @@ export default function ImpersonateScreen() {
 
   if (error) {
     return (
-      <AuthScaffold icon="warning" title="تعذّر بدء التصفّح" subtitle="الرمز غير صالح أو منتهٍ.">
+      <AuthScaffold icon="warning" title={i18n.t('misc_ui.imp_failed_title')} subtitle={i18n.t('misc_ui.imp_failed_sub')}>
         <TouchableOpacity
           onPress={() => router.replace('/(auth)/login')}
           activeOpacity={0.85}
           style={{ backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: 15, alignItems: 'center' }}
         >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textInverse }}>حسنًا</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textInverse }}>{i18n.t('common.ok')}</Text>
         </TouchableOpacity>
       </AuthScaffold>
     );
@@ -56,7 +57,7 @@ export default function ImpersonateScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
       <ActivityIndicator size="large" color={colors.brand} />
       <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginTop: spacing.lg }}>
-        جارٍ بدء جلسة التصفّح…
+        {i18n.t('misc_ui.imp_starting')}
       </Text>
     </View>
   );

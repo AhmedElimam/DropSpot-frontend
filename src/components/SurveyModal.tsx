@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
+import { Alert } from '@/ui/dialog';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
@@ -72,16 +74,16 @@ export function SurveyModal() {
         <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingBottom: insets.bottom + spacing.lg, maxHeight: '88%' }}>
           {/* Header */}
           <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.md }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, textAlign: 'right' }}>{survey.title}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{survey.title}</Text>
             {!!survey.description && (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'right', marginTop: spacing.xs }}>{survey.description}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, marginTop: spacing.xs }}>{survey.description}</Text>
             )}
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.lg }} keyboardShouldPersistTaps="handled">
             {survey.questions.map((q) => (
               <View key={q.key} style={{ marginBottom: spacing.xl }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'right', marginBottom: spacing.sm }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>
                   {q.label}{q.required ? <Text style={{ color: colors.danger }}> *</Text> : null}
                 </Text>
 
@@ -98,7 +100,7 @@ export function SurveyModal() {
                         <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: selected ? colors.brand : colors.border, alignItems: 'center', justifyContent: 'center' }}>
                           {selected ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand }} /> : null}
                         </View>
-                        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }}>{opt}</Text>
+                        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary }}>{opt}</Text>
                       </TouchableOpacity>
                     );
                   })

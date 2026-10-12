@@ -57,6 +57,18 @@ export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOpt
   return dtf(options ? opts({ weekday: 'long', day: 'numeric', month: 'long' }, options) : DATE_OPTS).format(d);
 }
 
+/**
+ * ONLY the parts asked for — «٧» for { day: 'numeric' }, «أكت» for { month: 'short' }.
+ * formatDate merges its options INTO weekday + day + month, so formatDate(d, { day: 'numeric' })
+ * still prints «الثلاثاء ٧ أكتوبر» — which, in a 48pt date tile, was the oversized date the
+ * founder saw on the student's teacher page (2026-10-06). Date tiles use this.
+ */
+export function formatDateOnly(date: string | Date, options: Intl.DateTimeFormatOptions): string {
+  const d = toDate(date);
+  if (Number.isNaN(d.getTime())) return '';
+  return dtf(opts(options)).format(d);
+}
+
 const SHORT_DATE_OPTS = opts({ weekday: 'short', day: 'numeric', month: 'short' });
 export function formatShortDate(date: string | Date): string {
   const d = toDate(date);
@@ -74,6 +86,29 @@ export function formatDateTime(date: string | Date, options?: Intl.DateTimeForma
 }
 
 /** Arabic-Indic number formatting — the ONE place numerals are localised. */
+/**
+ * Text folded for searching a name: Arabic letter variants a person types interchangeably
+ * (أ/إ/آ → ا, ة → ه, ى → ي), tashkeel and tatweel dropped, Arabic digits to Latin, lower case.
+ * «احمد» finds «أحمد», «فاطمه» finds «فاطمة».
+ */
+export function foldForSearch(text: string | null | undefined): string {
+  return (text ?? '')
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** «father» → «الأب»: the parent's relationship as the server stores it, in Arabic. */
+export function relationshipLabel(rel: string | null | undefined): string {
+  if (!rel) return '';
+  return ({ father: 'الأب', mother: 'الأم', guardian: 'الوصي', other: 'ولي الأمر' } as Record<string, string>)[rel.trim().toLowerCase()] ?? rel;
+}
+
 export function formatNumber(value: number, options?: Intl.NumberFormatOptions): string {
   return nf(options).format(value);
 }

@@ -1,9 +1,11 @@
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Switch, Alert, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Switch, KeyboardAvoidingView } from 'react-native';
+import { Alert } from '@/ui/dialog';
 import { FlatList, ScrollView } from '@/components/ui/Refreshable';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
@@ -18,11 +20,12 @@ import { MarkRow, MarksHeader, type SessionKind } from '@/components/session/Ses
 import { sessionPhase } from '@/utils/sessionPhase';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
+import { isNetworkFailure } from '@/db/marksSync';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import type { SessionAttendee, SwapInAttendee } from '@/api/teacherSessions';
 import { dayLabel, formatNumber } from '@/utils/format';
 import { goToScan } from '@/utils/sessionNav';
+import { Surface } from '@/ui/surfaces';
 import type { TeacherSession } from '@/api/teacher';
 
 type RosterTab = 'roster' | 'swap';
@@ -62,13 +65,9 @@ export default function SessionDetailScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: s, isLoading, refetch } = useSessionDetail(id);
+  const { data: s, isLoading, refetch, error } = useSessionDetail(id);
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const controls = useSessionControls(id!);
-  const { can } = useActiveAbilities();
-  const canMark = can(ABILITY.MARK_MANUAL);
-  const canScan = can(ABILITY.SCAN);
-
   const [selected, setSelected] = useState<SessionAttendee | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [gradeDraft, setGradeDraft] = useState('');
@@ -168,11 +167,21 @@ export default function SessionDetailScreen() {
   const doCancelRestore = () => {
     if (!s) return;
     if (s.is_cancelled) {
-      controls.restore.mutate();
+      controls.restore.mutate(undefined, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) });
     } else {
-      Alert.alert(t('teacher.cancel_session_title'), t('teacher.cancel_session_hint'), [
+      // A session whose time has passed and nobody attended was not given: cancelling it takes it
+      // out of the students' billing cycle and clears its automatic absences (founder 2026-10-06).
+      const past = s.is_completed || phase === 'done';
+      Alert.alert(t('teacher.cancel_session_title'), t(past ? 'teacher.cancel_past_session_hint' : 'teacher.cancel_session_hint'), [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: t('teacher.cancel_session_confirm'), style: 'destructive', onPress: () => { setSettingsOpen(false); controls.cancel.mutate(); } },
+        { text: t('teacher.cancel_session_confirm'), style: 'destructive', onPress: () => {
+          setSettingsOpen(false);
+          controls.cancel.mutate(undefined, {
+            onSuccess: (d) => { if (d?.notice) Alert.alert(t('teacher.cancel_session_title'), d.notice); },
+            // A refused cancel must say so — it used to fail silently and look done (founder 2026-10-06).
+            onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+          });
+        } },
       ]);
     }
   };
@@ -201,20 +210,20 @@ export default function SessionDetailScreen() {
           </View>
           {fromLabel ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand, marginTop: 2 }} numberOfLines={1}>{t('teacher.swapped_from', { from: fromLabel })}</Text> : null}
         </View>
-        {canMark ? (
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            {(['present', 'absent'] as const).map((st) => {
-              const on = item.status === st || (st === 'present' && item.status === 'late');
-              const c = st === 'present' ? colors.success : colors.danger;
-              return (
-                <TouchableOpacity key={st} onPress={() => mark(item.student_id, st)} hitSlop={4} accessibilityLabel={t(STATUS_KEY[st])}
-                  style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: on ? c : c + '14', borderWidth: on ? 0 : 1, borderColor: c + '55' }}>
-                  <Icon name={st === 'present' ? 'present' : 'absent'} size={22} color={on ? '#fff' : c} />
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : null}
+        <Surface id="teacher.session_detail.row_quick_marks" assistantNeeds="mark_attendance_manual">
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {(['present', 'absent'] as const).map((st) => {
+            const on = item.status === st || (st === 'present' && item.status === 'late');
+            const c = st === 'present' ? colors.success : colors.danger;
+            return (
+              <TouchableOpacity key={st} onPress={() => mark(item.student_id, st)} hitSlop={4} accessibilityLabel={t(STATUS_KEY[st])}
+                style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: on ? c : c + '14', borderWidth: on ? 0 : 1, borderColor: c + '55' }}>
+                <Icon name={st === 'present' ? 'present' : 'absent'} size={22} color={on ? '#fff' : c} />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        </Surface>
       </TouchableOpacity>
     );
   };
@@ -227,8 +236,10 @@ export default function SessionDetailScreen() {
   const total = baseList.length;
 
   return (
+    <Surface id="screen.teacher.sessions.detail" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header — the session at a glance; the counts are the filter. */}
+      <Surface id="teacher.session_detail.header">
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -237,9 +248,11 @@ export default function SessionDetailScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
           {s ? (
+            <Surface id="teacher.session_detail.header.settings_button">
             <TouchableOpacity onPress={() => setSettingsOpen(true)} accessibilityRole="button" accessibilityLabel={t('session_ui.settings')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
               <Icon name="settings" size={20} color={colors.onHero} outline />
             </TouchableOpacity>
+            </Surface>
           ) : null}
         </View>
 
@@ -259,9 +272,10 @@ export default function SessionDetailScreen() {
                   {dayLabel(s.scheduled_at)}{s.time ? ` · ${s.time}` : ''}{s.location ? ` · ${s.location}` : ''}
                 </Text>
               </View>
-              <AttendanceRing present={counts.present} total={total} onHero size={84} />
+              <Surface id="teacher.session_detail.header.ring"><AttendanceRing present={counts.present} total={total} onHero size={84} /></Surface>
             </View>
 
+            <Surface id="teacher.session_detail.header.stats">
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
               {stats.map((x) => {
                 const on = filter === x.key;
@@ -277,14 +291,19 @@ export default function SessionDetailScreen() {
                 );
               })}
             </View>
+            </Surface>
           </>
         ) : null}
       </LinearGradient>
+      </Surface>
 
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : !s ? (
-        <EmptyState icon="calendar" title={t('teacher.session_not_found')} />
+        // Offline and this sheet was never saved on the phone: say that, not «could not load».
+        isNetworkFailure(error)
+          ? <EmptyState icon="warning" title={t('offline.not_saved_title')} message={t('offline.not_saved_session')} />
+          : <EmptyState icon="calendar" title={t('teacher.session_not_found')} />
       ) : (
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <FlatList showsVerticalScrollIndicator={false}
@@ -301,6 +320,7 @@ export default function SessionDetailScreen() {
           ListHeaderComponent={
             <View style={{ marginBottom: spacing.sm, gap: spacing.sm }}>
               {/* Two tabs on one session: who came, and their marks. */}
+              <Surface id="teacher.session_detail.mode_tabs">
               <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4, borderWidth: 1, borderColor: colors.border }}>
                 {([['attendance', 'attendance', t('marks_ui.tab_attendance'), null], ['marks', 'grades', t('marks_ui.tab_marks'), attendedCount > 0 ? `${formatNumber(markedCount)}/${formatNumber(attendedCount)}` : null]] as const).map(([k, icon, label, badge]) => {
                   const on = mode === k;
@@ -314,18 +334,24 @@ export default function SessionDetailScreen() {
                   );
                 })}
               </View>
+              </Surface>
               {mode === 'marks' ? (
+                <Surface id="teacher.session_detail.marks_header">
                 <MarksHeader kind={(s.type ?? 'normal_sheet') as SessionKind} kindBusy={controls.setType.isPending} onKind={setKind}
                   max={s.sheet_max_mark} onMax={(v) => controls.sheetMax.mutate(v)} done={markedCount} of={attendedCount} />
+                </Surface>
               ) : null}
               {s.offline ? (
+                <Surface id="teacher.session_detail.offline_hint">
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.warningLight, borderRadius: radius.lg, padding: spacing.md }}>
                   <Icon name="offline" size={18} color={colors.warningText} />
                   <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.warningText }}>{t('teacher.roster_offline_hint')}</Text>
                 </View>
+                </Surface>
               ) : null}
 
               {hasSwaps ? (
+                <Surface id="teacher.session_detail.swap_tabs">
                 <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4 }}>
                   {([['roster', t('teacher.tab_roster'), s.attendees.length], ['swap', t('teacher.tab_swaps'), swapIns.length]] as const).map(([k, label, n]) => {
                     const on = activeTab === k;
@@ -337,30 +363,37 @@ export default function SessionDetailScreen() {
                     );
                   })}
                 </View>
+                </Surface>
               ) : null}
 
               {total > 8 ? (
+                <Surface id="teacher.session_detail.search">
                 <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md }}>
                   <Icon name="search" size={18} color={colors.textTertiary} />
                   <TextInput value={search} onChangeText={setSearch} placeholder={t('teacher.search_student_ph')} placeholderTextColor={colors.textTertiary}
                     style={{ flex: 1, height: 44, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary }} />
                   {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color={colors.textTertiary} /></TouchableOpacity> : null}
                 </View>
+                </Surface>
               ) : null}
 
-              {mode === 'attendance' && canMark && started && !s.is_cancelled && awaitingRows.length > 0 ? (
+              {mode === 'attendance' && started && !s.is_cancelled && awaitingRows.length > 0 ? (
+                <Surface id="teacher.session_detail.rest_absent_button" ctx={{ session: s }} assistantNeeds="mark_attendance_manual">
                 <TouchableOpacity onPress={markRestAbsent} disabled={bulkBusy} activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md }}>
                   {bulkBusy ? <ActivityIndicator color={colors.danger} /> : <Icon name="absent" size={20} color={colors.danger} />}
                   <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>{t('session_ui.rest_absent', { n: formatNumber(awaitingRows.length) })}</Text>
                 </TouchableOpacity>
+                </Surface>
               ) : null}
 
               {filter && mode === 'attendance' ? (
+                <Surface id="teacher.session_detail.clear_filter">
                 <TouchableOpacity onPress={() => setFilter(null)} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 }}>
                   <Icon name="close" size={14} color={colors.brand} />
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('session_ui.clear_filter')}</Text>
                 </TouchableOpacity>
+                </Surface>
               ) : null}
             </View>
           }
@@ -371,23 +404,27 @@ export default function SessionDetailScreen() {
       )}
 
       {/* Scan straight into this session. */}
-      {s && canScan && live && mode === 'attendance' ? (
+      {s && live && mode === 'attendance' ? (
+        <Surface id="teacher.session_detail.scan_fab" ctx={{ session: s }} assistantNeeds="scan_attendance">
         <TouchableOpacity onPress={() => goToScan({ id: s.id, course_name: s.course_name } as TeacherSession)} activeOpacity={0.9} accessibilityRole="button"
           style={{ position: 'absolute', bottom: nav.pageEnd + insets.bottom + spacing.sm, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8, height: 54, paddingHorizontal: spacing.xl, borderRadius: 27, backgroundColor: colors.success, ...shadows.md }}>
           <Icon name="scan" size={22} color="#fff" />
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('sessions_tab.scan')}</Text>
         </TouchableOpacity>
+        </Surface>
       ) : null}
 
       {/* Session settings — type, sheet, cancel. Out of the way of the roster. The card draws
           its own background and safe-area padding, so the sheet adds none (a transparent
           bottom padding showed as a see-through gap under the card). */}
+      <Surface id="teacher.session_detail.settings_sheet" ctx={{ session: s }}>
       <SheetModal visible={settingsOpen && !!s} onClose={() => setSettingsOpen(false)} style={{ padding: 0, paddingBottom: 0, backgroundColor: 'transparent' }} handle={false}>
           {s ? (
             <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg, gap: spacing.md }}>
               <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('session_ui.settings')}</Text>
 
+              <Surface id="teacher.session_detail.settings_sheet.type">
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('teacher.session_type_label')}</Text>
                 <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: 4 }}>
@@ -404,7 +441,9 @@ export default function SessionDetailScreen() {
                 </View>
                 {s.is_exam ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: spacing.sm }}>{t('teacher.type_quiz_exam_hint')}</Text> : null}
               </View>
+              </Surface>
 
+              <Surface id="teacher.session_detail.settings_sheet.sheet">
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
                   <View style={{ flex: 1 }}>
@@ -420,19 +459,27 @@ export default function SessionDetailScreen() {
                   </View>
                 ) : null}
               </View>
+              </Surface>
 
+              {/* An assistant without «إلغاء الحصص» never sees the button (founder 2026-10-06). */}
+              <Surface id="teacher.session_detail.cancel_button" ctx={{ session: s }} assistantNeeds="cancel_sessions">
               <Button
                 title={s.is_cancelled ? t('teacher.restore_session') : t('teacher.cancel_session')}
                 onPress={doCancelRestore}
                 variant={s.is_cancelled ? 'success' : 'destructive'}
                 loading={controls.cancel.isPending || controls.restore.isPending}
-                disabled={s.is_completed}
+                // The server's rule (2026-10-06): a session anyone was checked into happened and
+                // stays; one nobody attended can be cancelled, even after its time.
+                disabled={!s.is_cancelled && s.attendees.some((a) => a.status === 'present' || a.status === 'late')}
               />
+              </Surface>
             </View>
           ) : null}
       </SheetModal>
+      </Surface>
 
       {/* One student — mark, sheet grade, note. */}
+      <Surface id="teacher.session_detail.student_sheet">
       <SheetModal visible={!!current} onClose={() => setSelected(null)} avoidKeyboard style={{ backgroundColor: colors.background, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             {current ? (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
@@ -447,24 +494,25 @@ export default function SessionDetailScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {canMark ? (
-                  <>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.mark_attendance')}</Text>
-                    <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
-                      {MARK_OPTIONS().map((o) => {
-                        const active = current.status === o.status;
-                        return (
-                          <TouchableOpacity key={o.status} onPress={() => mark(current.student_id, o.status)} disabled={controls.mark.isPending}
-                            style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: active ? o.color : o.color + '12', borderWidth: active ? 0 : 1, borderColor: o.color + '55' }}>
-                            <Icon name={o.icon} size={22} color={active ? '#fff' : o.color} />
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? '#fff' : o.color }}>{t(STATUS_KEY[o.status])}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </>
-                ) : null}
+                <Surface id="teacher.session_detail.student_sheet.mark_attendance" assistantNeeds="mark_attendance_manual">
+                <>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.mark_attendance')}</Text>
+                  <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
+                    {MARK_OPTIONS().map((o) => {
+                      const active = current.status === o.status;
+                      return (
+                        <TouchableOpacity key={o.status} onPress={() => mark(current.student_id, o.status)} disabled={controls.mark.isPending}
+                          style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: active ? o.color : o.color + '12', borderWidth: active ? 0 : 1, borderColor: o.color + '55' }}>
+                          <Icon name={o.icon} size={22} color={active ? '#fff' : o.color} />
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? '#fff' : o.color }}>{t(STATUS_KEY[o.status])}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+                </Surface>
 
+                <Surface id="teacher.session_detail.student_sheet.grade">
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>
                   {t('teacher.sheet_grade')}{s?.sheet_max_mark != null ? ` (${t('teacher.out_of', { max: s.sheet_max_mark })})` : ''}
                 </Text>
@@ -477,12 +525,16 @@ export default function SessionDetailScreen() {
                       { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.grade_failed')) },
                     )} />
                 </View>
+                </Surface>
 
+                <Surface id="teacher.session_detail.student_sheet.sheet_marked">
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.lg }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('teacher.sheet_marked')}</Text>
                   <Switch value={current.sheet_marked} onValueChange={() => controls.sheet.mutate(current.student_id)} trackColor={{ true: colors.brand }} />
                 </View>
+                </Surface>
 
+                <Surface id="teacher.session_detail.student_sheet.note">
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.parent_note')}</Text>
                 <TextInput value={noteDraft} onChangeText={setNoteDraft} placeholder={t('teacher.parent_note_placeholder')} placeholderTextColor={colors.textTertiary} multiline
                   style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, minHeight: 80, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlignVertical: 'top' }} />
@@ -490,10 +542,13 @@ export default function SessionDetailScreen() {
                   <Button title={t('teacher.save_note')} variant="secondary" loading={controls.note.isPending}
                     onPress={() => controls.note.mutate({ studentId: current.student_id, note: noteDraft.trim() })} />
                 </View>
+                </Surface>
               </ScrollView>
             ) : null}
       </SheetModal>
+      </Surface>
     </View>
+    </Surface>
   );
 }
 

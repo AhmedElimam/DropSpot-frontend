@@ -36,8 +36,10 @@ export async function getAssistants(): Promise<AssistantsData> {
   return (data.data ?? { assistants: [], all_abilities: [], takeaway_abilities: [], venues: [] }) as AssistantsData;
 }
 
-export async function inviteAssistant(phone_number: string): Promise<void> {
-  await client.post('/assistants/invite', { phone_number });
+/** Invite an existing assistant by phone; the new (pending) link's id. */
+export async function inviteAssistant(phone_number: string): Promise<{ id: number }> {
+  const { data } = await client.post('/assistants/invite', { phone_number });
+  return { id: Number((data.data ?? data)?.id) };
 }
 
 export async function createAssistant(payload: {
@@ -45,8 +47,9 @@ export async function createAssistant(payload: {
   last_name?: string;
   phone_number: string;
   password: string;
-}): Promise<void> {
-  await client.post('/assistants', payload);
+}): Promise<{ id: number }> {
+  const { data } = await client.post('/assistants', payload);
+  return { id: Number((data.data ?? data)?.id) };
 }
 
 export async function updateAssistantAbilities(id: number, abilities: string[]): Promise<void> {

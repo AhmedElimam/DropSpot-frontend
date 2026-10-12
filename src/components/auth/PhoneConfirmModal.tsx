@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Modal, View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
@@ -33,7 +34,13 @@ export function PhoneConfirmModal({
   useEffect(() => {
     if (!visible) return;
     setRemaining(delaySeconds);
-    const id = setInterval(() => setRemaining((r) => (r <= 1 ? 0 : r - 1)), 1000);
+    // Stops itself at zero instead of ticking every second until the modal closes.
+    let left = delaySeconds;
+    const id = setInterval(() => {
+      left -= 1;
+      setRemaining(Math.max(0, left));
+      if (left <= 0) clearInterval(id);
+    }, 1000);
     return () => clearInterval(id);
   }, [visible, delaySeconds]);
 
@@ -47,7 +54,7 @@ export function PhoneConfirmModal({
             <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: colors.warningLight ?? colors.brandTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
               <Icon name="warning" size={28} color={colors.warning} />
             </View>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.textPrimary, textAlign: 'right' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.textPrimary }}>
               {t('auth.confirm_phone_title')}
             </Text>
 
@@ -58,7 +65,7 @@ export function PhoneConfirmModal({
               </Text>
             </View>
 
-            <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, textAlign: 'right', marginTop: spacing.md }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, marginTop: spacing.md }}>
               {t('auth.parent_phone_warning')}
             </Text>
           </View>

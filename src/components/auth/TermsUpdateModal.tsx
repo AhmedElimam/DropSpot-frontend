@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, ScrollView, AppState, type AppStateStatus } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, AppState, type AppStateStatus } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { useTranslation } from 'react-i18next';
 import { router, usePathname, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
