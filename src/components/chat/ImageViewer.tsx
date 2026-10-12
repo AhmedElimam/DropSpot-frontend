@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, PanResponder, Text, TouchableOpacity, View, StatusBar, ActivityIndicator, type GestureResponderEvent } from 'react-native';
+import { Animated, PanResponder, Text, TouchableOpacity, View, StatusBar, ActivityIndicator, I18nManager, type GestureResponderEvent } from 'react-native';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,13 +22,22 @@ import { Icon } from '@/components/ui/Icon';
  * this ships over the air, and a JS bundle must never import a native module the installed
  * binary may not carry. Everything here is in React Native itself.
  */
-export function ImageViewer({ visible, url, headers, name, onClose, onShare }: {
+export function ImageViewer({ visible, url, headers, name, onClose, onShare, onPrev, onNext, position, caption, onShowInChat }: {
   visible: boolean;
   url: string;
   headers: Record<string, string>;
   name: string | null;
   onClose: () => void;
   onShare?: () => void;
+  /** The room's photo shelf: swipe sideways to the previous / next photo. */
+  onPrev?: () => void;
+  onNext?: () => void;
+  /** «3 / 24». */
+  position?: { index: number; total: number };
+  /** Who sent it and when. */
+  caption?: string;
+  /** Close the viewer and open the room at this photo. */
+  onShowInChat?: () => void;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -39,6 +48,9 @@ export function ImageViewer({ visible, url, headers, name, onClose, onShare }: {
   const ty = useRef(new Animated.Value(0)).current;
   // Gesture bookkeeping lives in a ref: it changes on every frame and must never re-render.
   const g = useRef({ scale: 1, tx: 0, ty: 0, startDist: 0, startScale: 1, startTx: 0, startTy: 0, lastTap: 0, pinched: false });
+  // The responder below is built once; it reads the current callbacks through this ref.
+  const nav = useRef({ onPrev, onNext, onClose });
+  nav.current = { onPrev, onNext, onClose };
 
   const settle = (s: number, x: number, y: number) => {
     g.current.scale = s; g.current.tx = x; g.current.ty = y;
@@ -52,7 +64,7 @@ export function ImageViewer({ visible, url, headers, name, onClose, onShare }: {
   useEffect(() => {
     // Every open starts flat. A photo left zoomed in by the last look is a confusing first frame.
     if (visible) { scale.setValue(1); tx.setValue(0); ty.setValue(0); g.current = { ...g.current, scale: 1, tx: 0, ty: 0, startDist: 0 }; setLoaded(false); }
-  }, [visible, scale, tx, ty]);
+  }, [visible, url, scale, tx, ty]);
 
   const dist = (e: GestureResponderEvent) => {
     const [a, b] = e.nativeEvent.touches;
@@ -91,6 +103,9 @@ export function ImageViewer({ visible, url, headers, name, onClose, onShare }: {
         // Zoomed: one finger pans the photo.
         s.tx = s.startTx + gs.dx; s.ty = s.startTy + gs.dy;
         tx.setValue(s.tx); ty.setValue(s.ty);
+      } else if ((nav.current.onPrev || nav.current.onNext) && Math.abs(gs.dx) > Math.abs(gs.dy)) {
+        // Flat, sideways, on the shelf: the photo follows the finger toward its neighbour.
+        tx.setValue(gs.dx);
       } else {
         // Flat: the photo follows a downward pull, so letting go feels like dropping it.
         ty.setValue(Math.max(0, gs.dy));
@@ -100,7 +115,14 @@ export function ImageViewer({ visible, url, headers, name, onClose, onShare }: {
       const s = g.current;
       s.startDist = 0;
       if (s.scale <= 1.02) {
-        if (!s.pinched && gs.dy > 110 && Math.abs(gs.vy) > 0.2) { onClose(); return; }
+        if (!s.pinched && gs.dy > 110 && Math.abs(gs.vy) > 0.2 && Math.abs(gs.dy) > Math.abs(gs.dx)) { nav.current.onClose(); return; }
+        // A sideways flick on the shelf: next or previous. Under RTL the next photo comes
+        // from the left, so the finger moves right.
+        if (!s.pinched && Math.abs(gs.dx) > 80 && Math.abs(gs.dx) > Math.abs(gs.dy)) {
+          const towardNext = I18nManager.isRTL ? gs.dx > 0 : gs.dx < 0;
+          const go = towardNext ? nav.current.onNext : nav.current.onPrev;
+          if (go) { tx.setValue(0); go(); return; }
+        }
         settle(1, 0, 0);
         return;
       }
@@ -150,9 +172,21 @@ export function ImageViewer({ visible, url, headers, name, onClose, onShare }: {
           ) : null}
         </View>
 
-        <View pointerEvents="none" style={{ position: 'absolute', bottom: insets.bottom + 14, left: 0, right: 0, alignItems: 'center', paddingHorizontal: spacing.xl }}>
-          {name ? <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>{name}</Text> : null}
-          <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>{t('chat.zoom_hint')}</Text>
+        <View pointerEvents="box-none" style={{ position: 'absolute', bottom: insets.bottom + 14, left: 0, right: 0, alignItems: 'center', paddingHorizontal: spacing.xl }}>
+          {position && position.total > 1 ? (
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: 'rgba(255,255,255,0.9)', marginBottom: 4, writingDirection: 'ltr' }}>{`${position.index + 1} / ${position.total}`}</Text>
+          ) : null}
+          {caption ? <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff' }}>{caption}</Text> : null}
+          {name ? <Text numberOfLines={1} ellipsizeMode="middle" style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{name}</Text> : null}
+          {onShowInChat ? (
+            <TouchableOpacity onPress={onShowInChat} accessibilityRole="button" hitSlop={8}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, paddingHorizontal: 16, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.16)' }}>
+              <Icon name="chat" size={16} color="#fff" outline />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('chat.show_in_chat')}</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>{t('chat.zoom_hint')}</Text>
+          )}
         </View>
       </View>
     </Modal>

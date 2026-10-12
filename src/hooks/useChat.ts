@@ -1,12 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import {
-  blockChatUser, deleteChatMessage, getChatChannels, getChatReports, getChatRoom, muteChatUser,
-  reportChatMessage, resolveChatReport, sendChatMessage, setChatNotify, setChatSettings,
-  uploadChatAttachment,
+  blockChatUser, deleteChatMessage, getChatCalendar, getChatChannels, getChatInfo, getChatMedia, getChatReports, getChatRoom, muteChatUser,
+  reportChatMessage, resolveChatReport, sendChatMessage, setChatNotify, setChatSettings, unblockChatUser, unmuteChatUser,
+  uploadChatAttachment, type ChatMediaType,
   type ChatAttachmentKind, type ChatMessage, type ChatReportAction, type ChatRoom, type ChatSender,
 } from '@/api/chat';
 import { useAuthStore } from '@/stores/authStore';
+import { applyRecentHidden, lastServerId, mergeTail } from '@/chat/roomView';
 
 export const CHAT_FLAG = 'course_chat';
 
@@ -38,11 +39,38 @@ export function useChatChannels(enabled = true) {
  * only a safety net behind a working socket. Picking by "is a broadcaster configured" left a
  * phone that could not reach it on a 45-second poll with nothing to say why.
  */
+/** A full page every so often, whatever the poll says — the safety net under the deltas. */
+export const CHAT_FULL_REFRESH_MS = 120_000;
+const lastFull = new Map<number, number>();
+
+/**
+ * One poll of a room. The first call (and one every two minutes) fetches the latest page;
+ * every other call asks only for what is NEWER than the last message held, so an idle room
+ * costs an empty answer instead of the last fifty messages again (founder 2026-10-12 —
+ * the poll was 25 queries and 14 KB every 8 seconds). An older server that ignores
+ * `after_id` answers with a full page, which is used as is.
+ */
+export async function pollChatRoom(courseId: number, prev: ChatRoom | undefined, now: number = Date.now()): Promise<ChatRoom> {
+  const lastId = prev ? lastServerId(prev.messages) : 0;
+  const due = now - (lastFull.get(courseId) ?? 0) > CHAT_FULL_REFRESH_MS;
+  const full = async () => { const page = await getChatRoom(courseId); lastFull.set(courseId, now); return page; };
+  if (!prev || !lastId || due) return full();
+
+  const fresh = await getChatRoom(courseId, { afterId: lastId });
+  if (fresh.window?.mode !== 'after') { lastFull.set(courseId, now); return fresh; }
+  if (fresh.window.has_more_after) return full(); // away too long: start from the latest page
+  const moderator = fresh.role === 'teacher' || fresh.role === 'assistant';
+  const hidden = applyRecentHidden(prev.messages, fresh.recent_hidden_ids, moderator);
+  if (hidden.refetch) return full();
+  return { ...fresh, messages: mergeTail(hidden.messages, fresh.messages) };
+}
+
 export function useChatRoom(courseId: number, active: boolean, live = false) {
   const on = useChatEnabled();
+  const qc = useQueryClient();
   return useQuery({
     queryKey: ['chat', 'room', courseId],
-    queryFn: () => getChatRoom(courseId),
+    queryFn: () => pollChatRoom(courseId, qc.getQueryData<ChatRoom>(['chat', 'room', courseId])),
     enabled: on && courseId > 0,
     refetchInterval: (query) => {
       if (!active) return false;
@@ -217,6 +245,8 @@ export function useBlockChatUser(courseId: number) {
       qc.setQueryData<ChatRoom>(['chat', 'room', courseId], (room) =>
         room ? { ...room, messages: room.messages.filter((m) => m.sender.id !== userId) } : room,
       );
+      qc.invalidateQueries({ queryKey: ['chat', 'info', courseId] });
+      qc.invalidateQueries({ queryKey: ['chat', 'media', courseId] });
     },
   });
 }
@@ -225,7 +255,10 @@ export function useSetChatNotify(courseId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (notify: boolean) => setChatNotify(courseId, notify),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['chat', 'channels'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chat', 'channels'] });
+      qc.invalidateQueries({ queryKey: ['chat', 'info', courseId] });
+    },
   });
 }
 
@@ -262,7 +295,10 @@ export function useMuteChatUser(courseId: number) {
   return useMutation({
     mutationFn: ({ userId, hours, reason }: { userId: number; hours: number; reason: string }) =>
       muteChatUser(courseId, userId, hours, reason),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['chat', 'room', courseId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chat', 'room', courseId] });
+      qc.invalidateQueries({ queryKey: ['chat', 'info', courseId] });
+    },
   });
 }
 
@@ -273,6 +309,68 @@ export function useSetChatSettings(courseId: number) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['chat', 'room', courseId] });
       qc.invalidateQueries({ queryKey: ['chat', 'channels'] });
+      qc.invalidateQueries({ queryKey: ['chat', 'info', courseId] });
+    },
+  });
+}
+
+
+// ── The room's info page, shelf and days ─────────────────────────────────────
+
+export function useChatInfo(courseId: number, enabled = true) {
+  const on = useChatEnabled();
+  return useQuery({
+    queryKey: ['chat', 'info', courseId],
+    queryFn: () => getChatInfo(courseId),
+    enabled: on && enabled && courseId > 0,
+    staleTime: 20_000,
+  });
+}
+
+/** One tab of the shelf, paged newest first as the list scrolls. */
+export function useChatMedia(courseId: number, type: ChatMediaType, enabled = true) {
+  const on = useChatEnabled();
+  return useInfiniteQuery({
+    queryKey: ['chat', 'media', courseId, type],
+    queryFn: ({ pageParam }) => getChatMedia(courseId, type, pageParam || undefined),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.next_before_id ?? undefined,
+    enabled: on && enabled && courseId > 0,
+    staleTime: 30_000,
+  });
+}
+
+/** Messages per day between two dates (YYYY-MM-DD). */
+export function useChatCalendar(courseId: number, from: string, to: string, enabled = true) {
+  const on = useChatEnabled();
+  return useQuery({
+    queryKey: ['chat', 'calendar', courseId, from, to],
+    queryFn: () => getChatCalendar(courseId, from, to),
+    enabled: on && enabled && courseId > 0 && !!from && !!to,
+    staleTime: 60_000,
+  });
+}
+
+export function useUnmuteChatUser(courseId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (muteId: number) => unmuteChatUser(muteId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chat', 'info', courseId] });
+      qc.invalidateQueries({ queryKey: ['chat', 'room', courseId] });
+    },
+  });
+}
+
+export function useUnblockChatUser(courseId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: number) => unblockChatUser(userId),
+    onSuccess: () => {
+      lastFull.delete(courseId); // their messages come back on the next full page
+      qc.invalidateQueries({ queryKey: ['chat', 'info', courseId] });
+      qc.invalidateQueries({ queryKey: ['chat', 'room', courseId] });
+      qc.invalidateQueries({ queryKey: ['chat', 'media', courseId] });
     },
   });
 }

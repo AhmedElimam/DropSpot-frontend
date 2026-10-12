@@ -136,7 +136,7 @@ export function AttachmentBubble({ attachment, mine, seed, onLongPress }: {
  * path the PDF reports use, for the same reason: a Custom Tab cannot carry our bearer token,
  * and on Samsung the download-manager hand-off cold-restarts the app.
  */
-async function openFile(attachment: ChatAttachment, headers: Record<string, string>, t: (k: string) => string): Promise<void> {
+export async function openFile(attachment: ChatAttachment, headers: Record<string, string>, t: (k: string) => string): Promise<void> {
   if (!attachment.url) return;
   try {
     // An optimistic (not yet uploaded) attachment IS a local file already — share it as is.

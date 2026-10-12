@@ -1,6 +1,6 @@
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
@@ -8,6 +8,7 @@ import { chat, senderColor } from '@/theme/chat';
 import { Icon } from '@/components/ui/Icon';
 import { AttachmentBubble } from '@/components/chat/AttachmentBubble';
 import { formatTime } from '@/utils/format';
+import { linkify, openLink } from '@/components/chat/linkify';
 import type { ChatMessage } from '@/api/chat';
 
 /**
@@ -27,7 +28,7 @@ import type { ChatMessage } from '@/api/chat';
  * ones let it fall to its own. No absolute positioning, so it cannot overlap a wrap.
  */
 export const ChatBubble = memo(function ChatBubble({
-  message, mine, showName, showTail, onLongPress, onRetry,
+  message, mine, showName, showTail, onLongPress, onRetry, highlight = false,
 }: {
   message: ChatMessage;
   mine: boolean;
@@ -37,6 +38,8 @@ export const ChatBubble = memo(function ChatBubble({
   onLongPress: (m: ChatMessage) => void;
   /** A message that never reached the server — tapping it offers to try again. */
   onRetry?: (m: ChatMessage) => void;
+  /** The message a jump landed on («show in chat», a calendar day): it glows once. */
+  highlight?: boolean;
 }) {
   const { t } = useTranslation();
   const staff = message.sender.is_staff;
@@ -55,6 +58,13 @@ export const ChatBubble = memo(function ChatBubble({
   const border = hidden ? 'transparent' : staff && !mine ? chat.bubbleStaffBorder : mine ? 'transparent' : chat.bubbleTheirsBorder;
   const ink = hidden ? chat.hiddenInk : mine ? chat.textOnMine : chat.text;
   const metaInk = hidden ? chat.hiddenInk : mine ? chat.metaOnMine : chat.meta;
+
+  // The landing glow: up, hold, fade — so the eye finds the message the jump opened on.
+  const glow = useSharedValue(0);
+  useEffect(() => {
+    if (highlight) glow.value = withSequence(withTiming(1, { duration: 180 }), withDelay(1100, withTiming(0, { duration: 700 })));
+  }, [highlight, glow]);
+  const glowStyle = useAnimatedStyle(() => ({ opacity: glow.value }));
 
   return (
     <Animated.View entering={sending ? FadeInDown.duration(180).springify().damping(18) : undefined} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%', marginTop: showName ? spacing.md : 3 }}>
@@ -78,6 +88,7 @@ export const ChatBubble = memo(function ChatBubble({
           ...(mine ? {} : shadows.sm),
         }}
       >
+        <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: -3, bottom: -3, left: -3, right: -3, borderRadius: radius.xl + 3, borderWidth: 2, borderColor: colors.accent, backgroundColor: 'rgba(242,169,59,0.16)' }, glowStyle]} />
         {showName && !mine ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: staff ? chat.staffInk : senderColor(message.sender.id) }}>
@@ -115,7 +126,17 @@ export const ChatBubble = memo(function ChatBubble({
                 textDecorationLine: hidden ? 'line-through' : 'none',
               }}
             >
-              {message.body}
+              {hidden ? message.body : linkify(message.body ?? '').map((seg, i) => seg.url ? (
+                <Text
+                  key={i}
+                  onPress={() => openLink(seg.url!)}
+                  onLongPress={() => onLongPress(message)}
+                  accessibilityRole="link"
+                  style={{ textDecorationLine: 'underline', color: mine ? '#FFFFFF' : colors.brand, fontFamily: fonts.medium }}
+                >
+                  {seg.text}
+                </Text>
+              ) : seg.text)}
             </Text>
           ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginStart: spacing.sm, marginTop: 2 }}>

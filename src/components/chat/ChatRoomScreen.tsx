@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Keyboard, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, ActivityIndicator, Alert, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,13 +29,16 @@ import { MuteSheet } from '@/components/chat/MuteSheet';
 import { Icon } from '@/components/ui/Icon';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { ChatBubble } from '@/components/chat/ChatBubble';
-import { DateChip, isNewDay } from '@/components/chat/DateChip';
+import { DateChip } from '@/components/chat/DateChip';
+import { ChatCalendarSheet } from '@/components/chat/ChatCalendarSheet';
+import { buildRows, dayKey, lastServerId, mergeById, seenFor, type RoomRow } from '@/chat/roomView';
+import { useChatJump } from '@/chat/jumpStore';
 import { ChatComposer } from '@/components/chat/ChatComposer';
 import { ChatWallpaper } from '@/components/chat/ChatWallpaper';
 import { TypingBubble } from '@/components/chat/TypingBubble';
 import type { VoiceClip } from '@/components/chat/VoiceRecorder';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { formatDateTime } from '@/utils/format';
+import { formatDateTime, formatDayDate, relativeDay } from '@/utils/format';
 
 /**
  * One course room — the SAME screen for a student and for the teacher who moderates it.
@@ -58,7 +62,11 @@ import { formatDateTime } from '@/utils/format';
  * Transport: a private socket channel when the server has a broadcaster, with a slow poll as
  * the safety net; a fast poll while focused otherwise. FCM wakes the app either way.
  */
-export function ChatRoomScreen({ courseId }: { courseId: number }) {
+export function ChatRoomScreen({ courseId, infoHref }: {
+  courseId: number;
+  /** The room's info page for this role (members, moderators, the shelf, the calendar). */
+  infoHref?: string;
+}) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
@@ -134,33 +142,44 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     if (readRefetch.current) return;
     readRefetch.current = setTimeout(() => { readRefetch.current = null; void room.refetch(); }, 800);
   }, [room]);
-  const [older, setOlder] = useState<ChatMessage[]>([]);
-  const [loadingOlder, setLoadingOlder] = useState(false);
-  const [noMoreOlder, setNoMoreOlder] = useState(false);
   const [recording, setRecording] = useState(false);
-  const [showJump, setShowJump] = useState(false);
   const [reporting, setReporting] = useState<ChatMessage | null>(null);
   const [reportReason, setReportReason] = useState<string | null>(null);
   const [reportNote, setReportNote] = useState('');
   const [showReports, setShowReports] = useState(false);
   const [muting, setMuting] = useState<{ id: number; name: string } | null>(null);
 
-  const scrollRef = useRef<ScrollView>(null);
-  const atBottomRef = useRef(true);
-  // Scroll bookkeeping. Content height is the trigger for every auto-scroll (see
-  // onContentSize) — a timer cannot know when an image finished laying out.
-  const firstPaintRef = useRef(false);
-  const contentHeightRef = useRef(0);
-  const offsetRef = useRef(0);
-  /** Content height captured just before an older page is prepended, or null. */
-  const prependFromRef = useRef<number | null>(null);
+  // ── The list ─────────────────────────────────────────────────────────────────────────
+  // INVERTED (newest at index 0, the bottom): it sticks to the newest message, keeps its
+  // place when older pages load above, and can open any day of the past without measuring
+  // everything in between (founder 2026-10-12, «see the conversation by dates, like
+  // Telegram»). Two modes: the LIVE room (older pages + the polled tail + the outbox), or a
+  // WINDOW of history around a jumped-to message, which pages both ways and becomes the
+  // live room again when it reaches the present.
+  const listRef = useRef<FlatList<RoomRow>>(null);
+  const [older, setOlder] = useState<ChatMessage[]>([]);
+  const [win, setWin] = useState<{ messages: ChatMessage[]; hasMoreBefore: boolean; hasMoreAfter: boolean } | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [noMoreOlder, setNoMoreOlder] = useState(false);
+  const [loadingNewer, setLoadingNewer] = useState(false);
+  const [showJump, setShowJump] = useState(false);
+  const [highlightId, setHighlightId] = useState<number | null>(null);
+  const [pendingScrollId, setPendingScrollId] = useState<number | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [pill, setPill] = useState<{ date: string; visible: boolean }>({ date: '', visible: false });
+  const pillTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollRetries = useRef(0);
 
   const notify = channels.data?.find((c) => c.course_id === courseId)?.notify ?? true;
 
   // Live frames merge into the same cache the poll fills; hidden ids drop out of it.
   const { connected, status: socketStatus } = useChatSocket(courseId, room.data?.realtime, {
     onMessage: useCallback((m: ChatMessage) => { mergeChatMessage(qc, courseId, m); forgetTyper(m.sender.id); }, [qc, courseId, forgetTyper]),
-    onHidden: useCallback((id: number) => { dropChatMessage(qc, courseId, id); setOlder((prev) => prev.filter((m) => m.id !== id)); }, [qc, courseId]),
+    onHidden: useCallback((id: number) => {
+      dropChatMessage(qc, courseId, id);
+      setOlder((prev) => prev.filter((m) => m.id !== id));
+      setWin((w) => (w ? { ...w, messages: w.messages.filter((m) => m.id !== id) } : w));
+    }, [qc, courseId]),
     onTyping,
     onRead,
   }, focused);
@@ -177,89 +196,137 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     }
   };
 
-  // Older pages are prepended; the polled page is the tail. Dedupe by id so a message that
-  // crosses the page boundary is never shown twice.
-  // The outbox is drawn AFTER the server's page, so a message you sent survives every poll.
+  // My messages' ticks come from the room's read thresholds (they turn without the old
+  // messages being sent again); the outbox is drawn after the server's messages.
+  const seenSome = room.data?.seen_upto?.some;
+  const seenAll = room.data?.seen_upto?.all;
   const messages = useMemo(() => {
-    const seen = new Set<number>();
-    const out: ChatMessage[] = [];
-    for (const m of [...older, ...(room.data?.messages ?? [])]) {
-      if (!seen.has(m.id)) { seen.add(m.id); out.push(m); }
-    }
-    return mergeOutbox(out, outboxItems, courseId);
-  }, [older, room.data?.messages, outboxItems, courseId]);
+    const base = win ? win.messages : mergeOutbox(mergeById(older, room.data?.messages ?? []), outboxItems, courseId);
+    if (!me || seenSome === undefined || seenAll === undefined) return base;
+    const upto = { some: seenSome, all: seenAll };
+    return base.map((m) => (m.sender.id === me.id && !m.local ? { ...m, seen: seenFor(m, upto) } : m));
+  }, [win, older, room.data?.messages, outboxItems, courseId, me, seenSome, seenAll]);
+  const rows = useMemo(() => buildRows(messages).reverse(), [messages]);
+  const rowKeyExtractor = useCallback((r: RoomRow) => r.key, []);
   const waiting = useMemo(() => outboxItems.filter((x) => x.courseId === courseId && x.status !== 'failed').length, [outboxItems, courseId]);
+  const pageSize = room.data?.page_size || 50;
 
-  /**
-   * Every auto-scroll hangs off CONTENT SIZE, not a timer. Content settles at different
-   * moments — a text bubble immediately, an image only once it has decoded and taken its
-   * 232px, a whole room on first paint after layout — and a fixed delay is a guess that is
-   * wrong on a slow device and wasteful on a fast one.
-   */
-  const onContentSize = (_w: number, h: number) => {
-    const previous = contentHeightRef.current;
-    contentHeightRef.current = h;
-
-    // Arriving in the room: land on the newest message, with no visible travel.
-    if (!firstPaintRef.current) {
-      firstPaintRef.current = true;
-      scrollRef.current?.scrollToEnd({ animated: false });
-      return;
-    }
-
-    // An older page was just prepended ABOVE the reader. Hold their place: without this
-    // the content they were reading jumps down by the height of the page that loaded.
-    if (prependFromRef.current !== null) {
-      const grew = h - prependFromRef.current;
-      prependFromRef.current = null;
-      if (grew > 0) scrollRef.current?.scrollTo({ y: offsetRef.current + grew, animated: false });
-      return;
-    }
-
-    // Grew while the reader was at the bottom — a new message, or an image that finished
-    // loading under one. Follow it. If they had scrolled up to read, never yank them.
-    if (atBottomRef.current && h > previous) {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }
-  };
-
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
-    offsetRef.current = contentOffset.y;
-    contentHeightRef.current = contentSize.height;
-    const atBottom = contentSize.height - contentOffset.y - layoutMeasurement.height < 120;
-    atBottomRef.current = atBottom;
-    if (atBottom === showJump) setShowJump(!atBottom);
-  };
-
-  // Opening the keyboard shrinks the viewport from the bottom, which is exactly where the
-  // newest message is. Follow it up, or the message just sent sits behind the keyboard.
-  useEffect(() => {
-    const evt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const sub = Keyboard.addListener(evt, () => {
-      if (atBottomRef.current) {
-        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
-      }
-    });
-    return () => sub.remove();
-  }, []);
-
-  const loadOlder = async () => {
-    const first = messages[0];
-    if (!first || loadingOlder) return;
+  const loadOlder = useCallback(async () => {
+    if (loadingOlder) return;
+    const first = messages.find((m) => m.id > 0);
+    if (!first) return;
+    if (win ? !win.hasMoreBefore : (noMoreOlder || messages.length < pageSize)) return;
     setLoadingOlder(true);
     try {
-      const page = await getChatRoom(courseId, first.id);
-      if (page.messages.length === 0) setNoMoreOlder(true);
-      // Remember where we were, so onContentSize can put the reader back.
-      prependFromRef.current = contentHeightRef.current;
-      setOlder((prev) => [...page.messages, ...prev]);
+      const page = await getChatRoom(courseId, { beforeId: first.id });
+      const more = page.messages.length >= pageSize;
+      if (win) setWin((w) => (w ? { ...w, messages: mergeById(page.messages, w.messages), hasMoreBefore: more } : w));
+      else { if (!more) setNoMoreOlder(true); setOlder((prev) => mergeById(page.messages, prev)); }
     } catch {
-      // Silent: the button stays, the reader can try again.
+      // Silent: scrolling up again tries again.
     } finally {
       setLoadingOlder(false);
     }
-  };
+  }, [loadingOlder, messages, win, noMoreOlder, pageSize, courseId]);
+
+  /** Below a jumped-to day: the next page toward the present — and the present itself, once reached. */
+  const loadNewer = useCallback(async () => {
+    if (!win || !win.hasMoreAfter || loadingNewer) return;
+    setLoadingNewer(true);
+    try {
+      const page = await getChatRoom(courseId, { afterId: lastServerId(win.messages) });
+      const merged = mergeById(win.messages, page.messages);
+      if (page.window?.mode === 'after' && page.window.has_more_after) setWin({ ...win, messages: merged });
+      else { setOlder(merged); setNoMoreOlder(!win.hasMoreBefore); setWin(null); }
+    } catch {
+      // Silent: scrolling down again tries again.
+    } finally {
+      setLoadingNewer(false);
+    }
+  }, [win, loadingNewer, courseId]);
+
+  /** Open the room at one message («show in chat») or at a day's first message (the calendar). */
+  const jumpTo = useCallback(async (q: { aroundId?: number; aroundDate?: string }) => {
+    if (q.aroundId && !win && messages.some((m) => m.id === q.aroundId)) { setPendingScrollId(q.aroundId); return; }
+    try {
+      const page = await getChatRoom(courseId, q);
+      if (page.window?.mode !== 'around') { Alert.alert('', t('chat.jump_unavailable')); return; }
+      const anchor = page.window.anchor_id ?? null;
+      if (page.window.has_more_after) {
+        setWin({ messages: page.messages, hasMoreBefore: !!page.window.has_more_before, hasMoreAfter: true });
+      } else {
+        setWin(null);
+        setOlder(page.messages);
+        setNoMoreOlder(!page.window.has_more_before);
+      }
+      if (anchor) setPendingScrollId(anchor);
+    } catch (err) {
+      Alert.alert('', getFriendlyErrorMessage(err));
+    }
+  }, [win, messages, courseId, t]);
+
+  /** Back to the newest message — out of any history window. */
+  const toLatest = useCallback(() => {
+    if (win) { setWin(null); setOlder([]); setNoMoreOlder(false); }
+    requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
+  }, [win]);
+
+  // Scroll to a jumped-to message once it is in the rows, and let it glow.
+  useEffect(() => {
+    if (pendingScrollId == null) return;
+    const index = rows.findIndex((r) => r.type === 'msg' && r.message.id === pendingScrollId);
+    if (index < 0) return;
+    const id = pendingScrollId;
+    setPendingScrollId(null);
+    scrollRetries.current = 0;
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+      setHighlightId(id);
+      setTimeout(() => setHighlightId((h) => (h === id ? null : h)), 2400);
+    });
+  }, [pendingScrollId, rows]);
+  const onScrollToIndexFailed = useCallback((info: { index: number; averageItemLength: number }) => {
+    if (scrollRetries.current++ > 3) return;
+    listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
+    setTimeout(() => listRef.current?.scrollToIndex({ index: info.index, viewPosition: 0.5, animated: true }), 140);
+  }, []);
+
+  // «Show in chat» / a day picked on the info page: the room picks the request up on focus.
+  const jumpReq = useChatJump((st) => st.request);
+  useEffect(() => {
+    if (!jumpReq || jumpReq.courseId !== courseId || !focused) return;
+    useChatJump.getState().clear(jumpReq.nonce);
+    if (jumpReq.latest) toLatest();
+    else void jumpTo(jumpReq.messageId ? { aroundId: jumpReq.messageId } : { aroundDate: jumpReq.date });
+  }, [jumpReq, courseId, focused, toLatest, jumpTo]);
+
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const far = e.nativeEvent.contentOffset.y > 500; // inverted: the offset is the distance from the newest
+    setShowJump((v) => (v === far ? v : far));
+  }, []);
+
+  // The floating date: the day at the top of the screen, shown while the list moves (and
+  // for as long as the room shows the past). Tap it for the calendar.
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 1 }).current;
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken<RoomRow>[] }) => {
+    let top: RoomRow | null = null;
+    let topIndex = -1;
+    for (const v of viewableItems) {
+      if (v.index != null && v.index > topIndex && v.item) { topIndex = v.index; top = v.item; }
+    }
+    if (!top) return;
+    const date = top.type === 'msg' ? top.message.created_at : top.date;
+    setPill((p) => (p.date && dayKey(p.date) === dayKey(date) ? p : { ...p, date }));
+  }).current;
+  const showPill = useCallback(() => {
+    if (pillTimer.current) clearTimeout(pillTimer.current);
+    setPill((p) => (p.visible ? p : { ...p, visible: true }));
+  }, []);
+  const hidePillSoon = useCallback(() => {
+    if (pillTimer.current) clearTimeout(pillTimer.current);
+    pillTimer.current = setTimeout(() => setPill((p) => ({ ...p, visible: false })), 1400);
+  }, []);
+  useEffect(() => () => { if (pillTimer.current) clearTimeout(pillTimer.current); }, []);
 
   // Send = write to the outbox. The bubble is in the room the instant you tap (the outbox is
   // part of the list), the box clears, and the outbox sends it — now, or when there is a
@@ -274,7 +341,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     const text = draft.trim();
     if (!text) return;
     setDraft('');
-    atBottomRef.current = true;
+    toLatest();
     enqueueChatMessage({ courseId, body: text, sender });
   };
 
@@ -282,7 +349,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
   const sendAttachment = (input: { kind: 'image' | 'file' | 'voice'; uri: string; name: string; mime: string; duration?: number; size?: number; meta?: { width?: number; height?: number } | null }) => {
     const body = draft.trim() || null;
     setDraft('');
-    atBottomRef.current = true;
+    toLatest();
     enqueueChatMessage({ courseId, body, attachment: input, sender });
   };
 
@@ -290,7 +357,6 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
   // menu also offers to let it go.
   const onRetry = (m: ChatMessage) => {
     if (!m.local) return;
-    atBottomRef.current = true;
     retryChatOutbox(m.local.key);
   };
   const onDiscard = (m: ChatMessage) => {
@@ -405,6 +471,29 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     Alert.alert(m.sender.name, undefined, buttons);
   };
 
+  const menuRef = useRef(onMessageMenu);
+  menuRef.current = onMessageMenu;
+  const retryRef = useRef(onRetry);
+  retryRef.current = onRetry;
+  const stableMenu = useCallback((m: ChatMessage) => menuRef.current(m), []);
+  const stableRetry = useCallback((m: ChatMessage) => retryRef.current(m), []);
+  const myId = me?.id;
+  const renderRow = useCallback(({ item }: { item: RoomRow }) => {
+    if (item.type === 'day') return <DateChip date={item.date} />;
+    const m = item.message;
+    return (
+      <ChatBubble
+        message={m}
+        mine={m.sender.id === myId}
+        showName={item.showName}
+        showTail={item.showTail}
+        onLongPress={stableMenu}
+        onRetry={stableRetry}
+        highlight={m.id === highlightId}
+      />
+    );
+  }, [myId, stableMenu, stableRetry, highlightId]);
+
   /** The moderator's room-wide switches. Neither singles out a student. */
   const roomMenu = () => {
     if (!room.data) return;
@@ -427,7 +516,11 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     Alert.alert(t('chat.block_confirm_title', { name: m.sender.name }), t('chat.block_confirm_body'), [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('chat.block_action'), style: 'destructive', onPress: () => block.mutate(m.sender.id, {
-        onSuccess: (msg) => { setOlder((prev) => prev.filter((x) => x.sender.id !== m.sender.id)); Alert.alert('', msg); },
+        onSuccess: (msg) => {
+          setOlder((prev) => prev.filter((x) => x.sender.id !== m.sender.id));
+          setWin((w) => (w ? { ...w, messages: w.messages.filter((x) => x.sender.id !== m.sender.id) } : w));
+          Alert.alert('', msg);
+        },
         onError: (err) => Alert.alert('', getFriendlyErrorMessage(err)),
       }) },
     ]);
@@ -480,12 +573,21 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
         <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 44, justifyContent: 'center', alignItems: 'center' }} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Icon name="forward" size={26} color={colors.onHero} />
         </TouchableOpacity>
+        {/* Tap the room's name or picture for its info page — members, moderators, the shelf. */}
+        <TouchableOpacity
+          onPress={infoHref ? () => router.push(infoHref as Href) : undefined}
+          disabled={!infoHref}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityHint={t('chat.tap_for_info')}
+          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+        >
         <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.onHero }}>
             {(data.course.name || '؟').trim().charAt(0)}
           </Text>
         </View>
-        <View style={{ flex: 1 }}>
+          <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.onHero }} numberOfLines={1}>{data.course.name}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             {/* The dot is the socket's word, not a guess: green only once the private channel is
@@ -496,6 +598,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
             </Text>
           </View>
         </View>
+        </TouchableOpacity>
         {isModerator ? (
           <TouchableOpacity
             onPress={() => setShowReports(true)}
@@ -543,81 +646,87 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
         <View style={{ flex: 1 }}>
 
           <ChatWallpaper />
-          <ScrollView
-            ref={scrollRef}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, flexGrow: 1, justifyContent: 'flex-end' }}
+          <FlatList
+            ref={listRef}
+            inverted
+            data={rows}
+            keyExtractor={rowKeyExtractor}
+            renderItem={renderRow}
+            extraData={highlightId}
+            contentContainerStyle={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}
             showsVerticalScrollIndicator={false}
             onScroll={onScroll}
-            onContentSizeChange={onContentSize}
-            // 16 ms: the jump button and the at-bottom flag follow the finger, not a tenth of a
-            // second behind it; and the keyboard drags away with the list, like any messenger.
+            // 16 ms: the jump button follows the finger; the keyboard drags away with the list.
             scrollEventThrottle={16}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
-            removeClippedSubviews
-          >
-            {messages.length >= (data.page_size || 50) && !noMoreOlder ? (
-              <TouchableOpacity onPress={loadOlder} disabled={loadingOlder} style={{ alignSelf: 'center', paddingVertical: 7, paddingHorizontal: spacing.lg, borderRadius: radius.full, backgroundColor: chat.chipBg, borderWidth: 1, borderColor: chat.chipBorder, marginBottom: spacing.sm }}>
-                {loadingOlder ? <ActivityIndicator size="small" color={colors.primary} /> : (
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: chat.chipText }}>{t('chat.load_older')}</Text>
-                )}
-              </TouchableOpacity>
-            ) : null}
-
-            {messages.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingVertical: spacing.xl4 }}>
-                <View style={{ backgroundColor: chat.chipBg, borderWidth: 1, borderColor: chat.chipBorder, borderRadius: radius.lg, paddingVertical: spacing.lg, paddingHorizontal: spacing.xl, maxWidth: 300 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'center' }}>
-                    {t('chat.no_messages_title')}
-                  </Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'center', marginTop: 4 }}>
-                    {t('chat.no_messages_body')}
-                  </Text>
-                </View>
+            // Older pages load as you reach the top; newer ones (under a jumped-to day) at the bottom.
+            onEndReached={() => { void loadOlder(); }}
+            onEndReachedThreshold={0.5}
+            onStartReached={win?.hasMoreAfter ? () => { void loadNewer(); } : undefined}
+            onStartReachedThreshold={0.5}
+            // Keeps the reader's place when messages arrive below or pages load; at the bottom it
+            // follows the newest message instead.
+            maintainVisibleContentPosition={win ? { minIndexForVisible: 0 } : { minIndexForVisible: 0, autoscrollToTopThreshold: 120 }}
+            onViewableItemsChanged={onViewable}
+            viewabilityConfig={viewabilityConfig}
+            onScrollBeginDrag={showPill}
+            onMomentumScrollBegin={showPill}
+            onScrollEndDrag={hidePillSoon}
+            onMomentumScrollEnd={hidePillSoon}
+            onScrollToIndexFailed={onScrollToIndexFailed}
+            initialNumToRender={win ? 80 : 18}
+            maxToRenderPerBatch={16}
+            windowSize={15}
+            ListHeaderComponent={
+              <View>
+                {loadingNewer ? <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: spacing.md }} /> : null}
+                {typingLabel && !win ? <TypingBubble label={typingLabel} /> : null}
               </View>
-            ) : (
-              messages.map((m, i) => {
-                const prev = messages[i - 1];
-                const mine = m.sender.id === me?.id;
-                const newDay = isNewDay(prev?.created_at, m.created_at);
-                // A run of messages from one sender shows the name once and the tail once.
-                const sameRun = !!prev && prev.sender.id === m.sender.id && !newDay;
-                const next = messages[i + 1];
-                const runEnds = !next || next.sender.id !== m.sender.id || isNewDay(m.created_at, next.created_at);
+            }
+            ListFooterComponent={loadingOlder ? <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: spacing.md }} /> : null}
+          />
 
-                return (
-                  <View key={m.id}>
-                    {newDay ? <DateChip date={m.created_at} /> : null}
-                    <ChatBubble
-                      message={m}
-                      mine={mine}
-                      showName={!sameRun}
-                      showTail={runEnds}
-                      onLongPress={onMessageMenu}
-                      onRetry={onRetry}
-                    />
-                  </View>
-                );
-              })
-            )}
-            {typingLabel ? <TypingBubble label={typingLabel} /> : null}
+          {messages.length === 0 && !room.isFetching ? (
+            <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
+              <View style={{ backgroundColor: chat.chipBg, borderWidth: 1, borderColor: chat.chipBorder, borderRadius: radius.lg, paddingVertical: spacing.lg, paddingHorizontal: spacing.xl, maxWidth: 300 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'center' }}>{t('chat.no_messages_title')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'center', marginTop: 4 }}>{t('chat.no_messages_body')}</Text>
+              </View>
+            </View>
+          ) : null}
 
-          </ScrollView>
+          {/* The floating day (Telegram): the date at the top while you scroll, and for as long
+              as the room shows the past. Tap it to pick another day. */}
+          {(pill.visible || win) && pill.date ? (
+            <Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(220)} pointerEvents="box-none"
+              style={{ position: 'absolute', top: spacing.sm, left: 0, right: 0, alignItems: 'center' }}>
+              <TouchableOpacity
+                onPress={() => setCalendarOpen(true)}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={t('chat.jump_to_date')}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, paddingVertical: 6, ...shadows.md }}
+              >
+                <Icon name="calendar" size={13} color={colors.brand} outline />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>{relativeDay(pill.date) ?? formatDayDate(pill.date)}</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          ) : null}
 
-          {showJump && messages.length > 0 ? (
+          {(showJump || win) && messages.length > 0 ? (
             <TouchableOpacity
-              onPress={() => scrollRef.current?.scrollToEnd({ animated: true })}
+              onPress={toLatest}
               accessibilityRole="button"
               accessibilityLabel={t('chat.jump_to_latest')}
               style={{
                 position: 'absolute', bottom: spacing.md, end: spacing.md,
-                width: 42, height: 42, borderRadius: 21,
+                width: 44, height: 44, borderRadius: 22,
                 backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
                 alignItems: 'center', justifyContent: 'center', ...shadows.md,
               }}
             >
-              <Icon name="down" size={20} color={colors.textSecondary} />
+              <Icon name="down" size={20} color={win ? colors.brand : colors.textSecondary} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -679,6 +788,14 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
           />
         </>
       ) : null}
+
+      <ChatCalendarSheet
+        visible={calendarOpen}
+        courseId={courseId}
+        onClose={() => setCalendarOpen(false)}
+        onPick={(d) => { setCalendarOpen(false); void jumpTo({ aroundDate: d }); }}
+        onLatest={() => { setCalendarOpen(false); toLatest(); }}
+      />
 
       {/* Report a message to the teacher (§5). Reasons come from the server; no report id comes back. */}
       <Modal visible={!!reporting} transparent animationType="fade" onRequestClose={() => setReporting(null)}>

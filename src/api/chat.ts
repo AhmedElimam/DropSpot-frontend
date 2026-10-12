@@ -131,6 +131,73 @@ export interface ChatRoom {
   messages: ChatMessage[];
   /** Members typing in the last few seconds, for a room without a socket (polled). */
   typing?: { user_id: number; name: string }[];
+  /** Which slice this is (latest page, only-newer poll, or a window around a message). */
+  window?: ChatWindow;
+  /** The viewer's own messages read by someone / by everyone, up to these ids. */
+  seen_upto?: { some: number; all: number };
+  /** Withdrawn or removed in the last quarter hour — a polling client drops what it holds. */
+  recent_hidden_ids?: number[];
+}
+
+export interface ChatWindow {
+  mode: 'latest' | 'after' | 'around';
+  anchor_id?: number | null;
+  has_more_before?: boolean;
+  has_more_after?: boolean;
+}
+
+/** One slice of a room: the latest page, older than / newer than an id, or around an id or a day. */
+export interface ChatRoomQuery {
+  beforeId?: number;
+  afterId?: number;
+  aroundId?: number;
+  /** YYYY-MM-DD, Cairo day. */
+  aroundDate?: string;
+}
+
+export type ChatMediaType = 'media' | 'files' | 'voice' | 'links';
+
+export interface ChatMediaPage {
+  type: ChatMediaType;
+  items: ChatMessage[];
+  next_before_id: number | null;
+}
+
+export interface ChatMember {
+  id: number;
+  name: string;
+  role: 'teacher' | 'assistant' | 'student';
+  is_moderator: boolean;
+  is_you: boolean;
+  hidden_by_you: boolean;
+  /** Moderators only. */
+  mute?: { id: number; until: string; reason: string } | null;
+  open_reports?: number;
+  last_read_at?: string | null;
+  messages_30d?: number;
+}
+
+export interface ChatInfo {
+  course: { id: number; name: string; teacher_name: string | null };
+  role: ChatRoom['role'];
+  is_moderator: boolean;
+  locked: boolean;
+  announcements_only: boolean;
+  notify: boolean;
+  counts: { members: number; moderators: number } & Record<ChatMediaType, number>;
+  first_message_at: string | null;
+  /** Moderators only (null for a student). */
+  open_reports: number | null;
+  members: ChatMember[];
+}
+
+export interface ChatCalendar {
+  from: string;
+  to: string;
+  /** YYYY-MM-DD → messages that day. */
+  days: Record<string, number>;
+  first: string | null;
+  last: string | null;
 }
 
 export interface ChatChannelsResponse {
@@ -218,11 +285,38 @@ export function cleanAttachmentName(raw: string): string {
   return name.replace(/\s+/g, ' ').trim();
 }
 
-export async function getChatRoom(courseId: number, beforeId?: number): Promise<ChatRoom> {
-  const { data } = await client.get(`/chat/courses/${courseId}/messages`, {
-    params: beforeId ? { before_id: beforeId } : undefined,
-  });
+export async function getChatRoom(courseId: number, query?: number | ChatRoomQuery): Promise<ChatRoom> {
+  const q: ChatRoomQuery = typeof query === 'number' ? { beforeId: query } : (query ?? {});
+  const params: Record<string, string | number> = {};
+  if (q.beforeId) params.before_id = q.beforeId;
+  if (q.afterId) params.after_id = q.afterId;
+  if (q.aroundId) params.around_id = q.aroundId;
+  if (q.aroundDate) params.around_date = q.aroundDate;
+  const { data } = await client.get(`/chat/courses/${courseId}/messages`, { params: Object.keys(params).length ? params : undefined });
   return data as ChatRoom;
+}
+
+/** One tab of the room's shelf, newest first. */
+export async function getChatMedia(courseId: number, type: ChatMediaType, beforeId?: number): Promise<ChatMediaPage> {
+  const { data } = await client.get(`/chat/courses/${courseId}/media`, { params: { type, ...(beforeId ? { before_id: beforeId } : {}) } });
+  return data as ChatMediaPage;
+}
+
+/** The room's info page: members (moderators flagged), counts, switches. */
+export async function getChatInfo(courseId: number): Promise<ChatInfo> {
+  const { data } = await client.get(`/chat/courses/${courseId}/info`);
+  return data as ChatInfo;
+}
+
+/** Messages per Cairo day between two dates (YYYY-MM-DD). */
+export async function getChatCalendar(courseId: number, from: string, to: string): Promise<ChatCalendar> {
+  const { data } = await client.get(`/chat/courses/${courseId}/calendar`, { params: { from, to } });
+  return data as ChatCalendar;
+}
+
+/** Lift a mute early (moderators). */
+export async function unmuteChatUser(muteId: number): Promise<void> {
+  await client.delete(`/chat/mutes/${muteId}`);
 }
 
 /** «يكتب…» — fire and forget; the server answers 204 whether or not anyone is listening. */

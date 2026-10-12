@@ -117,6 +117,9 @@ const ICON_MAP = {
   // The «شروحات» player's own controls.
   redo: 'arrow-redo',
   list: 'list',
+  // A room's shelf: its links and its photo grid.
+  link: 'link',
+  grid: 'grid',
   // Brand glyph — no outline variant, never pass `outline`.
   whatsapp: 'logo-whatsapp',
 } as const;
