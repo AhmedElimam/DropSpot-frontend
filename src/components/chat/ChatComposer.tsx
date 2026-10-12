@@ -6,7 +6,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { chat, senderColor } from '@/theme/chat';
 import { Icon } from '@/components/ui/Icon';
-import { useVoiceRecorder, type VoiceClip } from '@/components/chat/VoiceRecorder';
+import { SEND_FLIP, useVoiceRecorder, type VoiceClip } from '@/components/chat/VoiceRecorder';
 import type { ChatReplyRef } from '@/api/chat';
 
 /**
@@ -145,7 +145,7 @@ export function ChatComposer({
           accessibilityLabel={t('chat.send')}
           style={{ width: 52, height: 52, borderRadius: radius.lg, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', ...shadows.sm }}
         >
-          {sending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={20} color="#fff" />}
+          {sending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={20} color="#fff" style={SEND_FLIP} />}
         </TouchableOpacity>
         </Animated.View>
       ) : voice.button}

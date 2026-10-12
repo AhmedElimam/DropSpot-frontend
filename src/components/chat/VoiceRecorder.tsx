@@ -7,8 +7,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import {
   useAudioRecorder, RecordingPresets, getRecordingPermissionsAsync, requestRecordingPermissionsAsync,
-  setAudioModeAsync, type RecordingOptions,
+  type RecordingOptions,
 } from 'expo-audio';
+import { ensureAudioMode } from '@/chat/audioMode';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
@@ -37,6 +38,8 @@ const VOICE_PRESET: RecordingOptions = {
 };
 
 const BTN = 52;
+/** The send arrow points the way the message goes in this layout — toward the left (founder 2026-10-12). */
+export const SEND_FLIP = { transform: [{ scaleX: -1 }] } as const;
 const LEVEL_BARS = 26;
 const MIN_LEVEL = 0.1;
 /** Slide this far toward the bar → the take is thrown away, at once (no need to let go). */
@@ -111,6 +114,8 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
   const [ms, setMs] = useState(0);
   const [levels, setLevels] = useState<number[]>(() => Array(LEVEL_BARS).fill(MIN_LEVEL));
   const [hint, setHint] = useState<string | null>(null);
+  /** The microphone is actually recording (not just the button held). */
+  const [micLive, setMicLive] = useState(false);
 
   const permitted = useRef<boolean | null>(null);
   const starting = useRef<Promise<boolean> | null>(null);
@@ -140,13 +145,13 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
 
   // The red dot breathes while recording — and only then (no idle loops).
   useEffect(() => {
-    if (recording) {
+    if (recording && micLive) {
       blink.value = withRepeat(withSequence(withTiming(0.25, { duration: 520 }), withTiming(1, { duration: 520 })), -1);
     } else {
       cancelAnimation(blink);
       blink.value = 1;
     }
-  }, [recording, blink]);
+  }, [recording, micLive, blink]);
 
   // Clock + level, read straight from the recorder while it records.
   useEffect(() => {
@@ -195,8 +200,10 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
       if (!seconds && recordStartedAt.current) seconds = (Date.now() - recordStartedAt.current) / 1000;
       try { await recorder.stop(); uri = recorder.uri; } catch { /* nothing to send */ }
     }
-    try { await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }); } catch { /* ignore */ }
     finishing.current = false;
+    // Back to the loudspeaker — in the background: the note must not wait for the audio
+    // session to switch before it appears in the room (it used to).
+    void ensureAudioMode('playback');
 
     if (mode === 'cancel' || !uri) return;
     if (!wasLocked && held < TAP_MS) { showHint('chat.record_hint'); return; }
@@ -225,14 +232,18 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
     setLevels(Array(LEVEL_BARS).fill(MIN_LEVEL));
     setHint(null);
     setPhase(lockAtOnce ? 'locked' : 'holding');
+    setMicLive(false);
     live.value = lockAtOnce ? 0 : 1;
-    haptic('light');
     starting.current = (async () => {
       try {
-        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+        await ensureAudioMode('record');
         await recorder.prepareToRecordAsync();
         recorder.record();
         recordStartedAt.current = Date.now();
+        // The «go» comes when the microphone is really open — the tap and the red dot — so
+        // nobody starts talking into the half-second the session takes to start, and loses
+        // their first word.
+        if (!finishing.current) { haptic('light'); setMicLive(true); }
         return true;
       } catch {
         return false;
@@ -272,7 +283,7 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
     if (hintTimer.current) clearTimeout(hintTimer.current);
     if (phaseRef.current === 'holding' || phaseRef.current === 'locked') {
       try { void recorder.stop(); } catch { /* ignore */ }
-      void setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
+      void ensureAudioMode('playback');
     }
   }, [recorder]);
 
@@ -397,7 +408,7 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
             <Icon name="trash" size={21} color={colors.danger} outline />
           </TouchableOpacity>
         ) : null}
-        <Animated.View style={[{ width: 9, height: 9, borderRadius: 5, backgroundColor: colors.danger }, dotStyle]} />
+        <Animated.View style={[{ width: 9, height: 9, borderRadius: 5, backgroundColor: micLive ? colors.danger : colors.textTertiary }, dotStyle]} />
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, minWidth: 42, writingDirection: 'ltr' }}>{fmt(ms)}</Text>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2, height: 28, overflow: 'hidden' }}>
           {levels.map((a, i) => (
@@ -441,7 +452,7 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
             accessibilityLabel={t('chat.send')}
             style={{ width: BTN, height: BTN, borderRadius: BTN / 2, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', ...shadows.sm }}
           >
-            <Icon name="send" size={20} color="#fff" />
+            <Icon name="send" size={20} color="#fff" style={SEND_FLIP} />
           </TouchableOpacity>
         </Animated.View>
       ) : (

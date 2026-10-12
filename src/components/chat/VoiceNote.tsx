@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, I18nManager } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useFrameCallback, useSharedValue, withSpring } from 'react-native-reanimated';
-import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { audioModeIs, ensureAudioMode } from '@/chat/audioMode';
 import { File, Paths } from 'expo-file-system';
 import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
@@ -13,7 +14,7 @@ import { claimVoicePlayback, cycleVoiceRate, getVoiceRate, onVoiceRate, playNext
 const WAVE_H = 32;
 const THUMB = 13;
 /** How often the player reports its position; the UI thread fills the frames in between. */
-const STATUS_MS = 250;
+const STATUS_MS = 100;
 
 /**
  * Where a touch on the waveform lands, as a fraction of the clip. Under RTL the first bar is
@@ -161,23 +162,34 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
   useEffect(() => { glide.setActive(!!status.playing); }, [status.playing, glide]);
   useEffect(() => () => glide.setActive(false), [glide]);
 
-  useEffect(() => {
-    // The silent switch on an iPhone must not swallow a voice note the child tapped to hear.
-    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
-  }, []);
-
   useEffect(() => onVoiceRate(setRate), []);
   useEffect(() => { try { player.setPlaybackRate(rate, 'high'); } catch { /* ignore */ } }, [rate, player]);
 
+  /**
+   * Start NOW. The loudspeaker mode (the silent switch must not swallow a note a child tapped)
+   * is set once for the room, not by every note as it appears — and when it is already set,
+   * play() is called in the same tick as the tap. The rate is only touched when it is not 1×.
+   */
+  const startPlayer = useCallback(() => {
+    const go = () => {
+      try {
+        const r = getVoiceRate();
+        if (r !== 1 || player.playbackRate !== 1) player.setPlaybackRate(r, 'high');
+        player.play();
+      } catch { /* ignore */ }
+    };
+    if (audioModeIs('playback')) go();
+    else void ensureAudioMode('playback').then(go);
+  }, [player]);
   const [wantPlay, setWantPlay] = useState(false);
   const play = useCallback(() => {
     claimVoicePlayback(seed);
     if (!localUri) { setWantPlay(true); return; } // still fetching: start the moment it lands
-    try { player.setPlaybackRate(getVoiceRate(), 'high'); player.play(); } catch { /* ignore */ }
-  }, [localUri, player, seed]);
+    startPlayer();
+  }, [localUri, seed, startPlayer]);
   useEffect(() => {
-    if (wantPlay && localUri) { setWantPlay(false); try { player.setPlaybackRate(getVoiceRate(), 'high'); player.play(); } catch { /* ignore */ } }
-  }, [wantPlay, localUri, player]);
+    if (wantPlay && localUri) { setWantPlay(false); startPlayer(); }
+  }, [wantPlay, localUri, startPlayer]);
   const pause = useCallback(() => { try { player.pause(); } catch { /* ignore */ } }, [player]);
 
   // In the room's choir for as long as this bubble is on screen.
