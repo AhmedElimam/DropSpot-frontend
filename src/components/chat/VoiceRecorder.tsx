@@ -1,11 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Alert, TouchableOpacity, Vibration, type GestureResponderEvent } from 'react-native';
-import { useAudioRecorder, useAudioRecorderState, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, type RecordingOptions } from 'expo-audio';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { View, Text, TouchableOpacity, Alert, I18nManager } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  Extrapolation, FadeIn, FadeOut, ZoomIn, cancelAnimation, interpolate, runOnJS,
+  useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming,
+} from 'react-native-reanimated';
+import {
+  useAudioRecorder, RecordingPresets, getRecordingPermissionsAsync, requestRecordingPermissionsAsync,
+  setAudioModeAsync, type RecordingOptions,
+} from 'expo-audio';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius } from '@/theme/index';
+import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { attachmentFileName } from '@/api/chat';
+import { haptic } from '@/utils/haptics';
 
 export interface VoiceClip {
   uri: string;
@@ -27,174 +36,399 @@ const VOICE_PRESET: RecordingOptions = {
   isMeteringEnabled: true,
 };
 
-const LEVEL_BARS = 22;
-const LOCK_DY = 70;      // slide UP this far → hands-free
-const CANCEL_DX = 90;    // slide SIDEWAYS this far → throw the take away
+const BTN = 52;
+const LEVEL_BARS = 26;
+const MIN_LEVEL = 0.1;
+/** Slide this far toward the bar → the take is thrown away, at once (no need to let go). */
+export const CANCEL_DX = 110;
+/** Slide this far up → locked: let go and keep talking. */
+export const LOCK_DY = 80;
+/** A touch shorter than this is a tap, not a recording: it shows the hint instead. */
+export const TAP_MS = 300;
+const TICK_MS = 90;
+const SPRING = { damping: 18, stiffness: 260, mass: 0.6 };
+
+export type RecorderPhase = 'idle' | 'holding' | 'locked' | 'cancelled';
 
 /**
- * The gesture every student already knows (founder, 2026-09-20: "like WhatsApp"):
- *
- *   hold  → record, with the clock running and the level moving with your voice
- *   lift  → send
- *   slide sideways → cancel (the bar turns red first, so it is never a surprise)
- *   slide up → LOCK: let go, keep talking, then tap send — or the bin
- *
- * The cap comes from the server (§8); recording stops itself at the limit. The clip is
- * handed to the parent, which uploads it through the same door as any other attachment —
- * so a muted student's recording is refused exactly like their typing.
+ * Which way a slide goes, decided per touch like WhatsApp: whichever axis leads wins, so a
+ * slightly diagonal drag never half-cancels and half-locks. Pure — tested without a phone.
+ * `towardCancel` is the finger's distance toward the bar (already signed for RTL).
  */
-export function VoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }: {
+export function slideIntent(towardCancel: number, up: number): { slide: number; lift: number; action: 'none' | 'cancel' | 'lock' } {
+  'worklet'; // called from the pan gesture on the UI thread
+  const toward = Math.max(0, towardCancel);
+  const rise = Math.max(0, up);
+  if (rise > toward) return { slide: 0, lift: rise, action: rise > LOCK_DY ? 'lock' : 'none' };
+  return { slide: toward, lift: 0, action: toward > CANCEL_DX ? 'cancel' : 'none' };
+}
+
+/** The live level from the recorder's metering (dB, −160 … 0; speech sits near −30 … −10). */
+export function levelFromDb(db: number | undefined | null): number {
+  const v = typeof db === 'number' && Number.isFinite(db) ? db : -60;
+  return Math.max(MIN_LEVEL, Math.min(1, (v + 52) / 44));
+}
+
+function fmt(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/**
+ * The gesture every student already knows (founder 2026-10-12: «doesn't work on hold, doesn't
+ * swipe to cancel, doesn't feel smooth like WhatsApp»):
+ *
+ *   hold        → record at once: a tap of haptics, the button grows under the finger, the
+ *                 clock runs and the level moves with the voice
+ *   let go      → send
+ *   slide to the bar → the take is thrown away the moment it crosses the line
+ *   slide up    → LOCK: let go, keep talking, then tap send — or the bin
+ *   a quick tap → nothing is sent; a hint says to hold
+ *
+ * Why it failed before: the button was a Pressable, which ends a press the moment the finger
+ * leaves its hit box — so sliding 20 px to cancel or lock fired "release" and SENT the clip.
+ * And a press that ended while the microphone was still starting left it recording with no
+ * finger on it. This is one native pan gesture that never ends on leaving the button
+ * (`shouldCancelWhenOutside(false)`), tracked on the UI thread so the button and the
+ * «slide to cancel» label follow the finger at the screen's frame rate; and a release
+ * before the microphone is ready waits for it and then decides.
+ *
+ * A hook, not a component: the composer places the running BAR over its text field (which
+ * stays mounted, so an open keyboard does not drop and shift the button mid-hold) and the
+ * BUTTON at the end of its row.
+ */
+export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }: {
   maxSeconds: number;
   disabled?: boolean;
   onClip: (clip: VoiceClip) => void;
   onStateChange?: (recording: boolean) => void;
-}) {
+}): { active: boolean; bar: ReactNode; button: ReactNode } {
   const { t } = useTranslation();
   const recorder = useAudioRecorder(VOICE_PRESET);
-  const state = useAudioRecorderState(recorder, 200);
-  const [active, setActive] = useState(false);     // recording (held or locked)
-  const [locked, setLocked] = useState(false);
-  const [cancelArmed, setCancelArmed] = useState(false);
-  const [levels, setLevels] = useState<number[]>(() => Array(LEVEL_BARS).fill(0.08));
-  const start = useRef({ x: 0, y: 0 });
-  const cancelRef = useRef(false);
-  const lockedRef = useRef(false);
-  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [phase, setPhaseState] = useState<RecorderPhase>('idle');
+  const phaseRef = useRef<RecorderPhase>('idle');
+  const setPhase = useCallback((p: RecorderPhase) => { phaseRef.current = p; setPhaseState(p); }, []);
+  const [ms, setMs] = useState(0);
+  const [levels, setLevels] = useState<number[]>(() => Array(LEVEL_BARS).fill(MIN_LEVEL));
+  const [hint, setHint] = useState<string | null>(null);
+
+  const permitted = useRef<boolean | null>(null);
+  const starting = useRef<Promise<boolean> | null>(null);
+  const pressedAt = useRef(0);
+  const recordStartedAt = useRef(0);
   const finishing = useRef(false);
+  const capTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const disabledRef = useRef(!!disabled);
+  disabledRef.current = !!disabled;
 
-  const seconds = Math.round((state.durationMillis || 0) / 1000);
+  // UI-thread state: the finger's travel, the button's growth, and two flags the gesture reads.
+  const slide = useSharedValue(0);
+  const lift = useSharedValue(0);
+  const grow = useSharedValue(0);
+  const live = useSharedValue(0);
+  const resolved = useSharedValue(0);
+  const blink = useSharedValue(1);
 
-  useEffect(() => { onStateChange?.(active); }, [active, onStateChange]);
-
-  // The level trail: metering is dB (−160 … 0); speech sits around −30 … −10.
+  // Knowing the permission before the first hold means the first hold records.
   useEffect(() => {
-    if (!active) return;
-    const db = typeof state.metering === 'number' ? state.metering : -60;
-    const amp = Math.max(0.08, Math.min(1, (db + 50) / 45));
-    setLevels((prev) => [...prev.slice(1), amp]);
-  }, [state.metering, state.durationMillis, active]);
+    getRecordingPermissionsAsync().then((p) => { permitted.current = p.granted; }).catch(() => undefined);
+  }, []);
 
-  const begin = async (e: GestureResponderEvent) => {
-    if (disabled || active) return;
-    start.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
-    cancelRef.current = false; lockedRef.current = false; finishing.current = false;
-    setCancelArmed(false); setLocked(false);
-    setLevels(Array(LEVEL_BARS).fill(0.08));
-    try {
-      const perm = await requestRecordingPermissionsAsync();
-      if (!perm.granted) { Alert.alert('', t('chat.mic_denied')); return; }
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-      await recorder.prepareToRecordAsync();
-      recorder.record();
-      Vibration.vibrate(15);
-      setActive(true);
-      // Hard stop at the cap, then send whatever was captured.
-      stopTimer.current = setTimeout(() => { void finish(false); }, maxSeconds * 1000);
-    } catch {
-      Alert.alert('', t('chat.mic_denied'));
+  const recording = phase === 'holding' || phase === 'locked';
+  useEffect(() => { onStateChange?.(phase !== 'idle'); }, [phase, onStateChange]);
+
+  // The red dot breathes while recording — and only then (no idle loops).
+  useEffect(() => {
+    if (recording) {
+      blink.value = withRepeat(withSequence(withTiming(0.25, { duration: 520 }), withTiming(1, { duration: 520 })), -1);
+    } else {
+      cancelAnimation(blink);
+      blink.value = 1;
     }
-  };
+  }, [recording, blink]);
 
-  const move = (e: GestureResponderEvent) => {
-    if (!active || lockedRef.current) return;
-    const dy = start.current.y - e.nativeEvent.pageY;
-    const dx = Math.abs(e.nativeEvent.pageX - start.current.x);
-    if (dy > LOCK_DY && dx < CANCEL_DX) {
-      lockedRef.current = true; setLocked(true); setCancelArmed(false); cancelRef.current = false;
-      Vibration.vibrate(10);
-      return;
-    }
-    const armed = dx > CANCEL_DX;
-    if (armed !== cancelRef.current) { cancelRef.current = armed; setCancelArmed(armed); }
-  };
+  // Clock + level, read straight from the recorder while it records.
+  useEffect(() => {
+    if (!recording) return;
+    const id = setInterval(() => {
+      let st: ReturnType<typeof recorder.getStatus> | null = null;
+      try { st = recorder.getStatus(); } catch { return; }
+      if (!st?.isRecording) return;
+      setMs(st.durationMillis || Date.now() - recordStartedAt.current);
+      setLevels((prev) => [...prev.slice(1), levelFromDb(st?.metering)]);
+    }, TICK_MS);
+    return () => clearInterval(id);
+  }, [recording, recorder]);
 
-  const release = () => {
-    if (!active || lockedRef.current) return; // locked: the buttons decide
-    void finish(cancelRef.current);
-  };
+  const showHint = useCallback((key: string) => {
+    setHint(t(key));
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setHint(null), 2200);
+  }, [t]);
 
-  const finish = async (cancel: boolean) => {
-    if (finishing.current) return;
+  const finish = useCallback(async (mode: 'send' | 'cancel') => {
+    const current = phaseRef.current;
+    if (finishing.current || current === 'idle' || current === 'cancelled') return;
     finishing.current = true;
-    if (stopTimer.current) { clearTimeout(stopTimer.current); stopTimer.current = null; }
-    setActive(false); setLocked(false); setCancelArmed(false);
-    let uri: string | null = null;
-    const dur = Math.round((recorder.currentTime || state.durationMillis / 1000 || 0));
-    try {
-      await recorder.stop();
-      uri = recorder.uri;
-    } catch { /* ignore */ }
-    try { await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }); } catch { /* ignore */ }
+    live.value = 0;
+    if (capTimer.current) { clearTimeout(capTimer.current); capTimer.current = null; }
+    const held = Date.now() - pressedAt.current;
+    const wasLocked = current === 'locked';
 
-    if (cancel || !uri) return;
-    if (dur < 1) { Alert.alert('', t('chat.recording_too_short')); return; }
+    // The screen answers at once; the recorder catches up behind it.
+    if (mode === 'cancel') {
+      haptic('warning');
+      setPhase('cancelled');
+      setTimeout(() => { if (phaseRef.current === 'cancelled') setPhase('idle'); }, 720);
+    } else {
+      setPhase('idle');
+    }
+
+    const ok = await (starting.current ?? Promise.resolve(false));
+    starting.current = null;
+    let uri: string | null = null;
+    let seconds = 0;
+    if (ok) {
+      try { seconds = (recorder.getStatus().durationMillis || 0) / 1000; } catch { /* below */ }
+      if (!seconds && recordStartedAt.current) seconds = (Date.now() - recordStartedAt.current) / 1000;
+      try { await recorder.stop(); uri = recorder.uri; } catch { /* nothing to send */ }
+    }
+    try { await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }); } catch { /* ignore */ }
+    finishing.current = false;
+
+    if (mode === 'cancel' || !uri) return;
+    if (!wasLocked && held < TAP_MS) { showHint('chat.record_hint'); return; }
+    if (seconds < 1) { showHint('chat.recording_too_short'); return; }
+    haptic('light');
     const ext = uri.split('.').pop()?.toLowerCase() || 'm4a';
     const mime = ext === 'm4a' || ext === 'mp4' ? 'audio/mp4' : ext === 'caf' ? 'audio/x-caf' : ext === '3gp' ? 'audio/3gpp' : ext === 'webm' ? 'audio/webm' : 'audio/mp4';
-    onClip({ uri, duration: Math.min(dur, maxSeconds), mime, name: attachmentFileName('voice', null, ext) });
-  };
+    onClip({ uri, duration: Math.max(1, Math.min(Math.round(seconds), maxSeconds)), mime, name: attachmentFileName('voice', null, ext) });
+  }, [live, maxSeconds, onClip, recorder, setPhase, showHint]);
 
-  // The live bar takes the field's place IN THE ROW: the recorder renders «bar, then button»
-  // as siblings of the composer's row, so under forced RTL the bar sits to the right of
-  // the button exactly where the field was — with no absolute left/right to get flipped.
-  // (An absolutely positioned bar used to open off the far edge of the screen: founder
-  // 2026-10-12, «it shows on the other end of the screen».)
-  const tint = cancelArmed ? colors.danger : colors.textPrimary;
+  const begin = useCallback((lockAtOnce = false) => {
+    if (disabledRef.current || phaseRef.current !== 'idle' || finishing.current) return;
+    if (permitted.current !== true) {
+      // The system prompt takes the touch away: ask, and let the next hold record.
+      requestRecordingPermissionsAsync()
+        .then((p) => { permitted.current = p.granted; if (!p.granted) Alert.alert('', t('chat.mic_denied')); })
+        .catch(() => Alert.alert('', t('chat.mic_denied')));
+      return;
+    }
+    pressedAt.current = Date.now();
+    recordStartedAt.current = 0;
+    setMs(0);
+    setLevels(Array(LEVEL_BARS).fill(MIN_LEVEL));
+    setHint(null);
+    setPhase(lockAtOnce ? 'locked' : 'holding');
+    live.value = lockAtOnce ? 0 : 1;
+    haptic('light');
+    starting.current = (async () => {
+      try {
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+        await recorder.prepareToRecordAsync();
+        recorder.record();
+        recordStartedAt.current = Date.now();
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+    void starting.current.then((ok) => {
+      if (!ok && phaseRef.current !== 'idle' && !finishing.current) {
+        live.value = 0;
+        setPhase('idle');
+        Alert.alert('', t('chat.mic_denied'));
+      }
+    });
+    // Hard stop at the server's cap, then send what was captured.
+    capTimer.current = setTimeout(() => { void finish('send'); }, maxSeconds * 1000 + 250);
+  }, [finish, live, maxSeconds, recorder, setPhase, t]);
 
-  return (
-    <>
-      {active ? (
-        <View
-          pointerEvents={locked ? 'auto' : 'none'}
-          style={{
-            flex: 1, height: 52,
-            flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md,
-            borderRadius: radius.lg, borderWidth: 1,
-            backgroundColor: cancelArmed ? colors.dangerLight : colors.surfaceSunken,
-            borderColor: cancelArmed ? colors.danger : colors.borderStrong,
-          }}
-        >
-          {locked ? (
-            <TouchableOpacity onPress={() => { void finish(true); }} accessibilityRole="button" accessibilityLabel={t('common.cancel')} hitSlop={8} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="trash" size={20} color={colors.danger} outline />
-            </TouchableOpacity>
-          ) : null}
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.danger, opacity: seconds % 2 === 0 ? 1 : 0.35 }} />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: tint, minWidth: 40, writingDirection: 'ltr' }}>
-            {`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`}
-          </Text>
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2, height: 28 }}>
-            {levels.map((a, i) => (
-              <View key={i} style={{ flex: 1, height: Math.max(3, Math.round(a * 26)), borderRadius: 2, backgroundColor: cancelArmed ? colors.danger : colors.brand, opacity: 0.45 + 0.55 * (i / LEVEL_BARS) }} />
-            ))}
-          </View>
-          {locked ? (
-            <TouchableOpacity onPress={() => { void finish(false); }} accessibilityRole="button" accessibilityLabel={t('chat.send')} hitSlop={8} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="send" size={18} color="#fff" />
-            </TouchableOpacity>
-          ) : (
-            <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 11, color: cancelArmed ? colors.dangerText : colors.textTertiary, maxWidth: 110, textAlign: 'right' }}>
-              {cancelArmed ? t('common.cancel') : t('chat.recording_cancel')}
-            </Text>
-          )}
+  const lock = useCallback(() => {
+    if (phaseRef.current !== 'holding') return;
+    haptic('medium');
+    setPhase('locked');
+  }, [setPhase]);
+
+  // Stable entry points for the gesture worklets (they are built once, below).
+  const api = useRef({ begin, finish, lock });
+  api.current = { begin, finish, lock };
+  const onBegin = useCallback(() => api.current.begin(false), []);
+  const onRelease = useCallback(() => { if (phaseRef.current === 'holding') void api.current.finish('send'); }, []);
+  const onCancel = useCallback(() => { void api.current.finish('cancel'); }, []);
+  const onLock = useCallback(() => api.current.lock(), []);
+
+  // Leaving the screen mid-recording throws the take away rather than leaving the mic open.
+  useEffect(() => () => {
+    if (capTimer.current) clearTimeout(capTimer.current);
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    if (phaseRef.current === 'holding' || phaseRef.current === 'locked') {
+      try { void recorder.stop(); } catch { /* ignore */ }
+      void setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
+    }
+  }, [recorder]);
+
+  // RTL: the button sits at the LEFT edge and the bar runs to its right, so "toward the bar"
+  // is +x; in LTR it is −x. Transforms are physical, so the same sign moves the button.
+  const dir = I18nManager.isRTL ? 1 : -1;
+
+  const gesture = useMemo(() => Gesture.Pan()
+    .enabled(!disabled)
+    .minDistance(0)
+    .shouldCancelWhenOutside(false)
+    .hitSlop(8)
+    .onBegin(() => {
+      resolved.value = 0;
+      grow.value = withSpring(1, SPRING);
+      runOnJS(onBegin)();
+    })
+    .onUpdate((e) => {
+      if (live.value !== 1 || resolved.value === 1) return;
+      const intent = slideIntent(e.translationX * dir, -e.translationY);
+      slide.value = Math.min(intent.slide, CANCEL_DX + 20);
+      lift.value = Math.min(intent.lift, LOCK_DY + 20);
+      if (intent.action !== 'none') {
+        resolved.value = 1;
+        slide.value = withSpring(0, SPRING);
+        lift.value = withSpring(0, SPRING);
+        grow.value = withSpring(0, SPRING);
+        runOnJS(intent.action === 'cancel' ? onCancel : onLock)();
+      }
+    })
+    .onFinalize(() => {
+      slide.value = withSpring(0, SPRING);
+      lift.value = withSpring(0, SPRING);
+      grow.value = withSpring(0, SPRING);
+      if (resolved.value === 0) {
+        resolved.value = 1;
+        runOnJS(onRelease)();
+      }
+    }), [disabled, dir, grow, lift, live, onBegin, onCancel, onLock, onRelease, resolved, slide]);
+
+  const buttonStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: slide.value * dir },
+      { translateY: -lift.value },
+      { scale: interpolate(grow.value, [0, 1], [1, 1.32], Extrapolation.CLAMP) },
+    ],
+  }));
+  const lockStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -lift.value * 0.55 }],
+  }));
+  const lockChevronStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(lift.value, [0, LOCK_DY * 0.8], [1, 0], Extrapolation.CLAMP),
+  }));
+  const labelStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(slide.value, [0, CANCEL_DX * 0.85], [1, 0], Extrapolation.CLAMP),
+    transform: [{ translateX: slide.value * dir * 0.7 }],
+  }));
+  const dotStyle = useAnimatedStyle(() => ({ opacity: blink.value }));
+
+  // ── The bar (drawn by the composer over its field) ────────────────────────────────────
+  let bar: ReactNode = null;
+  if (phase === 'cancelled') {
+    bar = (
+      <Animated.View entering={FadeIn.duration(90)} exiting={FadeOut.duration(160)} style={barShell(true)}>
+        <Animated.View entering={ZoomIn.springify().damping(12)}>
+          <Icon name="trash" size={22} color={colors.danger} />
+        </Animated.View>
+        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.dangerText, textAlign: 'right' }}>
+          {t('chat.recording_cancelled')}
+        </Text>
+      </Animated.View>
+    );
+  } else if (recording) {
+    bar = (
+      <Animated.View entering={FadeIn.duration(110)} exiting={FadeOut.duration(120)} style={barShell(false)}>
+        {phase === 'locked' ? (
+          <TouchableOpacity onPress={() => { void finish('cancel'); }} accessibilityRole="button" accessibilityLabel={t('chat.recording_discard')} hitSlop={10} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="trash" size={21} color={colors.danger} outline />
+          </TouchableOpacity>
+        ) : null}
+        <Animated.View style={[{ width: 9, height: 9, borderRadius: 5, backgroundColor: colors.danger }, dotStyle]} />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, minWidth: 42, writingDirection: 'ltr' }}>{fmt(ms)}</Text>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2, height: 28, overflow: 'hidden' }}>
+          {levels.map((a, i) => (
+            <View key={i} style={{ flex: 1, height: Math.max(3, Math.round(a * 26)), borderRadius: 2, backgroundColor: colors.brand, opacity: 0.35 + 0.65 * (i / LEVEL_BARS) }} />
+          ))}
         </View>
+        {phase === 'holding' ? (
+          <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', gap: 2 }, labelStyle]}>
+            <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t('chat.slide_to_cancel')}</Text>
+            <Icon name={I18nManager.isRTL ? 'forward' : 'back'} size={14} color={colors.textSecondary} />
+          </Animated.View>
+        ) : null}
+      </Animated.View>
+    );
+  }
+
+  // ── The button (the end of the composer's row) ────────────────────────────────────────
+  const button = (
+    <View style={{ width: BTN, height: BTN, zIndex: 2 }}>
+      {phase === 'holding' ? (
+        <Animated.View pointerEvents="none" entering={FadeIn.duration(140)} exiting={FadeOut.duration(100)} style={[{ position: 'absolute', bottom: BTN + 14, left: 0, right: 0, alignItems: 'center' }, lockStyle]}>
+          <View style={{ width: 40, paddingVertical: 10, borderRadius: 20, alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, ...shadows.md }}>
+            <Icon name="lock" size={18} color={colors.textSecondary} outline />
+            <Animated.View style={lockChevronStyle}><Icon name="up" size={16} color={colors.textTertiary} /></Animated.View>
+          </View>
+        </Animated.View>
       ) : null}
-      <Pressable
-        onPressIn={begin}
-        onTouchMove={move}
-        onPressOut={release}
-        disabled={disabled}
-        accessibilityRole="button"
-        accessibilityLabel={t('chat.voice_note')}
-        accessibilityHint={t('chat.record_hint')}
-        style={{
-          width: 52, height: 52, borderRadius: radius.lg,
-          backgroundColor: active ? (cancelArmed ? colors.danger : colors.brand) : (disabled ? colors.border : colors.brand),
-          alignItems: 'center', justifyContent: 'center',
-          transform: [{ scale: active && !locked ? 1.12 : 1 }],
-        }}
-      >
-        <Icon name={locked ? 'lock' : 'mic'} size={22} color={disabled && !active ? colors.textTertiary : '#fff'} />
-      </Pressable>
-    </>
+
+      {hint ? (
+        <Animated.View pointerEvents="none" entering={FadeIn.duration(140)} exiting={FadeOut.duration(200)} style={{ position: 'absolute', bottom: BTN + 12, end: 0, width: 236, backgroundColor: colors.textPrimary, borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: 12, ...shadows.md }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.background, textAlign: 'right' }}>{hint}</Text>
+        </Animated.View>
+      ) : null}
+
+      {phase === 'locked' ? (
+        <Animated.View entering={ZoomIn.duration(160)}>
+          <TouchableOpacity
+            onPress={() => { void finish('send'); }}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={t('chat.send')}
+            style={{ width: BTN, height: BTN, borderRadius: BTN / 2, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', ...shadows.sm }}
+          >
+            <Icon name="send" size={20} color="#fff" />
+          </TouchableOpacity>
+        </Animated.View>
+      ) : (
+        <GestureDetector gesture={gesture}>
+          <Animated.View
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={t('chat.voice_note')}
+            accessibilityHint={t('chat.record_hint')}
+            // A screen-reader user cannot hold and slide: activating starts a LOCKED recording.
+            accessibilityActions={[{ name: 'activate' }]}
+            onAccessibilityAction={() => begin(true)}
+            style={[{
+              width: BTN, height: BTN, borderRadius: phase === 'holding' ? BTN / 2 : radius.lg,
+              backgroundColor: disabled ? colors.border : phase === 'cancelled' ? colors.danger : colors.brand,
+              alignItems: 'center', justifyContent: 'center',
+            }, buttonStyle]}
+          >
+            <Icon name="mic" size={22} color={disabled ? colors.textTertiary : '#fff'} />
+          </Animated.View>
+        </GestureDetector>
+      )}
+    </View>
   );
+
+  return { active: phase !== 'idle', bar, button };
+}
+
+function barShell(cancelled: boolean) {
+  return {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    backgroundColor: cancelled ? colors.dangerLight : colors.surfaceSunken,
+    borderColor: cancelled ? colors.danger : colors.borderStrong,
+  };
 }

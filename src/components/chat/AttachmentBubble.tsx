@@ -11,7 +11,17 @@ import { Icon } from '@/components/ui/Icon';
 import { VoiceNote } from '@/components/chat/VoiceNote';
 import { ImageViewer } from '@/components/chat/ImageViewer';
 import { FilePreview, canPreviewInApp } from '@/components/chat/FilePreview';
-import { attachmentHeaders, type ChatAttachment } from '@/api/chat';
+import { LinearGradient } from 'expo-linear-gradient';
+import { DocumentCard, fileSizeLabel } from '@/components/chat/DocumentCard';
+import { attachmentHeaders, type ChatAttachment, type ChatAttachmentMeta } from '@/api/chat';
+
+const PHOTO_W = 232;
+
+/** A photo keeps its shape (from the server's width/height), within a sensible band. */
+export function photoHeight(meta: ChatAttachmentMeta | null | undefined): number {
+  if (!meta?.width || !meta?.height) return PHOTO_W;
+  return Math.round(Math.max(150, Math.min(310, PHOTO_W * (meta.height / meta.width))));
+}
 
 /**
  * The file part of a chat bubble — an image, a voice note, or a document (spec §8).
@@ -61,17 +71,23 @@ export function AttachmentBubble({ attachment, mine, seed, onLongPress }: {
   if (attachment.kind === 'image') {
     return (
       <>
-        <TouchableOpacity activeOpacity={0.9} onLongPress={onLongPress} delayLongPress={350} onPress={() => setOpen('image')}>
+        <TouchableOpacity activeOpacity={0.9} onLongPress={onLongPress} delayLongPress={350} onPress={() => setOpen('image')}
+          style={{ width: PHOTO_W, height: photoHeight(attachment.meta), borderRadius: radius.lg, overflow: 'hidden', backgroundColor: mine ? 'rgba(255,255,255,0.14)' : colors.surfaceSunken }}>
           <Image
             source={{ uri: attachment.url, headers }}
-            style={{
-              width: 232, height: 232, borderRadius: radius.lg,
-              backgroundColor: mine ? 'rgba(255,255,255,0.14)' : colors.surfaceSunken,
-            }}
+            style={{ width: '100%', height: '100%' }}
             contentFit="cover"
             transition={150}
             accessibilityLabel={attachment.name ?? t('chat.photo')}
           />
+          {/* The photo's name and size on a soft shade at its foot (founder 2026-10-12:
+              «media doesn't have a name»). */}
+          <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)']} pointerEvents="none"
+            style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 22, paddingBottom: 6, paddingHorizontal: 10 }}>
+            <Text numberOfLines={1} ellipsizeMode="middle" style={{ fontFamily: fonts.medium, fontSize: 11, color: '#FFFFFF', textAlign: 'right', writingDirection: 'ltr' }}>
+              {[attachment.name ?? t('chat.photo'), fileSizeLabel(attachment.size)].filter(Boolean).join(' · ')}
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
         <ImageViewer
           visible={open === 'image'}
@@ -93,32 +109,14 @@ export function AttachmentBubble({ attachment, mine, seed, onLongPress }: {
 
   return (
     <>
-    <TouchableOpacity
+    <DocumentCard
+      attachment={attachment}
+      headers={headers}
+      mine={mine}
+      hint={previewable ? t('chat.open_file') : t('chat.open_externally')}
       onPress={() => (previewable ? setOpen('file') : openFile(attachment, headers, t))}
       onLongPress={onLongPress}
-      delayLongPress={350}
-      activeOpacity={0.8}
-      style={{
-        flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-        paddingVertical: spacing.sm, paddingHorizontal: spacing.sm,
-        borderRadius: radius.md,
-        backgroundColor: mine ? 'rgba(255,255,255,0.14)' : colors.surfaceSunken,
-        borderWidth: mine ? 0 : 1, borderColor: colors.borderLight,
-        maxWidth: 250,
-      }}
-    >
-      <View style={{ width: 38, height: 38, borderRadius: radius.md, backgroundColor: mine ? 'rgba(255,255,255,0.18)' : colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="quiz" size={19} color={mine ? '#fff' : colors.brand} outline />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text numberOfLines={2} style={{ fontFamily: fonts.medium, fontSize: 14, color: mine ? '#fff' : colors.textPrimary, textAlign: 'right' }}>
-          {attachment.name ?? t('chat.file')}
-        </Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: mine ? chat.metaOnMine : colors.textTertiary, textAlign: 'right', marginTop: 1 }}>
-          {attachment.size ? `${Math.max(1, Math.round(attachment.size / 1024))} ك.ب · ` : ''}{previewable ? t('chat.open_file') : t('chat.open_externally')}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    />
     {previewable ? (
       <FilePreview
         visible={open === 'file'}

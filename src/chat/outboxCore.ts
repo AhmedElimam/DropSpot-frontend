@@ -26,6 +26,10 @@ export interface OutboxAttachment {
   name: string;
   mime: string;
   duration?: number;
+  /** Bytes, when the picker knew it — shown on the bubble before the server has the file. */
+  size?: number;
+  /** A photo's size, so the waiting bubble already has the picture's shape. */
+  meta?: { width?: number; height?: number } | null;
 }
 
 export interface OutboxItem {
@@ -72,7 +76,10 @@ export function outboxToMessage(item: OutboxItem, index: number): ChatMessage {
     body: item.body,
     hidden: false,
     attachment: item.attachment
-      ? { kind: item.attachment.kind, name: item.attachment.name, mime: item.attachment.mime, size: null, duration: item.attachment.duration ?? null, expired: false, url: item.attachment.uri }
+      ? {
+        kind: item.attachment.kind, name: item.attachment.name, mime: item.attachment.mime, size: item.attachment.size ?? null,
+        duration: item.attachment.duration ?? null, expired: false, url: item.attachment.uri, thumb_url: null, meta: item.attachment.meta ?? null,
+      }
       : null,
     sender: item.sender,
     created_at: item.created_at,

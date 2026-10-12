@@ -279,7 +279,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
   };
 
   // ── Attachments (§8) — all through one upload door, caption = whatever is in the box ──
-  const sendAttachment = (input: { kind: 'image' | 'file' | 'voice'; uri: string; name: string; mime: string; duration?: number }) => {
+  const sendAttachment = (input: { kind: 'image' | 'file' | 'voice'; uri: string; name: string; mime: string; duration?: number; size?: number; meta?: { width?: number; height?: number } | null }) => {
     const body = draft.trim() || null;
     setDraft('');
     atBottomRef.current = true;
@@ -322,7 +322,10 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
       const a = res.assets[0];
       if (tooBig(a.fileSize, room.data?.limits?.image_max_kb)) return;
       const ext = (a.fileName ?? a.uri).split('.').pop() || 'jpg';
-      sendAttachment({ kind: 'image', uri: a.uri, name: attachmentFileName('image', null, ext), mime: a.mimeType ?? 'image/jpeg' });
+      sendAttachment({
+        kind: 'image', uri: a.uri, name: attachmentFileName('image', null, ext), mime: a.mimeType ?? 'image/jpeg',
+        size: a.fileSize ?? undefined, meta: a.width && a.height ? { width: a.width, height: a.height } : null,
+      });
     } catch (err) {
       Alert.alert('', getFriendlyErrorMessage(err));
     }
@@ -334,7 +337,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
       if (res.canceled || !res.assets?.[0]) return;
       const a = res.assets[0];
       if (tooBig(a.size, room.data?.limits?.file_max_kb)) return;
-      sendAttachment({ kind: 'file', uri: a.uri, name: attachmentFileName('file', a.name, a.name.split('.').pop() || 'bin'), mime: a.mimeType ?? 'application/octet-stream' });
+      sendAttachment({ kind: 'file', uri: a.uri, name: attachmentFileName('file', a.name, a.name.split('.').pop() || 'bin'), mime: a.mimeType ?? 'application/octet-stream', size: a.size ?? undefined });
     } catch (err) {
       Alert.alert('', getFriendlyErrorMessage(err));
     }
@@ -636,7 +639,6 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
             onVoiceClip={onVoiceClip}
             voiceMaxSeconds={data.limits?.voice_max_seconds || 120}
             sending={false}
-            recording={recording}
             onRecordingChange={setRecording}
             bottomInset={insets.bottom}
           />

@@ -45,6 +45,21 @@ export interface ChatAttachment {
   expired: boolean;
   /** Private, membership-checked URL — needs the bearer token (see attachmentHeaders). */
   url: string | null;
+  /** A picture of a PDF's first page, behind the same door as the file. Absent on older servers. */
+  thumb_url?: string | null;
+  /** What shows before opening it: counts, the first lines or cells, a photo's size. */
+  meta?: ChatAttachmentMeta | null;
+}
+
+/** Read from the file at upload (server `ChatDocumentPreview`). Every field is optional. */
+export interface ChatAttachmentMeta {
+  pages?: number;
+  sheets?: number;
+  slides?: number;
+  /** Photos: so the bubble keeps the picture's shape. */
+  width?: number;
+  height?: number;
+  preview?: { kind: 'text'; lines: string[] } | { kind: 'sheet'; rows: string[][] } | null;
 }
 
 export interface ChatMessage {

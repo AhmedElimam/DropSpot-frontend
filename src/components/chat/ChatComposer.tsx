@@ -1,27 +1,26 @@
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { chat } from '@/theme/chat';
 import { Icon } from '@/components/ui/Icon';
-import { VoiceRecorder, type VoiceClip } from '@/components/chat/VoiceRecorder';
+import { useVoiceRecorder, type VoiceClip } from '@/components/chat/VoiceRecorder';
 
 /**
  * The composer: a bordered surface field carrying the attach and camera actions, with one
- * circular action beside it that is a MIC while the field is empty and a SEND arrow the
- * moment there is something to send. Same tokens as every other input in the app — surface,
+ * action beside it that is a MIC while the field is empty and a SEND arrow the moment there
+ * is something to send. Same tokens as every other input in the app — surface,
  * `colors.border`, `radius.lg` — so it reads as this product's field, not a messenger's pill.
  *
- * While recording, the field is replaced by the recorder's running bar: there is nothing
- * to type at that moment, and a live text field under a held finger invites half-sent
- * messages. The bar is the recorder's OWN sibling in this row (it renders a fragment: bar,
- * then button), so it takes exactly the field's place — an absolutely positioned bar used
- * to land off the far edge of the screen under forced RTL (founder 2026-10-12).
+ * While recording, the recorder's running bar is drawn OVER the field (absoluteFill — no
+ * left/right for forced RTL to flip). The field stays mounted underneath, invisible: had it
+ * unmounted, an open keyboard would drop mid-hold and slide the button out from under the
+ * finger.
  */
 export function ChatComposer({
   value, onChange, onSend, onAttach, onCamera, onVoiceClip, voiceMaxSeconds,
-  sending, recording, onRecordingChange, bottomInset,
+  sending, onRecordingChange, bottomInset,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -31,12 +30,12 @@ export function ChatComposer({
   onVoiceClip: (clip: VoiceClip) => void;
   voiceMaxSeconds: number;
   sending: boolean;
-  recording: boolean;
-  onRecordingChange: (recording: boolean) => void;
+  onRecordingChange?: (recording: boolean) => void;
   bottomInset: number;
 }) {
   const { t } = useTranslation();
   const canSend = value.trim().length > 0;
+  const voice = useVoiceRecorder({ maxSeconds: voiceMaxSeconds, disabled: sending, onClip: onVoiceClip, onStateChange: onRecordingChange });
 
   return (
     <View
@@ -52,10 +51,10 @@ export function ChatComposer({
         borderTopColor: chat.barBorder,
       }}
     >
-      {recording ? null : (
+      <View style={{ flex: 1, minHeight: 52 }}>
         <View
+          pointerEvents={voice.active ? 'none' : 'auto'}
           style={{
-            flex: 1,
             flexDirection: 'row',
             alignItems: 'flex-end',
             backgroundColor: colors.surfaceSunken,
@@ -65,6 +64,7 @@ export function ChatComposer({
             paddingStart: spacing.lg,
             paddingEnd: spacing.xs,
             minHeight: 52,
+            opacity: voice.active ? 0 : 1,
           }}
         >
           <TextInput
@@ -107,9 +107,10 @@ export function ChatComposer({
             </TouchableOpacity>
           </View>
         </View>
-      )}
+        {voice.bar ? <View style={[StyleSheet.absoluteFillObject, { flexDirection: 'row' }]}>{voice.bar}</View> : null}
+      </View>
 
-      {canSend && !recording ? (
+      {canSend && !voice.active ? (
         <Animated.View entering={ZoomIn.duration(140)} exiting={ZoomOut.duration(100)}>
         <TouchableOpacity
           onPress={onSend}
@@ -122,14 +123,7 @@ export function ChatComposer({
           {sending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={20} color="#fff" />}
         </TouchableOpacity>
         </Animated.View>
-      ) : (
-        <VoiceRecorder
-          maxSeconds={voiceMaxSeconds}
-          disabled={sending}
-          onClip={onVoiceClip}
-          onStateChange={onRecordingChange}
-        />
-      )}
+      ) : voice.button}
     </View>
   );
 }
