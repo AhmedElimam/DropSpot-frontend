@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, PanResponder } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, I18nManager } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useFrameCallback, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { File, Paths } from 'expo-file-system';
 import { fonts } from '@/theme/typography';
@@ -8,22 +10,52 @@ import { chat, waveform } from '@/theme/chat';
 import { Icon } from '@/components/ui/Icon';
 import { claimVoicePlayback, cycleVoiceRate, getVoiceRate, onVoiceRate, playNextVoiceAfter, registerVoiceNote } from '@/components/chat/voiceQueue';
 
+const WAVE_H = 32;
+const THUMB = 13;
+/** How often the player reports its position; the UI thread fills the frames in between. */
+const STATUS_MS = 250;
+
 /**
- * A voice note, drawn as a voice note — and behaving like one.
+ * Where a touch on the waveform lands, as a fraction of the clip. Under RTL the first bar is
+ * on the RIGHT, so the distance from the right edge is progress. Runs on the UI thread.
+ */
+export function fractionAtX(x: number, width: number, rtl: boolean): number {
+  'worklet';
+  if (width <= 0) return 0;
+  const f = Math.max(0, Math.min(1, x / width));
+  return rtl ? 1 - f : f;
+}
+
+/**
+ * Where the playhead is right now, between two player reports: the last reported position
+ * plus the time since, at the playing rate — so the fill glides instead of stepping four
+ * times a second. Runs on the UI thread.
+ */
+export function projectedProgress(anchorSec: number, anchorAtMs: number, nowMs: number, rate: number, totalSec: number): number {
+  'worklet';
+  if (totalSec <= 0) return 0;
+  const pos = anchorSec + (Math.max(0, nowMs - anchorAtMs) / 1000) * rate;
+  return Math.max(0, Math.min(1, pos / totalSec));
+}
+
+/**
+ * A voice note, drawn as a voice note — and behaving like one (WhatsApp is the bar).
  *
- * It used to be a bare `<audio controls>` / stock player, which renders as a desktop media
- * widget and made a message look like a file attachment from a different decade (founder,
- * 2026-09-13). This is the product's own control: one round play button, a bar waveform
- * that fills as it plays, and the time.
+ * Smoothness (founder 2026-10-12: «selecting a minute isn't smooth, there's a delay on hold
+ * and hearing the exact moment; the playing chart isn't smooth»):
+ *  - the fill and the playhead dot are drawn on the UI thread: the player reports its
+ *    position every 250 ms and a frame callback glides between reports — only while this
+ *    note plays, so nothing ticks for a note at rest;
+ *  - the fill is ONE clipped layer of lit bars over the dim ones, so it moves by the pixel,
+ *    not bar by bar;
+ *  - scrubbing is a native gesture: the dot follows the finger on the UI thread with no
+ *    React render per move; on release the player seeks with zero tolerance (the exact
+ *    moment, not the nearest keyframe) and carries on playing if it was;
+ *  - a tap anywhere on the waveform jumps there.
  *
- * What a voice note DOES here (founder, 2026-09-20: "like WhatsApp"): drag anywhere on the
- * waveform to scrub, tap the speed chip for 1× / 1.5× / 2× (remembered for the session),
- * only one note plays at a time, and when a note ends the next unheard one below it starts.
- * A note you have heard keeps a quieter play button, so a run shows where you stopped.
- *
- * The waveform is derived from the message id, not decoded from the audio: decoding would
- * mean downloading and analysing the file just to draw 28 rectangles. It is stable per
- * message, which is what makes it read as "this clip" rather than decoration.
+ * The clip is fetched into the app cache with our headers (token, staging key) and played
+ * from disk — seeks on a local file are instant. A clip just recorded is already local.
+ * The waveform is derived from the message id (stable per message, no decoding).
  */
 export function VoiceNote({ url, headers, duration, mine, seed }: {
   url: string;
@@ -33,12 +65,9 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
   /** The message id — waveform seed AND the note's place in the room's play order. */
   seed: number;
 }) {
-  // The clip is fetched into the app cache with OUR headers (token, staging key), then played
-  // from disk: the native player's own request carried the headers inconsistently (iOS drops
-  // them on the range probe) and a voice note «sent but never played» (founder 2026-10-12).
-  // A clip just recorded is already a local file and plays at once.
   const [localUri, setLocalUri] = useState<string | null>(url.startsWith('file:') ? url : null);
   const [fetchFailed, setFetchFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (url.startsWith('file:')) { setLocalUri(url); return; }
     let alive = true;
@@ -49,24 +78,56 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
           try { if (dest.exists) dest.delete(); } catch { /* best effort */ }
           await File.downloadFileAsync(url, dest, { headers });
         }
-        if (alive) setLocalUri(dest.uri);
+        if (alive) { setLocalUri(dest.uri); setFetchFailed(false); }
       } catch {
         if (alive) setFetchFailed(true);
       }
     })();
     return () => { alive = false; };
-  }, [url, seed]); // eslint-disable-line react-hooks/exhaustive-deps
-  const player = useAudioPlayer(localUri ? { uri: localUri } : null);
+  }, [url, seed, attempt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const player = useAudioPlayer(localUri ? { uri: localUri } : null, { updateInterval: STATUS_MS });
   const status = useAudioPlayerStatus(player);
   const bars = useMemo(() => waveform(seed), [seed]);
   const [rate, setRate] = useState(getVoiceRate());
   const [played, setPlayed] = useState(false);
-  const [scrub, setScrub] = useState<number | null>(null);
-  const width = useRef(1);
+  const [scrubSec, setScrubSec] = useState<number | null>(null);
+  const [width, setWidth] = useState(0);
   const playedRef = useRef(false);
+  const wasPlaying = useRef(false);
+  const rtl = I18nManager.isRTL;
 
   const total = status.duration > 0 ? status.duration : duration;
-  const progress = scrub ?? (total > 0 ? Math.min(1, status.currentTime / total) : 0);
+
+  // UI-thread playhead.
+  const progress = useSharedValue(0);
+  const anchorSec = useSharedValue(0);
+  const anchorAt = useSharedValue(0);
+  const rateSV = useSharedValue(rate);
+  const totalSV = useSharedValue(total);
+  const widthSV = useSharedValue(0);
+  const scrubbing = useSharedValue(0);
+  const thumbScale = useSharedValue(1);
+  const lastLabelAt = useSharedValue(0);
+
+  useEffect(() => { totalSV.value = total; }, [total, totalSV]);
+  useEffect(() => { rateSV.value = rate; }, [rate, rateSV]);
+
+  const glide = useFrameCallback(() => {
+    if (scrubbing.value === 1) return;
+    progress.value = projectedProgress(anchorSec.value, anchorAt.value, Date.now(), rateSV.value, totalSV.value);
+  }, false);
+
+  // Every player report re-anchors the glide; at rest the playhead sits exactly on the report.
+  useEffect(() => {
+    anchorSec.value = status.currentTime;
+    anchorAt.value = Date.now();
+    if (!status.playing && scrubbing.value === 0) {
+      progress.value = total > 0 ? Math.min(1, status.currentTime / total) : 0;
+    }
+  }, [status.currentTime, status.playing, total, anchorSec, anchorAt, progress, scrubbing]);
+  useEffect(() => { glide.setActive(!!status.playing); }, [status.playing, glide]);
+  useEffect(() => () => glide.setActive(false), [glide]);
 
   useEffect(() => {
     // The silent switch on an iPhone must not swallow a voice note the child tapped to hear.
@@ -77,54 +138,110 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
   useEffect(() => { try { player.setPlaybackRate(rate, 'high'); } catch { /* ignore */ } }, [rate, player]);
 
   const [wantPlay, setWantPlay] = useState(false);
-  const play = () => {
+  const play = useCallback(() => {
     claimVoicePlayback(seed);
     if (!localUri) { setWantPlay(true); return; } // still fetching: start the moment it lands
     try { player.setPlaybackRate(getVoiceRate(), 'high'); player.play(); } catch { /* ignore */ }
-  };
+  }, [localUri, player, seed]);
   useEffect(() => {
     if (wantPlay && localUri) { setWantPlay(false); try { player.setPlaybackRate(getVoiceRate(), 'high'); player.play(); } catch { /* ignore */ } }
   }, [wantPlay, localUri, player]);
-  const pause = () => { try { player.pause(); } catch { /* ignore */ } };
+  const pause = useCallback(() => { try { player.pause(); } catch { /* ignore */ } }, [player]);
 
   // In the room's choir for as long as this bubble is on screen.
-  useEffect(() => registerVoiceNote(seed, { play, pause, played: () => playedRef.current }), [seed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const choir = useRef({ play, pause });
+  choir.current = { play, pause };
+  useEffect(() => registerVoiceNote(seed, { play: () => choir.current.play(), pause: () => choir.current.pause(), played: () => playedRef.current }), [seed]);
 
   useEffect(() => {
     if (status.didJustFinish) {
-      try { player.seekTo(0); player.pause(); } catch { /* ignore */ }
+      try { void player.seekTo(0); player.pause(); } catch { /* ignore */ }
+      progress.value = 0;
       playedRef.current = true;
       setPlayed(true);
       playNextVoiceAfter(seed);
     }
-  }, [status.didJustFinish, player, seed]);
+  }, [status.didJustFinish, player, seed, progress]);
 
   const toggle = () => {
-    if (fetchFailed) { setFetchFailed(false); setLocalUri(null); setWantPlay(true); return; } // try the fetch again
+    if (fetchFailed) { setFetchFailed(false); setLocalUri(null); setWantPlay(true); setAttempt((n) => n + 1); return; }
     if (status.playing) pause(); else play();
   };
 
-  const seekToFraction = (f: number) => {
-    if (total <= 0) return;
-    try { player.seekTo(Math.max(0, Math.min(total, f * total))); } catch { /* ignore */ }
-  };
+  // ── Scrubbing ─────────────────────────────────────────────────────────────────────────
+  const onScrubStart = useCallback(() => {
+    wasPlaying.current = !!status.playing;
+    if (status.playing) pause();
+  }, [status.playing, pause]);
+  const onScrubLabel = useCallback((f: number) => setScrubSec(f * total), [total]);
+  const seekTo = useCallback(async (f: number, resume: boolean) => {
+    const sec = Math.max(0, Math.min(total, f * total));
+    setScrubSec(null);
+    anchorSec.value = sec;
+    anchorAt.value = Date.now();
+    progress.value = total > 0 ? sec / total : 0;
+    try {
+      // Zero tolerance: the exact moment the dot is on, not the nearest keyframe.
+      await player.seekTo(sec, 0, 0);
+    } catch { /* ignore */ }
+    scrubbing.value = 0;
+    if (resume) play();
+  }, [anchorAt, anchorSec, play, player, progress, scrubbing, total]);
+  const onScrubEnd = useCallback((f: number) => { void seekTo(f, wasPlaying.current); }, [seekTo]);
+  const onTapSeek = useCallback((f: number) => { void seekTo(f, !!status.playing); }, [seekTo, status.playing]);
 
-  // Drag to scrub. The app forces RTL, so the first bar is on the RIGHT: distance from the
-  // right edge is progress. The finger's own position paints the bars while it moves; the
-  // player is asked to seek once, on release, so a slow decoder is never asked 60 times.
-  const pan = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: (e) => setScrub(fractionAt(e.nativeEvent.locationX, width.current)),
-    onPanResponderMove: (e) => setScrub(fractionAt(e.nativeEvent.locationX, width.current)),
-    onPanResponderRelease: (e) => { const f = fractionAt(e.nativeEvent.locationX, width.current); setScrub(null); seekToFraction(f); },
-    onPanResponderTerminate: () => setScrub(null),
-  })).current;
+  const gesture = useMemo(() => {
+    const pan = Gesture.Pan()
+      .activeOffsetX([-4, 4])
+      .failOffsetY([-14, 14])
+      .onStart((e) => {
+        scrubbing.value = 1;
+        thumbScale.value = withSpring(1.45, { damping: 14, stiffness: 300 });
+        progress.value = fractionAtX(e.x, widthSV.value, rtl);
+        runOnJS(onScrubStart)();
+      })
+      .onUpdate((e) => {
+        const f = fractionAtX(e.x, widthSV.value, rtl);
+        progress.value = f;
+        // The clock under the dot, ten times a second — not a React render per pixel.
+        const now = Date.now();
+        if (now - lastLabelAt.value > 100) { lastLabelAt.value = now; runOnJS(onScrubLabel)(f); }
+      })
+      .onEnd(() => { runOnJS(onScrubEnd)(progress.value); })
+      .onFinalize(() => { thumbScale.value = withSpring(1, { damping: 14, stiffness: 300 }); });
+    const tap = Gesture.Tap()
+      .maxDuration(300)
+      .onEnd((e, ok) => {
+        if (!ok) return;
+        const f = fractionAtX(e.x, widthSV.value, rtl);
+        scrubbing.value = 1;
+        progress.value = f;
+        runOnJS(onTapSeek)(f);
+      });
+    return Gesture.Race(pan, tap);
+  }, [lastLabelAt, onScrubEnd, onScrubLabel, onScrubStart, onTapSeek, progress, rtl, scrubbing, thumbScale, widthSV]);
+
+  const fillStyle = useAnimatedStyle(() => ({ width: progress.value * widthSV.value }));
+  // Transforms are physical: under RTL the dot travels LEFT from the right edge.
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: (rtl ? -1 : 1) * (progress.value * widthSV.value - THUMB / 2) },
+      { scale: thumbScale.value },
+    ],
+  }));
 
   const fg = mine ? '#fff' : colors.brand;
   const trackOff = mine ? 'rgba(255,255,255,0.34)' : colors.borderStrong;
-  const shown = status.playing || status.currentTime > 0 || scrub !== null ? progress * total : total;
+  const showClock = scrubSec ?? (status.playing || status.currentTime > 0 ? status.currentTime : total);
   const loading = (!localUri && !fetchFailed && wantPlay) || (!status.isLoaded && status.playing);
+
+  const barRow = (color: string) => (
+    <View style={{ width: width || undefined, flex: width ? undefined : 1, height: WAVE_H, flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+      {bars.map((h, i) => (
+        <View key={i} style={{ flex: 1, height: Math.max(4, Math.round(h * 24)), borderRadius: 2, backgroundColor: color }} />
+      ))}
+    </View>
+  );
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minWidth: 232, paddingVertical: 2 }}>
@@ -144,21 +261,22 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
         )}
       </TouchableOpacity>
 
-      {/* The waveform is the scrubber: tap or drag anywhere on it. */}
-      <View
-        {...pan.panHandlers}
-        onLayout={(e) => { width.current = Math.max(1, e.nativeEvent.layout.width); }}
-        accessibilityRole="adjustable"
-        accessibilityLabel="موضع التشغيل"
-        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2, height: 32 }}
-      >
-        {bars.map((h, i) => {
-          const on = i / bars.length <= progress;
-          return (
-            <View key={i} pointerEvents="none" style={{ flex: 1, height: Math.max(4, Math.round(h * 24)), borderRadius: 2, backgroundColor: on ? fg : trackOff }} />
-          );
-        })}
-      </View>
+      {/* The waveform is the scrubber: tap to jump, drag to scrub. */}
+      <GestureDetector gesture={gesture}>
+        <View
+          onLayout={(e) => { const w = Math.max(1, e.nativeEvent.layout.width); widthSV.value = w; setWidth(w); }}
+          accessibilityRole="adjustable"
+          accessibilityLabel="موضع التشغيل"
+          style={{ flex: 1, height: WAVE_H, justifyContent: 'center' }}
+        >
+          {barRow(trackOff)}
+          {/* The lit bars, clipped to the playhead from the start edge. */}
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: 0, bottom: 0, start: 0, overflow: 'hidden', alignItems: 'flex-start' }, fillStyle]}>
+            {barRow(fg)}
+          </Animated.View>
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute', start: 0, top: (WAVE_H - THUMB) / 2, width: THUMB, height: THUMB, borderRadius: THUMB / 2, backgroundColor: fg }, thumbStyle]} />
+        </View>
+      </GestureDetector>
 
       {status.playing || rate !== 1 ? (
         <TouchableOpacity
@@ -172,15 +290,11 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
         </TouchableOpacity>
       ) : (
         <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: mine ? chat.metaOnMine : colors.textTertiary, minWidth: 32, textAlign: 'left', writingDirection: 'ltr' }}>
-          {fmt(shown)}
+          {fmt(showClock)}
         </Text>
       )}
     </View>
   );
-}
-
-function fractionAt(locationX: number, width: number): number {
-  return Math.max(0, Math.min(1, 1 - locationX / width));
 }
 
 function fmt(seconds: number): string {

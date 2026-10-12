@@ -3,10 +3,14 @@
  * doesn't work on hold and doesn't swipe to cancel»; «media doesn't display part of it like
  * WhatsApp for PDF and Excel»).
  */
-jest.mock('react-native', () => ({ View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', Alert: { alert: jest.fn() }, I18nManager: { isRTL: true }, Platform: { OS: 'ios' }, Vibration: { vibrate: jest.fn() }, StyleSheet: { absoluteFillObject: {} } }));
+jest.mock('react-native', () => ({ View: 'View', Text: 'Text', Image: 'Image', ActivityIndicator: 'ActivityIndicator', AccessibilityInfo: { announceForAccessibility: jest.fn() }, TouchableOpacity: 'TouchableOpacity', Alert: { alert: jest.fn() }, I18nManager: { isRTL: true }, Platform: { OS: 'ios' }, Vibration: { vibrate: jest.fn() }, StyleSheet: { absoluteFillObject: {}, absoluteFill: {} } }));
 jest.mock('react-native-gesture-handler', () => ({ Gesture: {}, GestureDetector: 'GestureDetector' }));
 jest.mock('react-native-reanimated', () => ({ __esModule: true, default: { View: 'Animated.View' } }));
 jest.mock('expo-audio', () => ({ RecordingPresets: { HIGH_QUALITY: {} } }));
+jest.mock('expo-file-system', () => ({ File: class {}, Paths: {} }));
+jest.mock('react-native-svg', () => ({ __esModule: true, default: 'Svg', Defs: 'Defs', Pattern: 'Pattern', Rect: 'Rect', Path: 'Path', Circle: 'Circle', G: 'G' }));
+jest.mock('@/theme/chat', () => ({ chat: {}, waveform: () => [] }));
+jest.mock('@/components/chat/voiceQueue', () => ({}));
 jest.mock('expo-image', () => ({ Image: 'Image' }));
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
@@ -66,5 +70,37 @@ describe('a document says what it is before it is opened', () => {
     expect(docCountLabel({ sheets: 1 })).toBe('');
     expect(docCountLabel({ sheets: 2 })).toBe('ورقتان');
     expect(docCountLabel(null)).toBe('');
+  });
+});
+
+describe('a voice note scrubs and glides like WhatsApp', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { fractionAtX, projectedProgress } = require('../VoiceNote') as typeof import('../VoiceNote');
+  it('a touch on the waveform lands where the finger is — from the right under RTL', () => {
+    expect(fractionAtX(0, 200, true)).toBe(1);
+    expect(fractionAtX(200, 200, true)).toBe(0);
+    expect(fractionAtX(50, 200, true)).toBe(0.75);
+    expect(fractionAtX(50, 200, false)).toBe(0.25);
+    expect(fractionAtX(-20, 200, false)).toBe(0);
+    expect(fractionAtX(10, 0, false)).toBe(0);
+  });
+  it('between two player reports the playhead keeps moving at the playing rate', () => {
+    expect(projectedProgress(2, 1000, 1000, 1, 10)).toBeCloseTo(0.2);
+    expect(projectedProgress(2, 1000, 1250, 1, 10)).toBeCloseTo(0.225);
+    expect(projectedProgress(2, 1000, 1250, 2, 10)).toBeCloseTo(0.25);
+    expect(projectedProgress(9.9, 0, 5000, 1, 10)).toBe(1);
+    expect(projectedProgress(1, 0, 0, 1, 0)).toBe(0);
+  });
+});
+
+describe('the wallpaper lattice', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { wallpaperMarks, TILE } = require('../ChatWallpaper') as typeof import('../ChatWallpaper');
+  it('one emblem and one crest per tile, covering the whole room', () => {
+    expect(wallpaperMarks(0, 500)).toEqual([]);
+    const marks = wallpaperMarks(390, 700);
+    expect(marks.length).toBe(Math.ceil(390 / TILE) * Math.ceil(700 / TILE) * 2);
+    expect(marks.filter((m) => m.kind === 'crest').length).toBe(marks.length / 2);
+    expect(new Set(marks.map((m) => m.key)).size).toBe(marks.length);
   });
 });
