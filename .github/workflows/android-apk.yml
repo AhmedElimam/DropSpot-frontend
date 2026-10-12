@@ -10,7 +10,15 @@ name: Build Android APK
 # attach the APK to a GitHub Release.
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Backend this build talks to (staging = separate app com.drosspot.app.stg behind the key)'
+        type: choice
+        default: production
+        options:
+          - production
+          - staging
   push:
     tags:
       - 'v*'
@@ -27,6 +35,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Which backend this build talks to (src/config/env.ts, app.config.ts). production =
+      # exactly what shipped before this input existed; staging = a separate app
+      # (com.drosspot.app.stg) pinned to stg.drosspot.app and carrying its door key.
+      - name: Choose environment
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'production' }}"
+          echo "APP_ENVIRONMENT=$ENVIRONMENT" >> "$GITHUB_ENV"
+          if [ "$ENVIRONMENT" = "staging" ]; then
+            [ -n "${{ secrets.STAGING_ACCESS_KEY }}" ] || { echo "::error::STAGING_ACCESS_KEY secret is missing"; exit 1; }
+            [ -f google-services.staging.json ] || { echo "::error::google-services.staging.json is missing (register com.drosspot.app.stg in Firebase)"; exit 1; }
+            echo "EXPO_PUBLIC_APP_ENV=staging" >> "$GITHUB_ENV"
+            echo "EXPO_PUBLIC_API_URL=https://stg.drosspot.app/api/v1" >> "$GITHUB_ENV"
+            echo "EXPO_PUBLIC_STAGING_KEY=${{ secrets.STAGING_ACCESS_KEY }}" >> "$GITHUB_ENV"
+          fi
+          echo "Building for: $ENVIRONMENT"
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -89,7 +113,7 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p artifacts
-          cp android/app/build/outputs/apk/release/*.apk "artifacts/drosspot-${GITHUB_SHA::7}.apk"
+          cp android/app/build/outputs/apk/release/*.apk "artifacts/drosspot-${APP_ENVIRONMENT}-${GITHUB_SHA::7}.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

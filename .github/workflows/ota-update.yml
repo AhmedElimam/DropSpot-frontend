@@ -71,5 +71,9 @@ jobs:
       - name: Publish
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          EXPO_PUBLIC_API_URL: https://drosspot.app/api/v1
+          # The staging branch is exported AS the staging app (its own runtime fingerprint
+          # and API URL), so it can never land on a production install.
+          EXPO_PUBLIC_APP_ENV: ${{ inputs.branch == 'staging' && 'staging' || 'production' }}
+          EXPO_PUBLIC_API_URL: ${{ inputs.branch == 'staging' && 'https://stg.drosspot.app/api/v1' || 'https://drosspot.app/api/v1' }}
+          EXPO_PUBLIC_STAGING_KEY: ${{ inputs.branch == 'staging' && secrets.STAGING_ACCESS_KEY || '' }}
         run: npx eas-cli update --branch "${{ inputs.branch }}" --message "${{ inputs.message }}" --non-interactive

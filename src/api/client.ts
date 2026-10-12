@@ -1,4 +1,5 @@
 import { track } from '@/lib/analytics';
+import { IS_STAGING, STAGING_KEY, STAGING_HEADER } from '@/config/env';
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { uuid } from '@/utils/uuid';
 import { matchQueueRule, parkedBody, queuedLabel, syntheticQueuedResponse } from './offlineQueue';
@@ -28,11 +29,18 @@ import { resolveAppId } from '@/utils/appIdentity';
  */
 /** Production API — every released (non-dev) build talks to this. */
 const PRODUCTION_API_URL = 'https://drosspot.app/api/v1';
+/** Staging API — a staging build (EXPO_PUBLIC_APP_ENV=staging) talks only to this. */
+const STAGING_API_URL = 'https://stg.drosspot.app/api/v1';
 
 function resolveApiUrl(): string {
   // An explicit override always wins (staging, a custom backend, etc.).
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  // A staging build is pinned to the staging server, dev or release alike.
+  if (IS_STAGING) {
+    return STAGING_API_URL;
   }
 
   // Any release build (store/TestFlight/APK) → production. The dev LAN/emulator
@@ -116,6 +124,8 @@ client.interceptors.request.use(async (config) => {
   const appId = resolveAppId();
   if (appId) config.headers['X-App-Id'] = appId;
   config.headers['X-App-Platform'] = Platform.OS;
+  // The staging door (src/config/env.ts): a staging build carries the key on every request.
+  if (STAGING_KEY) config.headers[STAGING_HEADER] = STAGING_KEY;
 
   // Every write carries a one-time key: the server answers a repeat of the same key from
   // memory instead of running it twice (a payment collected once, however many retries).

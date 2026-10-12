@@ -85,7 +85,9 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "start:staging": "EXPO_PUBLIC_APP_ENV=staging EXPO_PUBLIC_API_URL=https://stg.drosspot.app/api/v1 expo start",
+    "prebuild:staging": "EXPO_PUBLIC_APP_ENV=staging EXPO_PUBLIC_API_URL=https://stg.drosspot.app/api/v1 CI=1 expo prebuild --clean"
   },
   "private": true,
   "reanimated": {
