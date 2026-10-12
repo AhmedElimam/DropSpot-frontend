@@ -36,21 +36,10 @@ export function ChatInbox({ role, onOpen, onBack }: { role: InboxRole; onOpen: (
   const [query, setQuery] = useState('');
 
   const list = useMemo(() => data ?? [], [data]);
-  const counts = inboxCounts(list);
   const both = hasBothAudiences(list);
   const courses = new Set(list.map((c) => c.course_id)).size;
   const unreadMessages = list.reduce((n, c) => n + (c.unread || 0), 0);
 
-  const chips: { key: InboxFilter; label: string; n: number }[] = [
-    { key: 'all', label: t('chat.filter_all'), n: counts.all },
-    { key: 'unread', label: t('chat.filter_unread'), n: counts.unread },
-    ...(both ? [
-      // A parent's own room leads for a parent; the class leads for a teacher.
-      ...(role === 'parent'
-        ? [{ key: 'parents' as const, label: t('chat.filter_parents'), n: counts.parents }, { key: 'students' as const, label: t('chat.filter_children'), n: counts.students }]
-        : [{ key: 'students' as const, label: t('chat.filter_students'), n: counts.students }, { key: 'parents' as const, label: t('chat.filter_parents'), n: counts.parents }]),
-    ] : []),
-  ];
 
   const title = role === 'parent' ? t('community.title') : role === 'teacher' ? t('chat.conversations') : t('chat.title');
   const subtitle = role === 'parent' ? t('community.tagline') : role === 'teacher' ? t('chat.inbox_teacher_sub') : t('chat.subtitle');
@@ -94,25 +83,9 @@ export function ChatInbox({ role, onOpen, onBack }: { role: InboxRole; onOpen: (
         </PageHero>
 
         {list.length ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}
-            style={{ marginTop: -(spacing.xl4 - spacing.sm) }}
-            contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
-            {chips.map((c) => {
-              const on = filter === c.key;
-              return (
-                <TouchableOpacity key={c.key} onPress={() => setFilter(c.key)} activeOpacity={0.8}
-                  accessibilityRole="tab" accessibilityState={{ selected: on }}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border, ...shadows.sm }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: on ? colors.onPrimary : colors.textSecondary }}>{c.label}</Text>
-                  {c.n > 0 ? (
-                    <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? 'rgba(255,255,255,0.22)' : c.key === 'unread' ? colors.success : colors.surfaceSunken }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: on || c.key === 'unread' ? colors.onPrimary : colors.textTertiary }}>{formatNumber(c.n)}</Text>
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <View style={{ marginTop: -(spacing.xl4 - spacing.sm), paddingBottom: spacing.md }}>
+            <InboxChips list={list} value={filter} onChange={setFilter} />
+          </View>
         ) : null}
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: list.length ? 0 : -spacing.xl }}>
@@ -124,10 +97,54 @@ export function ChatInbox({ role, onOpen, onBack }: { role: InboxRole; onOpen: (
 }
 
 /**
+ * The filter chips: all, unread, and — for someone with both kinds of room — the class and the
+ * parents. A parent's own room leads for a parent («أولياء الأمور» then «أبنائي»); the class
+ * leads for a teacher. Shared by the conversations page and the in-room switcher.
+ */
+export function InboxChips({ list, value, onChange }: { list: ChatChannelSummary[]; value: InboxFilter; onChange: (f: InboxFilter) => void }) {
+  const { t } = useTranslation();
+  const counts = inboxCounts(list);
+  const parentView = list.some((c) => c.read_only);
+  const chips: { key: InboxFilter; label: string; n: number }[] = [
+    { key: 'all', label: t('chat.filter_all'), n: counts.all },
+    { key: 'unread', label: t('chat.filter_unread'), n: counts.unread },
+    ...(hasBothAudiences(list) ? (parentView
+      ? [{ key: 'parents' as const, label: t('chat.filter_parents'), n: counts.parents }, { key: 'students' as const, label: t('chat.filter_children'), n: counts.students }]
+      : [{ key: 'students' as const, label: t('chat.filter_students'), n: counts.students }, { key: 'parents' as const, label: t('chat.filter_parents'), n: counts.parents }]) : []),
+  ];
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: 2 }}>
+      {chips.map((c) => {
+        const on = value === c.key;
+        return (
+          <TouchableOpacity key={c.key} onPress={() => onChange(c.key)} activeOpacity={0.8}
+            accessibilityRole="tab" accessibilityState={{ selected: on }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border, ...shadows.sm }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: on ? colors.onPrimary : colors.textSecondary }}>{c.label}</Text>
+            {c.n > 0 ? (
+              <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? 'rgba(255,255,255,0.22)' : c.key === 'unread' ? colors.success : colors.surfaceSunken }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: on || c.key === 'unread' ? colors.onPrimary : colors.textTertiary }}>{formatNumber(c.n)}</Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+/**
  * The rooms themselves — course cards when this person has both kinds of room, a messenger
  * list otherwise. Also used under the threads segments while threads are on.
  */
-export function ChatInboxList({ onOpen, filter = 'all', query = '' }: { onOpen: (room: RoomId) => void; filter?: InboxFilter; query?: string }) {
+export function ChatInboxList({ onOpen, filter = 'all', query = '', current }: {
+  onOpen: (room: RoomId) => void;
+  filter?: InboxFilter;
+  query?: string;
+  /** The room you are in (the switcher): marked «أنت هنا», not a link. */
+  current?: RoomId;
+}) {
   const { t } = useTranslation();
   const enabled = useChatEnabled();
   // Same query key as the host screen's pull-to-refresh, so this is not a second fetch.
@@ -148,7 +165,7 @@ export function ChatInboxList({ onOpen, filter = 'all', query = '' }: { onOpen: 
   if (grouped) {
     return (
       <View style={{ gap: spacing.md }}>
-        {groupInbox(shown).map((g) => <CourseCard key={g.courseId} group={g} onOpen={onOpen} />)}
+        {groupInbox(shown).map((g) => <CourseCard key={g.courseId} group={g} onOpen={onOpen} current={current} />)}
       </View>
     );
   }
@@ -156,13 +173,13 @@ export function ChatInboxList({ onOpen, filter = 'all', query = '' }: { onOpen: 
   const rows = sortRooms(shown);
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', ...shadows.sm }}>
-      {rows.map((c, i) => <RoomRow key={roomIdOf(c)} room={c} last={i === rows.length - 1} onOpen={onOpen} />)}
+      {rows.map((c, i) => <RoomRow key={roomIdOf(c)} room={c} last={i === rows.length - 1} onOpen={onOpen} here={roomIdOf(c) === current} />)}
     </View>
   );
 }
 
 /** One course: its name (and, for a parent, which children), then its rooms. */
-function CourseCard({ group: g, onOpen }: { group: InboxGroup; onOpen: (room: RoomId) => void }) {
+function CourseCard({ group: g, onOpen, current }: { group: InboxGroup; onOpen: (room: RoomId) => void; current?: RoomId }) {
   const { t } = useTranslation();
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: g.unread > 0 ? colors.brand + '40' : colors.border, overflow: 'hidden', ...shadows.sm }}>
@@ -189,17 +206,17 @@ function CourseCard({ group: g, onOpen }: { group: InboxGroup; onOpen: (room: Ro
         </View>
       </View>
       <View style={{ paddingHorizontal: spacing.sm, paddingBottom: spacing.sm, gap: 2 }}>
-        {g.rooms.map((c) => <RoomLine key={roomIdOf(c)} room={c} onOpen={onOpen} />)}
+        {g.rooms.map((c) => <RoomLine key={roomIdOf(c)} room={c} onOpen={onOpen} here={roomIdOf(c) === current} />)}
       </View>
     </View>
   );
 }
 
 /** A room inside a course card: what room it is, its last line, its time and unread. */
-function RoomLine({ room: c, onOpen }: { room: ChatChannelSummary; onOpen: (room: RoomId) => void }) {
+function RoomLine({ room: c, onOpen, here = false }: { room: ChatChannelSummary; onOpen: (room: RoomId) => void; here?: boolean }) {
   const { t } = useTranslation();
   const parents = c.audience === 'parents';
-  const unread = c.unread > 0;
+  const unread = c.unread > 0 && !here;
   const label = parents
     ? t('chat.room_parents')
     : c.read_only
@@ -207,9 +224,9 @@ function RoomLine({ room: c, onOpen }: { room: ChatChannelSummary; onOpen: (room
       : t('chat.room_students');
 
   return (
-    <TouchableOpacity onPress={() => onOpen(roomIdOf(c))} activeOpacity={0.6}
-      accessibilityRole="button" accessibilityLabel={`${label} — ${c.course_name ?? ''}`}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, borderRadius: radius.lg, backgroundColor: unread ? colors.surfaceSunken : 'transparent' }}>
+    <TouchableOpacity onPress={() => onOpen(roomIdOf(c))} disabled={here} activeOpacity={0.6}
+      accessibilityRole="button" accessibilityState={{ selected: here }} accessibilityLabel={`${label} — ${c.course_name ?? ''}`}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, borderRadius: radius.lg, backgroundColor: here ? colors.brandTint : unread ? colors.surfaceSunken : 'transparent' }}>
       <RoomAvatar room={roomIdOf(c)} size={44} badge={roomBadge(c)} label={label} />
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -219,6 +236,7 @@ function RoomLine({ room: c, onOpen }: { room: ChatChannelSummary; onOpen: (room
               <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: colors.textTertiary }}>{t('chat.read_only_pill')}</Text>
             </View>
           ) : null}
+          {here ? <HerePill /> : null}
           <View style={{ flex: 1 }} />
           <Text style={{ fontFamily: unread ? fonts.bold : fonts.regular, fontSize: 11.5, color: unread ? colors.success : colors.textTertiary }}>{stamp(c.last_message_at)}</Text>
         </View>
@@ -234,17 +252,19 @@ function RoomLine({ room: c, onOpen }: { room: ChatChannelSummary; onOpen: (room
 }
 
 /** A student's room: the course is the room, so the row is the messenger row. */
-function RoomRow({ room: c, last, onOpen }: { room: ChatChannelSummary; last: boolean; onOpen: (room: RoomId) => void }) {
+function RoomRow({ room: c, last, onOpen, here = false }: { room: ChatChannelSummary; last: boolean; onOpen: (room: RoomId) => void; here?: boolean }) {
   const { t } = useTranslation();
-  const unread = c.unread > 0;
+  const unread = c.unread > 0 && !here;
   const name = c.course_name ?? '—';
   return (
-    <TouchableOpacity onPress={() => onOpen(roomIdOf(c))} activeOpacity={0.6}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, backgroundColor: unread ? colors.surfaceSunken : colors.surface }}>
+    <TouchableOpacity onPress={() => onOpen(roomIdOf(c))} disabled={here} activeOpacity={0.6} accessibilityState={{ selected: here }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, backgroundColor: here ? colors.brandTint : unread ? colors.surfaceSunken : colors.surface }}>
       <RoomAvatar room={roomIdOf(c)} size={52} label={name} />
       <View style={{ flex: 1, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.borderLight, paddingBottom: spacing.md, marginBottom: -spacing.md, paddingTop: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16.5, color: colors.textPrimary, textAlign: 'right' }} numberOfLines={1}>{name}</Text>
+          <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 16.5, color: colors.textPrimary, textAlign: 'right' }} numberOfLines={1}>{name}</Text>
+          {here ? <HerePill /> : null}
+          <View style={{ flex: 1 }} />
           <Text style={{ fontFamily: unread ? fonts.bold : fonts.regular, fontSize: 12, color: unread ? colors.success : colors.textTertiary }}>{stamp(c.last_message_at)}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 3 }}>
@@ -255,6 +275,16 @@ function RoomRow({ room: c, last, onOpen }: { room: ChatChannelSummary; last: bo
         </View>
       </View>
     </TouchableOpacity>
+  );
+}
+
+/** «أنت هنا» — the room the switcher was opened from. */
+function HerePill() {
+  const { t } = useTranslation();
+  return (
+    <View style={{ backgroundColor: colors.brand, borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 1 }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.onPrimary }}>{t('chat.switch_here')}</Text>
+    </View>
   );
 }
 

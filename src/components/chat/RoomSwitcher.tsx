@@ -5,18 +5,19 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { Icon } from '@/components/ui/Icon';
-import { RoomAvatar, roomBadge } from '@/components/chat/RoomAvatar';
+import { ChatInboxList, InboxChips } from '@/components/chat/ChatInbox';
 import { useChatChannels } from '@/hooks/useChat';
-import { filterInbox, hasBothAudiences, sortRooms } from '@/chat/inbox';
-import { roomIdOf, type RoomId } from '@/chat/room';
-import { formatNumber, formatShortDate, formatTime, relativeDay } from '@/utils/format';
-import type { ChatChannelSummary } from '@/api/chat';
+import type { InboxFilter } from '@/chat/inbox';
+import type { RoomId } from '@/chat/room';
+import { formatNumber } from '@/utils/format';
 
 /**
  * Jump to another room without leaving this one first (founder 2026-10-12: «an easy access
- * (shortcut) in chat to switch to any other chat instantly»). One tap in the room's header
- * opens every room this person has, newest first, unread marked; a tap swaps the room in
- * place — the back gesture still returns to the list, not through every room visited.
+ * (shortcut) in chat to switch to any other chat instantly»), organised exactly like the
+ * conversations page (founder, same day: «the modal needs some love organizing like what
+ * we've did on that page»): the same filter chips, the same course cards holding a course's
+ * rooms (or a student's messenger list), the room you are in marked «أنت هنا». A tap swaps
+ * the room in place — the back gesture still returns to the list, not through every room.
  */
 export function RoomSwitcher({ visible, current, onClose, onPick }: {
   visible: boolean;
@@ -28,76 +29,58 @@ export function RoomSwitcher({ visible, current, onClose, onPick }: {
   const { height } = useWindowDimensions();
   const { data } = useChatChannels();
   const [query, setQuery] = useState('');
-  const all = useMemo(() => data ?? [], [data]);
-  const both = hasBothAudiences(all);
-  const rooms = useMemo(() => sortRooms(filterInbox(all, 'all', query)), [all, query]);
+  const [filter, setFilter] = useState<InboxFilter>('all');
+  const list = useMemo(() => data ?? [], [data]);
+  const elsewhere = list.reduce((n, c) => n + (c.unread || 0), 0);
+
+  const close = () => { setQuery(''); setFilter('all'); onClose(); };
 
   return (
-    <SheetModal visible={visible} onClose={() => { setQuery(''); onClose(); }} avoidKeyboard>
-      <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, textAlign: 'right' }}>{t('chat.switch_title')}</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, marginTop: 2, textAlign: 'right' }}>{t('chat.switch_sub')}</Text>
-        {all.length > 6 ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, height: 44, borderRadius: radius.lg, paddingHorizontal: spacing.md, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border }}>
-            <Icon name="search" size={17} color={colors.textTertiary} outline />
-            <TextInput value={query} onChangeText={setQuery} placeholder={t('chat.inbox_search')} placeholderTextColor={colors.textTertiary}
-              style={{ flex: 1, height: 44, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }} />
-          </View>
-        ) : null}
-      </View>
-      <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: height * 0.62 }} contentContainerStyle={{ paddingHorizontal: spacing.sm, paddingBottom: spacing.lg }} keyboardShouldPersistTaps="handled">
-        {rooms.map((c) => <SwitchRow key={roomIdOf(c)} room={c} here={roomIdOf(c) === current} both={both} onPick={onPick} />)}
-        {!rooms.length ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }}>
-            {t('chat.empty_search', { q: query.trim() })}
+    <SheetModal visible={visible} onClose={close} avoidKeyboard>
+      {/* Head: what this is, what is waiting, and a way out. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
+        <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="grid" size={21} color={colors.brand} outline />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, textAlign: 'right' }}>{t('chat.switch_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, textAlign: 'right' }}>
+            {elsewhere > 0 ? t('chat.switch_waiting', { n: formatNumber(elsewhere) }) : t('chat.switch_sub')}
           </Text>
-        ) : null}
+        </View>
+        <TouchableOpacity onPress={close} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.close')}
+          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="close" size={16} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
+      {list.length > 5 ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.lg, marginBottom: spacing.md, height: 44, borderRadius: radius.lg, paddingHorizontal: spacing.md, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border }}>
+          <Icon name="search" size={17} color={colors.textTertiary} outline />
+          <TextInput value={query} onChangeText={setQuery} placeholder={t('chat.inbox_search')} placeholderTextColor={colors.textTertiary}
+            returnKeyType="search"
+            style={{ flex: 1, height: 44, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right' }} />
+          {query ? (
+            <TouchableOpacity onPress={() => setQuery('')} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.cancel')}>
+              <Icon name="close" size={15} color={colors.textTertiary} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
+
+      <View style={{ paddingBottom: spacing.md }}>
+        <InboxChips list={list} value={filter} onChange={setFilter} />
+      </View>
+
+      {/* The rooms, on the page's paper so the cards read as they do on the page. */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        style={{ maxHeight: height * 0.6, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.borderLight }}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
+      >
+        <ChatInboxList onOpen={onPick} filter={filter} query={query} current={current} />
       </ScrollView>
     </SheetModal>
   );
-}
-
-function SwitchRow({ room: c, here, both, onPick }: { room: ChatChannelSummary; here: boolean; both: boolean; onPick: (room: RoomId) => void }) {
-  const { t } = useTranslation();
-  const unread = c.unread > 0 && !here;
-  // With two rooms per course, say which one — the course alone would be ambiguous.
-  const which = !both ? null : c.audience === 'parents' ? t('chat.room_parents') : c.read_only ? t('chat.room_following', { names: (c.children ?? []).join('، ') }) : t('chat.room_students');
-  const preview = c.last_preview ? `${c.last_mine ? t('chat.you') : (c.last_sender ?? '')}: ${c.last_preview}` : t('chat.no_preview');
-
-  return (
-    <TouchableOpacity onPress={() => onPick(roomIdOf(c))} disabled={here} activeOpacity={0.6}
-      accessibilityRole="button" accessibilityState={{ selected: here }}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.sm, borderRadius: radius.lg, backgroundColor: here ? colors.brandTint : 'transparent' }}>
-      <RoomAvatar room={roomIdOf(c)} size={46} badge={both ? roomBadge(c) : null} label={c.course_name ?? ''} />
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{c.course_name ?? '—'}</Text>
-          {here ? (
-            <View style={{ backgroundColor: colors.brand, borderRadius: radius.full, paddingHorizontal: 7, paddingVertical: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.onPrimary }}>{t('chat.switch_here')}</Text>
-            </View>
-          ) : null}
-          <View style={{ flex: 1 }} />
-          <Text style={{ fontFamily: unread ? fonts.bold : fonts.regular, fontSize: 11.5, color: unread ? colors.success : colors.textTertiary }}>{stamp(c.last_message_at)}</Text>
-        </View>
-        {which ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: c.audience === 'parents' ? colors.accentText : colors.brand, textAlign: 'right' }} numberOfLines={1}>{which}</Text> : null}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 }}>
-          <Text style={{ flex: 1, fontFamily: unread ? fonts.medium : fonts.regular, fontSize: 13, color: unread ? colors.textSecondary : colors.textTertiary, textAlign: 'right' }} numberOfLines={1}>{preview}</Text>
-          {unread ? (
-            <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onPrimary }}>{c.unread > 99 ? '99+' : formatNumber(c.unread)}</Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-function stamp(iso: string | null): string {
-  if (!iso) return '';
-  const rel = relativeDay(iso);
-  if (rel === 'اليوم') return formatTime(iso);
-  if (rel) return rel;
-  return formatShortDate(iso);
 }
