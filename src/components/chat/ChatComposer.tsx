@@ -1,11 +1,13 @@
-import { View, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
-import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
+import { useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import Animated, { FadeInDown, FadeOutDown, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
-import { chat } from '@/theme/chat';
+import { chat, senderColor } from '@/theme/chat';
 import { Icon } from '@/components/ui/Icon';
 import { useVoiceRecorder, type VoiceClip } from '@/components/chat/VoiceRecorder';
+import type { ChatReplyRef } from '@/api/chat';
 
 /**
  * The composer: a bordered surface field carrying the attach and camera actions, with one
@@ -20,7 +22,7 @@ import { useVoiceRecorder, type VoiceClip } from '@/components/chat/VoiceRecorde
  */
 export function ChatComposer({
   value, onChange, onSend, onAttach, onCamera, onVoiceClip, voiceMaxSeconds,
-  sending, onRecordingChange, bottomInset,
+  sending, onRecordingChange, bottomInset, replyTo, onCancelReply, myId,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -32,12 +34,37 @@ export function ChatComposer({
   sending: boolean;
   onRecordingChange?: (recording: boolean) => void;
   bottomInset: number;
+  /** Swipe-to-reply: the message being answered, quoted above the field until sent or closed. */
+  replyTo?: ChatReplyRef | null;
+  onCancelReply?: () => void;
+  myId?: number;
 }) {
   const { t } = useTranslation();
   const canSend = value.trim().length > 0;
   const voice = useVoiceRecorder({ maxSeconds: voiceMaxSeconds, disabled: sending, onClip: onVoiceClip, onStateChange: onRecordingChange });
+  // A swipe to reply puts the cursor in the field, like WhatsApp.
+  const input = useRef<TextInput>(null);
+  useEffect(() => { if (replyTo) input.current?.focus(); }, [replyTo?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const replyColor = replyTo ? (replyTo.sender_id === myId ? colors.brand : senderColor(replyTo.sender_id)) : colors.brand;
 
   return (
+    <View style={{ backgroundColor: chat.bar, borderTopWidth: 1, borderTopColor: chat.barBorder }}>
+    {replyTo ? (
+      <Animated.View entering={FadeInDown.duration(160)} exiting={FadeOutDown.duration(120)}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.md, marginTop: spacing.sm, paddingVertical: 6, paddingHorizontal: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surfaceSunken, borderStartWidth: 3, borderStartColor: replyColor }}>
+        <Icon name="reply" size={16} color={replyColor} />
+        <View style={{ flex: 1 }}>
+          <Text numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 12.5, color: replyColor, textAlign: 'right' }}>
+            {t('chat.replying_to', { name: replyTo.sender_id === myId ? t('chat.you') : replyTo.sender_name })}
+          </Text>
+          <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right' }}>{replyTo.preview ?? t('chat.reply_hidden')}</Text>
+        </View>
+        <TouchableOpacity onPress={onCancelReply} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('chat.cancel_reply')}
+          style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="close" size={18} color={colors.textTertiary} />
+        </TouchableOpacity>
+      </Animated.View>
+    ) : null}
     <View
       style={{
         flexDirection: 'row',
@@ -46,9 +73,6 @@ export function ChatComposer({
         paddingHorizontal: spacing.md,
         paddingTop: spacing.md,
         paddingBottom: spacing.md + bottomInset,
-        backgroundColor: chat.bar,
-        borderTopWidth: 1,
-        borderTopColor: chat.barBorder,
       }}
     >
       <View style={{ flex: 1, minHeight: 52 }}>
@@ -68,6 +92,7 @@ export function ChatComposer({
           }}
         >
           <TextInput
+            ref={input}
             value={value}
             onChangeText={onChange}
             placeholder={t('chat.type_message')}
@@ -124,6 +149,7 @@ export function ChatComposer({
         </TouchableOpacity>
         </Animated.View>
       ) : voice.button}
+    </View>
     </View>
   );
 }

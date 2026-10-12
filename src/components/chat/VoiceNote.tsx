@@ -31,6 +31,22 @@ export function fractionAtX(x: number, width: number, rtl: boolean): number {
  * plus the time since, at the playing rate — so the fill glides instead of stepping four
  * times a second. Runs on the UI thread.
  */
+/**
+ * The playhead's next anchor from a player report — never a visible step back
+ * (founder 2026-10-12: «when it plays the dot sits back for a second»).
+ *
+ * A report is a sample taken a moment before it arrives, so the glide is usually a little
+ * AHEAD of it; snapping to it stepped the dot back several times a second. Small gaps are
+ * absorbed (forward catches up at once, backward holds the dot until the audio passes it);
+ * a large gap is a real jump (a seek, a stall) and is taken as reported. Before the audio
+ * has actually started moving after play, the dot does not move at all. Pure — tested.
+ */
+export function nextAnchor(reportedSec: number, shownSec: number, projectedSec: number, moving: boolean): number {
+  if (!moving) return reportedSec;
+  if (Math.abs(reportedSec - projectedSec) > 0.6) return reportedSec;
+  return Math.max(reportedSec, shownSec);
+}
+
 export function projectedProgress(anchorSec: number, anchorAtMs: number, nowMs: number, rate: number, totalSec: number): number {
   'worklet';
   if (totalSec <= 0) return 0;
@@ -107,6 +123,11 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
   const totalSV = useSharedValue(total);
   const widthSV = useSharedValue(0);
   const scrubbing = useSharedValue(0);
+  // 0 from «play» until the player's position has actually advanced: the audio session takes a
+  // beat to start, and a dot that glides through that beat has to snap back afterwards.
+  const moving = useSharedValue(0);
+  const startSec = useRef(0);
+  const playingSeen = useRef(false);
   const thumbScale = useSharedValue(1);
   const lastLabelAt = useSharedValue(0);
 
@@ -114,18 +135,29 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
   useEffect(() => { rateSV.value = rate; }, [rate, rateSV]);
 
   const glide = useFrameCallback(() => {
-    if (scrubbing.value === 1) return;
+    if (scrubbing.value === 1 || moving.value === 0) return;
     progress.value = projectedProgress(anchorSec.value, anchorAt.value, Date.now(), rateSV.value, totalSV.value);
   }, false);
 
-  // Every player report re-anchors the glide; at rest the playhead sits exactly on the report.
+  // Every player report re-anchors the glide — forward freely, never back over a small gap;
+  // at rest the playhead sits exactly on the report.
   useEffect(() => {
-    anchorSec.value = status.currentTime;
-    anchorAt.value = Date.now();
-    if (!status.playing && scrubbing.value === 0) {
-      progress.value = total > 0 ? Math.min(1, status.currentTime / total) : 0;
+    const now = Date.now();
+    const reported = status.currentTime;
+    if (!status.playing) {
+      playingSeen.current = false;
+      moving.value = 0;
+      anchorSec.value = reported;
+      anchorAt.value = now;
+      if (scrubbing.value === 0) progress.value = total > 0 ? Math.min(1, reported / total) : 0;
+      return;
     }
-  }, [status.currentTime, status.playing, total, anchorSec, anchorAt, progress, scrubbing]);
+    if (!playingSeen.current) { playingSeen.current = true; startSec.current = reported; }
+    if (moving.value === 0 && reported > startSec.current + 0.02) moving.value = 1;
+    const projected = anchorSec.value + ((now - anchorAt.value) / 1000) * rateSV.value;
+    anchorSec.value = nextAnchor(reported, progress.value * total, projected, moving.value === 1);
+    anchorAt.value = now;
+  }, [status.currentTime, status.playing, total, anchorSec, anchorAt, progress, scrubbing, moving, rateSV]);
   useEffect(() => { glide.setActive(!!status.playing); }, [status.playing, glide]);
   useEffect(() => () => glide.setActive(false), [glide]);
 
@@ -180,13 +212,16 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
     anchorSec.value = sec;
     anchorAt.value = Date.now();
     progress.value = total > 0 ? sec / total : 0;
+    // From the new place, glide only once the audio is moving again.
+    moving.value = 0;
+    startSec.current = sec;
     try {
       // Zero tolerance: the exact moment the dot is on, not the nearest keyframe.
       await player.seekTo(sec, 0, 0);
     } catch { /* ignore */ }
     scrubbing.value = 0;
     if (resume) play();
-  }, [anchorAt, anchorSec, play, player, progress, scrubbing, total]);
+  }, [anchorAt, anchorSec, play, player, progress, scrubbing, total, moving]);
   const onScrubEnd = useCallback((f: number) => { void seekTo(f, wasPlaying.current); }, [seekTo]);
   const onTapSeek = useCallback((f: number) => { void seekTo(f, !!status.playing); }, [seekTo, status.playing]);
 

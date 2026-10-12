@@ -142,6 +142,20 @@ describe('outbox store + flush', () => {
     expect(ob.outboxCount()).toBe(0);
   });
 
+  it('a reply goes out with the message it answers, and the waiting bubble shows the quote', async () => {
+    const ob = require('../outbox') as typeof import('../outbox');
+    const core = require('../outboxCore') as typeof import('../outboxCore');
+    send.mockRejectedValueOnce(new Error('Network Error')).mockResolvedValue({ id: 40 });
+    const quote = { id: 7, sender_id: 2, sender_name: 'منى', kind: 'text' as const, hidden: false, preview: 'السؤال؟' };
+    ob.enqueueChatMessage({ courseId: 9, body: 'الإجابة', sender, replyTo: quote });
+    await ob.flushChatOutbox();
+    const waiting = core.outboxToMessage(ob.useChatOutbox.getState().items[0], 0);
+    expect(waiting.parent_id).toBe(7);
+    expect(waiting.reply_to).toEqual(quote);
+    await ob.flushChatOutbox();
+    expect(send).toHaveBeenLastCalledWith(9, 'الإجابة', 7);
+  });
+
   it('discard removes a queued message without sending it', async () => {
     const ob = require('../outbox') as typeof import('../outbox');
     send.mockRejectedValue(new Error('Network Error'));

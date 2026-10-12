@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { ChatMessage, ChatRealtime } from '@/api/chat';
+import type { ChatMessage, ChatReaction, ChatRealtime } from '@/api/chat';
 import { useRealtimeChannels, type RealtimeStatus } from '@/hooks/useRealtimeChannels';
 
 /**
@@ -17,6 +17,8 @@ export function useChatSocket(
     onTyping?: (t: { user_id: number; name: string }) => void;
     /** A member's read cursor moved — the «seen» ticks can turn without a poll. */
     onRead?: (r: { user_id: number; last_read_message_id: number }) => void;
+    /** A message's reactions changed: the whole new summary for that message. */
+    onReaction?: (r: { message_id: number; reactions: ChatReaction[] }) => void;
   },
   enabled = true,
 ): { connected: boolean; status: ChatSocketStatus } {
@@ -28,6 +30,7 @@ export function useChatSocket(
     'message.posted': (d: { message?: ChatMessage }) => { if (d?.message) handlers.onMessage(d.message); },
     'message.hidden': (d: { id?: number }) => { if (d?.id) handlers.onHidden(d.id); },
     'typing': (d: { user_id?: number; name?: string }) => { if (d?.user_id && handlers.onTyping) handlers.onTyping({ user_id: d.user_id, name: d.name ?? '' }); },
+    'reaction': (d: { message_id?: number; reactions?: ChatReaction[] }) => { if (d?.message_id && handlers.onReaction) handlers.onReaction({ message_id: d.message_id, reactions: d.reactions ?? [] }); },
     'read': (d: { user_id?: number; last_read_message_id?: number }) => { if (d?.user_id && d.last_read_message_id && handlers.onRead) handlers.onRead({ user_id: d.user_id, last_read_message_id: d.last_read_message_id }); },
   }, enabled);
 }

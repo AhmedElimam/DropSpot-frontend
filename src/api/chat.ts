@@ -76,6 +76,10 @@ export interface ChatMessage {
    * that is every one of them. Absent on older servers (then the tick stays single).
    */
   seen?: { count: number; all: boolean } | null;
+  /** The message this one replies to (swipe-to-reply): who, and a line of what — null text when hidden. */
+  reply_to?: ChatReplyRef | null;
+  /** Reactions, grouped: emoji, how many, who. Absent on older servers. */
+  reactions?: ChatReaction[];
   /**
    * CLIENT-ONLY. Set on a message the app has shown before the server confirmed it — the
    * bubble appears the instant you tap send, with a clock instead of the tick, and is
@@ -85,6 +89,24 @@ export interface ChatMessage {
    */
   local?: { status: 'queued' | 'sending' | 'failed'; key: string };
 }
+
+export interface ChatReplyRef {
+  id: number;
+  sender_id: number;
+  sender_name: string;
+  kind: 'text' | ChatAttachmentKind;
+  hidden: boolean;
+  preview: string | null;
+}
+
+export interface ChatReaction {
+  emoji: string;
+  count: number;
+  user_ids: number[];
+}
+
+/** The server's set (ChatService::REACTIONS) — a fixed, friendly set for a room of children. */
+export const CHAT_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'] as const;
 
 /** Socket settings from the server, or null → poll. Pusher and Reverb share the protocol. */
 export interface ChatRealtime {
@@ -137,6 +159,8 @@ export interface ChatRoom {
   seen_upto?: { some: number; all: number };
   /** Withdrawn or removed in the last quarter hour — a polling client drops what it holds. */
   recent_hidden_ids?: number[];
+  /** Reactions that changed lately on messages this poll did not resend: id → summary. */
+  reaction_updates?: Record<string, ChatReaction[]>;
 }
 
 export interface ChatWindow {
@@ -217,10 +241,11 @@ export async function getChatChannels(): Promise<ChatChannelSummary[]> {
  */
 export async function uploadChatAttachment(
   courseId: number,
-  input: { kind: ChatAttachmentKind; uri: string; name: string; mime: string; duration?: number; body?: string },
+  input: { kind: ChatAttachmentKind; uri: string; name: string; mime: string; duration?: number; body?: string; parentId?: number | null },
 ): Promise<ChatMessage> {
   const form = new FormData();
   form.append('kind', input.kind);
+  if (input.parentId) form.append('parent_id', String(input.parentId));
   if (input.body) form.append('body', input.body);
   if (input.duration != null) form.append('duration', String(Math.round(input.duration)));
   // React Native's FormData takes {uri, name, type} for a file part.
@@ -324,9 +349,17 @@ export async function postChatTyping(courseId: number): Promise<void> {
   await client.post(`/chat/courses/${courseId}/typing`);
 }
 
-export async function sendChatMessage(courseId: number, body: string): Promise<ChatMessage> {
-  const { data } = await client.post(`/chat/courses/${courseId}/messages`, { body });
+export async function sendChatMessage(courseId: number, body: string, parentId?: number | null): Promise<ChatMessage> {
+  const { data } = await client.post(`/chat/courses/${courseId}/messages`, parentId ? { body, parent_id: parentId } : { body });
   return data.message as ChatMessage;
+}
+
+/** Set my reaction (or, with null, take it back). Answers with the message's new summary. */
+export async function reactChatMessage(messageId: number, emoji: string | null): Promise<ChatReaction[]> {
+  const { data } = emoji
+    ? await client.post(`/chat/messages/${messageId}/reactions`, { emoji })
+    : await client.delete(`/chat/messages/${messageId}/reactions`);
+  return (data?.reactions ?? []) as ChatReaction[];
 }
 
 /** Withdraw one's own message. The server keeps the record; the room stops seeing it. */

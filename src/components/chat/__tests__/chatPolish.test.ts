@@ -1,6 +1,7 @@
 jest.mock('@/api/client', () => ({ __esModule: true, default: {} }));
 jest.mock('@/config/env', () => ({ STAGING_HEADER: 'X-Staging-Key', STAGING_KEY: 'k-1' }));
-jest.mock('react-native', () => ({ View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity' }));
+jest.mock('react-native', () => ({ View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', I18nManager: { isRTL: true }, Platform: { OS: 'ios' }, Vibration: { vibrate: jest.fn() } }));
+jest.mock('react-native-gesture-handler', () => ({ Gesture: {}, GestureDetector: 'GestureDetector' }));
 jest.mock('react-native-reanimated', () => ({ __esModule: true, default: { View: 'Animated.View' }, FadeInDown: { duration: () => ({ springify: () => ({ damping: () => undefined }) }) } }));
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 jest.mock('@/components/ui/Icon', () => ({ Icon: 'Icon' }));

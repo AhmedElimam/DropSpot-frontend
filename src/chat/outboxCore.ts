@@ -1,4 +1,4 @@
-import type { ChatAttachmentKind, ChatMessage, ChatSender } from '@/api/chat';
+import type { ChatAttachmentKind, ChatMessage, ChatReplyRef, ChatSender } from '@/api/chat';
 
 /**
  * The chat outbox, as pure data — the part that can be tested without a phone.
@@ -42,6 +42,9 @@ export interface OutboxItem {
   status: OutboxStatus;
   error: string | null;
   attempts: number;
+  /** Swipe-to-reply: the message this answers, and its quote for the waiting bubble. */
+  parentId?: number | null;
+  replyTo?: ChatReplyRef | null;
 }
 
 export function enqueueItem(items: OutboxItem[], item: OutboxItem): OutboxItem[] {
@@ -71,7 +74,8 @@ export function afterRestart(items: OutboxItem[]): OutboxItem[] {
 export function outboxToMessage(item: OutboxItem, index: number): ChatMessage {
   return {
     id: -(index + 1),
-    parent_id: null,
+    parent_id: item.parentId ?? null,
+    reply_to: item.replyTo ?? null,
     kind: item.attachment?.kind ?? 'text',
     body: item.body,
     hidden: false,

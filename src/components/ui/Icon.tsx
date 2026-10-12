@@ -119,6 +119,8 @@ const ICON_MAP = {
   list: 'list',
   // A room's shelf: its links and its photo grid.
   link: 'link',
+  // Swipe-to-reply.
+  reply: 'arrow-undo',
   grid: 'grid',
   // Brand glyph — no outline variant, never pass `outline`.
   whatsapp: 'logo-whatsapp',

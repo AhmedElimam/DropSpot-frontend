@@ -23,7 +23,9 @@ import { discardChatOutbox, enqueueChatMessage, flushChatOutbox, retryChatOutbox
 import { mergeOutbox } from '@/chat/outboxCore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useChatSocket } from '@/hooks/useChatSocket';
-import { attachmentFileName, getChatRoom, postChatTyping, type ChatMessage } from '@/api/chat';
+import { attachmentFileName, getChatRoom, postChatTyping, reactChatMessage, type ChatMessage, type ChatReaction, type ChatReplyRef } from '@/api/chat';
+import { MessageActionsOverlay, type MessageAction } from '@/components/chat/MessageActionsOverlay';
+import type { BubbleRect } from '@/components/chat/ChatBubble';
 import { ChatReportsSheet } from '@/components/chat/ChatReportsSheet';
 import { MuteSheet } from '@/components/chat/MuteSheet';
 import { Icon } from '@/components/ui/Icon';
@@ -148,6 +150,13 @@ export function ChatRoomScreen({ courseId, infoHref }: {
   const [reportNote, setReportNote] = useState('');
   const [showReports, setShowReports] = useState(false);
   const [muting, setMuting] = useState<{ id: number; name: string } | null>(null);
+  // Swipe-to-reply: the message the composer is answering.
+  const [replyTo, setReplyTo] = useState<ChatReplyRef | null>(null);
+  // Hold: the message lifted in the overlay, with its place on screen.
+  const [held, setHeld] = useState<{ message: ChatMessage; rect: BubbleRect } | null>(null);
+  // Reactions newer than the messages that carry them — from polls, socket frames and my own
+  // taps — keyed by message id, so older pages and history windows turn too.
+  const [reactionOverrides, setReactionOverrides] = useState<Record<number, ChatReaction[]>>({});
 
   // ── The list ─────────────────────────────────────────────────────────────────────────
   // INVERTED (newest at index 0, the bottom): it sticks to the newest message, keeps its
@@ -182,6 +191,9 @@ export function ChatRoomScreen({ courseId, infoHref }: {
     }, [qc, courseId]),
     onTyping,
     onRead,
+    onReaction: useCallback((r: { message_id: number; reactions: ChatReaction[] }) => {
+      setReactionOverrides((prev) => ({ ...prev, [r.message_id]: r.reactions }));
+    }, []),
   }, focused);
   useEffect(() => { setSocketLive(connected); }, [connected]);
   // One small frame every few seconds while typing — and only when a socket is there to
@@ -202,10 +214,36 @@ export function ChatRoomScreen({ courseId, infoHref }: {
   const seenAll = room.data?.seen_upto?.all;
   const messages = useMemo(() => {
     const base = win ? win.messages : mergeOutbox(mergeById(older, room.data?.messages ?? []), outboxItems, courseId);
-    if (!me || seenSome === undefined || seenAll === undefined) return base;
-    const upto = { some: seenSome, all: seenAll };
-    return base.map((m) => (m.sender.id === me.id && !m.local ? { ...m, seen: seenFor(m, upto) } : m));
-  }, [win, older, room.data?.messages, outboxItems, courseId, me, seenSome, seenAll]);
+    const upto = seenSome !== undefined && seenAll !== undefined ? { some: seenSome, all: seenAll } : null;
+    const hasOverrides = Object.keys(reactionOverrides).length > 0;
+    if ((!me || !upto) && !hasOverrides) return base;
+    return base.map((m) => {
+      let out = m;
+      if (hasOverrides && reactionOverrides[m.id]) out = { ...out, reactions: reactionOverrides[m.id] };
+      if (me && upto && m.sender.id === me.id && !m.local) out = { ...out, seen: seenFor(m, upto) };
+      return out;
+    });
+  }, [win, older, room.data?.messages, outboxItems, courseId, me, seenSome, seenAll, reactionOverrides]);
+
+  // Reaction changes a poll reports on messages it did not resend; a full page is the truth
+  // for what it carries, so its messages drop their overrides.
+  const pollData = room.data;
+  useEffect(() => {
+    if (!pollData) return;
+    setReactionOverrides((prev) => {
+      let next = prev;
+      if (pollData.window?.mode !== 'after' && Object.keys(prev).length) {
+        next = { ...prev };
+        for (const m of pollData.messages) delete next[m.id];
+      }
+      const updates = pollData.reaction_updates;
+      if (updates && Object.keys(updates).length) {
+        next = next === prev ? { ...prev } : next;
+        for (const [id, summary] of Object.entries(updates)) next[Number(id)] = summary;
+      }
+      return next;
+    });
+  }, [pollData]);
   const rows = useMemo(() => buildRows(messages).reverse(), [messages]);
   const rowKeyExtractor = useCallback((r: RoomRow) => r.key, []);
   const waiting = useMemo(() => outboxItems.filter((x) => x.courseId === courseId && x.status !== 'failed').length, [outboxItems, courseId]);
@@ -342,7 +380,8 @@ export function ChatRoomScreen({ courseId, infoHref }: {
     if (!text) return;
     setDraft('');
     toLatest();
-    enqueueChatMessage({ courseId, body: text, sender });
+    enqueueChatMessage({ courseId, body: text, sender, replyTo });
+    setReplyTo(null);
   };
 
   // ── Attachments (§8) — all through one upload door, caption = whatever is in the box ──
@@ -350,7 +389,8 @@ export function ChatRoomScreen({ courseId, infoHref }: {
     const body = draft.trim() || null;
     setDraft('');
     toLatest();
-    enqueueChatMessage({ courseId, body, attachment: input, sender });
+    enqueueChatMessage({ courseId, body, attachment: input, sender, replyTo });
+    setReplyTo(null);
   };
 
   // A message the server refused. The retry under the bubble sends it again; the long
@@ -471,11 +511,79 @@ export function ChatRoomScreen({ courseId, infoHref }: {
     Alert.alert(m.sender.name, undefined, buttons);
   };
 
+  /** What a quote shows of a message: its text, or what kind of thing it is. */
+  const quoteOf = useCallback((m: ChatMessage): ChatReplyRef => ({
+    id: m.id, sender_id: m.sender.id, sender_name: m.sender.name, kind: m.kind, hidden: false,
+    preview: m.body && m.body.trim() !== '' ? m.body.trim().slice(0, 140)
+      : m.attachment ? (m.attachment.kind === 'image' ? t('chat.photo') : m.attachment.kind === 'voice' ? t('chat.voice_note') : (m.attachment.name ?? t('chat.file'))) : '',
+  }), [t]);
+  const startReply = useCallback((m: ChatMessage) => { setReplyTo(quoteOf(m)); }, [quoteOf]);
+
+  /** Add, switch or take back my reaction — on screen at once, the server's answer after. */
+  const react = useCallback((m: ChatMessage, emoji: string) => {
+    if (!me || m.id <= 0) return;
+    const current = m.reactions ?? [];
+    const mineNow = current.find((r) => r.user_ids.includes(me.id))?.emoji ?? null;
+    const nextEmoji = mineNow === emoji ? null : emoji;
+    const optimistic = current
+      .map((r) => ({ ...r, user_ids: r.user_ids.filter((u) => u !== me.id) }))
+      .map((r) => (r.emoji === nextEmoji ? { ...r, user_ids: [...r.user_ids, me.id] } : r));
+    if (nextEmoji && !optimistic.some((r) => r.emoji === nextEmoji)) optimistic.push({ emoji: nextEmoji, count: 0, user_ids: [me.id] });
+    const summary = optimistic.map((r) => ({ ...r, count: r.user_ids.length })).filter((r) => r.count > 0);
+    setReactionOverrides((prev) => ({ ...prev, [m.id]: summary }));
+    reactChatMessage(m.id, nextEmoji)
+      .then((server) => setReactionOverrides((prev) => ({ ...prev, [m.id]: server })))
+      .catch((err) => {
+        setReactionOverrides((prev) => ({ ...prev, [m.id]: current }));
+        Alert.alert('', getFriendlyErrorMessage(err));
+      });
+  }, [me]);
+
+  /** Hold: the overlay (reactions + actions), or — for a message still in the outbox — retry / let go. */
+  const onHold = useCallback((m: ChatMessage, rect?: BubbleRect) => {
+    if (m.local) { onDiscardRef.current(m); return; }
+    if (!rect) { menuRef.current(m); return; }
+    setHeld({ message: m, rect });
+  }, []);
+  const heldActions = (m: ChatMessage): MessageAction[] => {
+    const close = (fn: () => void) => () => { setHeld(null); fn(); };
+    const mineMsg = m.sender.id === me?.id;
+    const out: MessageAction[] = [];
+    if (room.data?.can_post && !m.hidden) out.push({ key: 'reply', label: t('chat.reply_action'), icon: 'reply', onPress: close(() => startReply(m)) });
+    if (mineMsg) {
+      out.push({ key: 'delete', label: t('chat.delete'), icon: 'trash', destructive: true, onPress: close(() => Alert.alert(t('chat.message_actions'), t('chat.delete_confirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('chat.delete_action'), style: 'destructive', onPress: () => remove.mutate(m.id, { onError: (err) => Alert.alert('', getFriendlyErrorMessage(err)) }) },
+      ])) });
+    } else if (isModerator) {
+      if (!m.hidden) out.push({ key: 'remove', label: t('chat.remove_message'), icon: 'trash', destructive: true, onPress: close(() => Alert.alert(t('chat.remove_message'), t('chat.remove_confirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('chat.remove_action'), style: 'destructive', onPress: () => remove.mutate(m.id, { onError: (err) => Alert.alert('', getFriendlyErrorMessage(err)) }) },
+      ])) });
+      if (!m.sender.is_staff) out.push({ key: 'mute', label: t('chat.mute_writing'), icon: 'mute', onPress: close(() => setMuting({ id: m.sender.id, name: m.sender.name })) });
+    } else {
+      out.push({ key: 'report', label: t('chat.report'), icon: 'flag', onPress: close(() => { setReporting(m); setReportReason(null); setReportNote(''); }) });
+      if (!m.sender.is_staff) out.push({ key: 'block', label: t('chat.block'), icon: 'eyeOff', destructive: true, onPress: close(() => confirmBlock(m)) });
+    }
+    return out;
+  };
+
   const menuRef = useRef(onMessageMenu);
   menuRef.current = onMessageMenu;
   const retryRef = useRef(onRetry);
   retryRef.current = onRetry;
-  const stableMenu = useCallback((m: ChatMessage) => menuRef.current(m), []);
+  const onDiscardRef = useRef(onDiscard);
+  onDiscardRef.current = onDiscard;
+  const reactRef = useRef(react);
+  reactRef.current = react;
+  const stableReact = useCallback((m: ChatMessage, e: string) => reactRef.current(m, e), []);
+  const replyRef = useRef(startReply);
+  replyRef.current = startReply;
+  const stableReply = useCallback((m: ChatMessage) => replyRef.current(m), []);
+  const jumpRef = useRef(jumpTo);
+  jumpRef.current = jumpTo;
+  const stableQuote = useCallback((id: number) => { void jumpRef.current({ aroundId: id }); }, []);
+  const canWrite = !!room.data?.can_post;
   const stableRetry = useCallback((m: ChatMessage) => retryRef.current(m), []);
   const myId = me?.id;
   const renderRow = useCallback(({ item }: { item: RoomRow }) => {
@@ -487,12 +595,16 @@ export function ChatRoomScreen({ courseId, infoHref }: {
         mine={m.sender.id === myId}
         showName={item.showName}
         showTail={item.showTail}
-        onLongPress={stableMenu}
+        onLongPress={onHold}
         onRetry={stableRetry}
         highlight={m.id === highlightId}
+        onReply={canWrite ? stableReply : undefined}
+        onQuotePress={stableQuote}
+        onReact={stableReact}
+        myId={myId}
       />
     );
-  }, [myId, stableMenu, stableRetry, highlightId]);
+  }, [myId, onHold, stableRetry, highlightId, canWrite, stableReply, stableQuote, stableReact]);
 
   /** The moderator's room-wide switches. Neither singles out a student. */
   const roomMenu = () => {
@@ -750,6 +862,9 @@ export function ChatRoomScreen({ courseId, infoHref }: {
             sending={false}
             onRecordingChange={setRecording}
             bottomInset={insets.bottom}
+            replyTo={replyTo}
+            onCancelReply={() => setReplyTo(null)}
+            myId={me?.id}
           />
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.lg, paddingBottom: spacing.lg + insets.bottom, backgroundColor: chat.bar, borderTopWidth: 1, borderTopColor: chat.barBorder }}>
@@ -788,6 +903,17 @@ export function ChatRoomScreen({ courseId, infoHref }: {
           />
         </>
       ) : null}
+
+      <MessageActionsOverlay
+        target={held}
+        mine={!!held && held.message.sender.id === me?.id}
+        myId={me?.id}
+        myReaction={held && me ? (held.message.reactions ?? []).find((r) => r.user_ids.includes(me.id))?.emoji ?? null : null}
+        canReact={!!held && !held.message.hidden && !held.message.local}
+        actions={held ? heldActions(held.message) : []}
+        onReact={(e) => { if (held) react(held.message, e); setHeld(null); }}
+        onClose={() => setHeld(null)}
+      />
 
       <ChatCalendarSheet
         visible={calendarOpen}

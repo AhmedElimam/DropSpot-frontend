@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { sendChatMessage, uploadChatAttachment, type ChatSender } from '@/api/chat';
+import { sendChatMessage, uploadChatAttachment, type ChatReplyRef, type ChatSender } from '@/api/chat';
 import { getQueryClient } from '@/lib/queryClientRef';
 import { mergeChatMessage } from '@/hooks/useChat';
 import { useOfflineStore } from '@/stores/offlineStore';
@@ -117,12 +117,13 @@ let seq = 0;
 const newKey = () => `ob-${Date.now().toString(36)}-${(++seq).toString(36)}`;
 
 /** Queue a text or an attachment for a room, and try to send at once. */
-export function enqueueChatMessage(input: { courseId: number; body: string | null; attachment?: OutboxAttachment | null; sender: ChatSender }): string {
+export function enqueueChatMessage(input: { courseId: number; body: string | null; attachment?: OutboxAttachment | null; sender: ChatSender; replyTo?: ChatReplyRef | null }): string {
   const key = newKey();
   const attachment = input.attachment ? keepFile(key, input.attachment) : null;
   update((items) => enqueueItem(items, {
     key, courseId: input.courseId, body: input.body, attachment, sender: input.sender,
     created_at: new Date().toISOString(), status: 'queued', error: null, attempts: 0,
+    parentId: input.replyTo?.id ?? null, replyTo: input.replyTo ?? null,
   }));
   void flushChatOutbox();
   return key;
@@ -164,8 +165,8 @@ export function flushChatOutbox(): Promise<void> {
         update((items) => setItemStatus(items, item.key, 'sending'));
         try {
           const message = item.attachment
-            ? await uploadChatAttachment(item.courseId, { ...item.attachment, body: item.body ?? undefined })
-            : await sendChatMessage(item.courseId, item.body ?? '');
+            ? await uploadChatAttachment(item.courseId, { ...item.attachment, body: item.body ?? undefined, parentId: item.parentId ?? null })
+            : await sendChatMessage(item.courseId, item.body ?? '', item.parentId ?? null);
           forgetFile(item);
           update((items) => removeItem(items, item.key));
           const qc = getQueryClient();

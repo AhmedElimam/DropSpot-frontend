@@ -642,7 +642,14 @@
     "member_read": "قرأ {{when}}",
     "member_never_read": "لم يفتح المجموعة بعد",
     "you_paren": "(أنت)",
-    "moderator_flag": "مشرف"
+    "moderator_flag": "مشرف",
+    "reply_action": "رد",
+    "reply_to": "رد على {{name}}",
+    "replying_to": "الرد على {{name}}",
+    "reply_hidden": "رسالة محذوفة",
+    "cancel_reply": "إلغاء الرد",
+    "react_with": "تفاعل بـ {{emoji}}",
+    "reaction_label": "{{emoji}} {{n}}"
   },
   "needs_teacher": {
     "title": "بانتظار انضمامك لأحد المعلّمين",
