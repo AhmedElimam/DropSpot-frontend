@@ -23,7 +23,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "32",
+      "buildNumber": "34",
       "icon": "./assets/app.icon"
     },
     "android": {
