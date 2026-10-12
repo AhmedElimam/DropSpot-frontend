@@ -221,24 +221,20 @@ export default function TeacherStudents() {
             </Surface>
           ) : null}
           <View style={{ flex: 1 }} />
-          {canStudents ? (
-            <Surface id="teacher.students.segment_toggle">
-            <TouchableOpacity onPress={() => setSegment(segment === 'cards' ? 'students' : 'cards')} accessibilityRole="button" accessibilityState={{ selected: segment === 'cards' }}
-              accessibilityLabel={t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 10, borderRadius: 12, backgroundColor: segment === 'cards' ? colors.heroChipActive : colors.onHeroChip }}>
-              <Icon name={segment === 'cards' ? 'children' : 'card'} size={17} color={segment === 'cards' ? colors.brand : colors.onHero} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: segment === 'cards' ? colors.brand : colors.onHero }}>{t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}</Text>
-            </TouchableOpacity>
-            </Surface>
-          ) : null}
-          {canStudents ? (
-            <Surface id="teacher.students.add_student">
-            <TouchableOpacity onPress={() => setAddOpen(true)} accessibilityRole="button" accessibilityLabel={t('add_student.title')}
-              style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="add" size={22} color={colors.onAccent} />
-            </TouchableOpacity>
-            </Surface>
-          ) : null}
+          <Surface id="teacher.students.segment_toggle" assistantNeeds="manage_students">
+          <TouchableOpacity onPress={() => setSegment(segment === 'cards' ? 'students' : 'cards')} accessibilityRole="button" accessibilityState={{ selected: segment === 'cards' }}
+            accessibilityLabel={t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 10, borderRadius: 12, backgroundColor: segment === 'cards' ? colors.heroChipActive : colors.onHeroChip }}>
+            <Icon name={segment === 'cards' ? 'children' : 'card'} size={17} color={segment === 'cards' ? colors.brand : colors.onHero} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: segment === 'cards' ? colors.brand : colors.onHero }}>{t(segment === 'cards' ? 'teacher.seg_students' : 'teacher.seg_cards')}</Text>
+          </TouchableOpacity>
+          </Surface>
+          <Surface id="teacher.students.add_student" assistantNeeds="manage_students">
+          <TouchableOpacity onPress={() => setAddOpen(true)} accessibilityRole="button" accessibilityLabel={t('add_student.title')}
+            style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="add" size={22} color={colors.onAccent} />
+          </TouchableOpacity>
+          </Surface>
         </View>
 
         {segment === 'students' ? (

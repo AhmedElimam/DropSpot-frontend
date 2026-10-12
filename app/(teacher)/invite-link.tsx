@@ -277,8 +277,8 @@ export default function InviteLink() {
             </Surface>
 
             {/* Editable rules/conditions template shown atop the family booking page. */}
-            {!isAssistant && tpl ? (
-              <Surface id="teacher.invite_link.template">
+            {tpl ? (
+              <Surface id="teacher.invite_link.template" assistantNeeds="teacher">
               <View style={[card, { marginTop: spacing.lg }]}>
                 <TouchableOpacity onPress={() => setTplOpen((o) => !o)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                   <Icon name="note" size={18} color={colors.brand} outline />

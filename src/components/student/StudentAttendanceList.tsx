@@ -15,6 +15,7 @@ import { dayLabel, formatNumber } from '@/utils/format';
 import type { QuickSession, StudentAttendanceRow } from '@/api/students';
 import type { SessionDetail } from '@/api/teacherSessions';
 import { SessionKindToggle, toLatinNumber, type SessionKind } from '@/components/session/SessionMarks';
+import { Surface } from '@/ui/surfaces';
 
 type Status = 'present' | 'late' | 'absent' | 'excused';
 type Record_ = QuickSession['attendance'] & { pending?: boolean };
@@ -51,14 +52,13 @@ type RowProps = {
   session: QuickSession;
   rec: Record_;
   live: boolean;
-  canMark: boolean;
   studentId: number;
   onOpen: (s: QuickSession) => void;
   onRecorded: (sessionId: string, patch: Partial<Record_>) => void;
 };
 
 /** A recordable row — the session sheet's row turned around: one session, this student. */
-const RecordableRow = memo(function RecordableRow({ session, rec, live, canMark, studentId, onOpen, onRecorded }: RowProps) {
+const RecordableRow = memo(function RecordableRow({ session, rec, live, studentId, onOpen, onRecorded }: RowProps) {
   const { t } = useTranslation();
   const controls = useSessionControls(session.id);
   const color = STATUS_COLOR()[rec.status] ?? STATUS_COLOR().not_recorded;
@@ -88,7 +88,8 @@ const RecordableRow = memo(function RecordableRow({ session, rec, live, canMark,
           {rec.pending ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.warningText }}>{`· ${t('teacher.mark_pending_sync')}`}</Text> : null}
         </View>
       </View>
-      {canMark ? (
+      {/* ✓ / ✗ in place — mark_attendance_manual (the server's ui.gates can widen it). */}
+      <Surface id="teacher.student_profile.attendance_row_marks" assistantNeeds="mark_attendance_manual">
         <View style={{ flexDirection: 'row', gap: 6 }}>
           {(['present', 'absent'] as const).map((st) => {
             const on = rec.status === st || (st === 'present' && rec.status === 'late');
@@ -101,7 +102,7 @@ const RecordableRow = memo(function RecordableRow({ session, rec, live, canMark,
             );
           })}
         </View>
-      ) : null}
+      </Surface>
     </TouchableOpacity>
   );
 });
@@ -143,8 +144,8 @@ function markStudent(
 }
 
 /** The session sheet's student modal, for one session of this student: 4 marks + the sheet / exam mark. */
-function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded, onClose, beforeNavigate }: {
-  session: QuickSession; rec: Record_; studentId: number; canMark: boolean; isAssistant: boolean;
+function RecordSheet({ session, rec, studentId, isAssistant, onRecorded, onClose, beforeNavigate }: {
+  session: QuickSession; rec: Record_; studentId: number; isAssistant: boolean;
   onRecorded: (sessionId: string, patch: Partial<Record_>) => void; onClose: () => void; beforeNavigate?: () => void;
 }) {
   const { t } = useTranslation();
@@ -193,7 +194,9 @@ function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded
             </TouchableOpacity>
           </View>
 
-          {canMark ? (
+          {/* The four marks — mark_attendance_manual; anyone else reads the status instead. */}
+          <Surface id="teacher.student_profile.attendance_sheet_marks" assistantNeeds="mark_attendance_manual"
+            fallback={<Text style={{ fontFamily: fonts.medium, fontSize: 14, color: STATUS_COLOR()[rec.status] ?? colors.textSecondary }}>{t(STATUS_KEY[rec.status] ?? 'teacher.not_recorded')}</Text>}>
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               {MARK_OPTIONS().map((m) => {
                 const on = rec.status === m.status;
@@ -206,15 +209,16 @@ function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded
                 );
               })}
             </View>
-          ) : (
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: STATUS_COLOR()[rec.status] ?? colors.textSecondary }}>{t(STATUS_KEY[rec.status] ?? 'teacher.not_recorded')}</Text>
-          )}
+          </Surface>
           {rec.pending ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.warningText }}>{t('teacher.mark_pending_sync')}</Text> : null}
-          {isAssistant && canMark ? (
+          {/* An assistant who may mark is told a changed record goes to the teacher for review. */}
+          {isAssistant ? (
+            <Surface id="teacher.student_profile.attendance_sheet_assistant_note" assistantNeeds="mark_attendance_manual">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Icon name="eye" size={14} color={colors.textTertiary} />
               <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('quick_record.assistant_note')}</Text>
             </View>
+            </Surface>
           ) : null}
 
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
@@ -256,8 +260,8 @@ function RecordSheet({ session, rec, studentId, canMark, isAssistant, onRecorded
  * did not send as sessions (a cancelled session) stay read-only and open their session. Writes go through the session
  * sheet's own controls, so offline marks queue and replay the same way.
  */
-export function StudentAttendanceList({ studentId, sessions, history, canMark, isAssistant = false, onChanged, beforeNavigate }: {
-  studentId: number; sessions: QuickSession[]; history: StudentAttendanceRow[]; canMark: boolean;
+export function StudentAttendanceList({ studentId, sessions, history, isAssistant = false, onChanged, beforeNavigate }: {
+  studentId: number; sessions: QuickSession[]; history: StudentAttendanceRow[];
   /** An assistant is told that changing a recorded status goes to the teacher for review. */
   isAssistant?: boolean; onChanged: () => void;
   /** Called before opening a session — the profile hosted in a modal closes itself first. */
@@ -292,7 +296,7 @@ export function StudentAttendanceList({ studentId, sessions, history, canMark, i
   return (
     <View>
       {sessionsShown.map((s) => (
-        <RecordableRow key={s.id} session={s} rec={recOf(s)} live={sessionPhase(s, now) === 'live'} canMark={canMark}
+        <RecordableRow key={s.id} session={s} rec={recOf(s)} live={sessionPhase(s, now) === 'live'}
           studentId={studentId} onOpen={onOpen} onRecorded={onRecorded} />
       ))}
       {olderShown.map((r) => <HistoryRow key={r.id} r={r} beforeNavigate={beforeNavigate} />)}
@@ -302,7 +306,7 @@ export function StudentAttendanceList({ studentId, sessions, history, canMark, i
         </TouchableOpacity>
       ) : null}
       {open ? (
-        <RecordSheet session={open} rec={recOf(open)} studentId={studentId} canMark={canMark} isAssistant={isAssistant} onRecorded={onRecorded} onClose={() => setOpenId(null)} beforeNavigate={beforeNavigate} />
+        <RecordSheet session={open} rec={recOf(open)} studentId={studentId} isAssistant={isAssistant} onRecorded={onRecorded} onClose={() => setOpenId(null)} beforeNavigate={beforeNavigate} />
       ) : null}
     </View>
   );

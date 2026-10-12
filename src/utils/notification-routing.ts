@@ -208,8 +208,23 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
   }
 }
 
+/**
+ * A route the SERVER put on the notification (`data.route`) wins over the table, so a new
+ * notification type reaches the right screen with no app change — as long as the path is
+ * this role's own ('/(teacher)/…' for a teacher or assistant) and carries no scheme.
+ */
+export function serverRoute(role: UserRole | null, data: Record<string, unknown> | null | undefined): string | null {
+  const r = data?.route;
+  if (typeof r !== 'string' || !/^\/\((teacher|parent|student|admin)\)\/[^\s]*$/.test(r)) return null;
+  const group = r.slice(2, r.indexOf(')'));
+  const own = role === 'assistant' ? 'teacher' : role;
+  return group === own ? r : null;
+}
+
 export function notificationRouteFor({ role, type, data, can }: NotificationRouteInput): string | null {
   const allow = can ?? (() => true);
+  const sent = serverRoute(role, data);
+  if (sent) return sent;
   switch (role) {
     case 'teacher':
       return teacherRoute(type, data, false, () => true);

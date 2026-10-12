@@ -50,4 +50,12 @@ describe('complaint notifications open where they are about', () => {
     expect(notificationRouteFor({ role: 'student', type: 'complaint_decided', data: { type: 'attendance' } })).toBe('/(student)/attendance');
     expect(notificationRouteFor({ role: 'parent', type: 'complaint_decided', data: { type: 'payment' } })).toBe('/(parent)/(tabs)/invoices');
   });
+
+  it('a route the server put on the notification wins — only within the role\'s own screens', () => {
+    expect(notificationRouteFor({ role: 'teacher', type: 'brand_new_type', data: { route: '/(teacher)/venues' } })).toBe('/(teacher)/venues');
+    expect(notificationRouteFor({ role: 'assistant', type: 'brand_new_type', data: { route: '/(teacher)/venues' }, can: () => false })).toBe('/(teacher)/venues');
+    expect(notificationRouteFor({ role: 'parent', type: 'brand_new_type', data: { route: '/(teacher)/venues' } })).toBeNull();
+    expect(notificationRouteFor({ role: 'parent', type: 'brand_new_type', data: { route: 'https://evil.example/(parent)/x' } })).toBeNull();
+    expect(notificationRouteFor({ role: 'student', type: 'brand_new_type', data: { route: '/(student)/marks?x=1' } })).toBe('/(student)/marks?x=1');
+  });
 });

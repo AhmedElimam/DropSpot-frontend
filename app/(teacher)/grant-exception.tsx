@@ -13,7 +13,6 @@ import { StudentRow } from '@/components/student/StudentRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useTeacherStudents } from '@/hooks/useStudents';
 import { useGrantBillingOverride, useAllowanceSetting, useSetAllowanceSetting } from '@/hooks/useOverrides';
-import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatDayDate } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
@@ -35,7 +34,6 @@ export default function GrantException() {
   const [reason, setReason] = useState('');
   const grant = useGrantBillingOverride();
   const { data: students, isLoading } = useTeacherStudents({});
-  const { isAssistant } = useActiveAbilities();
   const { data: allowance } = useAllowanceSetting();
   const setAllowance = useSetAllowanceSetting();
   const allowanceOn = allowance?.enabled ?? true;
@@ -69,31 +67,29 @@ export default function GrantException() {
       </View>
 
       {/* Teacher-wide master switch (teacher-only; assistants can't change policy). */}
-      {!isAssistant ? (
-        <Surface id="teacher.grant_exception.allowance_master_switch">
-        <TouchableOpacity
-          onPress={() => setAllowance.mutate(!allowanceOn)}
-          disabled={setAllowance.isPending}
-          activeOpacity={0.8}
-          style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: allowanceOn ? colors.border : colors.warning, padding: spacing.md }}
-        >
-          <Icon name="calendar" size={22} color={allowanceOn ? colors.brand : colors.warningText} outline />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('teacher.allowance_setting_title')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-              {allowanceOn ? t('teacher.allowance_on_hint') : t('teacher.allowance_off_hint')}
-            </Text>
+      <Surface id="teacher.grant_exception.allowance_master_switch" assistantNeeds="teacher">
+      <TouchableOpacity
+        onPress={() => setAllowance.mutate(!allowanceOn)}
+        disabled={setAllowance.isPending}
+        activeOpacity={0.8}
+        style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: allowanceOn ? colors.border : colors.warning, padding: spacing.md }}
+      >
+        <Icon name="calendar" size={22} color={allowanceOn ? colors.brand : colors.warningText} outline />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('teacher.allowance_setting_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+            {allowanceOn ? t('teacher.allowance_on_hint') : t('teacher.allowance_off_hint')}
+          </Text>
+        </View>
+        {setAllowance.isPending ? (
+          <ActivityIndicator size="small" color={colors.brand} />
+        ) : (
+          <View style={{ width: 46, height: 28, borderRadius: 14, backgroundColor: allowanceOn ? colors.success : colors.borderStrong, justifyContent: 'center', paddingHorizontal: 3, alignItems: allowanceOn ? 'flex-end' : 'flex-start' }}>
+            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' }} />
           </View>
-          {setAllowance.isPending ? (
-            <ActivityIndicator size="small" color={colors.brand} />
-          ) : (
-            <View style={{ width: 46, height: 28, borderRadius: 14, backgroundColor: allowanceOn ? colors.success : colors.borderStrong, justifyContent: 'center', paddingHorizontal: 3, alignItems: allowanceOn ? 'flex-end' : 'flex-start' }}>
-              <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' }} />
-            </View>
-          )}
-        </TouchableOpacity>
-        </Surface>
-      ) : null}
+        )}
+      </TouchableOpacity>
+      </Surface>
 
       {selected ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxxl }} keyboardShouldPersistTaps="handled">

@@ -76,7 +76,8 @@ export default function ComplaintsScreen() {
         : can.grade && !(isAssistant && c.grade_source === 'revision');
   const segments: { key: ComplaintBucket; label: string; badge?: number }[] = [
     { key: 'pending', label: t('complaints.bucket_pending'), badge: counts.pending },
-    ...(!isAssistant ? [{ key: 'review' as ComplaintBucket, label: t('complaints.bucket_review'), badge: counts.review }] : []),
+    // The review bucket is the teacher's: its chip renders through a Surface (assistantNeeds="teacher").
+    { key: 'review', label: t('complaints.bucket_review'), badge: counts.review },
     { key: 'history', label: t('complaints.bucket_history') },
   ];
 
@@ -169,7 +170,7 @@ export default function ComplaintsScreen() {
         <View style={{ flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.full, padding: 4, borderWidth: 1, borderColor: colors.border }}>
           {segments.map((s) => {
             const on = bucket === s.key;
-            return (
+            const chip = (
               <TouchableOpacity key={s.key} onPress={() => setBucket(s.key)} activeOpacity={0.9} accessibilityRole="tab" accessibilityState={{ selected: on }}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, borderRadius: radius.full, backgroundColor: on ? colors.primary : 'transparent' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.onPrimary : colors.textSecondary }}>{s.label}</Text>
@@ -180,6 +181,9 @@ export default function ComplaintsScreen() {
                 ) : null}
               </TouchableOpacity>
             );
+            return s.key === 'review'
+              ? <Surface key={s.key} id="teacher.complaints.segments.review" assistantNeeds="teacher">{chip}</Surface>
+              : chip;
           })}
         </View>
       </View>

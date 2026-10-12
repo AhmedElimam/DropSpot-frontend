@@ -11,7 +11,6 @@ import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { formatNumber } from '@/utils/format';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { cancelSession } from '@/api/teacherSessions';
 import type { RoseSheetSession, RoseSheetItem } from '@/api/cash';
 import { useRoseDialog } from './RoseDialog';
@@ -69,13 +68,13 @@ function SessionBody({ s, go, ask, tell, onDone }: {
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const { can } = useActiveAbilities();
   const [busy, setBusy] = useState(false);
   const ended = !!s.ended || s.present !== null;
   const inNow = s.checked_in ?? s.present ?? 0;
   const cancelled = s.status === 'cancelled';
-  // The server's rule: a session anyone was checked into happened and stays.
-  const canCancel = !!s.id && can(ABILITY.CANCEL_SESSIONS) && !cancelled && (!ended || inNow === 0);
+  // The server's rule: a session anyone was checked into happened and stays. Who may cancel
+  // (cancel_sessions) is the button's surface gate.
+  const canCancel = !!s.id && !cancelled && (!ended || inNow === 0);
   const phase = cancelled ? { label: t('attendance.phase_cancelled'), tint: colors.danger } : ended ? { label: t('attendance.phase_done'), tint: colors.textSecondary } : { label: t('desk_ui.phase_not_started'), tint: colors.brand };
 
   const cancel = async () => {
@@ -161,7 +160,7 @@ function SessionBody({ s, go, ask, tell, onDone }: {
         </Surface>
       ) : null}
       {canCancel ? (
-        <Surface id="teacher.rose.sheet_detail.cancel_session">
+        <Surface id="teacher.rose.sheet_detail.cancel_session" assistantNeeds="cancel_sessions">
         <TouchableOpacity onPress={cancel} disabled={busy} activeOpacity={0.85} accessibilityRole="button"
           style={{ marginTop: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.danger, backgroundColor: colors.dangerLight, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, opacity: busy ? 0.6 : 1 }}>
           {busy ? <ActivityIndicator color={colors.danger} /> : <Icon name="close" size={17} color={colors.danger} />}

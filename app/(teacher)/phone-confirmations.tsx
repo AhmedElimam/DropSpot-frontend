@@ -13,7 +13,6 @@ import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePhoneConfirmations, PHONE_CONFIRMATIONS_KEY } from '@/hooks/usePhoneConfirmations';
 import { acknowledgePhone, sendPhoneConfirmationCode, confirmPhoneCode, type PhoneConfirmation } from '@/api/phoneConfirmations';
 import { requestStudentEdit, flagParentNumber } from '@/api/students';
@@ -48,7 +47,6 @@ export default function PhoneConfirmationsScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
-  const { can } = useActiveAbilities();
   const { data, isLoading, refetch } = usePhoneConfirmations();
   const { refreshing, onRefresh } = usePullRefresh(refetch);
 
@@ -220,25 +218,25 @@ export default function PhoneConfirmationsScreen() {
           </TouchableOpacity>
           </Surface>
 
-          <Surface id="teacher.phone_confirmations.edit_number">
-          {(it.scope === 'student' ? can(ABILITY.MANAGE_STUDENTS) : can(ABILITY.REPORT_INCIDENTS)) ? (
-            <TouchableOpacity
-              onPress={() => { setNote(''); setNewNumber(''); setSheet({ kind: 'edit', item: it }); }}
-              activeOpacity={0.85}
-              style={{
-                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-                backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border,
-                borderRadius: radius.lg, paddingVertical: 10,
-              }}
-            >
-              <Icon name="note" size={15} color={colors.textPrimary} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('staff_ui.edit_number')}</Text>
-            </TouchableOpacity>
-          ) : null}
+          {/* A student's number is a roster edit (manage_students); a parent's is a login
+              credential, so correcting it is an escalation (report_incidents). */}
+          <Surface id="teacher.phone_confirmations.edit_number" assistantNeeds={it.scope === 'student' ? 'manage_students' : 'report_incidents'}>
+          <TouchableOpacity
+            onPress={() => { setNote(''); setNewNumber(''); setSheet({ kind: 'edit', item: it }); }}
+            activeOpacity={0.85}
+            style={{
+              flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+              backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border,
+              borderRadius: radius.lg, paddingVertical: 10,
+            }}
+          >
+            <Icon name="note" size={15} color={colors.textPrimary} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('staff_ui.edit_number')}</Text>
+          </TouchableOpacity>
           </Surface>
 
-          <Surface id="teacher.phone_confirmations.escalate">
-          {it.can_escalate && can(ABILITY.REPORT_INCIDENTS) ? (
+          <Surface id="teacher.phone_confirmations.escalate" assistantNeeds="report_incidents">
+          {it.can_escalate ? (
             <TouchableOpacity
               onPress={() => { setNote(''); setSheet({ kind: 'escalate', item: it }); }}
               activeOpacity={0.85}

@@ -86,11 +86,11 @@ export default function TeacherPendingCollections() {
   const { data: flags } = useFeatureFlags();
   // Undoing a payment and cancelling a due are the teacher's; the server refuses every
   // assistant, so they never see those buttons (founder 2026-09-26).
-  const { isAssistant, can } = useActiveAbilities();
+  const { can } = useActiveAbilities();
   // Correcting a bill while collecting is the bill-edit ability's, like everywhere else.
   const canEditBill = can('edit_bill_amount');
-  const canCancelDue = !!flags?.cancel_pending_due && !isAssistant;
-  const canReverse = !isAssistant;
+  // Refusing a payment and cancelling a due are the teacher's (Surface assistantNeeds="teacher").
+  const canCancelDue = !!flags?.cancel_pending_due;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['pending-collections'],
@@ -321,18 +321,18 @@ export default function TeacherPendingCollections() {
                 <View style={{ width: `${Math.round(pct * 100)}%`, height: 5, borderRadius: 3, backgroundColor: l.overdue && pct < 1 ? colors.danger : colors.success }} />
               </View>
               </Surface>
-              {(canReverse && l.paid > 0) || (canCancelDue && l.remaining > 0) ? (
-                <View style={{ flexDirection: 'row', gap: spacing.lg, marginTop: spacing.sm }}>
-                  {canReverse && l.paid > 0 ? (
-                    <Surface id="teacher.pending_collections.refuse_button" ctx={{ line: l }}>
-                    <TouchableOpacity onPress={() => cancelPayment(s.student_id, s.name, l.kind, l.chargeId)} hitSlop={8}>
+              {l.paid > 0 || (canCancelDue && l.remaining > 0) ? (
+                <View style={{ flexDirection: 'row', gap: spacing.lg }}>
+                  {l.paid > 0 ? (
+                    <Surface id="teacher.pending_collections.refuse_button" ctx={{ line: l }} assistantNeeds="teacher">
+                    <TouchableOpacity onPress={() => cancelPayment(s.student_id, s.name, l.kind, l.chargeId)} hitSlop={8} style={{ marginTop: spacing.sm }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.dangerText }}>{t('cash.refuse_confirm')}</Text>
                     </TouchableOpacity>
                     </Surface>
                   ) : null}
                   {canCancelDue && l.remaining > 0 ? (
-                    <Surface id="teacher.pending_collections.cancel_due_button">
-                    <TouchableOpacity onPress={() => cancelDue(s.student_id, s.name, l.kind, l.remaining, l.chargeId)} hitSlop={8}>
+                    <Surface id="teacher.pending_collections.cancel_due_button" assistantNeeds="teacher">
+                    <TouchableOpacity onPress={() => cancelDue(s.student_id, s.name, l.kind, l.remaining, l.chargeId)} hitSlop={8} style={{ marginTop: spacing.sm }}>
                       <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.warningText }}>{t('desk_ui.cancel_due')}</Text>
                     </TouchableOpacity>
                     </Surface>

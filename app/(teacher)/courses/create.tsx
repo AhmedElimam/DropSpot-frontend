@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/Button';
 import { TimePicker } from '@/components/ui/TimePicker';
 import { SelectField } from '@/components/ui/SelectField';
 import { FormScreen, FormCard, Field, Input, NumberInput, Chips, DayPicker, Stepper, SwitchRow, Banner, DateStrip, TimeRangeRow, upcomingDays } from '@/components/ui/Form';
-import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { useCourseFormOptions, useCreateCourse } from '@/hooks/useCourses';
 import { useTeacherOnboarding, useMarkOnboardingStep } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
@@ -28,7 +27,6 @@ type Slot = { day_of_week: number; start_time: string; end_time: string };
 export default function CourseCreateScreen() {
   const { t } = useTranslation();
   // Venue writes are the teacher's alone — an assistant is not sent to a screen that refuses them.
-  const { isAssistant } = useActiveAbilities();
   const { data: options, isLoading } = useCourseFormOptions();
   // Teacher's down-payment IS the booklet → a separate booking price doesn't apply.
   const bookletIsDownPayment = options?.booklet_is_down_payment ?? false;
@@ -163,13 +161,15 @@ export default function CourseCreateScreen() {
             <Field label={t('enroll_ui.venue_label')} hint={t('form_ui.optional')}>
               {(options.venues?.length ?? 0) > 0 ? (
                 <SelectField value={venueId ?? ''} options={venueOptions} placeholder={t('enroll_ui.no_venue')} onChange={(id) => setVenueId(id || null)} />
-              ) : !isAssistant ? (
+              ) : (
+                <Surface id="teacher.course_create.basics.venue.add_venues_link" assistantNeeds="teacher">
                 <TouchableOpacity onPress={() => router.push('/(teacher)/venues' as Href)} activeOpacity={0.8}
                   style={{ minHeight: 48, borderRadius: radius.lg, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, backgroundColor: colors.brandTint }}>
                   <Icon name="add" size={16} color={colors.brand} />
                   <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('enroll_ui.add_venues_first')}</Text>
                 </TouchableOpacity>
-              ) : null}
+                </Surface>
+              )}
             </Field>
             </Surface>
           </FormCard>

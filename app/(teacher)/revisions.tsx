@@ -11,9 +11,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { FormScreen, HeaderAction, HeaderCount } from '@/components/ui/Form';
 import { useRevisions } from '@/hooks/useRevisions';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { GuestPassModal } from '@/components/teacher/GuestPassModal';
-import { Surface } from '@/ui/surfaces';
+import { Surface, useSurfaceState } from '@/ui/surfaces';
 import type { BillingMode, RevisionSummary } from '@/api/revisions';
 
 function billingLabel(mode: BillingMode, t: (k: string) => string): string {
@@ -28,8 +27,9 @@ export default function TeacherRevisions() {
   const insets = useSafeAreaInsets();
   const { data: revisions, isLoading, refetch } = useRevisions();
   const { refreshing, onRefresh } = usePullRefresh(refetch);
-  const { can } = useActiveAbilities();
-  const canIssuePass = can(ABILITY.ISSUE_GUEST_PASSES);
+  // The guest-pass gate (issue_guest_passes, or the server's override) decides whether a row
+  // gets its action strip at all — read here so a non-exam row shows no empty strip.
+  const canIssuePass = !useSurfaceState('teacher.revisions.guest_pass_button', undefined, 'issue_guest_passes').hidden;
   // The session a guest pass is being issued for (null = sheet closed).
   const [guestFor, setGuestFor] = useState<{ id: number; instanceId: number; title: string } | null>(null);
   const list = revisions ?? [];
@@ -66,15 +66,13 @@ export default function TeacherRevisions() {
         </View>
         {!disabled && (canIssuePass || rev.is_quiz_exam) ? (
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
-            {canIssuePass ? (
-              <Surface id="teacher.revisions.guest_pass_button">
+              <Surface id="teacher.revisions.guest_pass_button" assistantNeeds="issue_guest_passes">
               <TouchableOpacity onPress={() => setGuestFor({ id: rev.id, instanceId: rev.instance_id as number, title: rev.title })} accessibilityLabel={t('teacher.guest_pass_issue')}
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 40, borderRadius: radius.md, backgroundColor: colors.brandTint }}>
                 <Icon name="add" size={16} color={colors.brand} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.guest_add_short')}</Text>
               </TouchableOpacity>
               </Surface>
-            ) : null}
             {rev.is_quiz_exam ? (
               <Surface id="teacher.revisions.exam_marks_button">
               <TouchableOpacity onPress={() => router.push({ pathname: '/(teacher)/revision-marks', params: { revisionId: String(rev.id), instanceId: String(rev.instance_id), title: rev.title, maxMark: rev.max_mark != null ? String(rev.max_mark) : '' } })}

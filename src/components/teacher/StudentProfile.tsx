@@ -60,7 +60,7 @@ function ContactRow({ icon, label, name, phone, badge, empty, onCall, onFlag, di
         )}
       </View>
       {onFlag ? (
-        <Surface id="teacher.student_profile.flag_parent_number">
+        <Surface id="teacher.student_profile.flag_parent_number" assistantNeeds="report_incidents">
         <TouchableOpacity onPress={onFlag} accessibilityRole="button" accessibilityLabel={t('student_profile_ui.flag_number_a11y')}
           style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="warning" size={17} color={colors.danger} />
@@ -163,7 +163,6 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   const { can, isAssistant } = useActiveAbilities();
   const canManage = can(ABILITY.MANAGE_STUDENTS);
   const canCollect = can(ABILITY.SCAN);
-  const canMarkManual = can(ABILITY.MARK_MANUAL);
   const canExport = can(ABILITY.EXPORT_REPORTS);
 
   // The paper register: tick the past days (last 90) this student attended before the
@@ -634,40 +633,37 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
           ) : null}
 
           {/* Quieter actions, one row: a name/phone correction request, an incident report,
-              removing a terminated student. Only what this person may do is drawn. */}
-          {canManage || canReport || (canManage && s.can_remove_from_roster) ? (
-            <Surface id="teacher.student_profile.quick_actions">
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md }}>
-              {canManage ? (
-                <Surface id="teacher.student_profile.edit_request_button" ctx={{ student: s }}>
-                <TouchableOpacity onPress={() => setEditOpen(true)} accessibilityRole="button" activeOpacity={0.85}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
-                  <Icon name="note" size={16} color={colors.textSecondary} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{t('student_profile_ui.edit_request_action')}</Text>
-                </TouchableOpacity>
-                </Surface>
-              ) : null}
-              {canReport ? (
-                <Surface id="teacher.student_profile.report_incident_button" ctx={{ student: s }}>
-                <TouchableOpacity onPress={() => setReportOpen(true)} accessibilityRole="button" activeOpacity={0.85}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
-                  <Icon name="warning" size={16} color={colors.danger} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger }}>{t('student_profile_ui.report_incident')}</Text>
-                </TouchableOpacity>
-                </Surface>
-              ) : null}
-              {canManage && s.can_remove_from_roster ? (
-                <Surface id="teacher.student_profile.remove_from_roster_button" ctx={{ student: s }}>
-                <TouchableOpacity onPress={confirmRemoveFromRoster} accessibilityRole="button" activeOpacity={0.85}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
-                  <Icon name="person-remove" size={16} color={colors.textSecondary} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{t('student_profile_ui.remove_from_roster_title')}</Text>
-                </TouchableOpacity>
-                </Surface>
-              ) : null}
-            </View>
+              removing a terminated student. Only what this person may do is drawn — each
+              button's surface gate says who (the server's ui.gates can widen it). */}
+          <Surface id="teacher.student_profile.quick_actions">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md }}>
+            <Surface id="teacher.student_profile.edit_request_button" ctx={{ student: s }} assistantNeeds="manage_students">
+            <TouchableOpacity onPress={() => setEditOpen(true)} accessibilityRole="button" activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+              <Icon name="note" size={16} color={colors.textSecondary} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{t('student_profile_ui.edit_request_action')}</Text>
+            </TouchableOpacity>
             </Surface>
-          ) : null}
+            {/* Incident reports: the teacher, or an assistant granted report_incidents (the report
+                still lands in the teacher's tenant; the assistant is recorded as who typed it). */}
+            <Surface id="teacher.student_profile.report_incident_button" ctx={{ student: s }} assistantNeeds="report_incidents">
+            <TouchableOpacity onPress={() => setReportOpen(true)} accessibilityRole="button" activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+              <Icon name="warning" size={16} color={colors.danger} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger }}>{t('student_profile_ui.report_incident')}</Text>
+            </TouchableOpacity>
+            </Surface>
+            {s.can_remove_from_roster ? (
+              <Surface id="teacher.student_profile.remove_from_roster_button" ctx={{ student: s }} assistantNeeds="manage_students">
+              <TouchableOpacity onPress={confirmRemoveFromRoster} accessibilityRole="button" activeOpacity={0.85}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+                <Icon name="person-remove" size={16} color={colors.textSecondary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{t('student_profile_ui.remove_from_roster_title')}</Text>
+              </TouchableOpacity>
+              </Surface>
+            ) : null}
+          </View>
+          </Surface>
 
           {/* Billing */}
           <Surface id="teacher.student_profile.billing_section">
@@ -684,8 +680,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 it wrong. The teacher, or an assistant holding «تعديل قيمة فاتورة الطالب» (founder
                 2026-10-05; on by default, the server tells the teacher). One button per billable
                 enrolment, named by course, so a student in two courses is never ambiguous. */}
-            <Surface id="teacher.student_profile.correct_bill_button" ctx={{ student: s }}>
-            {can(ABILITY.EDIT_BILL_AMOUNT) ? (s.courses ?? []).filter((c) => c.enrollment_id && c.cycle?.has_cycle).map((c) => (
+            <Surface id="teacher.student_profile.correct_bill_button" ctx={{ student: s }} assistantNeeds="edit_bill_amount">
+            {(s.courses ?? []).filter((c) => c.enrollment_id && c.cycle?.has_cycle).map((c) => (
               <TouchableOpacity
                 key={`fixamt-${c.enrollment_id}`}
                 onPress={() => {
@@ -723,15 +719,15 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 </Text>
                 <Icon name="back" size={18} color="rgba(255,255,255,0.85)" />
               </TouchableOpacity>
-            )) : null}
+            ))}
             </Surface>
 
             {/* «سُدِّدت قبل الانضمام» — one per course bill with money still due. Teacher, or an
                 assistant with manage_students (their word lands in the teacher's review bucket).
                 Quieter than the correction above: this does not change the figure, it says
                 the family already paid it before the system existed. */}
-            <Surface id="teacher.student_profile.prior_paid_button" ctx={{ student: s }}>
-            {canManage ? (s.courses ?? []).filter((c) => c.enrollment_id && c.cycle_invoice && Number(c.cycle_invoice.remaining) > 0).map((c) => (
+            <Surface id="teacher.student_profile.prior_paid_button" ctx={{ student: s }} assistantNeeds="manage_students">
+            {(s.courses ?? []).filter((c) => c.enrollment_id && c.cycle_invoice && Number(c.cycle_invoice.remaining) > 0).map((c) => (
               <TouchableOpacity
                 key={`prior-${c.enrollment_id}`}
                 onPress={() => { setPriorAmount(''); setPriorFor({ enrollmentId: c.enrollment_id!, courseName: c.name, remaining: Number(c.cycle_invoice!.remaining) }); }}
@@ -750,7 +746,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                 </View>
                 <Icon name="back" size={18} color={colors.brand} />
               </TouchableOpacity>
-            )) : null}
+            ))}
             </Surface>
 
             {/* Price set on a course, but the teacher-wide booklets switch is off — say why there is no button. */}
@@ -766,8 +762,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
             ) : null}
 
             {/* Per-student 15-day-allowance block — scan_attendance, like the API. */}
-            {canCollect ? (
-            <Surface id="teacher.student_profile.allowance_block_toggle" ctx={{ student: s }}>
+            <Surface id="teacher.student_profile.allowance_block_toggle" ctx={{ student: s }} assistantNeeds="scan_attendance">
             <TouchableOpacity
               onPress={() => allowanceBlock.mutate(!(s.billing.allowance_blocked ?? false))}
               disabled={allowanceBlock.isPending}
@@ -786,7 +781,6 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               {allowanceBlock.isPending ? <ActivityIndicator size="small" color={colors.brand} /> : null}
             </TouchableOpacity>
             </Surface>
-            ) : null}
 
             {/* Every 15-day exemption this student was given, newest first, with where it
                 came from — the screen, the door scan, the kiosk, or a manual check-in at a
@@ -924,8 +918,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                       ) : null}
 
                       {/* The paper register: days held with no record for this student. */}
-                      {canMarkManual && c.enrollment_id && unrecorded > 0 ? (
-                        <Surface id="teacher.student_profile.backfill_button" ctx={{ student: s }}>
+                      {c.enrollment_id && unrecorded > 0 ? (
+                        <Surface id="teacher.student_profile.backfill_button" ctx={{ student: s }} assistantNeeds="mark_attendance_manual">
                         <TouchableOpacity onPress={() => openBackfill(c)} accessibilityRole="button" activeOpacity={0.85}
                           style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, paddingHorizontal: spacing.md }}>
                           <Icon name="calendar" size={18} color={colors.brand} />
@@ -955,8 +949,8 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
 
                       {/* A month before joining, recorded whole: its sessions and its fee, owed now
                           (founder 2026-10-08). Money → who may manage students. */}
-                      {canManage && c.enrollment_id ? (
-                        <Surface id="teacher.student_profile.prior_month_button" ctx={{ student: s }}>
+                      {c.enrollment_id ? (
+                        <Surface id="teacher.student_profile.prior_month_button" ctx={{ student: s }} assistantNeeds="manage_students">
                         <TouchableOpacity onPress={() => setPriorBillFor({ enrollmentId: c.enrollment_id!, courseName: c.name })} accessibilityRole="button" activeOpacity={0.85}
                           style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.warningDark, paddingHorizontal: spacing.md }}>
                           <Icon name="invoices" size={18} color={colors.warningDark} />
@@ -969,10 +963,10 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                         </Surface>
                       ) : null}
 
-                      {/* Transfer / terminate. */}
-                      {c.enrollment_id && canManage ? (
+                      {/* Transfer / terminate — manage_students, per button. */}
+                      {c.enrollment_id ? (
                         <View style={{ flexDirection: 'row', gap: spacing.sm, padding: spacing.lg, paddingTop: spacing.md }}>
-                          <Surface id="teacher.student_profile.transfer_button" ctx={{ student: s }}>
+                          <Surface id="teacher.student_profile.transfer_button" ctx={{ student: s }} assistantNeeds="manage_students">
                           <TouchableOpacity
                             onPress={() => setTransferFor({ enrollmentId: c.enrollment_id!, courseId: c.id, courseName: c.name })}
                             accessibilityRole="button" accessibilityLabel={t('teacher.transfer_title')} activeOpacity={0.85}
@@ -982,7 +976,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('teacher.transfer_action')}</Text>
                           </TouchableOpacity>
                           </Surface>
-                          <Surface id="teacher.student_profile.terminate_button" ctx={{ student: s }}>
+                          <Surface id="teacher.student_profile.terminate_button" ctx={{ student: s }} assistantNeeds="manage_students">
                           <TouchableOpacity
                             onPress={() => confirmTerminate(c.name, c.enrollment_id)}
                             accessibilityRole="button" accessibilityLabel={t('teacher.terminate_title')} activeOpacity={0.85}
@@ -1008,7 +1002,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
           <Surface id="teacher.student_profile.attendance_section">
           <Section title={t('teacher.attendance_history')}>
             <StudentAttendanceList studentId={Number(s.id)} sessions={s.quick_sessions ?? []} history={s.attendance}
-              canMark={canMarkManual} isAssistant={isAssistant} onChanged={() => { void refetch(); }} beforeNavigate={onClose} />
+              isAssistant={isAssistant} onChanged={() => { void refetch(); }} beforeNavigate={onClose} />
           </Section>
           </Surface>
           <Slot id="teacher.student_profile.bottom" ctx={{ student: s }} style={{ marginTop: spacing.xl }} />

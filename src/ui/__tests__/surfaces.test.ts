@@ -2,7 +2,8 @@ jest.mock('@/stores/authStore', () => ({ useAuthStore: Object.assign((sel: (s: {
 jest.mock('@/ui/dialog', () => ({ Alert: { alert: jest.fn() } }));
 import { useAppConfigStore } from '@/stores/appConfigStore';
 import { CONFIG_DEFAULTS } from '@/config/defaults';
-import { isSurfaceOn, setSurfaceContext } from '../surfaces';
+import { isSurfaceOn, setSurfaceContext, resolveSurface } from '../surfaces';
+import { assistantAllowed } from '../gates';
 import { isArabicName, isEgyptPhone, isTripleName, validationMessage } from '@/utils/validators';
 
 const ui = (patch: Partial<NonNullable<typeof CONFIG_DEFAULTS.ui>>) =>
@@ -78,3 +79,35 @@ describe('disabled and conditional surfaces', () => {
     expect(resolveSurface('teacher.home.whats_new', undefined, undefined, true, 'teacher')).toEqual({ hidden: false, disabled: null });
   });
 });
+
+describe('assistant gates: who among the staff sees a control', () => {
+  const manifest = (gates: Record<string, string>) => ({ ...CONFIG_DEFAULTS.ui!, gates });
+
+  it('a teacher is never gated; an assistant needs the bundled ability', () => {
+    expect(assistantAllowed('x', 'manage_students', manifest({}), { is_assistant: false })).toBe(true);
+    expect(assistantAllowed('x', 'manage_students', manifest({}), { is_assistant: true, can: {} })).toBe(false);
+    expect(assistantAllowed('x', 'manage_students', manifest({}), { is_assistant: true, can: { manage_students: true } })).toBe(true);
+    expect(assistantAllowed('x', 'teacher', manifest({}), { is_assistant: true, can: { manage_students: true } })).toBe(false);
+    expect(assistantAllowed('x', undefined, manifest({}), { is_assistant: true, can: {} })).toBe(true);
+  });
+
+  it('the server reopens a teacher-only control to assistants by a NEW ability — no app change', () => {
+    // Founder 2026-10-12: a new permission had to wait for the next store update.
+    const ctx = { is_assistant: true, can: { transfer_students: true } };
+    expect(assistantAllowed('teacher.student_profile.transfer_button', 'teacher', manifest({}), ctx)).toBe(false);
+    expect(assistantAllowed('teacher.student_profile.transfer_button', 'teacher', manifest({ 'teacher.student_profile.transfer_button': 'transfer_students' }), ctx)).toBe(true);
+    expect(assistantAllowed('teacher.manage.row_venues', 'teacher', manifest({ 'teacher.manage.row_venues': 'any' }), { is_assistant: true, can: {} })).toBe(true);
+    // …and can close one the app opens by default.
+    expect(assistantAllowed('teacher.scan.pay_button', 'scan_attendance', manifest({ 'teacher.scan.pay_button': 'teacher' }), { is_assistant: true, can: { scan_attendance: true } })).toBe(false);
+  });
+
+  it('resolveSurface hides a gated surface before anything else, from the global staff context', () => {
+    setSurfaceContext({ is_assistant: true, can: { scan_attendance: true } });
+    expect(resolveSurface('a', undefined, manifest({}), true, 'assistant', 'teacher').hidden).toBe(true);
+    expect(resolveSurface('a', undefined, manifest({}), true, 'assistant', 'scan_attendance').hidden).toBe(false);
+    expect(resolveSurface('a', undefined, undefined, true, 'assistant', 'teacher').hidden).toBe(true);
+    setSurfaceContext({ is_assistant: false, can: {} });
+    expect(resolveSurface('a', undefined, manifest({}), true, 'teacher', 'teacher').hidden).toBe(false);
+  });
+});
+

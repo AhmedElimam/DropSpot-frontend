@@ -345,8 +345,8 @@ export default function ResolutionCenter() {
           </Surface>
 
           {/* Family name-correction requests (Tier B) — approve applies immediately */}
-          <Surface id="teacher.resolution.edit_requests">
-          {canManage && editRequests.data && editRequests.data.length > 0 ? (
+          <Surface id="teacher.resolution.edit_requests" assistantNeeds="manage_students">
+          {editRequests.data && editRequests.data.length > 0 ? (
             <>
               <SectionTitle>{t('desk_ui.edit_requests_title')}</SectionTitle>
               {editRequests.data.map((r: StudentEditReq) => (

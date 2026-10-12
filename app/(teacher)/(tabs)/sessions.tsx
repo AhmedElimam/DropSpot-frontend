@@ -93,14 +93,12 @@ export default function TeacherSessions() {
             </TouchableOpacity>
             </Surface>
           ) : null}
-          {can(ABILITY.MANAGE_SESSIONS) ? (
-            <Surface id="teacher.sessions.add_schedule">
-            <TouchableOpacity onPress={() => router.push('/(teacher)/schedule-new' as Href)} accessibilityRole="button" accessibilityLabel={t('teacher.add_schedule')} activeOpacity={0.85}
-              style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center' }}>
-              <Icon name="add" size={22} color={colors.onAccent} />
-            </TouchableOpacity>
-            </Surface>
-          ) : null}
+          <Surface id="teacher.sessions.add_schedule" assistantNeeds="manage_sessions">
+          <TouchableOpacity onPress={() => router.push('/(teacher)/schedule-new' as Href)} accessibilityRole="button" accessibilityLabel={t('teacher.add_schedule')} activeOpacity={0.85}
+            style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="add" size={22} color={colors.onAccent} />
+          </TouchableOpacity>
+          </Surface>
         </View>
 
         {/* Week strip — earlier weeks to the right (RTL), later to the left. */}

@@ -55,8 +55,8 @@ type RowData = {
 };
 
 /** One exception, in the session sheet's row style: stripe, avatar, who, why, and when it ends. */
-const ExceptionRow = memo(function ExceptionRow({ r, now, canRevoke, revoking, onRevoke, onOpen }: {
-  r: RowData; now: number; canRevoke: boolean; revoking: boolean; onRevoke: (r: RowData) => void; onOpen: (r: RowData) => void;
+const ExceptionRow = memo(function ExceptionRow({ r, now, revoking, onRevoke, onOpen }: {
+  r: RowData; now: number; revoking: boolean; onRevoke: (r: RowData) => void; onOpen: (r: RowData) => void;
 }) {
   const { t } = useTranslation();
   const days = daysLeft(r.expiresAt, now);
@@ -86,16 +86,13 @@ const ExceptionRow = memo(function ExceptionRow({ r, now, canRevoke, revoking, o
           </Text>
         ) : null}
       </View>
-      {canRevoke ? (
-        <Surface id="teacher.overrides.revoke_button" fallback={<Icon name="back" size={16} color={colors.textTertiary} />}>
-        <TouchableOpacity onPress={() => onRevoke(r)} disabled={revoking} hitSlop={4} accessibilityRole="button" accessibilityLabel={t('teacher.revoke')}
-          style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.danger + '14', borderWidth: 1, borderColor: colors.danger + '55' }}>
-          {revoking ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="close" size={20} color={colors.danger} />}
-        </TouchableOpacity>
-        </Surface>
-      ) : (
-        <Icon name="back" size={16} color={colors.textTertiary} />
-      )}
+      {/* Revoking is the teacher's; an assistant sees the plain disclosure arrow (the fallback). */}
+      <Surface id="teacher.overrides.revoke_button" assistantNeeds="teacher" fallback={<Icon name="back" size={16} color={colors.textTertiary} />}>
+      <TouchableOpacity onPress={() => onRevoke(r)} disabled={revoking} hitSlop={4} accessibilityRole="button" accessibilityLabel={t('teacher.revoke')}
+        style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.danger + '14', borderWidth: 1, borderColor: colors.danger + '55' }}>
+        {revoking ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="close" size={20} color={colors.danger} />}
+      </TouchableOpacity>
+      </Surface>
     </TouchableOpacity>
   );
 });
@@ -114,7 +111,6 @@ export default function OverridesScreen() {
   const now = useMinuteClock();
   const { can, isAssistant } = useActiveAbilities();
   const canGrant = can(ABILITY.SCAN);
-  const canRevoke = !isAssistant;
 
   const overrides = useBillingOverrides();
   const permissions = useCheckinPermissions();
@@ -167,15 +163,13 @@ export default function OverridesScreen() {
             <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }}>{formatNumber(total)}</Text>
           </View>
           <View style={{ flex: 1 }} />
-          {canGrant ? (
-            <Surface id="teacher.overrides.grant_button">
+            <Surface id="teacher.overrides.grant_button" assistantNeeds="scan_attendance">
             <TouchableOpacity onPress={() => router.push('/(teacher)/grant-exception' as Href)} accessibilityRole="button"
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.accent }}>
               <Icon name="add" size={18} color={colors.onAccent} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onAccent }}>{t('teacher.grant_override')}</Text>
             </TouchableOpacity>
             </Surface>
-          ) : null}
         </View>
 
         <Surface id="teacher.overrides.segment_switch">
@@ -203,7 +197,7 @@ export default function OverridesScreen() {
           data={rows}
           keyExtractor={(r) => r.key}
           renderItem={({ item }) => (
-            <ExceptionRow r={item} now={now} canRevoke={canRevoke} revoking={revokingId === item.id} onRevoke={revoke} onOpen={open} />
+            <ExceptionRow r={item} now={now} revoking={revokingId === item.id} onRevoke={revoke} onOpen={open} />
           )}
           contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}

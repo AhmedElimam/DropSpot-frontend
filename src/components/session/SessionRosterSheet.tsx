@@ -11,7 +11,6 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { Avatar } from '@/components/layout/Avatar';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { formatNumber, foldForSearch } from '@/utils/format';
 import type { SessionAttendee } from '@/api/teacherSessions';
 import { Surface } from '@/ui/surfaces';
@@ -51,8 +50,6 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
   const { t } = useTranslation();
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { can } = useActiveAbilities();
-  const canMark = can(ABILITY.MARK_MANUAL);
   const q = useSessionDetail(sessionId ?? undefined);
   const controls = useSessionControls(sessionId ?? '');
   const s = sessionId ? q.data : undefined;
@@ -163,9 +160,9 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
                   <Icon name={open ? 'up' : 'down'} size={16} color={colors.textTertiary} />
                 </TouchableOpacity>
 
-                {/* One tap per student: the four marks, the current one filled. */}
-                {canMark && editable ? (
-                  <Surface id="teacher.roster_sheet.quick_marks">
+                {/* One tap per student: the four marks, the current one filled — mark_attendance_manual. */}
+                {editable ? (
+                  <Surface id="teacher.roster_sheet.quick_marks" assistantNeeds="mark_attendance_manual">
                   <View style={{ flexDirection: 'row', gap: 6, marginTop: spacing.sm }}>
                     {MARKS.map((m) => {
                       const c = STATUS_COLOR()[m.status];

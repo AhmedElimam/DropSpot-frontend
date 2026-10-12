@@ -6,6 +6,7 @@ import { useOfflineStore } from '@/stores/offlineStore';
 import { useAuthStore } from '@/stores/authStore';
 import { Alert } from '@/ui/dialog';
 import { evaluateCondition } from './conditions';
+import { assistantAllowed } from './gates';
 import i18n from '@/i18n';
 import { colors, spacing, radius } from '@/theme/index';
 import { fonts } from '@/theme/typography';
@@ -57,14 +58,19 @@ export type SurfaceState = { on: true } | { on: false; disabled?: undefined } | 
 let globalCtx: Record<string, unknown> = {};
 export function setSurfaceContext(patch: Record<string, unknown>): void {
   globalCtx = { ...globalCtx, ...patch };
+  ctxVersion++;
+  ctxListeners.forEach((l) => l());
 }
 /** What the app knows about itself right now (for slots, which evaluate the same conditions). */
 export function surfaceContext(): Record<string, unknown> {
   return globalCtx;
 }
 
-/** The pure resolver behind useSurfaceState: hidden list → static disable → condition. Exported for tests. */
-export function resolveSurface(id: string, ctx: Record<string, unknown> | undefined, ui: NonNullable<ReturnType<typeof useAppConfigStore.getState>['config']['ui']> | undefined, online: boolean, role: string | null): { hidden: boolean; disabled: string | null } {
+export { assistantAllowed };
+
+/** The pure resolver behind useSurfaceState: hidden list → gate → static disable → condition. Exported for tests. */
+export function resolveSurface(id: string, ctx: Record<string, unknown> | undefined, ui: NonNullable<ReturnType<typeof useAppConfigStore.getState>['config']['ui']> | undefined, online: boolean, role: string | null, assistantNeeds?: string): { hidden: boolean; disabled: string | null } {
+  if (!assistantAllowed(id, assistantNeeds, ui, { ...globalCtx, ...(ctx ?? {}) })) return { hidden: true, disabled: null };
   if (!ui) return { hidden: false, disabled: null };
   if ((ui.hidden ?? []).includes(id)) return { hidden: true, disabled: null };
   const staticReason = ui.disabled?.[id];
@@ -82,15 +88,35 @@ export function resolveSurface(id: string, ctx: Record<string, unknown> | undefi
 }
 
 /** The resolved state of a surface, reactive to the manifest, the connection and the screen's context. */
-export function useSurfaceState(id: string, ctx?: Record<string, unknown>): { hidden: boolean; disabled: string | null } {
+export function useSurfaceState(id: string, ctx?: Record<string, unknown>, assistantNeeds?: string): { hidden: boolean; disabled: string | null } {
   const ui = useAppConfigStore((s) => s.config.ui);
   const online = useOfflineStore((s) => s.online);
   const role = useAuthStore((s) => s.role);
-  return resolveSurface(id, ctx, ui, online, role);
+  // The gate reads the staff context (is_assistant / can.*), set by the teacher layout; a
+  // subscription to it keeps the surface right when abilities arrive or a teacher switches.
+  useSurfaceContextVersion();
+  return resolveSurface(id, ctx, ui, online, role, assistantNeeds);
 }
 
-export function Surface({ id, screen, fallback, ctx, children }: { id: string; screen?: boolean; fallback?: ReactNode; ctx?: Record<string, unknown>; children: ReactNode }) {
-  const state = useSurfaceState(id, ctx);
+/** Re-renders subscribers whenever setSurfaceContext runs. */
+let ctxVersion = 0;
+const ctxListeners = new Set<() => void>();
+function useSurfaceContextVersion(): number {
+  const [v, setV] = useState(ctxVersion);
+  useEffect(() => {
+    const l = () => setV(ctxVersion);
+    ctxListeners.add(l);
+    return () => { ctxListeners.delete(l); };
+  }, []);
+  return v;
+}
+
+/**
+ * `assistantNeeds`: the bundled gate for a teacher's staff — 'teacher' (assistants never see
+ * it), or the ability key an assistant must hold. The server's `ui.gates[id]` overrides it.
+ */
+export function Surface({ id, screen, fallback, ctx, assistantNeeds, children }: { id: string; screen?: boolean; fallback?: ReactNode; ctx?: Record<string, unknown>; assistantNeeds?: string; children: ReactNode }) {
+  const state = useSurfaceState(id, ctx, assistantNeeds);
   const ready = useFirstFrame(!!screen);
   if (!state.hidden) {
     if (!ready) return <View style={{ flex: 1, backgroundColor: colors.background }} />;

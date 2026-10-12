@@ -54,8 +54,6 @@ export default function TeacherManage() {
   const { data: flags } = useFeatureFlags();
   const { data: reviseOn } = useReviseMode();
 
-  const canCourses = can(ABILITY.MANAGE_COURSES);
-  const canSessions = can(ABILITY.MANAGE_SESSIONS);
   const canStudents = can(ABILITY.MANAGE_STUDENTS);
   const canReviewProofs = can(ABILITY.REVIEW_PAYMENT_PROOFS);
   const canCash = can(ABILITY.SCAN);
@@ -167,31 +165,31 @@ export default function TeacherManage() {
       >
         {group === 'students' ? (
           <Surface id="teacher.manage.group_students">
-            {canStudents ? <Surface id="teacher.manage.row_add_student"><HubRow tint={tint} icon="add" title={t('add_student.title')} sub={t('add_student.subtitle')} onPress={() => setAddOpen(true)} /></Surface> : null}
-            {canStudents ? <Surface id="teacher.manage.row_booking_requests"><HubRow tint={tint} icon="bell" title={t('booking_requests.title')} sub={t('booking_requests.manage_sub')} badge={pendingReqs} onPress={() => router.push('/(teacher)/booking-requests' as Href)} /></Surface> : null}
+            <Surface id="teacher.manage.row_add_student" assistantNeeds="manage_students"><HubRow tint={tint} icon="add" title={t('add_student.title')} sub={t('add_student.subtitle')} onPress={() => setAddOpen(true)} /></Surface>
+            <Surface id="teacher.manage.row_booking_requests" assistantNeeds="manage_students"><HubRow tint={tint} icon="bell" title={t('booking_requests.title')} sub={t('booking_requests.manage_sub')} badge={pendingReqs} onPress={() => router.push('/(teacher)/booking-requests' as Href)} /></Surface>
             <Surface id="teacher.manage.row_phone_confirmations"><HubRow tint={tint} icon="phone" title={t('home.phones_title')} sub={t('manage.phones_sub')} badge={phoneCount} onPress={() => router.push('/(teacher)/phone-confirmations' as Href)} /></Surface>
-            {canStudents ? <Surface id="teacher.manage.row_cards"><HubRow tint={tint} icon="card" title={t('manage.cards_title')} sub={t('manage.cards_sub')} onPress={() => router.push('/(teacher)/students?segment=cards' as Href)} /></Surface> : null}
-            {canStudents ? <Surface id="teacher.manage.row_card_order_link"><HubRow tint={tint} icon="send" title={t('card_order_link.title')} sub={t('card_order_link.manage_sub')} onPress={() => router.push('/(teacher)/card-order-link' as Href)} /></Surface> : null}
-            {canCash ? <Surface id="teacher.manage.row_overrides"><HubRow tint={tint} icon="lock" title={t('teacher.overrides')} sub={t('manage.overrides_sub')} onPress={() => router.push('/(teacher)/overrides' as Href)} /></Surface> : null}
+            <Surface id="teacher.manage.row_cards" assistantNeeds="manage_students"><HubRow tint={tint} icon="card" title={t('manage.cards_title')} sub={t('manage.cards_sub')} onPress={() => router.push('/(teacher)/students?segment=cards' as Href)} /></Surface>
+            <Surface id="teacher.manage.row_card_order_link" assistantNeeds="manage_students"><HubRow tint={tint} icon="send" title={t('card_order_link.title')} sub={t('card_order_link.manage_sub')} onPress={() => router.push('/(teacher)/card-order-link' as Href)} /></Surface>
+            <Surface id="teacher.manage.row_overrides" assistantNeeds="scan_attendance"><HubRow tint={tint} icon="lock" title={t('teacher.overrides')} sub={t('manage.overrides_sub')} onPress={() => router.push('/(teacher)/overrides' as Href)} /></Surface>
           </Surface>
         ) : null}
 
         {group === 'schedule' ? (
           <Surface id="teacher.manage.group_schedule">
             <Surface id="teacher.manage.row_courses"><HubRow tint={tint} icon="book" title={t('teacher.courses_title')} sub={t('manage.courses_sub')} onPress={() => router.push('/(teacher)/courses' as Href)} /></Surface>
-            {!isAssistant ? <Surface id="teacher.manage.row_venues"><HubRow tint={tint} icon="gps" title={t('manage.venues_title')} sub={t('manage.venues_sub')} onPress={() => router.push('/(teacher)/venues' as Href)} /></Surface> : null}
-            {canSessions ? <Surface id="teacher.manage.row_special_sessions"><HubRow tint={tint} icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} onPress={() => router.push('/(teacher)/exam-create' as Href)} /></Surface> : null}
-            {!isAssistant && flags?.revise_mode && reviseOn !== false ? <Surface id="teacher.manage.row_revisions"><HubRow tint={tint} icon="book" title={t('teacher.revision_mode_row')} sub={t('teacher.revision_mode_row_sub')} onPress={() => router.push('/(teacher)/revisions' as Href)} /></Surface> : null}
-            {can(ABILITY.CANCEL_SESSIONS) ? <Surface id="teacher.manage.row_pause"><HubRow tint={tint} icon="clock" title={t('teacher.pause_period')} sub={t('teacher.pause_sub')} onPress={() => router.push('/(teacher)/pause' as Href)} /></Surface> : null}
-            {canCourses ? <Surface id="teacher.manage.row_schedule_merge"><HubRow tint={tint} icon="calendar" title={t('teacher.merge_title')} sub={t('teacher.merge_sub')} onPress={() => router.push('/(teacher)/schedule-merge' as Href)} /></Surface> : null}
-            {canCourses && ramadanOn ? <Surface id="teacher.manage.row_schedule_overrides"><HubRow tint={tint} icon="clock" title={t('teacher.overrides_title')} sub={t('teacher.overrides_sub')} onPress={() => router.push('/(teacher)/schedule-overrides' as Href)} /></Surface> : null}
+            <Surface id="teacher.manage.row_venues" assistantNeeds="teacher"><HubRow tint={tint} icon="gps" title={t('manage.venues_title')} sub={t('manage.venues_sub')} onPress={() => router.push('/(teacher)/venues' as Href)} /></Surface>
+            <Surface id="teacher.manage.row_special_sessions" assistantNeeds="manage_sessions"><HubRow tint={tint} icon="reports" title={t('teacher.special_sessions_title')} sub={t('teacher.special_sessions_sub')} onPress={() => router.push('/(teacher)/exam-create' as Href)} /></Surface>
+            {flags?.revise_mode && reviseOn !== false ? <Surface id="teacher.manage.row_revisions" assistantNeeds="teacher"><HubRow tint={tint} icon="book" title={t('teacher.revision_mode_row')} sub={t('teacher.revision_mode_row_sub')} onPress={() => router.push('/(teacher)/revisions' as Href)} /></Surface> : null}
+            <Surface id="teacher.manage.row_pause" assistantNeeds="cancel_sessions"><HubRow tint={tint} icon="clock" title={t('teacher.pause_period')} sub={t('teacher.pause_sub')} onPress={() => router.push('/(teacher)/pause' as Href)} /></Surface>
+            <Surface id="teacher.manage.row_schedule_merge" assistantNeeds="manage_courses"><HubRow tint={tint} icon="calendar" title={t('teacher.merge_title')} sub={t('teacher.merge_sub')} onPress={() => router.push('/(teacher)/schedule-merge' as Href)} /></Surface>
+            {ramadanOn ? <Surface id="teacher.manage.row_schedule_overrides" assistantNeeds="manage_courses"><HubRow tint={tint} icon="clock" title={t('teacher.overrides_title')} sub={t('teacher.overrides_sub')} onPress={() => router.push('/(teacher)/schedule-overrides' as Href)} /></Surface> : null}
           </Surface>
         ) : null}
 
         {group === 'money' ? (
           <Surface id="teacher.manage.group_money">
-            <Surface id="teacher.manage.insights">
-            {!isAssistant && ins ? (
+            <Surface id="teacher.manage.insights" assistantNeeds="teacher">
+            {ins ? (
               <TouchableOpacity activeOpacity={0.88} onPress={() => router.push('/(teacher)/insights' as Href)} style={{ marginBottom: spacing.md }} accessibilityRole="button">
                 <LinearGradient colors={gradients.success} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: radius.xl, padding: spacing.lg }}>
                   <View style={{ flexDirection: 'row', gap: spacing.md }}>
@@ -211,23 +209,21 @@ export default function TeacherManage() {
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
-            ) : !isAssistant ? (
+            ) : (
               <HubRow tint={tint} icon="reports" title={t('teacher.insights_title')} sub={t('teacher.insights_sub')} onPress={() => router.push('/(teacher)/insights' as Href)} />
-            ) : null}
+            )}
             </Surface>
-            {canCash ? (
-              <Surface id="teacher.manage.row_cash_reconcile">
-              <HubRow tint={tint} icon="note" title={cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title}
-                sub={cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : isAssistant ? t('cash.manage_sub_assistant') : t('cash.manage_sub')}
-                badge={cashAttention} loud={!!cashPending} onPress={() => router.push('/(teacher)/cash-reconcile' as Href)}
-                leading={rose.named ? <RosePortrait size={44} nod={false} /> : undefined} />
-              </Surface>
-            ) : null}
-            {canCash ? <Surface id="teacher.manage.row_pending_collections"><HubRow tint={tint} icon="money" title={t('manage.pending_collections')} sub={t('manage.pending_collections_sub')} onPress={() => router.push('/(teacher)/pending-collections' as Href)} /></Surface> : null}
-            {canCash && expensesOn ? <Surface id="teacher.manage.row_expenses"><HubRow tint={tint} icon="note" title={t('expenses.title')} sub={t('expenses.manage_sub')} onPress={() => router.push('/(teacher)/expenses' as Href)} /></Surface> : null}
-            {canReviewProofs ? <Surface id="teacher.manage.row_payment_proofs"><HubRow tint={tint} icon="card" title={t('payment_proofs.title')} sub={t('payment_proofs.manage_sub')} onPress={() => router.push('/(teacher)/payment-proofs' as Href)} /></Surface> : null}
-            {!isAssistant ? <Surface id="teacher.manage.row_assistant_actions"><HubRow tint={tint} icon="eye" title={t('assistant_actions.title')} sub={t('assistant_actions.manage_sub')} badge={pendingActions} onPress={() => router.push('/(teacher)/assistant-actions' as Href)} /></Surface> : null}
-            {!isAssistant ? <Surface id="teacher.manage.row_billing_settings"><HubRow tint={tint} icon="settings" title={t('billing_settings.title')} sub={t('billing_settings.manage_sub')} onPress={() => router.push('/(teacher)/billing-settings' as Href)} /></Surface> : null}
+            <Surface id="teacher.manage.row_cash_reconcile" assistantNeeds="scan_attendance">
+            <HubRow tint={tint} icon="note" title={cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title}
+              sub={cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : isAssistant ? t('cash.manage_sub_assistant') : t('cash.manage_sub')}
+              badge={cashAttention} loud={!!cashPending} onPress={() => router.push('/(teacher)/cash-reconcile' as Href)}
+              leading={rose.named ? <RosePortrait size={44} nod={false} /> : undefined} />
+            </Surface>
+            <Surface id="teacher.manage.row_pending_collections" assistantNeeds="scan_attendance"><HubRow tint={tint} icon="money" title={t('manage.pending_collections')} sub={t('manage.pending_collections_sub')} onPress={() => router.push('/(teacher)/pending-collections' as Href)} /></Surface>
+            {expensesOn ? <Surface id="teacher.manage.row_expenses" assistantNeeds="scan_attendance"><HubRow tint={tint} icon="note" title={t('expenses.title')} sub={t('expenses.manage_sub')} onPress={() => router.push('/(teacher)/expenses' as Href)} /></Surface> : null}
+            <Surface id="teacher.manage.row_payment_proofs" assistantNeeds="review_payment_proofs"><HubRow tint={tint} icon="card" title={t('payment_proofs.title')} sub={t('payment_proofs.manage_sub')} onPress={() => router.push('/(teacher)/payment-proofs' as Href)} /></Surface>
+            <Surface id="teacher.manage.row_assistant_actions" assistantNeeds="teacher"><HubRow tint={tint} icon="eye" title={t('assistant_actions.title')} sub={t('assistant_actions.manage_sub')} badge={pendingActions} onPress={() => router.push('/(teacher)/assistant-actions' as Href)} /></Surface>
+            <Surface id="teacher.manage.row_billing_settings" assistantNeeds="teacher"><HubRow tint={tint} icon="settings" title={t('billing_settings.title')} sub={t('billing_settings.manage_sub')} onPress={() => router.push('/(teacher)/billing-settings' as Href)} /></Surface>
           </Surface>
         ) : null}
 
@@ -237,7 +233,7 @@ export default function TeacherManage() {
             <Surface id="teacher.manage.row_tickets"><HubRow tint={tint} icon="tickets" title={t('teacher.tab_tickets')} sub={t('manage.tickets_sub')} badge={openTickets} onPress={() => router.push('/(teacher)/tickets' as Href)} /></Surface>
             <Surface id="teacher.manage.row_complaints"><HubRow tint={tint} icon="note" title={t('complaints.title')} sub={t('complaints.manage_sub')} badge={pendingComplaints} onPress={() => router.push('/(teacher)/complaints' as Href)} /></Surface>
             <Surface id="teacher.manage.row_notifications"><HubRow tint={tint} icon="bell" title={t('manage.notifications_title')} sub={t('manage.notifications_sub')} onPress={() => router.push('/(teacher)/notifications' as Href)} /></Surface>
-            {!isAssistant ? <Surface id="teacher.manage.row_assistants"><HubRow tint={tint} icon="children" title={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /></Surface> : null}
+            <Surface id="teacher.manage.row_assistants" assistantNeeds="teacher"><HubRow tint={tint} icon="children" title={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /></Surface>
           </Surface>
         ) : null}
       </ScrollView>

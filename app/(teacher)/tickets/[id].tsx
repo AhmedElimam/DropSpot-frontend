@@ -19,7 +19,6 @@ import type { PendingFile } from '@/api/tickets';
 import { AttachButton, MessageAttachments, PendingFiles } from '@/components/tickets/Attachments';
 import { Alert } from '@/ui/dialog';
 import { useAuthStore } from '@/stores/authStore';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
@@ -43,7 +42,6 @@ export default function TeacherTicketDetail() {
   const insets = useSafeAreaInsets();
   const keyboardShown = useKeyboardShown();
   const user = useAuthStore((s) => s.user);
-  const { can } = useActiveAbilities();
   const { data: ticket, isLoading, refetch } = useTicket(id ?? '');
   const addMessage = useAddMessage(id ?? '');
   const updateStatus = useUpdateTicketStatus(id ?? '');
@@ -138,8 +136,8 @@ export default function TeacherTicketDetail() {
             </Surface>
 
             {/* Changing status is part of reply_tickets («الرد على التذاكر وتغيير حالتها»). */}
-            <Surface id="teacher.tickets.detail.mark_resolved">
-            {can(ABILITY.REPLY_TICKETS) && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+            <Surface id="teacher.tickets.detail.mark_resolved" assistantNeeds="reply_tickets">
+            {ticket.status !== 'closed' && ticket.status !== 'resolved' && (
               <TouchableOpacity
                 onPress={() => handleStatusChange('resolved')}
                 activeOpacity={0.75}
@@ -150,8 +148,8 @@ export default function TeacherTicketDetail() {
             )}
             </Surface>
 
-            <Surface id="teacher.tickets.detail.close">
-            {can(ABILITY.REPLY_TICKETS) && ticket.status === 'resolved' && (
+            <Surface id="teacher.tickets.detail.close" assistantNeeds="reply_tickets">
+            {ticket.status === 'resolved' && (
               <TouchableOpacity
                 onPress={() => handleStatusChange('closed')}
                 activeOpacity={0.75}
@@ -218,11 +216,10 @@ export default function TeacherTicketDetail() {
         </ScrollView>
         </Surface>
 
-        {/* Without reply_tickets there is no reply box and no "locked" notice — just the thread. */}
-        <Surface id="teacher.tickets.detail.reply_box">
-        {ticket.status !== 'closed' && !can(ABILITY.REPLY_TICKETS) ? (
-          <View style={{ height: insets.bottom }} />
-        ) : ticket.status !== 'closed' ? (
+        {/* Without reply_tickets there is no reply box and no "locked" notice — just the thread
+            (the fallback keeps the safe-area spacer under it). */}
+        <Surface id="teacher.tickets.detail.reply_box" assistantNeeds="reply_tickets" fallback={ticket.status !== 'closed' ? <View style={{ height: insets.bottom }} /> : null}>
+        {ticket.status !== 'closed' ? (
           <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>
           {ticket.can_send_report ? (
             <Surface id="teacher.tickets.detail.send_report">

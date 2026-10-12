@@ -11,7 +11,6 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { FormScreen, HeaderAction, HeaderCount } from '@/components/ui/Form';
 import { useCourses } from '@/hooks/useCourses';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import type { CourseSummary } from '@/api/courses';
@@ -69,7 +68,6 @@ export default function TeacherCourses() {
   const insets = useSafeAreaInsets();
   const { data: courses, isLoading, refetch } = useCourses();
   const { refreshing, onRefresh } = usePullRefresh(refetch);
-  const { can } = useActiveAbilities();
   const list = courses ?? [];
   const open = (id: string) => router.push(`/(teacher)/courses/${id}` as Href);
 
@@ -79,7 +77,7 @@ export default function TeacherCourses() {
       right={(
         <>
           {list.length > 0 ? <HeaderCount n={list.length} /> : null}
-          {can(ABILITY.MANAGE_COURSES) ? <Surface id="teacher.courses.new_button"><HeaderAction icon="add" label={t('teacher.new_course')} onPress={() => router.push('/(teacher)/courses/create' as Href)} /></Surface> : null}
+          <Surface id="teacher.courses.new_button" assistantNeeds="manage_courses"><HeaderAction icon="add" label={t('teacher.new_course')} onPress={() => router.push('/(teacher)/courses/create' as Href)} /></Surface>
         </>
       )}>
       {isLoading ? (

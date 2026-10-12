@@ -13,7 +13,6 @@ import { onWhite } from '@/theme/onWhite';
 import { scanCard, grantDoorExemption, admitOnce, transferHere, getMyTeachers, type ScanResult, type ScanOffer } from '@/api/teacher';
 import { scanRevision, addRevisionGuest } from '@/api/revisions';
 import { issueGuestPass } from '@/api/guestPasses';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import * as WebBrowser from 'expo-web-browser';
 import { previewPayment, previewAllPayments, collectPayment, waivePayment, type PayKind } from '@/api/payments';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
@@ -97,11 +96,9 @@ export default function TeacherScan() {
   const role = useAuthStore((s) => s.role);
   // Forgiving a debt (waive) is a teacher-only decision; assistants can collect only.
   const canWaive = role === 'teacher';
-  // Issuing a guest pass: teacher, or an assistant granted `issue_guest_passes`.
-  const { can, isAssistant } = useActiveAbilities();
-  const canIssuePass = can(ABILITY.ISSUE_GUEST_PASSES);
-  // Exemptions and one-off admits ride on scan_attendance, like the scan itself.
-  const canScan = can(ABILITY.SCAN);
+  // Issuing a guest pass: teacher, or an assistant granted `issue_guest_passes`; exemptions
+  // and one-off admits ride on scan_attendance, a transfer on manage_students — each is the
+  // button's Surface `assistantNeeds`, so the server's `ui.gates` can open it to an assistant.
 
   // ---- Revision mode (from the picker) — scan into a specific revision session.
   // Online-only: no offline buffering (guest creation / SMS / spread split can't
@@ -169,7 +166,6 @@ export default function TeacherScan() {
   // 2026-10-03) instead of a passing red flash: who they are, whether they are ours, what
   // they owe (collect from here), and their profile when they are enrolled with this teacher.
   const [noSession, setNoSession] = useState<{ name: string; message: string; code: string; enrolledHere: boolean | null; profileId: number | null; pending: ScanPending | null } | null>(null);
-  const canManageStudents = can(ABILITY.MANAGE_STUDENTS);
   // Merged pay-on-scan popup: after an attendance scan surfaces dues, open ONE popup
   // listing every kind (bill / booklets / booking) with the paid/remaining + pay-full UI.
   const [duesFor, setDuesFor] = useState<{ code: string; name: string; pending: ScanPending } | null>(null);
@@ -740,8 +736,8 @@ export default function TeacherScan() {
       {/* Bottom action: enter the special/exam session picker (when the revision
           switch is on) OR issue a guest pass (already inside a special session, and
           only when the operator may issue one). */}
-      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && !otherGroup && !noSession && (revisionMode ? canIssuePass : reviseOn !== false && !isAssistant) ? (
-        <Surface id="teacher.scan.bottom_action">
+      {!feedback && !guestPrompt && !phoneOpen && !payMode && !overdueBlock && !otherGroup && !noSession && (revisionMode || reviseOn !== false) ? (
+        <Surface id="teacher.scan.bottom_action" assistantNeeds={revisionMode ? 'issue_guest_passes' : 'teacher'}>
         <TouchableOpacity
           onPress={() => (revisionMode ? (setGErr(''), setPhoneOpen(true)) : router.push('/(teacher)/revisions' as Href))}
           activeOpacity={0.85}
@@ -770,13 +766,11 @@ export default function TeacherScan() {
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher.guest_add')}</Text>
           </TouchableOpacity>
           </Surface>
-          {canIssuePass ? (
-            <Surface id="teacher.scan.guest_prompt.issue_pass">
+            <Surface id="teacher.scan.guest_prompt.issue_pass" assistantNeeds="issue_guest_passes">
             <TouchableOpacity onPress={() => { setGuestPrompt(null); setGErr(''); setPhoneOpen(true); }} activeOpacity={0.85} style={{ marginTop: spacing.md }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('teacher.guest_pass_issue')}</Text>
             </TouchableOpacity>
             </Surface>
-          ) : null}
           <Surface id="teacher.scan.guest_prompt.ignore">
           <TouchableOpacity onPress={() => { setGuestPrompt(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('teacher.guest_ignore')}</Text>
@@ -866,13 +860,11 @@ export default function TeacherScan() {
             </Surface>
           ) : null}
           {/* Secondary: waive with a 15-day exemption + check in. */}
-          {canScan ? (
-            <Surface id="teacher.scan.overdue_block.grant_exemption">
+            <Surface id="teacher.scan.overdue_block.grant_exemption" assistantNeeds="scan_attendance">
             <TouchableOpacity onPress={confirmExemption} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textDecorationLine: 'underline' }}>{t('desk_ui.grant_exemption_checkin')}</Text>
             </TouchableOpacity>
             </Surface>
-          ) : null}
           <Surface id="teacher.scan.overdue_block.cancel">
           <TouchableOpacity onPress={() => { setOverdueBlock(null); setBusy(false); }} activeOpacity={0.85} style={{ marginTop: spacing.lg }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.75)' }}>{t('common.cancel')}</Text>
@@ -916,8 +908,7 @@ export default function TeacherScan() {
           ) : (
             <>
               {/* Primary: admit for THIS session only (billing stays with their group). */}
-              {canScan ? (
-                <Surface id="teacher.scan.other_group.admit_once">
+                <Surface id="teacher.scan.other_group.admit_once" assistantNeeds="scan_attendance">
                 <TouchableOpacity
                   onPress={() => runOtherGroup('once')}
                   activeOpacity={0.85}
@@ -926,11 +917,9 @@ export default function TeacherScan() {
                   <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher.other_group_once')}</Text>
                 </TouchableOpacity>
                 </Surface>
-              ) : null}
 
               {/* Secondary: permanently move them into this group (roster change). */}
-              {canManageStudents ? (
-                <Surface id="teacher.scan.other_group.transfer">
+                <Surface id="teacher.scan.other_group.transfer" assistantNeeds="manage_students">
                 <TouchableOpacity
                   onPress={() => Alert.alert(t('teacher.other_group_transfer'), t('teacher.other_group_transfer_confirm'), [
                     { text: t('common.cancel'), style: 'cancel' },
@@ -942,7 +931,6 @@ export default function TeacherScan() {
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textDecorationLine: 'underline' }}>{t('teacher.other_group_transfer')}</Text>
                 </TouchableOpacity>
                 </Surface>
-              ) : null}
 
               {otherGroup.profileId ? (
                 <Surface id="teacher.scan.other_group.open_profile">

@@ -127,11 +127,9 @@ export default function TeacherSettings() {
           <Surface id="teacher.settings.section_account">
           <SectionLabel text={t('common.section_account')} />
           {/* The teacher's own brand logo (shown to parents) — its own card, teacher-only. */}
-          {!isAssistant ? <Surface id="teacher.settings.row_logo"><TeacherLogoRow /></Surface> : null}
+          <Surface id="teacher.settings.row_logo" assistantNeeds="teacher"><TeacherLogoRow /></Surface>
           <Group>
-            {!isAssistant ? (
-              <Surface id="teacher.settings.row_assistants"><Row icon="children" tint={colors.brand} tintBg={colors.brandTint} label={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /></Surface>
-            ) : null}
+            <Surface id="teacher.settings.row_assistants" assistantNeeds="teacher"><Row icon="children" tint={colors.brand} tintBg={colors.brandTint} label={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /></Surface>
             <Surface id="teacher.settings.row_change_password"><Row icon="lock" tint={colors.success} tintBg={colors.successLight} label={t('auth.change_password')} sub={t('setup.password_hint')} onPress={() => router.push('/change-password')} /></Surface>
           </Group>
           </Surface>
@@ -144,8 +142,8 @@ export default function TeacherSettings() {
             <Surface id="teacher.settings.row_notifications"><Row icon="bell" tint={colors.accent} tintBg={colors.accentLight} label={t('teacher.notifications')} sub={t('teacher.notifications_hint')} onPress={() => Linking.openSettings()} /></Surface>
             {/* Revision / special-session switch — teacher only: the revision engine it opens is
                 teacher-only on the server. Shown only when the super-admin enabled the flag. */}
-            {!isAssistant && flags?.revise_mode ? (
-              <Surface id="teacher.settings.row_revise_switch">
+            {flags?.revise_mode ? (
+              <Surface id="teacher.settings.row_revise_switch" assistantNeeds="teacher">
               <Row
                 icon="reports"
                 tint={colors.brand}
@@ -166,17 +164,13 @@ export default function TeacherSettings() {
             ) : null}
             <Surface id="teacher.settings.row_whats_new"><Row icon="star" tint={colors.warningDark} tintBg={colors.warningLight} label={t('whats_new.title')} sub={t('whats_new.all')} onPress={() => router.push('/whats-new' as Href)} /></Surface>
             {/* «شروحات» — the teacher's how-to videos (assistants: none yet). */}
-            {!isAssistant ? (
-              <Surface id="teacher.settings.row_tutorials">
-              <TourTarget id="settings:tutorials">
-                <Row icon="play" tint={colors.accent} tintBg={colors.accentLight} label={t('tutorials.title')} sub={t('tutorials.row_sub')} onPress={() => router.push('/(teacher)/tutorials' as Href)} />
-              </TourTarget>
-              </Surface>
-            ) : null}
+            <Surface id="teacher.settings.row_tutorials" assistantNeeds="teacher">
+            <TourTarget id="settings:tutorials">
+              <Row icon="play" tint={colors.accent} tintBg={colors.accentLight} label={t('tutorials.title')} sub={t('tutorials.row_sub')} onPress={() => router.push('/(teacher)/tutorials' as Href)} />
+            </TourTarget>
+            </Surface>
             {/* The setup guide is the teacher's: every step in it is theirs to take. */}
-            {!isAssistant ? (
-              <Surface id="teacher.settings.row_getting_started"><Row icon="help" tint={colors.info} tintBg={colors.infoLight} label={t('onboarding.getting_started_row')} sub={t('onboarding.getting_started_row_sub')} onPress={() => router.push('/(teacher)/getting-started' as Href)} /></Surface>
-            ) : null}
+            <Surface id="teacher.settings.row_getting_started" assistantNeeds="teacher"><Row icon="help" tint={colors.info} tintBg={colors.infoLight} label={t('onboarding.getting_started_row')} sub={t('onboarding.getting_started_row_sub')} onPress={() => router.push('/(teacher)/getting-started' as Href)} /></Surface>
           </Group>
           </Surface>
 

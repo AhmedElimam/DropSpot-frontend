@@ -67,11 +67,21 @@ export interface UiManifest {
   /** Slot id → the blocks drawn there (docs/MOBILE_SLOTS.md). */
   slots?: Record<string, UiBlock[]>;
   theme?: UiTheme;
+  /**
+   * Surface id → who among a teacher's staff sees it: 'teacher', 'any', or an ability key.
+   * Overrides the surface's bundled `assistantNeeds` (src/ui/surfaces.tsx).
+   */
+  gates?: Record<string, string>;
 }
+
+/** One assistant ability as the server names it (`abilities` in /app-config). */
+export interface AbilityDef { key: string; label: string; takeaway?: boolean; default?: boolean }
 
 export interface AppConfigPayload {
   schema_version: number;
   ui?: UiManifest;
+  /** The assistant-ability catalog, so a key this build never saw still has a name. */
+  abilities?: AbilityDef[];
   /** 'off' stops the app sending JS errors to /app-errors (src/lib/errorReport.ts); anything else = on. */
   error_reporting?: 'on' | 'off';
   min_supported_app_version: string;
@@ -136,6 +146,7 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
     conditions: {},
     slots: {},
     theme: {},
+    gates: {},
     notices: {},
     // Mirrors src/utils/validators.ts' own constants, which stay the fallback.
     validation: { arabic_name: { pattern: '^[ء-يـ\\s]+$' }, egypt_phone: { pattern: '^01[0-9]{9}$' }, triple_name: { min_words: 3 } },

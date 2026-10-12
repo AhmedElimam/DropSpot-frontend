@@ -22,7 +22,6 @@ import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
 import { isNetworkFailure } from '@/db/marksSync';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import type { SessionAttendee, SwapInAttendee } from '@/api/teacherSessions';
 import { dayLabel, formatNumber } from '@/utils/format';
 import { goToScan } from '@/utils/sessionNav';
@@ -69,12 +68,6 @@ export default function SessionDetailScreen() {
   const { data: s, isLoading, refetch, error } = useSessionDetail(id);
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const controls = useSessionControls(id!);
-  const { can } = useActiveAbilities();
-  const canMark = can(ABILITY.MARK_MANUAL);
-  const canScan = can(ABILITY.SCAN);
-  // An assistant without «إلغاء الحصص» never sees the button (founder 2026-10-06).
-  const canCancel = can(ABILITY.CANCEL_SESSIONS);
-
   const [selected, setSelected] = useState<SessionAttendee | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [gradeDraft, setGradeDraft] = useState('');
@@ -217,22 +210,20 @@ export default function SessionDetailScreen() {
           </View>
           {fromLabel ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand, marginTop: 2 }} numberOfLines={1}>{t('teacher.swapped_from', { from: fromLabel })}</Text> : null}
         </View>
-        {canMark ? (
-          <Surface id="teacher.session_detail.row_quick_marks">
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            {(['present', 'absent'] as const).map((st) => {
-              const on = item.status === st || (st === 'present' && item.status === 'late');
-              const c = st === 'present' ? colors.success : colors.danger;
-              return (
-                <TouchableOpacity key={st} onPress={() => mark(item.student_id, st)} hitSlop={4} accessibilityLabel={t(STATUS_KEY[st])}
-                  style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: on ? c : c + '14', borderWidth: on ? 0 : 1, borderColor: c + '55' }}>
-                  <Icon name={st === 'present' ? 'present' : 'absent'} size={22} color={on ? '#fff' : c} />
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          </Surface>
-        ) : null}
+        <Surface id="teacher.session_detail.row_quick_marks" assistantNeeds="mark_attendance_manual">
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {(['present', 'absent'] as const).map((st) => {
+            const on = item.status === st || (st === 'present' && item.status === 'late');
+            const c = st === 'present' ? colors.success : colors.danger;
+            return (
+              <TouchableOpacity key={st} onPress={() => mark(item.student_id, st)} hitSlop={4} accessibilityLabel={t(STATUS_KEY[st])}
+                style={{ width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', backgroundColor: on ? c : c + '14', borderWidth: on ? 0 : 1, borderColor: c + '55' }}>
+                <Icon name={st === 'present' ? 'present' : 'absent'} size={22} color={on ? '#fff' : c} />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        </Surface>
       </TouchableOpacity>
     );
   };
@@ -386,8 +377,8 @@ export default function SessionDetailScreen() {
                 </Surface>
               ) : null}
 
-              {mode === 'attendance' && canMark && started && !s.is_cancelled && awaitingRows.length > 0 ? (
-                <Surface id="teacher.session_detail.rest_absent_button" ctx={{ session: s }}>
+              {mode === 'attendance' && started && !s.is_cancelled && awaitingRows.length > 0 ? (
+                <Surface id="teacher.session_detail.rest_absent_button" ctx={{ session: s }} assistantNeeds="mark_attendance_manual">
                 <TouchableOpacity onPress={markRestAbsent} disabled={bulkBusy} activeOpacity={0.85}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md }}>
                   {bulkBusy ? <ActivityIndicator color={colors.danger} /> : <Icon name="absent" size={20} color={colors.danger} />}
@@ -413,8 +404,8 @@ export default function SessionDetailScreen() {
       )}
 
       {/* Scan straight into this session. */}
-      {s && canScan && live && mode === 'attendance' ? (
-        <Surface id="teacher.session_detail.scan_fab" ctx={{ session: s }}>
+      {s && live && mode === 'attendance' ? (
+        <Surface id="teacher.session_detail.scan_fab" ctx={{ session: s }} assistantNeeds="scan_attendance">
         <TouchableOpacity onPress={() => goToScan({ id: s.id, course_name: s.course_name } as TeacherSession)} activeOpacity={0.9} accessibilityRole="button"
           style={{ position: 'absolute', bottom: nav.pageEnd + insets.bottom + spacing.sm, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8, height: 54, paddingHorizontal: spacing.xl, borderRadius: 27, backgroundColor: colors.success, ...shadows.md }}>
           <Icon name="scan" size={22} color="#fff" />
@@ -470,8 +461,8 @@ export default function SessionDetailScreen() {
               </View>
               </Surface>
 
-              {canCancel ? (
-              <Surface id="teacher.session_detail.cancel_button" ctx={{ session: s }}>
+              {/* An assistant without «إلغاء الحصص» never sees the button (founder 2026-10-06). */}
+              <Surface id="teacher.session_detail.cancel_button" ctx={{ session: s }} assistantNeeds="cancel_sessions">
               <Button
                 title={s.is_cancelled ? t('teacher.restore_session') : t('teacher.cancel_session')}
                 onPress={doCancelRestore}
@@ -482,7 +473,6 @@ export default function SessionDetailScreen() {
                 disabled={!s.is_cancelled && s.attendees.some((a) => a.status === 'present' || a.status === 'late')}
               />
               </Surface>
-              ) : null}
             </View>
           ) : null}
       </SheetModal>
@@ -504,25 +494,23 @@ export default function SessionDetailScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {canMark ? (
-                  <Surface id="teacher.session_detail.student_sheet.mark_attendance">
-                  <>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.mark_attendance')}</Text>
-                    <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
-                      {MARK_OPTIONS().map((o) => {
-                        const active = current.status === o.status;
-                        return (
-                          <TouchableOpacity key={o.status} onPress={() => mark(current.student_id, o.status)} disabled={controls.mark.isPending}
-                            style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: active ? o.color : o.color + '12', borderWidth: active ? 0 : 1, borderColor: o.color + '55' }}>
-                            <Icon name={o.icon} size={22} color={active ? '#fff' : o.color} />
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? '#fff' : o.color }}>{t(STATUS_KEY[o.status])}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </>
-                  </Surface>
-                ) : null}
+                <Surface id="teacher.session_detail.student_sheet.mark_attendance" assistantNeeds="mark_attendance_manual">
+                <>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.mark_attendance')}</Text>
+                  <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
+                    {MARK_OPTIONS().map((o) => {
+                      const active = current.status === o.status;
+                      return (
+                        <TouchableOpacity key={o.status} onPress={() => mark(current.student_id, o.status)} disabled={controls.mark.isPending}
+                          style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: active ? o.color : o.color + '12', borderWidth: active ? 0 : 1, borderColor: o.color + '55' }}>
+                          <Icon name={o.icon} size={22} color={active ? '#fff' : o.color} />
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? '#fff' : o.color }}>{t(STATUS_KEY[o.status])}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+                </Surface>
 
                 <Surface id="teacher.session_detail.student_sheet.grade">
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>
