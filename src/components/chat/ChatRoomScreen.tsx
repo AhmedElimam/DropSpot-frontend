@@ -41,7 +41,9 @@ import { TypingBubble } from '@/components/chat/TypingBubble';
 import type { VoiceClip } from '@/components/chat/VoiceRecorder';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { useKeyboardDropOnLeave } from '@/hooks/useKeyboardDropOnLeave';
-import { isParentsRoom, roomIdOf } from '@/chat/room';
+import { isParentsRoom, roomIdOf, type RoomId } from '@/chat/room';
+import { RoomAvatar } from '@/components/chat/RoomAvatar';
+import { RoomSwitcher } from '@/components/chat/RoomSwitcher';
 import { formatDateTime, formatDayDate, relativeDay } from '@/utils/format';
 
 /**
@@ -66,10 +68,12 @@ import { formatDateTime, formatDayDate, relativeDay } from '@/utils/format';
  * Transport: a private socket channel when the server has a broadcaster, with a slow poll as
  * the safety net; a fast poll while focused otherwise. FCM wakes the app either way.
  */
-export function ChatRoomScreen({ courseId, infoHref }: {
+export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
   courseId: number;
   /** The room's info page for this role (members, moderators, the shelf, the calendar). */
   infoHref?: string;
+  /** Another room's address for this role — the header's switcher swaps rooms in place. */
+  roomHref?: (room: RoomId) => string;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -187,6 +191,10 @@ export function ChatRoomScreen({ courseId, infoHref }: {
   const scrollRetries = useRef(0);
 
   const notify = channels.data?.find((c) => roomIdOf(c) === courseId)?.notify ?? true;
+  // The switcher: every other room one tap away, with what is waiting in them.
+  const [switching, setSwitching] = useState(false);
+  const elsewhereUnread = (channels.data ?? []).reduce((n, c) => n + (roomIdOf(c) === courseId ? 0 : c.unread || 0), 0);
+  const roomsCount = channels.data?.length ?? 0;
 
   // Live frames merge into the same cache the poll fills; hidden ids drop out of it.
   const { connected, status: socketStatus } = useChatSocket(courseId, room.data?.realtime, {
@@ -706,11 +714,7 @@ export function ChatRoomScreen({ courseId, infoHref }: {
           accessibilityHint={t('chat.tap_for_info')}
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
         >
-        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.onHeroChip, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.onHero }}>
-            {(data.course.name || '؟').trim().charAt(0)}
-          </Text>
-        </View>
+        <RoomAvatar room={courseId} size={40} label={data.course.name} />
           <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.onHero }} numberOfLines={1}>
             {parentsRoom ? t('chat.parents_room_name', { course: data.course.name }) : data.course.name}
@@ -736,6 +740,21 @@ export function ChatRoomScreen({ courseId, infoHref }: {
             {openReports > 0 ? (
               <View style={{ position: 'absolute', top: 6, end: 4, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onPrimary }}>{openReports > 9 ? '9+' : openReports}</Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
+        ) : null}
+        {roomHref && roomsCount > 1 ? (
+          <TouchableOpacity
+            onPress={() => { Keyboard.dismiss(); setSwitching(true); }}
+            style={{ width: 40, height: 44, justifyContent: 'center', alignItems: 'center' }}
+            accessibilityRole="button"
+            accessibilityLabel={t('chat.switch_open')}
+          >
+            <Icon name="grid" size={20} color={colors.onHero} outline />
+            {elsewhereUnread > 0 ? (
+              <View style={{ position: 'absolute', top: 6, end: 2, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onPrimary }}>{elsewhereUnread > 99 ? '99+' : elsewhereUnread}</Text>
               </View>
             ) : null}
           </TouchableOpacity>
@@ -930,6 +949,14 @@ export function ChatRoomScreen({ courseId, infoHref }: {
         onReact={(e) => { if (held) react(held.message, e); setHeld(null); }}
         onClose={() => setHeld(null)}
       />
+      {roomHref ? (
+        <RoomSwitcher
+          visible={switching}
+          current={courseId}
+          onClose={() => setSwitching(false)}
+          onPick={(room) => { setSwitching(false); router.replace(roomHref(room) as Href); }}
+        />
+      ) : null}
 
       <ChatCalendarSheet
         visible={calendarOpen}

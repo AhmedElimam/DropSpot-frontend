@@ -472,6 +472,10 @@
     ]
   },
   "chat": {
+    "switch_title": "انتقل إلى محادثة",
+    "switch_sub": "كل مجموعاتك — الأحدث أولًا.",
+    "switch_here": "أنت هنا",
+    "switch_open": "محادثاتك الأخرى",
     "inbox_search": "ابحث عن مقرر أو اسم",
     "filter_all": "الكل",
     "filter_unread": "غير المقروءة",

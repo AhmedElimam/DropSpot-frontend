@@ -32,3 +32,13 @@ describe('room ids', () => {
     expect(roomSocketChannel(12, 'chat.course.')).toBe('chat.course.12');
   });
 });
+
+describe('room faces', () => {
+  it('each room has its own generated character, stable across screens', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { avatarSeed, avatarFeatures } = require('@/components/ui/GeneratedAvatar') as typeof import('@/components/ui/GeneratedAvatar');
+    expect(avatarSeed.room(12)).toBe('course-12');
+    expect(avatarSeed.room(-12)).toBe('course-12-parents');
+    expect(avatarFeatures(avatarSeed.room(12))).toEqual(avatarFeatures('course-12'));
+  });
+});

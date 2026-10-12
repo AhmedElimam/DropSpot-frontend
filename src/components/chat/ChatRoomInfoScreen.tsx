@@ -16,6 +16,9 @@ import {
 } from '@/hooks/useChat';
 import { attachmentHeaders, type ChatMediaType, type ChatMember, type ChatMessage } from '@/api/chat';
 import { useChatJump } from '@/chat/jumpStore';
+import { Avatar } from '@/components/layout/Avatar';
+import { avatarSeed } from '@/components/ui/GeneratedAvatar';
+import { RoomAvatar } from '@/components/chat/RoomAvatar';
 import { isParentsRoom } from '@/chat/room';
 import { chunk, fromYmd, groupByMonth, lastDays, ymd } from '@/chat/roomView';
 import { ChatCalendarSheet } from '@/components/chat/ChatCalendarSheet';
@@ -209,8 +212,8 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
             <Icon name="forward" size={26} color={colors.onHero} />
           </TouchableOpacity>
         </View>
-        <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: senderColor(courseId), alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.onHeroChipBorder, ...shadows.md }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 36, color: colors.onPrimary }}>{(data.course.name || '؟').trim().charAt(0)}</Text>
+        <View style={{ borderRadius: 50, ...shadows.md }}>
+          <RoomAvatar room={courseId} size={96} ring={colors.onHeroChipBorder} badge={parentsRoom ? 'parents' : null} label={data.course.name} />
         </View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.onHero, marginTop: spacing.md, textAlign: 'center' }} numberOfLines={2}>
           {parentsRoom ? t('chat.parents_room_name', { course: data.course.name }) : data.course.name}
@@ -436,8 +439,9 @@ function MemberRow({ m, viewerIsModerator, readOnly = false, onPress }: { m: Cha
   return (
     <TouchableOpacity onPress={onPress} disabled={!tappable} activeOpacity={0.7}
       style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
-      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: m.role === 'teacher' ? chat.staffInk : senderColor(m.id), alignItems: 'center', justifyContent: 'center', opacity: m.hidden_by_you ? 0.5 : 1 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }}>{(m.name || '؟').trim().charAt(0)}</Text>
+      <View style={{ width: 46, height: 46, opacity: m.hidden_by_you ? 0.45 : 1 }}>
+        {/* Their face — the same generated character as on every other screen (or the teacher's logo). */}
+        <Avatar name={m.name} size={46} seed={m.avatar_seed ?? avatarSeed.user(m.id)} imageUrl={m.avatar_url} />
         {m.is_moderator ? (
           // The moderator's flag: a small shield on the avatar, readable without words.
           <View style={{ position: 'absolute', bottom: -2, end: -2, width: 19, height: 19, borderRadius: 10, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.background }}>

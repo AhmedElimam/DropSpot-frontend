@@ -11,5 +11,5 @@ export default function ParentChatRoomRoute() {
 
   const id = parseInt(String(courseId ?? '0'), 10) || 0;
 
-  return <ChatRoomScreen courseId={id} infoHref={`/(parent)/chat/info/${id}`} />;
+  return <ChatRoomScreen courseId={id} infoHref={`/(parent)/chat/info/${id}`} roomHref={(room) => `/(parent)/chat/${room}`} />;
 }

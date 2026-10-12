@@ -213,6 +213,10 @@ export interface ChatMember {
   role: 'teacher' | 'assistant' | 'student' | 'parent';
   /** A parent in a parents' room: «وليّ أمر أحمد». */
   label?: string | null;
+  /** Their generated face's seed (`student-…` / `user-…`), as on every other screen. */
+  avatar_seed?: string;
+  /** The teacher's own uploaded logo, when there is one. */
+  avatar_url?: string | null;
   is_moderator: boolean;
   is_you: boolean;
   hidden_by_you: boolean;

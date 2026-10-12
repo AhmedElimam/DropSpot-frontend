@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav } from '@/theme/index';
-import { senderColor } from '@/theme/chat';
 import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { PageHero } from '@/components/ui/PageHero';
@@ -13,6 +12,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { formatNumber, formatShortDate, formatTime, relativeDay } from '@/utils/format';
 import type { ChatChannelSummary } from '@/api/chat';
 import { roomIdOf, type RoomId } from '@/chat/room';
+import { RoomAvatar, roomBadge } from '@/components/chat/RoomAvatar';
 import { filterInbox, groupInbox, hasBothAudiences, inboxCounts, sortRooms, type InboxFilter, type InboxGroup } from '@/chat/inbox';
 
 export type InboxRole = 'teacher' | 'student' | 'parent';
@@ -167,8 +167,8 @@ function CourseCard({ group: g, onOpen }: { group: InboxGroup; onOpen: (room: Ro
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: g.unread > 0 ? colors.brand + '40' : colors.border, overflow: 'hidden', ...shadows.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm }}>
-        <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: senderColor(g.courseId), alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.onPrimary }}>{g.name.trim().charAt(0)}</Text>
+        <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="book" size={17} color={colors.brand} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 16.5, color: colors.textPrimary, textAlign: 'right' }} numberOfLines={1}>{g.name}</Text>
@@ -200,22 +200,17 @@ function RoomLine({ room: c, onOpen }: { room: ChatChannelSummary; onOpen: (room
   const { t } = useTranslation();
   const parents = c.audience === 'parents';
   const unread = c.unread > 0;
-  const icon: IconName = parents ? 'children' : c.read_only ? 'eye' : 'people';
   const label = parents
     ? t('chat.room_parents')
     : c.read_only
       ? t('chat.room_following', { names: (c.children ?? []).join('، ') })
       : t('chat.room_students');
-  const tint = parents ? colors.accentWarmTint : colors.brandTint;
-  const ink = parents ? colors.accentWarm : colors.brand;
 
   return (
     <TouchableOpacity onPress={() => onOpen(roomIdOf(c))} activeOpacity={0.6}
       accessibilityRole="button" accessibilityLabel={`${label} — ${c.course_name ?? ''}`}
       style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, borderRadius: radius.lg, backgroundColor: unread ? colors.surfaceSunken : 'transparent' }}>
-      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name={icon} size={19} color={ink} outline={c.read_only} />
-      </View>
+      <RoomAvatar room={roomIdOf(c)} size={44} badge={roomBadge(c)} label={label} />
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>{label}</Text>
@@ -246,9 +241,7 @@ function RoomRow({ room: c, last, onOpen }: { room: ChatChannelSummary; last: bo
   return (
     <TouchableOpacity onPress={() => onOpen(roomIdOf(c))} activeOpacity={0.6}
       style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, backgroundColor: unread ? colors.surfaceSunken : colors.surface }}>
-      <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: senderColor(c.course_id), alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.onPrimary }}>{name.trim().charAt(0)}</Text>
-      </View>
+      <RoomAvatar room={roomIdOf(c)} size={52} label={name} />
       <View style={{ flex: 1, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.borderLight, paddingBottom: spacing.md, marginBottom: -spacing.md, paddingTop: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16.5, color: colors.textPrimary, textAlign: 'right' }} numberOfLines={1}>{name}</Text>
