@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { spacing, radius, shadows } from '@/theme/index';
@@ -18,8 +19,9 @@ import type { ChatMessage } from '@/api/chat';
  * children:
  *  - a STAFF message sits on the apricot tint and is badged «المعلّم» / «مساعد», so an
  *    adult's voice is identifiable without reading;
- *  - the tick is SINGLE and means "sent". There is no second tick because this product has
- *    no read receipts — showing two would be a claim the server cannot make.
+ *  - one tick means "sent"; two mean someone else in the room has read it, and two in the
+ *    bright seen colour mean everyone has (`message.seen`, from the members' read cursors).
+ *    An older server sends no `seen`, and the tick stays single — never a claim it cannot make.
  *
  * Time sits in a wrapping row with the text: short messages keep it on the same line, long
  * ones let it fall to its own. No absolute positioning, so it cannot overlap a wrap.
@@ -55,7 +57,7 @@ export const ChatBubble = memo(function ChatBubble({
   const metaInk = hidden ? chat.hiddenInk : mine ? chat.metaOnMine : chat.meta;
 
   return (
-    <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%', marginTop: showName ? spacing.md : 3 }}>
+    <Animated.View entering={sending ? FadeInDown.duration(180).springify().damping(18) : undefined} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%', marginTop: showName ? spacing.md : 3 }}>
       <TouchableOpacity
         onLongPress={() => onLongPress(message)}
         onPress={failed && onRetry ? () => onRetry(message) : undefined}
@@ -124,7 +126,7 @@ export const ChatBubble = memo(function ChatBubble({
             {mine && !hidden ? (
               sending ? <Icon name="clock" size={12} color={chat.tick} outline />
               : failed ? <Icon name="error" size={13} color={chat.failedInk} />
-              : <Icon name="check" size={13} color={chat.tick} />
+              : <Ticks seen={message.seen} />
             ) : null}
           </View>
         </View>
@@ -136,6 +138,23 @@ export const ChatBubble = memo(function ChatBubble({
           </View>
         ) : null}
       </TouchableOpacity>
-    </View>
+    </Animated.View>
   );
 });
+
+/** Sent (one), read by someone (two), read by everyone (two, lit). Exported for tests. */
+export function tickState(seen: ChatMessage['seen']): 'sent' | 'seen_some' | 'seen_all' {
+  if (!seen || seen.count <= 0) return 'sent';
+  return seen.all ? 'seen_all' : 'seen_some';
+}
+
+function Ticks({ seen }: { seen: ChatMessage['seen'] }) {
+  const state = tickState(seen);
+  const color = state === 'seen_all' ? chat.tickSeen : chat.tick;
+  return (
+    <View style={{ flexDirection: 'row', width: state === 'sent' ? 13 : 19, height: 13 }}>
+      <Icon name="check" size={13} color={color} />
+      {state !== 'sent' ? <Icon name="check" size={13} color={color} style={{ marginStart: -7 }} /> : null}
+    </View>
+  );
+}

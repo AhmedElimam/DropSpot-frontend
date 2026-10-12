@@ -46,8 +46,9 @@ export const chat = {
   bar: colors.surface,
   barBorder: colors.border,
 
-  /** Sent tick. There is no second tick: this product has no read receipts, on purpose. */
+  /** Sent tick; the second, lit, when every member has read it (members' read cursors). */
   tick: 'rgba(255,255,255,0.62)',
+  tickSeen: '#8FE3F0',
 
   /** A message that never reached the server, on the ink-indigo bubble: warm enough to be
    *  seen, not a red alarm — the words are still right there, one tap from being sent. */

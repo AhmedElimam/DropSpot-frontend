@@ -1,4 +1,5 @@
 import client from './client';
+import { STAGING_HEADER, STAGING_KEY } from '@/config/env';
 
 /**
  * Course group chat — the STUDENT side of the room (Course Group Chat spec).
@@ -56,6 +57,11 @@ export interface ChatMessage {
   sender: ChatSender;
   created_at: string;
   /**
+   * Who has read it: how many OTHER members' read cursor has passed this message, and whether
+   * that is every one of them. Absent on older servers (then the tick stays single).
+   */
+  seen?: { count: number; all: boolean } | null;
+  /**
    * CLIENT-ONLY. Set on a message the app has shown before the server confirmed it — the
    * bubble appears the instant you tap send, with a clock instead of the tick, and is
    * swapped for the real one when the reply lands. `failed` keeps the bubble on screen with
@@ -108,6 +114,8 @@ export interface ChatRoom {
   realtime: ChatRealtime | null;
   limits: ChatLimits;
   messages: ChatMessage[];
+  /** Members typing in the last few seconds, for a room without a socket (polled). */
+  typing?: { user_id: number; name: string }[];
 }
 
 export interface ChatChannelsResponse {
@@ -142,11 +150,36 @@ export async function uploadChatAttachment(
   return data.message as ChatMessage;
 }
 
-/** Headers an <Image> or a download needs to fetch a private attachment URL. */
+/**
+ * Headers an <Image>, the audio player or a download needs to fetch a private attachment URL —
+ * the bearer token, and on a staging build the staging door key too (without it the staging
+ * server answers 404 and a voice note "sends but never plays", 2026-10-12).
+ */
 export async function attachmentHeaders(): Promise<Record<string, string>> {
-  const SecureStore = await import('expo-secure-store');
+  // Loaded on use (a lazy require, like the rest of the client): the keystore must not load
+  // with the API module in tests or headless tasks.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const SecureStore = require('expo-secure-store') as typeof import('expo-secure-store');
   const token = await SecureStore.getItemAsync('access_token');
-  return token ? { Authorization: `Bearer ${token}`, Accept: '*/*' } : { Accept: '*/*' };
+  const h: Record<string, string> = { Accept: '*/*' };
+  if (token) h.Authorization = `Bearer ${token}`;
+  if (STAGING_KEY) h[STAGING_HEADER] = STAGING_KEY;
+  return h;
+}
+
+/**
+ * The name a file carries into the room when the source gave none worth keeping: a photo
+ * from the camera roll arrives as `photo.jpg` (iOS) or a cache hash (Android), a voice note
+ * as `voice.m4a`. WhatsApp-style stamped names tell them apart once they leave the chat
+ * (founder 2026-10-12: «the filing system … file naming»). Documents keep their own name.
+ */
+export function attachmentFileName(kind: ChatAttachmentKind, original: string | null | undefined, ext: string, at: Date = new Date()): string {
+  const keep = (original ?? '').trim();
+  if (kind === 'file' && keep && !/^[0-9a-f-]{20,}\.[a-z0-9]+$/i.test(keep)) return keep;
+  const p = (n: number) => String(n).padStart(2, '0');
+  const stamp = `${at.getFullYear()}${p(at.getMonth() + 1)}${p(at.getDate())}_${p(at.getHours())}${p(at.getMinutes())}${p(at.getSeconds())}`;
+  const prefix = kind === 'image' ? 'IMG' : kind === 'voice' ? 'VOICE' : 'FILE';
+  return `DrosSpot_${prefix}_${stamp}.${ext.replace(/^\./, '').toLowerCase() || 'bin'}`;
 }
 
 export async function getChatRoom(courseId: number, beforeId?: number): Promise<ChatRoom> {

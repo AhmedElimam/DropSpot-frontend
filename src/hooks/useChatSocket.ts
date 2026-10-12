@@ -15,6 +15,8 @@ export function useChatSocket(
     onHidden: (id: number) => void;
     /** Somebody in the room is typing right now — the sender's own frames included. */
     onTyping?: (t: { user_id: number; name: string }) => void;
+    /** A member's read cursor moved — the «seen» ticks can turn without a poll. */
+    onRead?: (r: { user_id: number; last_read_message_id: number }) => void;
   },
   enabled = true,
 ): { connected: boolean; status: ChatSocketStatus } {
@@ -26,6 +28,7 @@ export function useChatSocket(
     'message.posted': (d: { message?: ChatMessage }) => { if (d?.message) handlers.onMessage(d.message); },
     'message.hidden': (d: { id?: number }) => { if (d?.id) handlers.onHidden(d.id); },
     'typing': (d: { user_id?: number; name?: string }) => { if (d?.user_id && handlers.onTyping) handlers.onTyping({ user_id: d.user_id, name: d.name ?? '' }); },
+    'read': (d: { user_id?: number; last_read_message_id?: number }) => { if (d?.user_id && d.last_read_message_id && handlers.onRead) handlers.onRead({ user_id: d.user_id, last_read_message_id: d.last_read_message_id }); },
   }, enabled);
 }
 

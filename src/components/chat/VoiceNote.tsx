@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, PanResponder } from 'react-native';
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
+import { File, Paths } from 'expo-file-system';
 import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
 import { chat, waveform } from '@/theme/chat';
@@ -32,7 +33,30 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
   /** The message id — waveform seed AND the note's place in the room's play order. */
   seed: number;
 }) {
-  const player = useAudioPlayer({ uri: url, headers });
+  // The clip is fetched into the app cache with OUR headers (token, staging key), then played
+  // from disk: the native player's own request carried the headers inconsistently (iOS drops
+  // them on the range probe) and a voice note «sent but never played» (founder 2026-10-12).
+  // A clip just recorded is already a local file and plays at once.
+  const [localUri, setLocalUri] = useState<string | null>(url.startsWith('file:') ? url : null);
+  const [fetchFailed, setFetchFailed] = useState(false);
+  useEffect(() => {
+    if (url.startsWith('file:')) { setLocalUri(url); return; }
+    let alive = true;
+    (async () => {
+      try {
+        const dest = new File(Paths.cache, `voice-${Math.abs(seed)}.m4a`);
+        if (!dest.exists || (dest.size ?? 0) === 0) {
+          try { if (dest.exists) dest.delete(); } catch { /* best effort */ }
+          await File.downloadFileAsync(url, dest, { headers });
+        }
+        if (alive) setLocalUri(dest.uri);
+      } catch {
+        if (alive) setFetchFailed(true);
+      }
+    })();
+    return () => { alive = false; };
+  }, [url, seed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const player = useAudioPlayer(localUri ? { uri: localUri } : null);
   const status = useAudioPlayerStatus(player);
   const bars = useMemo(() => waveform(seed), [seed]);
   const [rate, setRate] = useState(getVoiceRate());
@@ -52,10 +76,15 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
   useEffect(() => onVoiceRate(setRate), []);
   useEffect(() => { try { player.setPlaybackRate(rate, 'high'); } catch { /* ignore */ } }, [rate, player]);
 
+  const [wantPlay, setWantPlay] = useState(false);
   const play = () => {
     claimVoicePlayback(seed);
+    if (!localUri) { setWantPlay(true); return; } // still fetching: start the moment it lands
     try { player.setPlaybackRate(getVoiceRate(), 'high'); player.play(); } catch { /* ignore */ }
   };
+  useEffect(() => {
+    if (wantPlay && localUri) { setWantPlay(false); try { player.setPlaybackRate(getVoiceRate(), 'high'); player.play(); } catch { /* ignore */ } }
+  }, [wantPlay, localUri, player]);
   const pause = () => { try { player.pause(); } catch { /* ignore */ } };
 
   // In the room's choir for as long as this bubble is on screen.
@@ -70,7 +99,10 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
     }
   }, [status.didJustFinish, player, seed]);
 
-  const toggle = () => { if (status.playing) pause(); else play(); };
+  const toggle = () => {
+    if (fetchFailed) { setFetchFailed(false); setLocalUri(null); setWantPlay(true); return; } // try the fetch again
+    if (status.playing) pause(); else play();
+  };
 
   const seekToFraction = (f: number) => {
     if (total <= 0) return;
@@ -92,7 +124,7 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
   const fg = mine ? '#fff' : colors.brand;
   const trackOff = mine ? 'rgba(255,255,255,0.34)' : colors.borderStrong;
   const shown = status.playing || status.currentTime > 0 || scrub !== null ? progress * total : total;
-  const loading = !status.isLoaded && status.playing;
+  const loading = (!localUri && !fetchFailed && wantPlay) || (!status.isLoaded && status.playing);
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minWidth: 232, paddingVertical: 2 }}>
@@ -108,7 +140,7 @@ export function VoiceNote({ url, headers, duration, mine, seed }: {
         }}
       >
         {loading ? <ActivityIndicator size="small" color={fg} /> : (
-          <Icon name={status.playing ? 'pause' : 'play'} size={17} color={fg} />
+          <Icon name={fetchFailed ? 'refresh' : status.playing ? 'pause' : 'play'} size={17} color={fg} />
         )}
       </TouchableOpacity>
 

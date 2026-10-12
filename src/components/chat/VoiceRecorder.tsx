@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { attachmentFileName } from '@/api/chat';
 
 export interface VoiceClip {
   uri: string;
@@ -130,7 +131,7 @@ export function VoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }: {
     if (dur < 1) { Alert.alert('', t('chat.recording_too_short')); return; }
     const ext = uri.split('.').pop()?.toLowerCase() || 'm4a';
     const mime = ext === 'm4a' || ext === 'mp4' ? 'audio/mp4' : ext === 'caf' ? 'audio/x-caf' : ext === '3gp' ? 'audio/3gpp' : ext === 'webm' ? 'audio/webm' : 'audio/mp4';
-    onClip({ uri, duration: Math.min(dur, maxSeconds), mime, name: `voice.${ext}` });
+    onClip({ uri, duration: Math.min(dur, maxSeconds), mime, name: attachmentFileName('voice', null, ext) });
   };
 
   // The live bar takes the field's place: the recorder is the row's last child (the LEFT

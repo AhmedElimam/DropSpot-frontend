@@ -1,4 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
@@ -110,6 +111,7 @@ export function ChatComposer({
       )}
 
       {canSend && !recording ? (
+        <Animated.View entering={ZoomIn.duration(140)} exiting={ZoomOut.duration(100)}>
         <TouchableOpacity
           onPress={onSend}
           disabled={sending}
@@ -120,6 +122,7 @@ export function ChatComposer({
         >
           {sending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={20} color="#fff" />}
         </TouchableOpacity>
+        </Animated.View>
       ) : (
         <VoiceRecorder
           maxSeconds={voiceMaxSeconds}

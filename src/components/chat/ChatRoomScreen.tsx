@@ -19,7 +19,7 @@ import {
   mergeChatMessage, dropChatMessage,
 } from '@/hooks/useChat';
 import { useChatSocket } from '@/hooks/useChatSocket';
-import { getChatRoom, postChatTyping, type ChatMessage } from '@/api/chat';
+import { attachmentFileName, getChatRoom, postChatTyping, type ChatMessage } from '@/api/chat';
 import { ChatReportsSheet } from '@/components/chat/ChatReportsSheet';
 import { MuteSheet } from '@/components/chat/MuteSheet';
 import { Icon } from '@/components/ui/Icon';
@@ -27,6 +27,8 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { ChatBubble } from '@/components/chat/ChatBubble';
 import { DateChip, isNewDay } from '@/components/chat/DateChip';
 import { ChatComposer } from '@/components/chat/ChatComposer';
+import { ChatWallpaper } from '@/components/chat/ChatWallpaper';
+import { TypingBubble } from '@/components/chat/TypingBubble';
 import type { VoiceClip } from '@/components/chat/VoiceRecorder';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
@@ -106,11 +108,27 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     }, 1000);
     return () => clearInterval(id);
   }, [typers]);
+  // Without a socket the room payload carries who was typing in the last seconds (polled).
+  const polledTyping = room.data?.typing;
+  useEffect(() => {
+    if (!polledTyping?.length) return;
+    setTypers((prev) => {
+      const next = { ...prev };
+      for (const tp of polledTyping) { if (!me || tp.user_id !== me.id) next[tp.user_id] = { name: tp.name || '…', until: Date.now() + 5000 }; }
+      return next;
+    });
+  }, [polledTyping, me]);
   const typingLabel = useMemo(() => {
     const names = Object.values(typers).map((x) => x.name);
     if (!names.length) return null;
     return names.length === 1 ? t('chat.typing_one', { name: names[0] }) : t('chat.typing_many');
   }, [typers, t]);
+  // A read frame moves someone's cursor: refetch once, soon, so the ticks turn.
+  const readRefetch = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onRead = useCallback(() => {
+    if (readRefetch.current) return;
+    readRefetch.current = setTimeout(() => { readRefetch.current = null; void room.refetch(); }, 800);
+  }, [room]);
   const [older, setOlder] = useState<ChatMessage[]>([]);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [noMoreOlder, setNoMoreOlder] = useState(false);
@@ -139,6 +157,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     onMessage: useCallback((m: ChatMessage) => { mergeChatMessage(qc, courseId, m); forgetTyper(m.sender.id); }, [qc, courseId, forgetTyper]),
     onHidden: useCallback((id: number) => { dropChatMessage(qc, courseId, id); setOlder((prev) => prev.filter((m) => m.id !== id)); }, [qc, courseId]),
     onTyping,
+    onRead,
   }, focused);
   useEffect(() => { setSocketLive(connected); }, [connected]);
   // One small frame every few seconds while typing — and only when a socket is there to
@@ -146,7 +165,8 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
   const onDraftChange = (v: string) => {
     setDraft(v);
     const now = Date.now();
-    if (v && connected && now - typingSentAt.current > 3000) {
+    // Sent whether or not a socket is up: the server remembers it for the others' next poll.
+    if (v && now - typingSentAt.current > 3000) {
       typingSentAt.current = now;
       postChatTyping(courseId).catch(() => undefined);
     }
@@ -298,7 +318,8 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
       if (res.canceled || !res.assets?.[0]) return;
       const a = res.assets[0];
       if (tooBig(a.fileSize, room.data?.limits?.image_max_kb)) return;
-      sendAttachment({ kind: 'image', uri: a.uri, name: a.fileName ?? 'photo.jpg', mime: a.mimeType ?? 'image/jpeg' });
+      const ext = (a.fileName ?? a.uri).split('.').pop() || 'jpg';
+      sendAttachment({ kind: 'image', uri: a.uri, name: attachmentFileName('image', null, ext), mime: a.mimeType ?? 'image/jpeg' });
     } catch (err) {
       Alert.alert('', getFriendlyErrorMessage(err));
     }
@@ -310,7 +331,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
       if (res.canceled || !res.assets?.[0]) return;
       const a = res.assets[0];
       if (tooBig(a.size, room.data?.limits?.file_max_kb)) return;
-      sendAttachment({ kind: 'file', uri: a.uri, name: a.name, mime: a.mimeType ?? 'application/octet-stream' });
+      sendAttachment({ kind: 'file', uri: a.uri, name: attachmentFileName('file', a.name, a.name.split('.').pop() || 'bin'), mime: a.mimeType ?? 'application/octet-stream' });
     } catch (err) {
       Alert.alert('', getFriendlyErrorMessage(err));
     }
@@ -505,6 +526,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
         <View style={{ flex: 1 }}>
 
+          <ChatWallpaper />
           <ScrollView
             ref={scrollRef}
             style={{ flex: 1 }}
@@ -512,8 +534,12 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
             showsVerticalScrollIndicator={false}
             onScroll={onScroll}
             onContentSizeChange={onContentSize}
-            scrollEventThrottle={100}
+            // 16 ms: the jump button and the at-bottom flag follow the finger, not a tenth of a
+            // second behind it; and the keyboard drags away with the list, like any messenger.
+            scrollEventThrottle={16}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            removeClippedSubviews
           >
             {messages.length >= (data.page_size || 50) && !noMoreOlder ? (
               <TouchableOpacity onPress={loadOlder} disabled={loadingOlder} style={{ alignSelf: 'center', paddingVertical: 7, paddingHorizontal: spacing.lg, borderRadius: radius.full, backgroundColor: chat.chipBg, borderWidth: 1, borderColor: chat.chipBorder, marginBottom: spacing.sm }}>
@@ -559,6 +585,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
                 );
               })
             )}
+            {typingLabel ? <TypingBubble label={typingLabel} /> : null}
 
           </ScrollView>
 
