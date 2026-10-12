@@ -10,9 +10,13 @@ import { fonts } from '@/theme/typography';
 import { formatNumber } from '@/utils/format';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useAuthStore } from '@/stores/authStore';
-import { connectionView, syncAge, type ConnState, type ConnView } from '@/utils/connectionState';
+import { connectionView, isStale, syncAge, type ConnState, type ConnView, type PendingByKind } from '@/utils/connectionState';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { syncNow } from '@/db/autoSync';
+import { configRule } from '@/stores/appConfigStore';
+import client from '@/api/client';
+import { backgroundLastRun } from '@/background/lastRun';
+import { Icon } from '@/components/ui/Icon';
 
 /** Wi-Fi: a dot and three waves; the lit waves are the signal, offline crosses it out. */
 const WifiGlyph = memo(function WifiGlyph({ lit, color, faint, slash, size }: { lit: number; color: string; faint: string; slash?: string; size: number }) {
@@ -79,6 +83,7 @@ function SyncArrows({ color, spinning, size = 18 }: { color: string; spinning: b
 function tone(state: ConnState): string {
   switch (state) {
     case 'offline': return colors.danger;
+    case 'server': return colors.danger;
     case 'weak': return colors.warning;
     case 'syncing': return colors.primary;
     default: return colors.success;
@@ -103,9 +108,15 @@ export function ConnectionLine({ style }: { style?: StyleProp<ViewStyle> }) {
   const pending = useOfflineStore((s) => s.pending);
   const rejected = useOfflineStore((s) => s.rejected);
   const lastSyncAt = useOfflineStore((s) => s.lastSyncAt);
+  const lastSyncFailedAt = useOfflineStore((s) => s.lastSyncFailedAt);
+  const serverOkAt = useOfflineStore((s) => s.serverOkAt);
+  const serverFailures = useOfflineStore((s) => s.serverFailures);
+  const launchedAt = useOfflineStore((s) => s.launchedAt);
   const role = useAuthStore((s) => s.role);
   const staff = role === 'teacher' || role === 'assistant';
   const [open, setOpen] = useState(false);
+  // «آخر مزامنة» is on disk now — read it back once, so a fresh launch does not say «لم تتم بعد».
+  useEffect(() => { void useOfflineStore.getState().hydrateSyncStamp(); }, []);
   // «آخر مزامنة منذ ٥ دقائق» stays true: a re-render a minute, no animation.
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -117,28 +128,39 @@ export function ConnectionLine({ style }: { style?: StyleProp<ViewStyle> }) {
   const details = (net.details ?? {}) as { strength?: number | null; cellularGeneration?: string | null };
   const view = connectionView(
     { isConnected: net.isConnected, isInternetReachable: net.isInternetReachable, type: String(net.type), strength: details.strength ?? null, cellularGeneration: details.cellularGeneration ?? null },
-    weak, syncing,
+    weak, syncing, serverFailures, configRule('server_fail_flag_after') ?? 2,
   );
+  // Online but no good answer from the server for a while: what is on screen is the saved copy.
+  const stale = view.state === 'online' && isStale(serverOkAt, now, configRule('sync_stale_after_min') ?? 30, launchedAt);
   const c = tone(view.state);
   const stateLine = describe(view.state, String(net.type), details.cellularGeneration ?? null, t);
   const gen = details.cellularGeneration ? details.cellularGeneration.toUpperCase() : null;
   const main = view.state === 'offline' ? t('connection.line_offline')
+    : view.state === 'server' ? t('connection.line_server')
     : view.state === 'weak' ? t('connection.line_weak')
     : view.state === 'syncing' ? t('connection.line_syncing')
     : view.link === 'cellular' ? (gen ? t('connection.line_cellular_gen', { gen }) : t('connection.line_cellular'))
     : t('connection.line_wifi');
 
-  // The second detail, staff only: waiting first (it is what they can act on), else the last sync.
+  // The second detail: what needs a decision first, then what is waiting, then a failed pass,
+  // then old data — the flags; only when all is well, the last sync.
   const waiting = pending + rejected;
   let extra: string | null = null;
-  if (staff && view.state !== 'syncing') {
-    if (waiting > 0) extra = t('connection.line_pending', { count: waiting });
-    else {
+  let flagged = false;
+  if (view.state !== 'syncing') {
+    if (staff && rejected > 0) { extra = t('connection.line_rejected', { count: rejected }); flagged = true; }
+    else if (staff && pending > 0) { extra = t('connection.line_pending', { count: pending }); flagged = true; }
+    else if (staff && lastSyncFailedAt && (!lastSyncAt || lastSyncFailedAt > lastSyncAt)) { extra = t('connection.line_sync_failed'); flagged = true; }
+    else if (stale) {
+      const age = syncAge(serverOkAt ?? launchedAt, now);
+      extra = t('connection.line_stale', { age: t(`connection.${age.key}`, { n: age.n !== undefined ? formatNumber(age.n) : undefined }) });
+      flagged = true;
+    } else if (staff) {
       const age = syncAge(lastSyncAt, now);
       if (age.key !== 'never') extra = t('connection.line_synced', { age: t(`connection.${age.key}`, { n: age.n !== undefined ? formatNumber(age.n) : undefined }) });
     }
   }
-  const calm = view.state === 'online';
+  const calm = view.state === 'online' && !flagged;
 
   return (
     <>
@@ -151,7 +173,7 @@ export function ConnectionLine({ style }: { style?: StyleProp<ViewStyle> }) {
         style={[{
           alignSelf: 'center', maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 7,
           height: 30, paddingHorizontal: 12, borderRadius: 999,
-          backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: calm ? colors.onHeroChipBorder : c,
+          backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: calm ? colors.onHeroChipBorder : (view.state === 'online' ? colors.warning : c),
         }, style]}
       >
         {/* Words stay in the hero's own ink (amber text on the light hero does not read); the
@@ -162,20 +184,21 @@ export function ConnectionLine({ style }: { style?: StyleProp<ViewStyle> }) {
         <Text numberOfLines={1} style={{ flexShrink: 1, fontFamily: calm ? fonts.medium : fonts.bold, fontSize: 12.5, color: calm ? colors.onHeroSoft : colors.onHero }}>
           {main}
           {extra ? (
-            <Text style={{ fontFamily: waiting > 0 ? fonts.bold : fonts.regular, color: waiting > 0 ? (rejected > 0 ? colors.danger : colors.onHero) : colors.onHeroFaint }}>
+            <Text style={{ fontFamily: flagged ? fonts.bold : fonts.regular, color: flagged ? (rejected > 0 ? colors.danger : colors.onHero) : colors.onHeroFaint }}>
               {`  ·  ${extra}`}
             </Text>
           ) : null}
         </Text>
       </TouchableOpacity>
 
-      <ConnectionSheet visible={open} onClose={() => setOpen(false)} view={view} stateLine={stateLine} staff={staff} />
+      <ConnectionSheet visible={open} onClose={() => setOpen(false)} view={view} stateLine={stateLine} staff={staff} stale={stale} />
     </>
   );
 }
 
 function describe(state: ConnState, type: string, gen: string | null, t: (k: string, o?: Record<string, unknown>) => string): string {
   if (state === 'offline') return t('connection.offline');
+  if (state === 'server') return t('connection.server');
   if (state === 'weak') return t('connection.weak');
   if (state === 'syncing') return t('connection.syncing');
   if (type === 'wifi') return t('connection.wifi');
@@ -183,32 +206,75 @@ function describe(state: ConnState, type: string, gen: string | null, t: (k: str
   return t('connection.online');
 }
 
-function ConnectionSheet({ visible, onClose, view, stateLine, staff }: { visible: boolean; onClose: () => void; view: ConnView; stateLine: string; staff: boolean }) {
+function ConnectionSheet({ visible, onClose, view, stateLine, staff, stale }: { visible: boolean; onClose: () => void; view: ConnView; stateLine: string; staff: boolean; stale: boolean }) {
   const state = view.state;
   const { t } = useTranslation();
   const pending = useOfflineStore((s) => s.pending);
   const rejected = useOfflineStore((s) => s.rejected);
+  const byKind = useOfflineStore((s) => s.pendingByKind);
   const lastSyncAt = useOfflineStore((s) => s.lastSyncAt);
+  const lastSyncFailedAt = useOfflineStore((s) => s.lastSyncFailedAt);
+  const serverOkAt = useOfflineStore((s) => s.serverOkAt);
+  const serverFailures = useOfflineStore((s) => s.serverFailures);
   const syncing = useOfflineStore((s) => s.syncing);
+  const [bgAt, setBgAt] = useState<number | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState<{ at: number; ok: boolean } | null>(null);
   // «منذ ٥ دقائق» stays true while the sheet is open — refreshed on open and every 30 s.
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!visible) return;
     setNow(Date.now());
+    void useOfflineStore.getState().refresh();
+    if (staff) void backgroundLastRun().then(setBgAt);
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
-  }, [visible]);
+  }, [visible, staff]);
   const c = tone(state);
-  const hint = state === 'offline' ? t('connection.hint_offline') : state === 'weak' ? t('connection.hint_weak') : t('connection.hint_online');
-  const age = syncAge(lastSyncAt, now);
-  const ageText = t(`connection.${age.key}`, { n: age.n !== undefined ? formatNumber(age.n) : undefined });
-  const canSend = staff && pending > 0 && state !== 'offline' && !syncing;
+  const hint = state === 'offline' ? t('connection.hint_offline')
+    : state === 'server' ? t('connection.hint_server')
+    : state === 'weak' ? t('connection.hint_weak')
+    : stale ? t('connection.hint_stale')
+    : t('connection.hint_online');
+  const ago = (at: number | null) => {
+    const a = syncAge(at, now);
+    return t(`connection.${a.key}`, { n: a.n !== undefined ? formatNumber(a.n) : undefined });
+  };
+  const serverValue = serverFailures > 0 && state !== 'offline'
+    ? t('connection.server_failing', { count: serverFailures })
+    : serverOkAt ? t('connection.server_ok', { age: ago(serverOkAt) }) : t('connection.server_unknown');
+  const kinds = [
+    byKind.scans > 0 ? t('offline.on_phone_scans', { count: byKind.scans }) : null,
+    byKind.marks > 0 ? t('offline.on_phone_marks', { count: byKind.marks }) : null,
+    byKind.actions > 0 ? t('offline.on_phone_actions', { count: byKind.actions }) : null,
+  ].filter(Boolean).join(' · ');
+  const failedLast = !!lastSyncFailedAt && (!lastSyncAt || lastSyncFailedAt > lastSyncAt);
+
+  /**
+   * «تحقق الآن»: one sync pass and one question to the server, whatever is pending — so the
+   * person can SEE it work, instead of trusting a quiet green line.
+   */
+  const checkNow = async () => {
+    if (checking) return;
+    setChecking(true);
+    try {
+      if (staff) await syncNow();
+      let ok = true;
+      try { await client.get('/app-config', { timeout: 8000 }); } catch { ok = false; }
+      await useOfflineStore.getState().refresh();
+      setChecked({ at: Date.now(), ok });
+    } finally {
+      setChecking(false);
+      setNow(Date.now());
+    }
+  };
+  const allClear = !!checked?.ok && pending === 0 && rejected === 0 && !failedLast;
 
   return (
     <SheetModal visible={visible} onClose={onClose} style={{ backgroundColor: colors.surface, padding: spacing.xl }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: spacing.lg }}>{t('connection.title')}</Text>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.background, borderWidth: 1, borderColor: (state === 'online' && stale) ? colors.warning : colors.border }}>
         <View style={{ width: 48, height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1.5, borderColor: c }}>
           {state === 'syncing'
             ? <SyncArrows color={c} spinning={visible} size={24} />
@@ -220,37 +286,54 @@ function ConnectionSheet({ visible, onClose, view, stateLine, staff }: { visible
         </View>
       </View>
 
-      {staff ? (
-        <View style={{ marginTop: spacing.md, gap: spacing.xs }}>
-          <Row label={t('connection.pending')} value={formatNumber(pending)} strong={pending > 0} />
-          {rejected > 0 ? <Row label={t('connection.rejected')} value={formatNumber(rejected)} danger /> : null}
-          <Row label={t('connection.last_sync')} value={ageText} />
+      {/* What was checked, line by line — the server, then (staff) what is on the phone. */}
+      <View style={{ marginTop: spacing.md, gap: spacing.xs }}>
+        <Row label={t('connection.server_row')} value={serverValue} danger={serverFailures > 0 && state !== 'offline'} warn={stale && serverFailures === 0} />
+        {staff ? (
+          <>
+            <Row label={t('connection.pending')} value={pending > 0 ? `${formatNumber(pending)}${kinds ? `  (${kinds})` : ''}` : t('connection.nothing_waiting')} strong={pending > 0} />
+            <Row label={t('connection.rejected')} value={rejected > 0 ? formatNumber(rejected) : t('connection.none')} danger={rejected > 0} />
+            <Row label={t('connection.last_sync')} value={failedLast ? t('connection.sync_failed_at', { age: ago(lastSyncFailedAt) }) : ago(lastSyncAt)} danger={failedLast} />
+            <Row label={t('connection.background_row')} value={bgAt ? ago(bgAt) : t('connection.never')} />
+          </>
+        ) : null}
+      </View>
+
+      {checked ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: allClear ? colors.successLight : colors.warningLight }}>
+          <Icon name={allClear ? 'success' : 'warning'} size={16} color={allClear ? colors.successText : colors.warningText} />
+          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 20, color: allClear ? colors.successText : colors.warningText }}>
+            {!checked.ok ? t('connection.check_server_down')
+              : allClear ? t('connection.check_all_clear')
+              : rejected > 0 ? t('connection.check_needs_you', { count: rejected })
+              : t('connection.check_still_waiting', { count: pending })}
+          </Text>
         </View>
       ) : null}
 
-      {staff && (canSend || pending > 0 || rejected > 0) ? (
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
-          {canSend ? (
-            <TouchableOpacity onPress={() => { void syncNow(); }} activeOpacity={0.85} accessibilityRole="button"
-              style={{ flex: 1, minHeight: 48, borderRadius: radius.md, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textInverse }}>{t('connection.send_now')}</Text>
-            </TouchableOpacity>
-          ) : null}
+      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+        <TouchableOpacity onPress={() => { void checkNow(); }} disabled={checking || syncing || state === 'offline'} activeOpacity={0.85} accessibilityRole="button"
+          style={{ flex: 1, minHeight: 48, borderRadius: radius.md, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', opacity: (checking || syncing || state === 'offline') ? 0.5 : 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textInverse }}>
+            {checking || syncing ? t('connection.checking') : pending > 0 && staff ? t('connection.send_now') : t('connection.check_now')}
+          </Text>
+        </TouchableOpacity>
+        {staff ? (
           <TouchableOpacity onPress={() => { onClose(); router.push('/(teacher)/reconcile' as Href); }} activeOpacity={0.85} accessibilityRole="button"
             style={{ flex: 1, minHeight: 48, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.primary, justifyContent: 'center', alignItems: 'center' }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.primary }}>{t('connection.details')}</Text>
           </TouchableOpacity>
-        </View>
-      ) : null}
+        ) : null}
+      </View>
     </SheetModal>
   );
 }
 
-function Row({ label, value, strong, danger }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
+function Row({ label, value, strong, danger, warn }: { label: string; value: string; strong?: boolean; danger?: boolean; warn?: boolean }) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md, paddingVertical: 6 }}>
       <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary }}>{label}</Text>
-      <Text style={{ fontFamily: strong || danger ? fonts.bold : fonts.medium, fontSize: 14, color: danger ? colors.dangerText : colors.textPrimary }}>{value}</Text>
+      <Text style={{ flexShrink: 1, textAlign: 'left', fontFamily: strong || danger || warn ? fonts.bold : fonts.medium, fontSize: 14, color: danger ? colors.dangerText : warn ? colors.warningText : colors.textPrimary }}>{value}</Text>
     </View>
   );
 }
