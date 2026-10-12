@@ -1,6 +1,7 @@
 import { track } from '@/lib/analytics';
 import { useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, KeyboardAvoidingView, Platform, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Switch } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { Alert } from '@/ui/dialog';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

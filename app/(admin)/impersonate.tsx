@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, Switch } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { Alert } from '@/ui/dialog';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';

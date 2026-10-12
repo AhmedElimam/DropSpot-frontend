@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { View, Text, TouchableOpacity, Modal, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { ScrollView, FlatList } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';

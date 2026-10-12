@@ -1,6 +1,7 @@
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
 // expo-image decodes to the rendered size. The old Image decoded every proof screenshot at

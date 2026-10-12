@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Image, Modal, TouchableOpacity, ActivityIndicator, PanResponder, type GestureResponderEvent } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ActivityIndicator, PanResponder, type GestureResponderEvent } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';

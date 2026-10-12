@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { View, Text, Image, Pressable, Modal, ActivityIndicator, TouchableOpacity, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
+import { View, Text, Image, Pressable, ActivityIndicator, TouchableOpacity, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import Svg, { Path } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

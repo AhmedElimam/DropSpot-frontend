@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
@@ -43,20 +43,35 @@ interface Pending {
 interface DialogState {
   queue: Pending[];
   persona: DialogPersona;
+  /** Nested hosts mounted inside open modals/sheets, oldest first; the last one shows popups. */
+  hosts: number[];
   push: (p: Omit<Pending, 'id' | 'persona'>) => void;
   shift: () => void;
   setPersona: (p: DialogPersona) => void;
+  addHost: (id: number) => void;
+  removeHost: (id: number) => void;
 }
 
 let seq = 0;
+let hostSeq = 0;
+/** The root host's id; nested ones count up from 1. */
+const ROOT_HOST = 0;
 
 export const useDialogStore = create<DialogState>((set, get) => ({
   queue: [],
   persona: 'brand',
+  hosts: [],
   push: (p) => set((s) => ({ queue: [...s.queue, { ...p, id: ++seq, persona: get().persona }] })),
   shift: () => set((s) => ({ queue: s.queue.slice(1) })),
   setPersona: (persona) => set({ persona }),
+  addHost: (id) => set((s) => ({ hosts: [...s.hosts.filter((h) => h !== id), id] })),
+  removeHost: (id) => set((s) => ({ hosts: s.hosts.filter((h) => h !== id) })),
 }));
+
+/** Which host draws popups right now: the newest open window, else the root. Exported for tests. */
+export function activeHost(hosts: readonly number[]): number {
+  return hosts.length ? hosts[hosts.length - 1] : ROOT_HOST;
+}
 
 export const Alert = {
   alert(title: string, message?: string, buttons?: DialogButton[], options?: { cancelable?: boolean; onDismiss?: () => void }): void {
@@ -74,8 +89,25 @@ export function useDialogPersona(persona: DialogPersona): void {
   }, [persona]));
 }
 
-export function DialogHost() {
-  const current = useDialogStore((s) => s.queue[0]);
+/**
+ * The root host presents its popup as its own native window. While another native window is
+ * already up — a full-screen Modal, a sheet, a page-sheet screen — iOS will not present a
+ * second one from the root, so the popup waited until that window closed (founder
+ * 2026-10-12: «select someone to impersonate, the popup doesn't show until I go back»).
+ * So every such window carries a NESTED host (`<DialogHost nested />`, added by SheetModal,
+ * InlineSheetHost and AppModal): the newest open one owns the queue and draws the popup as an
+ * overlay inside itself — no second presentation at all. Closing it hands the queue back.
+ */
+export function DialogHost({ nested = false }: { nested?: boolean }) {
+  const [id] = useState(() => (nested ? ++hostSeq : ROOT_HOST));
+  useEffect(() => {
+    if (!nested) return;
+    useDialogStore.getState().addHost(id);
+    return () => useDialogStore.getState().removeHost(id);
+  }, [nested, id]);
+  const mine = useDialogStore((s) => activeHost(s.hosts) === id);
+  const queued = useDialogStore((s) => s.queue[0]);
+  const current = mine ? queued : undefined;
   const shift = useDialogStore((s) => s.shift);
   const rose = useRose();
   const [shown, setShown] = useState<Pending | null>(null);
@@ -118,8 +150,9 @@ export function DialogHost() {
     ? [...s.buttons.filter((b) => b.style !== 'cancel'), ...s.buttons.filter((b) => b.style === 'cancel')]
     : [...s.buttons.filter((b) => b.style === 'cancel'), ...s.buttons.filter((b) => b.style !== 'cancel')];
 
+  const Window = nested ? InlineWindow : ModalWindow;
   return (
-    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onBackdrop}>
+    <Window onRequestClose={onBackdrop}>
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10,14,39,0.55)' }, backdrop]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onBackdrop} accessibilityLabel="إغلاق" />
       </Animated.View>
@@ -162,6 +195,15 @@ export function DialogHost() {
           </View>
         </Animated.View>
       </View>
-    </Modal>
+    </Window>
   );
+}
+
+function ModalWindow({ onRequestClose, children }: { onRequestClose: () => void; children: ReactNode }) {
+  return <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onRequestClose}>{children}</Modal>;
+}
+
+/** Drawn inside the open window that owns the popup: above its content, nothing presented. */
+function InlineWindow({ children }: { onRequestClose: () => void; children: ReactNode }) {
+  return <View style={[StyleSheet.absoluteFill, { zIndex: 2000, elevation: 2000 }]}>{children}</View>;
 }

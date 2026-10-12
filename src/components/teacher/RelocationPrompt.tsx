@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, AppState, type AppStateStatus } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { Alert } from '@/ui/dialog';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, Pressable, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, ActivityIndicator, Platform } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import i18n from '@/i18n';
-import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { AppModal as Modal } from '@/ui/AppModal';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';

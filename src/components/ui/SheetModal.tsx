@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { NestedDialogHost } from '@/ui/NestedDialogHost';
 import { Modal, Pressable, Keyboard, Platform, ScrollView, StyleSheet, TextInput, View, useWindowDimensions, type KeyboardEvent, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
@@ -30,7 +31,8 @@ interface SheetModalProps {
  */
 const InlineSheets = createContext(false);
 export function InlineSheetHost({ children }: { children: ReactNode }) {
-  return <InlineSheets.Provider value>{children}</InlineSheets.Provider>;
+  // A page-sheet screen is a native presentation of its own: popups raised in it draw here.
+  return <InlineSheets.Provider value>{children}<NestedDialogHost /></InlineSheets.Provider>;
 }
 
 const DISMISS_DISTANCE = 96;
@@ -224,15 +226,15 @@ export function SheetModal({ visible, onClose, children, avoidKeyboard = false, 
   );
 }
 
-/** A real Modal normally; an overlay over the current screen inside an InlineSheetHost. */
+/** A real Modal normally; an overlay over the current screen inside an InlineSheetHost. Either way it hosts popups raised while it is open. */
 function Host({ inline, onRequestClose, children }: { inline: boolean; onRequestClose: () => void; children: ReactNode }) {
-  if (inline) return <View style={[StyleSheet.absoluteFill, { zIndex: 1000, elevation: 1000 }]}>{children}</View>;
+  if (inline) return <View style={[StyleSheet.absoluteFill, { zIndex: 1000, elevation: 1000 }]}>{children}<NestedDialogHost /></View>;
   // A Modal is its own native window on Android: gestures inside it need their own root, or
   // the swipe down never fires there (founder 2026-10-07: «swipe dismiss doesn't work on
   // android»). iOS shares the root, and a nested one is harmless.
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onRequestClose}>
-      <GestureHandlerRootView style={{ flex: 1 }}>{children}</GestureHandlerRootView>
+      <GestureHandlerRootView style={{ flex: 1 }}>{children}<NestedDialogHost /></GestureHandlerRootView>
     </Modal>
   );
 }
