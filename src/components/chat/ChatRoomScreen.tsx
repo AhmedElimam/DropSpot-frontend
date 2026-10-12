@@ -14,10 +14,13 @@ import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
 import { chat } from '@/theme/chat';
 import { useAuthStore } from '@/stores/authStore';
 import {
-  dropChatLocal, useChatRoom, useSendChatMessage, useDeleteChatMessage, useReportChatMessage, useBlockChatUser, useSetChatNotify,
-  useUploadChatAttachment, useChatChannels, useChatReports, useMuteChatUser, useSetChatSettings,
+  useChatRoom, useDeleteChatMessage, useReportChatMessage, useBlockChatUser, useSetChatNotify,
+  useChatChannels, useChatReports, useMuteChatUser, useSetChatSettings,
   mergeChatMessage, dropChatMessage,
 } from '@/hooks/useChat';
+import { discardChatOutbox, enqueueChatMessage, flushChatOutbox, retryChatOutbox, useChatOutbox } from '@/chat/outbox';
+import { mergeOutbox } from '@/chat/outboxCore';
+import { useOfflineStore } from '@/stores/offlineStore';
 import { useChatSocket } from '@/hooks/useChatSocket';
 import { attachmentFileName, getChatRoom, postChatTyping, type ChatMessage } from '@/api/chat';
 import { ChatReportsSheet } from '@/components/chat/ChatReportsSheet';
@@ -68,8 +71,10 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
   const [socketLive, setSocketLive] = useState(false);
   const room = useChatRoom(courseId, focused, socketLive);
   const channels = useChatChannels(focused);
-  const send = useSendChatMessage(courseId);
-  const upload = useUploadChatAttachment(courseId);
+  // What this phone sent that the server does not have yet — on disk, sent by itself (outbox.ts).
+  const outboxItems = useChatOutbox((s) => s.items);
+  const online = useOfflineStore((s) => s.online);
+  useEffect(() => { void flushChatOutbox(); }, [courseId]);
   const remove = useDeleteChatMessage(courseId);
   const report = useReportChatMessage();
   const block = useBlockChatUser(courseId);
@@ -174,14 +179,16 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
 
   // Older pages are prepended; the polled page is the tail. Dedupe by id so a message that
   // crosses the page boundary is never shown twice.
+  // The outbox is drawn AFTER the server's page, so a message you sent survives every poll.
   const messages = useMemo(() => {
     const seen = new Set<number>();
     const out: ChatMessage[] = [];
     for (const m of [...older, ...(room.data?.messages ?? [])]) {
       if (!seen.has(m.id)) { seen.add(m.id); out.push(m); }
     }
-    return out;
-  }, [older, room.data?.messages]);
+    return mergeOutbox(out, outboxItems, courseId);
+  }, [older, room.data?.messages, outboxItems, courseId]);
+  const waiting = useMemo(() => outboxItems.filter((x) => x.courseId === courseId && x.status !== 'failed').length, [outboxItems, courseId]);
 
   /**
    * Every auto-scroll hangs off CONTENT SIZE, not a timer. Content settles at different
@@ -254,49 +261,45 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
     }
   };
 
-  // Optimistic: the bubble is already in the room (useSendChatMessage.onMutate), so the box
-  // clears and the list follows it NOW — not after the server answers. No isPending gate
-  // either: firing three short messages in a row is normal, and each gets its own bubble.
-  // A failure is shown IN the bubble with a retry, not as an alert over the conversation.
+  // Send = write to the outbox. The bubble is in the room the instant you tap (the outbox is
+  // part of the list), the box clears, and the outbox sends it — now, or when there is a
+  // network again. No pending gate: three short messages in a row each get their own bubble.
+  // A refusal is shown IN the bubble with a retry, not as an alert over the conversation.
+  const sender = useMemo(() => ({
+    id: me?.id ?? -1, name: me?.name ?? '',
+    is_staff: room.data?.role === 'teacher' || room.data?.role === 'assistant',
+    is_teacher: room.data?.role === 'teacher',
+  }), [me?.id, me?.name, room.data?.role]);
   const doSend = () => {
     const text = draft.trim();
     if (!text) return;
     setDraft('');
     atBottomRef.current = true;
-    send.mutate(text);
+    enqueueChatMessage({ courseId, body: text, sender });
   };
 
   // ── Attachments (§8) — all through one upload door, caption = whatever is in the box ──
   const sendAttachment = (input: { kind: 'image' | 'file' | 'voice'; uri: string; name: string; mime: string; duration?: number }) => {
-    const body = draft.trim() || undefined;
+    const body = draft.trim() || null;
     setDraft('');
     atBottomRef.current = true;
-    upload.mutate({ ...input, body });
+    enqueueChatMessage({ courseId, body, attachment: input, sender });
   };
 
-  // A bubble that never reached the server. Tapping it asks: try again, or let it go.
+  // A message the server refused. The retry under the bubble sends it again; the long
+  // menu also offers to let it go.
   const onRetry = (m: ChatMessage) => {
     if (!m.local) return;
+    atBottomRef.current = true;
+    retryChatOutbox(m.local.key);
+  };
+  const onDiscard = (m: ChatMessage) => {
+    if (!m.local) return;
     const key = m.local.key;
-    Alert.alert(t('chat.failed'), t('chat.not_sent'), [
+    Alert.alert(t('chat.failed'), m.local.status === 'failed' ? t('chat.not_sent_short') : t('chat.queued_offline'), [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('chat.discard'), style: 'destructive', onPress: () => dropChatLocal(qc, courseId, key) },
-      {
-        text: t('chat.retry'),
-        onPress: () => {
-          dropChatLocal(qc, courseId, key);
-          atBottomRef.current = true;
-          if (m.attachment?.url) {
-            upload.mutate({
-              kind: m.attachment.kind, uri: m.attachment.url, name: m.attachment.name ?? 'file',
-              mime: m.attachment.mime ?? 'application/octet-stream', duration: m.attachment.duration ?? undefined,
-              body: m.body ?? undefined,
-            });
-          } else {
-            send.mutate(m.body ?? '');
-          }
-        },
-      },
+      { text: t('chat.discard'), style: 'destructive', onPress: () => discardChatOutbox(key) },
+      ...(m.local.status === 'failed' ? [{ text: t('chat.retry'), onPress: () => onRetry(m) }] : []),
     ]);
   };
 
@@ -356,6 +359,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
    * everyone" would be a button that always fails.
    */
   const onMessageMenu = (m: ChatMessage) => {
+    if (m.local) { onDiscard(m); return; } // not on the server yet: nothing to delete there
     const mine = m.sender.id === me?.id;
     if (mine) {
       Alert.alert(t('chat.message_actions'), t('chat.delete_confirm'), [
@@ -522,6 +526,15 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
           </Text>
         </View>
       ) : null}
+      {/* No network: say plainly that what is typed is kept and goes out by itself. */}
+      {!online ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surfaceSunken, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+          <Icon name="offline" size={15} color={colors.textSecondary} outline />
+          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>
+            {waiting > 0 ? t('chat.offline_waiting', { count: waiting }) : t('chat.offline_banner')}
+          </Text>
+        </View>
+      ) : null}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
         <View style={{ flex: 1 }}>
@@ -622,7 +635,7 @@ export function ChatRoomScreen({ courseId }: { courseId: number }) {
             onCamera={() => { void pickImage(true); }}
             onVoiceClip={onVoiceClip}
             voiceMaxSeconds={data.limits?.voice_max_seconds || 120}
-            sending={upload.isPending}
+            sending={false}
             recording={recording}
             onRecordingChange={setRecording}
             bottomInset={insets.bottom}

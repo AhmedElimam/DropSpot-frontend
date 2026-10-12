@@ -13,9 +13,11 @@ import { VoiceRecorder, type VoiceClip } from '@/components/chat/VoiceRecorder';
  * moment there is something to send. Same tokens as every other input in the app — surface,
  * `colors.border`, `radius.lg` — so it reads as this product's field, not a messenger's pill.
  *
- * While recording, the field is replaced by the recorder's running state: there is nothing
+ * While recording, the field is replaced by the recorder's running bar: there is nothing
  * to type at that moment, and a live text field under a held finger invites half-sent
- * messages.
+ * messages. The bar is the recorder's OWN sibling in this row (it renders a fragment: bar,
+ * then button), so it takes exactly the field's place — an absolutely positioned bar used
+ * to land off the far edge of the screen under forced RTL (founder 2026-10-12).
  */
 export function ChatComposer({
   value, onChange, onSend, onAttach, onCamera, onVoiceClip, voiceMaxSeconds,
@@ -50,10 +52,7 @@ export function ChatComposer({
         borderTopColor: chat.barBorder,
       }}
     >
-      {recording ? (
-        // The recorder draws its live bar (clock, level, cancel/lock hints) over this slot.
-        <View style={{ flex: 1, minHeight: 52 }} />
-      ) : (
+      {recording ? null : (
         <View
           style={{
             flex: 1,

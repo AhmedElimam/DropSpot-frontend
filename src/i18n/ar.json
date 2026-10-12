@@ -574,8 +574,13 @@
     "typing_one": "{{name}} يكتب…",
     "typing_many": "عدة أعضاء يكتبون…",
     "not_sent": "لم تُرسَل — اضغط لإعادة المحاولة",
+    "not_sent_short": "لم تُرسَل",
     "retry": "إعادة المحاولة",
     "discard": "حذف الرسالة",
+    "queued_offline": "محفوظة — ستُرسَل تلقائيًا عند عودة الاتصال",
+    "offline_banner": "لا اتصال — ما تكتبه يُحفظ ويُرسَل تلقائيًا عند عودة الاتصال",
+    "offline_waiting": "لا اتصال — {{count}} رسالة محفوظة ستُرسَل تلقائيًا عند عودة الاتصال",
+    "conversations_sub": "دردشة المقررات والنقاشات مع طلابك",
     "share": "مشاركة",
     "open_externally": "فتح في تطبيق آخر",
     "preview_unavailable": "لا يمكن عرض هذا الملف داخل التطبيق على هذا الجهاز — افتحه في تطبيق آخر.",
@@ -1342,6 +1347,7 @@
     "roster_count": "حضر {{present}} من {{total}}",
     "session_cancel_failed": "تعذّر إلغاء الحصة",
     "insights_short": "الرؤى",
+    "conversations_short": "المحادثات",
     "schedule_short": "الجدول"
   },
   "swap": {

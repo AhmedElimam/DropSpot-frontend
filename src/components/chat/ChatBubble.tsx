@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
-import { spacing, radius, shadows } from '@/theme/index';
+import { colors, spacing, radius, shadows } from '@/theme/index';
 import { chat, senderColor } from '@/theme/chat';
 import { Icon } from '@/components/ui/Icon';
 import { AttachmentBubble } from '@/components/chat/AttachmentBubble';
@@ -41,9 +41,9 @@ export const ChatBubble = memo(function ChatBubble({
   const { t } = useTranslation();
   const staff = message.sender.is_staff;
   const hasText = !!message.body && message.body.trim() !== '';
-  // Optimistic state: on screen before the server has answered (clock), or after it
-  // refused / the network dropped (failed — stays put with a retry, never silently lost).
-  const sending = message.local?.status === 'sending';
+  // Outbox state: queued or on the wire (clock), or refused by the server (failed — stays
+  // put with a retry button under it, never silently lost).
+  const sending = message.local?.status === 'sending' || message.local?.status === 'queued';
   const failed = message.local?.status === 'failed';
 
   // A hidden message only ever reaches a MODERATOR with its text (§2) — students get it
@@ -60,10 +60,9 @@ export const ChatBubble = memo(function ChatBubble({
     <Animated.View entering={sending ? FadeInDown.duration(180).springify().damping(18) : undefined} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%', marginTop: showName ? spacing.md : 3 }}>
       <TouchableOpacity
         onLongPress={() => onLongPress(message)}
-        onPress={failed && onRetry ? () => onRetry(message) : undefined}
         delayLongPress={350}
         activeOpacity={0.9}
-        accessibilityHint={failed ? t('chat.not_sent') : t('chat.message_actions')}
+        accessibilityHint={failed ? t('chat.not_sent_short') : t('chat.message_actions')}
         style={{
           opacity: sending ? 0.78 : 1,
           backgroundColor: bg,
@@ -132,12 +131,31 @@ export const ChatBubble = memo(function ChatBubble({
         </View>
 
         {failed ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-            <Icon name="refresh" size={12} color={chat.failedInk} />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: chat.failedInk }}>{t('chat.not_sent')}</Text>
-          </View>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: chat.failedInk, marginTop: 4, textAlign: 'right' }}>
+            {t('chat.not_sent_short')}
+          </Text>
         ) : null}
       </TouchableOpacity>
+
+      {/* The retry is its own padded button UNDER the bubble, not a line of small text inside
+          it: a thumb needs room (founder 2026-10-12: «a little padding for reloading»). */}
+      {failed && onRetry ? (
+        <TouchableOpacity
+          onPress={() => onRetry(message)}
+          accessibilityRole="button"
+          accessibilityLabel={t('chat.retry')}
+          hitSlop={6}
+          style={{
+            alignSelf: mine ? 'flex-end' : 'flex-start', marginTop: 6,
+            flexDirection: 'row', alignItems: 'center', gap: 6,
+            paddingVertical: 8, paddingHorizontal: 14, borderRadius: radius.full,
+            backgroundColor: colors.dangerLight, borderWidth: 1, borderColor: colors.danger,
+          }}
+        >
+          <Icon name="refresh" size={14} color={colors.dangerText} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.dangerText }}>{t('chat.retry')}</Text>
+        </TouchableOpacity>
+      ) : null}
     </Animated.View>
   );
 });

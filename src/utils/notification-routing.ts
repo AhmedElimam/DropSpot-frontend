@@ -42,9 +42,9 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
   // Threads (a timer ran out, a report, a new answer) open the thread; chat opens the room.
   if (type.startsWith('thread_')) {
     const thread = id(data, 'thread_id');
-    return thread ? `/(teacher)/tickets/threads/${thread}` : '/(teacher)/tickets';
+    return thread ? `/(teacher)/conversations/threads/${thread}` : '/(teacher)/conversations';
   }
-  if (type.startsWith('chat_')) return course ? `/(teacher)/tickets/chat/${course}` : '/(teacher)/tickets';
+  if (type.startsWith('chat_')) return course ? `/(teacher)/conversations/chat/${course}` : '/(teacher)/conversations';
 
   switch (type) {
     // ── مدام روز's 11 am «ورقة النهارده»: the day's sessions ──

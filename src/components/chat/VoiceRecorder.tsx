@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Alert, TouchableOpacity, Vibration, useWindowDimensions, type GestureResponderEvent } from 'react-native';
+import { View, Text, Pressable, Alert, TouchableOpacity, Vibration, type GestureResponderEvent } from 'react-native';
 import { useAudioRecorder, useAudioRecorderState, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, type RecordingOptions } from 'expo-audio';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
@@ -50,7 +50,6 @@ export function VoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }: {
   onStateChange?: (recording: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const { width: winWidth } = useWindowDimensions();
   const recorder = useAudioRecorder(VOICE_PRESET);
   const state = useAudioRecorderState(recorder, 200);
   const [active, setActive] = useState(false);     // recording (held or locked)
@@ -134,19 +133,20 @@ export function VoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }: {
     onClip({ uri, duration: Math.min(dur, maxSeconds), mime, name: attachmentFileName('voice', null, ext) });
   };
 
-  // The live bar takes the field's place: the recorder is the row's last child (the LEFT
-  // edge under forced RTL), so the bar runs from just past the button to the far edge.
-  const barLeft = 52 + spacing.sm;
-  const barWidth = Math.max(160, winWidth - spacing.md * 2 - barLeft);
+  // The live bar takes the field's place IN THE ROW: the recorder renders «bar, then button»
+  // as siblings of the composer's row, so under forced RTL the bar sits to the right of
+  // the button exactly where the field was — with no absolute left/right to get flipped.
+  // (An absolutely positioned bar used to open off the far edge of the screen: founder
+  // 2026-10-12, «it shows on the other end of the screen».)
   const tint = cancelArmed ? colors.danger : colors.textPrimary;
 
   return (
-    <View style={{ alignItems: 'center' }}>
+    <>
       {active ? (
         <View
           pointerEvents={locked ? 'auto' : 'none'}
           style={{
-            position: 'absolute', bottom: 0, left: barLeft, width: barWidth, height: 52,
+            flex: 1, height: 52,
             flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md,
             borderRadius: radius.lg, borderWidth: 1,
             backgroundColor: cancelArmed ? colors.dangerLight : colors.surfaceSunken,
@@ -195,6 +195,6 @@ export function VoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }: {
       >
         <Icon name={locked ? 'lock' : 'mic'} size={22} color={disabled && !active ? colors.textTertiary : '#fff'} />
       </Pressable>
-    </View>
+    </>
   );
 }

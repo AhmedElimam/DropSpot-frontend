@@ -37,6 +37,7 @@ import { PERSIST_MAX_AGE_MS } from '@/lib/queryPersistRules';
 import { OfflinePill } from '@/components/OfflinePill';
 import { DialogHost } from '@/ui/dialog';
 import { StagingRibbon } from '@/components/StagingRibbon';
+import { startChatOutbox } from '@/chat/outbox';
 import { AnalyticsTracker } from '@/components/AnalyticsTracker';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -147,6 +148,10 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
       hydrate();
     }
   }, [hydrate, hydrationStarted]);
+
+  // Chat messages written offline leave by themselves when there is a network again or the
+  // app comes to the front — for every role, so it is wired here once.
+  useEffect(() => { startChatOutbox(); }, []);
 
   // The saved appearance choice, applied before the first screen paints. Keyed on
   // `themeReady`, not on a "started" flag: hydrate() is idempotent, and if the store is ever

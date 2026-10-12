@@ -7,8 +7,24 @@ jest.mock('@/components/ui/Icon', () => ({ Icon: 'Icon' }));
 jest.mock('@/components/chat/AttachmentBubble', () => ({ AttachmentBubble: 'AttachmentBubble' }));
 jest.mock('expo-secure-store', () => ({ getItemAsync: async () => 'tok' }));
 
-import { attachmentFileName, attachmentHeaders } from '@/api/chat';
+import { attachmentFileName, attachmentHeaders, cleanAttachmentName } from '@/api/chat';
 import { tickState } from '../ChatBubble';
+
+describe('a file name is a name, not an encoding (founder 2026-10-12: «E% and symbols»)', () => {
+  it('decodes a percent-encoded name and drops the invisible bidi marks', () => {
+    // Composed (NFC): «إ» is one code point, not alef + a combining hamza.
+    expect(cleanAttachmentName('%E2%80%8E%E2%81%A8%D8%A7%D9%95%D9%8A%D8%B5%D8%A7%D9%84-DEMO-000011%E2%81%A9.pdf')).toBe('\u0625يصال-DEMO-000011.pdf');
+    expect(cleanAttachmentName('‎⁨ملزمة الوحدة 3⁩.pdf')).toBe('ملزمة الوحدة 3.pdf');
+  });
+  it('leaves a plain name alone, tidied', () => {
+    expect(cleanAttachmentName('  واجب   الفيزياء.pdf ')).toBe('واجب الفيزياء.pdf');
+    expect(cleanAttachmentName('report 100%.pdf')).toBe('report 100%.pdf');
+    expect(cleanAttachmentName('a/b.docx')).toBe('a b.docx');
+  });
+  it('the picker name goes through the same cleaning', () => {
+    expect(attachmentFileName('file', '%D9%88%D8%A7%D8%AC%D8%A8.pdf', 'pdf')).toBe('واجب.pdf');
+  });
+});
 
 describe('attachments carry a name worth keeping (founder 2026-10-12)', () => {
   const at = new Date(2026, 9, 12, 14, 5, 9);

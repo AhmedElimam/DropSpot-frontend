@@ -26,6 +26,8 @@ import { getBookingRequests } from '@/api/bookingRequests';
 import { getAssistantActions } from '@/api/assistantActions';
 import { getCashReconciliation } from '@/api/cash';
 import { useComplaints } from '@/hooks/useComplaints';
+import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
+import { useThreadsEnabled, useThreadsUnread } from '@/hooks/useThreads';
 import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
 
 type Group = 'students' | 'schedule' | 'money' | 'followup';
@@ -65,7 +67,15 @@ export default function TeacherManage() {
   const cash = useQuery({ queryKey: ['cash-reconciliation'], queryFn: () => getCashReconciliation(), enabled: canCash });
   const phones = usePhoneConfirmations();
   const tickets = useTickets();
-  const { refreshing, onRefresh } = usePullRefresh(insights.refetch, bookingReqs.refetch, assistantActions.refetch, cash.refetch, phones.refetch, tickets.refetch);
+  // Conversations with students (chat rooms + threads): the first row of follow-up, with
+  // what is unread — one of the first things a teacher looks for (founder 2026-10-12).
+  const chatOn = useChatEnabled();
+  const threadsOn = useThreadsEnabled();
+  const conversationsOn = chatOn || threadsOn;
+  const channelsQ = useChatChannels(chatOn);
+  const threadsUnreadQ = useThreadsUnread(threadsOn);
+  const conversationsUnread = (channelsQ.data ?? []).reduce((n, c) => n + (c.unread || 0), 0) + (threadsUnreadQ.data ?? 0);
+  const { refreshing, onRefresh } = usePullRefresh(insights.refetch, bookingReqs.refetch, assistantActions.refetch, cash.refetch, phones.refetch, tickets.refetch, ...(chatOn ? [channelsQ.refetch] : []), ...(threadsOn ? [threadsUnreadQ.refetch] : []));
 
   const ins = insights.data;
   const pendingReqs = bookingReqs.data?.length ?? 0;
@@ -102,7 +112,7 @@ export default function TeacherManage() {
     students: pendingReqs + phoneCount,
     schedule: 0,
     money: cashAttention + pendingActions,
-    followup: openTickets + pendingComplaints,
+    followup: openTickets + pendingComplaints + conversationsUnread,
   };
   const [addOpen, setAddOpen] = useState(false);
 
@@ -229,6 +239,7 @@ export default function TeacherManage() {
 
         {group === 'followup' ? (
           <Surface id="teacher.manage.group_followup">
+            {conversationsOn ? <Surface id="teacher.manage.row_conversations"><HubRow tint={tint} icon="chat" title={t('chat.conversations')} sub={t('chat.conversations_sub')} badge={conversationsUnread} onPress={() => router.push('/(teacher)/conversations' as Href)} /></Surface> : null}
             <Surface id="teacher.manage.row_resolution"><HubRow tint={tint} icon="bell" title={t('teacher.resolution_title')} sub={t('teacher.resolution_sub')} onPress={() => router.push('/(teacher)/resolution' as Href)} /></Surface>
             <Surface id="teacher.manage.row_tickets"><HubRow tint={tint} icon="tickets" title={t('teacher.tab_tickets')} sub={t('manage.tickets_sub')} badge={openTickets} onPress={() => router.push('/(teacher)/tickets' as Href)} /></Surface>
             <Surface id="teacher.manage.row_complaints"><HubRow tint={tint} icon="note" title={t('complaints.title')} sub={t('complaints.manage_sub')} badge={pendingComplaints} onPress={() => router.push('/(teacher)/complaints' as Href)} /></Surface>

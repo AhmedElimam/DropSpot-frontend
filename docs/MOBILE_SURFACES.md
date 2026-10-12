@@ -178,6 +178,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `screen.teacher.cash-review` — screen · app/(teacher)/cash-review.tsx
 - `screen.teacher.collect` — screen · app/(teacher)/collect.tsx, src/ui/surfaces.tsx
 - `screen.teacher.complaints` — screen · app/(teacher)/complaints.tsx
+- `screen.teacher.conversations` — screen · app/(teacher)/conversations/index.tsx
 - `screen.teacher.courses` — screen · app/(teacher)/courses/index.tsx
 - `screen.teacher.courses.create` — screen · app/(teacher)/courses/create.tsx
 - `screen.teacher.courses.detail` — screen · app/(teacher)/courses/[id].tsx
@@ -485,6 +486,10 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.complaints.row.photo` — element · app/(teacher)/complaints.tsx
 - `teacher.complaints.row.reject_button` — element · app/(teacher)/complaints.tsx
 - `teacher.complaints.segments` — element · app/(teacher)/complaints.tsx
+- `teacher.conversations.chat` — element · app/(teacher)/conversations/index.tsx
+- `teacher.conversations.hero` — element · app/(teacher)/conversations/index.tsx
+- `teacher.conversations.segments` — element · app/(teacher)/conversations/index.tsx
+- `teacher.conversations.threads` — element · app/(teacher)/conversations/index.tsx
 - `teacher.course_create.basics` — element · app/(teacher)/courses/create.tsx
 - `teacher.course_create.basics.venue` — element · app/(teacher)/courses/create.tsx
 - `teacher.course_create.basics.venue.add_venues_link` — element · assistant: teacher · app/(teacher)/courses/create.tsx
@@ -565,6 +570,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.home.rose_card` — element · src/ui/surfaces.tsx
 - `teacher.home.shortcut_add` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.shortcut_collect` — element · app/(teacher)/(tabs)/index.tsx
+- `teacher.home.shortcut_conversations` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.shortcut_insights` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.shortcut_rose` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.shortcut_schedule` — element · app/(teacher)/(tabs)/index.tsx
@@ -637,6 +643,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.manage.row_cards` — element · assistant: manage_students · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_cash_reconcile` — element · assistant: scan_attendance · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_complaints` — element · app/(teacher)/(tabs)/manage.tsx
+- `teacher.manage.row_conversations` — element · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_courses` — element · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_expenses` — element · assistant: scan_attendance · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_notifications` — element · app/(teacher)/(tabs)/manage.tsx

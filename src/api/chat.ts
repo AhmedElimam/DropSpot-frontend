@@ -68,7 +68,7 @@ export interface ChatMessage {
    * a retry, so nothing typed is ever silently lost to a bad network. The key is how the
    * optimistic row is found again; the id is a negative placeholder until then.
    */
-  local?: { status: 'sending' | 'failed'; key: string };
+  local?: { status: 'queued' | 'sending' | 'failed'; key: string };
 }
 
 /** Socket settings from the server, or null → poll. Pusher and Reverb share the protocol. */
@@ -174,12 +174,33 @@ export async function attachmentHeaders(): Promise<Record<string, string>> {
  * (founder 2026-10-12: «the filing system … file naming»). Documents keep their own name.
  */
 export function attachmentFileName(kind: ChatAttachmentKind, original: string | null | undefined, ext: string, at: Date = new Date()): string {
-  const keep = (original ?? '').trim();
+  const keep = cleanAttachmentName(original ?? '');
   if (kind === 'file' && keep && !/^[0-9a-f-]{20,}\.[a-z0-9]+$/i.test(keep)) return keep;
   const p = (n: number) => String(n).padStart(2, '0');
   const stamp = `${at.getFullYear()}${p(at.getMonth() + 1)}${p(at.getDate())}_${p(at.getHours())}${p(at.getMinutes())}${p(at.getSeconds())}`;
   const prefix = kind === 'image' ? 'IMG' : kind === 'voice' ? 'VOICE' : 'FILE';
   return `DrosSpot_${prefix}_${stamp}.${ext.replace(/^\./, '').toLowerCase() || 'bin'}`;
+}
+
+/**
+ * A file name as a person would write it. The picker can hand back a percent-encoded name
+ * (a file shared out of the iOS Files app arrives as «%E2%80%8E%E2%81%A8…pdf», bidi isolates
+ * and all), and React Native's FormData encodes the multipart filename again on the way
+ * up — the server decodes that side. Here: decode if it is encoded, drop the invisible
+ * bidi/zero-width marks, collapse the spaces. The same rule, in the same words, as the
+ * server's `ChatAttachmentService::cleanName`.
+ */
+export function cleanAttachmentName(raw: string): string {
+  let name = raw;
+  if (/%[0-9A-Fa-f]{2}/.test(name)) {
+    try { name = decodeURIComponent(name); } catch { /* not really encoded — keep as is */ }
+  }
+  name = name.replace(/[​-‏‪-‮⁦-⁩﻿]/g, '');
+  name = name.replace(/[\u0000-\u001F\u007F\\/]+/g, ' ');
+  // iOS writes names decomposed (NFD: «إ» as alef + a combining hamza); compose them so the
+  // same name is one string everywhere it is compared or searched.
+  try { name = name.normalize('NFC'); } catch { /* older engines */ }
+  return name.replace(/\s+/g, ' ').trim();
 }
 
 export async function getChatRoom(courseId: number, beforeId?: number): Promise<ChatRoom> {
