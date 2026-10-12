@@ -36,7 +36,9 @@ export function RoomSwitcher({ visible, current, onClose, onPick }: {
   const close = () => { setQuery(''); setFilter('all'); onClose(); };
 
   return (
-    <SheetModal visible={visible} onClose={close} avoidKeyboard>
+    // The sheet's own side padding off: the cards run edge to edge like on the page, with
+    // one gutter of their own (founder 2026-10-12: «huge padding from left and right»).
+    <SheetModal visible={visible} onClose={close} avoidKeyboard style={{ paddingHorizontal: 0 }}>
       {/* Head: what this is, what is waiting, and a way out. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
         <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
@@ -76,8 +78,8 @@ export function RoomSwitcher({ visible, current, onClose, onPick }: {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        style={{ maxHeight: height * 0.6, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.borderLight }}
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }}
+        style={{ maxHeight: height * 0.6, borderTopWidth: 1, borderTopColor: colors.borderLight }}
+        contentContainerStyle={{ paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.lg }}
       >
         <ChatInboxList onOpen={onPick} filter={filter} query={query} current={current} />
       </ScrollView>

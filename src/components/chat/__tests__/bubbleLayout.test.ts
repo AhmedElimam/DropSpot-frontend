@@ -17,7 +17,7 @@ jest.mock('expo-file-system', () => ({ File: class {}, Paths: {} }));
 jest.mock('@/theme/chat', () => ({ chat: {}, waveform: () => [], senderColor: () => '#000' }));
 jest.mock('@/components/chat/voiceQueue', () => ({}));
 
-import { bubbleSide, tailCorner } from '../ChatBubble';
+import { bubbleSide, tailCorner, replyTravel, REPLY_DX, REPLY_OVERSHOOT } from '../ChatBubble';
 import { overlayLayout } from '../MessageActionsOverlay';
 import { nextAnchor } from '../VoiceNote';
 
@@ -55,5 +55,16 @@ describe('the voice-note playhead never sits back', () => {
     expect(nextAnchor(1.0, 1.15, 1.15, true)).toBe(1.15);
     expect(nextAnchor(1.3, 1.15, 1.15, true)).toBe(1.3);
     expect(nextAnchor(8.0, 1.2, 1.2, true)).toBe(8.0);
+  });
+});
+
+describe('swipe to reply never carries a bubble across the room', () => {
+  it('follows the finger to the reply line, then stops a short way past it', () => {
+    expect(replyTravel(-30)).toBe(0);
+    expect(replyTravel(40)).toBe(40);
+    expect(replyTravel(REPLY_DX)).toBe(REPLY_DX);
+    expect(replyTravel(REPLY_DX + 40)).toBeGreaterThan(REPLY_DX);
+    expect(replyTravel(400)).toBeLessThanOrEqual(REPLY_DX + REPLY_OVERSHOOT);
+    expect(replyTravel(2000)).toBeLessThanOrEqual(REPLY_DX + REPLY_OVERSHOOT);
   });
 });

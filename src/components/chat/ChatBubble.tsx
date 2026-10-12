@@ -17,6 +17,20 @@ import type { ChatMessage } from '@/api/chat';
 
 /** How far a message is dragged before letting go replies to it. */
 export const REPLY_DX = 64;
+/** How far past the reply line a bubble may still be pulled — then it stops, like WhatsApp's. */
+export const REPLY_OVERSHOOT = 22;
+
+/**
+ * Finger travel → bubble travel: one to one up to the reply line, then a short rubber band
+ * that never passes REPLY_DX + REPLY_OVERSHOOT, so a long drag can't carry the bubble across
+ * the room.
+ */
+export function replyTravel(translationX: number): number {
+  'worklet';
+  const x = Math.max(0, translationX);
+  if (x <= REPLY_DX) return x;
+  return REPLY_DX + REPLY_OVERSHOOT * (1 - Math.exp(-(x - REPLY_DX) / 50));
+}
 
 export interface BubbleRect { x: number; y: number; width: number; height: number }
 
@@ -110,20 +124,22 @@ export const ChatBubble = memo(function ChatBubble({
   const canSwipe = !!onReply && !bare && !message.local && !hidden;
   const swipe = useMemo(() => Gesture.Pan()
     .enabled(canSwipe)
-    // Rightward only, and only once clearly sideways — a vertical scroll always wins.
-    .activeOffsetX(14)
-    .failOffsetX(-12)
-    .failOffsetY([-12, 12])
+    // Rightward only, and only once CLEARLY sideways: a scroll that drifts a little sideways
+    // used to grab the bubble and slide it over its neighbours (founder 2026-10-12: «wacky,
+    // floats on other messages»). Vertical movement now wins early.
+    .activeOffsetX(20)
+    .failOffsetX(-10)
+    .failOffsetY([-8, 8])
     .onUpdate((e) => {
+      'worklet';
+      dx.value = replyTravel(e.translationX);
       const x = Math.max(0, e.translationX);
-      // Past the line the bubble resists, so the reply feels "caught".
-      dx.value = x <= REPLY_DX ? x : REPLY_DX + (x - REPLY_DX) * 0.35;
       if (x >= REPLY_DX && armed.value === 0) { armed.value = 1; runOnJS(tick)(); }
       else if (x < REPLY_DX && armed.value === 1) armed.value = 0;
     })
     .onEnd(() => { if (armed.value === 1) runOnJS(fireReply)(); })
     .onFinalize(() => {
-      dx.value = withSpring(0, { damping: 18, stiffness: 260, mass: 0.7 });
+      dx.value = withSpring(0, { damping: 20, stiffness: 300, mass: 0.7, overshootClamping: true });
       armed.value = 0;
     }), [canSwipe, dx, armed, tick, fireReply]);
   const moveStyle = useAnimatedStyle(() => ({ transform: [{ translateX: dx.value }] }));
