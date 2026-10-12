@@ -1,4 +1,6 @@
-export interface SessionInstance {
+import type { AttendanceModeFields } from './attendance-mode';
+
+export interface SessionInstance extends AttendanceModeFields {
   id: number;
   session_schedule_id: number;
   scheduled_at: string;

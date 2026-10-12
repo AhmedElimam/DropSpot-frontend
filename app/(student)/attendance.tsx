@@ -20,6 +20,8 @@ import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
 import { AttendanceRecordList } from '@/components/attendance/AttendanceRecordList';
 import { ComplaintSheet, type ComplaintTarget } from '@/components/student/ComplaintSheet';
 import { Surface } from '@/ui/surfaces';
+import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
+import { tracksAttendance } from '@/utils/privateLesson';
 
 /**
  * The student's full attendance record (founder 2026-10-03: «on check-in percentage I want
@@ -89,6 +91,24 @@ export default function StudentAttendanceDetail() {
                 </TouchableOpacity>
                 {teacher.courses.map((c) => {
                   const tone = toneOf(c.rate);
+                  if (!tracksAttendance(c)) {
+                    // A private lesson: no rate, no bar, no counts — the server's label.
+                    return (
+                      <Surface key={c.id} id="student.attendance.by_course.private_course" ctx={{ course: c }}>
+                        <View style={{ marginBottom: spacing.sm }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                            <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.textPrimary }} numberOfLines={1}>{c.name}</Text>
+                            <PrivateLessonChip of={c} style={{ flexShrink: 1 }} />
+                          </View>
+                          {c.next_session_at ? (
+                            <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 4 }} numberOfLines={1}>
+                              {t('home.next_session_short', { when: formatDate(new Date(c.next_session_at), { weekday: 'long', day: 'numeric', month: 'short' }) })}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </Surface>
+                    );
+                  }
                   return (
                     <View key={c.id} style={{ marginBottom: spacing.sm }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>

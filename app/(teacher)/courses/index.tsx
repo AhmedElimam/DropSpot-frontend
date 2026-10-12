@@ -28,9 +28,11 @@ function Meta({ icon, label, color = colors.textSecondary }: { icon: IconName; l
 const CourseRow = memo(function CourseRow({ c, onPress }: { c: CourseSummary; onPress: (id: string) => void }) {
   const { t } = useTranslation();
   const located = c.phone_checkin_active;
+  // A private lesson has no door: no location to be missing, the server's label instead.
+  const noDoor = c.tracks_attendance === false;
   return (
     <TouchableOpacity onPress={() => onPress(c.id)} activeOpacity={0.85} accessibilityRole="button"
-      style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 5, borderStartColor: located ? colors.success : colors.warning, padding: spacing.md, marginBottom: spacing.sm }}>
+      style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 5, borderStartColor: noDoor ? colors.brand : located ? colors.success : colors.warning, padding: spacing.md, marginBottom: spacing.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="book" size={22} color={colors.brand} />
@@ -53,7 +55,9 @@ const CourseRow = memo(function CourseRow({ c, onPress }: { c: CourseSummary; on
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm, flexWrap: 'wrap' }}>
         <Meta icon="children" label={t('form_ui.students_n', { n: formatNumber(c.students_count) })} />
         <Meta icon="calendar" label={t('form_ui.slots_n', { n: formatNumber(c.slot_count) })} />
-        <Meta icon="location" label={t(located ? 'teacher.location_set' : 'teacher.location_missing')} color={located ? colors.success : colors.warning} />
+        {noDoor
+          ? <Meta icon="attendance" label={c.attendance_label ?? t('course_ui.private_label')} color={colors.brand} />
+          : <Meta icon="location" label={t(located ? 'teacher.location_set' : 'teacher.location_missing')} color={located ? colors.success : colors.warning} />}
       </View>
     </TouchableOpacity>
   );

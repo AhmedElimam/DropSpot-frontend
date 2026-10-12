@@ -44,6 +44,11 @@ export interface TeacherSession {
   absent_count?: number;
   /** Roster size by the attendance sheet's own rule (slot + course-level enrolments). */
   enrolled_count?: number;
+  /** door | none — a private lesson has no attendance (no scan, absences, excuses or swaps). Absent on older servers = door. */
+  attendance_mode?: 'door' | 'none';
+  tracks_attendance?: boolean;
+  /** The server's words for a private lesson («درس خصوصي · بدون تسجيل حضور»); always drawn when present. */
+  attendance_label?: string | null;
 }
 
 export async function getTeacherTodaySessions(): Promise<TeacherSession[]> {

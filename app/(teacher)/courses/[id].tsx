@@ -46,6 +46,7 @@ export default function CourseDetailScreen() {
   const [radius_, setRadius] = useState(20);
   const [geofence, setGeofence] = useState(true);
   const [allowSwap, setAllowSwap] = useState(true);
+  const [privateLesson, setPrivateLesson] = useState(false);
   const [sheetDefault, setSheetDefault] = useState(false);
   const [sheetMax, setSheetMax] = useState('');
   const [perCycle, setPerCycle] = useState<number | null>(null);
@@ -67,6 +68,7 @@ export default function CourseDetailScreen() {
       setRadius(course.radius_horizontal_meters ?? 20);
       setGeofence(course.phone_checkin_enabled ?? true);
       setAllowSwap(course.allow_session_swap ?? true);
+      setPrivateLesson(course.attendance_mode === 'none');
       setSheetDefault(course.sheet_expected_by_default);
       setSheetMax(course.sheet_max_mark != null ? String(course.sheet_max_mark) : '');
       setPerCycle(course.sessions_per_billing_cycle);
@@ -87,8 +89,9 @@ export default function CourseDetailScreen() {
         name: name.trim(),
         teacher_location_id: venueId,
         radius_horizontal_meters: radius_,
-        phone_checkin_enabled: geofence,
-        allow_session_swap: allowSwap,
+        phone_checkin_enabled: privateLesson ? false : geofence,
+        allow_session_swap: privateLesson ? false : allowSwap,
+        attendance_mode: privateLesson ? 'none' : 'door',
         sheet_expected_by_default: sheetDefault,
         sheet_max_mark: sheetMax.trim() ? Number(sheetMax.trim()) : null,
         sessions_per_billing_cycle: perCycle ?? undefined,
@@ -156,13 +159,28 @@ export default function CourseDetailScreen() {
   }
 
   const located = course.has_location;
+  // A private lesson (no door): offered while the server allows it, or while the course
+  // already is one — so it can always be put back on a door.
+  const privateOptions = course.private_courses;
+  const canChoosePrivate = !!privateOptions?.enabled || course.attendance_mode === 'none';
   const venueOptions = [{ key: '', label: t('enroll_ui.no_venue') }, ...venues.map((v) => ({ key: v.id, label: v.address ? `${v.name} — ${v.address}` : v.name }))];
 
   return (
     <Surface id="screen.teacher.courses.detail" screen>
     <FormScreen title={course.name} subtitle={course.grade_name ?? undefined}>
       {/* Where the phone check-in anchors — the card's colour IS the status. */}
-      {onboarding?.active ? <Surface id="teacher.course_detail.onboarding_banner"><Banner tone="info" text={t('onboarding.location_hint')} /></Surface> : null}
+      {onboarding?.active && !privateLesson ? <Surface id="teacher.course_detail.onboarding_banner"><Banner tone="info" text={t('onboarding.location_hint')} /></Surface> : null}
+      {canChoosePrivate ? (
+        <Surface id="teacher.course_detail.attendance_mode" assistantNeeds="manage_courses">
+        <FormCard icon="attendance" title={t('course_ui.private_section')} tint={privateLesson ? colors.brand : colors.borderStrong}
+          hint={privateLesson ? privateOptions?.note : undefined}>
+          <SwitchRow first title={t('course_ui.private_label')}
+            hint={privateLesson ? `${privateOptions?.hint ?? ''} ${t('course_ui.private_max', { n: formatNumber(privateOptions?.max_students ?? 0) })}` : t('course_ui.private_off_hint')}
+            value={privateLesson} onChange={setPrivateLesson} />
+        </FormCard>
+        </Surface>
+      ) : null}
+      {privateLesson ? null : (
       <Surface id="teacher.course_detail.location">
       <FormCard icon="location"
         title={t(!geofence ? 'course_ui.geofence_off_title' : located ? 'teacher.phone_checkin_auto_on' : 'teacher.phone_checkin_off')}
@@ -191,6 +209,7 @@ export default function CourseDetailScreen() {
           </Surface>
       </FormCard>
       </Surface>
+      )}
 
           <Surface id="teacher.course_detail.basics" assistantNeeds="manage_courses">
           <FormCard icon="book" title={t('teacher.section_basics')}>
@@ -215,8 +234,8 @@ export default function CourseDetailScreen() {
 
           <Surface id="teacher.course_detail.settings" assistantNeeds="manage_courses">
           <FormCard icon="attendance" title={t('teacher.settings_section')} tint={colors.accent}>
-            <SwitchRow first title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />
-            <SwitchRow title={t('teacher.sheet_default_label')} hint={t('teacher.sheet_default_hint')} value={sheetDefault} onChange={setSheetDefault} />
+            {privateLesson ? null : <SwitchRow first title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />}
+            <SwitchRow first={privateLesson} title={t('teacher.sheet_default_label')} hint={t('teacher.sheet_default_hint')} value={sheetDefault} onChange={setSheetDefault} />
             <Field label={t('teacher.sheet_max_label')} hint={t('form_ui.optional')}>
               <NumberInput value={sheetMax} onChangeText={setSheetMax} decimals placeholder={t('teacher.optional')} />
             </Field>

@@ -45,5 +45,9 @@ function extractSession(item: any): SessionInstance {
     attendance_status: a.attendance_status ?? null,
     checked_in: a.checked_in ?? false,
     can_check_in: a.can_check_in ?? false,
+    // Private-lesson contract (2026-10-12): missing = a door course.
+    attendance_mode: a.attendance_mode ?? undefined,
+    tracks_attendance: a.tracks_attendance ?? undefined,
+    attendance_label: a.attendance_label ?? null,
   };
 }

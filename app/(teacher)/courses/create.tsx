@@ -30,6 +30,11 @@ export default function CourseCreateScreen() {
   const { data: options, isLoading } = useCourseFormOptions();
   // Teacher's down-payment IS the booklet → a separate booking price doesn't apply.
   const bookletIsDownPayment = options?.booklet_is_down_payment ?? false;
+  // A private lesson (founder 2026-10-12): no door. Offered only when the server says so;
+  // its words and cap are the server's too, so a config change reaches this form unbuilt.
+  const privateOptions = options?.private_courses;
+  const [privateLesson, setPrivateLesson] = useState(false);
+  const noDoor = !!privateOptions?.enabled && privateLesson;
   const create = useCreateCourse();
   const { data: onboarding } = useTeacherOnboarding();
   const markStep = useMarkOnboardingStep();
@@ -102,8 +107,9 @@ export default function CourseCreateScreen() {
         capacity: capacity.trim() ? Number(capacity.trim()) : undefined,
         teacher_location_id: venueId,
         radius_horizontal_meters: radius_,
-        phone_checkin_enabled: geofence,
-        allow_session_swap: allowSwap,
+        phone_checkin_enabled: noDoor ? false : geofence,
+        allow_session_swap: noDoor ? false : allowSwap,
+        attendance_mode: noDoor ? 'none' : 'door',
         starts_at: startMode === 'date' && startDate ? startDate : undefined,
         description: description.trim() || undefined,
         slots: slots.length ? slots : undefined,
@@ -258,6 +264,15 @@ export default function CourseCreateScreen() {
           </Surface>
 
           {/* ── Attendance & details ── */}
+          {privateOptions?.enabled ? (
+            <Surface id="teacher.course_create.attendance_mode">
+            <FormCard icon="attendance" title={t('course_ui.private_section')} tint={noDoor ? colors.brand : colors.borderStrong}>
+              <SwitchRow first title={t('course_ui.private_label')} hint={noDoor ? `${privateOptions.hint} ${t('course_ui.private_max', { n: formatNumber(privateOptions.max_students) })}` : t('course_ui.private_off_hint')} value={privateLesson} onChange={setPrivateLesson} />
+            </FormCard>
+            </Surface>
+          ) : null}
+
+          {noDoor ? null : (
           <Surface id="teacher.course_create.geofence">
           <FormCard icon="location" title={t('course_ui.geofence_label')} tint={geofence ? colors.success : colors.borderStrong}>
             <SwitchRow title={t('course_ui.geofence_label')} hint={t(geofence ? 'course_ui.geofence_hint' : 'course_ui.geofence_off_hint')} value={geofence} onChange={setGeofence} first />
@@ -268,11 +283,12 @@ export default function CourseCreateScreen() {
             ) : null}
           </FormCard>
           </Surface>
+          )}
 
           <Surface id="teacher.course_create.details">
           <FormCard icon="settings" title={t('teacher.section_details')}>
-            <SwitchRow first title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />
-            <Field label={t('teacher.capacity')} hint={t('form_ui.optional')}>
+            {noDoor ? null : <SwitchRow first title={t('teacher.allow_swap_label')} hint={t('teacher.allow_swap_hint')} value={allowSwap} onChange={setAllowSwap} />}
+            <Field label={t('teacher.capacity')} hint={t('form_ui.optional')} first={noDoor}>
               <NumberInput value={capacity} onChangeText={setCapacity} placeholder={t('teacher.optional')} />
             </Field>
             <Field label={t('teacher.description')} hint={t('form_ui.optional')}>

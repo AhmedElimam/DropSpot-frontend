@@ -34,6 +34,8 @@ import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { getStudentTeachers, type StudentTeacher } from '@/api/studentOverview';
 import { Surface } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
+import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
+import { tracksAttendance, attendanceLabel } from '@/utils/privateLesson';
 
 const statusDot = (): Record<string, string> => ({
   live: colors.success,
@@ -278,6 +280,8 @@ function Spotlight({ s, now }: { s: Session; now: number }) {
   const end = new Date(start.getTime() + s.duration_minutes * 60000);
   const live = s.status === 'live';
   const soon = !live && start.getTime() - now <= FOUR_HOURS;
+  // A private lesson has nothing to check into: the label takes the button's place.
+  const tracked = tracksAttendance(s);
   return (
     <TouchableOpacity onPress={() => router.navigate('/(student)/(tabs)/check-in')} activeOpacity={0.9} accessibilityRole="button" style={{ borderRadius: radius.xxl, overflow: 'hidden', ...shadows.md }}>
       <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: spacing.lg }}>
@@ -296,7 +300,14 @@ function Spotlight({ s, now }: { s: Session; now: number }) {
             <Icon name="clock" size={14} color="#fff" outline />
             <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff' }}>{formatTime(start)} - {formatTime(end)}</Text>
           </View>
-          {live || soon ? (
+          {!tracked ? (
+            <Surface id="student.home.spotlight.private_label" ctx={{ session: s }}>
+              <View style={{ flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.md }}>
+                <Icon name="book" size={14} color="#fff" outline />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#fff', flexShrink: 1 }} numberOfLines={1}>{attendanceLabel(s, t('family_ui.private_lesson'))}</Text>
+              </View>
+            </Surface>
+          ) : live || soon ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: spacing.lg }}>
               <Icon name="card" size={16} color={onWhite.brand} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: onWhite.brand }}>{t('attendance.check_in')}</Text>
@@ -314,7 +325,8 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
   const end = new Date(start.getTime() + session.duration_minutes * 60000);
   // "Starting soon" = scheduled and within 4 hours of the start time.
   const msToStart = start.getTime() - now;
-  const startingSoon = session.status === 'scheduled' && !session.attendance_status && msToStart > 0 && msToStart <= FOUR_HOURS;
+  const tracked = tracksAttendance(session);
+  const startingSoon = tracked && session.status === 'scheduled' && !session.attendance_status && msToStart > 0 && msToStart <= FOUR_HOURS;
   const accent = startingSoon ? colors.brand : (statusDot()[session.status] || colors.border);
   return (
     <TouchableOpacity
@@ -334,7 +346,11 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
       </View>
       {/* Prefer the student's OWN outcome once recorded; a "starting soon" chip flags the
           next 4h window; else fall back to the session lifecycle. */}
-      {startingSoon ? (
+      {!tracked ? (
+        <Surface id="student.home.session_row.private_label" ctx={{ session }}>
+          <PrivateLessonChip of={session} short />
+        </Surface>
+      ) : startingSoon ? (
         <View style={{ backgroundColor: colors.brandTint, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('attendance.starting_soon')}</Text>
         </View>
@@ -375,6 +391,16 @@ function TeacherCard({ teacher }: { teacher: StudentTeacher }) {
       <View style={{ marginTop: spacing.sm, gap: 6 }}>
         {teacher.courses.map((c) => {
           const cTone = c.rate === null ? colors.textTertiary : c.rate >= 90 ? colors.success : c.rate >= 75 ? colors.brand : colors.accent;
+          if (!tracksAttendance(c)) {
+            return (
+              <Surface key={c.id} id="student.home.teacher_card.private_course" ctx={{ course: c }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{c.name}</Text>
+                  <PrivateLessonChip of={c} style={{ flexShrink: 1 }} />
+                </View>
+              </Surface>
+            );
+          }
           return (
             <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{c.name}</Text>

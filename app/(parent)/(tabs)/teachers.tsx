@@ -21,6 +21,8 @@ import { formatTime12 } from '@/components/ui/TimePicker';
 import { formatNumber } from '@/utils/format';
 import type { Child } from '@/api/children';
 import { Surface } from '@/ui/surfaces';
+import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
+import { isPrivateLesson } from '@/utils/privateLesson';
 
 type ChildTeacher = Child['teachers'][number];
 /** One teacher, and every child of this family who studies with them. */
@@ -176,6 +178,11 @@ function TeacherCardView({ card, showChildName, removingKey, onTicket, onRemove 
                   <Icon name="book" size={15} color={colors.brand} outline />
                 </View>
                 <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{c.name ?? '—'}</Text>
+                {isPrivateLesson(c) ? (
+                  <Surface id="parent.teachers.course_private_chip" ctx={{ course: c }}>
+                    <PrivateLessonChip of={c} short />
+                  </Surface>
+                ) : null}
                 {c.day ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.surfaceSunken, borderRadius: radius.full, paddingHorizontal: 9, paddingVertical: 3 }}>
                     <Icon name="clock" size={12} color={colors.textSecondary} />

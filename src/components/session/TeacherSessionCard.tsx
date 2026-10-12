@@ -24,6 +24,11 @@ export interface SessionCardData {
   checked_in_count?: number;
   absent_count?: number;
   enrolled_count?: number;
+  /** door | none — a private lesson has no attendance (no scan, no bar). Absent on older servers = door. */
+  attendance_mode?: 'door' | 'none';
+  tracks_attendance?: boolean;
+  /** The server's words for a private lesson; always drawn when present. */
+  attendance_label?: string | null;
 }
 
 const PHASE = (): Record<SessionPhase, { stripe: string; chipBg: string; chipText: string; key: string }> => ({
@@ -49,6 +54,8 @@ export const SessionCard = memo(function SessionCard({
   const absent = s.absent_count ?? 0;
   const total = s.enrolled_count ?? 0;
   const actionable = !compact && (phase === 'live' || phase === 'upcoming');
+  // A private lesson (attendance_mode 'none') has no attendance: no bar, no scan; a chip says so.
+  const noDoor = s.tracks_attendance === false;
   const [clock, meridiem] = (s.time ?? '').split(' ');
   // A compact card (Home's rest of the day) is NOT tappable: it sits in a swipe row, and a
   // tap on the card opened the session while swiping. Only its «تفاصيل الحصة» button opens it
@@ -87,6 +94,14 @@ export const SessionCard = memo(function SessionCard({
 
         <Surface id="teacher.session_card.meta">
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+          {noDoor ? (
+            <Surface id="teacher.session_card.private_chip" ctx={{ session: s }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.accentLight, borderRadius: radius.full, paddingVertical: 1, paddingHorizontal: 8 }}>
+              <Icon name="attendance" size={11} color={colors.accentText} outline />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.accentText }} numberOfLines={1}>{s.attendance_label ?? t('course_ui.private_chip')}</Text>
+            </View>
+            </Surface>
+          ) : null}
           {s.cycle_position ? (
             <View style={{ backgroundColor: colors.brandTint, borderRadius: radius.full, paddingVertical: 1, paddingHorizontal: 8 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{t('teacher.position_of', { n: formatNumber(s.cycle_position.n), of: formatNumber(s.cycle_position.of) })}</Text>
@@ -101,8 +116,8 @@ export const SessionCard = memo(function SessionCard({
         </View>
         </Surface>
 
-        {phase !== 'cancelled' && total > 0 ? (
-          <Surface id="teacher.session_card.attendance_bar">
+        {phase !== 'cancelled' && total > 0 && !noDoor ? (
+          <Surface id="teacher.session_card.attendance_bar" ctx={{ session: s }}>
           <View style={{ gap: 4, marginTop: 2 }}>
             <AttendanceBar present={present} absent={absent} total={total} height={6} />
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>
@@ -128,8 +143,8 @@ export const SessionCard = memo(function SessionCard({
         {actionable ? (
           <Surface id="teacher.session_card.actions">
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: 4 }}>
-            {onScan ? (
-              <Surface id="teacher.session_card.actions.scan">
+            {onScan && !noDoor ? (
+              <Surface id="teacher.session_card.actions.scan" ctx={{ session: s }}>
               <TouchableOpacity onPress={() => onScan(s)} activeOpacity={0.85} accessibilityRole="button"
                 style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42, borderRadius: radius.md, backgroundColor: phase === 'live' ? colors.success : colors.brand }}>
                 <Icon name="scan" size={17} color="#fff" />

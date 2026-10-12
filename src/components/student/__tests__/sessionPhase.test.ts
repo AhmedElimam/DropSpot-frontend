@@ -1,3 +1,7 @@
+// The card now wraps its private-lesson chip in <Surface>, whose dialog import reaches native
+// storage; mock it as the surface tests do so this pure helper test stays pure.
+jest.mock('@/ui/dialog', () => ({ Alert: { alert: jest.fn() } }));
+
 import { sessionPhase } from '../TodaySessionCard';
 import type { SessionInstance } from '@/types/session-instance';
 

@@ -16,6 +16,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
 import { Surface } from '@/ui/surfaces';
+import { tracksAttendance } from '@/utils/privateLesson';
 
 export default function SwapRequestScreen() {
   const { t } = useTranslation();
@@ -32,8 +33,11 @@ export default function SwapRequestScreen() {
   const [targetId, setTargetId] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  const { data: upcoming, isLoading: upcomingLoading, isError: upcomingError, refetch: refetchUpcoming } = useUpcomingSessions(20);
-  const { data: candidates, isLoading: candidatesLoading } = useSwapCandidates(originalId);
+  const { data: upcomingAll, isLoading: upcomingLoading, isError: upcomingError, refetch: refetchUpcoming } = useUpcomingSessions(20);
+  const { data: candidatesAll, isLoading: candidatesLoading } = useSwapCandidates(originalId);
+  // A private lesson (no attendance) is never missed nor made up: it is neither a source nor a target.
+  const upcoming = upcomingAll?.filter(tracksAttendance);
+  const candidates = candidatesAll?.filter(tracksAttendance);
   const requestMutation = useRequestSwap();
   const { refreshing, onRefresh } = usePullRefresh(refetchUpcoming);
 

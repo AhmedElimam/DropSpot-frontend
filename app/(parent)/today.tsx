@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PageHero } from '@/components/ui/PageHero';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { Surface } from '@/ui/surfaces';
+import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
+import { tracksAttendance } from '@/utils/privateLesson';
 
 const cardStyle = () => ({
   backgroundColor: colors.surface,
@@ -103,7 +105,11 @@ function SessionRow({ session, last, t }: { session: FeedSession; last: boolean;
           <Text style={textPresets.body}>{session.course_name ?? ''}</Text>
           <Text style={textPresets.caption}>{sessionTime(session.scheduled_at)}</Text>
         </View>
-        {session.status ? (
+        {!tracksAttendance(session) ? (
+          <Surface id="parent.today.session_private_label" ctx={{ session }}>
+            <PrivateLessonChip of={session} style={{ flexShrink: 1, marginStart: spacing.sm }} />
+          </Surface>
+        ) : session.status ? (
           <StatusBadge status={session.status} />
         ) : (
           <View style={{ backgroundColor: colors.surfaceSunken, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full }}>

@@ -1,5 +1,6 @@
 import client from './client';
 import { extractList, extractAttrs } from './utils';
+import type { AttendanceModeFields } from '@/types/attendance-mode';
 
 export interface Child {
   id: string;
@@ -20,7 +21,7 @@ export interface Child {
   teachers: {
     id: string; name: string; phone?: string | null; logo_url?: string | null; is_distinguished_member?: boolean;
     /** What the child takes with this teacher: the course and its weekly slot (2026-10-06). */
-    courses?: { name: string | null; day: string | null; time: string | null }[];
+    courses?: ({ name: string | null; day: string | null; time: string | null } & AttendanceModeFields)[];
     /** How the child attends this teacher's sessions: recorded, present/late, absent. */
     attendance?: { held: number; attended: number; absent: number };
   }[];

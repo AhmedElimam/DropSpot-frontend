@@ -1,7 +1,8 @@
 import client from './client';
 import { extractList, extractAttrs } from './utils';
+import type { AttendanceModeFields } from '@/types/attendance-mode';
 
-export interface SwapCandidate {
+export interface SwapCandidate extends AttendanceModeFields {
   id: number;
   scheduled_at: string;
   course_name?: string | null;
@@ -32,6 +33,9 @@ export async function getSwapCandidates(
       location: a.location ?? null,
       session_schedule_id: a.session_schedule_id ?? null,
       remaining_capacity: a.remaining_capacity ?? null,
+      attendance_mode: a.attendance_mode ?? undefined,
+      tracks_attendance: a.tracks_attendance ?? undefined,
+      attendance_label: a.attendance_label ?? null,
     };
   });
 }

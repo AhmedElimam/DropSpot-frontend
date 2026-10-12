@@ -32,6 +32,7 @@ import { TodaySessionCard } from '@/components/student/TodaySessionCard';
 import { useQuery } from '@tanstack/react-query';
 import { getStudentTeachers } from '@/api/studentOverview';
 import { Surface } from '@/ui/surfaces';
+import { tracksAttendance } from '@/utils/privateLesson';
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -81,8 +82,9 @@ export default function CheckInTab() {
   }, [teachersQ.data]);
   // Phone check-in is offered only when the session is still scheduled, phone check-in
   // is permitted for it, the window is open, and the student hasn't already checked in.
+  // A private lesson (tracks_attendance false) is never checkable: there is no attendance to take.
   const isCheckable = (s: SessionInstance) =>
-    s.status === 'scheduled' && s.phone_checkin_allowed === true
+    tracksAttendance(s) && s.status === 'scheduled' && s.phone_checkin_allowed === true
     && getCheckInWindow(s.scheduled_at).canCheckIn && !s.checked_in;
   const checkableSessions = todaySessions.filter(isCheckable);
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
@@ -187,8 +189,9 @@ export default function CheckInTab() {
   // Only absences that can still be excused — the window closes once the course's
   // next session begins (server-authoritative via `can_excuse`; `!== false` keeps
   // older API responses that omit the field working).
+  // A private lesson has no absences to excuse, whatever its records say.
   const absentRecords = (records ?? [])
-    .filter((r) => r?.status === 'absent' && r?.can_excuse !== false)
+    .filter((r) => r?.status === 'absent' && r?.can_excuse !== false && tracksAttendance(r))
     .slice(0, 5);
 
   if (checkedIn) {
