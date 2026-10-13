@@ -26,6 +26,11 @@ const iosGoogleServicesStaging = existsSync(resolve(__dirname, 'GoogleService-In
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
+  // OTA to a store build that is already out: publish under the runtime that build carries
+  // (EXUpdates.bundle/fingerprint in the .ipa, assets/fingerprint in the .aab). The
+  // fingerprint counts the stamped build number, so no two store builds share a runtime and
+  // a publish computed from main reaches none of them. Never set for a build.
+  ...(process.env.OTA_RUNTIME_VERSION ? { runtimeVersion: process.env.OTA_RUNTIME_VERSION } : {}),
   name: STAGING ? 'DrosSpot Staging' : 'DrosSpot',
   slug: 'DrosSpot',
   // A staging build updates from its own OTA branch, never production's.
