@@ -96,6 +96,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    // Google Play flags READ_MEDIA_IMAGES (photo/video policy) — every photo we take is a
+    // one-off pick (payment proof, card photo, ticket file, logo, receipt), which the policy
+    // says belongs to the system photo picker. expo-image-picker already uses that picker on
+    // Android 13+ and asks for nothing there; the permission came from expo-screen-capture's
+    // screenshot LISTENER, which we never use (tutorials only block capture: FLAG_SECURE).
+    blockedPermissions: ['android.permission.READ_MEDIA_IMAGES', 'android.permission.READ_MEDIA_VIDEO'],
   },
   web: {
     output: 'static',
