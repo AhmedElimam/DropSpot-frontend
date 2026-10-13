@@ -101,7 +101,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // says belongs to the system photo picker. expo-image-picker already uses that picker on
     // Android 13+ and asks for nothing there; the permission came from expo-screen-capture's
     // screenshot LISTENER, which we never use (tutorials only block capture: FLAG_SECURE).
-    blockedPermissions: ['android.permission.READ_MEDIA_IMAGES', 'android.permission.READ_MEDIA_VIDEO'],
+    // AD_ID: no ads, and firebase.json turns ad-ID collection off — so the Play declaration
+    // is «No», and the permission the measurement library would merge in is stripped to match.
+    blockedPermissions: [
+      'android.permission.READ_MEDIA_IMAGES',
+      'android.permission.READ_MEDIA_VIDEO',
+      'com.google.android.gms.permission.AD_ID',
+    ],
   },
   web: {
     output: 'static',
