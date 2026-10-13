@@ -570,6 +570,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.home.attention_complaints` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.attention_phones` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.attention_sync` — element · app/(teacher)/(tabs)/index.tsx
+- `teacher.home.attention_termination` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.attention_tickets` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.connection_line` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.greeting` — element · app/(teacher)/(tabs)/index.tsx

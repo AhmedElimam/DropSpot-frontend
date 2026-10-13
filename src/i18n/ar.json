@@ -1192,6 +1192,8 @@
     "no_teachers": "لم تُسجَّل في أي مقرر بعد",
     "complaints_title": "اعتراضات الطلاب",
     "complaints_sub": "{{count}} بانتظار القرار",
+    "termination_short": "مرشحون للإنهاء",
+    "termination_sub": "{{count}} طالب بغياب متتالٍ بدون عذر — بانتظار قرارك",
     "some_attention_short": "تحتاج متابعة",
     "spotlight_sub": "{{teacher}} · {{place}}",
     "attendance_overview": "حضورك هذا الشهر",
