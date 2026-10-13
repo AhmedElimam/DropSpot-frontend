@@ -14,6 +14,10 @@ name: Publish OTA update (EAS Update)
 # Older builds still on the appVersion runtime (1.2.8 and before): check out that
 # version's commit, cherry-pick the fix, and run this workflow from that ref.
 #
+# NOTE 2026-10-13: in practice every CI store build has its OWN runtime (the stamped build
+# number counts), so this workflow reaches no shipped build. To update phones that are out,
+# run scripts/ota-store-builds.sh locally (it reads each build's runtime from its artifact).
+#
 # Required secret: EXPO_TOKEN (expo.dev → account → Access tokens).
 
 on:
