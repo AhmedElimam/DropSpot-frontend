@@ -92,6 +92,8 @@ export interface MarketShop extends Omit<BoardShop, 'quote'> {
   speed_measured: boolean;
   capabilities: string[];
   price_from: { bw: number | null; color: number | null };
+  /** The shop's logo (signed link, stable for a week), or null. */
+  logo?: string | null;
   tagline?: string | null;
   cover?: ShopSample | null;
   samples_count?: number;
@@ -206,7 +208,7 @@ export interface PrintJob {
   spec: PrintSpec;
   spec_label: string;
   delivery_address: string | null;
-  shop: { id: number; name?: string; phone?: string | null; city?: string | null; address?: string | null };
+  shop: { id: number; name?: string; logo?: string | null; phone?: string | null; city?: string | null; address?: string | null };
   course: { id: number; name: string } | null;
   price_per_page: number;
   finish_per_copy: number;
@@ -281,7 +283,7 @@ export async function uploadPrintFile(file: { uri: string; name: string }): Prom
 }
 
 /** A partner shop that has not published a print menu yet — named, never orderable. */
-export interface ComingShop { vendor_id: number; name: string; city: string | null }
+export interface ComingShop { vendor_id: number; name: string; city: string | null; logo?: string | null }
 
 export async function getPrintShops(): Promise<{ shops: MarketShop[]; coming?: ComingShop[] }> {
   const { data } = await client.get('/teacher/print/shops');
@@ -319,7 +321,7 @@ export interface TrackInfo {
   teacher_live?: { lat: number; lng: number; seen_at: string } | null;
   mode: 'pickup' | 'deliver';
   handover_code: string | null;
-  shop: { name: string | null; address: string | null; lat: number | null; lng: number | null };
+  shop: { name: string | null; logo?: string | null; address: string | null; lat: number | null; lng: number | null };
   dest: { lat: number; lng: number; name: string | null; address: string | null } | null;
   delivery: {
     status: 'assigned' | 'picked_up' | 'en_route' | 'arrived' | 'delivered' | 'failed';

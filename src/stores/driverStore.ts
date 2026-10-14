@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { readDriverToken, writeDriverToken, driverLogout, type DriverProfile } from '@/api/driver';
+import { stopDriverTracking } from '@/background/driverLocation';
 
 /**
  * The driver session, beside (never inside) the user session: a print shop's rider holds a
@@ -29,6 +30,7 @@ export const useDriverStore = create<DriverState>((set, get) => ({
   },
   setDriver: (driver) => set({ driver }),
   signOut: async () => {
+    await stopDriverTracking();
     if (get().token) await driverLogout();
     await writeDriverToken(null);
     set({ token: null, driver: null });

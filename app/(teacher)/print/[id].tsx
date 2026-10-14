@@ -159,9 +159,9 @@ export default function PrintJobScreen() {
               ) : null}
               {(track.data.delivery?.is_active || track.data.mode === 'pickup') && (track.data.dest || track.data.shop.lat != null) ? (
                 <LiveMap mapsKey={track.data.maps_key} height={230} style={{ marginBottom: spacing.sm }}
-                  shop={track.data.shop.lat != null ? { lat: track.data.shop.lat, lng: track.data.shop.lng!, label: track.data.shop.name ?? undefined } : null}
+                  shop={track.data.shop.lat != null ? { lat: track.data.shop.lat, lng: track.data.shop.lng!, label: track.data.shop.name ?? undefined, logo: track.data.shop.logo ?? null } : null}
                   dest={track.data.dest ? { lat: track.data.dest.lat, lng: track.data.dest.lng, label: track.data.dest.name ?? undefined } : null}
-                  driver={track.data.delivery?.driver?.lat != null ? { lat: track.data.delivery.driver.lat, lng: track.data.delivery.driver.lng!, label: track.data.delivery.driver.name, busy: track.data.delivery.is_active, online: track.data.delivery.driver.online } : null}
+                  driver={track.data.delivery?.driver?.lat != null ? { lat: track.data.delivery.driver.lat, lng: track.data.delivery.driver.lng!, label: track.data.delivery.driver.name, vehicle: track.data.delivery.driver.vehicle, busy: track.data.delivery.is_active, online: track.data.delivery.driver.online } : null}
                   follow={track.data.delivery?.driver?.lat != null ? { lat: track.data.delivery.driver.lat, lng: track.data.delivery.driver.lng! } : null}
                   me={me ? { ...me, label: t('print.me') } : null} trail={track.data.delivery?.trail ?? []} />
               ) : null}

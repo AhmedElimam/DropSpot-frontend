@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
+import { ShopLogo } from '@/components/print/ShopLogo';
 import { Icon } from '@/components/ui/Icon';
 import { FormScreen, FormCard, Field, Input, NumberInput, Chips, Banner } from '@/components/ui/Form';
 import { SelectField } from '@/components/ui/SelectField';
@@ -149,9 +150,7 @@ export default function PrintNew() {
           {/* 0 · the shop you are ordering from */}
           <Surface id="teacher.print_new.shop">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.xl, padding: spacing.md, marginBottom: spacing.md }}>
-            <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="storefront" size={21} color={colors.onPrimary} />
-            </View>
+            <ShopLogo logo={s.logo} size={46} premium={s.quality_tier === 'premium'} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand }}>{t('print.building_on')}</Text>
               <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>

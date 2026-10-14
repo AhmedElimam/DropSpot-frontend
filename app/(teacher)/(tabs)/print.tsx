@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert } from '@/ui/dialog';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, gradients } from '@/theme/index';
+import { ShopLogo } from '@/components/print/ShopLogo';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber } from '@/utils/format';
@@ -58,9 +59,11 @@ function ShopTile({ s }: { s: MarketShop }) {
       {s.cover ? (
         <Image source={sampleSource(s.cover.url)} style={{ width: '100%', height: 110, backgroundColor: colors.surfaceSunken }} contentFit="cover" transition={150} recyclingKey={String(s.cover.id)} />
       ) : (
-        <LinearGradient colors={gradients.hero} style={{ height: 110, alignItems: 'center', justifyContent: 'center' }}><Icon name="storefront" size={34} color={colors.onHeroSoft} /></LinearGradient>
+        <LinearGradient colors={gradients.hero} style={{ height: 110 }} />
       )}
-      <View style={{ padding: spacing.sm }}>
+      {/* the logo, on the photo's edge (Talabat's restaurant tiles) */}
+      <ShopLogo logo={s.logo} size={46} premium={s.quality_tier === 'premium'} ring style={{ position: 'absolute', top: 110 - 30, start: spacing.sm }} />
+      <View style={{ padding: spacing.sm, paddingTop: 18 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: s.rating != null ? colors.warningText : colors.accentText }}>{s.rating != null ? `★ ${formatNumber(s.rating, { maximumFractionDigits: 1 })}` : t('print.new_shop_short')}</Text>

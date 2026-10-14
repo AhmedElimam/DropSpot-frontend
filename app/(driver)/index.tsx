@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber, formatTime } from '@/utils/format';
 import { LiveMap, useMyLocation } from '@/components/LiveMap';
+import { startDriverTracking, stopDriverTracking } from '@/background/driverLocation';
 import { Banner } from '@/components/ui/Form';
 import { getDriverDeliveries, driverMe, driverHeartbeat, type DriverDelivery } from '@/api/driver';
 import { useDriverStore } from '@/stores/driverStore';
@@ -51,10 +52,11 @@ function TripRow({ d }: { d: DriverDelivery }) {
 }
 
 /**
- * The rider's home, map first (founder 2026-10-14: «live location like Talabat»): his own
- * live dot on the navy map, the trip in hand drawn on it, and the day's trips in a panel
- * below. While he is free and on this screen his position reaches the shop every 45 s, so
- * the shop sees who is «متاح».
+ * The rider's home, map first (founder 2026-10-14: «live location like Talabat»): himself as
+ * his vehicle on the navy map, the trip in hand drawn on it, and the day's trips in a panel
+ * below. «متصل» is a switch: on duty his position goes up from the background task (screen
+ * off, any app) and every 30 s from here even standing still, so the shop sees him «متاح»
+ * and the teacher watches him come. Off duty nothing is sent.
  */
 export default function DriverHome() {
   const { t } = useTranslation();
@@ -69,19 +71,35 @@ export default function DriverHome() {
   const { refreshing, onRefresh } = usePullRefresh(trips.refetch, me.refetch);
   const here = useMyLocation(!!token);
   const [beatAt, setBeatAt] = useState<number | null>(null);
+  const [duty, setDuty] = useState(true);
+  const [bgOk, setBgOk] = useState<boolean | null>(null);
 
-  // Free and on this screen: «I'm here» to the shop every 45 s.
   const list = trips.data ?? [];
   const active = list.filter((d) => d.is_active);
   const done = list.filter((d) => !d.is_active);
-  const free = !!token && active.length === 0;
-  const lastBeat = useRef(0);
+
+  // On duty: the background stream runs, and from here a beat every 30 s even standing still.
   useEffect(() => {
-    if (!free || !here.me) return;
-    if (Date.now() - lastBeat.current < 45000) return;
+    if (!token) return;
+    if (duty) startDriverTracking().then(setBgOk);
+    else { stopDriverTracking(); setBgOk(null); setBeatAt(null); }
+  }, [token, duty]);
+  const latest = useRef(here.me);
+  latest.current = here.me;
+  const lastBeat = useRef(0);
+  const beat = () => {
+    const p = latest.current;
+    if (!p || Date.now() - lastBeat.current < 10000) return;
     lastBeat.current = Date.now();
-    driverHeartbeat(here.me.lat, here.me.lng).then(() => setBeatAt(Date.now())).catch(() => {});
-  }, [free, here.me]);
+    driverHeartbeat(p.lat, p.lng).then(() => setBeatAt(Date.now())).catch(() => {});
+  };
+  useEffect(() => {
+    if (!token || !duty) return;
+    beat();
+    const t = setInterval(beat, 30000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, duty, !!here.me]);
 
   useEffect(() => { if (me.data) setDriver(me.data); }, [me.data, setDriver]);
   // A cut driver (the shop switched them off) is sent out.
@@ -90,9 +108,10 @@ export default function DriverHome() {
   if (!token) return <Redirect href={'/resolve' as Href} />;
 
   const now = active[0];
-  const shopPin = now?.shop.lat != null && now?.shop.lng != null ? { lat: now.shop.lat, lng: now.shop.lng, label: now.shop.name ?? undefined } : null;
+  const shopPin = now?.shop.lat != null && now?.shop.lng != null ? { lat: now.shop.lat, lng: now.shop.lng, label: now.shop.name ?? undefined, logo: now.shop.logo ?? null } : null;
   const destPin = now?.dest.lat != null && now?.dest.lng != null ? { lat: now.dest.lat, lng: now.dest.lng, label: now.dest.name ?? undefined } : null;
-  const online = !!beatAt || active.length > 0;
+  const online = duty && !!beatAt;
+  const meAsDriver = here.me ? { ...here.me, id: driver?.id ?? me.data?.id, vehicle: driver?.vehicle ?? me.data?.vehicle, busy: active.length > 0, online: duty, heading: here.me.heading ?? null } : null;
   const leave = () => Alert.alert(t('driver.sign_out'), t('driver.sign_out_confirm'), [
     { text: t('common.back'), style: 'cancel' },
     { text: t('driver.sign_out'), style: 'destructive', onPress: () => signOut().then(() => router.replace('/resolve' as Href)) },
@@ -102,8 +121,8 @@ export default function DriverHome() {
   return (
     <View style={{ flex: 1, backgroundColor: '#0E1433' }}>
       <StatusBar style="light" />
-      <LiveMap mapsKey={driver?.maps_key ?? me.data?.maps_key} showMe rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
-        shop={shopPin} dest={destPin} controlsBottom={H - panelTop + 16} padBottom={H - panelTop}
+      <LiveMap mapsKey={driver?.maps_key ?? me.data?.maps_key} showMe hideMeDot rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
+        shop={shopPin} dest={destPin} driver={meAsDriver} controlsBottom={H - panelTop + 16} padBottom={H - panelTop}
         teacher={now?.teacher_live ? { lat: now.teacher_live.lat, lng: now.teacher_live.lng, label: t('driver.teacher_here') } : null} />
 
       {/* who and the status, over the map */}
@@ -116,10 +135,13 @@ export default function DriverHome() {
             <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: '#fff' }} numberOfLines={1}>{driver?.name ?? me.data?.name ?? t('driver.title')}</Text>
             <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: 'rgba(255,255,255,0.7)' }} numberOfLines={1}>{t('driver.rides_for', { shop: driver?.shop.name ?? me.data?.shop.name ?? '' })}</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: online ? 'rgba(43,212,138,0.18)' : 'rgba(255,255,255,0.1)' }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: online ? '#2BD48A' : '#8A91A3' }} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: online ? '#2BD48A' : 'rgba(255,255,255,0.7)' }}>{here.denied ? t('driver.no_gps') : online ? t('driver.online') : t('driver.connecting')}</Text>
-          </View>
+          <TouchableOpacity onPress={() => setDuty((v) => !v)} accessibilityRole="switch" accessibilityState={{ checked: duty }} accessibilityLabel={t('driver.duty_switch')} hitSlop={8} activeOpacity={0.8}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingStart: 4, paddingEnd: 10, height: 30, borderRadius: 15, backgroundColor: !duty ? 'rgba(255,255,255,0.1)' : online ? 'rgba(43,212,138,0.18)' : 'rgba(255,255,255,0.1)' }}>
+            <View style={{ width: 34, height: 22, borderRadius: 11, padding: 2, backgroundColor: duty ? '#2BD48A' : '#5B6478', alignItems: duty ? 'flex-start' : 'flex-end' }}>
+              <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff' }} />
+            </View>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: !duty ? 'rgba(255,255,255,0.7)' : online ? '#2BD48A' : 'rgba(255,255,255,0.8)' }}>{!duty ? t('driver.off_duty') : here.denied ? t('driver.no_gps') : online ? t('driver.online') : t('driver.connecting')}</Text>
+          </TouchableOpacity>
         </View>
         <TouchableOpacity onPress={leave} accessibilityRole="button" accessibilityLabel={t('driver.sign_out')}
           style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.md }}>
@@ -134,6 +156,12 @@ export default function DriverHome() {
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
             {here.denied ? <Banner tone="warn" icon="gps" text={t('driver.gps_denied')} /> : null}
+            {!duty ? <Banner tone="info" icon="gps" text={t('driver.off_duty_hint')} /> : bgOk === true ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm }}>
+                <Icon name="gps" size={14} color={colors.successText} />
+                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{t('driver.bg_on')}</Text>
+              </View>
+            ) : null}
             {list.length === 0 ? (
               <EmptyState icon="print" title={t('driver.empty_title')} message={t('driver.empty_sub')} />
             ) : (

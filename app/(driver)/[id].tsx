@@ -11,7 +11,7 @@ import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Field, Input, Banner } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
-import { LiveMap } from '@/components/LiveMap';
+import { LiveMap, headingOf } from '@/components/LiveMap';
 import { formatNumber } from '@/utils/format';
 import { getDriverDelivery, deliveryStep, deliveryPing, deliveryDeliver, deliveryFail, DELIVERY_FLOW, type DriverDelivery } from '@/api/driver';
 import { TONE } from './index';
@@ -47,7 +47,8 @@ export default function DriverTrip() {
   const [code, setCode] = useState('');
   const [failing, setFailing] = useState(false);
   const [reason, setReason] = useState('');
-  const [me, setMe] = useState<{ lat: number; lng: number } | null>(null);
+  const [me, setMe] = useState<{ lat: number; lng: number; heading: number | null } | null>(null);
+  const vehicle = useDriverStore((s) => s.driver?.vehicle);
   const [gpsDenied, setGpsDenied] = useState(false);
   const watch = useRef<Location.LocationSubscription | null>(null);
   const mapsKey = useDriverStore((s) => s.driver?.maps_key ?? null);
@@ -75,7 +76,7 @@ export default function DriverTrip() {
       if (cancelled) return;
       watch.current?.remove();
       watch.current = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, timeInterval: 8000, distanceInterval: 15 }, async (pos) => {
-        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude, heading: headingOf(pos) };
         setMe(p);
         if (Date.now() - lastSent.current < 7000) return;
         lastSent.current = Date.now();
@@ -122,10 +123,10 @@ export default function DriverTrip() {
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: 0, paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
         {active ? <KeepAwake /> : null}
         <LiveMap mapsKey={mapsKey} height={260}
-          shop={shop ? { ...shop, label: d.shop.name ?? undefined } : null}
+          shop={shop ? { ...shop, label: d.shop.name ?? undefined, logo: d.shop.logo ?? null } : null}
           dest={dest ? { ...dest, label: d.dest.name ?? undefined } : null}
           teacher={d.teacher_live ? { lat: d.teacher_live.lat, lng: d.teacher_live.lng, label: t('driver.teacher_here') } : null}
-          driver={me ? { ...me, busy: active, online: true, label: t('driver.you') } : null}
+          driver={me ? { ...me, vehicle, busy: active, online: true, label: t('driver.you') } : null}
           follow={me} />
         {d.teacher_live && active ? (
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brand, marginTop: 6, textAlign: 'center' }}>{t('driver.teacher_sharing')}</Text>

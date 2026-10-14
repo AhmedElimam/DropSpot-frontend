@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber, foldForSearch } from '@/utils/format';
 import { LiveMap } from '@/components/LiveMap';
+import { ShopLogo } from '@/components/print/ShopLogo';
 import { Surface } from '@/ui/surfaces';
 import { Image } from 'expo-image';
 import { getPrintShops, getPrintOptions, sampleSource, type MarketShop } from '@/api/print';
@@ -107,9 +108,7 @@ function ShopCard({ s, labels, caps, egp }: { s: MarketShop; labels: Record<stri
         </View>
       ) : null}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
-        <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: s.quality_tier === 'premium' ? colors.accent : colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="storefront" size={24} color={s.quality_tier === 'premium' ? colors.onAccent : colors.brand} />
-        </View>
+        <ShopLogo logo={s.logo} size={48} premium={s.quality_tier === 'premium'} />
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
@@ -244,7 +243,7 @@ export default function PrintShops() {
       {/* the map, behind everything */}
       <LiveMap mapsKey={options.data?.maps_key} showMe rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
         controlsBottom={H - LOW + 16} padBottom={H - MID} selectedShop={picked} onShop={pickOnMap}
-        shops={list.filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} />
+        shops={list.filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, logo: s.logo ?? null, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} />
 
       {/* top bar over the map */}
       <View style={{ position: 'absolute', top: insets.top + 8, start: spacing.lg, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -326,9 +325,7 @@ export default function PrintShops() {
               <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.sm }}>{t('print.coming_sub')}</Text>
               {coming.map((c) => (
                 <View key={c.vendor_id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed', padding: spacing.md, marginBottom: spacing.sm }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name="storefront" size={20} color={colors.textTertiary} />
-                  </View>
+                  <ShopLogo logo={c.logo} size={40} muted />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>{c.name}</Text>
                     {c.city ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{c.city}</Text> : null}

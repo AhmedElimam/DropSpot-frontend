@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
+import { ShopLogo } from '@/components/print/ShopLogo';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { FormScreen, FormCard, Banner } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
@@ -136,7 +137,13 @@ export default function PrintShopPage() {
       contentStyle={{ paddingBottom: nav.pageEnd + insets.bottom + 96 }}>
       {paused ? <Banner tone="warn" icon="clock" text={t('print.paused_banner', { at: formatDateTime(s.paused_until!) })} /> : null}
       <Surface id="teacher.print_shop.gallery"><Gallery items={s.samples ?? []} /></Surface>
-      {s.tagline ? <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm, lineHeight: 22 }}>{s.tagline}</Text> : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm }}>
+        <ShopLogo logo={s.logo} size={60} premium={s.quality_tier === 'premium'} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
+          {s.tagline ? <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.textSecondary, lineHeight: 20 }} numberOfLines={2}>{s.tagline}</Text> : null}
+        </View>
+      </View>
       {s.badges.length > 0 || s.open_now != null ? (
         <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: spacing.md, alignItems: 'center' }}>
           {s.open_now != null && !paused ? <Tag text={t(s.open_now ? 'print.open_now' : 'print.closed_now')} bg={s.open_now ? colors.successLight : colors.surfaceSunken} fg={s.open_now ? colors.successText : colors.textSecondary} /> : null}
