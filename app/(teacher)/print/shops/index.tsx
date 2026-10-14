@@ -9,12 +9,13 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, nav, shadows } from '@/theme/index';
-import { Icon } from '@/components/ui/Icon';
+import { colors, gradients, spacing, radius, nav, shadows, isDark } from '@/theme/index';
+import { Icon, type IconName } from '@/components/ui/Icon';
+import { LinearGradient } from 'expo-linear-gradient';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber, foldForSearch } from '@/utils/format';
-import { LiveMap } from '@/components/LiveMap';
+import { LiveMap, MAP_BG } from '@/components/LiveMap';
 import { ShopLogo } from '@/components/print/ShopLogo';
 import { Surface } from '@/ui/surfaces';
 import { Image } from 'expo-image';
@@ -81,81 +82,159 @@ export function SpeedLine({ s, size = 12 }: { s: Pick<MarketShop, 'speed_hours' 
   );
 }
 
-/** One shop on the marketplace: who, what they can do, how fast they really are, what a page starts from. */
-function ShopCard({ s, labels, caps, egp }: { s: MarketShop; labels: Record<string, string>; caps: Record<string, string>; egp: string }) {
+const BADGE_ICON: Record<string, IconName> = { cheapest: 'pricetag', fastest: 'flash', nearest: 'location', top_rated: 'ribbon' };
+
+/** The price a page starts from, big, with its unit under it. */
+function PriceFrom({ s, size = 20 }: { s: MarketShop; size?: number }) {
   const { t } = useTranslation();
-  const fresh = s.jobs_done === 0;
-  const paused = !!s.paused_until && new Date(s.paused_until).getTime() > Date.now();
+  const p = s.price_from.bw ?? s.price_from.color;
+  if (p == null) return null;
   return (
-    <TouchableOpacity onPress={() => router.push(`/(teacher)/print/shops/${s.vendor_id}` as Href)} activeOpacity={0.85} accessibilityRole="button"
-      style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.sm, overflow: 'hidden', opacity: paused ? 0.8 : 1 }}>
-      {/* The shop's own work, first — the cover photo it chose. */}
-      {s.cover ? (
-        <View>
-          <Image source={sampleSource(s.cover.url)} style={{ width: '100%', height: 132, backgroundColor: colors.surfaceSunken }} contentFit="cover" transition={150} recyclingKey={String(s.cover.id)} />
-          <View style={{ position: 'absolute', top: 10, start: 10, flexDirection: 'row', gap: 6 }}>
-            {paused ? <Tag text={t('print.paused_tag')} bg="rgba(10,14,39,0.78)" fg="#fff" /> : s.open_now === true ? <Tag text={t('print.open_now')} bg="rgba(31,147,102,0.92)" fg="#fff" /> : s.open_now === false ? <Tag text={t('print.closed_now')} bg="rgba(10,14,39,0.7)" fg="#fff" /> : null}
-          </View>
-          {(s.samples_count ?? 0) > 1 ? (
-            <View style={{ position: 'absolute', bottom: 10, end: 10 }}><Tag text={t('print.photos_n', { n: formatNumber(s.samples_count ?? 0) })} bg="rgba(10,14,39,0.7)" fg="#fff" /></View>
-          ) : null}
-        </View>
-      ) : null}
-      <View style={{ padding: spacing.md }}>
-      {!s.cover && (paused || s.open_now != null) ? (
-        <View style={{ flexDirection: 'row', marginBottom: 6 }}>
-          {paused ? <Tag text={t('print.paused_tag')} bg={colors.surfaceSunken} fg={colors.textSecondary} /> : <Tag text={t(s.open_now ? 'print.open_now' : 'print.closed_now')} bg={s.open_now ? colors.successLight : colors.surfaceSunken} fg={s.open_now ? colors.successText : colors.textSecondary} />}
-        </View>
-      ) : null}
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
-        <ShopLogo logo={s.logo} size={48} premium={s.quality_tier === 'premium'} />
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
-            <Badges list={s.badges} labels={labels} />
-          </View>
-          {s.tagline ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textPrimary, marginTop: 2 }} numberOfLines={2}>{s.tagline}</Text> : null}
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
-            {[s.city, s.quality_label, s.ink_tech_label, s.distance_km != null ? t('print.km_away', { km: formatNumber(s.distance_km, { maximumFractionDigits: 1 }) }) : null].filter(Boolean).join(' · ')}
-          </Text>
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          {s.price_from.bw != null ? (
-            <>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })}</Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: colors.textTertiary }}>{egp}{t('print.per_page_short')}</Text>
-            </>
-          ) : s.price_from.color != null ? (
-            <>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{formatNumber(s.price_from.color, { maximumFractionDigits: 2 })}</Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: colors.textTertiary }}>{t('print.color_short')}</Text>
-            </>
-          ) : null}
-        </View>
-      </View>
+    <View style={{ alignItems: 'flex-end' }}>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: colors.textTertiary }}>{t('print.from')}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: size, color: colors.textPrimary, lineHeight: size + 6 }}>{formatNumber(p, { maximumFractionDigits: 2 })}</Text>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: colors.textTertiary }}>{s.price_from.bw != null ? t('print.egp_page') : t('print.color_short')}</Text>
+    </View>
+  );
+}
 
-      {/* Standing: stars · real speed · on-time */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm, flexWrap: 'wrap' }}>
-        {s.rating != null ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Stars n={s.rating} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>{formatNumber(s.rating, { maximumFractionDigits: 1 })}</Text>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>({formatNumber(s.ratings)})</Text>
+/** ★ 4.7 (23) · ⏱ 24 س · 📍 1.2 كم — the line a teacher decides on. */
+function MetaLine({ s }: { s: MarketShop }) {
+  const { t } = useTranslation();
+  const dot = <Text style={{ color: colors.textTertiary, fontSize: 12 }}>·</Text>;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      {s.rating != null ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+          <Icon name="star" size={13} color={colors.warning} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{formatNumber(s.rating, { maximumFractionDigits: 1 })}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>({formatNumber(s.ratings)})</Text>
+        </View>
+      ) : <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.accentText }}>{t('print.new_shop_short')}</Text>}
+      {dot}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+        <Icon name="clock" size={13} color={s.speed_measured ? colors.success : colors.textTertiary} />
+        <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: s.speed_measured ? colors.successText : colors.textSecondary }}>{t('print.hours_short', { h: formatNumber(s.speed_hours) })}</Text>
+      </View>
+      {s.distance_km != null ? (
+        <>
+          {dot}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <Icon name="location" size={13} color={colors.textTertiary} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t('print.km_away', { km: formatNumber(s.distance_km, { maximumFractionDigits: 1 }) })}</Text>
           </View>
+        </>
+      ) : null}
+      {s.on_time_pct != null ? <>{dot}<Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t('print.on_time', { p: formatNumber(s.on_time_pct) })}</Text></> : null}
+    </View>
+  );
+}
+
+/** Delivery or pickup, then what the shop can do — one row of chips. */
+function InfoChips({ s, caps }: { s: MarketShop; caps: Record<string, string> }) {
+  const { t } = useTranslation();
+  const chip = (key: string, text: string, icon: IconName | null, strong = false) => (
+    <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 26, paddingHorizontal: 9, borderRadius: 13, backgroundColor: strong ? colors.accentLight : colors.surfaceSunken }}>
+      {icon ? <Icon name={icon} size={13} color={strong ? colors.accentText : colors.textSecondary} /> : null}
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: strong ? colors.accentText : colors.textSecondary }}>{text}</Text>
+    </View>
+  );
+  const shown = s.capabilities.filter((c) => c !== 'delivery').slice(0, 3);
+  const more = s.capabilities.filter((c) => c !== 'delivery').length - shown.length;
+  return (
+    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+      {s.delivery
+        ? chip('d', s.delivery_fee > 0 ? t('print.delivery_chip', { p: formatNumber(s.delivery_fee, { maximumFractionDigits: 2 }) }) : t('print.free_delivery'), 'delivery', true)
+        : chip('p', t('print.pickup_chip'), 'storefront')}
+      {shown.map((c) => chip(c, caps[c] ?? c, null))}
+      {more > 0 ? chip('more', `+${formatNumber(more)}`, null) : null}
+    </View>
+  );
+}
+
+/**
+ * One shop on the marketplace (founder 2026-10-14: «put some love on the print shops
+ * listing»), the way delivery apps show a restaurant: its work as the cover with its logo on
+ * the edge, one ribbon for what it is best at, then name, the decision line (stars · real
+ * speed · distance), the price a page starts from, and delivery-or-pickup first among the chips.
+ * `compact` is the card floating over the map for the shop tapped there.
+ */
+export function ShopCard({ s, labels, caps, compact = false }: { s: MarketShop; labels: Record<string, string>; caps: Record<string, string>; egp?: string; compact?: boolean }) {
+  const { t } = useTranslation();
+  const paused = !!s.paused_until && new Date(s.paused_until).getTime() > Date.now();
+  const open = () => router.push(`/(teacher)/print/shops/${s.vendor_id}` as Href);
+  const ribbon = s.badges[0];
+  const tints = BADGE_TINT();
+  const state = paused ? { text: t('print.paused_tag'), bg: 'rgba(10,14,39,0.78)', fg: '#fff' }
+    : s.open_now === true ? { text: t('print.open_now'), bg: 'rgba(31,147,102,0.94)', fg: '#fff' }
+    : s.open_now === false ? { text: t('print.closed_now'), bg: 'rgba(10,14,39,0.72)', fg: '#fff' } : null;
+
+  if (compact) {
+    return (
+      <TouchableOpacity onPress={open} activeOpacity={0.9} accessibilityRole="button"
+        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.md, ...shadows.lg }}>
+        <ShopLogo logo={s.logo} size={54} premium={s.quality_tier === 'premium'} />
+        <View style={{ flex: 1, gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{s.name}</Text>
+            {state ? <Tag text={state.text} bg={paused || s.open_now === false ? colors.surfaceSunken : colors.successLight} fg={paused || s.open_now === false ? colors.textSecondary : colors.successText} /> : null}
+          </View>
+          <MetaLine s={s} />
+        </View>
+        <PriceFrom s={s} size={18} />
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <TouchableOpacity onPress={open} activeOpacity={0.9} accessibilityRole="button"
+      style={{ backgroundColor: colors.surface, borderRadius: 22, marginBottom: spacing.md, overflow: 'hidden', opacity: paused ? 0.82 : 1, ...shadows.md }}>
+      {/* the shop's own work, first */}
+      <View style={{ height: 148 }}>
+        {s.cover ? (
+          <Image source={sampleSource(s.cover.url)} style={{ width: '100%', height: '100%', backgroundColor: colors.surfaceSunken }} contentFit="cover" transition={150} recyclingKey={String(s.cover.id)} />
         ) : (
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.accentText }}>{t('print.new_shop')}</Text>
+          <LinearGradient colors={gradients.hero} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="print" size={46} color={colors.onHeroSoft} />
+          </LinearGradient>
         )}
-        <SpeedLine s={s} />
-        {s.on_time_pct != null ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{t('print.on_time', { p: formatNumber(s.on_time_pct) })}</Text> : null}
+        <LinearGradient colors={['rgba(10,14,39,0)', 'rgba(10,14,39,0.45)']} style={{ position: 'absolute', start: 0, end: 0, bottom: 0, height: 64 }} />
+        {state ? <View style={{ position: 'absolute', top: 10, start: 10 }}><Tag text={state.text} bg={state.bg} fg={state.fg} /></View> : null}
+        {ribbon ? (
+          <View style={{ position: 'absolute', top: 10, end: 10, flexDirection: 'row', alignItems: 'center', gap: 4, height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: tints[ribbon]?.bg ?? colors.surface }}>
+            <Icon name={BADGE_ICON[ribbon] ?? 'trophy'} size={13} color={tints[ribbon]?.fg ?? colors.textPrimary} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: tints[ribbon]?.fg ?? colors.textPrimary }}>{labels[ribbon] ?? ribbon}</Text>
+          </View>
+        ) : null}
+        {(s.samples_count ?? 0) > 1 ? (
+          <View style={{ position: 'absolute', bottom: 10, end: 10, flexDirection: 'row', alignItems: 'center', gap: 4, height: 24, paddingHorizontal: 8, borderRadius: 12, backgroundColor: 'rgba(10,14,39,0.66)' }}>
+            <Icon name="images" size={12} color="#fff" />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{formatNumber(s.samples_count ?? 0)}</Text>
+          </View>
+        ) : null}
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
-        <View style={{ flex: 1 }}><Capabilities list={s.capabilities} labels={caps} /></View>
-        {!fresh ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textTertiary }}>{t('print.jobs_done', { n: formatNumber(s.jobs_done) })}</Text> : null}
-      </View>
-      {s.open_jobs > 0 ? (
-        <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.warningDark, marginTop: 6 }}>{t('print.busy_now', { n: formatNumber(s.open_jobs) })}</Text>
-      ) : null}
+      <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.md }}>
+        {/* the logo on the photo's edge, the name beside it, the price at the other end */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+          <ShopLogo logo={s.logo} size={62} premium={s.quality_tier === 'premium'} ring style={{ marginTop: -30, ...shadows.md }} />
+          <View style={{ flex: 1, paddingTop: 8, gap: 3 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }} numberOfLines={1}>
+              {[s.city, s.quality_label, s.ink_tech_label].filter(Boolean).join(' · ')}
+            </Text>
+          </View>
+          <View style={{ paddingTop: 6 }}><PriceFrom s={s} /></View>
+        </View>
+
+        <View style={{ marginTop: spacing.sm }}><MetaLine s={s} /></View>
+        {s.tagline ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 6, lineHeight: 20 }} numberOfLines={2}>{s.tagline}</Text> : null}
+        <View style={{ height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.sm }} />
+        <InfoChips s={s} caps={caps} />
+        {s.badges.length > 1 ? <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' }}><Badges list={s.badges.slice(1)} labels={labels} /></View> : null}
+        {s.open_jobs > 0 ? (
+          <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.warningDark, marginTop: 8 }}>{t('print.busy_now', { n: formatNumber(s.open_jobs) })}</Text>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -238,8 +317,8 @@ export default function PrintShops() {
 
   return (
     <Surface id="screen.teacher.print_shops" screen>
-    <View style={{ flex: 1, backgroundColor: '#0E1433' }}>
-      <StatusBar style="light" />
+    <View style={{ flex: 1, backgroundColor: isDark() ? MAP_BG.dark : MAP_BG.light }}>
+      <StatusBar style={isDark() ? 'light' : 'dark'} />
       {/* the map, behind everything */}
       <LiveMap mapsKey={options.data?.maps_key} showMe rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
         controlsBottom={H - LOW + 16} padBottom={H - MID} selectedShop={picked} onShop={pickOnMap}
@@ -260,7 +339,7 @@ export default function PrintShops() {
       {/* the picked shop, floating above the low sheet */}
       {pickedShop ? (
         <View style={{ position: 'absolute', start: spacing.md, end: spacing.md, bottom: H - LOW + 8 }}>
-          <ShopCard s={pickedShop} labels={labels} caps={caps} egp={egp} />
+          <ShopCard s={pickedShop} labels={labels} caps={caps} compact />
         </View>
       ) : null}
 
@@ -312,11 +391,14 @@ export default function PrintShops() {
           {!shops.isLoading && list.length === 0 && coming.length === 0 ? (
             <EmptyState icon="storefront" title={t('print.no_shops')} message={query || need.length ? t('print.no_match') : t('print.shops_empty')} />
           ) : (
-            list.map((s) => (
+            <>
+            {list.length > 0 ? <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm, marginTop: 2 }}>{t('print.all_shops_n', { n: formatNumber(list.length) })}</Text> : null}
+            {list.map((s) => (
               <Surface key={s.vendor_id} id="teacher.print_shops.shop" ctx={{ shop: s }}>
                 <ShopCard s={s} labels={labels} caps={caps} egp={egp} />
               </Surface>
-            ))
+            ))}
+            </>
           )}
           {coming.length > 0 && !query && !need.length ? (
             <Surface id="teacher.print_shops.coming">

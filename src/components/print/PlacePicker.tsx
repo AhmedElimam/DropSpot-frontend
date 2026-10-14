@@ -4,11 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, shadows } from '@/theme/index';
+import { colors, spacing, radius, shadows, isDark } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Input } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
-import { LiveMap, type MapPoint } from '@/components/LiveMap';
+import { LiveMap, type MapPoint, MAP_BG } from '@/components/LiveMap';
 import type { Destination } from '@/api/print';
 
 export type PickedPlace = { lat: number; lng: number; name: string | null; address: string; details: string };
@@ -41,7 +41,7 @@ export function PlacePicker({ visible, onClose, onPick, mapsKey, venues, initial
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="fullScreen">
-      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#0E1433' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: isDark() ? MAP_BG.dark : MAP_BG.light }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <LiveMap picker mapsKey={mapsKey} rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
           start={initial ? { lat: initial.lat, lng: initial.lng } : venues[0] ? { lat: venues[0].lat, lng: venues[0].lng } : null}
           centerTo={jump} controlsBottom={330}

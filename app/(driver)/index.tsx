@@ -8,12 +8,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { Alert } from '@/ui/dialog';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, shadows } from '@/theme/index';
+import { colors, spacing, radius, shadows, isDark } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber, formatTime } from '@/utils/format';
-import { LiveMap, useMyLocation } from '@/components/LiveMap';
+import { LiveMap, useMyLocation, MAP_BG } from '@/components/LiveMap';
 import { startDriverTracking, stopDriverTracking } from '@/background/driverLocation';
 import { Banner } from '@/components/ui/Form';
 import { getDriverDeliveries, driverMe, driverHeartbeat, type DriverDelivery } from '@/api/driver';
@@ -122,8 +122,8 @@ export default function DriverHome() {
   const panelTop = Math.round(H * 0.5);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0E1433' }}>
-      <StatusBar style="light" />
+    <View style={{ flex: 1, backgroundColor: isDark() ? MAP_BG.dark : MAP_BG.light }}>
+      <StatusBar style={isDark() ? 'light' : 'dark'} />
       <LiveMap mapsKey={driver?.maps_key ?? me.data?.maps_key} showMe hideMeDot rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
         shop={shopPin} dest={destPin} driver={meAsDriver} controlsBottom={H - panelTop + 16} padBottom={H - panelTop}
         teacher={now?.teacher_live ? { lat: now.teacher_live.lat, lng: now.teacher_live.lng, label: t('driver.teacher_here') } : null} />

@@ -6,6 +6,10 @@ import client from '@/api/client';
 import { getApiBaseOverride } from '@/api/apiBase';
 import { colors, radius, shadows } from '@/theme/index';
 import { STAGING_KEY, STAGING_HEADER } from '@/config/env';
+import { useThemeStore } from '@/stores/themeStore';
+
+/** The page colour under the map while it loads, per theme (drosmap.js paints the same). */
+export const MAP_BG = { dark: '#0E1433', light: '#EEF0F4' } as const;
 import { Icon } from '@/components/ui/Icon';
 
 export type MapPoint = { lat: number; lng: number; label?: string; logo?: string | null };
@@ -98,6 +102,9 @@ export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, tra
 }) {
   const ref = useRef<WebView>(null);
   const origin = useMemo(apiOrigin, []);
+  // Light mode gets Google's own look, dark mode the navy night (founder 2026-10-14).
+  const theme = useThemeStore((st) => st.scheme) === 'dark' ? 'dark' : 'light';
+  const bg = MAP_BG[theme];
   const live = useMyLocation(!!showMe || !!picker);
   const mine = me ?? (showMe || picker ? live.me : null);
   const startAt = useRef<MapPoint | null>(start ?? null);
@@ -105,14 +112,14 @@ export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, tra
 
   const html = useMemo(() => `<!doctype html><html dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<style>html,body,#m{margin:0;height:100%;background:#0E1433}</style>
+<style>html,body,#m{margin:0;height:100%;background:${bg}}</style>
 <script src="${origin}/js/drosmap.js?v=${mapVersion()}"></script></head>
 <body><div id="m"></div><script>
-window.__map = window.DrosMap ? DrosMap.create(document.getElementById('m'), { key: ${JSON.stringify(mapsKey ?? '')}, picker: ${picker ? 'true' : 'false'}, padBottom: ${Math.max(0, Math.round(padBottom))}, headers: ${STAGING_KEY ? JSON.stringify({ [STAGING_HEADER]: STAGING_KEY }) : 'null'} }) : null;
+window.__map = window.DrosMap ? DrosMap.create(document.getElementById('m'), { key: ${JSON.stringify(mapsKey ?? '')}, picker: ${picker ? 'true' : 'false'}, padBottom: ${Math.max(0, Math.round(padBottom))}, theme: '${theme}', headers: ${STAGING_KEY ? JSON.stringify({ [STAGING_HEADER]: STAGING_KEY }) : 'null'} }) : null;
 window.__set = function (s) { if (window.__map) window.__map.set(s); };
 window.__select = function (id) { if (window.__map) window.__map.select(id); };
 window.__center = function (lat, lng, z) { if (window.__map) window.__map.center(lat, lng, z); };
-</script></body></html>`, [origin, mapsKey, picker, padBottom]);
+</script></body></html>`, [origin, mapsKey, picker, padBottom, theme, bg]);
 
   const allDrivers = [...(drivers ?? []), ...(driver ? [driver] : [])];
   const route = allDrivers[0] && dest ? [[allDrivers[0].lat, allDrivers[0].lng], [dest.lat, dest.lng]] : null;
@@ -144,13 +151,13 @@ window.__center = function (lat, lng, z) { if (window.__map) window.__map.center
   };
 
   return (
-    <View style={[{ height, borderRadius: rounded ? radius.lg : 0, overflow: 'hidden', backgroundColor: '#0E1433' }, style]}>
+    <View style={[{ height, borderRadius: rounded ? radius.lg : 0, overflow: 'hidden', backgroundColor: bg }, style]}>
       <WebView ref={ref} source={{ html, baseUrl: origin + '/' }} originWhitelist={['*']} javaScriptEnabled domStorageEnabled
         scrollEnabled={false} nestedScrollEnabled onLoadEnd={() => {
           push();
           if (picker) { const p = startAt.current ?? live.me; if (p) { centreOn(p); centred.current = true; } }
         }} onMessage={onMessage} setSupportMultipleWindows={false}
-        style={{ backgroundColor: '#0E1433' }} />
+        style={{ backgroundColor: bg }} />
       {(showMe || picker) ? (
         <TouchableOpacity onPress={() => { if (mine) centreOn(mine, picker ? 17 : 16); }} accessibilityRole="button" accessibilityLabel="موقعي" activeOpacity={0.85}
           style={{ position: 'absolute', end: 12, bottom: controlsBottom, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: mine ? 1 : 0.5, ...shadows.md }}>
