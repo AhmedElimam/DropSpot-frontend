@@ -113,6 +113,8 @@ const ICON_MAP = {
   live: 'radio',
   pin: 'pin',
   locate: 'locate',
+  filter: 'options',
+  collapse: 'chevron-forward-circle',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;
