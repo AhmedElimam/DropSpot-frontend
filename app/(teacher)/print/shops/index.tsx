@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
@@ -239,6 +240,7 @@ export default function PrintShops() {
   return (
     <Surface id="screen.teacher.print_shops" screen>
     <View style={{ flex: 1, backgroundColor: '#0E1433' }}>
+      <StatusBar style="light" />
       {/* the map, behind everything */}
       <LiveMap mapsKey={options.data?.maps_key} showMe rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
         controlsBottom={H - LOW + 16} padBottom={H - MID} selectedShop={picked} onShop={pickOnMap}

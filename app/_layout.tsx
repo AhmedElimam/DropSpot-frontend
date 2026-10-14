@@ -167,7 +167,10 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
   // soon as the fonts loaded, leaving a bare spinner page between the splash and the app
   // (founder 2026-10-04). Both reads are local (SecureStore), so this is milliseconds; the
   // root's five-second fallback still releases it if something hangs.
-  const ready = !isLoading && themeReady;
+  // The print-shop driver's session too: the start screen picks the driver's map from it, and
+  // deciding before it loaded sent a signed-in driver to the login screen on every restart.
+  const driverReady = useDriverStore((s) => s.hydrated);
+  const ready = !isLoading && themeReady && driverReady;
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});
   }, [ready]);
@@ -183,7 +186,7 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
   // screens underneath would otherwise render one person's UI with the other's session.
   const switching = useAuthStore((s) => s.switching);
 
-  if (isLoading || !themeReady) {
+  if (isLoading || !themeReady || !driverReady) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />

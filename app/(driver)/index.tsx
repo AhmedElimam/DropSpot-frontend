@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, useWin
 import { ScrollView } from '@/components/ui/Refreshable';
 import { Redirect, router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { Alert } from '@/ui/dialog';
@@ -100,6 +101,7 @@ export default function DriverHome() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0E1433' }}>
+      <StatusBar style="light" />
       <LiveMap mapsKey={driver?.maps_key ?? me.data?.maps_key} showMe rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
         shop={shopPin} dest={destPin} controlsBottom={H - panelTop + 16} padBottom={H - panelTop}
         teacher={now?.teacher_live ? { lat: now.teacher_live.lat, lng: now.teacher_live.lng, label: t('driver.teacher_here') } : null} />
