@@ -109,6 +109,9 @@ const ICON_MAP = {
   flash: 'flash',
   ribbon: 'ribbon',
   images: 'images',
+  /** WhatsApp-style live location (waves) and a fixed pin. */
+  live: 'radio',
+  pin: 'pin',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;

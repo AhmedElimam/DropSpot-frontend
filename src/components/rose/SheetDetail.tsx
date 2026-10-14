@@ -44,6 +44,7 @@ const FACT_LOOK = (): Record<string, { icon: IconName; tint: string; title: stri
   collected: { icon: 'money', tint: colors.success, title: i18n.t('desk_ui.fact_collected_title') },
   complaints: { icon: 'note', tint: colors.accent, title: i18n.t('desk_ui.fact_complaints_title'), action: { label: i18n.t('cash.complaints_open'), href: '/(teacher)/complaints' as Href } },
   review: { icon: 'eye', tint: colors.brand, title: i18n.t('desk_ui.fact_review_title'), action: { label: i18n.t('cash.complaints_open'), href: '/(teacher)/complaints' as Href } },
+  prints: { icon: 'print', tint: colors.accent, title: i18n.t('desk_ui.fact_prints_title') },
 });
 
 export function SheetDetail({ target, onClose }: { target: SheetDetailTarget | null; onClose: () => void }) {
@@ -203,7 +204,8 @@ function FactBody({ kind, text, items, go }: { kind: string; text: string; items
         <Surface id="teacher.rose.sheet_detail.fact_items">
         <ScrollView style={{ marginTop: spacing.md, maxHeight: 420 }} showsVerticalScrollIndicator={false}>
           {list.map((i, n) => (
-            <TouchableOpacity key={n} disabled={!i.student_id} onPress={() => i.student_id && go(`/(teacher)/students/${i.student_id}` as Href)} activeOpacity={0.85}
+            <TouchableOpacity key={n} disabled={!i.student_id && !i.print_job_id}
+              onPress={() => (i.student_id ? go(`/(teacher)/students/${i.student_id}` as Href) : i.print_job_id ? go(`/(teacher)/print/${i.print_job_id}` as Href) : undefined)} activeOpacity={0.85}
               style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                 <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: look.tint + '1A', alignItems: 'center', justifyContent: 'center' }}>
@@ -229,9 +231,9 @@ function FactBody({ kind, text, items, go }: { kind: string; text: string; items
                   ))}
                 </View>
               ) : null}
-              {i.student_id ? (
+              {i.student_id || i.print_job_id ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-end', marginTop: spacing.sm }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('desk_ui.student_page')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{i.print_job_id ? t('desk_ui.print_page') : t('desk_ui.student_page')}</Text>
                   <Icon name="back" size={13} color={colors.brand} />
                 </View>
               ) : null}

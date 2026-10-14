@@ -55,7 +55,7 @@ export interface DriverDelivery {
   shop: { name: string | null; logo?: string | null; address: string | null; lat: number | null; lng: number | null };
   dest: { lat: number | null; lng: number | null; name: string | null; address: string | null };
   /** Where the teacher's phone is right now (shared during the trip), else null. */
-  teacher_live?: { lat: number; lng: number; seen_at: string } | null;
+  teacher_live?: { lat: number; lng: number; seen_at: string; kind?: 'live' | 'static'; until?: string | null; by?: string | null; by_assistant?: boolean } | null;
   remaining_km: number | null;
   eta_min: number | null;
   assigned_at: string | null; picked_up_at: string | null; en_route_at: string | null; arrived_at: string | null; delivered_at: string | null;

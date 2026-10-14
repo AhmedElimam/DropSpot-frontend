@@ -28,6 +28,8 @@ export const ABILITY = {
   REPORT_INCIDENTS: 'report_incidents',
   /** Student performance PDF — a takeaway file, off by default. */
   EXPORT_REPORTS: 'export_reports',
+  /** Follow the teacher's print deliveries, hold the hand-over code, share location (no money). */
+  RECEIVE_PRINTS: 'receive_prints',
 } as const;
 
 // The returned object and its `can` function are memoised. They used to be rebuilt on

@@ -48,6 +48,7 @@ import { useRose } from '@/hooks/useRose';
 import { RosePortrait } from '@/components/rose/RoseStamp';
 import { RoseCalling } from '@/components/rose/RoseCalling';
 import { useComplaints } from '@/hooks/useComplaints';
+import { PrintArrivingCard } from '@/components/print/PrintArrivingCard';
 
 function greetingKey(now: number): string {
   const h = new Date(now).getHours();
@@ -259,6 +260,7 @@ export default function TeacherHome() {
           </Surface>
 
           <Surface id="teacher.home.pending_invitations"><PendingInvitations /></Surface>
+          <Surface id="teacher.home.prints_arriving" assistantNeeds="receive_prints"><PrintArrivingCard /></Surface>
 
           {/* Shortcuts — coloured, labelled buttons; مدام روز in the middle, bare. */}
           <Surface id="teacher.home.shortcuts">

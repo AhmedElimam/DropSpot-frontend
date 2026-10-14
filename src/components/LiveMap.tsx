@@ -12,7 +12,7 @@ import { useThemeStore } from '@/stores/themeStore';
 export const MAP_BG = { dark: '#0E1433', light: '#EEF0F4' } as const;
 import { Icon } from '@/components/ui/Icon';
 
-export type MapPoint = { lat: number; lng: number; label?: string; logo?: string | null };
+export type MapPoint = { lat: number; lng: number; label?: string; logo?: string | null; /** a fixed pin, not a live dot (no pulse) */ static?: boolean };
 /** `heading` in degrees from north, when the phone knows it (moving). */
 export type MapDriver = MapPoint & { id?: number; busy?: boolean; online?: boolean; vehicle?: string; heading?: number | null };
 export type MapShop = MapPoint & { id: number; price?: string };
@@ -24,26 +24,41 @@ export function apiOrigin(): string {
   return base.replace(/\/api\/v\d+\/?$/, '');
 }
 
+/** The last place this phone was seen at, shared by every map — a new map opens there at once. */
+let lastFix: MyPoint | null = null;
+export const lastKnownFix = () => lastFix;
+
 /**
- * The phone's own position, live (founder 2026-10-14: «live location like Talabat»). Watches
- * while the screen that asked is mounted; null until the first fix or without permission.
+ * The phone's own position, live (founder 2026-10-14: «live location like Talabat … get the
+ * location right away»). Starts from the last place any map saw this phone, then the OS's
+ * last known fix, then one quick reading — so the dot is there at once — and watches while
+ * the screen that asked is mounted. Null only before any fix ever, or without permission.
  */
 export function useMyLocation(enabled = true): { me: MyPoint | null; denied: boolean } {
-  const [me, setMe] = useState<MyPoint | null>(null);
+  const [me, setMe] = useState<MyPoint | null>(() => (enabled ? lastFix : null));
   const [denied, setDenied] = useState(false);
   useEffect(() => {
     if (!enabled) return;
     let sub: Location.LocationSubscription | null = null;
     let gone = false;
+    let fresh = false;
+    const put = (p: MyPoint, live: boolean) => {
+      if (gone || (fresh && !live)) return;
+      if (live) fresh = true;
+      lastFix = p;
+      setMe(p);
+    };
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const cur = await Location.getForegroundPermissionsAsync().catch(() => null);
+      const status = cur?.status === 'granted' ? 'granted' : (await Location.requestForegroundPermissionsAsync().catch(() => ({ status: 'denied' }))).status;
       if (gone) return;
       if (status !== 'granted') { setDenied(true); return; }
-      const last = await Location.getLastKnownPositionAsync().catch(() => null);
-      if (last && !gone) setMe({ lat: last.coords.latitude, lng: last.coords.longitude });
+      Location.getLastKnownPositionAsync().then((l) => { if (l) put({ lat: l.coords.latitude, lng: l.coords.longitude }, false); }).catch(() => {});
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then((c) => put({ lat: c.coords.latitude, lng: c.coords.longitude }, false)).catch(() => {});
       sub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, timeInterval: 4000, distanceInterval: 5 }, (pos) => {
-        if (!gone) setMe({ lat: pos.coords.latitude, lng: pos.coords.longitude, heading: headingOf(pos) });
+        put({ lat: pos.coords.latitude, lng: pos.coords.longitude, heading: headingOf(pos) }, true);
       });
+      if (gone) sub.remove();
     })();
     return () => { gone = true; sub?.remove(); };
   }, [enabled]);
@@ -106,6 +121,8 @@ export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, tra
   const origin = useMemo(apiOrigin, []);
   // Light mode gets Google's own look, dark mode the navy night (founder 2026-10-14).
   const theme = useThemeStore((st) => st.scheme) === 'dark' ? 'dark' : 'light';
+  // Open where things are: the picker's start, else the phone's last place (no «all Egypt» first).
+  const startHere = useRef<MapPoint | null>(start ?? lastFix);
   const bg = MAP_BG[theme];
   const live = useMyLocation(!!showMe || !!picker);
   const mine = me ?? (showMe || picker ? live.me : null);
@@ -117,7 +134,7 @@ export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, tra
 <style>html,body,#m{margin:0;height:100%;background:${bg}}</style>
 <script src="${origin}/js/drosmap.js?v=${mapVersion()}"></script></head>
 <body><div id="m"></div><script>
-window.__map = window.DrosMap ? DrosMap.create(document.getElementById('m'), { key: ${JSON.stringify(mapsKey ?? '')}, picker: ${picker ? 'true' : 'false'}, padBottom: ${Math.max(0, Math.round(padBottom))}, theme: '${theme}', headers: ${STAGING_KEY ? JSON.stringify({ [STAGING_HEADER]: STAGING_KEY }) : 'null'} }) : null;
+window.__map = window.DrosMap ? DrosMap.create(document.getElementById('m'), { key: ${JSON.stringify(mapsKey ?? '')}, picker: ${picker ? 'true' : 'false'}, padBottom: ${Math.max(0, Math.round(padBottom))}, theme: '${theme}', start: ${JSON.stringify(startHere.current)}, headers: ${STAGING_KEY ? JSON.stringify({ [STAGING_HEADER]: STAGING_KEY }) : 'null'} }) : null;
 window.__set = function (s) { if (window.__map) window.__map.set(s); };
 window.__select = function (id) { if (window.__map) window.__map.select(id); };
 window.__center = function (lat, lng, z) { if (window.__map) window.__map.center(lat, lng, z); };

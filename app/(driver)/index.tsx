@@ -19,6 +19,12 @@ import { Banner } from '@/components/ui/Form';
 import { getDriverDeliveries, driverMe, driverHeartbeat, type DriverDelivery } from '@/api/driver';
 import { useDriverStore } from '@/stores/driverStore';
 
+/** «المعلّم — مباشر» / «موقع ثابت من أ. سارة»: what the dot is and who shared it. */
+export function teacherLabel(t: (k: string, o?: Record<string, unknown>) => string, live: NonNullable<DriverDelivery['teacher_live']>): string {
+  const who = live.by_assistant && live.by ? live.by : t('driver.the_teacher');
+  return live.kind === 'static' ? t('driver.teacher_pin', { who }) : t('driver.teacher_live', { who });
+}
+
 export const TONE = (): Record<DriverDelivery['tone'], { bg: string; fg: string }> => ({
   warning: { bg: colors.warningLight, fg: colors.warningText },
   info: { bg: colors.brandTint, fg: colors.brand },
@@ -126,7 +132,7 @@ export default function DriverHome() {
       <StatusBar style={isDark() ? 'light' : 'dark'} />
       <LiveMap mapsKey={driver?.maps_key ?? me.data?.maps_key} showMe hideMeDot rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
         shop={shopPin} dest={destPin} driver={meAsDriver} controlsBottom={H - panelTop + 16} padBottom={H - panelTop}
-        teacher={now?.teacher_live ? { lat: now.teacher_live.lat, lng: now.teacher_live.lng, label: t('driver.teacher_here') } : null} />
+        teacher={now?.teacher_live ? { lat: now.teacher_live.lat, lng: now.teacher_live.lng, static: now.teacher_live.kind === 'static', label: teacherLabel(t, now.teacher_live) } : null} />
 
       {/* who and the status, over the map */}
       <View style={{ position: 'absolute', top: insets.top + 8, start: spacing.lg, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>

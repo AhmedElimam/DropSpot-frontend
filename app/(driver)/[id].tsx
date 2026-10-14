@@ -12,9 +12,9 @@ import { Icon } from '@/components/ui/Icon';
 import { Field, Input, Banner } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
 import { LiveMap, headingOf } from '@/components/LiveMap';
-import { formatNumber } from '@/utils/format';
+import { formatNumber, formatTime } from '@/utils/format';
 import { getDriverDelivery, deliveryStep, deliveryPing, deliveryDeliver, deliveryFail, DELIVERY_FLOW, type DriverDelivery } from '@/api/driver';
-import { TONE } from './index';
+import { TONE, teacherLabel } from './index';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useDriverStore } from '@/stores/driverStore';
 
@@ -125,11 +125,13 @@ export default function DriverTrip() {
         <LiveMap mapsKey={mapsKey} height={260}
           shop={shop ? { ...shop, label: d.shop.name ?? undefined, logo: d.shop.logo ?? null } : null}
           dest={dest ? { ...dest, label: d.dest.name ?? undefined } : null}
-          teacher={d.teacher_live ? { lat: d.teacher_live.lat, lng: d.teacher_live.lng, label: t('driver.teacher_here') } : null}
+          teacher={d.teacher_live ? { lat: d.teacher_live.lat, lng: d.teacher_live.lng, static: d.teacher_live.kind === 'static', label: teacherLabel(t, d.teacher_live) } : null}
           driver={me ? { ...me, vehicle, busy: active, online: true, label: t('driver.you') } : null}
           follow={me} />
         {d.teacher_live && active ? (
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brand, marginTop: 6, textAlign: 'center' }}>{t('driver.teacher_sharing')}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brand, marginTop: 6, textAlign: 'center' }}>
+            {d.teacher_live.kind === 'static' ? t('driver.teacher_pin_note') : d.teacher_live.until ? t('driver.teacher_live_until', { at: formatTime(d.teacher_live.until) }) : t('driver.teacher_sharing')}
+          </Text>
         ) : null}
         {gpsDenied ? <View style={{ marginTop: spacing.sm }}><Banner tone="warn" icon="gps" text={t('driver.gps_denied')} /></View> : null}
 

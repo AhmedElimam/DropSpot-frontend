@@ -316,9 +316,12 @@ export async function getPrintJob(id: string | number): Promise<PrintJob> {
 }
 
 /** Where the job is, live: the driver's dot and ETA, the trail, the hand-over code. */
+/** Where the receiving side shared it is: a fixed pin, or live until a time. */
+export interface TeacherShare { lat: number; lng: number; seen_at: string; kind: 'live' | 'static'; until: string | null; by: string | null; by_assistant: boolean }
+
 export interface TrackInfo {
   maps_key?: string | null;
-  teacher_live?: { lat: number; lng: number; seen_at: string } | null;
+  teacher_live?: TeacherShare | null;
   mode: 'pickup' | 'deliver';
   handover_code: string | null;
   shop: { name: string | null; logo?: string | null; address: string | null; lat: number | null; lng: number | null };
@@ -341,6 +344,35 @@ export interface TrackInfo {
 export async function trackPrintJob(id: string | number): Promise<TrackInfo> {
   const { data } = await client.get(`/teacher/print/jobs/${id}/track`);
   return unwrap<TrackInfo>(data);
+}
+
+/**
+ * The receiving end (teacher, or an assistant with «receive_prints»): orders on their way
+ * without the money, the trip, and sharing where you are with the driver.
+ */
+export async function getReceiveJobs(): Promise<PrintJob[]> {
+  const { data } = await client.get('/teacher/print-receive');
+  return unwrap<{ jobs: PrintJob[] }>(data).jobs;
+}
+
+export async function getReceiveJob(id: string | number): Promise<PrintJob> {
+  const { data } = await client.get(`/teacher/print-receive/${id}`);
+  return unwrap<PrintJob>(data);
+}
+
+export async function trackReceive(id: string | number): Promise<TrackInfo> {
+  const { data } = await client.get(`/teacher/print-receive/${id}/track`);
+  return unwrap<TrackInfo>(data);
+}
+
+/** A fixed pin («static») or a live point («live»; `minutes` 15 / 60 / 480 starts it). */
+export async function sharePrintLocation(id: string | number, lat: number, lng: number, mode: 'live' | 'static', minutes?: number): Promise<{ sharing: boolean; share: TeacherShare | null }> {
+  const { data } = await client.post(`/teacher/print-receive/${id}/locate`, minutes ? { lat, lng, mode, minutes } : { lat, lng, mode });
+  return unwrap(data);
+}
+
+export async function stopPrintLocation(id: string | number): Promise<void> {
+  await client.delete(`/teacher/print-receive/${id}/locate`);
 }
 
 /** The teacher's phone during a trip — the driver rides to the person. */

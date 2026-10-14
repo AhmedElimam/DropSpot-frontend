@@ -1,63 +1,80 @@
-import { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Animated, Easing } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, Animated, Easing, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import * as Location from 'expo-location';
+import type { TFunction } from 'i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
-import { headingOf, type MyPoint } from '@/components/LiveMap';
-import { locatePrintJob } from '@/api/print';
+import { SheetModal } from '@/components/ui/SheetModal';
+import { useMyLocation, type MyPoint } from '@/components/LiveMap';
+import { formatNumber, formatTime } from '@/utils/format';
+import type { TeacherShare } from '@/api/print';
+import { readLiveShare, sendStaticLocation, startLiveShare, stopLiveShare, type LiveShare, type ShareResult } from '@/background/shareLocation';
 
-export type ShareState = 'off' | 'starting' | 'on' | 'denied';
+export type ShareMode = 'off' | 'static' | 'live' | 'live_other';
+export const SHARE_LENGTHS = [15, 60, 480] as const;
 
 /**
- * The teacher's own live position for the driver (founder 2026-10-14: «another locator for
- * live location exposing to the driver»). OFF until the teacher turns it on; once on, it
- * stays on for this job while the screen is open, and stops by itself when the trip ends.
- * Foreground only: watches the phone (high accuracy, ~10 s / 15 m) and sends a point to the
- * server at most every 15 s.
+ * Where you are, for the driver — WhatsApp's two ways (founder 2026-10-14):
+ *  - «موقعي الحالي»: one tap, a fixed pin for the trip;
+ *  - «موقعي المباشر»: live for 15 min / 1 h / 8 h, from the phone in a pocket too
+ *    (src/background/shareLocation.ts), ending by itself.
+ * The teacher or an assistant at the centre; the server says who shares (`share.by`).
  */
-export function useOrderLiveShare(id: string | undefined, tripLive: boolean) {
-  const [wanted, setWanted] = useState(false);
-  const [state, setState] = useState<ShareState>('off');
-  const [me, setMe] = useState<MyPoint | null>(null);
-
-  // The trip is over: the switch goes back to off.
-  useEffect(() => { if (!tripLive) setWanted(false); }, [tripLive]);
-
+export function useOrderShare(jobId: number | null, tripLive: boolean, server: TeacherShare | null | undefined) {
+  const [live, setLive] = useState<LiveShare | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<ShareResult | null>(null);
+  const [, tick] = useState(0);
+  const refresh = useCallback(() => { readLiveShare().then(setLive); }, []);
+  useEffect(refresh, [refresh]);
+  // the countdown, and noticing the end
   useEffect(() => {
-    if (!wanted || !tripLive || !id) {
-      setMe(null);
-      setState((s) => (s === 'denied' ? s : 'off'));
-      return;
-    }
-    let sub: Location.LocationSubscription | null = null;
-    let last = 0;
-    let gone = false;
-    setState('starting');
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync().catch(() => ({ status: 'denied' as const }));
-      if (gone) return;
-      if (status !== 'granted') { setState('denied'); setWanted(false); return; }
-      setState('on');
-      sub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, timeInterval: 10000, distanceInterval: 15 }, (pos) => {
-        if (gone) return;
-        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setMe({ ...p, heading: headingOf(pos) });
-        if (Date.now() - last < 15000) return;
-        last = Date.now();
-        locatePrintJob(id, p.lat, p.lng).catch(() => {});
-      });
-      if (gone) sub.remove();
-    })();
-    return () => { gone = true; sub?.remove(); };
-  }, [wanted, tripLive, id]);
+    const t = setInterval(() => { tick((n) => n + 1); refresh(); }, 30_000);
+    return () => clearInterval(t);
+  }, [refresh]);
 
-  return { state, me, on: wanted, toggle: () => setWanted((w) => !w) };
+  const mineLive = !!live && live.jobId === jobId && live.until > Date.now();
+  const mode: ShareMode = mineLive ? 'live'
+    : server?.kind === 'static' ? 'static'
+    : server?.kind === 'live' ? 'live_other' : 'off';
+
+  // The trip ended: stop what this phone was sending.
+  useEffect(() => {
+    if (!tripLive && mineLive && jobId != null) stopLiveShare(jobId).then(refresh);
+  }, [tripLive, mineLive, jobId, refresh]);
+
+  const here = useMyLocation(mode === 'live');
+  const me: MyPoint | null = mode === 'live' ? here.me
+    : mode === 'static' && server ? { lat: server.lat, lng: server.lng } : null;
+
+  const run = async (fn: () => Promise<ShareResult | void>) => {
+    if (jobId == null || busy) return;
+    setBusy(true);
+    setProblem(null);
+    try {
+      const r = await fn();
+      if (r && r !== 'ok') setProblem(r);
+    } finally {
+      setBusy(false);
+      refresh();
+    }
+  };
+
+  return {
+    mode, me, busy, problem,
+    until: mineLive ? live!.until : server?.until ? new Date(server.until).getTime() : null,
+    sentAt: server?.kind === 'static' ? server.seen_at : null,
+    by: server?.by ?? null,
+    sendStatic: () => run(() => sendStaticLocation(jobId!)),
+    startLive: (minutes: number) => run(() => startLiveShare(jobId!, minutes)),
+    stop: () => run(() => stopLiveShare(jobId!)),
+  };
 }
 
-/** The live dot: a soft ring breathing out of a solid centre (native driver, only while on). */
-function PulseDot({ color }: { color: string }) {
+/** WhatsApp's live-location mark: a dot with waves breathing out (native driver, only while live). */
+function LiveDot({ color, size = 14 }: { color: string; size?: number }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(Animated.timing(v, { toValue: 1, duration: 1400, easing: Easing.out(Easing.quad), useNativeDriver: true }));
@@ -65,39 +82,92 @@ function PulseDot({ color }: { color: string }) {
     return () => loop.stop();
   }, [v]);
   return (
-    <View style={{ width: 14, height: 14, alignItems: 'center', justifyContent: 'center' }}>
-      <Animated.View style={{ position: 'absolute', width: 14, height: 14, borderRadius: 7, backgroundColor: color,
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: color,
         opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] }),
         transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 2.4] }) }] }} />
-      <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: color }} />
+      <View style={{ width: size * 0.64, height: size * 0.64, borderRadius: size, backgroundColor: color }} />
     </View>
   );
 }
 
+function left(until: number | null, t: TFunction): string {
+  if (!until) return '';
+  const m = Math.max(1, Math.round((until - Date.now()) / 60_000));
+  return m >= 60 ? t('print.share_left_h', { h: formatNumber(Math.floor(m / 60)), m: formatNumber(m % 60) }) : t('print.share_left_m', { m: formatNumber(m) });
+}
+
 /**
- * The switch itself, a pill for a map corner: «شارك موقعك مع السائق» when off, a green
- * «موقعك ظاهر للسائق» with a breathing dot when on (tap again to stop).
+ * The controls over the order map: two pills when nothing is shared; the live pill with what
+ * is left and «إيقاف»; the fixed pin with when it was sent. The length sheet opens from «مباشر».
  */
-export function OrderShareLivePill({ state, onPress }: { state: ShareState; onPress: () => void }) {
+export function OrderSharePanel({ share }: { share: ReturnType<typeof useOrderShare> }) {
   const { t } = useTranslation();
-  const on = state === 'on';
-  const starting = state === 'starting';
+  const insets = useSafeAreaInsets();
+  const [picking, setPicking] = useState(false);
+  const pill = (bg: string) => ({ flexDirection: 'row' as const, alignItems: 'center' as const, gap: 7, height: 40, paddingHorizontal: 13, borderRadius: 20, backgroundColor: bg, ...shadows.md });
+  const LENGTH_LABEL: Record<number, string> = { 15: t('print.share_15m'), 60: t('print.share_1h'), 480: t('print.share_8h') };
+
   return (
-    <TouchableOpacity onPress={onPress} disabled={starting} accessibilityRole="switch" accessibilityState={{ checked: on, busy: starting }}
-      accessibilityLabel={on ? t('print.order_share_on') : t('print.order_share_live')} activeOpacity={0.85}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 40, paddingStart: on ? 12 : 10, paddingEnd: 14, borderRadius: radius.full,
-        backgroundColor: on ? colors.success : colors.surface, borderWidth: on ? 0 : 1.5, borderColor: colors.brand, ...shadows.md }}>
-      {on ? <PulseDot color={colors.onPrimary} /> : (
-        <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="gps" size={15} color={colors.brand} />
+    <View style={{ gap: 8, alignItems: 'flex-start' }}>
+      {share.mode === 'live' ? (
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          <View style={pill(colors.success)}>
+            <LiveDot color="#fff" />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('print.share_live_on')}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>{left(share.until, t)}</Text>
+          </View>
+          <TouchableOpacity onPress={share.stop} disabled={share.busy} accessibilityRole="button" style={pill(colors.surface)}>
+            {share.busy ? <ActivityIndicator size="small" color={colors.danger} /> : <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{t('print.share_stop')}</Text>}
+          </TouchableOpacity>
+        </View>
+      ) : share.mode === 'live_other' ? (
+        <View style={pill(colors.successLight)}>
+          <LiveDot color={colors.success} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.successText }}>{t('print.share_by_other', { name: share.by ?? '' })}</Text>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.successText }}>{left(share.until, t)}</Text>
+        </View>
+      ) : (
+        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+          <TouchableOpacity onPress={share.sendStatic} disabled={share.busy} activeOpacity={0.85} accessibilityRole="button" style={pill(colors.surface)}>
+            {share.busy ? <ActivityIndicator size="small" color={colors.brand} /> : <Icon name="pin" size={17} color={share.mode === 'static' ? colors.success : colors.brand} />}
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>
+              {share.mode === 'static' ? t('print.share_static_sent', { at: share.sentAt ? formatTime(share.sentAt) : '' }) : t('print.share_static')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setPicking(true)} disabled={share.busy} activeOpacity={0.85} accessibilityRole="button" style={pill(colors.surface)}>
+            <Icon name="live" size={17} color={colors.success} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('print.share_live')}</Text>
+          </TouchableOpacity>
         </View>
       )}
-      <View>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: on ? colors.onPrimary : colors.brand }} numberOfLines={1}>
-          {on ? t('print.order_share_on') : starting ? t('print.order_share_starting') : t('print.order_share_live')}
-        </Text>
-        {on ? <Text style={{ fontFamily: fonts.regular, fontSize: 10, color: colors.onPrimary, opacity: 0.85, marginTop: -2 }} numberOfLines={1}>{t('print.order_share_stop')}</Text> : null}
-      </View>
-    </TouchableOpacity>
+      {share.problem ? (
+        <View style={{ backgroundColor: colors.warningLight, borderRadius: radius.md, paddingHorizontal: 10, paddingVertical: 5 }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.warningText }}>
+            {share.problem === 'denied' ? t('print.sharing_denied') : share.problem === 'no_fix' ? t('print.share_no_fix') : t('print.share_failed')}
+          </Text>
+        </View>
+      ) : null}
+
+      <SheetModal visible={picking} onClose={() => setPicking(false)}>
+        <View style={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 4 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="live" size={21} color={colors.success} />
+            </View>
+            <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('print.share_live_title')}</Text>
+          </View>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginBottom: spacing.sm }}>{t('print.share_live_sub')}</Text>
+          {SHARE_LENGTHS.map((m) => (
+            <TouchableOpacity key={m} onPress={() => { setPicking(false); share.startLive(m); }} accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 14, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+              <Icon name="clock" size={18} color={colors.textSecondary} />
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{LENGTH_LABEL[m]}</Text>
+              <Icon name="back" size={14} color={colors.textTertiary} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </SheetModal>
+    </View>
   );
 }

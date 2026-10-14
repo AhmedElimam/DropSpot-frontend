@@ -220,12 +220,13 @@ function TypedGreeting({ text, start, onTalking }: { text: string; start: boolea
   );
 }
 
-const FACT = (): Record<string, { icon: 'warning' | 'success' | 'money' | 'note' | 'eye'; tint: string }> => ({
+const FACT = (): Record<string, { icon: 'warning' | 'success' | 'money' | 'note' | 'eye' | 'print'; tint: string }> => ({
   dues: { icon: 'warning', tint: colors.danger },
   dues_clear: { icon: 'success', tint: colors.success },
   collected: { icon: 'money', tint: colors.success },
   complaints: { icon: 'note', tint: colors.accent },
   review: { icon: 'eye', tint: colors.brand },
+  prints: { icon: 'print', tint: colors.accent },
 });
 
 /**

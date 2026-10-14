@@ -92,8 +92,8 @@ export interface CashInsights {
 
 /** «ورقة النهارده» as her desk reads it now: today's sessions, the door, the money, what waits — in this reader's scope. Empty lines = nothing to say. */
 export interface RoseSheetSession { id?: number; ended?: boolean; checked_in?: number; status?: string | null; time: string; title: string; venue: string | null; exam: boolean; present: number | null; absent: number | null }
-export interface RoseSheetItem { title: string; sub: string; amount: number | null; student_id: number | null; lines?: string[] }
-export type RoseSheetFactKind = 'dues' | 'dues_clear' | 'collected' | 'complaints' | 'review';
+export interface RoseSheetItem { title: string; sub: string; amount: number | null; student_id: number | null; lines?: string[]; /** a print order on its way (fact «prints») */ print_job_id?: number | null }
+export type RoseSheetFactKind = 'dues' | 'dues_clear' | 'collected' | 'complaints' | 'review' | 'prints';
 export interface RoseSheet {
   date: string;
   lines: string[];
@@ -124,6 +124,7 @@ export async function getRoseSheet(): Promise<RoseSheet> {
       items: Array.isArray(x.items) ? x.items.map((i: any) => ({
         title: String(i.title ?? ''), sub: String(i.sub ?? ''),
         amount: i.amount == null ? null : Number(i.amount), student_id: i.student_id == null ? null : Number(i.student_id),
+        print_job_id: i.print_job_id == null ? null : Number(i.print_job_id),
         lines: Array.isArray(i.lines) ? i.lines.map(String) : undefined,
       })) : undefined,
     })) : undefined,

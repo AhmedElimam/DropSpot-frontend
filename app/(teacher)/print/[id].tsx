@@ -16,11 +16,12 @@ import { LiveMap, MAP_BG } from '@/components/LiveMap';
 import { ShopLogo } from '@/components/print/ShopLogo';
 import { OrderHero } from '@/components/print/OrderHero';
 import { OrderDriverCard } from '@/components/print/OrderDriverCard';
-import { OrderShareLivePill, useOrderLiveShare } from '@/components/print/OrderShareLive';
+import { OrderSharePanel, useOrderShare } from '@/components/print/OrderShareLive';
+import { useAuthStore } from '@/stores/authStore';
 import { useArrived } from '@/hooks/useArrived';
 import { useThemeStore } from '@/stores/themeStore';
 import {
-  getPrintJob, getPrintOptions, cancelPrintJob, receivePrintJob, reorderPrintJob, claimPrintPayment, type PrintJob, type PrintOptions, trackPrintJob } from '@/api/print';
+  getPrintJob, getPrintOptions, cancelPrintJob, receivePrintJob, reorderPrintJob, claimPrintPayment, type PrintJob, type PrintOptions, trackPrintJob, getReceiveJob, trackReceive } from '@/api/print';
 
 const MAP_H = 300;
 /** How much of the map's lower edge the driver card covers. */
@@ -101,16 +102,19 @@ export default function PrintJobScreen() {
   const qc = useQueryClient();
   const arrived = useArrived();
   const mapBg = MAP_BG[useThemeStore((st) => st.scheme) === 'dark' ? 'dark' : 'light'];
-  const job = useQuery({ queryKey: ['print-job', id], queryFn: () => getPrintJob(id), enabled: !!id, refetchInterval: 30000 });
+  // An assistant with «receive_prints» opens the same page through the receiving end: the
+  // trip, the code and sharing — never the money (the server leaves it out).
+  const isAssistant = useAuthStore((st) => st.role === 'assistant');
+  const job = useQuery({ queryKey: ['print-job', id, isAssistant], queryFn: () => (isAssistant ? getReceiveJob(id!) : getPrintJob(id)), enabled: !!id, refetchInterval: 30000 });
   const options = useQuery({ queryKey: ['print-options'], queryFn: getPrintOptions });
   // Live once there is something to watch: a trip in hand, or a ready job waiting for its code.
   const watch = !!job.data && (job.data.status === 'ready' || job.data.status === 'delivered' || job.data.status === 'printing');
-  const track = useQuery({ queryKey: ['print-track', id], queryFn: () => trackPrintJob(id!), enabled: !!id && watch, refetchInterval: (q) => (q.state.data?.delivery?.is_active ? 8000 : 30000) });
-  // While a driver is on the way the teacher MAY show the driver where she/he is — an explicit
-  // switch on the map now (founder 2026-10-14: «another locator for live location exposing to
-  // the driver»), off by default, on until the trip ends once turned on.
+  const track = useQuery({ queryKey: ['print-track', id], queryFn: () => (isAssistant ? trackReceive(id!) : trackPrintJob(id!)), enabled: !!id && watch, refetchInterval: (q) => (q.state.data?.delivery?.is_active ? 8000 : 30000) });
+  // While a driver is on the way, show the driver where you are — WhatsApp's two ways
+  // (founder 2026-10-14): a fixed pin at once, or live for 15 min / 1 h / 8 h from the
+  // background. The teacher or an assistant at the centre.
   const tripLive = !!track.data?.delivery?.is_active;
-  const share = useOrderLiveShare(id, tripLive);
+  const share = useOrderShare(id ? Number(id) : null, tripLive, track.data?.teacher_live);
   const [busy, setBusy] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [review, setReview] = useState('');
@@ -168,7 +172,7 @@ export default function PrintJobScreen() {
     : j?.payment_status === 'claimed' ? { bg: colors.brandTint, fg: colors.brand }
     : { bg: colors.warningLight, fg: colors.warningText };
 
-  const pill = <OrderShareLivePill state={share.state} onPress={share.toggle} />;
+  const pill = <OrderSharePanel share={share} />;
 
   return (
     <Surface id="screen.teacher.print_job" screen>
@@ -190,7 +194,7 @@ export default function PrintJobScreen() {
                       dest={tr.dest ? { lat: tr.dest.lat, lng: tr.dest.lng, label: tr.dest.name ?? undefined } : null}
                       driver={d?.driver?.lat != null ? { lat: d.driver.lat, lng: d.driver.lng!, label: d.driver.name, vehicle: d.driver.vehicle, busy: d.is_active, online: d.driver.online } : null}
                       follow={d?.driver?.lat != null ? { lat: d.driver.lat, lng: d.driver.lng! } : null}
-                      me={share.me ? { ...share.me, label: t('print.me') } : null} trail={d?.trail ?? []} />
+                      me={share.me ? { ...share.me, label: share.mode === 'static' ? t('print.share_pin_label') : t('print.me') } : null} trail={d?.trail ?? []} />
                   ) : <View style={{ height: MAP_H, borderRadius: radius.xxl, backgroundColor: mapBg }} />}
                   {tripLive ? (
                     <View style={{ position: 'absolute', top: spacing.md, start: spacing.md }}>
@@ -205,7 +209,6 @@ export default function PrintJobScreen() {
                   <OrderDriverCard track={tr} showCode={showCode} overlap={false} />
                 </>
               )}
-              {tripLive && share.state === 'denied' ? <Banner tone="warn" icon="gps" text={t('print.sharing_denied')} /> : null}
             </Surface>
           ) : null}
 
@@ -274,7 +277,7 @@ export default function PrintJobScreen() {
             </Section>
           </Surface>
 
-          <Surface id="teacher.print_job.money">
+          <Surface id="teacher.print_job.money" assistantNeeds="teacher">
             <Section icon="money" title={t('print.money')} tint={{ bg: colors.successLight, fg: colors.successText }}
               end={j.payment_label ? (
                 <View style={{ paddingHorizontal: 10, height: 26, borderRadius: radius.full, backgroundColor: payTone.bg, justifyContent: 'center' }}>
@@ -296,7 +299,7 @@ export default function PrintJobScreen() {
           </Surface>
 
           {j.status !== 'cancelled' && j.status !== 'declined' ? (
-            <Surface id="teacher.print_job.payment">
+            <Surface id="teacher.print_job.payment" assistantNeeds="teacher">
             <FormCard icon="invoices" title={t('print.pay_title')} hint={j.payment_status === 'paid' ? t('print.paid_hint') : j.payment_status === 'claimed' ? t('print.claimed_hint') : t('print.pay_hint')} tint={j.payment_status === 'paid' ? colors.success : colors.warning}>
               {j.payment_status !== 'paid' ? (
                 <>
@@ -326,7 +329,7 @@ export default function PrintJobScreen() {
           ) : null}
 
           {j.can_receive ? (
-            <Surface id="teacher.print_job.receive">
+            <Surface id="teacher.print_job.receive" assistantNeeds="teacher">
             <FormCard icon="success" title={t('print.receive_title')} hint={t('print.rate_hint')} tint={colors.success}>
               <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xs, marginBottom: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }}>
                 {[1, 2, 3, 4, 5].map((n) => (
@@ -340,7 +343,7 @@ export default function PrintJobScreen() {
             </FormCard>
             </Surface>
           ) : j.status === 'received' && j.rating != null ? (
-            <Surface id="teacher.print_job.receive">
+            <Surface id="teacher.print_job.receive" assistantNeeds="teacher">
               <Section icon="star" title={t('print.order_your_rating')} tint={{ bg: colors.warningLight, fg: colors.warningText }}>
                 <View style={{ flexDirection: 'row', gap: 2 }}>
                   {[1, 2, 3, 4, 5].map((n) => <Icon key={n} name="star" size={22} color={n <= (j.rating ?? 0) ? colors.warning : colors.border} />)}
@@ -351,8 +354,8 @@ export default function PrintJobScreen() {
           ) : null}
 
           <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-            {!j.is_open ? <Surface id="teacher.print_job.reorder_button"><Button title={t('print.reorder')} onPress={reorder} variant="accent" loading={busy} /></Surface> : null}
-            {j.can_cancel ? <Surface id="teacher.print_job.cancel_button"><Button title={t('print.cancel')} onPress={cancel} variant="outline" loading={busy} /></Surface> : null}
+            {!j.is_open ? <Surface id="teacher.print_job.reorder_button" assistantNeeds="teacher"><Button title={t('print.reorder')} onPress={reorder} variant="accent" loading={busy} /></Surface> : null}
+            {j.can_cancel ? <Surface id="teacher.print_job.cancel_button" assistantNeeds="teacher"><Button title={t('print.cancel')} onPress={cancel} variant="outline" loading={busy} /></Surface> : null}
           </View>
         </>
       ) : null}
