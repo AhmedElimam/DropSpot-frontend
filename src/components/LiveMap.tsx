@@ -46,6 +46,15 @@ export function useMyLocation(enabled = true): { me: MyPoint | null; denied: boo
   return { me, denied };
 }
 
+/**
+ * The server sends drosmap.js as cacheable for a year, so a fixed address kept every phone on
+ * the first copy it ever loaded. The address changes every 10 minutes: a map change on the
+ * server reaches phones within that, and in between the copy is reused.
+ */
+function mapVersion(): number {
+  return Math.floor(Date.now() / 600_000);
+}
+
 /** The direction of travel, only while really moving (a still phone's heading is noise). */
 export function headingOf(pos: Location.LocationObject): number | null {
   const h = pos.coords.heading;
@@ -97,7 +106,7 @@ export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, tra
   const html = useMemo(() => `<!doctype html><html dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <style>html,body,#m{margin:0;height:100%;background:#0E1433}</style>
-<script src="${origin}/js/drosmap.js"></script></head>
+<script src="${origin}/js/drosmap.js?v=${mapVersion()}"></script></head>
 <body><div id="m"></div><script>
 window.__map = window.DrosMap ? DrosMap.create(document.getElementById('m'), { key: ${JSON.stringify(mapsKey ?? '')}, picker: ${picker ? 'true' : 'false'}, padBottom: ${Math.max(0, Math.round(padBottom))}, headers: ${STAGING_KEY ? JSON.stringify({ [STAGING_HEADER]: STAGING_KEY }) : 'null'} }) : null;
 window.__set = function (s) { if (window.__map) window.__map.set(s); };
