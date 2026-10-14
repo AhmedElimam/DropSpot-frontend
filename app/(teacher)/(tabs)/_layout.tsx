@@ -8,23 +8,30 @@ import { NotchTabBar } from '@/components/ui/NotchTabBar';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/authStore';
+import { getPrintJobs } from '@/api/print';
 
 // The five tabs. Every other teacher screen lives in the stack around this navigator
 // (app/(teacher)/_layout.tsx), so it is pushed ON TOP of the tabs and gets the iOS edge
 // swipe back (founder 2026-10-04: «a lot of pages don't work with the back gesture» —
 // they were hidden tabs, and tabs have no back gesture).
-const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","sessions","manage","students","settings"]);
+const VISIBLE_TABS: ReadonlySet<string> = new Set(["index","sessions","manage","students","print","settings"]);
 const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
 // The bar, first to last (the first sits at the start edge — the right, in RTL). الإدارة is
 // the raised centre button and carries the app's emblem instead of an icon (founder
 // 2026-10-03); الحصص stays beside it (founder 2026-10-02: «next to the day»).
 const TAB_ORDER = ['index', 'sessions', 'manage', 'students', 'settings'] as const;
+// The print marketplace takes the students' place for the teacher (founder 2026-10-14); the
+// students list stays one tap away in Home and «الإدارة». Assistants never see money pages.
+const PRINT_ORDER = ['index', 'sessions', 'manage', 'print', 'settings'] as const;
 const CENTER_TAB = 'manage';
 
 const labels: Record<string, string> = {
   index: 'teacher.tab_home',
   sessions: 'teacher.tab_sessions',
   students: 'teacher.tab_students',
+  print: 'print.tab',
   manage: 'teacher.tab_manage',
   settings: 'teacher.tab_settings',
 };
@@ -33,6 +40,7 @@ const icons: Record<string, IconName> = {
   index: 'home',
   sessions: 'lesson',
   students: 'children',
+  print: 'print',
   manage: 'book',
   settings: 'settings',
 };
@@ -42,7 +50,13 @@ export default function TeacherTabsLayout() {
   // A tab the backend code switched off (server config/mobile_ui.php → `tab.teacher.<name>`)
   // leaves the bar; the raised centre falls back to the middle of what is left.
   const hiddenSurfaces = useHiddenSurfaces();
-  const tabs = TAB_ORDER.filter((n) => !hiddenSurfaces.has(`tab.teacher.${n}`));
+  const flags = useFeatureFlags().data;
+  const isAssistant = useAuthStore((s) => s.role === 'assistant');
+  const printTab = !!flags?.print_market && !isAssistant;
+  const tabs = (printTab ? PRINT_ORDER : TAB_ORDER).filter((n) => !hiddenSurfaces.has(`tab.teacher.${n}`));
+  // Jobs on their way light the tab, like a delivery app's.
+  const printJobs = useQuery({ queryKey: ['print-jobs'], queryFn: getPrintJobs, enabled: printTab, staleTime: 60_000, refetchInterval: 120_000 });
+  const badges = useMemo(() => ({ print: (printJobs.data?.open ?? []).filter((j) => j.status === 'ready' || j.delivery?.is_active).length }), [printJobs.data]);
   const center = tabs.includes(CENTER_TAB) ? CENTER_TAB : (tabs[Math.floor(tabs.length / 2)] ?? CENTER_TAB);
   // Freezing the hidden tabs (react-freeze) is a FLAG, off by default (2026-10-01): with 5+
   // tabs it is the documented cause of memory growth (react-native-screens #2971).
@@ -64,7 +78,7 @@ export default function TeacherTabsLayout() {
     <Tabs
       // Hardware back between tabs follows the visit history, not "jump to the first tab".
       backBehavior="history"
-      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
+      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} badges={badges} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
       screenOptions={screenOptions}
       screenLayout={sceneLayout}
     >
@@ -74,6 +88,8 @@ export default function TeacherTabsLayout() {
       {/* Management hub — four groups: students · schedule · money · follow-up. */}
       <Tabs.Screen name="manage" />
       <Tabs.Screen name="students" />
+      {/* المطبعة — the print marketplace: jobs on their way, shops, a new print. */}
+      <Tabs.Screen name="print" />
       <Tabs.Screen name="settings" />
     </Tabs>
   );

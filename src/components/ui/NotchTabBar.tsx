@@ -59,6 +59,8 @@ interface NotchTabBarProps extends BottomTabBarProps {
   icons: Record<string, IconName>;
   /** What sits in the centre button instead of its icon — the teacher's bar puts the brand mark there. */
   centerGlyph?: (color: string, focused: boolean) => ReactNode;
+  /** A count on a side tab (e.g. print jobs on their way); 0 or missing = none. */
+  badges?: Record<string, number>;
 }
 
 /**
@@ -71,7 +73,7 @@ interface NotchTabBarProps extends BottomTabBarProps {
  * is left to navigation. Opaque on purpose, like the bar it replaces: a translucent
  * floating bar is continuous compositing work on mid-range Android.
  */
-export function NotchTabBar({ state, descriptors, navigation, tabs, center, labels, icons, centerGlyph }: NotchTabBarProps) {
+export function NotchTabBar({ state, descriptors, navigation, tabs, center, labels, icons, centerGlyph, badges }: NotchTabBarProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -151,6 +153,11 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
               <View style={{ opacity: focused ? 1 : 0.55, transform: [{ scale: focused ? 1.08 : 1 }] }}>
                 <Icon name={icons[name] || 'home'} size={24} color={focused ? colors.tabActive : colors.tabInactive} outline={!focused} />
               </View>
+              {badges?.[name] ? (
+                <View style={{ position: 'absolute', top: -4, end: 0, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.accent, borderWidth: 1.5, borderColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onAccent }}>{badges[name] > 9 ? '9+' : badges[name]}</Text>
+                </View>
+              ) : null}
               <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.medium, fontSize: 12, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 2, paddingHorizontal: 2 }}>
                 {label}
               </Text>

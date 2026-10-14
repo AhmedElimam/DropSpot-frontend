@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +11,8 @@ import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FormScreen } from '@/components/ui/Form';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { formatNumber } from '@/utils/format';
+import { formatNumber, foldForSearch } from '@/utils/format';
+import { LiveMap } from '@/components/LiveMap';
 import { Surface } from '@/ui/surfaces';
 import { Image } from 'expo-image';
 import { getPrintShops, getPrintOptions, sampleSource, type MarketShop } from '@/api/print';
@@ -179,9 +180,17 @@ export default function PrintShops() {
   const options = useQuery({ queryKey: ['print-options'], queryFn: getPrintOptions });
   const { refreshing, onRefresh } = usePullRefresh(shops.refetch);
   const [sort, setSort] = useState<Sort>('recommended');
+  const [query, setQuery] = useState('');
+  const [need, setNeed] = useState<string[]>([]);
+  const [view, setView] = useState<'list' | 'map'>('list');
+  const [picked, setPicked] = useState<number | null>(null);
+
+  // The filters a teacher actually asks for, in the order they ask.
+  const FILTERS = ['color', 'delivery', 'rush', 'spiral', 'duplex', 'a5', 'bulk', 'laminate'];
 
   const list = useMemo(() => {
-    const all = shops.data?.shops ?? [];
+    const q = foldForSearch(query);
+    const all = (shops.data?.shops ?? []).filter((s) => (!q || foldForSearch(`${s.name} ${s.city ?? ''} ${s.tagline ?? ''}`).includes(q)) && need.every((c) => s.capabilities.includes(c)));
     const by = <T,>(f: (s: MarketShop) => T | null | undefined, dir = 1) => [...all].sort((a, b) => {
       const x = f(a); const y = f(b);
       if (x == null && y == null) return 0;
@@ -196,47 +205,109 @@ export default function PrintShops() {
       case 'top_rated': return by((s) => s.rating, -1);
       default: return all;
     }
-  }, [shops.data, sort]);
+  }, [shops.data, sort, query, need]);
 
   const coming = shops.data?.coming ?? [];
   const labels = options.data?.badges ?? {};
   const caps = options.data?.capabilities ?? {};
   const egp = t('teacher.egp');
+  const onMap = list.filter((s) => s.lat != null && s.lng != null);
+  const pickedShop = list.find((s) => s.vendor_id === picked) ?? null;
+  const toggle = (c: string) => setNeed((n) => (n.includes(c) ? n.filter((x) => x !== c) : [...n, c]));
+
+  const header = (
+    <View>
+      {/* search + list/map */}
+      <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, height: 44 }}>
+          <Icon name="search" size={18} color={colors.textTertiary} />
+          <TextInput value={query} onChangeText={setQuery} placeholder={t('print.search_ph')} placeholderTextColor={colors.textTertiary}
+            style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right' }} returnKeyType="search" />
+          {query ? <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} accessibilityRole="button"><Icon name="close" size={16} color={colors.textTertiary} /></TouchableOpacity> : null}
+        </View>
+        <View style={{ flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, padding: 3 }}>
+          {(['list', 'map'] as const).map((v) => (
+            <TouchableOpacity key={v} onPress={() => setView(v)} accessibilityRole="tab" accessibilityState={{ selected: view === v }}
+              style={{ width: 40, height: 36, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: view === v ? colors.brand : 'transparent' }}>
+              <Icon name={v === 'list' ? 'list' : 'gps'} size={18} color={view === v ? colors.onPrimary : colors.textSecondary} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* what the job needs */}
+      <Surface id="teacher.print_shops.filters">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: spacing.sm }}>
+        {FILTERS.map((c) => {
+          const on = need.includes(c);
+          return (
+            <TouchableOpacity key={c} onPress={() => toggle(c)} activeOpacity={0.85} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 32, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: on ? colors.accentLight : colors.surface, borderWidth: 1, borderColor: on ? colors.accent : colors.border }}>
+              {on ? <Icon name="success" size={13} color={colors.accentText} /> : null}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.accentText : colors.textSecondary }}>{caps[c] ?? c}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+      </Surface>
+
+      {view === 'list' ? (
+        <Surface id="teacher.print_shops.sort">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: spacing.md }}>
+          {SORTS.map((k) => {
+            const on = sort === k;
+            return (
+              <TouchableOpacity key={k} onPress={() => setSort(k)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                style={{ height: 32, paddingHorizontal: 13, borderRadius: radius.full, justifyContent: 'center', backgroundColor: on ? colors.brand : 'transparent' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: on ? colors.onPrimary : colors.textSecondary }}>{t(`print.sort_${k}`)}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+        </Surface>
+      ) : null}
+    </View>
+  );
 
   return (
     <Surface id="screen.teacher.print_shops" screen>
-    <FormScreen title={t('print.shops_title')} subtitle={t('print.shops_sub')} scroll={false}>
+    <FormScreen title={t('print.shops_title')} subtitle={list.length ? t('print.shops_count', { n: formatNumber(list.length) }) : t('print.shops_sub')} scroll={false}>
       {shops.isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
+      ) : view === 'map' ? (
+        <View style={{ flex: 1, padding: spacing.lg, paddingBottom: 0 }}>
+          {header}
+          <Surface id="teacher.print_shops.map">
+          <View style={{ flex: 1, marginBottom: insets.bottom + spacing.md }}>
+            <LiveMap mapsKey={options.data?.maps_key} height="100%" style={{ flex: 1 }} selectedShop={picked} onShop={setPicked}
+              shops={onMap.map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} />
+            {pickedShop ? (
+              <View style={{ position: 'absolute', start: spacing.sm, end: spacing.sm, bottom: spacing.sm }}>
+                <ShopCard s={pickedShop} labels={labels} caps={caps} egp={egp} />
+              </View>
+            ) : (
+              <View style={{ position: 'absolute', alignSelf: 'center', bottom: spacing.md, backgroundColor: colors.surface, borderRadius: radius.full, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: colors.border }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{onMap.length ? t('print.map_hint') : t('print.map_none')}</Text>
+              </View>
+            )}
+          </View>
+          </Surface>
+        </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false}
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+          {(shops.data?.shops ?? []).length ? header : null}
           {list.length === 0 && coming.length === 0 ? (
-            <EmptyState icon="storefront" title={t('print.no_shops')} message={t('print.shops_empty')} />
-          ) : list.length === 0 ? null : (
-            <>
-              <Surface id="teacher.print_shops.sort">
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: spacing.md }}>
-                {SORTS.map((k) => {
-                  const on = sort === k;
-                  return (
-                    <TouchableOpacity key={k} onPress={() => setSort(k)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                      style={{ height: 34, paddingHorizontal: 14, borderRadius: radius.full, justifyContent: 'center', backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: on ? colors.onPrimary : colors.textSecondary }}>{t(`print.sort_${k}`)}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+            <EmptyState icon="storefront" title={t('print.no_shops')} message={query || need.length ? t('print.no_match') : t('print.shops_empty')} />
+          ) : (
+            list.map((s) => (
+              <Surface key={s.vendor_id} id="teacher.print_shops.shop" ctx={{ shop: s }}>
+                <ShopCard s={s} labels={labels} caps={caps} egp={egp} />
               </Surface>
-              {list.map((s) => (
-                <Surface key={s.vendor_id} id="teacher.print_shops.shop" ctx={{ shop: s }}>
-                  <ShopCard s={s} labels={labels} caps={caps} egp={egp} />
-                </Surface>
-              ))}
-            </>
+            ))
           )}
-          {coming.length > 0 ? (
+          {coming.length > 0 && !query && !need.length ? (
             <Surface id="teacher.print_shops.coming">
             <View style={{ marginTop: list.length ? spacing.lg : 0 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('print.coming_title')}</Text>

@@ -15,6 +15,14 @@ import { LiveMap } from '@/components/LiveMap';
 import { formatNumber } from '@/utils/format';
 import { getDriverDelivery, deliveryStep, deliveryPing, deliveryDeliver, deliveryFail, DELIVERY_FLOW, type DriverDelivery } from '@/api/driver';
 import { TONE } from './index';
+import { useKeepAwake } from 'expo-keep-awake';
+import { useDriverStore } from '@/stores/driverStore';
+
+/** The screen stays on while a trip is in hand — the rider's phone sits on the handlebar. */
+function KeepAwake() {
+  useKeepAwake('print-trip');
+  return null;
+}
 
 /** Turn-by-turn in whatever maps app the phone has. */
 function openDirections(lat: number, lng: number, label?: string | null) {
@@ -42,6 +50,7 @@ export default function DriverTrip() {
   const [me, setMe] = useState<{ lat: number; lng: number } | null>(null);
   const [gpsDenied, setGpsDenied] = useState(false);
   const watch = useRef<Location.LocationSubscription | null>(null);
+  const mapsKey = useDriverStore((s) => s.driver?.maps_key ?? null);
   const lastSent = useRef(0);
 
   const refresh = () => { qc.invalidateQueries({ queryKey: ['driver-delivery', id] }); qc.invalidateQueries({ queryKey: ['driver-deliveries'] }); };
@@ -111,7 +120,16 @@ export default function DriverTrip() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingTop: 0, paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
-        <LiveMap shop={shop} dest={dest} me={me} height={240} />
+        {active ? <KeepAwake /> : null}
+        <LiveMap mapsKey={mapsKey} height={260}
+          shop={shop ? { ...shop, label: d.shop.name ?? undefined } : null}
+          dest={dest ? { ...dest, label: d.dest.name ?? undefined } : null}
+          teacher={d.teacher_live ? { lat: d.teacher_live.lat, lng: d.teacher_live.lng, label: t('driver.teacher_here') } : null}
+          driver={me ? { ...me, busy: active, online: true, label: t('driver.you') } : null}
+          follow={me} />
+        {d.teacher_live && active ? (
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brand, marginTop: 6, textAlign: 'center' }}>{t('driver.teacher_sharing')}</Text>
+        ) : null}
         {gpsDenied ? <View style={{ marginTop: spacing.sm }}><Banner tone="warn" icon="gps" text={t('driver.gps_denied')} /></View> : null}
 
         {/* the walk */}

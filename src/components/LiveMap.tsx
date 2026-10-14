@@ -1,47 +1,68 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+import client from '@/api/client';
+import { getApiBaseOverride } from '@/api/apiBase';
 import { colors, radius } from '@/theme/index';
 
-export type MapPoint = { lat: number; lng: number };
+export type MapPoint = { lat: number; lng: number; label?: string };
+export type MapDriver = MapPoint & { busy?: boolean; online?: boolean };
+export type MapShop = MapPoint & { id: number; price?: string };
+
+/** The site the API lives on — the map script and the referrer Google checks the key against. */
+export function apiOrigin(): string {
+  const base = getApiBaseOverride() ?? client.defaults.baseURL ?? 'https://drosspot.app/api/v1';
+  return base.replace(/\/api\/v\d+\/?$/, '');
+}
 
 /**
- * A live map without a native map SDK or an API key: Leaflet on OpenStreetMap tiles inside
- * a WebView. Pins for the shop and the destination, a moving dot for the driver, the trail
- * behind it. Updates are pushed in with injectJavaScript, so the page never reloads while
- * the dot moves.
+ * The marketplace map, in DrosSpot's own style. The drawing lives in ONE file on the server
+ * (public/js/drosmap.js — styled Google Maps with the brand pins, OpenStreetMap when there is
+ * no key), shared with the shop's portal; this component only hosts it in a WebView and
+ * pushes the points in. The page loads once; every update is injected, so a moving dot never
+ * reloads the map. The WebView's base URL is the API's site, so a key restricted to that
+ * site works.
  */
-export function LiveMap({ shop, dest, driver, trail, me, height = 220, style }: {
-  shop?: MapPoint | null; dest?: MapPoint | null; driver?: MapPoint | null; trail?: [number, number][]; me?: MapPoint | null;
-  height?: number; style?: StyleProp<ViewStyle>;
+export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, trail, shops, onShop, selectedShop, follow, height = 220, style }: {
+  mapsKey?: string | null;
+  shop?: MapPoint | null; dest?: MapPoint | null; driver?: MapDriver | null; drivers?: MapDriver[];
+  me?: MapPoint | null; teacher?: MapPoint | null; trail?: [number, number][];
+  shops?: MapShop[]; onShop?: (id: number) => void; selectedShop?: number | null;
+  /** Keep this point in view as it moves (the driver's dot). */
+  follow?: MapPoint | null;
+  height?: number | `${number}%`; style?: StyleProp<ViewStyle>;
 }) {
   const ref = useRef<WebView>(null);
-  const html = useMemo(() => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>html,body,#m{margin:0;height:100%;background:#EEE9DD}.leaflet-control-attribution{display:none}.dot{width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 6px rgba(201,162,39,.25)}</style></head>
+  const origin = useMemo(apiOrigin, []);
+  const html = useMemo(() => `<!doctype html><html dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>html,body,#m{margin:0;height:100%;background:#F7F5EE}</style>
+<script src="${origin}/js/drosmap.js"></script></head>
 <body><div id="m"></div><script>
-var map=L.map('m',{zoomControl:false,attributionControl:false}).setView([30.05,31.24],6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-var layer=L.layerGroup().addTo(map),first=true;
-function icon(c){return L.divIcon({className:'',html:'<div class="dot" style="background:'+c+'"></div>',iconSize:[18,18],iconAnchor:[9,9]});}
-window.paint=function(s){layer.clearLayers();var pts=[];
- if(s.shop){L.marker([s.shop.lat,s.shop.lng],{icon:icon('#0A0E27')}).addTo(layer);pts.push([s.shop.lat,s.shop.lng]);}
- if(s.dest){L.marker([s.dest.lat,s.dest.lng],{icon:icon('#34419B')}).addTo(layer);pts.push([s.dest.lat,s.dest.lng]);}
- if(s.trail&&s.trail.length>1)L.polyline(s.trail,{color:'#34419B',weight:3,opacity:.6}).addTo(layer);
- if(s.driver){L.marker([s.driver.lat,s.driver.lng],{icon:icon('#C9A227'),zIndexOffset:1000}).addTo(layer);pts.push([s.driver.lat,s.driver.lng]);}
- if(s.me){L.circleMarker([s.me.lat,s.me.lng],{radius:7,color:'#fff',fillColor:'#1F9366',fillOpacity:1,weight:2}).addTo(layer);pts.push([s.me.lat,s.me.lng]);}
- if(first&&pts.length){if(pts.length>1)map.fitBounds(pts,{padding:[30,30],maxZoom:16});else map.setView(pts[0],15);first=false;}
- else if(s.driver&&!map.getBounds().contains([s.driver.lat,s.driver.lng]))map.panTo([s.driver.lat,s.driver.lng]);
-};
-</script></body></html>`, []);
+window.__map = window.DrosMap ? DrosMap.create(document.getElementById('m'), { key: ${JSON.stringify(mapsKey ?? '')} }) : null;
+window.__set = function (s) { if (window.__map) window.__map.set(s); };
+window.__select = function (id) { if (window.__map) window.__map.select(id); };
+</script></body></html>`, [origin, mapsKey]);
 
-  const state = JSON.stringify({ shop: shop ?? null, dest: dest ?? null, driver: driver ?? null, trail: trail ?? [], me: me ?? null });
-  useEffect(() => { ref.current?.injectJavaScript(`window.paint && window.paint(${state}); true;`); }, [state]);
+  const allDrivers = [...(drivers ?? []), ...(driver ? [driver] : [])];
+  const route = allDrivers[0] && dest ? [[allDrivers[0].lat, allDrivers[0].lng], [dest.lat, dest.lng]] : null;
+  const state = JSON.stringify({ shop: shop ?? null, dest: dest ?? null, drivers: allDrivers, me: me ?? null, teacher: teacher ?? null, trail: trail ?? [], route, shops: shops ?? [], follow: follow ?? null });
+  const push = () => ref.current?.injectJavaScript(`window.__set && window.__set(${state}); true;`);
+  useEffect(push, [state]);
+  useEffect(() => { if (selectedShop != null) ref.current?.injectJavaScript(`window.__select && window.__select(${Number(selectedShop)}); true;`); }, [selectedShop]);
+
+  const onMessage = (e: WebViewMessageEvent) => {
+    try {
+      const msg = JSON.parse(e.nativeEvent.data);
+      if (msg?.type === 'shop' && onShop) onShop(Number(msg.id));
+    } catch { /* not ours */ }
+  };
 
   return (
     <View style={[{ height, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.surfaceSunken }, style]}>
-      <WebView ref={ref} source={{ html }} originWhitelist={['*']} javaScriptEnabled scrollEnabled={false}
-        onLoadEnd={() => ref.current?.injectJavaScript(`window.paint && window.paint(${state}); true;`)} />
+      <WebView ref={ref} source={{ html, baseUrl: origin + '/' }} originWhitelist={['*']} javaScriptEnabled domStorageEnabled
+        scrollEnabled={false} nestedScrollEnabled onLoadEnd={push} onMessage={onMessage} setSupportMultipleWindows={false}
+        style={{ backgroundColor: '#F7F5EE' }} />
     </View>
   );
 }

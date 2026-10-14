@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Linking } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -14,7 +15,7 @@ import { formatNumber, formatShortDate } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import { LiveMap } from '@/components/LiveMap';
 import {
-  getPrintJob, getPrintOptions, cancelPrintJob, receivePrintJob, reorderPrintJob, claimPrintPayment, PRINT_FLOW, type PrintJob, trackPrintJob } from '@/api/print';
+  getPrintJob, getPrintOptions, cancelPrintJob, receivePrintJob, reorderPrintJob, claimPrintPayment, PRINT_FLOW, type PrintJob, trackPrintJob, locatePrintJob } from '@/api/print';
 
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
@@ -63,6 +64,31 @@ export default function PrintJobScreen() {
   // Live once there is something to watch: a trip in hand, or a ready job waiting for its code.
   const watch = !!job.data && (job.data.status === 'ready' || job.data.status === 'delivered' || job.data.status === 'printing');
   const track = useQuery({ queryKey: ['print-track', id], queryFn: () => trackPrintJob(id!), enabled: !!id && watch, refetchInterval: (q) => (q.state.data?.delivery?.is_active ? 8000 : 30000) });
+  // While a driver is on the way, the teacher's phone shares where the teacher is (founder
+  // 2026-10-14: «live geolocation on both teacher and driver»). Foreground only; stops with the trip.
+  const tripLive = !!track.data?.delivery?.is_active;
+  const [me, setMe] = useState<{ lat: number; lng: number } | null>(null);
+  const [sharing, setSharing] = useState<'on' | 'denied' | 'off'>('off');
+  useEffect(() => {
+    if (!tripLive || !id) { setSharing('off'); return; }
+    let sub: Location.LocationSubscription | null = null;
+    let last = 0;
+    let gone = false;
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (gone) return;
+      if (status !== 'granted') { setSharing('denied'); return; }
+      setSharing('on');
+      sub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, timeInterval: 10000, distanceInterval: 20 }, (pos) => {
+        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setMe(p);
+        if (Date.now() - last < 15000) return;
+        last = Date.now();
+        locatePrintJob(id, p.lat, p.lng).catch(() => {});
+      });
+    })();
+    return () => { gone = true; sub?.remove(); };
+  }, [tripLive, id]);
   const [busy, setBusy] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [review, setReview] = useState('');
@@ -132,8 +158,17 @@ export default function PrintJobScreen() {
                 </View>
               ) : null}
               {(track.data.delivery?.is_active || track.data.mode === 'pickup') && (track.data.dest || track.data.shop.lat != null) ? (
-                <LiveMap shop={track.data.shop.lat != null ? { lat: track.data.shop.lat, lng: track.data.shop.lng! } : null} dest={track.data.dest ? { lat: track.data.dest.lat, lng: track.data.dest.lng } : null}
-                  driver={track.data.delivery?.driver?.lat != null ? { lat: track.data.delivery.driver.lat, lng: track.data.delivery.driver.lng! } : null} trail={track.data.delivery?.trail ?? []} height={200} style={{ marginBottom: spacing.sm }} />
+                <LiveMap mapsKey={track.data.maps_key} height={230} style={{ marginBottom: spacing.sm }}
+                  shop={track.data.shop.lat != null ? { lat: track.data.shop.lat, lng: track.data.shop.lng!, label: track.data.shop.name ?? undefined } : null}
+                  dest={track.data.dest ? { lat: track.data.dest.lat, lng: track.data.dest.lng, label: track.data.dest.name ?? undefined } : null}
+                  driver={track.data.delivery?.driver?.lat != null ? { lat: track.data.delivery.driver.lat, lng: track.data.delivery.driver.lng!, label: track.data.delivery.driver.name, busy: track.data.delivery.is_active, online: track.data.delivery.driver.online } : null}
+                  follow={track.data.delivery?.driver?.lat != null ? { lat: track.data.delivery.driver.lat, lng: track.data.delivery.driver.lng! } : null}
+                  me={me ? { ...me, label: t('print.me') } : null} trail={track.data.delivery?.trail ?? []} />
+              ) : null}
+              {tripLive ? (
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: sharing === 'on' ? colors.successText : colors.warningDark, marginBottom: spacing.sm, textAlign: 'center' }}>
+                  {sharing === 'on' ? t('print.sharing_on') : sharing === 'denied' ? t('print.sharing_denied') : ''}
+                </Text>
               ) : null}
               {track.data.delivery?.fail_reason ? <Banner tone="danger" text={track.data.delivery.fail_reason} /> : null}
               {track.data.handover_code && j.status !== 'delivered' && j.status !== 'received' ? (

@@ -23,6 +23,8 @@ export interface PrintOptions {
   delivery_modes: Choice[];
   sizes?: Choice[];
   extra_units?: Record<string, string>;
+  /** Google Maps key from the server's config (null = the OpenStreetMap fallback). */
+  maps_key?: string | null;
   /** The teacher's located venues — where a driver can ride to. */
   destinations?: Destination[];
   badges: Record<string, string>;
@@ -103,6 +105,8 @@ export interface MarketShop extends Omit<BoardShop, 'quote'> {
   volume_tiers?: { min_pages: number; pct: number }[];
   extras?: ShopExtra[];
   drivers?: number;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 /** A photo of the shop's own work (signed link, stable for a week). */
@@ -212,6 +216,8 @@ export interface PrintJob {
   extras?: (ShopExtra & { amount: number })[];
   extras_total?: number;
   dest?: { lat: number; lng: number; name: string | null } | null;
+  /** The trip, when a driver carries the job. */
+  delivery?: { status: string; label: string; is_active: boolean; driver: string | null; eta_min: number | null } | null;
   subtotal: number;
   platform_fee: number;
   total: number;
@@ -247,9 +253,29 @@ export async function getPrintOptions(): Promise<PrintOptions> {
 }
 
 /** The PDF goes up once; the board prices the token after that. */
+/**
+ * A file name as the teacher sees it: decoded if the picker handed it encoded, the invisible
+ * bidi marks dropped, composed to NFC (iOS gives «إ» as alef + a combining hamza).
+ */
+export function cleanFileName(raw: string): string {
+  let name = raw || '';
+  if (/%[0-9A-Fa-f]{2}/.test(name)) {
+    try { name = decodeURIComponent(name); } catch { /* not really encoded */ }
+  }
+  name = name.replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '');
+  name = name.replace(/[\u0000-\u001F\u007F\\/:*?"<>|]+/g, ' ');
+  try { name = name.normalize('NFC'); } catch { /* older engines */ }
+  name = name.replace(/\s+/g, ' ').trim() || 'ملف';
+  return /\.pdf$/i.test(name) ? name : `${name}.pdf`;
+}
+
 export async function uploadPrintFile(file: { uri: string; name: string }): Promise<PrintUpload> {
   const form = new FormData();
-  form.append('file', { uri: file.uri, name: file.name.toLowerCase().endsWith('.pdf') ? file.name : `${file.name}.pdf`, type: 'application/pdf' } as any);
+  const name = cleanFileName(file.name);
+  // The multipart filename header mangles Arabic on some phones: an ASCII name there, the real
+  // one in its own field, percent-encoded. The server decodes and composes it again.
+  form.append('file', { uri: file.uri, name: 'file.pdf', type: 'application/pdf' } as any);
+  form.append('name', encodeURIComponent(name));
   const { data } = await client.post('/teacher/print/uploads', form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 });
   return unwrap<PrintUpload>(data);
 }
@@ -289,6 +315,8 @@ export async function getPrintJob(id: string | number): Promise<PrintJob> {
 
 /** Where the job is, live: the driver's dot and ETA, the trail, the hand-over code. */
 export interface TrackInfo {
+  maps_key?: string | null;
+  teacher_live?: { lat: number; lng: number; seen_at: string } | null;
   mode: 'pickup' | 'deliver';
   handover_code: string | null;
   shop: { name: string | null; address: string | null; lat: number | null; lng: number | null };
@@ -311,6 +339,12 @@ export interface TrackInfo {
 export async function trackPrintJob(id: string | number): Promise<TrackInfo> {
   const { data } = await client.get(`/teacher/print/jobs/${id}/track`);
   return unwrap<TrackInfo>(data);
+}
+
+/** The teacher's phone during a trip — the driver rides to the person. */
+export async function locatePrintJob(id: string | number, lat: number, lng: number): Promise<{ sharing: boolean }> {
+  const { data } = await client.post(`/teacher/print/jobs/${id}/locate`, { lat, lng });
+  return unwrap(data);
 }
 
 export async function cancelPrintJob(id: number, reason?: string): Promise<PrintJob> {

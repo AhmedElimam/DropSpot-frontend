@@ -41,6 +41,8 @@ export interface DriverProfile {
   id: number; name: string; phone: string; vehicle: string; vehicle_label: string;
   lat: number | null; lng: number | null; seen_at: string | null; online: boolean;
   shop: { id: number; name: string | null; phone: string | null };
+  /** Google Maps key from the server (null = the OpenStreetMap fallback). */
+  maps_key?: string | null;
 }
 
 export interface DriverDelivery {
@@ -52,6 +54,8 @@ export interface DriverDelivery {
   job: { id: number; title: string; copies: number; pages: number; spec_label: string; teacher: string | null; teacher_phone: string | null; payout: number; payment_status: string };
   shop: { name: string | null; address: string | null; lat: number | null; lng: number | null };
   dest: { lat: number | null; lng: number | null; name: string | null; address: string | null };
+  /** Where the teacher's phone is right now (shared during the trip), else null. */
+  teacher_live?: { lat: number; lng: number; seen_at: string } | null;
   remaining_km: number | null;
   eta_min: number | null;
   assigned_at: string | null; picked_up_at: string | null; en_route_at: string | null; arrived_at: string | null; delivered_at: string | null;
@@ -72,6 +76,11 @@ export async function driverMe(): Promise<DriverProfile> {
 
 export async function driverLogout(): Promise<void> {
   try { await driverClient.post('/driver/logout'); } catch { /* the token is dropped locally either way */ }
+}
+
+/** «I'm here and free» — the shop's map shows available drivers. */
+export async function driverHeartbeat(lat: number, lng: number): Promise<void> {
+  await driverClient.post('/driver/heartbeat', { lat, lng });
 }
 
 export async function getDriverDeliveries(): Promise<DriverDelivery[]> {

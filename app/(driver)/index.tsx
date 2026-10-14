@@ -12,7 +12,9 @@ import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber, formatTime } from '@/utils/format';
-import { getDriverDeliveries, driverMe, type DriverDelivery } from '@/api/driver';
+import { useEffect } from 'react';
+import * as Location from 'expo-location';
+import { getDriverDeliveries, driverMe, driverHeartbeat, type DriverDelivery } from '@/api/driver';
 import { useDriverStore } from '@/stores/driverStore';
 
 export const TONE = (): Record<DriverDelivery['tone'], { bg: string; fg: string }> => ({
@@ -58,6 +60,24 @@ export default function DriverHome() {
   const me = useQuery({ queryKey: ['driver-me'], queryFn: driverMe, enabled: !!token, retry: false });
   const trips = useQuery({ queryKey: ['driver-deliveries'], queryFn: getDriverDeliveries, enabled: !!token, refetchInterval: 20000, retry: false });
   const { refreshing, onRefresh } = usePullRefresh(trips.refetch, me.refetch);
+  // Free and on this screen: tell the shop where you are every 45 s («متاح» on its map).
+  const free = !!token && !(trips.data ?? []).some((d) => d.is_active);
+  useEffect(() => {
+    if (!free) return;
+    let alive = true;
+    const beat = async () => {
+      try {
+        const perm = await Location.getForegroundPermissionsAsync();
+        const ok = perm.granted || (perm.canAskAgain && (await Location.requestForegroundPermissionsAsync()).granted);
+        if (!ok || !alive) return;
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (alive) await driverHeartbeat(pos.coords.latitude, pos.coords.longitude);
+      } catch { /* the next beat retries */ }
+    };
+    beat();
+    const timer = setInterval(beat, 45000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [free]);
   if (!token) return <Redirect href={'/(driver)/login' as Href} />;
   if (me.data && me.data !== driver) setDriver(me.data);
   // A cut driver (the shop switched them off) is sent out.
