@@ -241,7 +241,7 @@ export default function PrintShops() {
     <View style={{ flex: 1, backgroundColor: '#0E1433' }}>
       {/* the map, behind everything */}
       <LiveMap mapsKey={options.data?.maps_key} showMe rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
-        controlsBottom={H - LOW + 16} selectedShop={picked} onShop={pickOnMap}
+        controlsBottom={H - LOW + 16} padBottom={H - MID} selectedShop={picked} onShop={pickOnMap}
         shops={list.filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} />
 
       {/* top bar over the map */}

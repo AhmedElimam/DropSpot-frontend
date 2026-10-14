@@ -53,7 +53,7 @@ export function useMyLocation(enabled = true): { me: MapPoint | null; denied: bo
  * Talabat's «حدد موقعك»: a fixed pin in the middle, the map moves under it, and `onCenter` /
  * `onAddress` report where it rests.
  */
-export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, trail, shops, onShop, selectedShop, follow, showMe, picker, start, onCenter, onAddress, onMoving, centerTo, height = 220, style, rounded = true, controlsBottom = 12 }: {
+export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, trail, shops, onShop, selectedShop, follow, showMe, picker, start, onCenter, onAddress, onMoving, centerTo, height = 220, style, rounded = true, controlsBottom = 12, padBottom = 0 }: {
   mapsKey?: string | null;
   shop?: MapPoint | null; dest?: MapPoint | null; driver?: MapDriver | null; drivers?: MapDriver[];
   me?: MapPoint | null; teacher?: MapPoint | null; trail?: [number, number][];
@@ -72,6 +72,8 @@ export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, tra
   height?: number | `${number}%`; style?: StyleProp<ViewStyle>;
   rounded?: boolean;
   controlsBottom?: number;
+  /** How much of the map a sheet covers from the bottom — frames and centres above it. */
+  padBottom?: number;
 }) {
   const ref = useRef<WebView>(null);
   const origin = useMemo(apiOrigin, []);
@@ -85,11 +87,11 @@ export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, tra
 <style>html,body,#m{margin:0;height:100%;background:#0E1433}</style>
 <script src="${origin}/js/drosmap.js"></script></head>
 <body><div id="m"></div><script>
-window.__map = window.DrosMap ? DrosMap.create(document.getElementById('m'), { key: ${JSON.stringify(mapsKey ?? '')}, picker: ${picker ? 'true' : 'false'} }) : null;
+window.__map = window.DrosMap ? DrosMap.create(document.getElementById('m'), { key: ${JSON.stringify(mapsKey ?? '')}, picker: ${picker ? 'true' : 'false'}, padBottom: ${Math.max(0, Math.round(padBottom))} }) : null;
 window.__set = function (s) { if (window.__map) window.__map.set(s); };
 window.__select = function (id) { if (window.__map) window.__map.select(id); };
 window.__center = function (lat, lng, z) { if (window.__map) window.__map.center(lat, lng, z); };
-</script></body></html>`, [origin, mapsKey, picker]);
+</script></body></html>`, [origin, mapsKey, picker, padBottom]);
 
   const allDrivers = [...(drivers ?? []), ...(driver ? [driver] : [])];
   const route = allDrivers[0] && dest ? [[allDrivers[0].lat, allDrivers[0].lng], [dest.lat, dest.lng]] : null;
