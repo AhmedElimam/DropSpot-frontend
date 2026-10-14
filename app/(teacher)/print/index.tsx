@@ -65,7 +65,7 @@ export default function PrintJobs() {
   const { refreshing, onRefresh } = usePullRefresh(jobs.refetch);
   const open = jobs.data?.open ?? [];
   const closed = jobs.data?.closed ?? [];
-  const goNew = () => router.push('/(teacher)/print/new' as Href);
+  const goNew = () => router.push('/(teacher)/print/shops' as Href);
 
   return (
     <Surface id="screen.teacher.print" screen>

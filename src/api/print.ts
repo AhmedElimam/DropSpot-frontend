@@ -17,6 +17,7 @@ export interface PrintOptions {
   finishes: Choice[];
   delivery_modes: Choice[];
   badges: Record<string, string>;
+  capabilities: Record<string, string>;
   max_file_mb: number;
   max_copies: number;
   platform_fee_on: boolean;
@@ -66,6 +67,66 @@ export interface BoardShop {
 }
 
 export interface Board { pages: number; copies: number; spec: PrintSpec; shops: BoardShop[] }
+
+/** A shop as the marketplace shows it BEFORE a job exists — the driver card, not the fare. */
+export interface MarketShop extends Omit<BoardShop, 'quote'> {
+  /** Mean accept→ready hours over finished jobs when measured, else the shop's promise. */
+  speed_hours: number;
+  speed_measured: boolean;
+  capabilities: string[];
+  price_from: { bw: number | null; color: number | null };
+}
+
+export interface MenuRate { paper: string; ink: string; sides: number; price_per_page: number }
+export interface MenuFinish { kind: string; price_per_copy: number }
+export interface ShopReview { rating: number; review: string | null; at: string | null; teacher: string; what: string }
+
+export interface ShopProfile extends MarketShop {
+  address: string | null;
+  phone: string | null;
+  menu: { rates: MenuRate[]; finishes: MenuFinish[] };
+  reviews: ShopReview[];
+}
+
+/**
+ * The shop's own arithmetic, run on the phone so every tap re-prices instantly. The server
+ * runs the same sum again at send and locks THAT; this is the preview, never the contract.
+ */
+export function quoteOnMenu(shop: ShopProfile, pages: number, copies: number, spec: PrintSpec, fee: { on: boolean; piastres: number }): Quote {
+  const rate = shop.menu.rates.find((r) => r.paper === spec.paper && r.ink === spec.ink && r.sides === spec.sides);
+  if (!rate) return { ok: false, reason: 'unavailable' };
+  const finish = spec.finish === 'none' ? { kind: 'none', price_per_copy: 0 } : shop.menu.finishes.find((f) => f.kind === spec.finish);
+  if (!finish) return { ok: false, reason: 'unavailable' };
+  if (spec.delivery_mode === 'deliver' && !shop.delivery) return { ok: false, reason: 'no_delivery' };
+  if (spec.delivery_mode === 'pickup' && !shop.pickup) return { ok: false, reason: 'no_pickup' };
+  if (copies < shop.min_copies) return { ok: false, reason: 'min_copies' };
+  const delivery_fee = spec.delivery_mode === 'deliver' ? shop.delivery_fee : 0;
+  const subtotal = Math.round((pages * copies * rate.price_per_page + copies * finish.price_per_copy + delivery_fee) * 100) / 100;
+  const platform_fee = fee.on && fee.piastres > 0 ? Math.round(pages * copies * fee.piastres) / 100 : 0;
+  return {
+    ok: true,
+    price_per_page: rate.price_per_page,
+    finish_per_copy: finish.price_per_copy,
+    delivery_fee,
+    subtotal,
+    platform_fee,
+    platform_fee_piastres: fee.piastres,
+    total: Math.round((subtotal + platform_fee) * 100) / 100,
+    turnaround_hours: shop.turnaround_hours,
+  };
+}
+
+/** The choices THIS shop's menu actually offers, in the order the options list them. */
+export function menuChoices(shop: ShopProfile, all: Pick<PrintOptions, 'papers' | 'inks' | 'sides' | 'finishes' | 'delivery_modes'>) {
+  const has = (f: (r: MenuRate) => boolean) => shop.menu.rates.some(f);
+  return {
+    papers: all.papers.filter((c) => has((r) => r.paper === c.key)),
+    inks: all.inks.filter((c) => has((r) => r.ink === c.key)),
+    sides: all.sides.filter((c) => has((r) => String(r.sides) === c.key)),
+    finishes: all.finishes.filter((c) => c.key === 'none' || shop.menu.finishes.some((f) => f.kind === c.key)),
+    delivery_modes: all.delivery_modes.filter((c) => (c.key === 'pickup' ? shop.pickup : shop.delivery)),
+  };
+}
 
 export type PrintStatus = 'sent' | 'accepted' | 'declined' | 'printing' | 'ready' | 'delivered' | 'received' | 'cancelled';
 
@@ -123,6 +184,16 @@ export async function uploadPrintFile(file: { uri: string; name: string }): Prom
   form.append('file', { uri: file.uri, name: file.name.toLowerCase().endsWith('.pdf') ? file.name : `${file.name}.pdf`, type: 'application/pdf' } as any);
   const { data } = await client.post('/teacher/print/uploads', form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 });
   return unwrap<PrintUpload>(data);
+}
+
+export async function getPrintShops(): Promise<{ shops: MarketShop[] }> {
+  const { data } = await client.get('/teacher/print/shops');
+  return unwrap(data);
+}
+
+export async function getPrintShop(id: string | number): Promise<ShopProfile> {
+  const { data } = await client.get(`/teacher/print/shops/${id}`);
+  return unwrap<ShopProfile>(data);
 }
 
 export async function getPrintBoard(params: { upload: string; copies?: number; course_id?: string | number | null } & PrintSpec): Promise<Board> {
