@@ -42,6 +42,14 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
 
   switch (type) {
     // ── مدام روز's 11 am «ورقة النهارده»: the day's sessions ──
+    // ── «المطبعة»: the shop accepted, declined, finished or delivered a print job ──
+    case 'print_job_accepted':
+    case 'print_job_declined':
+    case 'print_job_ready':
+    case 'print_job_delivered': {
+      const job = id(data, 'print_job_id');
+      return job ? `/(teacher)/print/${job}` : '/(teacher)/print';
+    }
     case 'rose_briefing':
       return '/(teacher)/sessions';
     // ── complaints («الاعتراضات») ──

@@ -35,6 +35,7 @@ export function ScheduleToolsSheet({ visible, onClose }: { visible: boolean; onC
     { surface: 'teacher.schedule_tools.row_pause', assistantNeeds: 'cancel_sessions', icon: 'clock', title: t('teacher.pause_period'), sub: t('teacher.pause_sub'), href: '/(teacher)/pause' as Href, show: true },
     { surface: 'teacher.schedule_tools.row_schedule_merge', assistantNeeds: 'manage_courses', icon: 'transfer', title: t('teacher.merge_title'), sub: t('teacher.merge_sub'), href: '/(teacher)/schedule-merge' as Href, show: true },
     { surface: 'teacher.schedule_tools.row_schedule_overrides', assistantNeeds: 'manage_courses', icon: 'clock', title: t('teacher.overrides_title'), sub: t('teacher.overrides_sub'), href: '/(teacher)/schedule-overrides' as Href, show: !!flags?.ramadan_schedule },
+    { surface: 'teacher.schedule_tools.row_print', assistantNeeds: 'teacher', icon: 'print', title: t('print.tools_row'), sub: t('print.tools_row_sub'), href: '/(teacher)/print' as Href, show: !!flags?.print_market },
     { surface: 'teacher.schedule_tools.row_venues', assistantNeeds: 'teacher', icon: 'gps', title: t('manage.venues_title'), sub: t('manage.venues_sub'), href: '/(teacher)/venues' as Href, show: true },
   ];
 

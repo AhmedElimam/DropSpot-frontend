@@ -205,6 +205,9 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `screen.teacher.payment-proofs` — screen · app/(teacher)/payment-proofs.tsx
 - `screen.teacher.pending-collections` — screen · app/(teacher)/pending-collections.tsx
 - `screen.teacher.phone-confirmations` — screen · app/(teacher)/phone-confirmations.tsx
+- `screen.teacher.print` — screen · app/(teacher)/print/index.tsx
+- `screen.teacher.print_job` — screen · app/(teacher)/print/[id].tsx
+- `screen.teacher.print_new` — screen · app/(teacher)/print/new.tsx
 - `screen.teacher.reconcile` — screen · app/(teacher)/reconcile.tsx
 - `screen.teacher.record-student` — screen · app/(teacher)/record-student.tsx
 - `screen.teacher.resolution` — screen · app/(teacher)/resolution.tsx
@@ -715,6 +718,22 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.phone_confirmations.number_correct` — element · app/(teacher)/phone-confirmations.tsx
 - `teacher.phone_confirmations.sheet` — element · app/(teacher)/phone-confirmations.tsx
 - `teacher.phone_confirmations.sheet.submit` — element · app/(teacher)/phone-confirmations.tsx
+- `teacher.print.closed` — element · app/(teacher)/print/index.tsx
+- `teacher.print.empty` — element · app/(teacher)/print/index.tsx
+- `teacher.print.new_button` — element · app/(teacher)/print/index.tsx
+- `teacher.print.open` — element · app/(teacher)/print/index.tsx
+- `teacher.print_job.cancel_button` — element · app/(teacher)/print/[id].tsx
+- `teacher.print_job.money` — element · app/(teacher)/print/[id].tsx
+- `teacher.print_job.payment` — element · app/(teacher)/print/[id].tsx
+- `teacher.print_job.receive` — element · app/(teacher)/print/[id].tsx
+- `teacher.print_job.reorder_button` — element · app/(teacher)/print/[id].tsx
+- `teacher.print_job.shop` — element · app/(teacher)/print/[id].tsx
+- `teacher.print_job.status` — element · app/(teacher)/print/[id].tsx
+- `teacher.print_new.board` — element · app/(teacher)/print/new.tsx
+- `teacher.print_new.copies` — element · app/(teacher)/print/new.tsx
+- `teacher.print_new.file` — element · app/(teacher)/print/new.tsx
+- `teacher.print_new.send` — element · app/(teacher)/print/new.tsx
+- `teacher.print_new.spec` — element · app/(teacher)/print/new.tsx
 - `teacher.reconcile.auto_synced_notice` — element · app/(teacher)/reconcile.tsx
 - `teacher.reconcile.bucket.missing_notice` — element · app/(teacher)/reconcile.tsx
 - `teacher.reconcile.bucket.session_picker` — element · app/(teacher)/reconcile.tsx
@@ -886,6 +905,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.schedule_tools.row_courses` — element · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_new_course` — element · assistant: manage_courses · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_pause` — element · assistant: cancel_sessions · src/components/teacher/ScheduleToolsSheet.tsx
+- `teacher.schedule_tools.row_print` — element · assistant: teacher · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_revisions` — element · assistant: teacher · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_schedule_merge` — element · assistant: manage_courses · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_schedule_overrides` — element · assistant: manage_courses · src/components/teacher/ScheduleToolsSheet.tsx

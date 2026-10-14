@@ -80,6 +80,11 @@ const ICON_MAP = {
   close: 'close',
   offline: 'cloud-offline',
   download: 'download',
+  // «المطبعة» — the print marketplace.
+  print: 'print',
+  document: 'document-text',
+  storefront: 'storefront',
+  pricetag: 'pricetag',
   'person-remove': 'person-remove',
   /** «اعتراض على الدرجة»: photograph the paper, pick it, draw on it, undo a line. */
   camera: 'camera',
