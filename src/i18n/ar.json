@@ -130,7 +130,7 @@
       "delivery_chip": "توصيل {{p}} ج",
       "free_delivery": "توصيل مجاني",
       "all_shops": "كل المطابع",
-      "all_shops_n": "كل المطابع · {{n}}",
+      "all_shops_n": "كل المطابع ({{n}})",
       "order_here": "اطلب",
       "search_ph": "ابحث باسم المطبعة أو المنطقة",
       "shops_count": "{{n}} مطبعة على السوق",

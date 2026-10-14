@@ -101,7 +101,8 @@ function PriceFrom({ s, size = 20 }: { s: MarketShop; size?: number }) {
 /** ★ 4.7 (23) · ⏱ 24 س · 📍 1.2 كم — the line a teacher decides on. */
 function MetaLine({ s }: { s: MarketShop }) {
   const { t } = useTranslation();
-  const dot = <Text style={{ color: colors.textTertiary, fontSize: 12 }}>·</Text>;
+  // A thin bar, not «·»: beside Arabic digits a middle dot reads as a zero (٠).
+  const dot = <View style={{ width: 1, height: 12, backgroundColor: colors.border }} />;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       {s.rating != null ? (
@@ -351,7 +352,8 @@ export default function PrintShops() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, height: 44 }}>
               <Icon name="search" size={18} color={colors.textTertiary} />
               <TextInput value={query} onChangeText={setQuery} placeholder={t('print.search_ph')} placeholderTextColor={colors.textTertiary}
-                onFocus={() => snapTo(TOP)} style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right' }} returnKeyType="search" />
+                onFocus={() => snapTo(TOP)} style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right' }} returnKeyType="search"
+                autoCorrect={false} autoComplete="off" textContentType="none" spellCheck={false} />
               {query ? <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} accessibilityRole="button"><Icon name="close" size={16} color={colors.textTertiary} /></TouchableOpacity> : null}
             </View>
             <Surface id="teacher.print_shops.filters">
@@ -388,7 +390,7 @@ export default function PrintShops() {
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: MID - TOP + insets.bottom + spacing.xl }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
           {shops.isLoading ? <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} /> : null}
-          {!shops.isLoading && list.length === 0 && coming.length === 0 ? (
+          {!shops.isLoading && list.length === 0 && (coming.length === 0 || !!query || need.length > 0) ? (
             <EmptyState icon="storefront" title={t('print.no_shops')} message={query || need.length ? t('print.no_match') : t('print.shops_empty')} />
           ) : (
             <>
