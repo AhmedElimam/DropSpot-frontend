@@ -69,6 +69,12 @@ export async function driverLogin(phone: string, code: string): Promise<{ token:
   return unwrap(data);
 }
 
+/** The QR scan: the one-time token from the shop's QR → a driver session. */
+export async function driverJoin(token: string): Promise<{ token: string; driver: DriverProfile }> {
+  const { data } = await driverClient.post('/driver/join', { token });
+  return unwrap(data);
+}
+
 export async function driverMe(): Promise<DriverProfile> {
   const { data } = await driverClient.get('/driver/me');
   return unwrap(data);

@@ -2,8 +2,7 @@ import { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { isAxiosError } from 'axios';
 import { useTranslation } from 'react-i18next';
-import { Icon } from '@/components/ui/Icon';
-import { router, type Href } from 'expo-router';
+import { router } from 'expo-router';
 import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
 import { useLogin } from '@/hooks/useAuth';
@@ -110,17 +109,6 @@ export default function LoginScreen() {
       </View>
 
       <Button title={t('auth.create_account')} variant="outline" onPress={() => router.push('/(auth)/register')} />
-      <TouchableOpacity onPress={() => router.push('/(driver)/login' as Href)} accessibilityRole="button" activeOpacity={0.9}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.lg, padding: spacing.md, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}>
-        <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="gps" size={24} color={colors.onAccent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('driver.portal_title')}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary }}>{t('driver.portal_sub')}</Text>
-        </View>
-        <Icon name="back" size={18} color={colors.textTertiary} />
-      </TouchableOpacity>
     </AuthScaffold>
   );
 }

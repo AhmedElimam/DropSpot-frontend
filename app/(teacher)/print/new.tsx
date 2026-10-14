@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
-import * as Location from 'expo-location';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -21,6 +20,7 @@ import {
   type PrintUpload, type PrintSpec, type Choice,
 } from '@/api/print';
 import { Stars, SpeedLine } from './shops/index';
+import { PlacePicker, type PickedPlace } from '@/components/print/PlacePicker';
 
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
 
@@ -46,9 +46,8 @@ export default function PrintNew() {
   const [courseId, setCourseId] = useState<string | null>(null);
   const [copies, setCopies] = useState('1');
   const [spec, setSpec] = useState<PrintSpec>({ paper: '80', ink: 'bw', sides: 1, finish: 'none', delivery_mode: 'pickup', size: 'A4', rush: false, extras: [] });
-  const [address, setAddress] = useState('');
-  const [dest, setDest] = useState<{ key: string; lat: number; lng: number; name: string | null } | null>(null);
-  const [locating, setLocating] = useState(false);
+  const [place, setPlace] = useState<PickedPlace | null>(null);
+  const [picking, setPicking] = useState(false);
   const [sending, setSending] = useState(false);
 
   const o = options.data;
@@ -75,22 +74,6 @@ export default function PrintNew() {
     if (JSON.stringify(next) !== JSON.stringify(spec)) setSpec(next);
   }, [choices, spec, s?.rush, s?.extras]);
 
-  // Where the driver rides to: one of the teacher's located venues, or the phone's own spot.
-  const pickDest = async (key: string) => {
-    if (key === 'me') {
-      setLocating(true);
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') { Alert.alert('', t('print.dest_gps_denied')); return; }
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        setDest({ key: 'me', lat: loc.coords.latitude, lng: loc.coords.longitude, name: null });
-      } catch { Alert.alert('', t('print.dest_gps_failed')); }
-      finally { setLocating(false); }
-      return;
-    }
-    const v = (o?.destinations ?? []).find((x) => String(x.id) === key);
-    if (v) { setDest({ key, lat: v.lat, lng: v.lng, name: v.name }); if (!address.trim() && v.address) setAddress(v.address); }
-  };
   const toggleExtra = (id: number) => setSpec({ ...spec, extras: (spec.extras ?? []).includes(id) ? (spec.extras ?? []).filter((x) => x !== id) : [...(spec.extras ?? []), id] });
 
   // The live sum — the shop's own arithmetic, on the phone, on every tap.
@@ -130,12 +113,13 @@ export default function PrintNew() {
 
   const send = async () => {
     if (!upload || !s || !ready || sending) return;
-    if (spec.delivery_mode === 'deliver' && !address.trim()) { Alert.alert('', t('print.address_required')); return; }
-    if (spec.delivery_mode === 'deliver' && !dest) { Alert.alert('', t('print.dest_required')); return; }
+    if (spec.delivery_mode === 'deliver' && !place) { setPicking(true); return; }
     setSending(true);
     try {
-      const job = await createPrintJob({ upload: upload.upload, vendor_id: s.vendor_id, copies: copiesN, title: title.trim() || undefined, course_id: courseId, delivery_address: address.trim() || null,
-        dest_lat: spec.delivery_mode === 'deliver' ? dest?.lat : null, dest_lng: spec.delivery_mode === 'deliver' ? dest?.lng : null, dest_name: spec.delivery_mode === 'deliver' ? dest?.name : null, ...spec });
+      const deliver = spec.delivery_mode === 'deliver' && place;
+      const job = await createPrintJob({ upload: upload.upload, vendor_id: s.vendor_id, copies: copiesN, title: title.trim() || undefined, course_id: courseId,
+        delivery_address: deliver ? [place!.address, place!.details].filter(Boolean).join(' — ') : null,
+        dest_lat: deliver ? place!.lat : null, dest_lng: deliver ? place!.lng : null, dest_name: deliver ? place!.name : null, ...spec });
       qc.invalidateQueries({ queryKey: ['print-jobs'] });
       qc.invalidateQueries({ queryKey: ['print-shops'] });
       router.replace(`/(teacher)/print/${job.id}` as Href);
@@ -236,14 +220,29 @@ export default function PrintNew() {
                 </Field>
               ) : null}
               {spec.delivery_mode === 'deliver' ? (
-                <>
-                  <Field label={t('print.dest')} required hint={t('print.dest_hint')}>
-                    <Chips options={[...(o?.destinations ?? []).map((v) => ({ key: String(v.id), label: v.name })), { key: 'me', label: locating ? t('print.dest_locating') : t('print.dest_me') }]}
-                      value={dest?.key ?? null} onChange={(k) => pickDest(String(k))} tint={colors.success} />
-                    {dest ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.successText, marginTop: 6 }}>{t('print.dest_set', { name: dest.name ?? t('print.dest_me') })}</Text> : null}
-                  </Field>
-                  <Field label={t('print.address')} required><Input value={address} onChangeText={setAddress} placeholder={t('print.address_ph')} multiline maxLength={300} /></Field>
-                </>
+                <Field label={t('print.dest')} required>
+                  <TouchableOpacity onPress={() => setPicking(true)} activeOpacity={0.88} accessibilityRole="button"
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: radius.lg, borderWidth: 1.5, borderColor: place ? colors.success : colors.accent, borderStyle: place ? 'solid' : 'dashed', padding: spacing.md, backgroundColor: place ? colors.successLight : colors.accentLight }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: place ? colors.success : colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="location" size={20} color={colors.onPrimary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      {place ? (
+                        <>
+                          {place.name ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.successText }}>{place.name}</Text> : null}
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }} numberOfLines={2}>{place.address}</Text>
+                          {place.details ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>{place.details}</Text> : null}
+                        </>
+                      ) : (
+                        <>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.accentText }}>{t('print.pick_open')}</Text>
+                          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('print.dest_hint')}</Text>
+                        </>
+                      )}
+                    </View>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{place ? t('print.change_shop') : ''}</Text>
+                  </TouchableOpacity>
+                </Field>
               ) : null}
               {(s.extras ?? []).length ? (
                 <Field label={t('print.extras')} hint={t('print.extras_hint')}>
@@ -339,6 +338,7 @@ export default function PrintNew() {
         </View>
         </Surface>
       ) : null}
+      <PlacePicker visible={picking} onClose={() => setPicking(false)} onPick={setPlace} mapsKey={o?.maps_key} venues={o?.destinations ?? []} initial={place} />
     </FormScreen>
     </Surface>
   );
