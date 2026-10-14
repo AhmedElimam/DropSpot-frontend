@@ -1,5 +1,6 @@
 import { Redirect, type Href } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
+import { useDriverStore } from '@/stores/driverStore';
 import { useThemeStore } from '@/stores/themeStore';
 
 export default function Index() {
@@ -8,6 +9,12 @@ export default function Index() {
   const user = useAuthStore((s) => s.user);
   // A redirect loop shows up here first: every pass through `/` logs where it went.
   if (__DEV__) console.log('[route] resolve →', !isAuthenticated ? 'login' : `${role} ${user?.must_accept_terms ? 'terms' : ''}`);
+
+  // A print shop's rider (driver mode) has a session of their own, beside the user one.
+  const driverToken = useDriverStore((s) => s.token);
+  if (!isAuthenticated && driverToken) {
+    return <Redirect href={'/(driver)' as Href} />;
+  }
 
   if (!isAuthenticated) {
     return <Redirect href="/(auth)/login" />;

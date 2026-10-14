@@ -46,7 +46,11 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
     case 'print_job_accepted':
     case 'print_job_declined':
     case 'print_job_ready':
-    case 'print_job_delivered': {
+    case 'print_job_delivered':
+    case 'print_delivery_assigned':
+    case 'print_delivery_en_route':
+    case 'print_delivery_arrived':
+    case 'print_delivery_failed': {
       const job = id(data, 'print_job_id');
       return job ? `/(teacher)/print/${job}` : '/(teacher)/print';
     }

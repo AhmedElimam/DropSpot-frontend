@@ -41,6 +41,7 @@ import { AnalyticsTracker } from '@/components/AnalyticsTracker';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '@/stores/authStore';
+import { useDriverStore } from '@/stores/driverStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { SurveyModal } from '@/components/SurveyModal';
@@ -144,6 +145,7 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
     if (!hydrationStarted) {
       setHydrationStarted(true);
       hydrate();
+      useDriverStore.getState().hydrate().catch(() => {});
     }
   }, [hydrate, hydrationStarted]);
 

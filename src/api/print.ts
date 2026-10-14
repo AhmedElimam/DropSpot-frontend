@@ -7,7 +7,11 @@ import { STAGING_KEY, STAGING_HEADER } from '@/config/env';
  * behind the `print_market` flag on the server.
  */
 
-export type PrintSpec = { paper: string; ink: string; sides: number; finish: string; delivery_mode: 'pickup' | 'deliver'; size?: string; rush?: boolean };
+export type PrintSpec = { paper: string; ink: string; sides: number; finish: string; delivery_mode: 'pickup' | 'deliver'; size?: string; rush?: boolean; extras?: number[] };
+
+/** Something a shop charges for in its own words, per page / copy / job. */
+export interface ShopExtra { id: number; name: string; unit: 'page' | 'copy' | 'job'; unit_label: string; price: number }
+export interface Destination { id: number; name: string; address: string | null; lat: number; lng: number }
 
 export type Choice = { key: string; label: string };
 
@@ -18,6 +22,9 @@ export interface PrintOptions {
   finishes: Choice[];
   delivery_modes: Choice[];
   sizes?: Choice[];
+  extra_units?: Record<string, string>;
+  /** The teacher's located venues — where a driver can ride to. */
+  destinations?: Destination[];
   badges: Record<string, string>;
   capabilities: Record<string, string>;
   max_file_mb: number;
@@ -39,6 +46,8 @@ export interface Quote {
   discount?: number;
   discount_pct?: number;
   rush_fee?: number;
+  extras?: (ShopExtra & { amount: number })[];
+  extras_total?: number;
   delivery_fee?: number;
   subtotal?: number;
   platform_fee?: number;
@@ -92,6 +101,8 @@ export interface MarketShop extends Omit<BoardShop, 'quote'> {
   size_factors?: Record<string, number>;
   rush?: { hours: number; pct: number } | null;
   volume_tiers?: { min_pages: number; pct: number }[];
+  extras?: ShopExtra[];
+  drivers?: number;
 }
 
 /** A photo of the shop's own work (signed link, stable for a week). */
@@ -132,14 +143,21 @@ export function quoteOnMenu(shop: ShopProfile, pages: number, copies: number, sp
   if (copies < shop.min_copies) return { ok: false, reason: 'min_copies' };
 
   const printed = pages * copies;
+  const chosen: (ShopExtra & { amount: number })[] = [];
+  for (const id of spec.extras ?? []) {
+    const x = (shop.extras ?? []).find((e) => e.id === id);
+    if (!x) return { ok: false, reason: 'unavailable' };
+    chosen.push({ ...x, amount: r2(x.unit === 'page' ? printed * x.price : x.unit === 'copy' ? copies * x.price : x.price) });
+  }
+  const extras_total = r2(chosen.reduce((a, x) => a + x.amount, 0));
   const price_per_page = r2(rate.price_per_page * factor);
   const printing = r2(printed * price_per_page);
   const discount_pct = (shop.volume_tiers ?? []).reduce((p, t) => (printed >= t.min_pages ? Math.max(p, t.pct) : p), 0);
   const discount = r2((printing * discount_pct) / 100);
   const finishing = r2(copies * finish.price_per_copy);
-  const rush_fee = spec.rush && shop.rush ? r2(((printing - discount + finishing) * shop.rush.pct) / 100) : 0;
+  const rush_fee = spec.rush && shop.rush ? r2(((printing - discount + finishing + extras_total) * shop.rush.pct) / 100) : 0;
   const delivery_fee = spec.delivery_mode === 'deliver' ? shop.delivery_fee : 0;
-  const subtotal = r2(printing - discount + finishing + rush_fee + delivery_fee);
+  const subtotal = r2(printing - discount + finishing + extras_total + rush_fee + delivery_fee);
   const platform_fee = fee.on && fee.piastres > 0 ? Math.round(printed * fee.piastres) / 100 : 0;
   return {
     ok: true,
@@ -149,6 +167,8 @@ export function quoteOnMenu(shop: ShopProfile, pages: number, copies: number, sp
     discount,
     discount_pct,
     rush_fee,
+    extras: chosen,
+    extras_total,
     delivery_fee,
     subtotal,
     platform_fee,
@@ -189,6 +209,9 @@ export interface PrintJob {
   delivery_fee: number;
   discount?: number;
   rush_fee?: number;
+  extras?: (ShopExtra & { amount: number })[];
+  extras_total?: number;
+  dest?: { lat: number; lng: number; name: string | null } | null;
   subtotal: number;
   platform_fee: number;
   total: number;
@@ -249,7 +272,7 @@ export async function getPrintBoard(params: { upload: string; copies?: number; c
   return unwrap<Board>(data);
 }
 
-export async function createPrintJob(payload: { upload: string; vendor_id: number; copies: number; title?: string; course_id?: string | number | null; delivery_address?: string | null } & PrintSpec): Promise<PrintJob> {
+export async function createPrintJob(payload: { upload: string; vendor_id: number; copies: number; title?: string; course_id?: string | number | null; delivery_address?: string | null; dest_lat?: number | null; dest_lng?: number | null; dest_name?: string | null } & PrintSpec): Promise<PrintJob> {
   const { data } = await client.post('/teacher/print/jobs', payload);
   return unwrap<PrintJob>(data);
 }
@@ -262,6 +285,32 @@ export async function getPrintJobs(): Promise<{ open: PrintJob[]; closed: PrintJ
 export async function getPrintJob(id: string | number): Promise<PrintJob> {
   const { data } = await client.get(`/teacher/print/jobs/${id}`);
   return unwrap<PrintJob>(data);
+}
+
+/** Where the job is, live: the driver's dot and ETA, the trail, the hand-over code. */
+export interface TrackInfo {
+  mode: 'pickup' | 'deliver';
+  handover_code: string | null;
+  shop: { name: string | null; address: string | null; lat: number | null; lng: number | null };
+  dest: { lat: number; lng: number; name: string | null; address: string | null } | null;
+  delivery: {
+    status: 'assigned' | 'picked_up' | 'en_route' | 'arrived' | 'delivered' | 'failed';
+    label: string;
+    tone: 'info' | 'warning' | 'success' | 'danger' | 'gray';
+    is_active: boolean;
+    driver: { id: number; name: string; phone: string; vehicle: string; vehicle_label: string; lat: number | null; lng: number | null; seen_at: string | null; online: boolean } | null;
+    remaining_km: number | null;
+    eta_min: number | null;
+    distance_km: number | null;
+    trail: [number, number][];
+    assigned_at: string | null; picked_up_at: string | null; en_route_at: string | null; arrived_at: string | null; delivered_at: string | null;
+    fail_reason: string | null;
+  } | null;
+}
+
+export async function trackPrintJob(id: string | number): Promise<TrackInfo> {
+  const { data } = await client.get(`/teacher/print/jobs/${id}/track`);
+  return unwrap<TrackInfo>(data);
 }
 
 export async function cancelPrintJob(id: number, reason?: string): Promise<PrintJob> {

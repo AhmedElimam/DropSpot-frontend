@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { isAxiosError } from 'axios';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
 import { useLogin } from '@/hooks/useAuth';
@@ -109,6 +109,9 @@ export default function LoginScreen() {
       </View>
 
       <Button title={t('auth.create_account')} variant="outline" onPress={() => router.push('/(auth)/register')} />
+      <TouchableOpacity onPress={() => router.push('/(driver)/login' as Href)} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: spacing.md }}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textTertiary }}>{t('driver.door')} <Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{t('driver.door_link')}</Text></Text>
+      </TouchableOpacity>
     </AuthScaffold>
   );
 }

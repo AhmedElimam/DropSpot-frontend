@@ -12,9 +12,9 @@ import { FormScreen, FormCard, Field, Input, Chips, Banner } from '@/components/
 import { Button } from '@/components/ui/Button';
 import { formatNumber, formatShortDate } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
+import { LiveMap } from '@/components/LiveMap';
 import {
-  getPrintJob, getPrintOptions, cancelPrintJob, receivePrintJob, reorderPrintJob, claimPrintPayment, PRINT_FLOW, type PrintJob,
-} from '@/api/print';
+  getPrintJob, getPrintOptions, cancelPrintJob, receivePrintJob, reorderPrintJob, claimPrintPayment, PRINT_FLOW, type PrintJob, trackPrintJob } from '@/api/print';
 
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
@@ -60,6 +60,9 @@ export default function PrintJobScreen() {
   const qc = useQueryClient();
   const job = useQuery({ queryKey: ['print-job', id], queryFn: () => getPrintJob(id), enabled: !!id, refetchInterval: 30000 });
   const options = useQuery({ queryKey: ['print-options'], queryFn: getPrintOptions });
+  // Live once there is something to watch: a trip in hand, or a ready job waiting for its code.
+  const watch = !!job.data && (job.data.status === 'ready' || job.data.status === 'delivered' || job.data.status === 'printing');
+  const track = useQuery({ queryKey: ['print-track', id], queryFn: () => trackPrintJob(id!), enabled: !!id && watch, refetchInterval: (q) => (q.state.data?.delivery?.is_active ? 8000 : 30000) });
   const [busy, setBusy] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [review, setReview] = useState('');
@@ -112,6 +115,38 @@ export default function PrintJobScreen() {
           </FormCard>
           </Surface>
 
+          {track.data && (track.data.handover_code || track.data.delivery) ? (
+            <Surface id="teacher.print_job.track">
+            <FormCard icon="gps" title={track.data.delivery ? track.data.delivery.label : t('print.track_pickup_title')} tint={track.data.delivery?.is_active ? colors.accent : colors.success}>
+              {track.data.delivery?.driver ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}><Icon name="gps" size={20} color={colors.accentText} /></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }}>{track.data.delivery.driver.name} <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>· {track.data.delivery.driver.vehicle_label}</Text></Text>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: track.data.delivery.is_active ? colors.successText : colors.textSecondary }}>
+                      {track.data.delivery.eta_min ? t('print.track_eta', { m: formatNumber(track.data.delivery.eta_min) }) : track.data.delivery.status === 'arrived' ? t('print.track_arrived') : track.data.delivery.driver.online ? t('print.track_online') : t('print.track_offline')}
+                      {track.data.delivery.remaining_km != null && track.data.delivery.is_active ? ` · ${t('print.km_away', { km: formatNumber(track.data.delivery.remaining_km, { maximumFractionDigits: 1 }) })}` : ''}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${track.data!.delivery!.driver!.phone}`)} accessibilityRole="button" style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}><Icon name="call" size={18} color={colors.accentText} /></TouchableOpacity>
+                </View>
+              ) : null}
+              {(track.data.delivery?.is_active || track.data.mode === 'pickup') && (track.data.dest || track.data.shop.lat != null) ? (
+                <LiveMap shop={track.data.shop.lat != null ? { lat: track.data.shop.lat, lng: track.data.shop.lng! } : null} dest={track.data.dest ? { lat: track.data.dest.lat, lng: track.data.dest.lng } : null}
+                  driver={track.data.delivery?.driver?.lat != null ? { lat: track.data.delivery.driver.lat, lng: track.data.delivery.driver.lng! } : null} trail={track.data.delivery?.trail ?? []} height={200} style={{ marginBottom: spacing.sm }} />
+              ) : null}
+              {track.data.delivery?.fail_reason ? <Banner tone="danger" text={track.data.delivery.fail_reason} /> : null}
+              {track.data.handover_code && j.status !== 'delivered' && j.status !== 'received' ? (
+                <View style={{ alignItems: 'center', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t(track.data.mode === 'deliver' ? 'print.code_deliver' : 'print.code_pickup')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 36, color: colors.textPrimary, letterSpacing: 10, marginTop: 4 }}>{track.data.handover_code}</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 2, textAlign: 'center' }}>{t('print.code_note')}</Text>
+                </View>
+              ) : null}
+            </FormCard>
+            </Surface>
+          ) : null}
+
           <Surface id="teacher.print_job.shop">
           <FormCard icon="storefront" title={j.shop.name ?? t('print.shop')} tint={colors.accent}
             action={j.shop.phone ? (
@@ -130,6 +165,7 @@ export default function PrintJobScreen() {
             <Row label={t('print.line_pages', { copies: formatNumber(j.copies), pages: formatNumber(j.pages), p: formatNumber(j.price_per_page, { maximumFractionDigits: 2 }) })} value={`${formatNumber(j.pages * j.copies * j.price_per_page, { maximumFractionDigits: 2 })} ${egp}`} />
             {(j.discount ?? 0) > 0 ? <Row label={t('print.line_discount_plain')} value={`− ${formatNumber(j.discount ?? 0, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
             {j.finish_per_copy > 0 ? <Row label={t('print.line_finish', { copies: formatNumber(j.copies), p: formatNumber(j.finish_per_copy, { maximumFractionDigits: 2 }) })} value={`${formatNumber(j.copies * j.finish_per_copy, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
+            {(j.extras ?? []).map((x) => <Row key={x.id} label={x.name} value={`${formatNumber(x.amount, { maximumFractionDigits: 2 })} ${egp}`} />)}
             {(j.rush_fee ?? 0) > 0 ? <Row label={t('print.line_rush_plain')} value={`${formatNumber(j.rush_fee ?? 0, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
             {j.delivery_fee > 0 ? <Row label={t('print.line_delivery')} value={`${formatNumber(j.delivery_fee, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
             {j.platform_fee > 0 ? <Row label={t('print.line_fee')} value={`${formatNumber(j.platform_fee, { maximumFractionDigits: 2 })} ${egp}`} /> : null}

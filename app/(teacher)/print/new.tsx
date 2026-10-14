@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Location from 'expo-location';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -44,8 +45,10 @@ export default function PrintNew() {
   const [title, setTitle] = useState('');
   const [courseId, setCourseId] = useState<string | null>(null);
   const [copies, setCopies] = useState('1');
-  const [spec, setSpec] = useState<PrintSpec>({ paper: '80', ink: 'bw', sides: 1, finish: 'none', delivery_mode: 'pickup', size: 'A4', rush: false });
+  const [spec, setSpec] = useState<PrintSpec>({ paper: '80', ink: 'bw', sides: 1, finish: 'none', delivery_mode: 'pickup', size: 'A4', rush: false, extras: [] });
   const [address, setAddress] = useState('');
+  const [dest, setDest] = useState<{ key: string; lat: number; lng: number; name: string | null } | null>(null);
+  const [locating, setLocating] = useState(false);
   const [sending, setSending] = useState(false);
 
   const o = options.data;
@@ -67,9 +70,28 @@ export default function PrintNew() {
       delivery_mode: pick(choices.delivery_modes, spec.delivery_mode) as PrintSpec['delivery_mode'],
       size: pick(choices.sizes, spec.size ?? 'A4'),
       rush: !!spec.rush && !!s?.rush,
+      extras: (spec.extras ?? []).filter((id) => (s?.extras ?? []).some((x) => x.id === id)),
     };
     if (JSON.stringify(next) !== JSON.stringify(spec)) setSpec(next);
-  }, [choices, spec, s?.rush]);
+  }, [choices, spec, s?.rush, s?.extras]);
+
+  // Where the driver rides to: one of the teacher's located venues, or the phone's own spot.
+  const pickDest = async (key: string) => {
+    if (key === 'me') {
+      setLocating(true);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') { Alert.alert('', t('print.dest_gps_denied')); return; }
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        setDest({ key: 'me', lat: loc.coords.latitude, lng: loc.coords.longitude, name: null });
+      } catch { Alert.alert('', t('print.dest_gps_failed')); }
+      finally { setLocating(false); }
+      return;
+    }
+    const v = (o?.destinations ?? []).find((x) => String(x.id) === key);
+    if (v) { setDest({ key, lat: v.lat, lng: v.lng, name: v.name }); if (!address.trim() && v.address) setAddress(v.address); }
+  };
+  const toggleExtra = (id: number) => setSpec({ ...spec, extras: (spec.extras ?? []).includes(id) ? (spec.extras ?? []).filter((x) => x !== id) : [...(spec.extras ?? []), id] });
 
   // The live sum — the shop's own arithmetic, on the phone, on every tap.
   const quote = useMemo(() => (s && o ? quoteOnMenu(s, pages, copiesN, spec, { on: o.platform_fee_on, piastres: o.platform_fee_piastres }) : null), [s, o, pages, copiesN, spec]);
@@ -109,9 +131,11 @@ export default function PrintNew() {
   const send = async () => {
     if (!upload || !s || !ready || sending) return;
     if (spec.delivery_mode === 'deliver' && !address.trim()) { Alert.alert('', t('print.address_required')); return; }
+    if (spec.delivery_mode === 'deliver' && !dest) { Alert.alert('', t('print.dest_required')); return; }
     setSending(true);
     try {
-      const job = await createPrintJob({ upload: upload.upload, vendor_id: s.vendor_id, copies: copiesN, title: title.trim() || undefined, course_id: courseId, delivery_address: address.trim() || null, ...spec });
+      const job = await createPrintJob({ upload: upload.upload, vendor_id: s.vendor_id, copies: copiesN, title: title.trim() || undefined, course_id: courseId, delivery_address: address.trim() || null,
+        dest_lat: spec.delivery_mode === 'deliver' ? dest?.lat : null, dest_lng: spec.delivery_mode === 'deliver' ? dest?.lng : null, dest_name: spec.delivery_mode === 'deliver' ? dest?.name : null, ...spec });
       qc.invalidateQueries({ queryKey: ['print-jobs'] });
       qc.invalidateQueries({ queryKey: ['print-shops'] });
       router.replace(`/(teacher)/print/${job.id}` as Href);
@@ -212,7 +236,31 @@ export default function PrintNew() {
                 </Field>
               ) : null}
               {spec.delivery_mode === 'deliver' ? (
-                <Field label={t('print.address')} required><Input value={address} onChangeText={setAddress} placeholder={t('print.address_ph')} multiline maxLength={300} /></Field>
+                <>
+                  <Field label={t('print.dest')} required hint={t('print.dest_hint')}>
+                    <Chips options={[...(o?.destinations ?? []).map((v) => ({ key: String(v.id), label: v.name })), { key: 'me', label: locating ? t('print.dest_locating') : t('print.dest_me') }]}
+                      value={dest?.key ?? null} onChange={(k) => pickDest(String(k))} tint={colors.success} />
+                    {dest ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.successText, marginTop: 6 }}>{t('print.dest_set', { name: dest.name ?? t('print.dest_me') })}</Text> : null}
+                  </Field>
+                  <Field label={t('print.address')} required><Input value={address} onChangeText={setAddress} placeholder={t('print.address_ph')} multiline maxLength={300} /></Field>
+                </>
+              ) : null}
+              {(s.extras ?? []).length ? (
+                <Field label={t('print.extras')} hint={t('print.extras_hint')}>
+                  {(s.extras ?? []).map((x) => {
+                    const on = (spec.extras ?? []).includes(x.id);
+                    return (
+                      <TouchableOpacity key={x.id} onPress={() => toggleExtra(x.id)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} activeOpacity={0.85}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
+                        <View style={{ width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                          {on ? <Icon name="success" size={14} color={colors.onPrimary} /> : null}
+                        </View>
+                        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.textPrimary }}>{x.name}</Text>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary }}>+{money(x.price)} <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}>{x.unit_label}</Text></Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </Field>
               ) : null}
               {quote && !quote.ok ? <View style={{ marginTop: spacing.md }}><Banner tone="warn" text={quote.reason === 'min_copies' ? t('print.min_copies_line', { n: formatNumber(s.min_copies) }) : quote.reason === 'paused' ? t('print.paused_banner', { at: formatDateTime(s.paused_until!) }) : t('print.not_on_menu')} style={{ marginBottom: 0 }} /></View> : null}
             </FormCard>
@@ -230,6 +278,7 @@ export default function PrintNew() {
                   <Line label={t('print.line_pages', { copies: formatNumber(copiesN), pages: formatNumber(pages), p: money(quote.price_per_page ?? 0) })} value={money(quote.printing ?? pages * copiesN * (quote.price_per_page ?? 0))} egp={egp} />
                   {quote.discount ? <Line label={t('print.line_discount', { p: formatNumber(quote.discount_pct ?? 0) })} value={`− ${money(quote.discount)}`} egp={egp} tone={colors.successText} /> : null}
                   {quote.finish_per_copy ? <Line label={t('print.line_finish', { copies: formatNumber(copiesN), p: money(quote.finish_per_copy) })} value={money(copiesN * quote.finish_per_copy)} egp={egp} /> : null}
+                  {(quote.extras ?? []).map((x) => <Line key={x.id} label={x.name} value={money(x.amount)} egp={egp} />)}
                   {quote.rush_fee ? <Line label={t('print.line_rush', { p: formatNumber(s.rush?.pct ?? 0) })} value={money(quote.rush_fee)} egp={egp} tone={colors.warningDark} /> : null}
                   {quote.delivery_fee ? <Line label={t('print.line_delivery')} value={money(quote.delivery_fee)} egp={egp} /> : null}
                   {quote.platform_fee ? <Line label={t('print.line_fee')} value={money(quote.platform_fee)} egp={egp} /> : null}
