@@ -1,4 +1,4 @@
-import { editDistance, parseQuery, shopMatches, suggest, wordMatches, type SearchableShop } from '../shopSearch';
+import { distanceKm, editDistance, matchPlaces, parseQuery, shopMatches, suggest, wantsPlace, wordMatches, type SearchableShop } from '../shopSearch';
 
 const CAPS = { color: 'ألوان', spiral: 'سلك حلزوني', delivery: 'توصيل', duplex: 'وجهين', rush: 'مستعجل', a5: 'مقاس A5' };
 
@@ -54,5 +54,25 @@ describe('shop search', () => {
     expect(suggest('طنط', shops, CAPS)).toContainEqual({ kind: 'area', text: 'طنطا' });
     // still typing a capability label → offered as a filter
     expect(suggest('سل', shops, CAPS)).toContainEqual({ kind: 'filter', key: 'spiral' });
+  });
+});
+
+describe('map search helpers', () => {
+  it('measures kilometres', () => {
+    expect(distanceKm({ lat: 30.7865, lng: 31.0004 }, { lat: 31.0409, lng: 31.3785 })).toBeGreaterThan(44);
+    expect(distanceKm({ lat: 30, lng: 31 }, { lat: 30, lng: 31 })).toBe(0);
+  });
+  it('finds the teacher\'s own places by name or address, folded', () => {
+    const venues = [{ name: 'سنتر النور', address: 'شارع البحر، طنطا' }, { name: 'مدرسة الأمل', address: null }];
+    expect(matchPlaces('النور', venues)).toHaveLength(1);
+    expect(matchPlaces('البحر', venues)[0].name).toBe('سنتر النور');
+    expect(matchPlaces('امل', venues)[0].name).toBe('مدرسة الأمل');
+    expect(matchPlaces('x', venues)).toHaveLength(0);
+  });
+  it('asks the map for a place only when no shop or area explains the words', () => {
+    expect(wantsPlace('ميدان الساعة', shops, CAPS)).toBe(true);
+    expect(wantsPlace('كراوية', shops, CAPS)).toBe(false);
+    expect(wantsPlace('طنطا', shops, CAPS)).toBe(false);
+    expect(wantsPlace('الوان رخيص', shops, CAPS)).toBe(false);
   });
 });

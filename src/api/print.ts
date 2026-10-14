@@ -290,6 +290,14 @@ export async function getPrintShops(): Promise<{ shops: MarketShop[]; coming?: C
   return unwrap(data);
 }
 
+/** A place found by name for the shops map (a street, a school, a square). */
+export interface FoundPlace { name: string; sub: string | null; lat: number; lng: number }
+
+export async function searchPlaces(q: string, near?: { lat: number; lng: number } | null): Promise<FoundPlace[]> {
+  const { data } = await client.get('/teacher/print/places', { params: { q, lat: near?.lat, lng: near?.lng } });
+  return unwrap<{ places: FoundPlace[] }>(data).places ?? [];
+}
+
 export async function getPrintShop(id: string | number): Promise<ShopProfile> {
   const { data } = await client.get(`/teacher/print/shops/${id}`);
   return unwrap<ShopProfile>(data);

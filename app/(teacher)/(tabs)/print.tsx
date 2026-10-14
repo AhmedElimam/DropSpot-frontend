@@ -17,7 +17,7 @@ import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import { IS_STAGING } from '@/config/env';
 import { PrintTabJobCard } from '@/components/print/PrintTabJobCard';
-import { PrintTabShopCard } from '@/components/print/PrintTabShopCard';
+import { PrintTabShopsStrip } from '@/components/print/PrintTabShopsStrip';
 import { PrintTabPastRow } from '@/components/print/PrintTabPastRow';
 import { PrintTabHowItWorks } from '@/components/print/PrintTabHowItWorks';
 import { getPrintJobs, getPrintShops, reorderPrintJob, type PrintJob } from '@/api/print';
@@ -70,6 +70,8 @@ export default function PrintTab() {
   const open = jobs.data?.open ?? [];
   const closed = jobs.data?.closed ?? [];
   const list = shops.data?.shops ?? [];
+  // Every job she sent — the strip counts which shops she already prints at.
+  const everyJob = useMemo(() => [...open, ...closed], [open, closed]);
   const month = useMemo(() => {
     const now = new Date();
     const mine = [...open, ...closed].filter((j) => j.sent_at && new Date(j.sent_at).getMonth() === now.getMonth() && new Date(j.sent_at).getFullYear() === now.getFullYear() && j.status !== 'cancelled' && j.status !== 'declined');
@@ -182,14 +184,7 @@ export default function PrintTab() {
         {/* the shops, by their work */}
         {list.length ? (
           <Surface id="teacher.print_tab.shops">
-          <View style={{ marginTop: spacing.xl }}>
-            <View style={{ paddingHorizontal: spacing.lg }}>
-              <SectionHead title={t('print.shops_strip')} link={t('print.see_all')} onLink={goNew} />
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: 4 }}>
-              {list.slice(0, 8).map((s) => <PrintTabShopCard key={s.vendor_id} s={s} />)}
-            </ScrollView>
-          </View>
+            <PrintTabShopsStrip shops={list} jobs={everyJob} onAll={goNew} />
           </Surface>
         ) : null}
 

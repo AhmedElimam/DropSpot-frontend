@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, useWindowDimensions, type ScrollView as RNScrollView } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, BackHandler, useWindowDimensions, type ScrollView as RNScrollView } from 'react-native';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { parseQuery, shopMatches, suggest, type Suggestion } from '@/utils/shopSearch';
+import { distanceKm, parseQuery, shopMatches } from '@/utils/shopSearch';
+import { MapSearch, type MapPick } from '@/components/print/MapSearch';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -21,10 +22,12 @@ import { LiveMap, useMyLocation, type MapPoint } from '@/components/LiveMap';
 import { ShopLogo } from '@/components/print/ShopLogo';
 import { Surface } from '@/ui/surfaces';
 import { Image } from 'expo-image';
-import { getPrintShops, getPrintOptions, sampleSource, type MarketShop } from '@/api/print';
+import { getPrintShops, getPrintOptions, sampleSource, type MarketShop, type FoundPlace } from '@/api/print';
 
 type Sort = 'recommended' | 'nearest' | 'fastest' | 'cheapest' | 'top_rated';
 const SORTS: Sort[] = ['recommended', 'nearest', 'fastest', 'cheapest', 'top_rated'];
+/** The search bar's height over the map. */
+const BAR = 48;
 
 export const BADGE_TINT = (): Record<string, { bg: string; fg: string }> => ({
   cheapest: { bg: colors.successLight, fg: colors.successText },
@@ -251,8 +254,6 @@ export function Tag({ text, bg, fg }: { text: string; bg: string; fg: string }) 
   );
 }
 
-const SUGGEST_ICON: Record<Suggestion['kind'], IconName> = { sort: 'list', filter: 'success', shop: 'storefront', area: 'location' };
-
 /**
  * «اختر مطبعتك» — the marketplace, shop first (founder 2026-10-14: «like Uber or inDrive»).
  * The map fills the page; the list is a sheet over it with TWO stops (founder 2026-10-14:
@@ -260,6 +261,12 @@ const SUGGEST_ICON: Record<Suggestion['kind'], IconName> = { sort: 'list', filte
  * from half it is dismissed — the whole map, and a «القائمة» pill to bring it back; on the
  * full page a «الخريطة» pill does the same. «موقعي» rides just above the sheet, never under
  * it. Search reads what she means (src/utils/shopSearch.ts) and suggests while she types.
+ *
+ * The search is a bar ON the map (founder 2026-10-14: «there's no search on map — we want maps
+ * search to be smart»): shops, areas, her own places and any street or school
+ * (components/print/MapSearch.tsx). A place becomes the centre: the map flies there and the
+ * shops come nearest-to-it first. On the full page the bar's arrow brings the map back
+ * (founder: «no fast button to go back»), and so does Android's back.
  */
 export default function PrintShops() {
   const { t } = useTranslation();
@@ -274,8 +281,9 @@ export default function PrintShops() {
   const [searching, setSearching] = useState(false);
   const [need, setNeed] = useState<string[]>([]);
   const [picked, setPicked] = useState<number | null>(null);
+  const [place, setPlace] = useState<FoundPlace | null>(null);
   const [stop, setStop] = useState<'half' | 'full' | 'gone'>('half');
-  const [centre, setCentre] = useState<(MapPoint & { nonce: number }) | null>(null);
+  const [centre, setCentre] = useState<(MapPoint & { nonce: number; zoom?: number }) | null>(null);
   const here = useMyLocation(true);
   const listRef = useRef<RNScrollView>(null);
   const cardY = useRef<Record<number, number>>({});
@@ -286,11 +294,12 @@ export default function PrintShops() {
   const labels = options.data?.badges ?? {};
   const all = shops.data?.shops ?? [];
   const parsed = useMemo(() => parseQuery(query, caps), [query, caps]);
-  const suggestions = useMemo(() => (searching && query.trim() ? suggest(query, all, caps) : []), [searching, query, all, caps]);
 
   const list = useMemo(() => {
-    const hits = all.filter((s) => shopMatches(s, parsed, caps) && need.every((c) => s.capabilities.includes(c)));
-    const order = sort !== 'recommended' ? sort : parsed.sort ?? 'recommended';
+    // Searching for a place makes it the centre: how far each shop is from THERE.
+    const from = place ? all.map((s) => (s.lat != null && s.lng != null ? { ...s, distance_km: Math.round(distanceKm(place, { lat: s.lat, lng: s.lng }) * 10) / 10 } : s)) : all;
+    const hits = from.filter((s) => shopMatches(s, parsed, caps) && need.every((c) => s.capabilities.includes(c)));
+    const order = sort !== 'recommended' ? sort : parsed.sort ?? (place ? 'nearest' : 'recommended');
     const by = <T,>(f: (s: MarketShop) => T | null | undefined, dir = 1) => [...hits].sort((a, b) => {
       const x = f(a); const y = f(b);
       if (x == null && y == null) return 0;
@@ -305,7 +314,7 @@ export default function PrintShops() {
       case 'top_rated': return by((s) => s.rating, -1);
       default: return hits;
     }
-  }, [all, parsed, caps, sort, need]);
+  }, [all, parsed, caps, sort, need, place]);
 
   const coming = shops.data?.coming ?? [];
   const egp = t('teacher.egp');
@@ -344,17 +353,36 @@ export default function PrintShops() {
       if (top != null) listRef.current?.scrollTo({ y: Math.max(0, top - 8), animated: true });
     }, 250);
   };
-  const openSearch = () => { setSearching(true); go('full'); };
-  const closeSearch = () => { setQuery(''); setSearching(false); };
-  const take = (sg: Suggestion) => {
-    if (sg.kind === 'sort') { setSort(sg.key as Sort); setQuery(''); setSearching(false); }
-    else if (sg.kind === 'filter') { if (!need.includes(sg.key)) toggle(sg.key); setQuery(''); setSearching(false); }
-    else if (sg.kind === 'area') setQuery(sg.text);
-    else router.push(`/(teacher)/print/shops/${sg.id}` as Href);
+  // What the search page hands back: each lands on the map.
+  const [draft, setDraft] = useState('');
+  const openSearch = () => { setDraft(query); setSearching(true); };
+  const take = (p: MapPick) => {
+    setSearching(false);
+    if (p.kind === 'sort') { setSort(p.key as Sort); setQuery(''); }
+    else if (p.kind === 'filter') { if (!need.includes(p.key)) toggle(p.key); setQuery(''); }
+    else if (p.kind === 'area' || p.kind === 'text') { setQuery(p.kind === 'area' ? p.text : p.text); setPicked(null); if (stop === 'gone') go('half'); }
+    else if (p.kind === 'near_me') { setPlace(null); setQuery(''); setSort('nearest'); if (here.me) setCentre({ ...here.me, zoom: 14, nonce: Date.now() }); if (stop !== 'half') go('half'); }
+    else if (p.kind === 'place') { setPlace(p.place); setQuery(''); setPicked(null); setCentre({ lat: p.place.lat, lng: p.place.lng, zoom: 14, nonce: Date.now() }); go('half'); listRef.current?.scrollTo({ y: 0, animated: false }); }
+    else {
+      // a shop: fly to it, light it up, and bring its card into view
+      const s = all.find((x) => x.vendor_id === p.id);
+      setQuery('');
+      if (s?.lat != null && s?.lng != null) setCentre({ lat: s.lat, lng: s.lng, zoom: 15, nonce: Date.now() });
+      if (stop === 'full') go('half');
+      pickOnMap(p.id);
+    }
   };
-  const suggestLabel = (sg: Suggestion) => (sg.kind === 'sort' ? t('print.suggest_sort', { s: t(`print.sort_${sg.key}`) })
-    : sg.kind === 'filter' ? t('print.suggest_filter', { c: caps[sg.key] ?? sg.key })
-    : sg.kind === 'area' ? sg.text : sg.name);
+  const clearSearch = () => { setQuery(''); setPlace(null); };
+  const searchText = place?.name ?? query;
+  // Back: the search page, then the full list, then leave.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (searching) { setSearching(false); return true; }
+      if (stop === 'full') { go('half'); return true; }
+      return false;
+    });
+    return () => sub.remove();
+  }, [searching, stop]);
   const chip = (on: boolean) => ({ flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, height: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border });
   const pill = { position: 'absolute' as const, alignSelf: 'center' as const, bottom: insets.bottom + spacing.lg, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, height: 46, paddingHorizontal: 20, borderRadius: 23, backgroundColor: colors.textPrimary, ...shadows.lg };
 
@@ -364,13 +392,11 @@ export default function PrintShops() {
       <StatusBar style={stop === 'full' ? (isDark() ? 'light' : 'dark') : isDark() ? 'light' : 'dark'} />
       {/* the map, the whole page */}
       <LiveMap mapsKey={options.data?.maps_key} showMe hideLocate rounded={false} height="100%" padBottom={H - HALF} centerTo={centre}
+        refitKey={`${query}|${need.join(',')}`}
+        dest={place ? { lat: place.lat, lng: place.lng, label: place.name } : null}
         style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
         selectedShop={picked} onShop={pickOnMap}
         shops={list.filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, logo: s.logo ?? null, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} />
-      <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')}
-        style={{ position: 'absolute', top: insets.top + 8, start: spacing.lg, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.md }}>
-        <Icon name="forward" size={20} color={colors.textPrimary} />
-      </TouchableOpacity>
 
       {/* «موقعي», riding above the sheet */}
       <Animated.View pointerEvents={stop === 'full' ? 'none' : 'auto'} style={[{ position: 'absolute', top: 0, end: spacing.lg }, locateStyle]}>
@@ -383,33 +409,16 @@ export default function PrintShops() {
       {/* the list sheet */}
       <Animated.View style={[{ position: 'absolute', start: 0, end: 0, top: 0, height: H, backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, ...shadows.lg }, sheetStyle]}>
         <GestureDetector gesture={pan}>
-          <View style={{ paddingHorizontal: spacing.lg, paddingTop: stop === 'full' ? insets.top + 4 : 8 }}>
+          <View style={{ paddingHorizontal: spacing.lg, paddingTop: stop === 'full' ? insets.top + BAR + 14 : 8 }}>
             <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 8 }} />
-            {searching ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 46 }}>
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, height: 42, borderRadius: 21, backgroundColor: colors.surfaceSunken, paddingHorizontal: spacing.md }}>
-                  <Icon name="search" size={16} color={colors.textTertiary} />
-                  <TextInput value={query} onChangeText={setQuery} autoFocus placeholder={t('print.search_smart_ph')} placeholderTextColor={colors.textTertiary}
-                    style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right' }} returnKeyType="search"
-                    autoCorrect={false} autoComplete="off" textContentType="none" spellCheck={false} />
-                  {query ? <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} accessibilityRole="button"><Icon name="close" size={15} color={colors.textTertiary} /></TouchableOpacity> : null}
-                </View>
-                <TouchableOpacity onPress={closeSearch} hitSlop={8} accessibilityRole="button">
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.brand }}>{t('common.cancel')}</Text>
-                </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 46 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.textPrimary }}>{t('print.shops_title')}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>
+                  {place ? t('print.map_near_place', { n: formatNumber(list.length), place: place.name }) : list.length ? t('print.shops_count', { n: formatNumber(list.length) }) : t('print.shops_sub')}
+                </Text>
               </View>
-            ) : (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 46 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.textPrimary }}>{t('print.shops_title')}</Text>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>{list.length ? t('print.shops_count', { n: formatNumber(list.length) }) : t('print.shops_sub')}</Text>
-                </View>
-                <TouchableOpacity onPress={openSearch} accessibilityRole="button" accessibilityLabel={t('print.search_ph')}
-                  style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="search" size={19} color={colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-            )}
+            </View>
             <Surface id="teacher.print_shops.filters">
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: spacing.sm }}>
               <Surface id="teacher.print_shops.sort">
@@ -434,44 +443,9 @@ export default function PrintShops() {
         </GestureDetector>
 
         <ScrollView ref={listRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-          style={{ height: H - (stop === 'full' ? insets.top : HALF) - 124 }}
+          style={{ height: H - (stop === 'full' ? insets.top + BAR + 6 : HALF) - 124 }}
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: 4, paddingBottom: insets.bottom + 90 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
-          {/* suggestions while typing */}
-          {suggestions.length ? (
-            <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, marginBottom: spacing.md, overflow: 'hidden', ...shadows.sm }}>
-              {suggestions.map((sg, i) => (
-                <TouchableOpacity key={`${sg.kind}-${i}`} onPress={() => take(sg)} activeOpacity={0.85} accessibilityRole="button"
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 11, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.borderLight }}>
-                  {sg.kind === 'shop' ? <ShopLogo logo={sg.logo} size={34} /> : (
-                    <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: sg.kind === 'sort' ? colors.brandTint : sg.kind === 'filter' ? colors.accentLight : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name={SUGGEST_ICON[sg.kind]} size={16} color={sg.kind === 'sort' ? colors.brand : sg.kind === 'filter' ? colors.accentText : colors.textSecondary} />
-                    </View>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{suggestLabel(sg)}</Text>
-                    {sg.kind === 'shop' && sg.sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }} numberOfLines={1}>{sg.sub}</Text> : null}
-                    {sg.kind === 'area' ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('print.suggest_area')}</Text> : null}
-                  </View>
-                  <Icon name="back" size={14} color={colors.textTertiary} />
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : null}
-          {searching && !query.trim() ? (
-            <View style={{ marginBottom: spacing.md }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('print.suggest_try')}</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                {[t('print.try_1'), t('print.try_2'), t('print.try_3'), t('print.try_4')].map((x) => (
-                  <TouchableOpacity key={x} onPress={() => setQuery(x)} activeOpacity={0.85} accessibilityRole="button"
-                    style={{ height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: colors.surfaceSunken, justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{x}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          ) : null}
-
           {shops.isLoading ? <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} /> : null}
           {!shops.isLoading && list.length === 0 && (coming.length === 0 || !!query || need.length > 0) ? (
             <EmptyState icon="storefront" title={t('print.no_shops')} message={query || need.length ? t('print.no_match') : t('print.shops_empty')} />
@@ -520,6 +494,34 @@ export default function PrintShops() {
           <Icon name="list" size={17} color={colors.background} />
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.background }}>{t('print.show_list', { n: formatNumber(list.length) })}</Text>
         </TouchableOpacity>
+      ) : null}
+
+      {/* the search bar, on the map — and over the full list, where its arrow brings the map back */}
+      <View style={{ position: 'absolute', top: insets.top + 8, start: spacing.lg, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <TouchableOpacity onPress={() => (stop === 'full' ? go('half') : router.back())} accessibilityRole="button" accessibilityLabel={stop === 'full' ? t('print.show_map') : t('common.back')}
+          style={{ width: BAR, height: BAR, borderRadius: BAR / 2, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.md }}>
+          <Icon name={stop === 'full' ? 'down' : 'forward'} size={20} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <Surface id="teacher.print_shops.search">
+        <TouchableOpacity onPress={openSearch} activeOpacity={0.9} accessibilityRole="search"
+          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: BAR, borderRadius: BAR / 2, backgroundColor: colors.surface, paddingStart: 16, paddingEnd: 6, ...shadows.md }}>
+          <Icon name={place ? 'pin' : 'search'} size={18} color={place ? colors.danger : colors.brand} />
+          <Text style={{ flex: 1, fontFamily: searchText ? fonts.bold : fonts.regular, fontSize: 14.5, color: searchText ? colors.textPrimary : colors.textTertiary }} numberOfLines={1}>
+            {searchText || t('print.map_search_ph')}
+          </Text>
+          {searchText ? (
+            <TouchableOpacity onPress={clearSearch} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('print.map_clear')}
+              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="close" size={15} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
+        </TouchableOpacity>
+        </Surface>
+      </View>
+
+      {searching ? (
+        <MapSearch query={draft} onQuery={setDraft} onClose={() => setSearching(false)} onPick={take}
+          shops={all} caps={caps} venues={options.data?.destinations ?? []} me={here.me} />
       ) : null}
 
       {/* sorting — one chip, one small sheet */}

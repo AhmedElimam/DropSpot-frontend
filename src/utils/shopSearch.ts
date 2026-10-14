@@ -218,3 +218,29 @@ export function suggest(query: string, shops: SearchableShop[], capLabels: Recor
     return true;
   });
 }
+
+/** Straight-line kilometres between two points (haversine) — «2.3 كم من ميدان الساعة». */
+export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** The teacher's own places (centres, schools) whose name or address has every typed word. */
+export function matchPlaces<T extends { name: string; address?: string | null }>(query: string, places: T[]): T[] {
+  const words = fold(query).split(' ').filter((w) => w.length >= 2);
+  if (!words.length) return [];
+  return places.filter((p) => {
+    const hay = fold(`${p.name} ${p.address ?? ''}`);
+    return words.every((w) => wordMatches(hay, w));
+  });
+}
+
+/** Does the query leave words that no shop, area or intent explains — worth asking the map for a place? */
+export function wantsPlace(query: string, shops: SearchableShop[], capLabels: Record<string, string> = {}): boolean {
+  const parsed = parseQuery(query, capLabels);
+  if (!parsed.rest.length || parsed.rest.join('').length < 3) return false;
+  return !shops.some((s) => shopMatches(s, { ...parsed, caps: [], capWords: {} }, capLabels));
+}

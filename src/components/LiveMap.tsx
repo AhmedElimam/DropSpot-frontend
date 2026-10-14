@@ -91,7 +91,7 @@ export function headingOf(pos: Location.LocationObject): number | null {
  * Talabat's «حدد موقعك»: a fixed pin in the middle, the map moves under it, and `onCenter` /
  * `onAddress` report where it rests.
  */
-export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, trail, shops, onShop, selectedShop, follow, showMe, hideMeDot, hideLocate, picker, start, onCenter, onAddress, onMoving, centerTo, height = 220, style, rounded = true, controlsBottom = 12, padBottom = 0 }: {
+export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, trail, shops, onShop, selectedShop, follow, showMe, hideMeDot, hideLocate, picker, start, onCenter, onAddress, onMoving, centerTo, refitKey, height = 220, style, rounded = true, controlsBottom = 12, padBottom = 0 }: {
   mapsKey?: string | null;
   shop?: MapPoint | null; dest?: MapPoint | null; driver?: MapDriver | null; drivers?: MapDriver[];
   me?: MyPoint | null; teacher?: MapPoint | null; trail?: [number, number][];
@@ -110,7 +110,9 @@ export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, tra
   onAddress?: (p: MapPoint & { text: string | null }) => void;
   onMoving?: () => void;
   /** Move the map here now (change `nonce` to move again to the same point). */
-  centerTo?: (MapPoint & { nonce: number }) | null;
+  centerTo?: (MapPoint & { nonce: number; zoom?: number }) | null;
+  /** Frame every marker again whenever this changes (a search narrowed the shops). */
+  refitKey?: string | number;
   height?: number | `${number}%`; style?: StyleProp<ViewStyle>;
   rounded?: boolean;
   controlsBottom?: number;
@@ -157,7 +159,13 @@ window.__center = function (lat, lng, z) { if (window.__map) window.__map.center
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picker, live.me]);
 
-  useEffect(() => { if (centerTo) { centreOn(centerTo, 17); centred.current = true; } }, [centerTo?.nonce]);
+  useEffect(() => { if (centerTo) { centreOn(centerTo, centerTo.zoom ?? 17); centred.current = true; } }, [centerTo?.nonce]);
+  const refitted = useRef(refitKey);
+  useEffect(() => {
+    if (refitted.current === refitKey) return;
+    refitted.current = refitKey;
+    inject('setTimeout(function () { window.__map && window.__map.refit(); }, 60)');
+  }, [refitKey]);
 
   const onMessage = (e: WebViewMessageEvent) => {
     try {
