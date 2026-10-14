@@ -168,6 +168,7 @@ export default function PrintShops() {
     }
   }, [shops.data, sort]);
 
+  const coming = shops.data?.coming ?? [];
   const labels = options.data?.badges ?? {};
   const caps = options.data?.capabilities ?? {};
   const egp = t('teacher.egp');
@@ -181,9 +182,9 @@ export default function PrintShops() {
         <ScrollView showsVerticalScrollIndicator={false}
           contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
-          {list.length === 0 ? (
+          {list.length === 0 && coming.length === 0 ? (
             <EmptyState icon="storefront" title={t('print.no_shops')} message={t('print.shops_empty')} />
-          ) : (
+          ) : list.length === 0 ? null : (
             <>
               <Surface id="teacher.print_shops.sort">
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: spacing.md }}>
@@ -205,6 +206,28 @@ export default function PrintShops() {
               ))}
             </>
           )}
+          {coming.length > 0 ? (
+            <Surface id="teacher.print_shops.coming">
+            <View style={{ marginTop: list.length ? spacing.lg : 0 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('print.coming_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.sm }}>{t('print.coming_sub')}</Text>
+              {coming.map((c) => (
+                <View key={c.vendor_id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed', padding: spacing.md, marginBottom: spacing.sm }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="storefront" size={20} color={colors.textTertiary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>{c.name}</Text>
+                    {c.city ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{c.city}</Text> : null}
+                  </View>
+                  <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.textSecondary }}>{t('print.coming_tag')}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+            </Surface>
+          ) : null}
         </ScrollView>
       )}
     </FormScreen>

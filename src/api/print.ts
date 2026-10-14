@@ -186,7 +186,10 @@ export async function uploadPrintFile(file: { uri: string; name: string }): Prom
   return unwrap<PrintUpload>(data);
 }
 
-export async function getPrintShops(): Promise<{ shops: MarketShop[] }> {
+/** A partner shop that has not published a print menu yet — named, never orderable. */
+export interface ComingShop { vendor_id: number; name: string; city: string | null }
+
+export async function getPrintShops(): Promise<{ shops: MarketShop[]; coming?: ComingShop[] }> {
   const { data } = await client.get('/teacher/print/shops');
   return unwrap(data);
 }
