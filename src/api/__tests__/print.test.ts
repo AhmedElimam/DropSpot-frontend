@@ -51,6 +51,41 @@ describe('quoteOnMenu — the shop arithmetic on the phone', () => {
   });
 });
 
+describe('quoteOnMenu — sizes, bulk discount, rush (same numbers as PrintStudioTest)', () => {
+  const studio: ShopProfile = {
+    ...shop, min_copies: 1,
+    size_factors: { A5: 0.6 },
+    volume_tiers: [{ min_pages: 1000, pct: 5 }, { min_pages: 5000, pct: 10 }],
+    rush: { hours: 4, pct: 25 },
+    menu: { rates: [{ paper: '80', ink: 'bw', sides: 1, price_per_page: 0.5 }], finishes: [{ kind: 'none', price_per_copy: 0 }, { kind: 'spiral', price_per_copy: 20 }] },
+  };
+  const spec = { paper: '80', ink: 'bw', sides: 1, finish: 'spiral', delivery_mode: 'pickup' as const };
+  const off = { on: false, piastres: 3 };
+
+  it('takes 5% off the printing at 1200 printed pages', () => {
+    const q = quoteOnMenu(studio, 12, 100, spec, off);
+    expect(q.printing).toBe(600);
+    expect(q.discount_pct).toBe(5);
+    expect(q.discount).toBe(30);
+    expect(q.subtotal).toBe(2570);
+  });
+
+  it('prices A5 at the factor and adds rush on printing + finishing, on the rush clock', () => {
+    const q = quoteOnMenu(studio, 12, 100, { ...spec, size: 'A5', rush: true }, off);
+    expect(q.price_per_page).toBe(0.3);
+    expect(q.printing).toBe(360);
+    expect(q.discount).toBe(18);
+    expect(q.rush_fee).toBe(585.5);
+    expect(q.turnaround_hours).toBe(4);
+  });
+
+  it('refuses a size the shop does not print, and a busy shop', () => {
+    expect(quoteOnMenu(studio, 1, 10, { ...spec, size: 'A3' }, off).reason).toBe('no_size');
+    expect(quoteOnMenu({ ...studio, paused_until: new Date(Date.now() + 3600_000).toISOString() }, 1, 10, spec, off).reason).toBe('paused');
+    expect(quoteOnMenu({ ...studio, rush: null }, 1, 10, { ...spec, rush: true }, off).reason).toBe('no_rush');
+  });
+});
+
 describe('menuChoices — only what this shop offers', () => {
   it('keeps the options order and drops what the card lacks', () => {
     const c = menuChoices(shop, options);

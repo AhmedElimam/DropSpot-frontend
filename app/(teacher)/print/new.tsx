@@ -44,7 +44,7 @@ export default function PrintNew() {
   const [title, setTitle] = useState('');
   const [courseId, setCourseId] = useState<string | null>(null);
   const [copies, setCopies] = useState('1');
-  const [spec, setSpec] = useState<PrintSpec>({ paper: '80', ink: 'bw', sides: 1, finish: 'none', delivery_mode: 'pickup' });
+  const [spec, setSpec] = useState<PrintSpec>({ paper: '80', ink: 'bw', sides: 1, finish: 'none', delivery_mode: 'pickup', size: 'A4', rush: false });
   const [address, setAddress] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -65,9 +65,11 @@ export default function PrintNew() {
       sides: Number(pick(choices.sides, String(spec.sides))),
       finish: pick(choices.finishes, spec.finish),
       delivery_mode: pick(choices.delivery_modes, spec.delivery_mode) as PrintSpec['delivery_mode'],
+      size: pick(choices.sizes, spec.size ?? 'A4'),
+      rush: !!spec.rush && !!s?.rush,
     };
     if (JSON.stringify(next) !== JSON.stringify(spec)) setSpec(next);
-  }, [choices, spec]);
+  }, [choices, spec, s?.rush]);
 
   // The live sum — the shop's own arithmetic, on the phone, on every tap.
   const quote = useMemo(() => (s && o ? quoteOnMenu(s, pages, copiesN, spec, { on: o.platform_fee_on, piastres: o.platform_fee_piastres }) : null), [s, o, pages, copiesN, spec]);
@@ -195,15 +197,24 @@ export default function PrintNew() {
           {choices ? (
             <Surface id="teacher.print_new.spec">
             <FormCard icon="settings" title={t('print.spec')} hint={t('print.spec_hint')} tint={colors.brand}>
-              <Field label={t('print.paper')} first><Chips options={priced(choices.papers, (k) => rateOf(k, spec.ink, spec.sides))} value={spec.paper} onChange={(k) => setSpec({ ...spec, paper: String(k) })} /></Field>
+              {choices.sizes.length > 1 ? (
+                <Field label={t('print.size')} first><Chips options={choices.sizes.map((c) => ({ key: c.key, label: c.key === 'A4' ? 'A4' : `${c.key} · ×${money(Number(s.size_factors?.[c.key] ?? 1))}` }))} value={spec.size ?? 'A4'} onChange={(k) => setSpec({ ...spec, size: String(k) })} /></Field>
+              ) : null}
+              <Field label={t('print.paper')} first={choices.sizes.length <= 1}><Chips options={priced(choices.papers, (k) => rateOf(k, spec.ink, spec.sides))} value={spec.paper} onChange={(k) => setSpec({ ...spec, paper: String(k) })} /></Field>
               <Field label={t('print.ink')}><Chips options={priced(choices.inks, (k) => rateOf(spec.paper, k, spec.sides))} value={spec.ink} onChange={(k) => setSpec({ ...spec, ink: String(k) })} /></Field>
               <Field label={t('print.sides')}><Chips options={priced(choices.sides, (k) => rateOf(spec.paper, spec.ink, Number(k)))} value={String(spec.sides)} onChange={(k) => setSpec({ ...spec, sides: Number(k) })} /></Field>
               <Field label={t('print.finish')}><Chips options={priced(choices.finishes, (k) => s.menu.finishes.find((f) => f.kind === k)?.price_per_copy ?? null, '+')} value={spec.finish} onChange={(k) => setSpec({ ...spec, finish: String(k) })} /></Field>
               <Field label={t('print.delivery')}><Chips options={priced(choices.delivery_modes, (k) => (k === 'deliver' ? s.delivery_fee : 0), '+')} value={spec.delivery_mode} onChange={(k) => setSpec({ ...spec, delivery_mode: k as PrintSpec['delivery_mode'] })} tint={colors.accent} /></Field>
+              {s.rush ? (
+                <Field label={t('print.speed')}>
+                  <Chips options={[{ key: 'normal', label: t('print.speed_normal', { h: formatNumber(s.turnaround_hours) }) }, { key: 'rush', label: t('print.speed_rush', { h: formatNumber(s.rush.hours), p: formatNumber(s.rush.pct) }) }]}
+                    value={spec.rush ? 'rush' : 'normal'} onChange={(k) => setSpec({ ...spec, rush: k === 'rush' })} tint={colors.warning} />
+                </Field>
+              ) : null}
               {spec.delivery_mode === 'deliver' ? (
                 <Field label={t('print.address')} required><Input value={address} onChangeText={setAddress} placeholder={t('print.address_ph')} multiline maxLength={300} /></Field>
               ) : null}
-              {quote && !quote.ok ? <View style={{ marginTop: spacing.md }}><Banner tone="warn" text={quote.reason === 'min_copies' ? t('print.min_copies_line', { n: formatNumber(s.min_copies) }) : t('print.not_on_menu')} style={{ marginBottom: 0 }} /></View> : null}
+              {quote && !quote.ok ? <View style={{ marginTop: spacing.md }}><Banner tone="warn" text={quote.reason === 'min_copies' ? t('print.min_copies_line', { n: formatNumber(s.min_copies) }) : quote.reason === 'paused' ? t('print.paused_banner', { at: formatDateTime(s.paused_until!) }) : t('print.not_on_menu')} style={{ marginBottom: 0 }} /></View> : null}
             </FormCard>
             </Surface>
           ) : null}
@@ -216,8 +227,10 @@ export default function PrintNew() {
                 <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{!upload ? t('print.board_needs_file') : t('print.board_needs_copies')}</Text>
               ) : (
                 <>
-                  <Line label={t('print.line_pages', { copies: formatNumber(copiesN), pages: formatNumber(pages), p: money(quote.price_per_page ?? 0) })} value={money(pages * copiesN * (quote.price_per_page ?? 0))} egp={egp} />
+                  <Line label={t('print.line_pages', { copies: formatNumber(copiesN), pages: formatNumber(pages), p: money(quote.price_per_page ?? 0) })} value={money(quote.printing ?? pages * copiesN * (quote.price_per_page ?? 0))} egp={egp} />
+                  {quote.discount ? <Line label={t('print.line_discount', { p: formatNumber(quote.discount_pct ?? 0) })} value={`− ${money(quote.discount)}`} egp={egp} tone={colors.successText} /> : null}
                   {quote.finish_per_copy ? <Line label={t('print.line_finish', { copies: formatNumber(copiesN), p: money(quote.finish_per_copy) })} value={money(copiesN * quote.finish_per_copy)} egp={egp} /> : null}
+                  {quote.rush_fee ? <Line label={t('print.line_rush', { p: formatNumber(s.rush?.pct ?? 0) })} value={money(quote.rush_fee)} egp={egp} tone={colors.warningDark} /> : null}
                   {quote.delivery_fee ? <Line label={t('print.line_delivery')} value={money(quote.delivery_fee)} egp={egp} /> : null}
                   {quote.platform_fee ? <Line label={t('print.line_fee')} value={money(quote.platform_fee)} egp={egp} /> : null}
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm, marginTop: 4 }}>
@@ -282,11 +295,11 @@ export default function PrintNew() {
   );
 }
 
-function Line({ label, value, egp }: { label: string; value: string; egp: string }) {
+function Line({ label, value, egp, tone }: { label: string; value: string; egp: string; tone?: string }) {
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
-      <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary }}>{label}</Text>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.textPrimary }}>{value} {egp}</Text>
+      <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, color: tone ?? colors.textSecondary }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: tone ?? colors.textPrimary }}>{value} {egp}</Text>
     </View>
   );
 }

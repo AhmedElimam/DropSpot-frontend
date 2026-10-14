@@ -1,4 +1,7 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, Linking, ScrollView, Pressable, Platform, useWindowDimensions } from 'react-native';
+import { Image } from 'expo-image';
+import { AppModal as Modal } from '@/ui/AppModal';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,10 +11,57 @@ import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { FormScreen, FormCard, Banner } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
-import { formatNumber, formatShortDate } from '@/utils/format';
+import { formatNumber, formatShortDate, formatDateTime } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
-import { getPrintShop, getPrintOptions, type ShopProfile, type Choice } from '@/api/print';
-import { Stars, Badges, Capabilities, SpeedLine } from './index';
+import { getPrintShop, getPrintOptions, sampleSource, type ShopProfile, type ShopSample, type Choice } from '@/api/print';
+import { Stars, Badges, Capabilities, SpeedLine, Tag } from './index';
+
+/** The shop's work, swipeable — tap a photo for the full screen. */
+function Gallery({ items }: { items: ShopSample[] }) {
+  const { width } = useWindowDimensions();
+  const [at, setAt] = useState(0);
+  const [open, setOpen] = useState<number | null>(null);
+  const w = width - spacing.lg * 2;
+  if (!items.length) return null;
+  return (
+    <View style={{ marginBottom: spacing.md }}>
+      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ borderRadius: radius.xl, overflow: 'hidden' }}
+        onMomentumScrollEnd={(e) => setAt(Math.round(Math.abs(e.nativeEvent.contentOffset.x) / w))}>
+        {items.map((p, i) => (
+          <Pressable key={p.id} onPress={() => setOpen(i)} accessibilityRole="imagebutton" accessibilityLabel={p.caption ?? undefined}>
+            <Image source={sampleSource(p.url)} style={{ width: w, height: 220, backgroundColor: colors.surfaceSunken }} contentFit="cover" transition={150} recyclingKey={String(p.id)} />
+            {p.caption || p.kind_label ? (
+              <View style={{ position: 'absolute', start: 0, end: 0, bottom: 0, padding: spacing.sm, backgroundColor: 'rgba(10,14,39,0.55)' }}>
+                {p.kind_label ? <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>{p.kind_label}</Text> : null}
+                {p.caption ? <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: '#fff' }} numberOfLines={1}>{p.caption}</Text> : null}
+              </View>
+            ) : null}
+          </Pressable>
+        ))}
+      </ScrollView>
+      {items.length > 1 ? (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 8 }}>
+          {items.map((p, i) => <View key={p.id} style={{ width: i === at ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: i === at ? colors.brand : colors.border }} />)}
+        </View>
+      ) : null}
+      <Modal visible={open != null} transparent animationType="fade" onRequestClose={() => setOpen(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', justifyContent: 'center' }}>
+          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentOffset={{ x: (open ?? 0) * width, y: 0 }}>
+            {items.map((p) => (
+              <Pressable key={p.id} onPress={() => setOpen(null)} style={{ width, justifyContent: 'center' }}>
+                <Image source={sampleSource(p.url)} style={{ width, height: '78%' }} contentFit="contain" />
+                {p.caption ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: '#fff', textAlign: 'center', padding: spacing.md }}>{p.caption}</Text> : null}
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Pressable onPress={() => setOpen(null)} accessibilityRole="button" style={{ position: 'absolute', top: Platform.OS === 'ios' ? 56 : 24, end: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="close" size={22} color="#fff" />
+          </Pressable>
+        </View>
+      </Modal>
+    </View>
+  );
+}
 
 /** A number the shop stands on — rating, speed, on-time, jobs done — as one tile. */
 function Stat({ icon, value, label, tint }: { icon: IconName; value: string; label: string; tint: string }) {
@@ -75,13 +125,24 @@ export default function PrintShopPage() {
     return <FormScreen title={t('print.shop')}><Banner tone="warn" text={t('print.shop_off')} /></FormScreen>;
   }
   const finishes = s.menu.finishes.filter((f) => f.kind !== 'none');
+  const paused = !!s.paused_until && new Date(s.paused_until).getTime() > Date.now();
+  const extraSizes = (s.sizes ?? []).filter((z) => z !== 'A4');
+  const hasDeals = (s.volume_tiers?.length ?? 0) > 0 || !!s.rush || extraSizes.length > 0;
   const finishLabel = (k: string) => o.finishes.find((c) => c.key === k)?.label ?? k;
 
   return (
     <Surface id="screen.teacher.print_shop" screen>
     <FormScreen title={s.name} subtitle={[s.city, s.quality_label, s.ink_tech_label].filter(Boolean).join(' · ')}
       contentStyle={{ paddingBottom: nav.pageEnd + insets.bottom + 96 }}>
-      {s.badges.length > 0 ? <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: spacing.md }}><Badges list={s.badges} labels={o.badges} /></View> : null}
+      {paused ? <Banner tone="warn" icon="clock" text={t('print.paused_banner', { at: formatDateTime(s.paused_until!) })} /> : null}
+      <Surface id="teacher.print_shop.gallery"><Gallery items={s.samples ?? []} /></Surface>
+      {s.tagline ? <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm, lineHeight: 22 }}>{s.tagline}</Text> : null}
+      {s.badges.length > 0 || s.open_now != null ? (
+        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: spacing.md, alignItems: 'center' }}>
+          {s.open_now != null && !paused ? <Tag text={t(s.open_now ? 'print.open_now' : 'print.closed_now')} bg={s.open_now ? colors.successLight : colors.surfaceSunken} fg={s.open_now ? colors.successText : colors.textSecondary} /> : null}
+          <Badges list={s.badges} labels={o.badges} />
+        </View>
+      ) : null}
 
       {/* standing */}
       <Surface id="teacher.print_shop.stats">
@@ -101,9 +162,40 @@ export default function PrintShopPage() {
         <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: spacing.sm }}>
           {[s.pickup ? o.delivery_modes.find((d) => d.key === 'pickup')?.label : null, s.delivery ? t('print.delivery_fee_line', { p: formatNumber(s.delivery_fee, { maximumFractionDigits: 2 }) }) : null, s.min_copies > 1 ? t('print.min_copies_line', { n: formatNumber(s.min_copies) }) : null].filter(Boolean).join(' · ')}
         </Text>
+        {s.hours_label ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
+            <Icon name="clock" size={15} color={colors.textSecondary} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{s.hours_label}</Text>
+          </View>
+        ) : null}
         {s.notes ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textPrimary, marginTop: spacing.sm, lineHeight: 20 }}>{s.notes}</Text> : null}
       </FormCard>
       </Surface>
+
+      {/* deals: bulk discounts · rush · other sizes */}
+      {hasDeals ? (
+        <Surface id="teacher.print_shop.deals">
+        <FormCard icon="pricetag" title={t('print.deals_title')} tint={colors.success}>
+          {(s.volume_tiers ?? []).map((tier) => (
+            <View key={tier.min_pages} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{t('print.tier_line', { n: formatNumber(tier.min_pages) })}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.successText }}>{t('print.tier_off', { p: formatNumber(tier.pct) })}</Text>
+            </View>
+          ))}
+          {s.rush ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 }}>
+              <Icon name="clock" size={15} color={colors.warningDark} />
+              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{t('print.rush_line', { h: formatNumber(s.rush.hours), p: formatNumber(s.rush.pct) })}</Text>
+            </View>
+          ) : null}
+          {extraSizes.length ? (
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary, paddingVertical: 4 }}>
+              {t('print.sizes_line', { list: extraSizes.map((z) => `${z} × ${formatNumber(Number(s.size_factors?.[z] ?? 1), { maximumFractionDigits: 2 })}`).join(' · ') })}
+            </Text>
+          ) : null}
+        </FormCard>
+        </Surface>
+      ) : null}
 
       {/* the price card */}
       <Surface id="teacher.print_shop.prices">
@@ -167,7 +259,7 @@ export default function PrintShopPage() {
           <SpeedLine s={s} size={13} />
           {s.price_from.bw != null ? <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('print.from_per_page', { p: formatNumber(s.price_from.bw, { maximumFractionDigits: 2 }) })}</Text> : null}
         </View>
-        <Button title={t('print.choose_shop')} onPress={() => router.push({ pathname: '/(teacher)/print/new', params: { vendor: String(s.vendor_id) } } as Href)} />
+        <Button title={paused ? t('print.paused_tag') : t('print.choose_shop')} disabled={paused} onPress={() => router.push({ pathname: '/(teacher)/print/new', params: { vendor: String(s.vendor_id) } } as Href)} />
       </View>
       </Surface>
     </FormScreen>

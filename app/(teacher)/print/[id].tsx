@@ -128,7 +128,9 @@ export default function PrintJobScreen() {
           <Surface id="teacher.print_job.money">
           <FormCard icon="money" title={t('print.money')} tint={colors.success}>
             <Row label={t('print.line_pages', { copies: formatNumber(j.copies), pages: formatNumber(j.pages), p: formatNumber(j.price_per_page, { maximumFractionDigits: 2 }) })} value={`${formatNumber(j.pages * j.copies * j.price_per_page, { maximumFractionDigits: 2 })} ${egp}`} />
+            {(j.discount ?? 0) > 0 ? <Row label={t('print.line_discount_plain')} value={`− ${formatNumber(j.discount ?? 0, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
             {j.finish_per_copy > 0 ? <Row label={t('print.line_finish', { copies: formatNumber(j.copies), p: formatNumber(j.finish_per_copy, { maximumFractionDigits: 2 }) })} value={`${formatNumber(j.copies * j.finish_per_copy, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
+            {(j.rush_fee ?? 0) > 0 ? <Row label={t('print.line_rush_plain')} value={`${formatNumber(j.rush_fee ?? 0, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
             {j.delivery_fee > 0 ? <Row label={t('print.line_delivery')} value={`${formatNumber(j.delivery_fee, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
             {j.platform_fee > 0 ? <Row label={t('print.line_fee')} value={`${formatNumber(j.platform_fee, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
             <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />

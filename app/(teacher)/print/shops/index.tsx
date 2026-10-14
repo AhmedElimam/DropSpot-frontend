@@ -13,7 +13,8 @@ import { FormScreen } from '@/components/ui/Form';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
-import { getPrintShops, getPrintOptions, type MarketShop } from '@/api/print';
+import { Image } from 'expo-image';
+import { getPrintShops, getPrintOptions, sampleSource, type MarketShop } from '@/api/print';
 
 type Sort = 'recommended' | 'nearest' | 'fastest' | 'cheapest' | 'top_rated';
 const SORTS: Sort[] = ['recommended', 'nearest', 'fastest', 'cheapest', 'top_rated'];
@@ -80,9 +81,28 @@ export function SpeedLine({ s, size = 12 }: { s: Pick<MarketShop, 'speed_hours' 
 function ShopCard({ s, labels, caps, egp }: { s: MarketShop; labels: Record<string, string>; caps: Record<string, string>; egp: string }) {
   const { t } = useTranslation();
   const fresh = s.jobs_done === 0;
+  const paused = !!s.paused_until && new Date(s.paused_until).getTime() > Date.now();
   return (
     <TouchableOpacity onPress={() => router.push(`/(teacher)/print/shops/${s.vendor_id}` as Href)} activeOpacity={0.85} accessibilityRole="button"
-      style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+      style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.sm, overflow: 'hidden', opacity: paused ? 0.8 : 1 }}>
+      {/* The shop's own work, first — the cover photo it chose. */}
+      {s.cover ? (
+        <View>
+          <Image source={sampleSource(s.cover.url)} style={{ width: '100%', height: 132, backgroundColor: colors.surfaceSunken }} contentFit="cover" transition={150} recyclingKey={String(s.cover.id)} />
+          <View style={{ position: 'absolute', top: 10, start: 10, flexDirection: 'row', gap: 6 }}>
+            {paused ? <Tag text={t('print.paused_tag')} bg="rgba(10,14,39,0.78)" fg="#fff" /> : s.open_now === true ? <Tag text={t('print.open_now')} bg="rgba(31,147,102,0.92)" fg="#fff" /> : s.open_now === false ? <Tag text={t('print.closed_now')} bg="rgba(10,14,39,0.7)" fg="#fff" /> : null}
+          </View>
+          {(s.samples_count ?? 0) > 1 ? (
+            <View style={{ position: 'absolute', bottom: 10, end: 10 }}><Tag text={t('print.photos_n', { n: formatNumber(s.samples_count ?? 0) })} bg="rgba(10,14,39,0.7)" fg="#fff" /></View>
+          ) : null}
+        </View>
+      ) : null}
+      <View style={{ padding: spacing.md }}>
+      {!s.cover && (paused || s.open_now != null) ? (
+        <View style={{ flexDirection: 'row', marginBottom: 6 }}>
+          {paused ? <Tag text={t('print.paused_tag')} bg={colors.surfaceSunken} fg={colors.textSecondary} /> : <Tag text={t(s.open_now ? 'print.open_now' : 'print.closed_now')} bg={s.open_now ? colors.successLight : colors.surfaceSunken} fg={s.open_now ? colors.successText : colors.textSecondary} />}
+        </View>
+      ) : null}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
         <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: s.quality_tier === 'premium' ? colors.accent : colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="storefront" size={24} color={s.quality_tier === 'premium' ? colors.onAccent : colors.brand} />
@@ -92,6 +112,7 @@ function ShopCard({ s, labels, caps, egp }: { s: MarketShop; labels: Record<stri
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
             <Badges list={s.badges} labels={labels} />
           </View>
+          {s.tagline ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textPrimary, marginTop: 2 }} numberOfLines={2}>{s.tagline}</Text> : null}
           <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
             {[s.city, s.quality_label, s.ink_tech_label, s.distance_km != null ? t('print.km_away', { km: formatNumber(s.distance_km, { maximumFractionDigits: 1 }) }) : null].filter(Boolean).join(' · ')}
           </Text>
@@ -133,7 +154,16 @@ function ShopCard({ s, labels, caps, egp }: { s: MarketShop; labels: Record<stri
       {s.open_jobs > 0 ? (
         <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.warningDark, marginTop: 6 }}>{t('print.busy_now', { n: formatNumber(s.open_jobs) })}</Text>
       ) : null}
+      </View>
     </TouchableOpacity>
+  );
+}
+
+export function Tag({ text, bg, fg }: { text: string; bg: string; fg: string }) {
+  return (
+    <View style={{ backgroundColor: bg, borderRadius: radius.full, paddingHorizontal: 9, paddingVertical: 2 }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: fg }}>{text}</Text>
+    </View>
   );
 }
 

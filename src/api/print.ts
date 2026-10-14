@@ -1,4 +1,5 @@
 import client from './client';
+import { STAGING_KEY, STAGING_HEADER } from '@/config/env';
 
 /**
  * «المطبعة» — the print marketplace. The teacher puts a PDF up, every live shop prices it,
@@ -6,7 +7,7 @@ import client from './client';
  * behind the `print_market` flag on the server.
  */
 
-export type PrintSpec = { paper: string; ink: string; sides: number; finish: string; delivery_mode: 'pickup' | 'deliver' };
+export type PrintSpec = { paper: string; ink: string; sides: number; finish: string; delivery_mode: 'pickup' | 'deliver'; size?: string; rush?: boolean };
 
 export type Choice = { key: string; label: string };
 
@@ -16,6 +17,7 @@ export interface PrintOptions {
   sides: Choice[];
   finishes: Choice[];
   delivery_modes: Choice[];
+  sizes?: Choice[];
   badges: Record<string, string>;
   capabilities: Record<string, string>;
   max_file_mb: number;
@@ -33,6 +35,10 @@ export interface Quote {
   reason?: string;
   price_per_page?: number;
   finish_per_copy?: number;
+  printing?: number;
+  discount?: number;
+  discount_pct?: number;
+  rush_fee?: number;
   delivery_fee?: number;
   subtotal?: number;
   platform_fee?: number;
@@ -75,7 +81,24 @@ export interface MarketShop extends Omit<BoardShop, 'quote'> {
   speed_measured: boolean;
   capabilities: string[];
   price_from: { bw: number | null; color: number | null };
+  tagline?: string | null;
+  cover?: ShopSample | null;
+  samples_count?: number;
+  /** «مشغول حتى …» — on the marketplace, but no job can be sent. */
+  paused_until?: string | null;
+  open_now?: boolean | null;
+  hours_label?: string | null;
+  sizes?: string[];
+  size_factors?: Record<string, number>;
+  rush?: { hours: number; pct: number } | null;
+  volume_tiers?: { min_pages: number; pct: number }[];
 }
+
+/** A photo of the shop's own work (signed link, stable for a week). */
+export interface ShopSample { id: number; url: string; caption: string | null; kind: string | null; kind_label: string | null; width: number | null; height: number | null }
+
+/** expo-image source for a shop photo — the staging build also needs its door key. */
+export const sampleSource = (url: string) => (STAGING_KEY ? { uri: url, headers: { [STAGING_HEADER]: STAGING_KEY } } : { uri: url });
 
 export interface MenuRate { paper: string; ink: string; sides: number; price_per_page: number }
 export interface MenuFinish { kind: string; price_per_copy: number }
@@ -86,6 +109,7 @@ export interface ShopProfile extends MarketShop {
   phone: string | null;
   menu: { rates: MenuRate[]; finishes: MenuFinish[] };
   reviews: ShopReview[];
+  samples?: ShopSample[];
 }
 
 /**
@@ -93,6 +117,12 @@ export interface ShopProfile extends MarketShop {
  * runs the same sum again at send and locks THAT; this is the preview, never the contract.
  */
 export function quoteOnMenu(shop: ShopProfile, pages: number, copies: number, spec: PrintSpec, fee: { on: boolean; piastres: number }): Quote {
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  if (shop.paused_until && new Date(shop.paused_until).getTime() > Date.now()) return { ok: false, reason: 'paused' };
+  const size = spec.size ?? 'A4';
+  const factor = size === 'A4' ? 1 : Number(shop.size_factors?.[size] ?? 0);
+  if (!factor) return { ok: false, reason: 'no_size' };
+  if (spec.rush && !shop.rush) return { ok: false, reason: 'no_rush' };
   const rate = shop.menu.rates.find((r) => r.paper === spec.paper && r.ink === spec.ink && r.sides === spec.sides);
   if (!rate) return { ok: false, reason: 'unavailable' };
   const finish = spec.finish === 'none' ? { kind: 'none', price_per_copy: 0 } : shop.menu.finishes.find((f) => f.kind === spec.finish);
@@ -100,26 +130,39 @@ export function quoteOnMenu(shop: ShopProfile, pages: number, copies: number, sp
   if (spec.delivery_mode === 'deliver' && !shop.delivery) return { ok: false, reason: 'no_delivery' };
   if (spec.delivery_mode === 'pickup' && !shop.pickup) return { ok: false, reason: 'no_pickup' };
   if (copies < shop.min_copies) return { ok: false, reason: 'min_copies' };
+
+  const printed = pages * copies;
+  const price_per_page = r2(rate.price_per_page * factor);
+  const printing = r2(printed * price_per_page);
+  const discount_pct = (shop.volume_tiers ?? []).reduce((p, t) => (printed >= t.min_pages ? Math.max(p, t.pct) : p), 0);
+  const discount = r2((printing * discount_pct) / 100);
+  const finishing = r2(copies * finish.price_per_copy);
+  const rush_fee = spec.rush && shop.rush ? r2(((printing - discount + finishing) * shop.rush.pct) / 100) : 0;
   const delivery_fee = spec.delivery_mode === 'deliver' ? shop.delivery_fee : 0;
-  const subtotal = Math.round((pages * copies * rate.price_per_page + copies * finish.price_per_copy + delivery_fee) * 100) / 100;
-  const platform_fee = fee.on && fee.piastres > 0 ? Math.round(pages * copies * fee.piastres) / 100 : 0;
+  const subtotal = r2(printing - discount + finishing + rush_fee + delivery_fee);
+  const platform_fee = fee.on && fee.piastres > 0 ? Math.round(printed * fee.piastres) / 100 : 0;
   return {
     ok: true,
-    price_per_page: rate.price_per_page,
+    price_per_page,
     finish_per_copy: finish.price_per_copy,
+    printing,
+    discount,
+    discount_pct,
+    rush_fee,
     delivery_fee,
     subtotal,
     platform_fee,
     platform_fee_piastres: fee.piastres,
-    total: Math.round((subtotal + platform_fee) * 100) / 100,
-    turnaround_hours: shop.turnaround_hours,
+    total: r2(subtotal + platform_fee),
+    turnaround_hours: spec.rush && shop.rush ? shop.rush.hours : shop.turnaround_hours,
   };
 }
 
 /** The choices THIS shop's menu actually offers, in the order the options list them. */
-export function menuChoices(shop: ShopProfile, all: Pick<PrintOptions, 'papers' | 'inks' | 'sides' | 'finishes' | 'delivery_modes'>) {
+export function menuChoices(shop: ShopProfile, all: Pick<PrintOptions, 'papers' | 'inks' | 'sides' | 'finishes' | 'delivery_modes' | 'sizes'>) {
   const has = (f: (r: MenuRate) => boolean) => shop.menu.rates.some(f);
   return {
+    sizes: (all.sizes ?? [{ key: 'A4', label: 'A4' }]).filter((c) => c.key === 'A4' || Number(shop.size_factors?.[c.key] ?? 0) > 0),
     papers: all.papers.filter((c) => has((r) => r.paper === c.key)),
     inks: all.inks.filter((c) => has((r) => r.ink === c.key)),
     sides: all.sides.filter((c) => has((r) => String(r.sides) === c.key)),
@@ -144,6 +187,8 @@ export interface PrintJob {
   price_per_page: number;
   finish_per_copy: number;
   delivery_fee: number;
+  discount?: number;
+  rush_fee?: number;
   subtotal: number;
   platform_fee: number;
   total: number;
