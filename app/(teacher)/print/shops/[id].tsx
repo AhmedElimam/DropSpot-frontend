@@ -9,12 +9,16 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, isDark } from '@/theme/index';
 import { ShopLogo } from '@/components/print/ShopLogo';
 import { ShopPageHero } from '@/components/print/ShopPageHero';
+import { ShopWorkGallery } from '@/components/print/ShopWorkGallery';
+import { SampleViewer } from '@/components/print/SampleViewer';
+import { ShopCapabilities, FINISH_CAPS } from '@/components/print/ShopCapabilities';
+import { ShopFinishes } from '@/components/print/ShopFinishes';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { FormScreen, Banner } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
 import { formatNumber, formatShortDate, formatDateTime } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
-import { getPrintShop, getPrintOptions, type ShopProfile, type Choice } from '@/api/print';
+import { getPrintShop, getPrintOptions, type ShopProfile, type ShopSample, type Choice } from '@/api/print';
 import { Stars, BADGE_TINT } from './index';
 
 const HERO = 236; // under the status bar; the inset is added on top
@@ -113,6 +117,8 @@ function InfoRow({ icon, children }: { icon: IconName; children: ReactNode }) {
  * way a delivery app opens a restaurant: the shop's own work full-bleed at the top, its face
  * on a card riding over the photos, the numbers it stands on, delivery or pickup, then what
  * it can do, its deals, the whole price card, where it is, and what teachers said.
+ * Round 7 (founder 2026-10-14): the work gets its own gallery under the card, «تقدر تطبع»
+ * is grouped tiles, and binding per copy is its own drawn section.
  * «اطلب من المطبعة» opens the composer locked to THIS shop's menu.
  */
 export default function PrintShopPage() {
@@ -123,6 +129,7 @@ export default function PrintShopPage() {
   const options = useQuery({ queryKey: ['print-options'], queryFn: getPrintOptions });
   const scrollY = useRef(new Animated.Value(0)).current;
   const [solid, setSolid] = useState(false);
+  const [viewing, setViewing] = useState<{ list: ShopSample[]; i: number } | null>(null);
   const s = shop.data;
   const o = options.data;
   const egp = t('teacher.egp');
@@ -174,7 +181,7 @@ export default function PrintShopPage() {
 
         {/* the shop's own work, edge to edge */}
         <Surface id="teacher.print_shop.gallery" fallback={<ShopPageHero items={[]} height={heroH} overlap={OVERLAP} topInset={insets.top} />}>
-          <ShopPageHero items={samples} height={heroH} overlap={OVERLAP} topInset={insets.top} />
+          <ShopPageHero items={samples} height={heroH} overlap={OVERLAP} topInset={insets.top} onOpen={(i) => setViewing({ list: samples, i })} />
         </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg }}>
@@ -241,6 +248,13 @@ export default function PrintShopPage() {
           {paused ? <Banner tone="warn" icon="clock" text={t('print.paused_banner', { at: formatDateTime(s.paused_until!) })} /> : null}
           {s.open_jobs > 0 ? <Banner tone="warn" icon="clock" text={t('print.busy_now', { n: formatNumber(s.open_jobs) })} /> : null}
 
+          {/* its work, in its own place — right under who it is */}
+          {samples.length ? (
+            <Surface id="teacher.print_shop.work">
+              <ShopWorkGallery items={samples} onOpen={(list, i) => setViewing({ list, i })} />
+            </Surface>
+          ) : null}
+
           {/* the numbers it stands on */}
           <Surface id="teacher.print_shop.stats">
           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.borderLight, paddingVertical: spacing.md, paddingHorizontal: spacing.xs, marginBottom: spacing.md, ...shadows.sm }}>
@@ -289,19 +303,20 @@ export default function PrintShopPage() {
             </View>
           ) : null}
 
-          {/* what it can do */}
-          {s.capabilities.length > 0 || s.notes ? (
+          {/* what it can do — binding has its own drawn section below */}
+          {s.capabilities.some((c) => !(finishes.length && FINISH_CAPS.includes(c))) || s.notes ? (
             <Surface id="teacher.print_shop.capabilities">
             <Section icon="print" tint={colors.brand} bg={colors.brandTint} title={t('print.capabilities_title')}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                {s.capabilities.map((c) => (
-                  <View key={c} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 30, paddingHorizontal: 11, borderRadius: radius.full, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.borderLight }}>
-                    <Icon name="success" size={13} color={colors.success} />
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textPrimary }}>{o.capabilities[c] ?? c}</Text>
-                  </View>
-                ))}
-              </View>
-              {s.notes ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: s.capabilities.length ? spacing.md : 0, lineHeight: 20 }}>{s.notes}</Text> : null}
+              <ShopCapabilities caps={s.capabilities} labels={o.capabilities} notes={s.notes} skipFinishes={finishes.length > 0} />
+            </Section>
+            </Surface>
+          ) : null}
+
+          {/* binding, per copy — drawn */}
+          {finishes.length > 0 ? (
+            <Surface id="teacher.print_shop.finishes">
+            <Section icon="book" tint={colors.warningText} bg={colors.warningLight} title={t('print.finishes_title')}>
+              <ShopFinishes finishes={finishes} label={finishLabel} egp={egp} />
             </Section>
             </Surface>
           ) : null}
@@ -340,19 +355,6 @@ export default function PrintShopPage() {
           <Surface id="teacher.print_shop.prices">
           <Section icon="money" tint={colors.accentText} bg={colors.accentLight} title={t('print.price_card')}>
             <PriceCard s={s} o={o} egp={egp} />
-            {finishes.length > 0 ? (
-              <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('print.finishes_title')}</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                  {finishes.map((f) => (
-                    <View key={f.kind} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 30, paddingHorizontal: 11, borderRadius: radius.full, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.borderLight }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textPrimary }}>{finishLabel(f.kind)}</Text>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>+{n2(f.price_per_copy)}{t('print.per_copy_short')}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : null}
           </Section>
           {extras.length > 0 ? (
             <Section icon="add" tint={colors.brand} bg={colors.brandTint} title={t('print.extras')}>
@@ -453,6 +455,8 @@ export default function PrintShopPage() {
         style={{ position: 'absolute', top: insets.top + 8, start: spacing.lg, width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.md }}>
         <Icon name="forward" size={20} color={colors.textPrimary} />
       </TouchableOpacity>
+
+      <SampleViewer items={viewing?.list ?? []} start={viewing?.i ?? null} onClose={() => setViewing(null)} />
 
       {/* the one button */}
       <Surface id="teacher.print_shop.order">
