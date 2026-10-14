@@ -76,7 +76,7 @@ export function headingOf(pos: Location.LocationObject): number | null {
  * Talabat's «حدد موقعك»: a fixed pin in the middle, the map moves under it, and `onCenter` /
  * `onAddress` report where it rests.
  */
-export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, trail, shops, onShop, selectedShop, follow, showMe, hideMeDot, picker, start, onCenter, onAddress, onMoving, centerTo, height = 220, style, rounded = true, controlsBottom = 12, padBottom = 0 }: {
+export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, trail, shops, onShop, selectedShop, follow, showMe, hideMeDot, hideLocate, picker, start, onCenter, onAddress, onMoving, centerTo, height = 220, style, rounded = true, controlsBottom = 12, padBottom = 0 }: {
   mapsKey?: string | null;
   shop?: MapPoint | null; dest?: MapPoint | null; driver?: MapDriver | null; drivers?: MapDriver[];
   me?: MyPoint | null; teacher?: MapPoint | null; trail?: [number, number][];
@@ -86,6 +86,8 @@ export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, tra
   showMe?: boolean;
   /** With `showMe`: keep the «موقعي» button but draw no blue dot (the driver is his own marker). */
   hideMeDot?: boolean;
+  /** Draw no «موقعي» button: the screen draws its own (it rides above a sheet). Centre with `centerTo`. */
+  hideLocate?: boolean;
   picker?: boolean;
   /** Where the picker opens. */
   start?: MapPoint | null;
@@ -158,7 +160,7 @@ window.__center = function (lat, lng, z) { if (window.__map) window.__map.center
           if (picker) { const p = startAt.current ?? live.me; if (p) { centreOn(p); centred.current = true; } }
         }} onMessage={onMessage} setSupportMultipleWindows={false}
         style={{ backgroundColor: bg }} />
-      {(showMe || picker) ? (
+      {(showMe || picker) && !hideLocate ? (
         <TouchableOpacity onPress={() => { if (mine) centreOn(mine, picker ? 17 : 16); }} accessibilityRole="button" accessibilityLabel="موقعي" activeOpacity={0.85}
           style={{ position: 'absolute', end: 12, bottom: controlsBottom, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: mine ? 1 : 0.5, ...shadows.md }}>
           <Icon name="gps" size={20} color={mine ? colors.brand : colors.textTertiary} />

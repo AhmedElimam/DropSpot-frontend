@@ -2,86 +2,65 @@ import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, RefreshControl } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
+import { useIsFocused } from '@react-navigation/native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert } from '@/ui/dialog';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, nav, gradients } from '@/theme/index';
-import { ShopLogo } from '@/components/print/ShopLogo';
+import { colors, spacing, radius, nav, gradients, shadows, isDark } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
-import { getPrintJobs, getPrintShops, reorderPrintJob, sampleSource, type PrintJob, type MarketShop } from '@/api/print';
+import { IS_STAGING } from '@/config/env';
+import { PrintTabJobCard } from '@/components/print/PrintTabJobCard';
+import { PrintTabShopCard } from '@/components/print/PrintTabShopCard';
+import { PrintTabPastRow } from '@/components/print/PrintTabPastRow';
+import { PrintTabHowItWorks } from '@/components/print/PrintTabHowItWorks';
+import { getPrintJobs, getPrintShops, reorderPrintJob, type PrintJob } from '@/api/print';
 
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: v % 1 ? 2 : 0 });
 
-/** A job on its way: what, where it stands, the driver and the minutes — tap to watch the map. */
-function LiveJob({ j }: { j: PrintJob }) {
-  const { t } = useTranslation();
-  const moving = !!j.delivery?.is_active;
-  const steps = ['sent', 'accepted', 'printing', 'ready', 'delivered'];
-  const at = Math.max(0, steps.indexOf(j.status));
-  return (
-    <TouchableOpacity onPress={() => router.push(`/(teacher)/print/${j.id}` as Href)} activeOpacity={0.9} accessibilityRole="button"
-      style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: moving ? colors.accent : colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: moving ? colors.accent : colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name={moving ? 'gps' : 'print'} size={23} color={moving ? colors.onAccent : colors.brand} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{j.title}</Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: moving ? colors.accentText : colors.textSecondary }} numberOfLines={1}>
-            {moving
-              ? [j.delivery!.label, j.delivery!.driver, j.delivery!.eta_min ? t('print.track_eta', { m: formatNumber(j.delivery!.eta_min) }) : null].filter(Boolean).join(' · ')
-              : `${j.shop.name ?? ''} · ${j.status_label}`}
-          </Text>
-        </View>
-        <Icon name="back" size={16} color={colors.textTertiary} />
-      </View>
-      {/* the walk, as five bars */}
-      <View style={{ flexDirection: 'row', gap: 4, marginTop: spacing.sm }}>
-        {steps.map((s, i) => <View key={s} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: i <= at ? (moving ? colors.accent : colors.brand) : colors.borderLight }} />)}
-      </View>
-    </TouchableOpacity>
-  );
-}
+// The hero is deep ink in BOTH schemes (founder: no washed tops), so what sits on it is white.
+const ON = '#FFFFFF';
+const ON_SOFT = 'rgba(255,255,255,0.74)';
+const GLASS = 'rgba(255,255,255,0.10)';
+const GLASS_BORDER = 'rgba(255,255,255,0.16)';
 
-/** A shop as a photo card in the strip: its work first, then name, stars, price. */
-function ShopTile({ s }: { s: MarketShop }) {
-  const { t } = useTranslation();
+/** A section's title, an optional count, and an optional «عرض الكل». */
+function SectionHead({ title, count, link, onLink }: { title: string; count?: number; link?: string; onLink?: () => void }) {
   return (
-    <TouchableOpacity onPress={() => router.push(`/(teacher)/print/shops/${s.vendor_id}` as Href)} activeOpacity={0.9} accessibilityRole="button"
-      style={{ width: 200, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
-      {s.cover ? (
-        <Image source={sampleSource(s.cover.url)} style={{ width: '100%', height: 110, backgroundColor: colors.surfaceSunken }} contentFit="cover" transition={150} recyclingKey={String(s.cover.id)} />
-      ) : (
-        <LinearGradient colors={gradients.hero} style={{ height: 110 }} />
-      )}
-      {/* the logo, on the photo's edge (Talabat's restaurant tiles) */}
-      <ShopLogo logo={s.logo} size={46} premium={s.quality_tier === 'premium'} ring style={{ position: 'absolute', top: 110 - 30, start: spacing.sm }} />
-      <View style={{ padding: spacing.sm, paddingTop: 18 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: s.rating != null ? colors.warningText : colors.accentText }}>{s.rating != null ? `★ ${formatNumber(s.rating, { maximumFractionDigits: 1 })}` : t('print.new_shop_short')}</Text>
-          {s.price_from.bw != null ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary }}>{t('print.from_per_page', { p: money(s.price_from.bw) })}</Text> : null}
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{title}</Text>
+      {count ? (
+        <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, lineHeight: 16, color: colors.onAccent }}>{formatNumber(count)}</Text>
         </View>
-      </View>
-    </TouchableOpacity>
+      ) : null}
+      <View style={{ flex: 1 }} />
+      {link && onLink ? (
+        <TouchableOpacity onPress={onLink} accessibilityRole="button" hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{link}</Text>
+          <Icon name="back" size={14} color={colors.brand} />
+        </TouchableOpacity>
+      ) : null}
+    </View>
   );
 }
 
 /**
- * «المطبعة» — the teacher's print tab (founder 2026-10-14: «put some love on the printing tab
- * … and the place of this tab»). What is on its way first, then a new print, the shops with
- * their work, and the past jobs one tap from printing again.
+ * «المطبعة» — the teacher's print tab (founder 2026-10-14: «put some love on the printing tab»),
+ * laid out like a delivery app's home: an ink hero with the month in three glass chips and
+ * the one big «اطبع ملف جديد», then what is on its way, how it works (first time only), the
+ * shops by their work, and the past jobs one tap from printing again.
  */
 export default function PrintTab() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const focused = useIsFocused();
   const qc = useQueryClient();
   const jobs = useQuery({ queryKey: ['print-jobs'], queryFn: getPrintJobs, refetchInterval: 30_000 });
   const shops = useQuery({ queryKey: ['print-shops'], queryFn: getPrintShops });
@@ -98,6 +77,7 @@ export default function PrintTab() {
   }, [open, closed]);
 
   const goNew = () => router.push('/(teacher)/print/shops' as Href);
+  const goAll = () => router.push('/(teacher)/print' as Href);
   const again = (j: PrintJob) => Alert.alert(t('print.reorder'), t('print.reorder_confirm', { shop: j.shop.name ?? '' }), [
     { text: t('common.back'), style: 'cancel' },
     { text: t('print.reorder'), onPress: async () => {
@@ -108,91 +88,106 @@ export default function PrintTab() {
     } },
   ]);
 
-  const steps: { icon: IconName; label: string }[] = [
-    { icon: 'storefront', label: t('print.how_1') },
-    { icon: 'document', label: t('print.how_2') },
-    { icon: 'gps', label: t('print.how_3') },
+  // Ink by day; by night the navy, lifted to indigo at the foot so the rounded edge shows.
+  const heroFill: readonly [string, string, ...string[]] = isDark() ? [gradients.hero[0], gradients.hero[1], colors.primaryLight] : gradients.auth;
+  const firstTime = !jobs.isLoading && !open.length && !closed.length;
+  const stats: { k: string; icon: IconName; v: string; l: string; hot?: boolean }[] = [
+    { k: 'open', icon: 'delivery', v: formatNumber(open.length), l: t('print.stat_open'), hot: open.length > 0 },
+    { k: 'spent', icon: 'money', v: money(month.spent), l: t('print.stat_spent') },
+    { k: 'pages', icon: 'document', v: formatNumber(month.pages), l: t('print.stat_pages') },
   ];
 
   return (
     <Surface id="screen.teacher.print_tab" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {focused ? <StatusBar style="light" /> : null}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* hero */}
-        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl + 28, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
+        <LinearGradient colors={heroFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={{ paddingTop: insets.top + (IS_STAGING ? 36 : spacing.md), paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, borderBottomStartRadius: 28, borderBottomEndRadius: 28, overflow: 'hidden' }}>
+          {/* warm glow and a soft disc — depth without a picture */}
+          <View pointerEvents="none" style={{ position: 'absolute', top: -90, start: -70, width: 240, height: 240, borderRadius: 120, backgroundColor: colors.accent, opacity: 0.16 }} />
+          <View pointerEvents="none" style={{ position: 'absolute', bottom: -80, end: -60, width: 200, height: 200, borderRadius: 100, backgroundColor: ON, opacity: 0.05 }} />
+          <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 40, end: -18, opacity: 0.07, transform: [{ rotate: '-12deg' }] }}>
+            <Icon name="print" size={150} color={ON} />
+          </View>
+
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero }}>{t('print.title')}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 2 }}>{t('print.tab_sub')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 26, lineHeight: 38, color: ON }}>{t('print.title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: ON_SOFT }} numberOfLines={2}>{t('print.tab_sub')}</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push('/(teacher)/print' as Href)} accessibilityRole="button" style={{ paddingHorizontal: 12, height: 34, borderRadius: radius.full, backgroundColor: colors.onHeroChip, justifyContent: 'center' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.onHero }}>{t('print.all_jobs')}</Text>
+            <TouchableOpacity onPress={goAll} accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, height: 36, borderRadius: radius.full, backgroundColor: GLASS, borderWidth: 1, borderColor: GLASS_BORDER }}>
+              <Icon name="list" size={15} color={ON} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: ON }}>{t('print.all_jobs')}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* the month, in three glass chips */}
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
-            {[
-              { v: formatNumber(open.length), l: t('print.stat_open') },
-              { v: `${money(month.spent)}`, l: t('print.stat_spent') },
-              { v: formatNumber(month.pages), l: t('print.stat_pages') },
-            ].map((k) => (
-              <View key={k.l} style={{ flex: 1, backgroundColor: colors.onHeroChip, borderRadius: radius.lg, paddingVertical: 10, paddingHorizontal: 12 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }}>{k.v}</Text>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.onHeroSoft }} numberOfLines={1}>{k.l}</Text>
+            {stats.map((k) => (
+              <View key={k.k} style={{ flex: 1, backgroundColor: GLASS, borderWidth: 1, borderColor: k.hot ? colors.accent : GLASS_BORDER, borderRadius: radius.lg, paddingVertical: 9, paddingHorizontal: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Icon name={k.icon} size={15} color={k.hot ? colors.accent : ON_SOFT} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 18, lineHeight: 26, color: ON, flexShrink: 1 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{k.v}</Text>
+                </View>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 10.5, color: ON_SOFT }} numberOfLines={1}>{k.l}</Text>
               </View>
             ))}
           </View>
-        </LinearGradient>
 
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -28 }}>
           {/* the one button */}
           <Surface id="teacher.print_tab.new">
-          <TouchableOpacity onPress={goNew} activeOpacity={0.92} accessibilityRole="button"
-            style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.md, shadowColor: '#0A0E27', shadowOpacity: 0.08, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <View style={{ width: 54, height: 54, borderRadius: 18, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="print" size={28} color={colors.onAccent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('print.cta_title')}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }}>{t('print.cta_sub')}</Text>
-              </View>
-              <Icon name="back" size={18} color={colors.textTertiary} />
-            </View>
-            <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.sm }}>
-              {steps.map((s, i) => (
-                <View key={s.label} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, paddingVertical: 7, paddingHorizontal: 8 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.accentText }}>{formatNumber(i + 1)}</Text>
-                  <Icon name={s.icon} size={14} color={colors.textSecondary} />
-                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary }} numberOfLines={1}>{s.label}</Text>
+          <View style={{ marginTop: spacing.lg, borderRadius: radius.xl, ...shadows.md }}>
+            <TouchableOpacity onPress={goNew} activeOpacity={0.9} accessibilityRole="button" style={{ borderRadius: radius.xl, overflow: 'hidden' }}>
+              <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 14, paddingHorizontal: spacing.md }}>
+                <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="print" size={25} color={colors.onAccent} />
                 </View>
-              ))}
-            </View>
-          </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 26, color: colors.onAccent }}>{t('print.cta_title')}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, color: colors.onAccent, opacity: 0.9 }} numberOfLines={1}>{t('print.cta_sub')}</Text>
+                </View>
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="back" size={17} color={colors.onAccent} />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
           </Surface>
+        </LinearGradient>
 
-          {/* on its way */}
-          {open.length ? (
-            <Surface id="teacher.print_tab.open">
-            <View style={{ marginTop: spacing.lg }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('print.on_the_way')}</Text>
-              {open.map((j) => <LiveJob key={j.id} j={j} />)}
-            </View>
-            </Surface>
-          ) : null}
-        </View>
+        {/* on its way */}
+        {open.length ? (
+          <Surface id="teacher.print_tab.open">
+          <View style={{ marginTop: spacing.xl, paddingHorizontal: spacing.lg }}>
+            <SectionHead title={t('print.on_the_way')} count={open.length} />
+            {open.map((j) => <PrintTabJobCard key={j.id} j={j} />)}
+          </View>
+          </Surface>
+        ) : null}
+
+        {/* first time: how a print goes */}
+        {firstTime ? (
+          <Surface id="teacher.print_tab.how">
+          <View style={{ marginTop: spacing.xl, paddingHorizontal: spacing.lg }}>
+            <PrintTabHowItWorks />
+          </View>
+          </Surface>
+        ) : null}
 
         {/* the shops, by their work */}
         {list.length ? (
           <Surface id="teacher.print_tab.shops">
-          <View style={{ marginTop: spacing.lg }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, marginBottom: spacing.sm }}>
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{t('print.shops_strip')}</Text>
-              <TouchableOpacity onPress={goNew} accessibilityRole="button" hitSlop={8}><Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('print.see_all')}</Text></TouchableOpacity>
+          <View style={{ marginTop: spacing.xl }}>
+            <View style={{ paddingHorizontal: spacing.lg }}>
+              <SectionHead title={t('print.shops_strip')} link={t('print.see_all')} onLink={goNew} />
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.lg }}>
-              {list.slice(0, 8).map((s) => <ShopTile key={s.vendor_id} s={s} />)}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: 4 }}>
+              {list.slice(0, 8).map((s) => <PrintTabShopCard key={s.vendor_id} s={s} />)}
             </ScrollView>
           </View>
           </Surface>
@@ -201,30 +196,15 @@ export default function PrintTab() {
         {/* printed before */}
         {closed.length ? (
           <Surface id="teacher.print_tab.past">
-          <View style={{ marginTop: spacing.lg, paddingHorizontal: spacing.lg }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('print.printed_before')}</Text>
-            {closed.slice(0, 6).map((j) => (
-              <View key={j.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.sm, marginBottom: 6 }}>
-                <TouchableOpacity style={{ flex: 1 }} onPress={() => router.push(`/(teacher)/print/${j.id}` as Href)} accessibilityRole="button">
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{j.title}</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }} numberOfLines={1}>{j.shop.name ?? ''} · {t('print.copies_x_pages', { copies: formatNumber(j.copies), pages: formatNumber(j.pages) })} · {money(j.total)} {t('teacher.egp')}</Text>
-                </TouchableOpacity>
-                {j.status === 'received' ? (
-                  <TouchableOpacity onPress={() => again(j)} disabled={busy === j.id} accessibilityRole="button" style={{ paddingHorizontal: 12, height: 32, borderRadius: radius.full, backgroundColor: colors.brandTint, justifyContent: 'center', opacity: busy === j.id ? 0.5 : 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('print.again')}</Text>
-                  </TouchableOpacity>
-                ) : <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textTertiary }}>{j.status_label}</Text>}
-              </View>
-            ))}
+          <View style={{ marginTop: spacing.xl, paddingHorizontal: spacing.lg }}>
+            <SectionHead title={t('print.printed_before')} link={closed.length > 6 ? t('print.see_all') : undefined} onLink={goAll} />
+            <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md }}>
+              {closed.slice(0, 6).map((j, i, arr) => (
+                <PrintTabPastRow key={j.id} j={j} last={i === arr.length - 1} busy={busy === j.id} onAgain={() => again(j)} />
+              ))}
+            </View>
           </View>
           </Surface>
-        ) : null}
-
-        {!jobs.isLoading && !open.length && !closed.length ? (
-          <View style={{ alignItems: 'center', paddingHorizontal: spacing.xl, marginTop: spacing.xl }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('print.empty_title')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 4, lineHeight: 20 }}>{t('print.empty_hint')}</Text>
-          </View>
         ) : null}
       </ScrollView>
     </View>

@@ -1,6 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, useWindowDimensions, type ScrollView as RNScrollView } from 'react-native';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { parseQuery, shopMatches, suggest, type Suggestion } from '@/utils/shopSearch';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -13,8 +16,8 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { formatNumber, foldForSearch } from '@/utils/format';
-import { LiveMap } from '@/components/LiveMap';
+import { formatNumber } from '@/utils/format';
+import { LiveMap, useMyLocation, type MapPoint } from '@/components/LiveMap';
 import { ShopLogo } from '@/components/print/ShopLogo';
 import { Surface } from '@/ui/surfaces';
 import { Image } from 'expo-image';
@@ -248,12 +251,15 @@ export function Tag({ text, bg, fg }: { text: string; bg: string; fg: string }) 
   );
 }
 
+const SUGGEST_ICON: Record<Suggestion['kind'], IconName> = { sort: 'list', filter: 'success', shop: 'storefront', area: 'location' };
+
 /**
  * «اختر مطبعتك» — the marketplace, shop first (founder 2026-10-14: «like Uber or inDrive»).
- * One page, no sheet to drag (founder 2026-10-14: «I don't like the 3-level modal… the locator
- * is hidden behind it… the top banner… the search»): the map across the top with only a
- * back button and its «موقعي» button, the list right under it. A pin picks its card (the list
- * scrolls to it); search is an icon that opens a slim field; sorting is one chip.
+ * The map fills the page; the list is a sheet over it with TWO stops (founder 2026-10-14:
+ * «two stops: half + full page»): half (the map above it) and the whole page. Dragged down
+ * from half it is dismissed — the whole map, and a «القائمة» pill to bring it back; on the
+ * full page a «الخريطة» pill does the same. «موقعي» rides just above the sheet, never under
+ * it. Search reads what she means (src/utils/shopSearch.ts) and suggests while she types.
  */
 export default function PrintShops() {
   const { t } = useTranslation();
@@ -268,111 +274,204 @@ export default function PrintShops() {
   const [searching, setSearching] = useState(false);
   const [need, setNeed] = useState<string[]>([]);
   const [picked, setPicked] = useState<number | null>(null);
+  const [stop, setStop] = useState<'half' | 'full' | 'gone'>('half');
+  const [centre, setCentre] = useState<(MapPoint & { nonce: number }) | null>(null);
+  const here = useMyLocation(true);
   const listRef = useRef<RNScrollView>(null);
   const cardY = useRef<Record<number, number>>({});
 
   // The filters a teacher actually asks for, in the order they ask.
   const FILTERS = ['color', 'delivery', 'rush', 'spiral', 'duplex', 'a5', 'bulk', 'laminate'];
+  const caps = options.data?.capabilities ?? {};
+  const labels = options.data?.badges ?? {};
+  const all = shops.data?.shops ?? [];
+  const parsed = useMemo(() => parseQuery(query, caps), [query, caps]);
+  const suggestions = useMemo(() => (searching && query.trim() ? suggest(query, all, caps) : []), [searching, query, all, caps]);
 
   const list = useMemo(() => {
-    const q = foldForSearch(query);
-    const all = (shops.data?.shops ?? []).filter((s) => (!q || foldForSearch(`${s.name} ${s.city ?? ''} ${s.tagline ?? ''}`).includes(q)) && need.every((c) => s.capabilities.includes(c)));
-    const by = <T,>(f: (s: MarketShop) => T | null | undefined, dir = 1) => [...all].sort((a, b) => {
+    const hits = all.filter((s) => shopMatches(s, parsed, caps) && need.every((c) => s.capabilities.includes(c)));
+    const order = sort !== 'recommended' ? sort : parsed.sort ?? 'recommended';
+    const by = <T,>(f: (s: MarketShop) => T | null | undefined, dir = 1) => [...hits].sort((a, b) => {
       const x = f(a); const y = f(b);
       if (x == null && y == null) return 0;
       if (x == null) return 1;
       if (y == null) return -1;
       return (x > y ? 1 : x < y ? -1 : 0) * dir;
     });
-    switch (sort) {
+    switch (order) {
       case 'nearest': return by((s) => s.distance_km);
       case 'fastest': return by((s) => s.speed_hours);
       case 'cheapest': return by((s) => s.price_from.bw ?? s.price_from.color);
       case 'top_rated': return by((s) => s.rating, -1);
-      default: return all;
+      default: return hits;
     }
-  }, [shops.data, sort, query, need]);
+  }, [all, parsed, caps, sort, need]);
 
   const coming = shops.data?.coming ?? [];
-  const labels = options.data?.badges ?? {};
-  const caps = options.data?.capabilities ?? {};
   const egp = t('teacher.egp');
   const toggle = (c: string) => setNeed((n) => (n.includes(c) ? n.filter((x) => x !== c) : [...n, c]));
-  const MAP_H = Math.round(H * 0.42);
+
+  // ── the sheet: two stops, and dismissed ─────────────────────────────────────────────
+  const FULL = 0;
+  const HALF = Math.round(H * 0.44);
+  const GONE = H;
+  const y = useSharedValue(HALF);
+  const from = useSharedValue(HALF);
+  const go = (to: 'half' | 'full' | 'gone') => {
+    setStop(to);
+    y.value = withSpring(to === 'full' ? FULL : to === 'half' ? HALF : GONE, { damping: 26, stiffness: 260, mass: 0.9 });
+  };
+  const pan = Gesture.Pan()
+    .onStart(() => { from.value = y.value; })
+    .onUpdate((e) => { y.value = Math.max(FULL, from.value + e.translationY); })
+    .onEnd((e) => {
+      const at = y.value + e.velocityY * 0.15;
+      const next = at < (FULL + HALF) / 2 ? 'full' : at > HALF + 120 ? 'gone' : 'half';
+      runOnJS(go)(next);
+    });
+  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
+  // «موقعي» sits 60 above the sheet's top, and fades out on the full page.
+  const locateStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: Math.min(y.value, H - insets.bottom - 24) - 60 }],
+    opacity: y.value < HALF - 40 ? Math.max(0, (y.value - FULL) / (HALF - 40 - FULL)) : 1,
+  }));
+
   const pickOnMap = (id: number) => {
     setPicked(id);
-    const y = cardY.current[id];
-    if (y != null) listRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+    if (stop === 'gone') go('half');
+    setTimeout(() => {
+      const top = cardY.current[id];
+      if (top != null) listRef.current?.scrollTo({ y: Math.max(0, top - 8), animated: true });
+    }, 250);
   };
+  const openSearch = () => { setSearching(true); go('full'); };
+  const closeSearch = () => { setQuery(''); setSearching(false); };
+  const take = (sg: Suggestion) => {
+    if (sg.kind === 'sort') { setSort(sg.key as Sort); setQuery(''); setSearching(false); }
+    else if (sg.kind === 'filter') { if (!need.includes(sg.key)) toggle(sg.key); setQuery(''); setSearching(false); }
+    else if (sg.kind === 'area') setQuery(sg.text);
+    else router.push(`/(teacher)/print/shops/${sg.id}` as Href);
+  };
+  const suggestLabel = (sg: Suggestion) => (sg.kind === 'sort' ? t('print.suggest_sort', { s: t(`print.sort_${sg.key}`) })
+    : sg.kind === 'filter' ? t('print.suggest_filter', { c: caps[sg.key] ?? sg.key })
+    : sg.kind === 'area' ? sg.text : sg.name);
   const chip = (on: boolean) => ({ flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, height: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border });
+  const pill = { position: 'absolute' as const, alignSelf: 'center' as const, bottom: insets.bottom + spacing.lg, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, height: 46, paddingHorizontal: 20, borderRadius: 23, backgroundColor: colors.textPrimary, ...shadows.lg };
 
   return (
     <Surface id="screen.teacher.print_shops" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar style={isDark() ? 'light' : 'dark'} />
-      {/* the map, across the top — nothing over it but a back button and «موقعي» */}
-      <View style={{ height: MAP_H + 24 }}>
-        <LiveMap mapsKey={options.data?.maps_key} showMe rounded={false} height="100%" controlsBottom={24 + 12} padBottom={24}
-          selectedShop={picked} onShop={pickOnMap}
-          shops={list.filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, logo: s.logo ?? null, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} />
-        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')}
-          style={{ position: 'absolute', top: insets.top + 8, start: spacing.lg, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.md }}>
-          <Icon name="forward" size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
+      <StatusBar style={stop === 'full' ? (isDark() ? 'light' : 'dark') : isDark() ? 'light' : 'dark'} />
+      {/* the map, the whole page */}
+      <LiveMap mapsKey={options.data?.maps_key} showMe hideLocate rounded={false} height="100%" padBottom={H - HALF} centerTo={centre}
+        style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
+        selectedShop={picked} onShop={pickOnMap}
+        shops={list.filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, logo: s.logo ?? null, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} />
+      <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')}
+        style={{ position: 'absolute', top: insets.top + 8, start: spacing.lg, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.md }}>
+        <Icon name="forward" size={20} color={colors.textPrimary} />
+      </TouchableOpacity>
 
-      {/* the list, right under it */}
-      <View style={{ flex: 1, marginTop: -24, backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, ...shadows.lg }}>
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
-          {searching ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 }}>
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, borderRadius: 20, backgroundColor: colors.surfaceSunken, paddingHorizontal: spacing.md }}>
-                <Icon name="search" size={16} color={colors.textTertiary} />
-                <TextInput value={query} onChangeText={setQuery} autoFocus placeholder={t('print.search_ph')} placeholderTextColor={colors.textTertiary}
-                  style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right' }} returnKeyType="search"
-                  autoCorrect={false} autoComplete="off" textContentType="none" spellCheck={false} />
-              </View>
-              <TouchableOpacity onPress={() => { setQuery(''); setSearching(false); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.close')}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.brand }}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 44 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.textPrimary }}>{t('print.shops_title')}</Text>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>{list.length ? t('print.shops_count', { n: formatNumber(list.length) }) : t('print.shops_sub')}</Text>
-              </View>
-              <TouchableOpacity onPress={() => setSearching(true)} accessibilityRole="button" accessibilityLabel={t('print.search_ph')}
-                style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="search" size={19} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-          )}
-          <Surface id="teacher.print_shops.filters">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: spacing.sm }}>
-            <Surface id="teacher.print_shops.sort">
-            <TouchableOpacity onPress={() => setSorting(true)} activeOpacity={0.85} accessibilityRole="button" style={chip(sort !== 'recommended')}>
-              <Icon name="list" size={14} color={sort !== 'recommended' ? colors.onPrimary : colors.textSecondary} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: sort !== 'recommended' ? colors.onPrimary : colors.textSecondary }}>{t(`print.sort_${sort}`)}</Text>
-              <Icon name="down" size={12} color={sort !== 'recommended' ? colors.onPrimary : colors.textTertiary} />
-            </TouchableOpacity>
-            </Surface>
-            {FILTERS.map((c) => {
-              const on = need.includes(c);
-              return (
-                <TouchableOpacity key={c} onPress={() => toggle(c)} activeOpacity={0.85} accessibilityRole="checkbox" accessibilityState={{ checked: on }} style={chip(on)}>
-                  {on ? <Icon name="success" size={13} color={colors.onPrimary} /> : null}
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onPrimary : colors.textSecondary }}>{caps[c] ?? c}</Text>
+      {/* «موقعي», riding above the sheet */}
+      <Animated.View pointerEvents={stop === 'full' ? 'none' : 'auto'} style={[{ position: 'absolute', top: 0, end: spacing.lg }, locateStyle]}>
+        <TouchableOpacity onPress={() => { if (here.me) setCentre({ ...here.me, nonce: Date.now() }); }} accessibilityRole="button" accessibilityLabel={t('print.my_location')} activeOpacity={0.85}
+          style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: here.me ? 1 : 0.55, ...shadows.md }}>
+          <Icon name="gps" size={21} color={here.me ? colors.brand : colors.textTertiary} />
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* the list sheet */}
+      <Animated.View style={[{ position: 'absolute', start: 0, end: 0, top: 0, height: H, backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, ...shadows.lg }, sheetStyle]}>
+        <GestureDetector gesture={pan}>
+          <View style={{ paddingHorizontal: spacing.lg, paddingTop: stop === 'full' ? insets.top + 4 : 8 }}>
+            <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 8 }} />
+            {searching ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 46 }}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, height: 42, borderRadius: 21, backgroundColor: colors.surfaceSunken, paddingHorizontal: spacing.md }}>
+                  <Icon name="search" size={16} color={colors.textTertiary} />
+                  <TextInput value={query} onChangeText={setQuery} autoFocus placeholder={t('print.search_smart_ph')} placeholderTextColor={colors.textTertiary}
+                    style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right' }} returnKeyType="search"
+                    autoCorrect={false} autoComplete="off" textContentType="none" spellCheck={false} />
+                  {query ? <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} accessibilityRole="button"><Icon name="close" size={15} color={colors.textTertiary} /></TouchableOpacity> : null}
+                </View>
+                <TouchableOpacity onPress={closeSearch} hitSlop={8} accessibilityRole="button">
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.brand }}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          </Surface>
-        </View>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 46 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.textPrimary }}>{t('print.shops_title')}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>{list.length ? t('print.shops_count', { n: formatNumber(list.length) }) : t('print.shops_sub')}</Text>
+                </View>
+                <TouchableOpacity onPress={openSearch} accessibilityRole="button" accessibilityLabel={t('print.search_ph')}
+                  style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="search" size={19} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+            )}
+            <Surface id="teacher.print_shops.filters">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: spacing.sm }}>
+              <Surface id="teacher.print_shops.sort">
+              <TouchableOpacity onPress={() => setSorting(true)} activeOpacity={0.85} accessibilityRole="button" style={chip(sort !== 'recommended')}>
+                <Icon name="list" size={14} color={sort !== 'recommended' ? colors.onPrimary : colors.textSecondary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: sort !== 'recommended' ? colors.onPrimary : colors.textSecondary }}>{t(`print.sort_${sort}`)}</Text>
+                <Icon name="down" size={12} color={sort !== 'recommended' ? colors.onPrimary : colors.textTertiary} />
+              </TouchableOpacity>
+              </Surface>
+              {FILTERS.map((c) => {
+                const on = need.includes(c);
+                return (
+                  <TouchableOpacity key={c} onPress={() => toggle(c)} activeOpacity={0.85} accessibilityRole="checkbox" accessibilityState={{ checked: on }} style={chip(on)}>
+                    {on ? <Icon name="success" size={13} color={colors.onPrimary} /> : null}
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onPrimary : colors.textSecondary }}>{caps[c] ?? c}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            </Surface>
+          </View>
+        </GestureDetector>
 
         <ScrollView ref={listRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: 4, paddingBottom: insets.bottom + nav.pageEnd + spacing.xl }}
+          style={{ height: H - (stop === 'full' ? insets.top : HALF) - 124 }}
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: 4, paddingBottom: insets.bottom + 90 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+          {/* suggestions while typing */}
+          {suggestions.length ? (
+            <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, marginBottom: spacing.md, overflow: 'hidden', ...shadows.sm }}>
+              {suggestions.map((sg, i) => (
+                <TouchableOpacity key={`${sg.kind}-${i}`} onPress={() => take(sg)} activeOpacity={0.85} accessibilityRole="button"
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 11, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.borderLight }}>
+                  {sg.kind === 'shop' ? <ShopLogo logo={sg.logo} size={34} /> : (
+                    <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: sg.kind === 'sort' ? colors.brandTint : sg.kind === 'filter' ? colors.accentLight : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name={SUGGEST_ICON[sg.kind]} size={16} color={sg.kind === 'sort' ? colors.brand : sg.kind === 'filter' ? colors.accentText : colors.textSecondary} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{suggestLabel(sg)}</Text>
+                    {sg.kind === 'shop' && sg.sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }} numberOfLines={1}>{sg.sub}</Text> : null}
+                    {sg.kind === 'area' ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('print.suggest_area')}</Text> : null}
+                  </View>
+                  <Icon name="back" size={14} color={colors.textTertiary} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+          {searching && !query.trim() ? (
+            <View style={{ marginBottom: spacing.md }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('print.suggest_try')}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {[t('print.try_1'), t('print.try_2'), t('print.try_3'), t('print.try_4')].map((x) => (
+                  <TouchableOpacity key={x} onPress={() => setQuery(x)} activeOpacity={0.85} accessibilityRole="button"
+                    style={{ height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: colors.surfaceSunken, justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{x}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
           {shops.isLoading ? <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} /> : null}
           {!shops.isLoading && list.length === 0 && (coming.length === 0 || !!query || need.length > 0) ? (
             <EmptyState icon="storefront" title={t('print.no_shops')} message={query || need.length ? t('print.no_match') : t('print.shops_empty')} />
@@ -407,7 +506,21 @@ export default function PrintShops() {
             </Surface>
           ) : null}
         </ScrollView>
-      </View>
+      </Animated.View>
+
+      {/* full page → see the map; dismissed → bring the list back */}
+      {stop === 'full' && !searching ? (
+        <TouchableOpacity onPress={() => go('gone')} activeOpacity={0.9} accessibilityRole="button" style={pill}>
+          <Icon name="location" size={17} color={colors.background} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.background }}>{t('print.show_map')}</Text>
+        </TouchableOpacity>
+      ) : null}
+      {stop === 'gone' ? (
+        <TouchableOpacity onPress={() => go('half')} activeOpacity={0.9} accessibilityRole="button" style={pill}>
+          <Icon name="list" size={17} color={colors.background} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.background }}>{t('print.show_list', { n: formatNumber(list.length) })}</Text>
+        </TouchableOpacity>
+      ) : null}
 
       {/* sorting — one chip, one small sheet */}
       <SheetModal visible={sorting} onClose={() => setSorting(false)}>
