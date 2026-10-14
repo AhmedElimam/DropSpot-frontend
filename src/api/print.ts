@@ -112,6 +112,8 @@ export interface MarketShop extends Omit<BoardShop, 'quote'> {
   /** The branch the distance and the pin are from (nearest to the teacher). */
   branch?: { id: number; name: string; address: string | null } | null;
   branches_count?: number;
+  /** Every branch's pin [lat, lng] — distance from a searched place is to the nearest. */
+  points?: [number, number][];
 }
 
 /** A photo of the shop's own work (signed link, stable for a week). */

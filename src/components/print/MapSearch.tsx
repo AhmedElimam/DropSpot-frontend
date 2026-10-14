@@ -9,7 +9,7 @@ import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { ShopLogo } from '@/components/print/ShopLogo';
 import { formatNumber } from '@/utils/format';
-import { distanceKm, matchPlaces, suggest, wantsPlace, type SearchableShop, type Suggestion } from '@/utils/shopSearch';
+import { distanceKm, matchPlaces, parseQuery, suggest, type SearchableShop, type Suggestion } from '@/utils/shopSearch';
 import { searchPlaces, type Destination, type FoundPlace } from '@/api/print';
 
 /** What a row in the search page does when tapped. */
@@ -19,15 +19,20 @@ export type MapPick =
   | { kind: 'near_me' }
   | { kind: 'text'; text: string };
 
+/** Words a place could be named by — what is left once a sort or a need is read out. */
+const placeWords = (q: string, caps: Record<string, string>) => parseQuery(q, caps).rest.join('').length >= 3;
+
 const ICON: Record<string, IconName> = { sort: 'list', filter: 'success', area: 'location', place: 'pin', venue: 'book', near_me: 'gps' };
 
 /**
  * The map's search, Google-Maps style (founder 2026-10-14: «there's no search on map — we want
  * maps search to be smart»): the bar over the map opens this page. While she types it offers,
  * at once and from the phone, what her words mean (a sort, a need), the shops and areas that
- * match, and her own places (centres, schools); for a street, a school or a square it asks
- * the server — after a pause when nothing local explains the words, or at once on «بحث» /
- * «ابحث عن … على الخريطة». Places come nearest-first, with how far they are.
+ * match, and her own places (centres, schools); and places on the map — streets, schools,
+ * squares — from the server after every short pause (founder 2026-10-14: «the map search
+ * doesn't work»: it used to ask only when no shop matched, and Arabic's loose matching
+ * nearly always found one). The last answer stays while she keeps typing. Places come
+ * nearest-first, with how far they are.
  */
 export function MapSearch({ query, onQuery, onClose, onPick, shops, caps, venues, me }: {
   query: string; onQuery: (q: string) => void; onClose: () => void; onPick: (p: MapPick) => void;
@@ -40,20 +45,22 @@ export function MapSearch({ query, onQuery, onClose, onPick, shops, caps, venues
 
   const local = useMemo(() => (q ? suggest(q, shops, caps) : []), [q, shops, caps]);
   const mine = useMemo(() => (q ? matchPlaces(q, venues).slice(0, 3) : []), [q, venues]);
-  // Ask the map by itself only when nothing here explains the words, after she stops typing.
-  const lookup = useMemo(() => wantsPlace(q, shops, caps) && !mine.length, [q, shops, caps, mine.length]);
+  // Ask the map after every short pause (3+ letters, words left over once a sort/need is read).
+  const lookup = useMemo(() => q.length >= 3 && placeWords(q, caps), [q, caps]);
   useEffect(() => {
     if (!lookup) return;
-    const timer = setTimeout(() => setAsked(q), 900);
+    const timer = setTimeout(() => setAsked(q), 650);
     return () => clearTimeout(timer);
   }, [q, lookup]);
   const near = me ? { lat: Math.round(me.lat * 10) / 10, lng: Math.round(me.lng * 10) / 10 } : null;
   const places = useQuery({
     queryKey: ['print-places', asked, near?.lat, near?.lng],
     queryFn: () => searchPlaces(asked, near),
-    enabled: asked.length >= 2 && asked === q,
+    enabled: asked.length >= 2,
     staleTime: 10 * 60_000,
+    placeholderData: (prev) => prev,   // keep the last places while the next ones come
   });
+  const showPlaces = asked.length >= 2 && q.length >= 2;
   const found = useMemo(() => {
     const list = places.data ?? [];
     return me ? [...list].sort((a, b) => distanceKm(me, a) - distanceKm(me, b)) : list;
@@ -61,7 +68,10 @@ export function MapSearch({ query, onQuery, onClose, onPick, shops, caps, venues
   const askNow = () => { if (q.length >= 2) setAsked(q); };
   const submit = () => {
     // Shops answer it → show them on the map; otherwise look for a place by that name.
-    if (local.some((s) => s.kind === 'shop' || s.kind === 'area' || s.kind === 'sort' || s.kind === 'filter')) { Keyboard.dismiss(); onPick({ kind: 'text', text: q }); }
+    // A place answer that names it closely wins; else shops answer it; else ask the map now.
+    const top = found[0];
+    if (top && !local.some((s) => s.kind === 'shop' || s.kind === 'area')) { Keyboard.dismiss(); onPick({ kind: 'place', place: top }); }
+    else if (local.some((s) => s.kind === 'shop' || s.kind === 'area' || s.kind === 'sort' || s.kind === 'filter')) { Keyboard.dismiss(); onPick({ kind: 'text', text: q }); }
     else askNow();
   };
 
@@ -154,15 +164,15 @@ export function MapSearch({ query, onQuery, onClose, onPick, shops, caps, venues
             ))}
 
             {/* places on the map */}
-            {asked === q && (places.isFetching || found.length || places.isFetched) ? <Head text={t('print.map_places')} /> : null}
-            {asked === q && places.isFetching ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.md }} /> : null}
-            {asked === q && !places.isFetching ? found.map((p, i) => (
+            {showPlaces && (places.isFetching || found.length || places.isFetched) ? <Head text={t('print.map_places')} /> : null}
+            {showPlaces && places.isFetching && !found.length ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.md }} /> : null}
+            {showPlaces ? found.map((p, i) => (
               <Row key={`p${i}`} icon={ICON.place} tint={{ bg: colors.dangerLight, fg: colors.danger }} title={p.name} sub={p.sub} end={km(p)} onPress={() => onPick({ kind: 'place', place: p })} />
             )) : null}
-            {asked === q && places.isFetched && !places.isFetching && !found.length ? (
+            {showPlaces && asked === q && places.isFetched && !places.isFetching && !found.length ? (
               <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginVertical: spacing.sm }}>{places.isError ? t('print.map_places_failed') : t('print.map_no_place')}</Text>
             ) : null}
-            {asked !== q && q.length >= 2 ? (
+            {!lookup && asked !== q && q.length >= 2 ? (
               <TouchableOpacity onPress={askNow} activeOpacity={0.85} accessibilityRole="button"
                 style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}>
                 <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>

@@ -5,6 +5,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { distanceKm, parseQuery, shopMatches } from '@/utils/shopSearch';
 import { MapSearch, type MapPick } from '@/components/print/MapSearch';
+import { MapLocateControls } from '@/components/MapLocateControls';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -284,6 +285,7 @@ export default function PrintShops() {
   const [need, setNeed] = useState<string[]>([]);
   const [picked, setPicked] = useState<number | null>(null);
   const [place, setPlace] = useState<FoundPlace | null>(null);
+  const [following, setFollowing] = useState(false);
   const [stop, setStop] = useState<'half' | 'full' | 'gone'>('half');
   const [centre, setCentre] = useState<(MapPoint & { nonce: number; zoom?: number }) | null>(null);
   const here = useMyLocation(true);
@@ -299,7 +301,14 @@ export default function PrintShops() {
 
   const list = useMemo(() => {
     // Searching for a place makes it the centre: how far each shop is from THERE.
-    const from = place ? all.map((s) => (s.lat != null && s.lng != null ? { ...s, distance_km: Math.round(distanceKm(place, { lat: s.lat, lng: s.lng }) * 10) / 10 } : s)) : all;
+    // …from its nearest branch to there.
+    const from = place ? all.map((s) => {
+      const pts = s.points?.length ? s.points.map(([lat, lng]) => ({ lat, lng })) : s.lat != null && s.lng != null ? [{ lat: s.lat, lng: s.lng }] : [];
+      if (!pts.length) return s;
+      const near = pts.reduce((a, b) => (distanceKm(place, b) < distanceKm(place, a) ? b : a));
+      // the pin on the map moves to that branch too
+      return { ...s, lat: near.lat, lng: near.lng, distance_km: Math.round(distanceKm(place, near) * 10) / 10 };
+    }) : all;
     const hits = from.filter((s) => shopMatches(s, parsed, caps) && need.every((c) => s.capabilities.includes(c)));
     const order = sort !== 'recommended' ? sort : parsed.sort ?? (place ? 'nearest' : 'recommended');
     const by = <T,>(f: (s: MarketShop) => T | null | undefined, dir = 1) => [...hits].sort((a, b) => {
@@ -343,7 +352,7 @@ export default function PrintShops() {
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   // «موقعي» sits 60 above the sheet's top, and fades out on the full page.
   const locateStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: Math.min(y.value, H - insets.bottom - 24) - 60 }],
+    transform: [{ translateY: Math.min(y.value, H - insets.bottom - 24) - 116 }],
     opacity: y.value < HALF - 40 ? Math.max(0, (y.value - FULL) / (HALF - 40 - FULL)) : 1,
   }));
 
@@ -360,6 +369,7 @@ export default function PrintShops() {
   const openSearch = () => { setDraft(query); setSearching(true); };
   const take = (p: MapPick) => {
     setSearching(false);
+    setFollowing(false); // going somewhere else stops following the phone
     if (p.kind === 'sort') { setSort(p.key as Sort); setQuery(''); }
     else if (p.kind === 'filter') { if (!need.includes(p.key)) toggle(p.key); setQuery(''); }
     else if (p.kind === 'area' || p.kind === 'text') { setQuery(p.kind === 'area' ? p.text : p.text); setPicked(null); if (stop === 'gone') go('half'); }
@@ -394,18 +404,16 @@ export default function PrintShops() {
       <StatusBar style={stop === 'full' ? (isDark() ? 'light' : 'dark') : isDark() ? 'light' : 'dark'} />
       {/* the map, the whole page */}
       <LiveMap mapsKey={options.data?.maps_key} showMe hideLocate rounded={false} height="100%" padBottom={H - HALF} centerTo={centre}
-        refitKey={`${query}|${need.join(',')}`}
+        refitKey={`${query}|${need.join(',')}`} followMe={following} onDragMap={() => setFollowing(false)}
         dest={place ? { lat: place.lat, lng: place.lng, label: place.name } : null}
         style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
         selectedShop={picked} onShop={pickOnMap}
         shops={list.filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, logo: s.logo ?? null, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} />
 
-      {/* «موقعي», riding above the sheet */}
+      {/* live tracking over «موقعي», riding above the sheet */}
       <Animated.View pointerEvents={stop === 'full' ? 'none' : 'auto'} style={[{ position: 'absolute', top: 0, end: spacing.lg }, locateStyle]}>
-        <TouchableOpacity onPress={() => { if (here.me) setCentre({ ...here.me, nonce: Date.now() }); }} accessibilityRole="button" accessibilityLabel={t('print.my_location')} activeOpacity={0.85}
-          style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: here.me ? 1 : 0.55, ...shadows.md }}>
-          <Icon name="gps" size={21} color={here.me ? colors.brand : colors.textTertiary} />
-        </TouchableOpacity>
+        <MapLocateControls hasFix={!!here.me} following={following} onFollow={() => setFollowing((f) => !f)}
+          onLocate={() => { if (here.me) setCentre({ ...here.me, nonce: Date.now() }); }} />
       </Animated.View>
 
       {/* the list sheet */}

@@ -11,6 +11,7 @@ import { useThemeStore } from '@/stores/themeStore';
 /** The page colour under the map while it loads, per theme (drosmap.js paints the same). */
 export const MAP_BG = { dark: '#0E1433', light: '#EEF0F4' } as const;
 import { Icon } from '@/components/ui/Icon';
+import { MapLocateControls } from '@/components/MapLocateControls';
 
 export type MapPoint = { lat: number; lng: number; label?: string; logo?: string | null; /** a fixed pin, not a live dot (no pulse) */ static?: boolean };
 /** `heading` in degrees from north, when the phone knows it (moving). */
@@ -91,7 +92,7 @@ export function headingOf(pos: Location.LocationObject): number | null {
  * Talabat's «حدد موقعك»: a fixed pin in the middle, the map moves under it, and `onCenter` /
  * `onAddress` report where it rests.
  */
-export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, trail, shops, onShop, selectedShop, follow, showMe, hideMeDot, hideLocate, picker, start, onCenter, onAddress, onMoving, centerTo, refitKey, height = 220, style, rounded = true, controlsBottom = 12, padBottom = 0 }: {
+export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, trail, shops, onShop, selectedShop, follow, showMe, hideMeDot, hideLocate, picker, start, onCenter, onAddress, onMoving, centerTo, refitKey, followMe, onDragMap, height = 220, style, rounded = true, controlsBottom = 12, padBottom = 0 }: {
   mapsKey?: string | null;
   shop?: MapPoint | null; dest?: MapPoint | null; driver?: MapDriver | null; drivers?: MapDriver[];
   me?: MyPoint | null; teacher?: MapPoint | null; trail?: [number, number][];
@@ -111,6 +112,9 @@ export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, tra
   onMoving?: () => void;
   /** Move the map here now (change `nonce` to move again to the same point). */
   centerTo?: (MapPoint & { nonce: number; zoom?: number }) | null;
+  /** Keep the phone in view as it moves (a screen drawing its own controls); a drag calls `onDragMap`. */
+  followMe?: boolean;
+  onDragMap?: () => void;
   /** Frame every marker again whenever this changes (a search narrowed the shops). */
   refitKey?: string | number;
   height?: number | `${number}%`; style?: StyleProp<ViewStyle>;
@@ -140,6 +144,7 @@ window.__map = window.DrosMap ? DrosMap.create(document.getElementById('m'), { k
 window.__set = function (s) { if (window.__map) window.__map.set(s); };
 window.__select = function (id) { if (window.__map) window.__map.select(id); };
 window.__center = function (lat, lng, z) { if (window.__map) window.__map.center(lat, lng, z); };
+window.__pan = function (lat, lng) { if (window.__map && window.__map.pan) window.__map.pan(lat, lng); };
 </script></body></html>`, [origin, mapsKey, picker, padBottom, theme, bg]);
 
   const allDrivers = [...(drivers ?? []), ...(driver ? [driver] : [])];
@@ -160,6 +165,16 @@ window.__center = function (lat, lng, z) { if (window.__map) window.__map.center
   }, [picker, live.me]);
 
   useEffect(() => { if (centerTo) { centreOn(centerTo, centerTo.zoom ?? 17); centred.current = true; } }, [centerTo?.nonce]);
+  // Live tracking (founder 2026-10-14): the map follows the phone until a drag.
+  const [selfFollow, setSelfFollow] = useState(false);
+  const following = followMe ?? selfFollow;
+  const followed = useRef(false);
+  useEffect(() => {
+    if (!following || !mine) { followed.current = false; return; }
+    if (!followed.current) { centreOn(mine, 17); followed.current = true; }
+    else inject(`window.__pan && window.__pan(${mine.lat}, ${mine.lng})`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [following, mine?.lat, mine?.lng]);
   const refitted = useRef(refitKey);
   useEffect(() => {
     if (refitted.current === refitKey) return;
@@ -174,6 +189,7 @@ window.__center = function (lat, lng, z) { if (window.__map) window.__map.center
       if (msg?.type === 'center' && onCenter) onCenter({ lat: msg.lat, lng: msg.lng });
       if (msg?.type === 'address' && onAddress) onAddress({ lat: msg.lat, lng: msg.lng, text: msg.text ?? null });
       if (msg?.type === 'moving' && onMoving) onMoving();
+      if (msg?.type === 'drag') { setSelfFollow(false); onDragMap?.(); }
     } catch { /* not ours */ }
   };
 
@@ -186,10 +202,16 @@ window.__center = function (lat, lng, z) { if (window.__map) window.__map.center
         }} onMessage={onMessage} setSupportMultipleWindows={false}
         style={{ backgroundColor: bg }} />
       {(showMe || picker) && !hideLocate ? (
-        <TouchableOpacity onPress={() => { if (mine) centreOn(mine, picker ? 17 : 16); }} accessibilityRole="button" accessibilityLabel="موقعي" activeOpacity={0.85}
-          style={{ position: 'absolute', end: 12, bottom: controlsBottom, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: mine ? 1 : 0.5, ...shadows.md }}>
-          <Icon name="gps" size={20} color={mine ? colors.brand : colors.textTertiary} />
-        </TouchableOpacity>
+        <View style={{ position: 'absolute', end: 12, bottom: controlsBottom }}>
+          {picker ? (
+            <TouchableOpacity onPress={() => { if (mine) centreOn(mine, 17); }} accessibilityRole="button" accessibilityLabel="موقعي" activeOpacity={0.85}
+              style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: mine ? 1 : 0.5, ...shadows.md }}>
+              <Icon name="locate" size={23} color={mine ? colors.brand : colors.textTertiary} />
+            </TouchableOpacity>
+          ) : (
+            <MapLocateControls hasFix={!!mine} following={selfFollow} onFollow={() => setSelfFollow((f) => !f)} onLocate={() => { if (mine) centreOn(mine, 16); }} />
+          )}
+        </View>
       ) : null}
     </View>
   );
