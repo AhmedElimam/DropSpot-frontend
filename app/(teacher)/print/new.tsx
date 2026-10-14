@@ -169,16 +169,34 @@ export default function PrintNew() {
           <Surface id="teacher.print_new.file">
           <FormCard icon="document" title={t('print.file')} required tint={upload ? colors.success : colors.brand}>
             {upload ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <Icon name="success" size={20} color={colors.success} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{upload.name}</Text>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t('print.pages_n', { n: formatNumber(upload.pages) })} · {formatNumber(upload.size / 1048576, { maximumFractionDigits: 1 })} {t('print.mb')}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.successLight, borderRadius: radius.lg, padding: spacing.md }}>
+                <View style={{ width: 46, height: 56, borderRadius: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="document" size={22} color={colors.danger} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 9, color: colors.danger, marginTop: 1 }}>PDF</Text>
                 </View>
-                <TouchableOpacity onPress={pickPdf} disabled={uploading} accessibilityRole="button"><Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('print.change_file')}</Text></TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={2}>{upload.name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.successText }}>{t('print.pages_n', { n: formatNumber(upload.pages) })}</Text>
+                    <View style={{ width: 1, height: 12, backgroundColor: colors.border }} />
+                    <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{formatNumber(upload.size / 1048576, { maximumFractionDigits: 1 })} {t('print.mb')}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={pickPdf} disabled={uploading} accessibilityRole="button" style={{ paddingHorizontal: 12, height: 34, borderRadius: 17, backgroundColor: colors.surface, justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('print.change_file')}</Text>
+                </TouchableOpacity>
               </View>
             ) : (
-              <Button title={uploading ? t('print.uploading') : t('print.pick_pdf')} onPress={pickPdf} loading={uploading} variant="outline" />
+              <TouchableOpacity onPress={pickPdf} disabled={uploading} activeOpacity={0.85} accessibilityRole="button"
+                style={{ alignItems: 'center', gap: 6, paddingVertical: spacing.xl, borderRadius: radius.lg, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.brand, backgroundColor: colors.brandTint }}>
+                {uploading ? <ActivityIndicator size="large" color={colors.brand} /> : (
+                  <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="download" size={26} color={colors.onPrimary} />
+                  </View>
+                )}
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{uploading ? t('print.uploading') : t('print.pick_pdf')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }}>{t('print.pick_pdf_hint')}</Text>
+              </TouchableOpacity>
             )}
             <View style={{ marginTop: spacing.md }}>
               <Field label={t('print.title_label')}><Input value={title} onChangeText={setTitle} placeholder={t('print.title_ph')} maxLength={120} /></Field>
@@ -205,7 +223,7 @@ export default function PrintNew() {
             <Surface id="teacher.print_new.spec">
             <FormCard icon="settings" title={t('print.spec')} hint={t('print.spec_hint')} tint={colors.brand}>
               {choices.sizes.length > 1 ? (
-                <Field label={t('print.size')} first><Chips options={choices.sizes.map((c) => ({ key: c.key, label: c.key === 'A4' ? 'A4' : `${c.key} · ×${money(Number(s.size_factors?.[c.key] ?? 1))}` }))} value={spec.size ?? 'A4'} onChange={(k) => setSpec({ ...spec, size: String(k) })} /></Field>
+                <Field label={t('print.size')} first><Chips options={choices.sizes.map((c) => ({ key: c.key, label: c.key === 'A4' ? 'A4' : `${c.key} (×${money(Number(s.size_factors?.[c.key] ?? 1))})` }))} value={spec.size ?? 'A4'} onChange={(k) => setSpec({ ...spec, size: String(k) })} /></Field>
               ) : null}
               <Field label={t('print.paper')} first={choices.sizes.length <= 1}><Chips options={priced(choices.papers, (k) => rateOf(k, spec.ink, spec.sides))} value={spec.paper} onChange={(k) => setSpec({ ...spec, paper: String(k) })} /></Field>
               <Field label={t('print.ink')}><Chips options={priced(choices.inks, (k) => rateOf(spec.paper, k, spec.sides))} value={spec.ink} onChange={(k) => setSpec({ ...spec, ink: String(k) })} /></Field>
@@ -313,7 +331,7 @@ export default function PrintNew() {
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
                         <Icon name="clock" size={11} color={colors.textTertiary} />
                         <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textTertiary }}>{t('print.within_hours', { h: formatNumber(x.turnaround_hours) })}</Text>
-                        {x.rating != null ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textTertiary }}>· ★ {formatNumber(x.rating, { maximumFractionDigits: 1 })}</Text> : null}
+                        {x.rating != null ? <><View style={{ width: 1, height: 10, backgroundColor: colors.border, marginHorizontal: 2 }} /><Icon name="star" size={11} color={colors.warning} /><Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textTertiary }}>{formatNumber(x.rating, { maximumFractionDigits: 1 })}</Text></> : null}
                       </View>
                     </TouchableOpacity>
                   );
@@ -329,9 +347,13 @@ export default function PrintNew() {
       {s && ready ? (
         <Surface id="teacher.print_new.send">
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: spacing.lg, paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.border }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{t('print.total')}</Text>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{money(quote?.total ?? 0)} {egp}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+            <ShopLogo logo={s.logo} size={36} premium={s.quality_tier === 'premium'} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{t('print.total')}</Text>
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textTertiary }} numberOfLines={1}>{t('print.copies_x_pages', { copies: formatNumber(copiesN), pages: formatNumber(pages) })}</Text>
+            </View>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{money(quote?.total ?? 0)} <Text style={{ fontSize: 13, color: colors.textSecondary }}>{egp}</Text></Text>
           </View>
           <Button title={t('print.send_to', { shop: s.name })} onPress={send} loading={sending} />
         </View>

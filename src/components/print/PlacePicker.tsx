@@ -44,22 +44,19 @@ export function PlacePicker({ visible, onClose, onPick, mapsKey, venues, initial
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: isDark() ? MAP_BG.dark : MAP_BG.light }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <LiveMap picker mapsKey={mapsKey} rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
           start={initial ? { lat: initial.lat, lng: initial.lng } : venues[0] ? { lat: venues[0].lat, lng: venues[0].lng } : null}
-          centerTo={jump} controlsBottom={330}
+          centerTo={jump} controlsBottom={370}
           onMoving={() => { setLooking(true); setName(null); }}
           onCenter={(p) => setAt(p)}
           onAddress={(p) => { setLooking(false); setAddress(p.text); }} />
 
-        <View style={{ position: 'absolute', top: insets.top + 8, start: spacing.lg, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel={t('common.back')}
-            style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.md }}>
-            <Icon name="close" size={20} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <View style={{ flex: 1, height: 42, borderRadius: 21, backgroundColor: 'rgba(10,14,39,0.82)', paddingHorizontal: spacing.md, justifyContent: 'center' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('print.pick_title')}</Text>
-          </View>
-        </View>
+        {/* only a close button over the map (founder 2026-10-14: no banner on maps) */}
+        <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel={t('common.back')}
+          style={{ position: 'absolute', top: insets.top + 8, start: spacing.lg, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.md }}>
+          <Icon name="close" size={20} color={colors.textPrimary} />
+        </TouchableOpacity>
 
         <View style={{ position: 'absolute', start: 0, end: 0, bottom: 0, backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.lg, paddingBottom: insets.bottom + spacing.md, ...shadows.lg }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('print.pick_title')}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
             <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="location" size={20} color={colors.accentText} />

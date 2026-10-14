@@ -1,94 +1,116 @@
-import { useState, useEffect } from 'react';
+import { useState, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, Linking } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { FormScreen, FormCard, Field, Input, Chips, Banner } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
-import { formatNumber, formatShortDate } from '@/utils/format';
+import { formatNumber, formatShortDate, formatDateTime } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
-import { LiveMap } from '@/components/LiveMap';
+import { LiveMap, MAP_BG } from '@/components/LiveMap';
+import { ShopLogo } from '@/components/print/ShopLogo';
+import { OrderHero } from '@/components/print/OrderHero';
+import { OrderDriverCard } from '@/components/print/OrderDriverCard';
+import { OrderShareLivePill, useOrderLiveShare } from '@/components/print/OrderShareLive';
+import { useArrived } from '@/hooks/useArrived';
+import { useThemeStore } from '@/stores/themeStore';
 import {
-  getPrintJob, getPrintOptions, cancelPrintJob, receivePrintJob, reorderPrintJob, claimPrintPayment, PRINT_FLOW, type PrintJob, trackPrintJob, locatePrintJob } from '@/api/print';
+  getPrintJob, getPrintOptions, cancelPrintJob, receivePrintJob, reorderPrintJob, claimPrintPayment, type PrintJob, type PrintOptions, trackPrintJob } from '@/api/print';
+
+const MAP_H = 300;
+/** How much of the map's lower edge the driver card covers. */
+const OVERLAP = 44;
 
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 5 }}>
-      <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.textSecondary }}>{label}</Text>
-      <Text style={{ fontFamily: strong ? fonts.bold : fonts.medium, fontSize: strong ? 17 : 13.5, color: colors.textPrimary }}>{value}</Text>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md, paddingVertical: 6 }}>
+      <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.textSecondary }}>{label}</Text>
+      <Text style={{ fontFamily: strong ? fonts.bold : fonts.medium, fontSize: strong ? 18 : 13.5, color: colors.textPrimary }}>{value}</Text>
     </View>
   );
 }
 
-/** The job's walk: a dot per step, filled up to where it stands. */
-function Walk({ j }: { j: PrintJob }) {
-  const { t } = useTranslation();
-  const idx = PRINT_FLOW.indexOf(j.status);
-  const stopped = j.status === 'declined' || j.status === 'cancelled';
+/** A clean white section: a tinted icon tile, a title, an optional thing at the end. */
+function Section({ icon, title, tint, end, children }: { icon: IconName; title: string; tint: { bg: string; fg: string }; end?: ReactNode; children: ReactNode }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm }}>
-      {PRINT_FLOW.map((s, i) => {
-        const done = !stopped && i < idx;
-        const now = !stopped && i === idx;
-        return (
-          <View key={s} style={{ flex: 1, alignItems: 'center' }}>
-            <View style={{ width: '100%', flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ flex: 1, height: 2, backgroundColor: i === 0 ? 'transparent' : done || now ? colors.success : colors.border }} />
-              <View style={{ width: now ? 16 : 12, height: now ? 16 : 12, borderRadius: 8, backgroundColor: done ? colors.success : now ? colors.brand : colors.border }} />
-              <View style={{ flex: 1, height: 2, backgroundColor: i === PRINT_FLOW.length - 1 ? 'transparent' : done ? colors.success : colors.border }} />
-            </View>
-            <Text style={{ fontFamily: now ? fonts.bold : fonts.medium, fontSize: 10, color: now ? colors.brand : done ? colors.successText : colors.textTertiary, marginTop: 4 }} numberOfLines={1}>{t(`print.step_${s}`)}</Text>
-          </View>
-        );
-      })}
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
+        <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: tint.bg, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name={icon} size={18} color={tint.fg} />
+        </View>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{title}</Text>
+        {end}
+      </View>
+      {children}
     </View>
   );
+}
+
+function Tag({ text, icon, tone = 'plain' }: { text: string; icon?: IconName; tone?: 'plain' | 'accent' }) {
+  const bg = tone === 'accent' ? colors.accentLight : colors.surfaceSunken;
+  const fg = tone === 'accent' ? colors.accentText : colors.textSecondary;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, height: 28, borderRadius: radius.full, backgroundColor: bg, borderWidth: tone === 'plain' ? 1 : 0, borderColor: colors.borderLight }}>
+      {icon ? <Icon name={icon} size={13} color={fg} /> : null}
+      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: fg }} numberOfLines={1}>{text}</Text>
+    </View>
+  );
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.brandTint }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.brand }}>{value}</Text>
+      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textSecondary }} numberOfLines={1}>{label}</Text>
+    </View>
+  );
+}
+
+/** The spec as words: from the options' labels when they are here, else the job's own line. */
+function specTags(j: PrintJob, o: PrintOptions | undefined, t: (k: string) => string): { text: string; icon?: IconName; tone?: 'accent' }[] {
+  const label = (list: { key: string; label: string }[] | undefined, key: string | number | undefined) =>
+    key == null ? null : list?.find((c) => String(c.key) === String(key))?.label ?? null;
+  const out: { text: string; icon?: IconName; tone?: 'accent' }[] = [];
+  if (o) {
+    const size = j.spec.size && j.spec.size !== 'A4' ? label(o.sizes, j.spec.size) ?? j.spec.size : null;
+    for (const v of [size, label(o.papers, j.spec.paper), label(o.inks, j.spec.ink), label(o.sides, j.spec.sides)]) if (v) out.push({ text: v });
+    if (j.spec.finish && j.spec.finish !== 'none') { const f = label(o.finishes, j.spec.finish); if (f) out.push({ text: f, icon: 'book' }); }
+  } else if (j.spec_label) {
+    out.push({ text: j.spec_label });
+  }
+  if (j.spec.rush) out.push({ text: t('print.line_rush_plain'), icon: 'flash', tone: 'accent' });
+  for (const x of j.extras ?? []) out.push({ text: x.name, icon: 'add' });
+  return out;
 }
 
 /**
- * One print job: where it stands, the shop, the money, and the two things only the
- * teacher can do — tell the platform it was paid, and confirm the prints are in hand.
+ * One print job, as a delivery app shows an order (founder 2026-10-14: «some love on print
+ * order page»): the status hero with the walk, the live map with the driver card on its edge
+ * and the teacher's own «share my location» switch, then the shop, the job, the money, and
+ * the two things only the teacher can do — tell the platform it was paid, and confirm the
+ * prints are in hand.
  */
 export default function PrintJobScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const qc = useQueryClient();
+  const arrived = useArrived();
+  const mapBg = MAP_BG[useThemeStore((st) => st.scheme) === 'dark' ? 'dark' : 'light'];
   const job = useQuery({ queryKey: ['print-job', id], queryFn: () => getPrintJob(id), enabled: !!id, refetchInterval: 30000 });
   const options = useQuery({ queryKey: ['print-options'], queryFn: getPrintOptions });
   // Live once there is something to watch: a trip in hand, or a ready job waiting for its code.
   const watch = !!job.data && (job.data.status === 'ready' || job.data.status === 'delivered' || job.data.status === 'printing');
   const track = useQuery({ queryKey: ['print-track', id], queryFn: () => trackPrintJob(id!), enabled: !!id && watch, refetchInterval: (q) => (q.state.data?.delivery?.is_active ? 8000 : 30000) });
-  // While a driver is on the way, the teacher's phone shares where the teacher is (founder
-  // 2026-10-14: «live geolocation on both teacher and driver»). Foreground only; stops with the trip.
+  // While a driver is on the way the teacher MAY show the driver where she/he is — an explicit
+  // switch on the map now (founder 2026-10-14: «another locator for live location exposing to
+  // the driver»), off by default, on until the trip ends once turned on.
   const tripLive = !!track.data?.delivery?.is_active;
-  const [me, setMe] = useState<{ lat: number; lng: number } | null>(null);
-  const [sharing, setSharing] = useState<'on' | 'denied' | 'off'>('off');
-  useEffect(() => {
-    if (!tripLive || !id) { setSharing('off'); return; }
-    let sub: Location.LocationSubscription | null = null;
-    let last = 0;
-    let gone = false;
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (gone) return;
-      if (status !== 'granted') { setSharing('denied'); return; }
-      setSharing('on');
-      sub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, timeInterval: 10000, distanceInterval: 20 }, (pos) => {
-        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setMe(p);
-        if (Date.now() - last < 15000) return;
-        last = Date.now();
-        locatePrintJob(id, p.lat, p.lng).catch(() => {});
-      });
-    })();
-    return () => { gone = true; sub?.remove(); };
-  }, [tripLive, id]);
+  const share = useOrderLiveShare(id, tripLive);
   const [busy, setBusy] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [review, setReview] = useState('');
@@ -125,7 +147,28 @@ export default function PrintJobScreen() {
   const claim = () => j && run(() => claimPrintPayment(j.id, { method, reference: reference.trim() || undefined, proofUri }), t('print.claimed_ok'));
 
   const payTo = options.data?.pay_to;
-  const tone = j ? ({ warning: colors.warningText, info: colors.brand, success: colors.successText, danger: colors.dangerText, gray: colors.textSecondary } as const)[j.status_tone] : colors.textSecondary;
+  const tr = track.data;
+  const d = tr?.delivery ?? null;
+  const showTrack = !!tr && !!(tr.handover_code || tr.delivery);
+  const showMap = !!tr && !!(tr.delivery?.is_active || tr.mode === 'pickup') && !!(tr.dest || tr.shop.lat != null);
+  const showCode = !!j && j.status !== 'delivered' && j.status !== 'received';
+  const money = (v: number) => `${formatNumber(v, { maximumFractionDigits: 2 })} ${egp}`;
+
+  // The hero's words: what is happening now, and one line on when.
+  const heroTitle = j ? (d?.is_active ? d.label : j.status_label) : '';
+  const heroLine = !j ? null
+    : d?.is_active ? (d.eta_min ? t('print.track_eta', { m: formatNumber(d.eta_min) }) : d.status === 'arrived' ? t('print.track_arrived') : d.remaining_km != null ? t('print.km_away', { km: formatNumber(d.remaining_km, { maximumFractionDigits: 1 }) }) : null)
+    : j.status === 'sent' ? t('print.sent_hint')
+    : j.status === 'received' && j.received_at ? t('print.order_received_at', { at: formatDateTime(j.received_at) })
+    : j.status === 'cancelled' && j.cancelled_at ? t('print.order_cancelled_at', { at: formatDateTime(j.cancelled_at) })
+    : j.due_at && j.is_open ? t('print.due', { at: formatShortDate(j.due_at) })
+    : null;
+
+  const payTone = j?.payment_status === 'paid' ? { bg: colors.successLight, fg: colors.successText }
+    : j?.payment_status === 'claimed' ? { bg: colors.brandTint, fg: colors.brand }
+    : { bg: colors.warningLight, fg: colors.warningText };
+
+  const pill = <OrderShareLivePill state={share.state} onPress={share.toggle} />;
 
   return (
     <Surface id="screen.teacher.print_job" screen>
@@ -133,80 +176,123 @@ export default function PrintJobScreen() {
       {j ? (
         <>
           <Surface id="teacher.print_job.status">
-          <FormCard icon="print" title={j.status_label} tint={tone}>
-            <Walk j={j} />
-            {j.status === 'declined' && j.decline_reason ? <View style={{ marginTop: spacing.sm }}><Banner tone="danger" text={t('print.declined_reason', { reason: j.decline_reason })} /></View> : null}
-            {j.due_at && j.is_open && j.status !== 'sent' ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, marginTop: spacing.sm }}>{t('print.due', { at: formatShortDate(j.due_at) })}</Text> : null}
-            {j.status === 'sent' ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: spacing.sm }}>{t('print.sent_hint')}</Text> : null}
-          </FormCard>
+            <OrderHero j={j} title={heroTitle} line={heroLine} onRoad={tripLive} />
+            {j.status === 'declined' && j.decline_reason ? <Banner tone="danger" text={t('print.declined_reason', { reason: j.decline_reason })} /> : null}
           </Surface>
 
-          {track.data && (track.data.handover_code || track.data.delivery) ? (
+          {showTrack && tr ? (
             <Surface id="teacher.print_job.track">
-            <FormCard icon="gps" title={track.data.delivery ? track.data.delivery.label : t('print.track_pickup_title')} tint={track.data.delivery?.is_active ? colors.accent : colors.success}>
-              {track.data.delivery?.driver ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}><Icon name="gps" size={20} color={colors.accentText} /></View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }}>{track.data.delivery.driver.name} <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>· {track.data.delivery.driver.vehicle_label}</Text></Text>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: track.data.delivery.is_active ? colors.successText : colors.textSecondary }}>
-                      {track.data.delivery.eta_min ? t('print.track_eta', { m: formatNumber(track.data.delivery.eta_min) }) : track.data.delivery.status === 'arrived' ? t('print.track_arrived') : track.data.delivery.driver.online ? t('print.track_online') : t('print.track_offline')}
-                      {track.data.delivery.remaining_km != null && track.data.delivery.is_active ? ` · ${t('print.km_away', { km: formatNumber(track.data.delivery.remaining_km, { maximumFractionDigits: 1 }) })}` : ''}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${track.data!.delivery!.driver!.phone}`)} accessibilityRole="button" style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.accentLight, alignItems: 'center', justifyContent: 'center' }}><Icon name="call" size={18} color={colors.accentText} /></TouchableOpacity>
+              {showMap ? (
+                <View style={{ marginBottom: spacing.md }}>
+                  {arrived ? (
+                    <LiveMap mapsKey={tr.maps_key} height={MAP_H} style={{ borderRadius: radius.xxl }} padBottom={OVERLAP}
+                      shop={tr.shop.lat != null ? { lat: tr.shop.lat, lng: tr.shop.lng!, label: tr.shop.name ?? undefined, logo: tr.shop.logo ?? null } : null}
+                      dest={tr.dest ? { lat: tr.dest.lat, lng: tr.dest.lng, label: tr.dest.name ?? undefined } : null}
+                      driver={d?.driver?.lat != null ? { lat: d.driver.lat, lng: d.driver.lng!, label: d.driver.name, vehicle: d.driver.vehicle, busy: d.is_active, online: d.driver.online } : null}
+                      follow={d?.driver?.lat != null ? { lat: d.driver.lat, lng: d.driver.lng! } : null}
+                      me={share.me ? { ...share.me, label: t('print.me') } : null} trail={d?.trail ?? []} />
+                  ) : <View style={{ height: MAP_H, borderRadius: radius.xxl, backgroundColor: mapBg }} />}
+                  {tripLive ? (
+                    <View style={{ position: 'absolute', top: spacing.md, start: spacing.md }}>
+                      <Surface id="teacher.print_job.share_live">{pill}</Surface>
+                    </View>
+                  ) : null}
+                  <OrderDriverCard track={tr} showCode={showCode} overlap />
                 </View>
-              ) : null}
-              {(track.data.delivery?.is_active || track.data.mode === 'pickup') && (track.data.dest || track.data.shop.lat != null) ? (
-                <LiveMap mapsKey={track.data.maps_key} height={230} style={{ marginBottom: spacing.sm }}
-                  shop={track.data.shop.lat != null ? { lat: track.data.shop.lat, lng: track.data.shop.lng!, label: track.data.shop.name ?? undefined, logo: track.data.shop.logo ?? null } : null}
-                  dest={track.data.dest ? { lat: track.data.dest.lat, lng: track.data.dest.lng, label: track.data.dest.name ?? undefined } : null}
-                  driver={track.data.delivery?.driver?.lat != null ? { lat: track.data.delivery.driver.lat, lng: track.data.delivery.driver.lng!, label: track.data.delivery.driver.name, vehicle: track.data.delivery.driver.vehicle, busy: track.data.delivery.is_active, online: track.data.delivery.driver.online } : null}
-                  follow={track.data.delivery?.driver?.lat != null ? { lat: track.data.delivery.driver.lat, lng: track.data.delivery.driver.lng! } : null}
-                  me={me ? { ...me, label: t('print.me') } : null} trail={track.data.delivery?.trail ?? []} />
-              ) : null}
-              {tripLive ? (
-                <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: sharing === 'on' ? colors.successText : colors.warningDark, marginBottom: spacing.sm, textAlign: 'center' }}>
-                  {sharing === 'on' ? t('print.sharing_on') : sharing === 'denied' ? t('print.sharing_denied') : ''}
-                </Text>
-              ) : null}
-              {track.data.delivery?.fail_reason ? <Banner tone="danger" text={track.data.delivery.fail_reason} /> : null}
-              {track.data.handover_code && j.status !== 'delivered' && j.status !== 'received' ? (
-                <View style={{ alignItems: 'center', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t(track.data.mode === 'deliver' ? 'print.code_deliver' : 'print.code_pickup')}</Text>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 36, color: colors.textPrimary, letterSpacing: 10, marginTop: 4 }}>{track.data.handover_code}</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 2, textAlign: 'center' }}>{t('print.code_note')}</Text>
-                </View>
-              ) : null}
-            </FormCard>
+              ) : (
+                <>
+                  {tripLive ? <View style={{ alignItems: 'flex-start', marginBottom: spacing.sm }}><Surface id="teacher.print_job.share_live">{pill}</Surface></View> : null}
+                  <OrderDriverCard track={tr} showCode={showCode} overlap={false} />
+                </>
+              )}
+              {tripLive && share.state === 'denied' ? <Banner tone="warn" icon="gps" text={t('print.sharing_denied')} /> : null}
             </Surface>
           ) : null}
 
           <Surface id="teacher.print_job.shop">
-          <FormCard icon="storefront" title={j.shop.name ?? t('print.shop')} tint={colors.accent}
-            action={j.shop.phone ? (
-              <TouchableOpacity onPress={() => Linking.openURL(`tel:${j.shop.phone}`)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 34, borderRadius: radius.full, backgroundColor: colors.accentLight }}>
-                <Icon name="call" size={16} color={colors.accentText} /><Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accentText }}>{t('print.call')}</Text>
-              </TouchableOpacity>
-            ) : undefined}>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary }}>
-              {j.spec.delivery_mode === 'deliver' ? t('print.deliver_to', { address: j.delivery_address ?? '' }) : [t('print.pickup_at'), j.shop.address, j.shop.city].filter(Boolean).join(' · ')}
-            </Text>
-          </FormCard>
+            <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                <ShopLogo logo={j.shop.logo ?? tr?.shop.logo ?? null} size={52} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textTertiary }}>{t('print.shop')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{j.shop.name ?? t('print.shop')}</Text>
+                  {j.shop.city ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>{j.shop.city}</Text> : null}
+                </View>
+                {j.shop.phone ? (
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${j.shop.phone}`)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, height: 38, borderRadius: radius.full, backgroundColor: colors.accentLight }}>
+                    <Icon name="call" size={16} color={colors.accentText} /><Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accentText }}>{t('print.call')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <View style={{ height: 1, backgroundColor: colors.borderLight, marginVertical: spacing.md }} />
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
+                <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: j.spec.delivery_mode === 'deliver' ? colors.accentLight : colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name={j.spec.delivery_mode === 'deliver' ? 'delivery' : 'location'} size={17} color={j.spec.delivery_mode === 'deliver' ? colors.accentText : colors.brand} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }}>
+                    {j.spec.delivery_mode === 'deliver' ? t('print.order_deliver_to') : t('print.pickup_at')}
+                  </Text>
+                  {j.spec.delivery_mode === 'deliver' ? (
+                    <>
+                      {j.dest?.name ? <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{j.dest.name}</Text> : null}
+                      {j.delivery_address ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>{j.delivery_address}</Text> : null}
+                    </>
+                  ) : [j.shop.address, j.shop.city].filter(Boolean).length ? (
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>{[j.shop.address, j.shop.city].filter(Boolean).join(' · ')}</Text>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+          </Surface>
+
+          <Surface id="teacher.print_job.spec">
+            <Section icon="document" title={t('print.order_spec_title')} tint={{ bg: colors.brandTint, fg: colors.brand }}>
+              {j.file_name ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.md }}>
+                  <Icon name="document" size={15} color={colors.textTertiary} />
+                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }} numberOfLines={1}>{j.file_name}</Text>
+                </View>
+              ) : null}
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <Stat value={formatNumber(j.copies)} label={t('print.copies_label')} />
+                <Stat value={formatNumber(j.pages)} label={t('print.order_file_pages')} />
+                <Stat value={formatNumber(j.copies * j.pages)} label={t('print.order_printed')} />
+              </View>
+              {specTags(j, options.data, t).length ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.md }}>
+                  {specTags(j, options.data, t).map((x, i) => <Tag key={i} text={x.text} icon={x.icon} tone={x.tone} />)}
+                </View>
+              ) : null}
+              {j.course ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md }}>
+                  <Icon name="sessions" size={15} color={colors.textTertiary} />
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t('print.course')}</Text>
+                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }} numberOfLines={1}>{j.course.name}</Text>
+                </View>
+              ) : null}
+            </Section>
           </Surface>
 
           <Surface id="teacher.print_job.money">
-          <FormCard icon="money" title={t('print.money')} tint={colors.success}>
-            <Row label={t('print.line_pages', { copies: formatNumber(j.copies), pages: formatNumber(j.pages), p: formatNumber(j.price_per_page, { maximumFractionDigits: 2 }) })} value={`${formatNumber(j.pages * j.copies * j.price_per_page, { maximumFractionDigits: 2 })} ${egp}`} />
-            {(j.discount ?? 0) > 0 ? <Row label={t('print.line_discount_plain')} value={`− ${formatNumber(j.discount ?? 0, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
-            {j.finish_per_copy > 0 ? <Row label={t('print.line_finish', { copies: formatNumber(j.copies), p: formatNumber(j.finish_per_copy, { maximumFractionDigits: 2 }) })} value={`${formatNumber(j.copies * j.finish_per_copy, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
-            {(j.extras ?? []).map((x) => <Row key={x.id} label={x.name} value={`${formatNumber(x.amount, { maximumFractionDigits: 2 })} ${egp}`} />)}
-            {(j.rush_fee ?? 0) > 0 ? <Row label={t('print.line_rush_plain')} value={`${formatNumber(j.rush_fee ?? 0, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
-            {j.delivery_fee > 0 ? <Row label={t('print.line_delivery')} value={`${formatNumber(j.delivery_fee, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
-            {j.platform_fee > 0 ? <Row label={t('print.line_fee')} value={`${formatNumber(j.platform_fee, { maximumFractionDigits: 2 })} ${egp}`} /> : null}
-            <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-            <Row label={t('print.total')} value={`${formatNumber(j.total, { maximumFractionDigits: 2 })} ${egp}`} strong />
-          </FormCard>
+            <Section icon="money" title={t('print.money')} tint={{ bg: colors.successLight, fg: colors.successText }}
+              end={j.payment_label ? (
+                <View style={{ paddingHorizontal: 10, height: 26, borderRadius: radius.full, backgroundColor: payTone.bg, justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: payTone.fg }}>{j.payment_label}</Text>
+                </View>
+              ) : undefined}>
+              <Row label={t('print.line_pages', { copies: formatNumber(j.copies), pages: formatNumber(j.pages), p: formatNumber(j.price_per_page, { maximumFractionDigits: 2 }) })} value={money(j.pages * j.copies * j.price_per_page)} />
+              {(j.discount ?? 0) > 0 ? <Row label={t('print.line_discount_plain')} value={`− ${money(j.discount ?? 0)}`} /> : null}
+              {j.finish_per_copy > 0 ? <Row label={t('print.line_finish', { copies: formatNumber(j.copies), p: formatNumber(j.finish_per_copy, { maximumFractionDigits: 2 }) })} value={money(j.copies * j.finish_per_copy)} /> : null}
+              {(j.extras ?? []).map((x) => <Row key={x.id} label={x.name} value={money(x.amount)} />)}
+              {(j.rush_fee ?? 0) > 0 ? <Row label={t('print.line_rush_plain')} value={money(j.rush_fee ?? 0)} /> : null}
+              {j.delivery_fee > 0 ? <Row label={t('print.line_delivery')} value={money(j.delivery_fee)} /> : null}
+              {j.platform_fee > 0 ? <Row label={t('print.line_fee')} value={money(j.platform_fee)} /> : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: colors.successLight }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.successText }}>{t('print.total')}</Text>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: colors.successText }}>{money(j.total)}</Text>
+              </View>
+            </Section>
           </Surface>
 
           {j.status !== 'cancelled' && j.status !== 'declined' ? (
@@ -214,8 +300,12 @@ export default function PrintJobScreen() {
             <FormCard icon="invoices" title={t('print.pay_title')} hint={j.payment_status === 'paid' ? t('print.paid_hint') : j.payment_status === 'claimed' ? t('print.claimed_hint') : t('print.pay_hint')} tint={j.payment_status === 'paid' ? colors.success : colors.warning}>
               {j.payment_status !== 'paid' ? (
                 <>
-                  {payTo?.instapay?.number ? <Row label={t('print.pay_instapay')} value={`${payTo.instapay.number} · ${payTo.instapay.name}`} /> : null}
-                  {payTo?.vodafone_cash ? <Row label={t('print.pay_vodafone')} value={payTo.vodafone_cash} /> : null}
+                  {payTo?.instapay?.number || payTo?.vodafone_cash ? (
+                    <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: 4, borderWidth: 1, borderColor: colors.borderLight }}>
+                      {payTo?.instapay?.number ? <Row label={t('print.pay_instapay')} value={payTo.instapay.name ? `${payTo.instapay.number} (${payTo.instapay.name})` : payTo.instapay.number} /> : null}
+                      {payTo?.vodafone_cash ? <Row label={t('print.pay_vodafone')} value={payTo.vodafone_cash} /> : null}
+                    </View>
+                  ) : null}
                   <View style={{ marginTop: spacing.sm }}>
                     <Field label={t('print.method')} first><Chips options={[{ key: 'instapay', label: 'إنستاباي' }, { key: 'vodafone_cash', label: 'فودافون كاش' }, { key: 'bank', label: 'تحويل بنكي' }, { key: 'cash', label: 'نقدًا' }]} value={method} onChange={(k) => setMethod(String(k))} /></Field>
                     <Field label={t('print.reference')}><Input value={reference} onChangeText={setReference} placeholder={t('print.reference_ph')} maxLength={60} /></Field>
@@ -226,7 +316,10 @@ export default function PrintJobScreen() {
                   </View>
                 </>
               ) : (
-                <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.successText }}>{t('print.paid_line', { amount: formatNumber(j.total, { maximumFractionDigits: 2 }), egp })}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <Icon name="success" size={20} color={colors.successText} />
+                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.successText }}>{t('print.paid_line', { amount: formatNumber(j.total, { maximumFractionDigits: 2 }), egp })}</Text>
+                </View>
               )}
             </FormCard>
             </Surface>
@@ -235,22 +328,31 @@ export default function PrintJobScreen() {
           {j.can_receive ? (
             <Surface id="teacher.print_job.receive">
             <FormCard icon="success" title={t('print.receive_title')} hint={t('print.rate_hint')} tint={colors.success}>
-              <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.xs, marginBottom: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }}>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <TouchableOpacity key={n} onPress={() => setRating(n)} accessibilityRole="button" accessibilityLabel={`${n}/5`} style={{ padding: 4 }}>
-                    <Icon name="star" size={30} color={rating != null && n <= rating ? colors.warning : colors.border} />
+                    <Icon name="star" size={34} color={rating != null && n <= rating ? colors.warning : colors.border} />
                   </TouchableOpacity>
                 ))}
               </View>
               <Input value={review} onChangeText={setReview} placeholder={t('print.review_ph')} maxLength={300} multiline />
-              <Button title={t('print.confirm_receive')} onPress={receive} loading={busy} style={{ marginTop: spacing.sm }} />
+              <Button title={t('print.confirm_receive')} onPress={receive} loading={busy} variant="success" style={{ marginTop: spacing.sm }} />
             </FormCard>
+            </Surface>
+          ) : j.status === 'received' && j.rating != null ? (
+            <Surface id="teacher.print_job.receive">
+              <Section icon="star" title={t('print.order_your_rating')} tint={{ bg: colors.warningLight, fg: colors.warningText }}>
+                <View style={{ flexDirection: 'row', gap: 2 }}>
+                  {[1, 2, 3, 4, 5].map((n) => <Icon key={n} name="star" size={22} color={n <= (j.rating ?? 0) ? colors.warning : colors.border} />)}
+                </View>
+                {j.review ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: spacing.sm }}>{j.review}</Text> : null}
+              </Section>
             </Surface>
           ) : null}
 
-          <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
+          <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+            {!j.is_open ? <Surface id="teacher.print_job.reorder_button"><Button title={t('print.reorder')} onPress={reorder} variant="accent" loading={busy} /></Surface> : null}
             {j.can_cancel ? <Surface id="teacher.print_job.cancel_button"><Button title={t('print.cancel')} onPress={cancel} variant="outline" loading={busy} /></Surface> : null}
-            {!j.is_open ? <Surface id="teacher.print_job.reorder_button"><Button title={t('print.reorder')} onPress={reorder} variant="outline" loading={busy} /></Surface> : null}
           </View>
         </>
       ) : null}

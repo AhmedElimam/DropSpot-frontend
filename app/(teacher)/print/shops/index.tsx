@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, useWindowDimensions } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, useWindowDimensions, type ScrollView as RNScrollView } from 'react-native';
+import { SheetModal } from '@/components/ui/SheetModal';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber, foldForSearch } from '@/utils/format';
-import { LiveMap, MAP_BG } from '@/components/LiveMap';
+import { LiveMap } from '@/components/LiveMap';
 import { ShopLogo } from '@/components/print/ShopLogo';
 import { Surface } from '@/ui/surfaces';
 import { Image } from 'expo-image';
@@ -251,8 +250,10 @@ export function Tag({ text, bg, fg }: { text: string; bg: string; fg: string }) 
 
 /**
  * «اختر مطبعتك» — the marketplace, shop first (founder 2026-10-14: «like Uber or inDrive»).
- * Before any file exists the teacher sees every live shop as a driver card: capabilities,
- * reviews, measured speed, price-from, distance. Pick one and the job is built on ITS menu.
+ * One page, no sheet to drag (founder 2026-10-14: «I don't like the 3-level modal… the locator
+ * is hidden behind it… the top banner… the search»): the map across the top with only a
+ * back button and its «موقعي» button, the list right under it. A pin picks its card (the list
+ * scrolls to it); search is an icon that opens a slim field; sorting is one chip.
  */
 export default function PrintShops() {
   const { t } = useTranslation();
@@ -262,9 +263,13 @@ export default function PrintShops() {
   const options = useQuery({ queryKey: ['print-options'], queryFn: getPrintOptions });
   const { refreshing, onRefresh } = usePullRefresh(shops.refetch);
   const [sort, setSort] = useState<Sort>('recommended');
+  const [sorting, setSorting] = useState(false);
   const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
   const [need, setNeed] = useState<string[]>([]);
   const [picked, setPicked] = useState<number | null>(null);
+  const listRef = useRef<RNScrollView>(null);
+  const cardY = useRef<Record<number, number>>({});
 
   // The filters a teacher actually asks for, in the order they ask.
   const FILTERS = ['color', 'delivery', 'rush', 'spiral', 'duplex', 'a5', 'bulk', 'laminate'];
@@ -292,119 +297,98 @@ export default function PrintShops() {
   const labels = options.data?.badges ?? {};
   const caps = options.data?.capabilities ?? {};
   const egp = t('teacher.egp');
-  const pickedShop = list.find((s) => s.vendor_id === picked) ?? null;
   const toggle = (c: string) => setNeed((n) => (n.includes(c) ? n.filter((x) => x !== c) : [...n, c]));
-
-  // inDrive's one page (founder 2026-10-14): the map behind everything, the list in a sheet
-  // that rests at three heights — high (read the list), middle (both), low (the map).
-  const TOP = insets.top + 64;
-  const MID = Math.round(H * 0.5);
-  const LOW = H - insets.bottom - 150;
-  const y = useSharedValue(MID);
-  const from = useSharedValue(MID);
-  const snapTo = (to: number) => { 'worklet'; y.value = withSpring(to, { damping: 24, stiffness: 240, mass: 0.9 }); };
-  const pan = Gesture.Pan()
-    .onStart(() => { from.value = y.value; })
-    .onUpdate((e) => { y.value = Math.min(LOW, Math.max(TOP, from.value + e.translationY)); })
-    .onEnd((e) => {
-      const projected = y.value + e.velocityY * 0.18;
-      const stops = [TOP, MID, LOW];
-      let best = stops[0];
-      for (const s of stops) if (Math.abs(s - projected) < Math.abs(best - projected)) best = s;
-      snapTo(best);
-    });
-  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
-  const pickOnMap = (id: number) => { setPicked(id); y.value = withSpring(LOW, { damping: 24, stiffness: 240 }); };
+  const MAP_H = Math.round(H * 0.42);
+  const pickOnMap = (id: number) => {
+    setPicked(id);
+    const y = cardY.current[id];
+    if (y != null) listRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+  };
+  const chip = (on: boolean) => ({ flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, height: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border });
 
   return (
     <Surface id="screen.teacher.print_shops" screen>
-    <View style={{ flex: 1, backgroundColor: isDark() ? MAP_BG.dark : MAP_BG.light }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style={isDark() ? 'light' : 'dark'} />
-      {/* the map, behind everything */}
-      <LiveMap mapsKey={options.data?.maps_key} showMe rounded={false} height="100%" style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
-        controlsBottom={H - LOW + 16} padBottom={H - MID} selectedShop={picked} onShop={pickOnMap}
-        shops={list.filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, logo: s.logo ?? null, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} />
-
-      {/* top bar over the map */}
-      <View style={{ position: 'absolute', top: insets.top + 8, start: spacing.lg, end: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+      {/* the map, across the top — nothing over it but a back button and «موقعي» */}
+      <View style={{ height: MAP_H + 24 }}>
+        <LiveMap mapsKey={options.data?.maps_key} showMe rounded={false} height="100%" controlsBottom={24 + 12} padBottom={24}
+          selectedShop={picked} onShop={pickOnMap}
+          shops={list.filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, logo: s.logo ?? null, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} />
         <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')}
-          style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.md }}>
+          style={{ position: 'absolute', top: insets.top + 8, start: spacing.lg, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.md }}>
           <Icon name="forward" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
-        <View style={{ flex: 1, height: 42, borderRadius: 21, backgroundColor: 'rgba(10,14,39,0.82)', paddingHorizontal: spacing.md, justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }} numberOfLines={1}>{t('print.shops_title')}</Text>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: 'rgba(255,255,255,0.7)' }} numberOfLines={1}>{list.length ? t('print.shops_count', { n: formatNumber(list.length) }) : t('print.shops_sub')}</Text>
-        </View>
       </View>
 
-      {/* the picked shop, floating above the low sheet */}
-      {pickedShop ? (
-        <View style={{ position: 'absolute', start: spacing.md, end: spacing.md, bottom: H - LOW + 8 }}>
-          <ShopCard s={pickedShop} labels={labels} caps={caps} compact />
-        </View>
-      ) : null}
-
-      {/* the sheet */}
-      <Animated.View style={[{ position: 'absolute', start: 0, end: 0, top: 0, height: H, backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, ...shadows.lg }, sheetStyle]}>
-        <GestureDetector gesture={pan}>
-          <View style={{ paddingHorizontal: spacing.lg, paddingTop: 8 }}>
-            <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, height: 44 }}>
-              <Icon name="search" size={18} color={colors.textTertiary} />
-              <TextInput value={query} onChangeText={setQuery} placeholder={t('print.search_ph')} placeholderTextColor={colors.textTertiary}
-                onFocus={() => snapTo(TOP)} style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right' }} returnKeyType="search"
-                autoCorrect={false} autoComplete="off" textContentType="none" spellCheck={false} />
-              {query ? <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} accessibilityRole="button"><Icon name="close" size={16} color={colors.textTertiary} /></TouchableOpacity> : null}
+      {/* the list, right under it */}
+      <View style={{ flex: 1, marginTop: -24, backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, ...shadows.lg }}>
+        <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
+          {searching ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 44 }}>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, borderRadius: 20, backgroundColor: colors.surfaceSunken, paddingHorizontal: spacing.md }}>
+                <Icon name="search" size={16} color={colors.textTertiary} />
+                <TextInput value={query} onChangeText={setQuery} autoFocus placeholder={t('print.search_ph')} placeholderTextColor={colors.textTertiary}
+                  style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlign: 'right' }} returnKeyType="search"
+                  autoCorrect={false} autoComplete="off" textContentType="none" spellCheck={false} />
+              </View>
+              <TouchableOpacity onPress={() => { setQuery(''); setSearching(false); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.close')}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.brand }}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
             </View>
-            <Surface id="teacher.print_shops.filters">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: spacing.sm }}>
-              {FILTERS.map((c) => {
-                const on = need.includes(c);
-                return (
-                  <TouchableOpacity key={c} onPress={() => toggle(c)} activeOpacity={0.85} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 32, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: on ? colors.accentLight : colors.surface, borderWidth: 1, borderColor: on ? colors.accent : colors.border }}>
-                    {on ? <Icon name="success" size={13} color={colors.accentText} /> : null}
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.accentText : colors.textSecondary }}>{caps[c] ?? c}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-            </Surface>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 44 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.textPrimary }}>{t('print.shops_title')}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>{list.length ? t('print.shops_count', { n: formatNumber(list.length) }) : t('print.shops_sub')}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setSearching(true)} accessibilityRole="button" accessibilityLabel={t('print.search_ph')}
+                style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="search" size={19} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+          )}
+          <Surface id="teacher.print_shops.filters">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: spacing.sm }}>
             <Surface id="teacher.print_shops.sort">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 4, paddingBottom: spacing.sm }}>
-              {SORTS.map((k) => {
-                const on = sort === k;
-                return (
-                  <TouchableOpacity key={k} onPress={() => setSort(k)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                    style={{ height: 30, paddingHorizontal: 12, borderRadius: radius.full, justifyContent: 'center', backgroundColor: on ? colors.brand : 'transparent' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onPrimary : colors.textSecondary }}>{t(`print.sort_${k}`)}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+            <TouchableOpacity onPress={() => setSorting(true)} activeOpacity={0.85} accessibilityRole="button" style={chip(sort !== 'recommended')}>
+              <Icon name="list" size={14} color={sort !== 'recommended' ? colors.onPrimary : colors.textSecondary} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: sort !== 'recommended' ? colors.onPrimary : colors.textSecondary }}>{t(`print.sort_${sort}`)}</Text>
+              <Icon name="down" size={12} color={sort !== 'recommended' ? colors.onPrimary : colors.textTertiary} />
+            </TouchableOpacity>
             </Surface>
-          </View>
-        </GestureDetector>
+            {FILTERS.map((c) => {
+              const on = need.includes(c);
+              return (
+                <TouchableOpacity key={c} onPress={() => toggle(c)} activeOpacity={0.85} accessibilityRole="checkbox" accessibilityState={{ checked: on }} style={chip(on)}>
+                  {on ? <Icon name="success" size={13} color={colors.onPrimary} /> : null}
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onPrimary : colors.textSecondary }}>{caps[c] ?? c}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          </Surface>
+        </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ height: H - TOP - 150 }}
-          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: MID - TOP + insets.bottom + spacing.xl }}
+        <ScrollView ref={listRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: 4, paddingBottom: insets.bottom + nav.pageEnd + spacing.xl }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
           {shops.isLoading ? <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} /> : null}
           {!shops.isLoading && list.length === 0 && (coming.length === 0 || !!query || need.length > 0) ? (
             <EmptyState icon="storefront" title={t('print.no_shops')} message={query || need.length ? t('print.no_match') : t('print.shops_empty')} />
           ) : (
-            <>
-            {list.length > 0 ? <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm, marginTop: 2 }}>{t('print.all_shops_n', { n: formatNumber(list.length) })}</Text> : null}
-            {list.map((s) => (
+            list.map((s) => (
               <Surface key={s.vendor_id} id="teacher.print_shops.shop" ctx={{ shop: s }}>
-                <ShopCard s={s} labels={labels} caps={caps} egp={egp} />
+                <View onLayout={(e) => { cardY.current[s.vendor_id] = e.nativeEvent.layout.y; }}
+                  style={picked === s.vendor_id ? { borderRadius: 24, borderWidth: 2, borderColor: colors.accent, padding: 2, marginBottom: spacing.sm } : null}>
+                  <ShopCard s={s} labels={labels} caps={caps} egp={egp} />
+                </View>
               </Surface>
-            ))}
-            </>
+            ))
           )}
           {coming.length > 0 && !query && !need.length ? (
             <Surface id="teacher.print_shops.coming">
-            <View style={{ marginTop: list.length ? spacing.lg : 0 }}>
+            <View style={{ marginTop: list.length ? spacing.md : 0 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('print.coming_title')}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.sm }}>{t('print.coming_sub')}</Text>
               {coming.map((c) => (
@@ -423,7 +407,21 @@ export default function PrintShops() {
             </Surface>
           ) : null}
         </ScrollView>
-      </Animated.View>
+      </View>
+
+      {/* sorting — one chip, one small sheet */}
+      <SheetModal visible={sorting} onClose={() => setSorting(false)}>
+        <View style={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('print.sort_title')}</Text>
+          {SORTS.map((k) => (
+            <TouchableOpacity key={k} onPress={() => { setSort(k); setSorting(false); }} accessibilityRole="radio" accessibilityState={{ selected: sort === k }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
+              <Text style={{ flex: 1, fontFamily: sort === k ? fonts.bold : fonts.medium, fontSize: 15, color: sort === k ? colors.brand : colors.textPrimary }}>{t(`print.sort_${k}`)}</Text>
+              {sort === k ? <Icon name="success" size={18} color={colors.brand} /> : null}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </SheetModal>
     </View>
     </Surface>
   );
