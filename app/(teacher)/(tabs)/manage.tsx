@@ -163,6 +163,29 @@ export default function TeacherManage() {
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        {/* «المطبعة» sits above every group: a marketplace a teacher must find without hunting. */}
+        {flags?.print_market ? (
+          <Surface id="teacher.manage.print_card" assistantNeeds="teacher">
+          <TouchableOpacity onPress={() => router.push('/(teacher)/print' as Href)} activeOpacity={0.9} accessibilityRole="button" style={{ marginBottom: spacing.md }}>
+            <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg }}>
+              <View style={{ width: 46, height: 46, borderRadius: radius.md, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="print" size={24} color={colors.onAccent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onHero }}>{t('print.title')}</Text>
+                  <View style={{ paddingHorizontal: 7, height: 18, borderRadius: radius.full, backgroundColor: colors.accent, justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onAccent }}>{t('print.manage_badge')}</Text>
+                  </View>
+                </View>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.onHeroSoft, marginTop: 2 }} numberOfLines={2}>{t('print.subtitle')}</Text>
+              </View>
+              <Icon name="back" size={18} color={colors.onHeroSoft} />
+            </LinearGradient>
+          </TouchableOpacity>
+          </Surface>
+        ) : null}
         {group === 'students' ? (
           <Surface id="teacher.manage.group_students">
             <Surface id="teacher.manage.row_add_student" assistantNeeds="manage_students"><HubRow tint={tint} icon="add" title={t('add_student.title')} sub={t('add_student.subtitle')} onPress={() => setAddOpen(true)} /></Surface>
