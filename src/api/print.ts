@@ -109,9 +109,15 @@ export interface MarketShop extends Omit<BoardShop, 'quote'> {
   drivers?: number;
   lat?: number | null;
   lng?: number | null;
+  /** The branch the distance and the pin are from (nearest to the teacher). */
+  branch?: { id: number; name: string; address: string | null } | null;
+  branches_count?: number;
 }
 
 /** A photo of the shop's own work (signed link, stable for a week). */
+/** A shop's branch (founder 2026-10-14: shops have branches); distance from the teacher when known. */
+export interface ShopBranch { id: number; name: string; address: string | null; phone: string | null; hours_note: string | null; is_main: boolean; lat: number | null; lng: number | null; distance_km: number | null }
+
 export interface ShopSample { id: number; url: string; caption: string | null; kind: string | null; kind_label: string | null; width: number | null; height: number | null }
 
 /** expo-image source for a shop photo — the staging build also needs its door key. */
@@ -127,6 +133,8 @@ export interface ShopProfile extends MarketShop {
   menu: { rates: MenuRate[]; finishes: MenuFinish[] };
   reviews: ShopReview[];
   samples?: ShopSample[];
+  /** Every open branch, nearest first. */
+  branches?: ShopBranch[];
 }
 
 /**
@@ -209,6 +217,8 @@ export interface PrintJob {
   spec_label: string;
   delivery_address: string | null;
   shop: { id: number; name?: string; logo?: string | null; phone?: string | null; city?: string | null; address?: string | null };
+  /** The branch that prints it. */
+  branch?: { id: number; name: string; address: string | null; phone: string | null; lat: number | null; lng: number | null } | null;
   course: { id: number; name: string } | null;
   price_per_page: number;
   finish_per_copy: number;
@@ -308,7 +318,7 @@ export async function getPrintBoard(params: { upload: string; copies?: number; c
   return unwrap<Board>(data);
 }
 
-export async function createPrintJob(payload: { upload: string; vendor_id: number; copies: number; title?: string; course_id?: string | number | null; delivery_address?: string | null; dest_lat?: number | null; dest_lng?: number | null; dest_name?: string | null } & PrintSpec): Promise<PrintJob> {
+export async function createPrintJob(payload: { upload: string; vendor_id: number; copies: number; title?: string; course_id?: string | number | null; delivery_address?: string | null; dest_lat?: number | null; dest_lng?: number | null; dest_name?: string | null; branch_id?: number | null } & PrintSpec): Promise<PrintJob> {
   const { data } = await client.post('/teacher/print/jobs', payload);
   return unwrap<PrintJob>(data);
 }
@@ -332,7 +342,7 @@ export interface TrackInfo {
   teacher_live?: TeacherShare | null;
   mode: 'pickup' | 'deliver';
   handover_code: string | null;
-  shop: { name: string | null; logo?: string | null; address: string | null; lat: number | null; lng: number | null };
+  shop: { name: string | null; logo?: string | null; address: string | null; lat: number | null; lng: number | null; branch?: string | null };
   dest: { lat: number; lng: number; name: string | null; address: string | null } | null;
   delivery: {
     status: 'assigned' | 'picked_up' | 'en_route' | 'arrived' | 'delivered' | 'failed';

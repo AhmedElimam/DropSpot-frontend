@@ -152,6 +152,7 @@ function InfoChips({ s, caps }: { s: MarketShop; caps: Record<string, string> })
       {s.delivery
         ? chip('d', s.delivery_fee > 0 ? t('print.delivery_chip', { p: formatNumber(s.delivery_fee, { maximumFractionDigits: 2 }) }) : t('print.free_delivery'), 'delivery', true)
         : chip('p', t('print.pickup_chip'), 'storefront')}
+      {(s.branches_count ?? 0) > 1 ? chip('br', t('print.branches_n', { n: formatNumber(s.branches_count ?? 0) }), 'location') : null}
       {shown.map((c) => chip(c, caps[c] ?? c, null))}
       {more > 0 ? chip('more', `+${formatNumber(more)}`, null) : null}
     </View>
@@ -227,7 +228,8 @@ export function ShopCard({ s, labels, caps, compact = false }: { s: MarketShop; 
           <View style={{ flex: 1, paddingTop: 8, gap: 3 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }} numberOfLines={1}>{s.name}</Text>
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }} numberOfLines={1}>
-              {[s.city, s.quality_label, s.ink_tech_label].filter(Boolean).join(' · ')}
+              {/* a shop with branches: the nearest one's name, where the distance is from */}
+              {[(s.branches_count ?? 0) > 1 && s.branch ? s.branch.name : s.city, s.quality_label, s.ink_tech_label].filter(Boolean).join(' · ')}
             </Text>
           </View>
           <View style={{ paddingTop: 6 }}><PriceFrom s={s} /></View>

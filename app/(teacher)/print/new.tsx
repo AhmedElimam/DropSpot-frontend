@@ -53,6 +53,11 @@ export default function PrintNew() {
 
   const o = options.data;
   const s = shop.data;
+  // Which branch prints it, for a pickup (founder 2026-10-14: shops have branches) — the
+  // nearest by default; a delivery leaves from the branch nearest the pin (the server picks).
+  const [branchId, setBranchId] = useState<number | null>(null);
+  const branches = s?.branches ?? [];
+  const branchPicked = branchId ?? branches[0]?.id ?? null;
   const copiesN = Math.max(0, parseInt(copies || '0', 10) || 0);
   const pages = upload?.pages ?? 0;
   const egp = t('teacher.egp');
@@ -120,7 +125,8 @@ export default function PrintNew() {
       const deliver = spec.delivery_mode === 'deliver' && place;
       const job = await createPrintJob({ upload: upload.upload, vendor_id: s.vendor_id, copies: copiesN, title: title.trim() || undefined, course_id: courseId,
         delivery_address: deliver ? [place!.address, place!.details].filter(Boolean).join(' — ') : null,
-        dest_lat: deliver ? place!.lat : null, dest_lng: deliver ? place!.lng : null, dest_name: deliver ? place!.name : null, ...spec });
+        dest_lat: deliver ? place!.lat : null, dest_lng: deliver ? place!.lng : null, dest_name: deliver ? place!.name : null,
+        branch_id: !deliver && branches.length > 1 ? branchPicked : null, ...spec });
       qc.invalidateQueries({ queryKey: ['print-jobs'] });
       qc.invalidateQueries({ queryKey: ['print-shops'] });
       router.replace(`/(teacher)/print/${job.id}` as Href);
@@ -230,6 +236,12 @@ export default function PrintNew() {
               <Field label={t('print.sides')}><Chips options={priced(choices.sides, (k) => rateOf(spec.paper, spec.ink, Number(k)))} value={String(spec.sides)} onChange={(k) => setSpec({ ...spec, sides: Number(k) })} /></Field>
               <Field label={t('print.finish')}><Chips options={priced(choices.finishes, (k) => s.menu.finishes.find((f) => f.kind === k)?.price_per_copy ?? null, '+')} value={spec.finish} onChange={(k) => setSpec({ ...spec, finish: String(k) })} /></Field>
               <Field label={t('print.delivery')}><Chips options={priced(choices.delivery_modes, (k) => (k === 'deliver' ? s.delivery_fee : 0), '+')} value={spec.delivery_mode} onChange={(k) => setSpec({ ...spec, delivery_mode: k as PrintSpec['delivery_mode'] })} tint={colors.accent} /></Field>
+              {spec.delivery_mode !== 'deliver' && branches.length > 1 ? (
+                <Field label={t('print.pickup_branch')}>
+                  <Chips options={branches.map((b) => ({ key: b.id, label: b.distance_km != null ? `${b.name} (${t('print.km_away', { km: formatNumber(b.distance_km, { maximumFractionDigits: 1 }) })})` : b.name }))}
+                    value={branchPicked ?? undefined} onChange={(k) => setBranchId(Number(k))} tint={colors.accent} />
+                </Field>
+              ) : null}
               {s.rush ? (
                 <Field label={t('print.speed')}>
                   <Chips options={[{ key: 'normal', label: t('print.speed_normal', { h: formatNumber(s.turnaround_hours) }) }, { key: 'rush', label: t('print.speed_rush', { h: formatNumber(s.rush.hours), p: formatNumber(s.rush.pct) }) }]}

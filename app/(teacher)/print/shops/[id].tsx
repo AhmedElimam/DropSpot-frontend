@@ -13,6 +13,7 @@ import { ShopWorkGallery } from '@/components/print/ShopWorkGallery';
 import { SampleViewer } from '@/components/print/SampleViewer';
 import { ShopCapabilities, FINISH_CAPS } from '@/components/print/ShopCapabilities';
 import { ShopFinishes } from '@/components/print/ShopFinishes';
+import { ShopBranches } from '@/components/print/ShopBranches';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { FormScreen, Banner } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
@@ -370,6 +371,15 @@ export default function PrintShopPage() {
             </Section>
           ) : null}
           </Surface>
+
+          {/* its branches, nearest first (founder 2026-10-14) */}
+          {(s.branches?.length ?? 0) > 1 ? (
+            <Surface id="teacher.print_shop.branches">
+            <Section icon="location" tint={colors.accentText} bg={colors.accentLight} title={t('print.branches_title', { n: formatNumber(s.branches!.length) })}>
+              <ShopBranches branches={s.branches!} />
+            </Section>
+            </Surface>
+          ) : null}
 
           {/* where */}
           {s.address || s.phone || hasMap || s.hours_label || s.distance_km != null ? (

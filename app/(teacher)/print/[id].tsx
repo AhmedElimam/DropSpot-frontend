@@ -177,6 +177,8 @@ export default function PrintJobScreen() {
                       {j.dest?.name ? <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{j.dest.name}</Text> : null}
                       {j.delivery_address ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>{j.delivery_address}</Text> : null}
                     </>
+                  ) : j.branch ? (
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>{[j.branch.name, j.branch.address].filter(Boolean).join('، ')}</Text>
                   ) : [j.shop.address, j.shop.city].filter(Boolean).length ? (
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>{[j.shop.address, j.shop.city].filter(Boolean).join('، ')}</Text>
                   ) : null}

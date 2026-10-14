@@ -68,6 +68,11 @@
     "sharing_location": "● موقعك بيتشارك مع المعلّم"
   },
   "print": {
+    "branch_nearest": "الأقرب ليك",
+    "branch_main": "الرئيسي",
+    "branches_title": "الفروع ({{n}})",
+    "branches_n": "{{n}} فروع",
+    "pickup_branch": "هتستلم من فرع",
     "photo_of": "{{i}} من {{n}}",
     "work_title": "من شغلهم",
     "work_sub": "{{n}} صورة من شغل المطبعة الحقيقي",
