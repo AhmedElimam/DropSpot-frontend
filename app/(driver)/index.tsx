@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, useWindowDimensions, AppState } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { Redirect, router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -89,6 +89,9 @@ export default function DriverHome() {
   const lastBeat = useRef(0);
   const beat = () => {
     const p = latest.current;
+    // Only with the screen in front: in the background this watch goes stale, and the
+    // background task is the one sending (a stale point would pull the dot back).
+    if (AppState.currentState !== 'active') return;
     if (!p || Date.now() - lastBeat.current < 10000) return;
     lastBeat.current = Date.now();
     driverHeartbeat(p.lat, p.lng).then(() => setBeatAt(Date.now())).catch(() => {});
