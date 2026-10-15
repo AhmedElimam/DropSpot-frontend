@@ -28,8 +28,7 @@ type Segment = 'threads' | 'chat';
  *  - **الدردشة** — one room per enrolled course.
  *
  * Each appears only while its flag is on; with one flag the segments vanish and the tab is
- * that one surface. Threads lead when both are on: a question with a running clock ages
- * faster than a room does.
+ * that one surface. Chat leads when both are on (founder 2026-10-15: «make the chat first»).
  */
 export default function StudentChatTab() {
   // «مجموعاتي» (main, 2026-10-06): the coming-soon screen while both flags are off.
@@ -51,7 +50,9 @@ function StudentConversations() {
   const insets = useSafeAreaInsets();
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
-  const [segment, setSegment] = useState<Segment>(threadsEnabled ? 'threads' : 'chat');
+  // Until the reader picks a side, the default follows the flags (they may load after mount).
+  const [picked, setSegment] = useState<Segment | null>(null);
+  const segment: Segment = picked ?? (chatEnabled ? 'chat' : 'threads');
   const both = chatEnabled && threadsEnabled;
   const showThreads = threadsEnabled && (segment === 'threads' || !chatEnabled);
 
@@ -99,8 +100,8 @@ function StudentConversations() {
               value={segment}
               onChange={setSegment}
               items={[
-                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: unreadThreads ?? 0 },
                 { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread },
+                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: unreadThreads ?? 0 },
               ]}
             />
           </View>
