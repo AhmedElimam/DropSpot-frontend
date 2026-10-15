@@ -12,6 +12,7 @@ import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { useAuthStore } from '@/stores/authStore';
 import { useKeyboardShown } from '@/hooks/useKeyboardShown';
 import {
   useCommentOnThread, useExtendThread, useHideThreadComment, useLockThread, usePickThreadComment, useReportThreadComment, useThread, useThreadsRealtime, useVoteThreadComment, useWithdrawThread,
@@ -25,6 +26,8 @@ import { CountdownRing } from './Countdown';
 import { ago, arDigits, stateOf, type ThreadState } from './format';
 import { ThreadVideoPlayer } from './ThreadVideoPlayer';
 import { AnswerSheet, AudienceSheet, ExtendSheet, ReportSheet, Sheet, TextSheet } from './ThreadSheets';
+import { CalmNote } from './ThreadsFeed';
+import { audienceLine, childLabel, hiddenByParent, readOnlyNote } from './parents';
 
 type MenuItem = { key: string; icon: IconName; label: string; danger?: boolean; onPress: () => void };
 
@@ -44,10 +47,13 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const keyboardUp = useKeyboardShown();
+  const appRole = useAuthStore((s) => s.role);
   // Live: a comment, a vote, the teacher's answer or lock lands the moment it happens; the
   // poll then only backstops (see useThread).
   const [live, setLive] = useState(false);
-  const { data, isLoading, isError, refetch } = useThread(threadId, focused, live);
+  const { data, isLoading, isError, error, refetch } = useThread(threadId, focused, live);
+  // 404: withdrawn, or — for a student — حكاوي closed by their parent (the server cannot say which).
+  const notFound = (error as { response?: { status?: number } } | null)?.response?.status === 404;
   const channels = useMemo(() => (data?.channel ? [data.channel] : []), [data?.channel]);
   const { connected } = useThreadsRealtime(data?.realtime, channels, focused);
   useEffect(() => { setLive(connected); }, [connected]);
@@ -76,6 +82,11 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
   const perms = thread?.permissions;
   const isModerator = !!perms?.can_moderate;
   const isTeacher = perms?.role === 'teacher';
+  // Parents read everything, write nothing (founder 2026-10-15): report others, hide their own child's.
+  const isParent = perms?.role === 'parent';
+  const isStudent = perms?.role === 'student';
+  // Where the answer bar would be (an open question), a read-only student gets a calm card instead.
+  const readOnlyBar = isStudent && thread?.participation === 'read_only' && thread.kind === 'question' && thread.open && !perms?.can_comment;
   const mine = useMemo(() => data?.comments.find((c) => c.author.is_me && !c.hidden) ?? null, [data?.comments]);
 
   const fail = useCallback((e: unknown) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)), [t]);
@@ -98,6 +109,18 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
   const onCommentMenu = useCallback((c: ThreadComment) => {
     const { perms: p, isModerator: mod, isTeacher: teacher, hide: hideIt, pick: pickIt, t: tr } = latest.current;
     const items: MenuItem[] = [];
+    const myChild = !!c.author.is_my_child;
+    // A parent hides their own child's answer; the child is told (the server words the push).
+    if (myChild && !c.hidden && p?.can_withdraw_child) {
+      items.push({ key: 'withdraw-child', icon: 'eyeOff', label: tr('threads.withdraw_child'), danger: true, onPress: () => Alert.alert(
+        tr('threads.withdraw_child_title', { name: c.author.name }),
+        tr('threads.withdraw_child_confirm', { name: c.author.name }),
+        [
+          { text: tr('common.cancel'), style: 'cancel' },
+          { text: tr('threads.withdraw_child_cta'), style: 'destructive', onPress: () => hideIt.mutate({ commentId: c.id }, { onSuccess: () => haptic('success'), onError: latest.current.fail }) },
+        ],
+      ) });
+    }
     if (c.author.is_me && !c.hidden && p?.can_comment) items.push({ key: 'edit', icon: 'pencil', label: tr('threads.edit_mine'), onPress: editMine });
     if (c.author.is_me && !c.hidden) {
       items.push({ key: 'delete', icon: 'trash', label: tr('threads.delete_mine'), danger: true, onPress: () => Alert.alert(tr('threads.delete_mine'), tr('threads.delete_confirm'), [
@@ -112,10 +135,12 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
       } });
     }
     if (mod && !c.hidden) items.push({ key: 'hide', icon: 'eyeOff', label: tr('threads.hide'), danger: true, onPress: () => setHideFor(c) });
-    if (!mod && !c.author.is_me) items.push({ key: 'report', icon: 'flag', label: tr('threads.report'), danger: true, onPress: () => setReportFor(c) });
+    // Students and parents report (an older server sends no `can_report`: «not a moderator»).
+    const canReport = p?.can_report ?? !mod;
+    if (canReport && !c.author.is_me && !myChild && !c.hidden) items.push({ key: 'report', icon: 'flag', label: tr('threads.report'), danger: true, onPress: () => setReportFor(c) });
     if (items.length === 0) return;
     haptic('tick');
-    setMenu({ title: c.author.is_me ? tr('threads.your_answer') : tr('threads.comment_actions_of', { name: c.author.name }), items });
+    setMenu({ title: c.author.is_me ? tr('threads.your_answer') : myChild ? tr('threads.child_answer', { name: c.author.name }) : tr('threads.comment_actions_of', { name: c.author.name }), items });
   }, [editMine]);
 
   const postMenu = useMemo<MenuItem[]>(() => {
@@ -154,6 +179,11 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
             <TopBar />
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl4 }} />
           </>
+        ) : notFound ? (
+          <>
+            <TopBar />
+            <Unavailable student={appRole === 'student'} />
+          </>
         ) : isError || !thread || !data ? (
           <>
             <TopBar />
@@ -162,7 +192,7 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
         ) : (
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ flexGrow: 1, paddingBottom: spacing.xl + (perms?.can_comment ? 0 : insets.bottom) }}
+            contentContainerStyle={{ flexGrow: 1, paddingBottom: spacing.xl + (perms?.can_comment || readOnlyBar ? 0 : insets.bottom) }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
@@ -191,7 +221,10 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
                 <Notice icon="hourglass" tone="warning" text={thread.closed_reason === 'locked' ? t('threads.closed_banner_locked') : t('threads.closed_banner_timer')} />
               ) : null}
 
-              {thread.answers_hidden ? <QuizLocked /> : null}
+              {thread.answers_hidden ? <QuizLocked parent={isParent} /> : null}
+
+              {/* The student is told their parents can read this (founder 2026-10-15). */}
+              {question && isStudent && thread.parents_can_see ? <CalmNote icon="people" text={t('threads.parents_can_see')} /> : null}
 
               {question ? (
                 <>
@@ -207,13 +240,14 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
                   ) : null}
 
                   {data.comments.length === 0 ? (
-                    <NoAnswers staff={isModerator} />
+                    <NoAnswers staff={isModerator} parent={isParent} />
                   ) : data.comments.map((c, i) => (
                     <CommentRow
                       key={c.id}
                       comment={c}
                       index={i}
                       canVote={!!perms?.can_vote && !c.author.is_me && !c.hidden}
+                      scoreOnly={isParent}
                       downvotes={thread.downvotes_enabled}
                       canEdit={c.author.is_me && !c.hidden && !!perms?.can_comment}
                       onVote={onVote}
@@ -265,10 +299,28 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
               </TouchableOpacity>
             </View>
           </View>
+        ) : thread && readOnlyBar ? (
+          // A parent made حكاوي read-only for this student: a calm card where the answer bar was.
+          <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.md }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="eye" size={19} color={colors.brand} outline />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('threads.read_only_title')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>{readOnlyNote(thread.participation_note)}</Text>
+              </View>
+            </View>
+          </View>
         ) : null}
       </KeyboardAvoidingView>
 
-      <ThreadVideoPlayer video={player} teacherName={thread?.teacher.name} onClose={() => setPlayer(null)} />
+      <ThreadVideoPlayer
+        video={player}
+        teacher={thread?.teacher ?? null}
+        gradeName={thread?.grade.name ?? null}
+        onClose={() => setPlayer(null)}
+      />
       <MenuSheet menu={menu} onClose={() => setMenu(null)} />
       <ReportSheet
         visible={!!reportFor} reasons={data?.report_reasons ?? {}} pending={report.isPending} onClose={() => setReportFor(null)}
@@ -334,6 +386,8 @@ function Hero({ thread, state, perms, isModerator, onMore, onPlay, onAudience, o
   const insets = useSafeAreaInsets();
   const note = state === 'note';
   const staffActions = isModerator && thread.kind === 'question' && (perms?.can_answer || perms?.can_lock || (perms?.can_extend && !thread.open));
+  const audience = thread.audience_count !== null && thread.audience_count !== undefined ? audienceLine(thread.audience_count, thread.parents_count) : null;
+  const forChildren = childLabel(thread.children);
 
   return (
     <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl4 }}>
@@ -362,13 +416,21 @@ function Hero({ thread, state, perms, isModerator, onMore, onPlay, onAudience, o
               <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.onHero }} numberOfLines={1}>{thread.grade.name ?? '—'}</Text>
             </View>
             <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.onHeroSoft }}>{ago(thread.created_at)}</Text>
-            {thread.audience_count !== null ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                <Icon name="people" size={12} color={colors.onHeroSoft} outline />
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.onHeroSoft }}>{arDigits(thread.audience_count)}</Text>
-              </View>
-            ) : null}
           </View>
+          {/* A parent: which of their children this reached — «لأحمد ومنى». */}
+          {forChildren ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Icon name="child" size={12} color={colors.onHeroSoft} />
+              <Text style={{ flexShrink: 1, fontFamily: fonts.medium, fontSize: 11.5, color: colors.onHeroSoft }} numberOfLines={1}>{forChildren}</Text>
+            </View>
+          ) : null}
+          {/* Moderators: who this reaches — «٣٤ طالب | ٢٨ وليّ أمر بيتابعوا». */}
+          {audience ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Icon name="people" size={12} color={colors.onHeroSoft} outline />
+              <Text style={{ flexShrink: 1, fontFamily: fonts.regular, fontSize: 11.5, color: colors.onHeroSoft }} numberOfLines={1}>{audience}</Text>
+            </View>
+          ) : null}
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, height: 28, borderRadius: radius.full, backgroundColor: note ? colors.accentWarm : colors.brand }}>
           <Icon name={note ? 'lightbulb' : 'question'} size={14} color={colors.onPrimary} />
@@ -526,7 +588,7 @@ function VideoBlock({ video, onPlay, onAudience, onHero }: { video: ThreadVideo;
 }
 
 /** Quiz mode, clock running: a friendly locked card in place of the classmates' answers. */
-function QuizLocked() {
+function QuizLocked({ parent }: { parent?: boolean }) {
   const { t } = useTranslation();
   return (
     <Animated.View entering={FadeInDown.duration(300)} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg, padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.border }}>
@@ -540,20 +602,39 @@ function QuizLocked() {
       </View>
       <View style={{ flex: 1, gap: 4 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: colors.textPrimary }}>{t('threads.answers_hidden_title')}</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>{t('threads.answers_hidden_body')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>{parent ? t('threads.answers_hidden_body_parent') : t('threads.answers_hidden_body')}</Text>
       </View>
     </Animated.View>
   );
 }
 
-function NoAnswers({ staff }: { staff: boolean }) {
+/** 404: withdrawn — or, for a student, حكاوي closed by their parent (the server cannot say which). */
+function Unavailable({ student }: { student: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <Animated.View entering={FadeInDown.duration(300)} style={{ margin: spacing.lg, alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, borderRadius: radius.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight }}>
+      <View style={{ width: 72, height: 72, borderRadius: 26, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm }}>
+        <Icon name="lock" size={30} color={colors.brand} />
+      </View>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, textAlign: 'center' }}>{t('threads.unavailable_title')}</Text>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'center' }}>
+        {student ? t('threads.unavailable_body_student') : t('threads.unavailable_body')}
+      </Text>
+      <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} accessibilityRole="button" style={{ marginTop: spacing.md, paddingHorizontal: spacing.xl, height: 44, borderRadius: radius.full, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.onPrimary }}>{t('threads.end_back')}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+function NoAnswers({ staff, parent }: { staff: boolean; parent?: boolean }) {
   const { t } = useTranslation();
   return (
     <Animated.View entering={FadeIn.duration(260)} style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl, borderRadius: radius.xl, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border }}>
       <View style={{ width: 56, height: 56, borderRadius: 20, backgroundColor: colors.accentWarmTint, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="sparkles" size={26} color={colors.accentWarm} />
       </View>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{staff ? t('threads.no_answers_teacher') : t('threads.no_answers')}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{staff ? t('threads.no_answers_teacher') : parent ? t('threads.no_answers_parent') : t('threads.no_answers')}</Text>
     </Animated.View>
   );
 }
@@ -571,10 +652,12 @@ function Notice({ icon, tone, text }: { icon: IconName; tone: 'warning'; text: s
 
 // ── An answer ───────────────────────────────────────────────────────────────
 
-const CommentRow = memo(function CommentRow({ comment: c, index, canVote, downvotes, canEdit, onVote, onMenu, onEdit }: {
+const CommentRow = memo(function CommentRow({ comment: c, index, canVote, scoreOnly, downvotes, canEdit, onVote, onMenu, onEdit }: {
   comment: ThreadComment;
   index: number;
   canVote: boolean;
+  /** A parent: the score, read-only, no arrows. */
+  scoreOnly?: boolean;
   downvotes: boolean;
   canEdit: boolean;
   onVote: (c: ThreadComment, v: -1 | 0 | 1) => void;
@@ -583,19 +666,24 @@ const CommentRow = memo(function CommentRow({ comment: c, index, canVote, downvo
 }) {
   const { t } = useTranslation();
   const me = c.author.is_me;
-  const bg = c.hidden ? colors.dangerLight : c.picked ? colors.accentWarmTint : me ? colors.brandTint : colors.surface;
-  const border = c.picked ? colors.accentWarm : me ? colors.brand : colors.borderLight;
+  // A parent's own child stands out the way the reader's own answer does for a student.
+  const child = !!c.author.is_my_child;
+  const own = me || child;
+  const byParent = hiddenByParent(c.hidden_reason);
+  const bg = c.hidden ? colors.dangerLight : c.picked ? colors.accentWarmTint : own ? colors.brandTint : colors.surface;
+  const border = c.picked ? colors.accentWarm : own ? colors.brand : colors.borderLight;
 
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index, 6) * 40).duration(260)}>
       <Pressable onLongPress={() => onMenu(c)} delayLongPress={320} style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}>
-        <View style={{ flexDirection: 'row', gap: spacing.md, backgroundColor: bg, borderRadius: radius.xl, borderWidth: c.picked || me ? 1.5 : 1, borderColor: border, padding: spacing.md }}>
+        <View style={{ flexDirection: 'row', gap: spacing.md, backgroundColor: bg, borderRadius: radius.xl, borderWidth: c.picked || own ? 1.5 : 1, borderColor: border, padding: spacing.md }}>
           <InitialsAvatar id={c.author.id} name={c.author.name} size={38} ring={c.picked ? colors.accentWarm : null} />
           <View style={{ flex: 1, gap: 6 }}>
             {/* Name, badge, when, the menu */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 14, color: me ? colors.brand : colors.textPrimary }} numberOfLines={1}>
-                {me ? t('threads.your_answer') : c.author.name}
+              {child ? <Icon name="child" size={14} color={colors.brand} /> : null}
+              <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 14, color: own ? colors.brand : colors.textPrimary }} numberOfLines={1}>
+                {me ? t('threads.your_answer') : child ? t('threads.child_answer', { name: c.author.name }) : c.author.name}
               </Text>
               {c.picked ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, height: 22, borderRadius: 11, backgroundColor: colors.accentWarm }}>
@@ -612,19 +700,21 @@ const CommentRow = memo(function CommentRow({ comment: c, index, canVote, downvo
 
             {/* The answer */}
             <Text selectable style={{ fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 25, color: c.hidden ? colors.textTertiary : colors.textPrimary, textDecorationLine: c.hidden ? 'line-through' : 'none' }}>
-              {c.body ?? t('threads.hidden_by_teacher')}
+              {c.body ?? (byParent ? t('threads.hidden_by_parent_body') : t('threads.hidden_by_teacher'))}
             </Text>
             {c.hidden ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Icon name="eyeOff" size={12} color={colors.dangerText} outline />
-                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 11.5, color: colors.dangerText }}>{t('threads.hidden')}{c.hidden_reason ? `: ${c.hidden_reason}` : ''}</Text>
+                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 11.5, color: colors.dangerText }}>
+                  {byParent ? t('threads.hidden_by_parent') : `${t('threads.hidden')}${c.hidden_reason ? `: ${c.hidden_reason}` : ''}`}
+                </Text>
               </View>
             ) : null}
 
             {/* Votes, and the reader's own edit */}
             {!c.hidden ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <VotePill comment={c} canVote={canVote} downvotes={downvotes} onVote={onVote} />
+                {scoreOnly ? <ScoreChip score={c.score} /> : <VotePill comment={c} canVote={canVote} downvotes={downvotes} onVote={onVote} />}
                 <View style={{ flex: 1 }} />
                 {canEdit ? (
                   <TouchableOpacity onPress={onEdit} hitSlop={6} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, height: 30, borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}>
@@ -640,6 +730,19 @@ const CommentRow = memo(function CommentRow({ comment: c, index, canVote, downvo
     </Animated.View>
   );
 });
+
+/** A parent sees how the class rated an answer, nothing to press. */
+function ScoreChip({ score }: { score: number }) {
+  const ink = score > 0 ? colors.success : score < 0 ? colors.danger : colors.textTertiary;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 28, paddingHorizontal: 10, borderRadius: 14, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.borderLight }}>
+      <Icon name="voteUp" size={15} color={ink} outline />
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: ink, fontVariant: ['tabular-nums'] }}>
+        {score > 0 ? `+${arDigits(score)}` : score < 0 ? `-${arDigits(-score)}` : arDigits(0)}
+      </Text>
+    </View>
+  );
+}
 
 /** Up / score / down in one pill. The score moves under the finger (useVoteThreadComment is optimistic). */
 function VotePill({ comment: c, canVote, downvotes, onVote }: { comment: ThreadComment; canVote: boolean; downvotes: boolean; onVote: (c: ThreadComment, v: -1 | 0 | 1) => void }) {

@@ -4,9 +4,9 @@ import { useRealtimeChannels } from '@/hooks/useRealtimeChannels';
 import type { ChatRealtime } from '@/api/chat';
 import {
   answerThread, commentOnThread, createThread, extendThread, getThread, getThreadReports, getThreadVideoAudience,
-  getThreadsFeed, getThreadsUnread, hideThreadComment, lockThread, pickThreadComment, reportThreadComment,
+  getThreadChildren, getThreadsFeed, getThreadsUnread, hideThreadComment, setThreadChildParticipation, lockThread, pickThreadComment, reportThreadComment,
   resolveThreadReport, updateThreadSettings, uploadThreadVideo, voteThreadComment, withdrawThread,
-  type ComposeThreadInput, type ThreadComment, type UploadThreadVideoInput, type ThreadDetail, type ThreadSettings,
+  type ComposeThreadInput, type ThreadChildSetting, type ThreadComment, type ThreadParticipation, type UploadThreadVideoInput, type ThreadDetail, type ThreadSettings,
 } from '@/api/threads';
 
 export const THREADS_FLAG = 'threads';
@@ -201,5 +201,46 @@ export function useThreadVideoAudience(videoId: number | null, enabled: boolean)
     queryFn: () => getThreadVideoAudience(videoId as number),
     enabled: on && enabled && !!videoId,
     staleTime: 10_000,
+  });
+}
+
+// ── Parents: each child's participation (founder 2026-10-15) ───────────────────
+
+/** The consent sheet's rows — parents only, fetched while the sheet is open. */
+export function useThreadChildren(enabled: boolean) {
+  const on = useThreadsEnabled();
+  return useQuery({
+    queryKey: ['threads', 'children'],
+    queryFn: getThreadChildren,
+    enabled: on && enabled,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * One child's participation. Optimistic: the segment moves under the finger, a refusal puts
+ * it back. Success refreshes the feed (a closed child's posts may leave a parent's view of
+ * the child's answers) and the children list.
+ */
+export function useSetChildParticipation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { studentId: number; participation: ThreadParticipation }) => setThreadChildParticipation(input.studentId, input.participation),
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: ['threads', 'children'] });
+      const prev = qc.getQueryData<ThreadChildSetting[]>(['threads', 'children']);
+      qc.setQueryData<ThreadChildSetting[]>(['threads', 'children'], (rows) =>
+        rows?.map((r) => (r.student_id === input.studentId ? { ...r, participation: input.participation } : r)),
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['threads', 'children'], ctx.prev); },
+    onSuccess: (row) => {
+      if (row) qc.setQueryData<ThreadChildSetting[]>(['threads', 'children'], (rows) => rows?.map((r) => (r.student_id === row.student_id ? { ...r, ...row } : r)));
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['threads', 'children'] });
+      qc.invalidateQueries({ queryKey: ['threads', 'feed'] });
+    },
   });
 }

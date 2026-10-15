@@ -12,6 +12,7 @@ import { ThreadVideoField } from './ThreadVideoField';
 import { useVideoDraft } from './useVideoDraft';
 import { InitialsAvatar } from './Avatar';
 import { TIMER_PRESETS, ago, arDigits } from './format';
+import { reportedByParent } from './parents';
 import type { ThreadLimits, ThreadSettings } from '@/api/threads';
 
 type Tone = 'brand' | 'warm' | 'success' | 'danger' | 'warning';
@@ -237,6 +238,12 @@ export function ReportsSheet({ visible, onClose, onOpenThread }: { visible: bool
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }} numberOfLines={1}>{t('threads.report_on', { name: r.reported_user.name })}</Text>
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }} numberOfLines={1}>{t('threads.report_by', { name: r.reporter.name })}  |  {ago(r.created_at)}</Text>
+              {reportedByParent(r) ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.full, backgroundColor: colors.brandTint }}>
+                  <Icon name="people" size={11} color={colors.brand} />
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{t('threads.report_from_parent')}</Text>
+                </View>
+              ) : null}
             </View>
             <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.full, backgroundColor: colors.warningLight }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.warningText }}>{r.reason_label}</Text>

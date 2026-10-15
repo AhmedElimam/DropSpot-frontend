@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, RefreshControl } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
-import { router, type Href } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
@@ -52,6 +52,9 @@ function StudentConversations() {
   const threadsEnabled = useThreadsEnabled();
   // Until the reader picks a side, the default follows the flags (they may load after mount).
   const [picked, setSegment] = useState<Segment | null>(null);
+  // A push about حكاوي (e.g. a parent changed the student's part) lands with `?segment=threads`.
+  const params = useLocalSearchParams<{ segment?: string }>();
+  useEffect(() => { if (params.segment === 'threads' || params.segment === 'chat') setSegment(params.segment); }, [params.segment]);
   const segment: Segment = picked ?? (chatEnabled ? 'chat' : 'threads');
   const both = chatEnabled && threadsEnabled;
   const showThreads = threadsEnabled && (segment === 'threads' || !chatEnabled);
