@@ -227,11 +227,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-camera',
       {
         cameraPermission:
-          'يستخدم التطبيق الكاميرا لمسح رمز الحضور أو التحقق من الكارت، وليسجّل المعلم فيديو إجابة قصيرًا في النقاشات.',
-        // Recording a thread answer needs sound. Same string as the chat recorder so the
-        // OS prompt reads the same wherever the mic is first asked for.
+          'يستخدم التطبيق الكاميرا لمسح رمز الحضور أو التحقق من الكارت، وليصوّر المعلم فيديو في حكاوي.',
+        // Recording a حكاوي video needs sound. Same string as expo-image-picker's below so the
+        // OS prompt reads the same whichever plugin writes the key last.
         microphonePermission:
-          'يستخدم التطبيق الميكروفون لتسجيل رسالة صوتية في دردشة المقرر أو فيديو إجابة في النقاشات.',
+          'يستخدم التطبيق الميكروفون لتسجيل رسالة صوتية في دردشة المقرر أو فيديو في حكاوي.',
       },
     ],
     [
@@ -247,12 +247,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // permission the chat voice recorder (expo-audio) needs. Same justified string.
       'expo-image-picker',
       {
+        // حكاوي (2026-10-15): the teacher also picks a VIDEO from the gallery to trim and post.
         photosPermission:
-          'يستخدم التطبيق صورك لإرفاق إثبات الدفع أو صورة الكارت، أو لإرسال صورة في دردشة المقرر.',
+          'يستخدم التطبيق صورك وفيديوهاتك لإرفاق إثبات الدفع أو صورة الكارت، أو لإرسال صورة في دردشة المقرر، أو ليختار المعلم فيديو لحكاوي.',
         cameraPermission:
-          'يستخدم التطبيق الكاميرا لمسح رمز الحضور أو التحقق من الكارت.',
+          'يستخدم التطبيق الكاميرا لمسح رمز الحضور أو التحقق من الكارت، وليصوّر المعلم فيديو في حكاوي.',
         microphonePermission:
-          'يستخدم التطبيق الميكروفون لتسجيل رسالة صوتية في دردشة المقرر.',
+          'يستخدم التطبيق الميكروفون لتسجيل رسالة صوتية في دردشة المقرر أو فيديو في حكاوي.',
       },
     ],
     [
@@ -261,12 +262,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-audio',
       {
         microphonePermission:
-          'يستخدم التطبيق الميكروفون لتسجيل رسالة صوتية في دردشة المقرر.',
+          'يستخدم التطبيق الميكروفون لتسجيل رسالة صوتية في دردشة المقرر أو فيديو في حكاوي.',
       },
     ],
-    // Thread answers as short video: the teacher records with expo-camera (already linked),
-    // students play with expo-video. expo-video needs its plugin for the Android media
-    // session / iOS background-audio entitlements it declares; no permission strings.
+    // حكاوي videos: the teacher records with expo-camera or picks from the gallery
+    // (expo-image-picker), trims + compresses on the phone with the LOCAL module
+    // modules/dros-media (AVFoundation / Media3 Transformer — autolinked from ./modules, no
+    // config plugin needed), frames come from expo-video-thumbnails (no plugin either); students
+    // play with expo-video. expo-video needs its plugin for the Android media session / iOS
+    // background-audio entitlements it declares; no permission strings.
     'expo-video',
     [
       'expo-splash-screen',

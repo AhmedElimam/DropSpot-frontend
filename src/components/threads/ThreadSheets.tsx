@@ -6,12 +6,13 @@ import { colors, spacing, radius } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { SheetModal } from '@/components/ui/SheetModal';
-import { useAnswerThread, useResolveThreadReport, useThreadReports, useThreadVideoAudience, useUpdateThreadSettings, useUploadThreadVideo } from '@/hooks/useThreads';
+import { useAnswerThread, useResolveThreadReport, useThreadReports, useThreadVideoAudience, useUpdateThreadSettings } from '@/hooks/useThreads';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { VideoRecorder, type RecordedClip } from './VideoRecorder';
+import { ThreadVideoField } from './ThreadVideoField';
+import { useVideoDraft } from './useVideoDraft';
 import { InitialsAvatar } from './Avatar';
 import { TIMER_PRESETS, ago, arDigits } from './format';
-import type { ThreadSettings } from '@/api/threads';
+import type { ThreadLimits, ThreadSettings } from '@/api/threads';
 
 type Tone = 'brand' | 'warm' | 'success' | 'danger' | 'warning';
 
@@ -94,25 +95,20 @@ export function TextSheet({ visible, title, subtitle, placeholder, confirm, pend
   );
 }
 
-/** The teacher's answer: text, a recorded clip, or both. Publishing closes the round. */
-export function AnswerSheet({ visible, threadId, maxSeconds, onClose, onDone }: {
-  visible: boolean; threadId: number; maxSeconds: number; onClose: () => void; onDone: () => void;
+/** The teacher's answer: text, a video (recorded or picked, trimmed on the phone), or both. Publishing closes the round. */
+export function AnswerSheet({ visible, threadId, limits, onClose, onDone }: {
+  visible: boolean; threadId: number; limits: ThreadLimits | undefined; onClose: () => void; onDone: () => void;
 }) {
   const { t } = useTranslation();
   const [body, setBody] = useState('');
-  const [clip, setClip] = useState<RecordedClip | null>(null);
-  const [recorderOpen, setRecorderOpen] = useState(false);
   const answer = useAnswerThread(threadId);
-  const upload = useUploadThreadVideo();
-  const busy = answer.isPending || upload.isPending;
-  useEffect(() => { if (visible) { setBody(''); setClip(null); } }, [visible]);
+  const draft = useVideoDraft(limits, visible);
+  const busy = answer.isPending || draft.busy;
+  useEffect(() => { if (visible) setBody(''); }, [visible]);
 
   const publish = async () => {
     try {
-      let videoId: number | null = null;
-      if (clip) {
-        videoId = (await upload.mutateAsync({ uri: clip.uri, name: clip.name, mime: clip.mime, duration: clip.duration })).id;
-      }
+      const videoId = (await draft.upload())?.id ?? null;
       await answer.mutateAsync({ body: body.trim() || undefined, video_id: videoId });
       onDone();
     } catch (e) {
@@ -123,41 +119,15 @@ export function AnswerSheet({ visible, threadId, maxSeconds, onClose, onDone }: 
   return (
     <Sheet visible={visible} title={t('threads.answer_title')} subtitle={t('threads.answer_hint')} icon="teacher" tone="success" onClose={onClose} busy={busy}>
       <TextInput value={body} onChangeText={setBody} placeholder={t('threads.answer_placeholder')} placeholderTextColor={colors.textTertiary} maxLength={4000} multiline style={[threadInputStyle(), { minHeight: 120, textAlignVertical: 'top' }]} />
-      <VideoAttach clip={clip} onRecord={() => setRecorderOpen(true)} onRemove={() => setClip(null)} label={t('threads.or_record')} hint={t('threads.record_video_hint', { seconds: arDigits(maxSeconds) })} />
-      <Button title={upload.isPending ? t('threads.uploading') : t('threads.publish_answer')} variant="success" onPress={publish} disabled={busy || (!body.trim() && !clip)} loading={busy} />
-      {/* Inside the sheet's window, so iOS presents it over the sheet instead of queueing it. */}
-      <VideoRecorder visible={recorderOpen} maxSeconds={maxSeconds} onClose={() => setRecorderOpen(false)} onRecorded={(c) => { setClip(c); setRecorderOpen(false); }} />
+      <ThreadVideoField draft={draft} label={t('threads.or_record')} />
+      <Button
+        title={draft.uploading !== null ? t('threads.uploading') : draft.preparing !== null ? t('threads.preparing') : t('threads.publish_answer')}
+        variant="success"
+        onPress={publish}
+        disabled={busy || (!body.trim() && !draft.video)}
+        loading={busy}
+      />
     </Sheet>
-  );
-}
-
-/** The video tile of a compose / answer sheet: a dashed «record» tile, or the clip, ready. */
-export function VideoAttach({ clip, onRecord, onRemove, label, hint }: { clip: RecordedClip | null; onRecord: () => void; onRemove: () => void; label: string; hint: string }) {
-  const { t } = useTranslation();
-  if (clip) {
-    return (
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.successLight }}>
-        <View style={{ width: 40, height: 56, borderRadius: 8, backgroundColor: '#1E2657', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="play" size={18} color="#FFFFFF" />
-        </View>
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.successText }}>{t('threads.video_attached', { seconds: arDigits(Math.round(clip.duration)) })}</Text>
-        <TouchableOpacity onPress={onRemove} hitSlop={8} style={{ paddingHorizontal: spacing.md, height: 32, borderRadius: radius.full, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger }}>{t('threads.remove_video')}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-  return (
-    <TouchableOpacity onPress={onRecord} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.borderStrong, backgroundColor: colors.surface }}>
-      <View style={{ width: 40, height: 56, borderRadius: 8, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="video" size={20} color={colors.brand} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{label}</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{hint}</Text>
-      </View>
-      <Icon name="add" size={20} color={colors.brand} />
-    </TouchableOpacity>
   );
 }
 
@@ -192,19 +162,37 @@ export function AudienceSheet({ videoId, onClose }: { videoId: number | null; on
           </View>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderLight, overflow: 'hidden' }}>
             {data.viewers.map((v, i) => (
-              <View key={v.user_id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderTopWidth: i ? 1 : 0, borderTopColor: colors.borderLight }}>
-                <InitialsAvatar id={v.user_id} name={v.name} size={38} ring={v.capture_attempts ? colors.danger : null} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>{v.name}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
-                    {v.student_code ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, writingDirection: 'ltr' }}>{v.student_code}</Text> : null}
-                    {v.codes.slice(0, 3).map((c) => (
-                      <Text key={c} style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand, backgroundColor: colors.brandTint, paddingHorizontal: 6, borderRadius: 6, overflow: 'hidden', writingDirection: 'ltr' }}>{c}</Text>
-                    ))}
-                    {v.last_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }}>{ago(v.last_at)}</Text> : null}
+              <View key={v.user_id} style={{ padding: spacing.md, gap: spacing.sm, borderTopWidth: i ? 1 : 0, borderTopColor: colors.borderLight, backgroundColor: v.capture_attempts ? colors.dangerLight : 'transparent' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                  <InitialsAvatar id={v.user_id} name={v.name} size={38} ring={v.capture_attempts ? colors.danger : null} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>{v.name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
+                      {v.student_code ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, writingDirection: 'ltr' }}>{v.student_code}</Text> : null}
+                      {v.codes.slice(0, 3).map((c) => (
+                        <Text key={c} style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand, backgroundColor: colors.brandTint, paddingHorizontal: 6, borderRadius: 6, overflow: 'hidden', writingDirection: 'ltr' }}>{c}</Text>
+                      ))}
+                      {v.last_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }}>{ago(v.last_at)}</Text> : null}
+                    </View>
                   </View>
+                  {v.capture_attempts ? (
+                    <View style={{ minWidth: 28, height: 28, paddingHorizontal: 6, borderRadius: 14, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#FFFFFF' }}>{arDigits(v.capture_attempts)}</Text>
+                    </View>
+                  ) : null}
                 </View>
-                {v.capture_attempts ? <Stat label={t('threads.capture_attempts', { count: v.capture_attempts })} tone="danger" /> : null}
+                {/* What they tried, in red — a teacher scanning the list sees it without opening anything. */}
+                {v.capture_attempts ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm }}>
+                    {(v.capture_kinds.length ? v.capture_kinds : ['screenshot']).map((k) => (
+                      <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, height: 26, borderRadius: radius.full, backgroundColor: colors.danger }}>
+                        <Icon name={k === 'recording' ? 'video' : 'camera'} size={13} color="#FFFFFF" />
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#FFFFFF' }}>{k === 'recording' ? t('threads.capture_kind_recording') : t('threads.capture_kind_screenshot')}</Text>
+                      </View>
+                    ))}
+                    {v.last_capture_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.dangerText }}>{t('threads.capture_last', { ago: ago(v.last_capture_at) })}</Text> : null}
+                  </View>
+                ) : null}
               </View>
             ))}
           </View>

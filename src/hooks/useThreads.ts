@@ -6,7 +6,7 @@ import {
   answerThread, commentOnThread, createThread, extendThread, getThread, getThreadReports, getThreadVideoAudience,
   getThreadsFeed, getThreadsUnread, hideThreadComment, lockThread, pickThreadComment, reportThreadComment,
   resolveThreadReport, updateThreadSettings, uploadThreadVideo, voteThreadComment, withdrawThread,
-  type ComposeThreadInput, type ThreadComment, type ThreadDetail, type ThreadSettings,
+  type ComposeThreadInput, type ThreadComment, type UploadThreadVideoInput, type ThreadDetail, type ThreadSettings,
 } from '@/api/threads';
 
 export const THREADS_FLAG = 'threads';
@@ -176,7 +176,9 @@ export function useUpdateThreadSettings() {
 }
 
 export function useUploadThreadVideo() {
-  return useMutation({ mutationFn: uploadThreadVideo });
+  return useMutation({
+    mutationFn: ({ onProgress, ...input }: UploadThreadVideoInput & { onProgress?: (fraction: number) => void }) => uploadThreadVideo(input, onProgress),
+  });
 }
 
 export function useThreadReports(enabled: boolean) {

@@ -9,6 +9,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
+import { durationWords, formatClock } from './videoTrim';
 
 export interface RecordedClip {
   uri: string;
@@ -18,8 +19,8 @@ export interface RecordedClip {
 }
 
 /**
- * The teacher's answer camera — a vertical, front-facing, one-take recorder with a hard stop
- * at the server's cap. Record → review → use or retake. Nothing is uploaded from here; the
+ * The teacher's camera — a vertical, front-facing, one-take recorder with a hard stop at the
+ * server's cap (`limits.video_max_seconds`, five minutes since 2026-10-15). Record → review → use or retake. Nothing is uploaded from here; the
  * caller gets the clip and decides.
  */
 export function VideoRecorder({ visible, maxSeconds, onClose, onRecorded }: {
@@ -62,7 +63,9 @@ export function VideoRecorder({ visible, maxSeconds, onClose, onRecorded }: {
     setRecording(true);
     startedAt.current = Date.now();
     try {
-      const result = await camera.current.recordAsync({ maxDuration: maxSeconds });
+      // H.264 at ~2.5 Mbps: five minutes stay ~95 MB, and a clip this lean goes up without a
+      // second encode (videoTrim.planEncode). iOS honours the bitrate only with a codec named.
+      const result = await camera.current.recordAsync({ maxDuration: maxSeconds, ...(Platform.OS === 'ios' ? { codec: 'avc1' as const } : null) });
       const duration = Math.max(1, Math.round((Date.now() - startedAt.current) / 1000));
       if (result?.uri) {
         const isMov = result.uri.toLowerCase().endsWith('.mov');
@@ -91,7 +94,7 @@ export function VideoRecorder({ visible, maxSeconds, onClose, onRecorded }: {
         ) : clip ? (
           <Review clip={clip} onRetake={() => setClip(null)} onUse={() => onRecorded(clip)} />
         ) : (
-          <CameraView ref={camera} style={{ flex: 1 }} facing={facing} mode="video" videoQuality="720p" mute={false} />
+          <CameraView ref={camera} style={{ flex: 1 }} facing={facing} mode="video" videoQuality="720p" videoBitrate={2_500_000} mute={false} />
         )}
 
         {/* Header */}
@@ -101,7 +104,7 @@ export function VideoRecorder({ visible, maxSeconds, onClose, onRecorded }: {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff', textAlign: 'right' }}>{t('threads.recorder_title')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'right' }}>{t('threads.recorder_hint', { seconds: maxSeconds })}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)', textAlign: 'right' }}>{t('threads.recorder_hint', { limit: durationWords(maxSeconds) })}</Text>
           </View>
           {!clip ? (
             <TouchableOpacity onPress={() => setFacing((f) => (f === 'front' ? 'back' : 'front'))} disabled={recording} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' }}>
@@ -142,7 +145,7 @@ function Review({ clip, onRetake, onUse }: { clip: RecordedClip; onRetake: () =>
     <View style={{ flex: 1 }}>
       <VideoView player={player} style={{ flex: 1 }} contentFit="contain" nativeControls={false} allowsFullscreen={false} allowsPictureInPicture={false} />
       <View style={{ position: 'absolute', bottom: insets.bottom + spacing.xl, left: spacing.lg, right: spacing.lg, gap: spacing.sm }}>
-        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.8)', textAlign: 'center' }}>{t('threads.video_attached', { seconds: clip.duration })}</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.8)', textAlign: 'center' }}>{t('threads.video_ready', { length: formatClock(clip.duration) })}</Text>
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <View style={{ flex: 1 }}><Button title={t('threads.recorder_retake')} variant="outline" onPress={onRetake} /></View>
           <View style={{ flex: 2 }}><Button title={t('threads.recorder_use')} variant="success" onPress={onUse} /></View>

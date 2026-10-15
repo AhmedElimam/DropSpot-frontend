@@ -5,10 +5,11 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
-import { useCreateThread, useUploadThreadVideo } from '@/hooks/useThreads';
+import { useCreateThread } from '@/hooks/useThreads';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { VideoRecorder, type RecordedClip } from './VideoRecorder';
-import { Choice, Sheet, VideoAttach, threadInputStyle } from './ThreadSheets';
+import { Choice, Sheet, threadInputStyle } from './ThreadSheets';
+import { ThreadVideoField } from './ThreadVideoField';
+import { useVideoDraft } from './useVideoDraft';
 import { TIMER_PRESETS, arDigits } from './format';
 import type { ThreadGrade, ThreadLimits, ThreadSettings } from '@/api/threads';
 
@@ -36,35 +37,29 @@ export function ComposeThreadSheet({ visible, grades, settings, limits, initialK
   const [body, setBody] = useState('');
   const [minutes, setMinutes] = useState<number>(60);
   const [quiz, setQuiz] = useState(false);
-  const [clip, setClip] = useState<RecordedClip | null>(null);
-  const [recorderOpen, setRecorderOpen] = useState(false);
   const create = useCreateThread();
-  const upload = useUploadThreadVideo();
+  // Record or pick → trim → compress on the phone → upload (founder 2026-10-15).
+  const draft = useVideoDraft(limits, visible);
 
   useEffect(() => {
     if (visible) {
-      setKind(initialKind); setTitle(''); setBody(''); setQuiz(false); setClip(null);
+      setKind(initialKind); setTitle(''); setBody(''); setQuiz(false);
       setGradeId(grades[0]?.id ?? null);
       const def = (settings?.default_close_hours ?? 24) * 60;
       setMinutes(TIMER_PRESETS.some((p) => p.minutes === def) ? def : 1440);
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const maxVideo = limits?.video_max_seconds ?? 120;
   const titleMax = limits?.title_max_chars ?? 200;
   const bodyMax = limits?.body_max_chars ?? 4000;
-  const busy = create.isPending || upload.isPending;
+  const busy = create.isPending || draft.busy;
   const question = kind === 'question';
-  const canPublish = !!gradeId && !busy && (question ? title.trim().length > 0 : !!(title.trim() || body.trim() || clip));
+  const canPublish = !!gradeId && !busy && (question ? title.trim().length > 0 : !!(title.trim() || body.trim() || draft.video));
 
   const publish = async () => {
     if (!gradeId) return;
     try {
-      let videoId: number | null = null;
-      if (clip) {
-        const v = await upload.mutateAsync({ uri: clip.uri, name: clip.name, mime: clip.mime, duration: clip.duration });
-        videoId = v.id;
-      }
+      const videoId = (await draft.upload())?.id ?? null;
       const thread = await create.mutateAsync({
         kind, grade_id: gradeId, title: title.trim() || undefined, body: body.trim() || undefined, video_id: videoId,
         close_minutes: question ? (minutes > 0 ? minutes : null) : undefined,
@@ -149,19 +144,15 @@ export function ComposeThreadSheet({ visible, grades, settings, limits, initialK
         </>
       ) : null}
 
-      {/* Video */}
-      <VideoAttach
-        clip={clip}
-        onRecord={() => setRecorderOpen(true)}
-        onRemove={() => setClip(null)}
-        label={t('threads.record_video')}
-        hint={t('threads.record_video_hint', { seconds: arDigits(maxVideo) })}
+      {/* Video: record or pick, trim, compressed on the phone */}
+      <ThreadVideoField draft={draft} label={t('threads.record_video')} />
+
+      <Button
+        title={draft.uploading !== null ? t('threads.uploading') : draft.preparing !== null ? t('threads.preparing') : create.isPending ? t('common.loading') : t('threads.publish')}
+        onPress={publish}
+        disabled={!canPublish}
+        loading={busy}
       />
-
-      <Button title={busy ? (upload.isPending ? t('threads.uploading') : t('common.loading')) : t('threads.publish')} onPress={publish} disabled={!canPublish} loading={busy} />
-
-      {/* Inside the sheet's window, so iOS presents it over the sheet instead of queueing it. */}
-      <VideoRecorder visible={recorderOpen} maxSeconds={maxVideo} onClose={() => setRecorderOpen(false)} onRecorded={(c) => { setClip(c); setRecorderOpen(false); }} />
     </Sheet>
   );
 }

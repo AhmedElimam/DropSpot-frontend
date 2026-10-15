@@ -1,0 +1,24 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.drosmedia'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.drosmedia"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // Media3 Transformer: Google's own on-device trim + transcode (hardware MediaCodec, no
+  // ffmpeg). Pinned to the SAME version expo-video links (node_modules/expo-video/android/
+  // build.gradle → androidxMedia3Version) so the app carries one Media3, not two.
+  implementation "androidx.media3:media3-transformer:1.8.0"
+  implementation "androidx.media3:media3-effect:1.8.0"
+  implementation "androidx.media3:media3-common:1.8.0"
+}
