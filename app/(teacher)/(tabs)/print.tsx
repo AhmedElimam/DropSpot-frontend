@@ -22,6 +22,7 @@ import { PrintTabPastRow } from '@/components/print/PrintTabPastRow';
 import { PrintTabHowItWorks } from '@/components/print/PrintTabHowItWorks';
 import { PrintTabCreditCard } from '@/components/print/PrintTabCreditCard';
 import { useAuthStore } from '@/stores/authStore';
+import { BetaLine } from '@/components/ui/Beta';
 import { getPrintJobs, getPrintShops, getPrintCredit, reorderPrintJob, type PrintJob } from '@/api/print';
 
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: v % 1 ? 2 : 0 });
@@ -167,6 +168,8 @@ export default function PrintTab() {
             </TouchableOpacity>
           </View>
           </Surface>
+          {/* The marketplace reached this teacher as a beta (feature targeting): one line, the way to send notes. */}
+          <BetaLine feature="print_market" style={{ marginHorizontal: 0, marginTop: spacing.md }} />
         </LinearGradient>
 
         {/* «سجل الدفع» — the score, the tier, what is left on credit or what is overdue */}

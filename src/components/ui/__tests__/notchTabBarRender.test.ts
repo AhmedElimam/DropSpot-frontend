@@ -15,7 +15,7 @@ const TABS = ['index', 'teachers', 'children', 'invoices', 'profile'] as const;
 const labels: Record<string, string> = { index: 'nav.home', teachers: 'parent.teachers', children: 'nav.children', invoices: 'nav.invoices', profile: 'nav.settings' };
 const icons = { index: 'home', teachers: 'teacher', children: 'children', invoices: 'invoices', profile: 'settings' } as const;
 
-function mount(focused = 'index') {
+function mount(focused = 'index', extra: Record<string, unknown> = {}) {
   // Every registered route, hidden detail screens included, as the navigator passes them.
   const names = ['index', 'children', 'teachers', 'invoices', 'tickets', 'profile', 'reports', 'child/[id]'];
   const routes = names.map((name) => ({ key: `${name}-key`, name, params: undefined }));
@@ -25,7 +25,7 @@ function mount(focused = 'index') {
   const navigation = { emit, navigate } as any;
   let tree!: ReactTestRenderer;
   act(() => {
-    tree = create(createElement(NotchTabBar as unknown as (props: Record<string, unknown>) => null, { state, descriptors: {}, navigation, insets: { top: 0, bottom: 20, left: 0, right: 0 }, tabs: TABS, center: 'children', labels, icons }));
+    tree = create(createElement(NotchTabBar as unknown as (props: Record<string, unknown>) => null, { state, descriptors: {}, navigation, insets: { top: 0, bottom: 20, left: 0, right: 0 }, tabs: TABS, center: 'children', labels, icons, ...extra }));
   });
   return { tree, emit, navigate };
 }
@@ -88,5 +88,22 @@ describe('NotchTabBar', () => {
       tree = create(createElement(NotchTabBar as unknown as (props: Record<string, unknown>) => null, { state, descriptors: {}, navigation: { emit: jest.fn(() => ({})), navigate: jest.fn() }, insets: { top: 0, bottom: 0, left: 0, right: 0 }, tabs: TABS, center: 'children', labels, icons }));
     });
     expect(tabsOf(tree)).toHaveLength(2);
+  });
+});
+
+describe('beta dot (feature targeting)', () => {
+  const dots = (tree: ReactTestRenderer, name: string) =>
+    tree.root.findAll((n: ReactTestInstance) => n.props.testID === `tab-beta:${name}` && typeof n.type === 'string');
+
+  it('draws a gold dot on a beta tab, none elsewhere, none without the prop', () => {
+    const { tree } = mount('index', { beta: ['invoices'] });
+    expect(dots(tree, 'invoices')).toHaveLength(1);
+    expect(dots(tree, 'index')).toHaveLength(0);
+    expect(dots(mount('index').tree, 'invoices')).toHaveLength(0);
+  });
+
+  it('a count on the same tab wins over the dot', () => {
+    const { tree } = mount('index', { beta: ['invoices'], badges: { invoices: 3 } });
+    expect(dots(tree, 'invoices')).toHaveLength(0);
   });
 });

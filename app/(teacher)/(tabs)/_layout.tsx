@@ -8,6 +8,7 @@ import { NotchTabBar } from '@/components/ui/NotchTabBar';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useBetaFeature } from '@/hooks/useBetaFeature';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { getPrintJobs } from '@/api/print';
@@ -25,6 +26,8 @@ const TAB_ORDER = ['index', 'sessions', 'manage', 'students', 'settings'] as con
 // The print marketplace takes the students' place for the teacher (founder 2026-10-14); the
 // students list stays one tap away in Home and «الإدارة». Assistants never see money pages.
 const PRINT_ORDER = ['index', 'sessions', 'manage', 'print', 'settings'] as const;
+// Stable: a fresh array per render would re-render the whole bar on every sync tick.
+const PRINT_BETA = ['print'] as const;
 const CENTER_TAB = 'manage';
 
 const labels: Record<string, string> = {
@@ -53,6 +56,8 @@ export default function TeacherTabsLayout() {
   const flags = useFeatureFlags().data;
   const isAssistant = useAuthStore((s) => s.role === 'assistant');
   const printTab = !!flags?.print_market && !isAssistant;
+  // A gold dot on «المطبعة» while the marketplace reached this teacher as a beta (feature targeting).
+  const printBeta = useBetaFeature('print_market');
   const tabs = (printTab ? PRINT_ORDER : TAB_ORDER).filter((n) => !hiddenSurfaces.has(`tab.teacher.${n}`));
   // Jobs on their way light the tab, like a delivery app's.
   const printJobs = useQuery({ queryKey: ['print-jobs'], queryFn: getPrintJobs, enabled: printTab, staleTime: 60_000, refetchInterval: 120_000 });
@@ -78,7 +83,7 @@ export default function TeacherTabsLayout() {
     <Tabs
       // Hardware back between tabs follows the visit history, not "jump to the first tab".
       backBehavior="history"
-      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} badges={badges} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
+      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} badges={badges} beta={printBeta ? PRINT_BETA : undefined} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
       screenOptions={screenOptions}
       screenLayout={sceneLayout}
     >
