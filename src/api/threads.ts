@@ -1,7 +1,8 @@
 import client from './client';
 
 /**
- * Grade-wide question threads («النقاشات») — docs/THREADS.md on the backend.
+ * Grade-wide question threads — «حكاوي» in the app (founder 2026-10-15; formerly «النقاشات»).
+ * docs/THREADS.md on the backend.
  *
  * Every endpoint is absent (404) while the `threads` feature flag is off; callers gate on the
  * flag first. Who may comment, vote, answer or moderate is decided server-side and arrives in

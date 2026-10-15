@@ -10,6 +10,8 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { Image } from 'expo-image';
 import { GeneratedAvatar } from '@/components/ui/GeneratedAvatar';
 
+export interface HeroAction { icon: IconName; label?: string; onPress: () => void; accessibilityLabel?: string; badge?: number }
+
 export interface HeroStat {
   value: string;
   label: string;
@@ -27,7 +29,7 @@ export interface HeroStat {
  *
  * Draws through the hero tokens, so it is ink on paper by day and white on navy by night.
  */
-export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, stats, children, compact = false, inset, closeIcon = false, grabber = false }: {
+export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, actions, stats, children, compact = false, inset, closeIcon = false, grabber = false }: {
   title: string;
   subtitle?: string;
   /** The person's avatar seed (see `avatarSeed`) — drawn as their generated character. */
@@ -37,7 +39,9 @@ export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, s
   /** Show the back chip. Pass `true` to pop (falling back to the role home), or a handler. */
   onBack?: boolean | (() => void);
   /** A chip on the far side of the first row. */
-  action?: { icon: IconName; label?: string; onPress: () => void; accessibilityLabel?: string; badge?: number };
+  action?: HeroAction;
+  /** More chips beside `action` on the first row (a page with two tools: settings + a queue). */
+  actions?: HeroAction[];
   stats?: HeroStat[];
   children?: ReactNode;
   /** No overlap allowance at the bottom (the content starts flush under the hero). */
@@ -52,7 +56,8 @@ export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, s
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const back = onBack === true ? () => (router.canGoBack() ? router.back() : router.replace('/resolve' as never)) : onBack || undefined;
-  const hasRow = !!back || !!action;
+  const chips = [...(action ? [action] : []), ...(actions ?? [])];
+  const hasRow = !!back || chips.length > 0;
 
   return (
     <LinearGradient
@@ -71,17 +76,21 @@ export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, s
               <Icon name={closeIcon ? 'close' : 'forward'} size={closeIcon ? 20 : 22} color={colors.onHero} />
             </TouchableOpacity>
           ) : <View style={{ width: 40 }} />}
-          {action ? (
-            <TouchableOpacity onPress={action.onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={action.accessibilityLabel ?? action.label}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, minWidth: 40, paddingHorizontal: action.label ? spacing.md : 0, justifyContent: 'center', borderRadius: 12, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
-              <Icon name={action.icon} size={20} color={colors.onHero} outline />
-              {action.label ? <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{action.label}</Text> : null}
-              {action.badge ? (
-                <View style={{ position: 'absolute', top: -5, end: -5, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onPrimary }}>{action.badge > 9 ? '9+' : action.badge}</Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
+          {chips.length ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              {chips.map((a) => (
+                <TouchableOpacity key={a.icon} onPress={a.onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={a.accessibilityLabel ?? a.label}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, minWidth: 40, paddingHorizontal: a.label ? spacing.md : 0, justifyContent: 'center', borderRadius: 12, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+                  <Icon name={a.icon} size={20} color={colors.onHero} outline />
+                  {a.label ? <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{a.label}</Text> : null}
+                  {a.badge ? (
+                    <View style={{ position: 'absolute', top: -5, end: -5, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onPrimary }}>{a.badge > 9 ? '9+' : a.badge}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </View>
           ) : null}
         </View>
       ) : null}

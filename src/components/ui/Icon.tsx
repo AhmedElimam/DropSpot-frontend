@@ -95,7 +95,7 @@ const ICON_MAP = {
   offline: 'cloud-offline',
   download: 'download',
   'person-remove': 'person-remove',
-  // Threads («النقاشات»): question feed, votes, timer, the answer video and the recorder.
+  // حكاوي (threads): question feed, votes, timer, the answer video and the recorder.
   threads: 'chatbox-ellipses',
   question: 'help-circle',
   thumbUp: 'thumbs-up',
@@ -106,6 +106,13 @@ const ICON_MAP = {
   people: 'people',
   flipCamera: 'camera-reverse',
   lightbulb: 'bulb',
+  /** حكاوي: a round that is over and waits for the teacher; the votes; the post's menu. */
+  hourglass: 'hourglass',
+  sparkles: 'sparkles',
+  voteUp: 'caret-up',
+  voteDown: 'caret-down',
+  more: 'ellipsis-horizontal',
+  pencil: 'pencil',
   /** «اعتراض على الدرجة»: photograph the paper, pick it, draw on it, undo a line. */
   image: 'image',
   brush: 'brush',
@@ -113,7 +120,6 @@ const ICON_MAP = {
   shapeCircle: 'ellipse-outline',
   shapeArrow: 'arrow-forward',
   undo: 'arrow-undo',
-  // Threads («النقاشات») — also the student's «مجموعاتي» coming-soon tab.
   // The «شروحات» player's own controls.
   redo: 'arrow-redo',
   list: 'list',

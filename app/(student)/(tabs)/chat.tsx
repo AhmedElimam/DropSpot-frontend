@@ -1,18 +1,20 @@
-import { useState } from 'react';
-import { View, Text, RefreshControl, TouchableOpacity } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, RefreshControl } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
+import { colors, spacing, radius, nav, gradients } from '@/theme/index';
 import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { ChatInbox, ChatInboxList } from '@/components/chat/ChatInbox';
 import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
-import { Icon, type IconName } from '@/components/ui/Icon';
+import { Icon } from '@/components/ui/Icon';
+import { Segments } from '@/components/threads/Segments';
+import { arDigits, filterCounts } from '@/components/threads/format';
 import { TogetherComingSoon } from '@/components/student/TogetherComingSoon';
 import { Surface } from '@/ui/surfaces';
 
@@ -21,7 +23,8 @@ type Segment = 'threads' | 'chat';
 /**
  * The student's conversations tab. Two surfaces, one tab (the bar has no sixth slot):
  *
- *  - **النقاشات** — the teacher's grade-wide questions: answer, vote, watch the answer video;
+ *  - **حكاوي** — the teacher's grade-wide questions: answer, vote, watch the answer video
+ *    (founder 2026-10-15: «call it حكاوي»);
  *  - **الدردشة** — one room per enrolled course.
  *
  * Each appears only while its flag is on; with one flag the segments vanish and the tab is
@@ -54,7 +57,8 @@ function StudentConversations() {
 
   const { data: channels, refetch: refetchChat } = useChatChannels(chatEnabled);
   const { data: unreadThreads, refetch: refetchUnread } = useThreadsUnread(threadsEnabled);
-  const { refetch: refetchFeed } = useThreadsFeed(threadsEnabled);
+  const { data: feed, refetch: refetchFeed } = useThreadsFeed(threadsEnabled);
+  const counts = useMemo(() => filterCounts(feed?.threads ?? []), [feed?.threads]);
   const { refreshing, onRefresh } = usePullRefresh(...(chatEnabled ? [refetchChat] : []), ...(threadsEnabled ? [refetchFeed, refetchUnread] : []));
   const chatUnread = (channels ?? []).reduce((n, c) => n + (c.unread || 0), 0);
 
@@ -80,12 +84,25 @@ function StudentConversations() {
               {showThreads ? t('threads.subtitle_student') : t('chat.subtitle')}
             </Text>
           </View>
+          {showThreads && counts.all > 0 ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+              <HeroCount icon="timer" value={counts.open} label={t('threads.stat_open')} />
+              <HeroCount icon="sparkles" value={unreadThreads ?? 0} label={t('threads.stat_new')} accent />
+              <HeroCount icon="success" value={counts.answered} label={t('threads.stat_answered')} />
+            </View>
+          ) : null}
         </LinearGradient>
 
         {both ? (
-          <View style={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: -spacing.xl, marginBottom: spacing.md }}>
-            <SegmentButton label={t('threads.tab')} icon="threads" active={segment === 'threads'} badge={unreadThreads ?? 0} onPress={() => setSegment('threads')} />
-            <SegmentButton label={t('chat.tab_chat')} icon="chat" active={segment === 'chat'} badge={chatUnread} onPress={() => setSegment('chat')} />
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl - 4, marginBottom: spacing.md }}>
+            <Segments
+              value={segment}
+              onChange={setSegment}
+              items={[
+                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: unreadThreads ?? 0 },
+                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread },
+              ]}
+            />
           </View>
         ) : null}
 
@@ -101,28 +118,15 @@ function StudentConversations() {
   );
 }
 
-function SegmentButton({ label, icon, active, badge, onPress }: { label: string; icon: IconName; active: boolean; badge: number; onPress: () => void }) {
+/** A glass count on the hero: how many rounds are open, new, answered. */
+function HeroCount({ icon, value, label, accent }: { icon: 'timer' | 'sparkles' | 'success'; value: number; label: string; accent?: boolean }) {
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.8}
-      accessibilityRole="tab"
-      accessibilityState={{ selected: active }}
-      style={{
-        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
-        minHeight: 46, borderRadius: radius.lg,
-        backgroundColor: active ? colors.brand : colors.surface,
-        borderWidth: 1, borderColor: active ? colors.brand : colors.border,
-        ...shadows.sm,
-      }}
-    >
-      <Icon name={icon} size={18} color={active ? '#fff' : colors.textSecondary} outline={!active} />
-      <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: active ? '#fff' : colors.textSecondary }}>{label}</Text>
-      {badge > 0 ? (
-        <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: active ? 'rgba(255,255,255,0.28)' : colors.danger, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{badge > 99 ? '99+' : badge}</Text>
-        </View>
-      ) : null}
-    </TouchableOpacity>
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.lg, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
+      <Icon name={icon} size={16} color={accent && value > 0 ? colors.accent : colors.onHeroSoft} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 18, lineHeight: 24, color: accent && value > 0 ? colors.accent : colors.onHero }} numberOfLines={1}>{arDigits(value)}</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.onHeroSoft }} numberOfLines={1}>{label}</Text>
+      </View>
+    </View>
   );
 }
