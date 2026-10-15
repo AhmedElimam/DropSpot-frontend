@@ -59,3 +59,25 @@ describe('complaint notifications open where they are about', () => {
     expect(notificationRouteFor({ role: 'student', type: 'brand_new_type', data: { route: '/(student)/marks?x=1' } })).toBe('/(student)/marks?x=1');
   });
 });
+
+describe('«سجل الدفع» notifications (print market money)', () => {
+  it('opens the job for a payment due or a rejected claim, and the record for a freeze / restore', () => {
+    expect(notificationRouteFor({ role: 'teacher', type: 'print_payment_due', data: { print_job_id: 31, route: 'print_job' } })).toBe('/(teacher)/print/31');
+    expect(notificationRouteFor({ role: 'teacher', type: 'print_payment_rejected', data: { print_job_id: 32, route: 'print_job' } })).toBe('/(teacher)/print/32');
+    expect(notificationRouteFor({ role: 'teacher', type: 'print_payment_due', data: {} })).toBe('/(teacher)/print');
+    expect(notificationRouteFor({ role: 'teacher', type: 'print_credit_frozen', data: { route: 'print_credit' } })).toBe('/(teacher)/print/credit');
+    expect(notificationRouteFor({ role: 'teacher', type: 'print_credit_restored', data: { route: 'print_credit' } })).toBe('/(teacher)/print/credit');
+  });
+
+  it('follows the short route key on a print type the app does not know yet', () => {
+    expect(notificationRouteFor({ role: 'teacher', type: 'print_credit_new_kind', data: { route: 'print_credit' } })).toBe('/(teacher)/print/credit');
+    expect(notificationRouteFor({ role: 'teacher', type: 'print_new_kind', data: { route: 'print_job', print_job_id: 5 } })).toBe('/(teacher)/print/5');
+  });
+
+  it('never sends an assistant to the money', () => {
+    const all = () => true;
+    expect(notificationRouteFor({ role: 'assistant', type: 'print_payment_due', data: { print_job_id: 31, route: 'print_job' }, can: all })).toBeNull();
+    expect(notificationRouteFor({ role: 'assistant', type: 'print_credit_frozen', data: { route: 'print_credit' }, can: all })).toBeNull();
+    expect(notificationRouteFor({ role: 'assistant', type: 'print_new_kind', data: { route: 'print_credit' }, can: all })).toBeNull();
+  });
+});

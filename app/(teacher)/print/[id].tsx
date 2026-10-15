@@ -65,7 +65,7 @@ export default function PrintJobScreen() {
   const [proofUri, setProofUri] = useState<string | null>(null);
   const j = job.data;
 
-  const refresh = () => { qc.invalidateQueries({ queryKey: ['print-job', id] }); qc.invalidateQueries({ queryKey: ['print-jobs'] }); };
+  const refresh = () => { qc.invalidateQueries({ queryKey: ['print-job', id] }); qc.invalidateQueries({ queryKey: ['print-jobs'] }); if (!isAssistant) qc.invalidateQueries({ queryKey: ['print-credit'] }); };
   const run = async (fn: () => Promise<unknown>, done?: string) => {
     if (busy) return;
     setBusy(true);
@@ -102,6 +102,9 @@ export default function PrintJobScreen() {
   const heroTitle = j ? (d?.is_active ? d.label : j.status_label) : '';
   const heroLine = !j ? null
     : d?.is_active ? (d.eta_min ? t('print.track_eta', { m: formatNumber(d.eta_min) }) : d.status === 'arrived' ? t('print.track_arrived') : d.remaining_km != null ? t('print.km_away', { km: formatNumber(d.remaining_km, { maximumFractionDigits: 1 }) }) : null)
+    // «سجل الدفع»: a pay-first job waits for the money before the shop starts (teacher only —
+    // an assistant's copy never carries these keys).
+    : !isAssistant && j.awaits_prepayment && j.is_open ? (j.payment_status === 'claimed' ? t('print.credit_claim_review') : t('print.credit_hero_prepay'))
     : j.status === 'sent' ? t('print.sent_hint')
     : j.status === 'received' && j.received_at ? t('print.order_received_at', { at: formatDateTime(j.received_at) })
     : j.status === 'cancelled' && j.cancelled_at ? t('print.order_cancelled_at', { at: formatDateTime(j.cancelled_at) })
@@ -109,16 +112,26 @@ export default function PrintJobScreen() {
     : null;
 
   const pill = <OrderSharePanel share={share} />;
+  // Paying is THE action while a pay-first job waits for its money: the card rides up under the hero.
+  const payUp = !!j && !isAssistant && !!j.awaits_prepayment && j.is_open;
+  const payCard = j && j.status !== 'cancelled' && j.status !== 'declined' ? (
+    <Surface id="teacher.print_job.payment" assistantNeeds="teacher">
+      <OrderPayCard j={j} payTo={payTo} method={method} onMethod={setMethod} reference={reference} onReference={setReference}
+        proofUri={proofUri} onPickProof={pickProof} onClaim={claim} busy={busy} />
+    </Surface>
+  ) : null;
 
   return (
     <Surface id="screen.teacher.print_job" screen>
-    <FormScreen title={j?.title ?? t('print.job')} subtitle={j ? t('print.copies_x_pages', { copies: formatNumber(j.copies), pages: formatNumber(j.pages) }) + ' · ' + j.spec_label : null} loading={job.isLoading}>
+    <FormScreen title={j?.title ?? t('print.job')} subtitle={j ? t('print.copies_x_pages', { copies: formatNumber(j.copies), pages: formatNumber(j.pages) }) + ' | ' + j.spec_label : null} loading={job.isLoading}>
       {j ? (
         <>
           <Surface id="teacher.print_job.status">
             <OrderHero j={j} title={heroTitle} line={heroLine} onRoad={tripLive} />
             {j.status === 'declined' && j.decline_reason ? <Banner tone="danger" text={t('print.declined_reason', { reason: j.decline_reason })} /> : null}
           </Surface>
+
+          {payUp ? payCard : null}
 
           {showTrack && tr ? (
             <Surface id="teacher.print_job.track">
@@ -195,12 +208,7 @@ export default function PrintJobScreen() {
             <OrderReceipt j={j} />
           </Surface>
 
-          {j.status !== 'cancelled' && j.status !== 'declined' ? (
-            <Surface id="teacher.print_job.payment" assistantNeeds="teacher">
-              <OrderPayCard j={j} payTo={payTo} method={method} onMethod={setMethod} reference={reference} onReference={setReference}
-                proofUri={proofUri} onPickProof={pickProof} onClaim={claim} busy={busy} />
-            </Surface>
-          ) : null}
+          {payUp ? null : payCard}
 
           {j.can_receive ? (
             <Surface id="teacher.print_job.receive" assistantNeeds="teacher">

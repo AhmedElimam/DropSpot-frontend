@@ -20,7 +20,9 @@ import { PrintTabJobCard } from '@/components/print/PrintTabJobCard';
 import { PrintTabShopsStrip } from '@/components/print/PrintTabShopsStrip';
 import { PrintTabPastRow } from '@/components/print/PrintTabPastRow';
 import { PrintTabHowItWorks } from '@/components/print/PrintTabHowItWorks';
-import { getPrintJobs, getPrintShops, reorderPrintJob, type PrintJob } from '@/api/print';
+import { PrintTabCreditCard } from '@/components/print/PrintTabCreditCard';
+import { useAuthStore } from '@/stores/authStore';
+import { getPrintJobs, getPrintShops, getPrintCredit, reorderPrintJob, type PrintJob } from '@/api/print';
 
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: v % 1 ? 2 : 0 });
 
@@ -64,7 +66,10 @@ export default function PrintTab() {
   const qc = useQueryClient();
   const jobs = useQuery({ queryKey: ['print-jobs'], queryFn: getPrintJobs, refetchInterval: 30_000 });
   const shops = useQuery({ queryKey: ['print-shops'], queryFn: getPrintShops });
-  const { refreshing, onRefresh } = usePullRefresh(jobs.refetch, shops.refetch);
+  // «سجل الدفع» — money: the teacher's alone, never fetched for an assistant.
+  const isAssistant = useAuthStore((st) => st.role === 'assistant');
+  const credit = useQuery({ queryKey: ['print-credit'], queryFn: getPrintCredit, enabled: !isAssistant, staleTime: 60_000 });
+  const { refreshing, onRefresh } = usePullRefresh(jobs.refetch, shops.refetch, () => (isAssistant ? Promise.resolve() : credit.refetch()));
   const [busy, setBusy] = useState<number | null>(null);
 
   const open = jobs.data?.open ?? [];
@@ -161,6 +166,15 @@ export default function PrintTab() {
           </View>
           </Surface>
         </LinearGradient>
+
+        {/* «سجل الدفع» — the score, the tier, what is left on credit or what is overdue */}
+        {credit.data?.on && !isAssistant ? (
+          <Surface id="teacher.print_tab.credit" assistantNeeds="teacher">
+          <View style={{ marginTop: spacing.xl, paddingHorizontal: spacing.lg }}>
+            <PrintTabCreditCard c={credit.data} />
+          </View>
+          </Surface>
+        ) : null}
 
         {/* on its way */}
         {open.length ? (

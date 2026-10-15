@@ -37,7 +37,7 @@ function JobRow({ j }: { j: PrintJob }) {
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{j.title}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 1 }} numberOfLines={1}>
-            {j.shop.name ?? ''} · {t('print.copies_x_pages', { copies: formatNumber(j.copies), pages: formatNumber(j.pages) })}
+            {j.shop.name ?? ''} | {t('print.copies_x_pages', { copies: formatNumber(j.copies), pages: formatNumber(j.pages) })}
           </Text>
         </View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{formatNumber(j.total, { maximumFractionDigits: 2 })} {t('teacher.egp')}</Text>

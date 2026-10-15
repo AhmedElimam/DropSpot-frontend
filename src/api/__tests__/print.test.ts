@@ -1,4 +1,4 @@
-import { quoteOnMenu, menuChoices, type ShopProfile, type PrintOptions } from '../print';
+import { quoteOnMenu, menuChoices, payFirstFor, creditUsed, payDueState, daysForm, type ShopProfile, type PrintOptions, type ShopCredit } from '../print';
 
 /**
  * The phone prices the job on the shop's own card so every tap answers instantly; the
@@ -94,5 +94,49 @@ describe('menuChoices — only what this shop offers', () => {
     expect(c.sides.map((x) => x.key)).toEqual(['1', '2']);
     expect(c.finishes.map((x) => x.key)).toEqual(['none', 'staple']);
     expect(c.delivery_modes.map((x) => x.key)).toEqual(['pickup', 'deliver']);
+  });
+});
+
+describe('«سجل الدفع» — on credit or pay-first, on the phone', () => {
+  const credit: ShopCredit = { on: true, tier: 'good', tier_label: 'جيد', available: 300, pay_first_reason: null, pay_first_label: null, limit_label: 'الطلب أكبر من المتاح لك آجل' };
+
+  it('goes on credit while the job fits what is left of the line', () => {
+    expect(payFirstFor(credit, 120)).toEqual({ payFirst: false, label: null });
+    expect(payFirstFor(credit, 300)).toEqual({ payFirst: false, label: null });
+  });
+
+  it('goes pay-first, with the limit sentence, when the job is bigger than what is left', () => {
+    expect(payFirstFor(credit, 300.5)).toEqual({ payFirst: true, label: 'الطلب أكبر من المتاح لك آجل' });
+  });
+
+  it('a reason that does not depend on the amount wins over any total', () => {
+    const frozen = { ...credit, tier: 'frozen' as const, pay_first_reason: 'frozen', pay_first_label: 'الآجل موقوف على حسابك — كلّم الدعم' };
+    expect(payFirstFor(frozen, 1)).toEqual({ payFirst: true, label: 'الآجل موقوف على حسابك — كلّم الدعم' });
+    expect(payFirstFor({ ...credit, pay_first_reason: 'shop', pay_first_label: 'x' }, 0).payFirst).toBe(true);
+  });
+
+  it('says nothing when the record is off or the shop sent none', () => {
+    expect(payFirstFor({ ...credit, on: false, pay_first_reason: 'weak', pay_first_label: 'x' }, 9999)).toEqual({ payFirst: false, label: null });
+    expect(payFirstFor(undefined, 50)).toEqual({ payFirst: false, label: null });
+  });
+
+  it('fills the used bar from owed / limit, full with no line and something owed', () => {
+    expect(creditUsed({ limit: 1000, owed: 250 })).toBe(0.25);
+    expect(creditUsed({ limit: 1000, owed: 1400 })).toBe(1);
+    expect(creditUsed({ limit: 0, owed: 0 })).toBe(0);
+    expect(creditUsed({ limit: 0, owed: 10 })).toBe(1);
+  });
+
+  it('dates a credit job against its pay-by day; pay-first and paid jobs have none', () => {
+    const now = Date.parse('2026-10-15T12:00:00Z');
+    expect(payDueState({ payment_status: 'unpaid', pay_first: false, pay_due_at: '2026-10-16T12:00:00Z' }, now)).toBe('due');
+    expect(payDueState({ payment_status: 'unpaid', pay_first: false, pay_due_at: '2026-10-14T12:00:00Z' }, now)).toBe('late');
+    expect(payDueState({ payment_status: 'claimed', pay_first: false, pay_due_at: '2026-10-14T12:00:00Z' }, now)).toBe('none');
+    expect(payDueState({ payment_status: 'unpaid', pay_first: true, pay_due_at: null }, now)).toBe('none');
+    expect(payDueState({ payment_status: 'unpaid', pay_due_at: null }, now)).toBe('none');
+  });
+
+  it('picks the Arabic count form for the grace days', () => {
+    expect([0, 1, 2, 3, 10, 11, 30].map(daysForm)).toEqual(['0', '1', '2', 'few', 'few', 'many', 'many']);
   });
 });

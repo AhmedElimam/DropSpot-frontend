@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
@@ -6,10 +7,10 @@ import { colors, spacing, radius } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Field, Input } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
-import { formatNumber } from '@/utils/format';
+import { formatNumber, formatShortDate, formatDateTime } from '@/utils/format';
 import { OrderSection } from '@/components/print/OrderSection';
 import { payMethodLabel } from '@/components/print/OrderReceipt';
-import type { PrintJob, PrintOptions } from '@/api/print';
+import { payDueState, type PrintJob, type PrintOptions } from '@/api/print';
 
 const STEPS: { key: PrintJob['payment_status']; icon: IconName }[] = [
   { key: 'unpaid', icon: 'invoices' },
@@ -71,10 +72,28 @@ function PayTo({ icon, label, number, name, chosen }: { icon: IconName; label: s
   );
 }
 
+/** One tinted line inside the card: an icon, a bold sentence, an optional softer one. */
+function Note({ icon, tone, text, sub }: { icon: IconName; tone: { bg: string; fg: string }; text: string; sub?: string | null }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, padding: spacing.md, borderRadius: radius.lg, backgroundColor: tone.bg, marginBottom: spacing.sm }}>
+      <Icon name={icon} size={17} color={tone.fg} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13, lineHeight: 19, color: tone.fg }}>{text}</Text>
+        {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: tone.fg, opacity: 0.88 }}>{sub}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
 /**
  * «السداد للمنصة»: where the money stands as a three-step walk; while it is owed, the amount,
  * the accounts to pay into, the method as icon tiles, the reference, the receipt's photo
  * (its thumbnail once picked) and the «I paid» button. Paid, it is one green line.
+ *
+ * «سجل الدفع» (2026-10-15): a PAY-FIRST job waiting for its money makes paying the point of
+ * the card («ادفع علشان المطبعة تبدأ», and why it went pay-first); a credit job shows its
+ * pay-by day, red once it has passed; a claim under review is one «بنراجع دفعك» line (the form
+ * one tap away for a second receipt); a rejected claim says why, with the form open again.
  */
 export function OrderPayCard({ j, payTo, method, onMethod, reference, onReference, proofUri, onPickProof, onClaim, busy }: {
   j: PrintJob;
@@ -91,12 +110,54 @@ export function OrderPayCard({ j, payTo, method, onMethod, reference, onReferenc
   const { t } = useTranslation();
   const egp = t('teacher.egp');
   const paid = j.payment_status === 'paid';
-  const hint = paid ? t('print.paid_hint') : j.payment_status === 'claimed' ? t('print.claimed_hint') : t('print.pay_hint');
-  const tint = paid ? { bg: colors.successLight, fg: colors.successText } : { bg: colors.warningLight, fg: colors.warningText };
+  const claimed = j.payment_status === 'claimed';
+  const prepay = !!j.awaits_prepayment;
+  const rejected = j.payment_status === 'unpaid' ? j.claim_rejected_reason ?? null : null;
+  const due = payDueState(j);
+  // A claim under review folds the form away; «ابعت إيصال تاني» opens it for a second receipt.
+  const [again, setAgain] = useState(false);
+  useEffect(() => { setAgain(false); }, [j.claimed_at, j.payment_status]);
+  const showForm = !paid && (!claimed || again);
+
+  const danger = { bg: colors.dangerLight, fg: colors.dangerText };
+  const title = prepay && !claimed ? t('print.credit_pay_first_title') : t('print.pay_title');
+  const hint = paid ? t('print.paid_hint')
+    : claimed ? (prepay ? t('print.credit_claim_review_prepay') : t('print.claimed_hint'))
+    : prepay ? t('print.credit_pay_first_hint')
+    : t('print.pay_hint');
+  const tint = paid ? { bg: colors.successLight, fg: colors.successText }
+    : rejected || due === 'late' ? danger
+    : prepay && !claimed ? { bg: colors.accentLight, fg: colors.accentText }
+    : { bg: colors.warningLight, fg: colors.warningText };
 
   return (
-    <OrderSection icon="invoices" title={t('print.pay_title')} hint={hint} tint={tint}>
+    <OrderSection icon={prepay && !claimed ? 'print' : 'invoices'} title={title} hint={hint} tint={tint}>
       <PayWalk status={j.payment_status} />
+
+      {rejected ? <Note icon="error" tone={danger} text={t('print.credit_claim_rejected', { reason: rejected })} sub={t('print.credit_claim_rejected_hint')} /> : null}
+      {prepay && !claimed && j.pay_first_reason ? (
+        <Note icon="info" tone={{ bg: colors.surfaceSunken, fg: colors.textSecondary }} text={t('print.credit_why_prepay')} sub={j.pay_first_reason} />
+      ) : null}
+      {due !== 'none' && j.pay_due_at ? (
+        <Note icon={due === 'late' ? 'warning' : 'calendar'} tone={due === 'late' ? danger : { bg: colors.warningLight, fg: colors.warningText }}
+          text={due === 'late' ? t('print.credit_pay_late', { at: formatShortDate(j.pay_due_at) }) : t('print.credit_pay_by', { at: formatShortDate(j.pay_due_at) })} />
+      ) : null}
+      {claimed && !again ? (
+        <View style={{ padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brandTint }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="clock" size={18} color={colors.onPrimary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.brand }}>{t('print.credit_claim_review')}</Text>
+              {j.claimed_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>{t('print.credit_claim_review_hint', { at: formatDateTime(j.claimed_at) })}</Text> : null}
+            </View>
+          </View>
+          <TouchableOpacity onPress={() => setAgain(true)} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'flex-start', marginTop: spacing.sm }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('print.credit_claim_again')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {paid ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.successLight }}>
@@ -108,7 +169,7 @@ export function OrderPayCard({ j, payTo, method, onMethod, reference, onReferenc
             {payMethodLabel(j.payment_method, t) ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.successText, opacity: 0.85 }}>{t('print.order_paid_via', { m: payMethodLabel(j.payment_method, t) })}</Text> : null}
           </View>
         </View>
-      ) : (
+      ) : showForm ? (
         <>
           {/* What to send */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.accentLight, marginBottom: spacing.sm }}>
@@ -163,9 +224,9 @@ export function OrderPayCard({ j, payTo, method, onMethod, reference, onReferenc
             </TouchableOpacity>
           </Field>
 
-          <Button title={t('print.claim')} onPress={onClaim} loading={busy} style={{ marginTop: spacing.lg }} />
+          <Button title={t('print.claim')} onPress={onClaim} loading={busy} variant={prepay ? 'accent' : 'primary'} style={{ marginTop: spacing.lg }} />
         </>
-      )}
+      ) : null}
     </OrderSection>
   );
 }

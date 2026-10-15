@@ -191,7 +191,9 @@ async function refreshAccessToken(): Promise<string | null> {
   const refreshBase = getApiBaseOverride() ?? BUNDLED_API_URL;
   let data: any;
   try {
-    ({ data } = await axios.post(`${refreshBase}/auth/refresh`, { refresh_token: rt }, { timeout: 15000 }));
+    // A bare axios call skips the interceptor, so the staging door key rides here too —
+    // without it the staging gate answers 404 and an expired session can never refresh.
+    ({ data } = await axios.post(`${refreshBase}/auth/refresh`, { refresh_token: rt }, { timeout: 15000, headers: STAGING_KEY ? { [STAGING_HEADER]: STAGING_KEY } : undefined }));
   } catch (e: any) {
     const status = e?.response?.status;
     // The server explicitly rejected the refresh token → session over.

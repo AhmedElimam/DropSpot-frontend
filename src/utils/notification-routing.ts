@@ -54,6 +54,16 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
       const job = id(data, 'print_job_id');
       return job ? `/(teacher)/print/${job}` : '/(teacher)/print';
     }
+    // ── «سجل الدفع»: money on a print job, and the record itself — the teacher's alone ──
+    case 'print_payment_due':
+    case 'print_payment_rejected': {
+      if (isAssistant) return null;
+      const job = id(data, 'print_job_id');
+      return job ? `/(teacher)/print/${job}` : '/(teacher)/print';
+    }
+    case 'print_credit_frozen':
+    case 'print_credit_restored':
+      return isAssistant ? null : '/(teacher)/print/credit';
     case 'rose_briefing':
       return '/(teacher)/sessions';
     // ── complaints («الاعتراضات») ──
@@ -129,6 +139,14 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
       return ticket ? `/(teacher)/tickets/${ticket}` : '/(teacher)/tickets';
     }
     default:
+      // The print market names its screen by a short key (`route: 'print_job' | 'print_credit'`),
+      // so a new print type lands right with no app change. Money: never for an assistant.
+      if (isAssistant) return null;
+      if (data?.route === 'print_credit') return '/(teacher)/print/credit';
+      if (data?.route === 'print_job') {
+        const job = id(data, 'print_job_id');
+        return job ? `/(teacher)/print/${job}` : '/(teacher)/print';
+      }
       return null;
   }
 }

@@ -35,6 +35,85 @@ export interface PrintOptions {
   platform_fee_piastres: number;
   pay_to: { instapay?: { number: string; name: string } | null; vodafone_cash?: string | null };
   live_shops: number;
+  /** The teacher's payment record («سجل الدفع») — teacher only, never an assistant. */
+  credit?: PrintCredit;
+}
+
+// ── «سجل الدفع» — the teacher's payment record on the print market ─────────────────────
+// A score 0–100 in five parts, a tier, and «الآجل»: how much may be owed at once. A job goes
+// on credit (pay within the grace days after receiving) or PAY-FIRST (the shop starts once
+// the platform confirms the money). Shops see only the tier, the score and plain counts.
+
+export type CreditTier = 'new' | 'excellent' | 'good' | 'fair' | 'weak' | 'frozen';
+export type CreditTone = 'ok' | 'info' | 'warn' | 'bad';
+
+export interface PrintCredit {
+  on: boolean;
+  score: number;
+  tier: CreditTier;
+  tier_label: string;
+  tone: CreditTone;
+  parts: { key: string; label: string; points: number; max: number }[];
+  strikes: { label: string; points: number; at: string }[];
+  facts: {
+    paid_jobs: number; on_time: number; late: number; avg_pay_days: number | null; late_cancels: number;
+    no_shows: number; late_pickups: number; months: number; subscriber: boolean; jobs: number;
+  };
+  money: {
+    limit: number; owed: number; available: number; paid_total: number; overdue: number; overdue_count: number;
+    oldest_overdue_days: number; next_due_at: string | null; next_due_total: number | null; grace_days: number;
+    prepay_waiting: number; prepay_waiting_total: number;
+  };
+  tips: string[];
+  /** Exactly what a shop reads about this teacher: no amounts, no other shops. */
+  shop_sees: { score: number | null; tier: CreditTier; tier_label: string; tone: CreditTone; lines: { ok: boolean | null; text: string }[] };
+  ladder: { tier: CreditTier; label: string; limit: number; from: number }[];
+}
+
+/** On credit or pay-first at ONE shop, for this teacher (the shop page / the composer). */
+export interface ShopCredit {
+  on: boolean;
+  tier: CreditTier;
+  tier_label: string;
+  available: number;
+  /** Set → every job at this shop goes pay-first, `pay_first_label` says why. */
+  pay_first_reason: string | null;
+  pay_first_label: string | null;
+  /** Why a job bigger than `available` goes pay-first. */
+  limit_label: string;
+}
+
+/**
+ * Would a job of `total` at this shop go pay-first? The same order as the server's
+ * PrintCreditService::decide — a reason that does not depend on the amount first, then the
+ * limit. A preview: the server decides again at send (a burst of sends can still tip it).
+ */
+export function payFirstFor(c: ShopCredit | null | undefined, total: number): { payFirst: boolean; label: string | null } {
+  if (!c || !c.on) return { payFirst: false, label: null };
+  if (c.pay_first_reason) return { payFirst: true, label: c.pay_first_label };
+  if (total > c.available + 0.001) return { payFirst: true, label: c.limit_label };
+  return { payFirst: false, label: null };
+}
+
+/** How far into the limit the teacher is, 0–1 (a full bar when there is no line at all). */
+export function creditUsed(m: Pick<PrintCredit['money'], 'limit' | 'owed'>): number {
+  if (m.limit <= 0) return m.owed > 0 ? 1 : 0;
+  return Math.max(0, Math.min(1, m.owed / m.limit));
+}
+
+/** Where an unpaid credit job stands against its pay-by date. */
+export function payDueState(j: Pick<PrintJob, 'payment_status' | 'pay_first' | 'pay_due_at'>, now: number = Date.now()): 'none' | 'due' | 'late' {
+  if (j.payment_status !== 'unpaid' || j.pay_first || !j.pay_due_at) return 'none';
+  return new Date(j.pay_due_at).getTime() < now ? 'late' : 'due';
+}
+
+/** The Arabic count form for N days: the key suffix of `print.credit_days_*`. */
+export function daysForm(n: number): '0' | '1' | '2' | 'few' | 'many' {
+  const d = Math.round(n);
+  if (d <= 0) return '0';
+  if (d === 1) return '1';
+  if (d === 2) return '2';
+  return d <= 10 ? 'few' : 'many';
 }
 
 export interface PrintUpload { upload: string; name: string; pages: number; size: number }
@@ -137,6 +216,8 @@ export interface ShopProfile extends MarketShop {
   samples?: ShopSample[];
   /** Every open branch, nearest first. */
   branches?: ShopBranch[];
+  /** On credit or pay-first here, for this teacher. */
+  credit?: ShopCredit;
 }
 
 /**
@@ -257,9 +338,26 @@ export interface PrintJob {
   delivered_at: string | null;
   received_at: string | null;
   cancelled_at: string | null;
+  // «سجل الدفع» — teacher only (an assistant's copy never carries these).
+  /** The shop starts only once the platform confirms the money. */
+  pay_first?: boolean;
+  /** Why it went pay-first, already a sentence. */
+  pay_first_reason?: string | null;
+  /** Pay-first and not paid yet. */
+  awaits_prepayment?: boolean;
+  /** A credit job's pay-by date (the grace days after receiving); null once paid. */
+  pay_due_at?: string | null;
+  claimed_at?: string | null;
+  /** The platform found no money behind the last claim — why. */
+  claim_rejected_reason?: string | null;
 }
 
 const unwrap = <T,>(data: any): T => (data?.data ?? data) as T;
+
+export async function getPrintCredit(): Promise<PrintCredit> {
+  const { data } = await client.get('/teacher/print/credit');
+  return unwrap<PrintCredit>(data);
+}
 
 export async function getPrintOptions(): Promise<PrintOptions> {
   const { data } = await client.get('/teacher/print/options');

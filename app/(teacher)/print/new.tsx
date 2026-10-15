@@ -17,11 +17,12 @@ import { useCourses } from '@/hooks/useCourses';
 import { formatNumber, formatDateTime } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import {
-  getPrintOptions, getPrintShop, uploadPrintFile, getPrintBoard, createPrintJob, quoteOnMenu, menuChoices,
+  getPrintOptions, getPrintShop, uploadPrintFile, getPrintBoard, createPrintJob, quoteOnMenu, menuChoices, payFirstFor,
   type PrintUpload, type PrintSpec, type Choice,
 } from '@/api/print';
 import { Stars, SpeedLine } from './shops/index';
 import { PlacePicker, type PickedPlace } from '@/components/print/PlacePicker';
+import { graceText } from '@/components/print/CreditBits';
 
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: 2 });
 
@@ -85,6 +86,12 @@ export default function PrintNew() {
   // The live sum — the shop's own arithmetic, on the phone, on every tap.
   const quote = useMemo(() => (s && o ? quoteOnMenu(s, pages, copiesN, spec, { on: o.platform_fee_on, piastres: o.platform_fee_piastres }) : null), [s, o, pages, copiesN, spec]);
   const ready = !!upload && copiesN > 0 && !!quote?.ok;
+  // «سجل الدفع»: on credit or pay-first at THIS shop for the live total — said before sending,
+  // never blocking it (the server decides again at send).
+  const credit = s?.credit;
+  const decision = useMemo(() => payFirstFor(credit, quote?.ok ? quote.total ?? 0 : 0), [credit, quote]);
+  const graceDays = o?.credit?.money.grace_days;
+  const creditRoom = !credit?.on ? 0 : decision.payFirst ? 76 : 26;
 
   // The same job at the other shops — inDrive's «other offers» — once there is a job to price.
   const board = useQuery({
@@ -129,6 +136,7 @@ export default function PrintNew() {
         branch_id: !deliver && branches.length > 1 ? branchPicked : null, ...spec });
       qc.invalidateQueries({ queryKey: ['print-jobs'] });
       qc.invalidateQueries({ queryKey: ['print-shops'] });
+      qc.invalidateQueries({ queryKey: ['print-credit'] });
       router.replace(`/(teacher)/print/${job.id}` as Href);
     } catch (e: any) {
       Alert.alert(t('common.error'), e?.response?.data?.message ?? t('print.send_failed'));
@@ -150,7 +158,7 @@ export default function PrintNew() {
   return (
     <Surface id="screen.teacher.print_new" screen>
     <FormScreen title={t('print.new_title')} subtitle={t('print.new_sub_shop')} loading={options.isLoading || shop.isLoading}
-      contentStyle={{ paddingBottom: nav.pageEnd + insets.bottom + 110 }}>
+      contentStyle={{ paddingBottom: nav.pageEnd + insets.bottom + 110 + creditRoom }}>
       {!s ? <Banner tone="warn" text={t('print.shop_off')} /> : (
         <>
           {/* 0 · the shop you are ordering from */}
@@ -367,6 +375,24 @@ export default function PrintNew() {
             </View>
             <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{money(quote?.total ?? 0)} <Text style={{ fontSize: 13, color: colors.textSecondary }}>{egp}</Text></Text>
           </View>
+          {credit?.on ? (
+            decision.payFirst ? (
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, padding: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.warningLight, marginBottom: spacing.sm }}>
+                <Icon name="clock" size={16} color={colors.warningText} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 18, color: colors.warningText }}>{t('print.credit_prepay_notice')}</Text>
+                  {decision.label ? <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: colors.warningText, opacity: 0.9 }} numberOfLines={2}>{decision.label}</Text> : null}
+                </View>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm }}>
+                <Icon name="clock" size={13} color={colors.textTertiary} />
+                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }} numberOfLines={1}>
+                  {graceDays != null ? t('print.credit_on_credit', { grace: graceText(t, graceDays) }) : t('print.credit_on_credit_plain')}
+                </Text>
+              </View>
+            )
+          ) : null}
           <Button title={t('print.send_to', { shop: s.name })} onPress={send} loading={sending} />
         </View>
         </Surface>
