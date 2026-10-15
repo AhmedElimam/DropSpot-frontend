@@ -56,6 +56,13 @@ describe('rows', () => {
     expect(rowKeyOf({ id: -1, local: { status: 'queued', key: 'ob-1' } })).toBe('l-ob-1');
   });
 
+  it('a message sent from this phone keeps its waiting bubble\'s row key (no remount, no jump)', () => {
+    const sentAs: Record<number, string> = { 7: 'ob-7' };
+    const rows = buildRows([m(6, '2026-10-01T10:00:00', 1), m(7, '2026-10-01T10:01:00', 1)], (id) => sentAs[id]);
+    const keys = rows.filter((r) => r.type === 'msg').map((r) => r.key);
+    expect(keys).toEqual(['m-6', 'l-ob-7']);
+  });
+
   it('history pages merge by id without duplicates', () => {
     expect(mergeById([m(3, 'x'), m(1, 'x')], [m(2, 'x'), m(3, 'x')]).map((x) => x.id)).toEqual([1, 2, 3]);
   });

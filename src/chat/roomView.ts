@@ -77,7 +77,7 @@ export type RoomRow =
  * Chronological rows: a day chip before each day's first message; a run from one sender shows
  * the name once and the tail once. The list reverses this for its inverted order.
  */
-export function buildRows(messages: ChatMessage[]): RoomRow[] {
+export function buildRows(messages: ChatMessage[], localKeyOf?: (serverId: number) => string | undefined): RoomRow[] {
   const rows: RoomRow[] = [];
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i];
@@ -88,7 +88,9 @@ export function buildRows(messages: ChatMessage[]): RoomRow[] {
     if (newDay) rows.push({ type: 'day', key: `d-${day}-${m.id}`, date: m.created_at });
     const sameRun = !!prev && !newDay && prev.sender.id === m.sender.id;
     const runEnds = !next || next.sender.id !== m.sender.id || dayKey(next.created_at) !== day;
-    rows.push({ type: 'msg', key: m.local ? `l-${m.local.key}` : `m-${m.id}`, message: m, showName: !sameRun, showTail: runEnds });
+    // A message sent from this phone keeps the key its waiting bubble had: same row, no remount.
+    const sentKey = m.local ? m.local.key : localKeyOf?.(m.id);
+    rows.push({ type: 'msg', key: sentKey ? `l-${sentKey}` : `m-${m.id}`, message: m, showName: !sameRun, showTail: runEnds });
   }
   return rows;
 }

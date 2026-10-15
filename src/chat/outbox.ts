@@ -29,6 +29,22 @@ interface ChatOutboxState {
   flushing: boolean;
 }
 
+
+/** This session's sends: server id ↔ the outbox key the bubble had while it was waiting. */
+const sentAs = new Map<number, string>();
+const sentKeys = new Map<string, number>();
+function rememberSent(serverId: number, localKey: string): void {
+  sentAs.set(serverId, localKey);
+  sentKeys.set(localKey, serverId);
+}
+/** The row key a server message was shown under while it was still being sent, if any. */
+export function localKeyOf(serverId: number): string | undefined {
+  return sentAs.get(serverId);
+}
+/** The server message a waiting bubble became, once it has. */
+export function serverIdOf(localKey: string): number | undefined {
+  return sentKeys.get(localKey);
+}
 export const useChatOutbox = create<ChatOutboxState>(() => ({ items: [], hydrated: false, flushing: false }));
 
 const STORAGE_KEY = 'chat-outbox-v1';
@@ -168,12 +184,17 @@ export function flushChatOutbox(): Promise<void> {
             ? await uploadChatAttachment(item.courseId, { ...item.attachment, body: item.body ?? undefined, parentId: item.parentId ?? null })
             : await sendChatMessage(item.courseId, item.body ?? '', item.parentId ?? null);
           forgetFile(item);
-          update((items) => removeItem(items, item.key));
+          // The bubble keeps its identity: the room keys the server's copy with the local key,
+          // and the copy lands BEFORE the local one leaves — no frame without the message, no
+          // remove-then-add at the newest row (that made the inverted list jump to the oldest
+          // message on every send, founder 2026-10-15).
+          rememberSent(message.id, item.key);
           const qc = getQueryClient();
           if (qc) {
             mergeChatMessage(qc, item.courseId, message);
             qc.invalidateQueries({ queryKey: ['chat', 'channels'] });
           }
+          update((items) => removeItem(items, item.key));
         } catch (err) {
           if (classifyError(err) === 'network') {
             update((items) => setItemStatus(items, item.key, 'queued'));
