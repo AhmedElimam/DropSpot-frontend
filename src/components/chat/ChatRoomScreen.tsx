@@ -208,7 +208,14 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
 
   // Live frames merge into the same cache the poll fills; hidden ids drop out of it.
   const { connected, status: socketStatus } = useChatSocket(courseId, room.data?.realtime, {
-    onMessage: useCallback((m: ChatMessage) => { mergeChatMessage(qc, courseId, m); forgetTyper(m.sender.id); }, [qc, courseId, forgetTyper]),
+    // A message that arrives live is on screen without a fetch — and the fetch is what tells
+    // the server we read it. Without one the sender's ticks waited for the next poll (45 s).
+    // The same short debounce as a read frame: one fetch for a burst of messages.
+    onMessage: useCallback((m: ChatMessage) => {
+      mergeChatMessage(qc, courseId, m);
+      forgetTyper(m.sender.id);
+      if (!me || m.sender.id !== me.id) onRead();
+    }, [qc, courseId, forgetTyper, me, onRead]),
     onHidden: useCallback((id: number) => {
       dropChatMessage(qc, courseId, id);
       setOlder((prev) => prev.filter((m) => m.id !== id));
