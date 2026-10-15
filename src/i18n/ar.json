@@ -632,6 +632,8 @@
     "jump_to_date": "انتقال لتاريخ",
     "jump_unavailable": "هذه الميزة تحتاج تحديث الخادم.",
     "tap_for_info": "اضغط لعرض الأعضاء والوسائط",
+    "live_debug_title": "الاتصال المباشر",
+    "live_debug_no_config": "السيرفر مبعتش إعدادات الاتصال المباشر",
     "show_in_chat": "عرض في المحادثة",
     "unmute_action": "رفع الإيقاف",
     "muted_until": "موقوف حتى {{time}}",

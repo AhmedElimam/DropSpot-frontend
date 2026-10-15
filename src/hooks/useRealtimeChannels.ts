@@ -26,9 +26,13 @@ export function useRealtimeChannels(
   channels: readonly string[],
   bindings: Record<string, (data: any) => void>,
   enabled = true,
-): { connected: boolean; status: RealtimeStatus } {
+): { connected: boolean; status: RealtimeStatus; detail: string } {
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState<RealtimeStatus>('off');
+  // What the socket is doing and why it is not live, in plain words — shown on a long press
+  // of the room's «مباشر / تحديث دوري» line, so a phone that keeps polling can say why
+  // (founder 2026-10-15: web → phone slow; the Pusher console showed no phone connection).
+  const [detail, setDetail] = useState('');
   const bindingsRef = useRef(bindings);
   bindingsRef.current = bindings;
   // Subscribe by VALUE: a fresh array with the same names must not tear the socket down.
@@ -38,6 +42,7 @@ export function useRealtimeChannels(
     if (!enabled || !realtime?.key || !channelKey) {
       setConnected(false);
       setStatus('off');
+      setDetail(!realtime?.key ? 'server sent no realtime config (no broadcaster)' : !channelKey ? 'no channel for this room' : 'screen not focused');
       return;
     }
     const names = channelKey.split('|');
@@ -49,7 +54,13 @@ export function useRealtimeChannels(
       // was swallowed and the header just never turned green. Name the reason — in dev
       // loudly, in the UI as «تحديث دوري» — so "Pusher doesn't work" can be answered.
       if (__DEV__) console.warn(`[realtime] ${why}`, detail ?? '');
-      if (alive) { setConnected(false); setStatus('error'); }
+      if (alive) {
+        setConnected(false);
+        setStatus('error');
+        let extra = '';
+        try { extra = detail == null ? '' : typeof detail === 'string' ? detail : JSON.stringify(detail).slice(0, 300); } catch { extra = String(detail); }
+        setDetail(`${why}${extra ? ` — ${extra}` : ''}`);
+      }
     };
 
     (async () => {
@@ -88,8 +99,10 @@ export function useRealtimeChannels(
         }
 
         pusher = new Pusher(realtime.key, options as any);
-        pusher.connection.bind('state_change', (s: { current: string }) => {
+        setDetail(`connecting to ${realtime.driver} (${String(options.cluster ?? realtime.host ?? '')})`);
+        pusher.connection.bind('state_change', (s: { previous?: string; current: string }) => {
           if (!alive) return;
+          setDetail((d) => (s.current === 'connected' ? `socket connected (${pusher?.connection?.socket_id ?? '?'}), subscribing…` : `socket ${s.previous ?? '?'} → ${s.current}${d.startsWith('channel auth') ? ` | ${d}` : ''}`));
           if (s.current !== 'connected') setConnected(false);
           if (s.current === 'connecting' || s.current === 'unavailable') setStatus('connecting');
         });
@@ -103,7 +116,7 @@ export function useRealtimeChannels(
           subscribed.push(channel);
           channel.bind('pusher:subscription_succeeded', () => {
             ready.add(name);
-            if (alive && ready.size === names.length) { setConnected(true); setStatus('live'); }
+            if (alive && ready.size === names.length) { setConnected(true); setStatus('live'); setDetail(`live on ${names.join(', ')}`); }
           });
           channel.bind('pusher:subscription_error', (e: unknown) => fail(`channel auth failed for ${name} at ${realtime.auth_endpoint}`, e));
           for (const event of Object.keys(bindingsRef.current)) {
@@ -139,5 +152,5 @@ export function useRealtimeChannels(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelKey, enabled, realtime?.key, realtime?.driver, realtime?.cluster, realtime?.host, realtime?.port, realtime?.tls, realtime?.auth_endpoint]);
 
-  return { connected, status };
+  return { connected, status, detail };
 }

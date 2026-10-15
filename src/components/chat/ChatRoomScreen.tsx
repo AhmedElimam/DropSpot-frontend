@@ -207,7 +207,7 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
   const roomsCount = channels.data?.length ?? 0;
 
   // Live frames merge into the same cache the poll fills; hidden ids drop out of it.
-  const { connected, status: socketStatus } = useChatSocket(courseId, room.data?.realtime, {
+  const { connected, status: socketStatus, detail: socketDetail } = useChatSocket(courseId, room.data?.realtime, {
     // A message that arrives live is on screen without a fetch — and the fetch is what tells
     // the server we read it. Without one the sender's ticks waited for the next poll (45 s).
     // The same short debounce as a read frame: one fetch for a burst of messages.
@@ -725,7 +725,13 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
         {/* Tap the room's name or picture for its info page — members, moderators, the shelf. */}
         <TouchableOpacity
           onPress={infoHref ? () => router.push(infoHref as Href) : undefined}
-          disabled={!infoHref}
+          // A long press says what the live connection is doing and why it is not live —
+          // what support needs when a phone keeps polling (founder 2026-10-15).
+          onLongPress={() => Alert.alert(t('chat.live_debug_title'), [
+            `${connected ? t('chat.live') : t('chat.polling')} | ${socketStatus}`,
+            socketDetail || '—',
+            room.data?.realtime ? `${room.data.realtime.driver} | ${room.data.realtime.cluster ?? room.data.realtime.host ?? ''} | ${room.data.realtime.auth_endpoint ?? ''}` : t('chat.live_debug_no_config'),
+          ].join('\n'))}
           activeOpacity={0.75}
           accessibilityRole="button"
           accessibilityHint={t('chat.tap_for_info')}
