@@ -1,35 +1,54 @@
 name: Feature branch health
 
-# Long-lived feature branches (print-market may take years — founder 2026-10-15) must never
-# quietly fall behind `main`. Every run: how far behind main the branch is and since when,
-# whether main still merges in cleanly (and which files conflict if not), and the type check
-# and tests ON THE MERGED TREE — so a green run means «this would still work if we merged today».
+# Long-lived feature branches (print-market and threads may take years — founder 2026-10-15)
+# must never quietly fall behind `main`. Every run: how far behind main each branch is and
+# since when, whether main still merges in cleanly (and which files conflict if not), and the
+# type check and tests ON THE MERGED TREE — so a green run means «this would still work if we
+# merged today». Builds nothing and publishes nothing.
 #
-# Triggers: every push to a tracked branch, by hand (Actions → Run workflow), and weekly.
-# NOTE: GitHub runs `schedule` only from the DEFAULT branch's copy of this file — the weekly
-# check starts once this file is also on `main`. Builds nothing and publishes nothing.
+# ONE file, identical on every tracked branch and on `main`. A push checks the branch that
+# was pushed; a manual run (Actions → Run workflow) and the weekly run check them all.
+# GitHub runs `schedule` only from the DEFAULT branch's copy — the weekly check starts once
+# this file is also on `main`.
 #
-# To track another branch, add it to the matrix below.
+# To track another branch: add it to BRANCHES and to `on.push.branches`.
 
 on:
   push:
-    branches: [print-market]
+    branches: [print-market, threads]
   workflow_dispatch:
   schedule:
     - cron: '0 6 * * 1' # Mondays 06:00 UTC
 
+env:
+  BRANCHES: '["print-market","threads"]'
+
 jobs:
+  pick:
+    runs-on: ubuntu-latest
+    outputs:
+      branches: ${{ steps.b.outputs.branches }}
+    steps:
+      - id: b
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo 'branches=["${{ github.ref_name }}"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "branches=$BRANCHES" >> "$GITHUB_OUTPUT"
+          fi
+
   health:
+    needs: pick
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        branch: [print-market]
+        branch: ${{ fromJSON(needs.pick.outputs.branches) }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.ref_name || matrix.branch }}
+          ref: ${{ matrix.branch }}
           fetch-depth: 0
 
       - name: Drift from main
