@@ -11,6 +11,8 @@ name: Feature branch health
 # GitHub runs `schedule` only from the DEFAULT branch's copy — the weekly check starts once
 # this file is also on `main`.
 #
+# The `integrate` job then merges main + every tracked branch into `staging` (see below).
+#
 # To track another branch: add it to BRANCHES and to `on.push.branches`.
 
 on:
@@ -80,3 +82,53 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx jest --ci
+
+  # staging = main + every tracked branch, merged together for the staging app — NEVER merged
+  # into main (each feature lands on main by itself). It accumulates merges, so a clash resolved
+  # by hand once stays resolved. Runs only when every branch above is healthy; pushes staging
+  # only when the combined checks pass. Building the staging app stays a manual step.
+  integrate:
+    needs: health
+    if: github.event_name != 'schedule' || github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # One at a time: two branches pushed together must not race to update staging.
+    concurrency:
+      group: staging-integrate
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+
+      - name: Merge main and every tracked branch into staging
+        run: |
+          git config user.email "ci@drosspot.app"; git config user.name "Branch health"
+          echo "## staging ← main + $(echo "$BRANCHES" | tr -d '[]"' | tr ',' ' ')" >> "$GITHUB_STEP_SUMMARY"
+          for b in main $(echo "$BRANCHES" | tr -d '[]"' | tr ',' ' '); do
+            if git merge --no-ff --no-edit -m "Integration (staging): merge $b" "origin/$b" >/dev/null 2>&1; then
+              echo "- ✅ $b" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ❌ **$b** clashes with what staging already has, in:" >> "$GITHUB_STEP_SUMMARY"
+              git diff --name-only --diff-filter=U | sed 's/^/  - `/; s/$/`/' >> "$GITHUB_STEP_SUMMARY"
+              echo "  Resolve it by hand on the staging branch (merge origin/$b, fix, push) — the next run carries on from there." >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+          done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx jest --ci
+
+      - name: Push staging
+        run: |
+          git push origin HEAD:staging
+          echo "- 🚀 staging pushed — build the staging app from it by hand." >> "$GITHUB_STEP_SUMMARY"
