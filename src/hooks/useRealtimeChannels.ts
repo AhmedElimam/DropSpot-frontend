@@ -1,3 +1,4 @@
+import { STAGING_KEY, STAGING_HEADER } from '@/config/env';
 import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import type { ChatRealtime } from '@/api/chat';
@@ -71,7 +72,10 @@ export function useRealtimeChannels(
           channelAuthorization: {
             transport: 'ajax',
             endpoint: realtime.auth_endpoint,
-            headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+            // The staging door key too: without it the gate answers 404, the subscription
+            // fails silently and the phone polls every 8 s while the browser is live (founder
+            // 2026-10-15: «web to mobile is slow, mobile to web is fast»). Null in production.
+            headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', ...(STAGING_KEY ? { [STAGING_HEADER]: STAGING_KEY } : {}) },
           },
         };
         if (realtime.driver === 'reverb') {
