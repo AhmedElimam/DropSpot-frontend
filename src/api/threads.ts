@@ -13,7 +13,12 @@ import client from './client';
 import type { ChatRealtime } from './chat';
 
 export type ThreadKind = 'question' | 'answer' | 'note';
-export type ThreadRole = 'teacher' | 'assistant' | 'student' | null;
+export type ThreadRole = 'teacher' | 'assistant' | 'student' | 'parent' | null;
+/**
+ * A parent's say over their child's part in حكاوي (founder 2026-10-15): `on` (default) reads
+ * and takes part, `read_only` reads only, `off` closes حكاوي for that child.
+ */
+export type ThreadParticipation = 'on' | 'read_only' | 'off';
 export type ClosedReason = 'answered' | 'locked' | 'timer' | null;
 
 export interface ThreadVideo {
@@ -40,6 +45,16 @@ export interface ThreadPermissions {
   can_answer: boolean;
   can_extend: boolean;
   can_lock: boolean;
+  /** Students and parents (not staff). Absent on an older server: fall back to «not a moderator». */
+  can_report?: boolean;
+  /** Parents: may hide their own child's answer. */
+  can_withdraw_child?: boolean;
+}
+
+/** A parent's child in a post's audience — the card's «لأحمد». */
+export interface ThreadChildRef {
+  id: number;
+  name: string;
 }
 
 export interface Thread {
@@ -48,7 +63,7 @@ export interface Thread {
   title: string | null;
   body: string | null;
   grade: { id: number; name: string | null };
-  teacher: { id: number; name: string };
+  teacher: { id: number; name: string; subject?: string | null; logo_url?: string | null };
   video: ThreadVideo | null;
   comments_close_at: string | null;
   seconds_left: number | null;
@@ -67,12 +82,23 @@ export interface Thread {
   unread: boolean;
   permissions: ThreadPermissions;
   created_at: string;
+  // ── Parents in حكاوي (founder 2026-10-15). All optional: an older server sends none. ──
+  /** Parents: their children in this post's audience. */
+  children?: ThreadChildRef[] | null;
+  /** True while parents can read حكاوي — the student is told. */
+  parents_can_see?: boolean;
+  /** A STUDENT reader's participation, set by their parent. */
+  participation?: ThreadParticipation | null;
+  participation_note?: string | null;
+  /** Moderators: linked parents of the audience. */
+  parents_count?: number | null;
 }
 
 export interface ThreadComment {
   id: number;
   body: string | null;
-  author: { id: number; name: string; is_me: boolean };
+  /** `is_my_child`: a parent reading — this answer is their child's. */
+  author: { id: number; name: string; is_me: boolean; is_my_child?: boolean };
   up: number;
   down: number;
   score: number;
@@ -120,6 +146,11 @@ export interface ThreadsFeed {
   realtime: ChatRealtime | null;
   /** The private channels this reader may join — the (teacher, grade) feeds they read. */
   channels: string[];
+  /**
+   * A student reader's participation, when the server sends it on the feed (not in the
+   * 2026-10-15 contract — read if present): `off` shows the «closed by your parent» state.
+   */
+  participation?: ThreadParticipation | null;
   /** Teacher only. */
   settings?: ThreadSettings;
   grades?: ThreadGrade[];
@@ -153,7 +184,9 @@ export interface ThreadReport {
   note: string | null;
   captured_body: string | null;
   reported_user: { id: number; name: string };
-  reporter: { id: number; name: string };
+  reporter: { id: number; name: string; role?: string | null };
+  /** 'parent' when a parent filed it («بلاغ من وليّ أمر»); optional. */
+  reporter_role?: string | null;
   already_hidden: boolean;
   created_at: string;
 }
@@ -319,4 +352,29 @@ export async function reportThreadCapture(videoId: number, playId: number | null
 export async function getThreadVideoAudience(videoId: number): Promise<ThreadAudience> {
   const { data } = await client.get(`/threads/videos/${videoId}/audience`);
   return data as ThreadAudience;
+}
+
+// ── Parents: each child's participation (founder 2026-10-15) ───────────────────
+
+export interface ThreadChildSetting {
+  student_id: number;
+  name: string;
+  grade: string | null;
+  teachers: { id: number; name: string }[];
+  participation: ThreadParticipation;
+  changed_at: string | null;
+}
+
+/** Parents only (403 otherwise): one row per child. */
+export async function getThreadChildren(): Promise<ThreadChildSetting[]> {
+  const { data } = await client.get('/threads/children');
+  return (data?.children ?? []) as ThreadChildSetting[];
+}
+
+/** Set one child's participation; the server answers with the updated row. */
+export async function setThreadChildParticipation(studentId: number, participation: ThreadParticipation): Promise<ThreadChildSetting | null> {
+  const { data } = await client.post(`/threads/children/${studentId}`, { participation });
+  // «The updated child row» — bare, or wrapped as { child }; anything else → the caller refetches.
+  const row = data?.child ?? data;
+  return row && typeof row.student_id === 'number' ? (row as ThreadChildSetting) : null;
 }

@@ -59,6 +59,17 @@ interface NotchTabBarProps extends BottomTabBarProps {
   icons: Record<string, IconName>;
   /** What sits in the centre button instead of its icon — the teacher's bar puts the brand mark there. */
   centerGlyph?: (color: string, focused: boolean) => ReactNode;
+  /** Unread counts per tab (e.g. a parent's «مجتمعنا» with new حكاوي); 0 / absent draws nothing. */
+  badges?: Record<string, number>;
+}
+
+/** A small count on a tab's corner. Static — nothing animates in the bar. */
+function TabBadge({ n }: { n: number }) {
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: -4, end: -8, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, borderWidth: 2, borderColor: colors.tabBar, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 10, lineHeight: 12, color: '#FFFFFF' }}>{n > 99 ? '+٩٩' : String(n).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)])}</Text>
+    </View>
+  );
 }
 
 /**
@@ -71,7 +82,7 @@ interface NotchTabBarProps extends BottomTabBarProps {
  * is left to navigation. Opaque on purpose, like the bar it replaces: a translucent
  * floating bar is continuous compositing work on mid-range Android.
  */
-export function NotchTabBar({ state, descriptors, navigation, tabs, center, labels, icons, centerGlyph }: NotchTabBarProps) {
+export function NotchTabBar({ state, descriptors, navigation, tabs, center, labels, icons, centerGlyph, badges }: NotchTabBarProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -128,6 +139,7 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
                   }}
                 >
                   {centerGlyph ? centerGlyph(onButton, focused) : <Icon name={icons[name] || 'home'} size={28} color={onButton} outline={!focused} />}
+                  {badges?.[name] ? <TabBadge n={badges[name]} /> : null}
                 </View>
                 <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.bold, fontSize: 12, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 4, paddingHorizontal: 2 }}>
                   {label}
@@ -150,6 +162,7 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
               <TourTarget id={`tab:${name}`} style={{ alignItems: 'center', paddingHorizontal: 6 }}>
               <View style={{ opacity: focused ? 1 : 0.55, transform: [{ scale: focused ? 1.08 : 1 }] }}>
                 <Icon name={icons[name] || 'home'} size={24} color={focused ? colors.tabActive : colors.tabInactive} outline={!focused} />
+                {badges?.[name] ? <TabBadge n={badges[name]} /> : null}
               </View>
               <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.medium, fontSize: 12, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 2, paddingHorizontal: 2 }}>
                 {label}

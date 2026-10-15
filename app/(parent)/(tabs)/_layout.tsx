@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Tabs } from 'expo-router';
 import { useHiddenSurfaces } from '@/ui/surfaces';
 import { colors } from '@/theme/index';
@@ -6,6 +7,7 @@ import { NotchTabBar } from '@/components/ui/NotchTabBar';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useThreadsEnabled, useThreadsUnread } from '@/hooks/useThreads';
 
 // The five tabs. Every other parent screen (a child, reports, tickets, notifications…) lives
 // in the stack around this navigator (app/(parent)/_layout.tsx), so it is pushed on top of
@@ -45,12 +47,17 @@ export default function ParentTabsLayout() {
   const center = tabs.includes(CENTER_TAB) ? CENTER_TAB : (tabs[Math.floor(tabs.length / 2)] ?? CENTER_TAB);
   // Freezing the hidden tabs is a super-admin FLAG, off by default (react-native-screens #2971).
   const freezeTabs = useFeatureFlags().data?.freeze_hidden_tabs === true;
+  // New حكاوي since the parent last looked ride on «مجتمعنا» (founder 2026-10-15) — parents get
+  // no push per post, so the badge is how they hear about one. Off with the flag.
+  const threadsEnabled = useThreadsEnabled();
+  const { data: threadsUnread } = useThreadsUnread(threadsEnabled);
+  const badges = useMemo(() => ({ community: threadsEnabled ? threadsUnread ?? 0 : 0 }), [threadsEnabled, threadsUnread]);
   return (
     <Tabs
       // Hardware back between tabs follows the visit history.
       backBehavior="history"
       screenLayout={sceneLayout}
-      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
+      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} badges={badges} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
       screenOptions={({ route }) => ({
         headerShown: false,
         freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),

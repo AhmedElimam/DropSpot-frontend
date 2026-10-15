@@ -151,6 +151,12 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
     const room = chatRoom(data);
     return room ? `/(parent)/chat/${room}` : '/(parent)/(tabs)/community';
   }
+  // حكاوي (founder 2026-10-15): a child's answer picked (`thread_child_picked`) or hidden by a
+  // moderator (`thread_child_hidden`) opens that thread; without one, the community tab's حكاوي.
+  if (type.startsWith('thread_')) {
+    const thread = id(data, 'thread_id');
+    return thread ? `/(parent)/chat/thread/${thread}` : '/(parent)/(tabs)/community?segment=threads';
+  }
 
   switch (type) {
     // A decided complaint: a payment one lands on the invoices; attendance / grade ones on
@@ -212,9 +218,10 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
     const course = id(data, 'course_id');
     return course ? `/(student)/chat/${course}` : '/(student)/(tabs)/chat';
   }
+  // `thread_participation` (a parent changed the student's part) names no thread: the حكاوي side.
   if (type.startsWith('thread_')) {
     const thread = id(data, 'thread_id');
-    return thread ? `/(student)/chat/thread/${thread}` : '/(student)/(tabs)/chat';
+    return thread ? `/(student)/chat/thread/${thread}` : '/(student)/(tabs)/chat?segment=threads';
   }
 
   switch (type) {

@@ -12,6 +12,7 @@ import { useMediaHeaders } from './mediaHeaders';
 import { InitialsAvatar } from './Avatar';
 import { Countdown, TimerBar } from './Countdown';
 import { ago, arDigits, stateOf, type ThreadState } from './format';
+import { childLabel } from './parents';
 
 export { stateOf, type ThreadState } from './format';
 
@@ -39,6 +40,8 @@ export const ThreadCard = memo(function ThreadCard({ thread: t, onOpen, staff, i
   const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const open = useCallback(() => onOpen(t.id), [onOpen, t.id]);
   const video = t.video;
+  // A parent's card says whose class it reached: «لأحمد ومنى».
+  const forChildren = childLabel(t.children);
 
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index, 6) * 45).duration(280)}>
@@ -61,6 +64,8 @@ export const ThreadCard = memo(function ThreadCard({ thread: t, onOpen, staff, i
             ...shadows.sm,
           }, pressStyle]}
         >
+          {forChildren ? <ChildTag label={forChildren} /> : null}
+
           {/* Who, where, when */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <InitialsAvatar id={t.teacher.id} name={t.teacher.name} size={42} ring={t.unread ? colors.brand : null} />
@@ -186,6 +191,16 @@ function MyAnswer({ thread: t }: { thread: Thread }) {
     );
   }
   return null;
+}
+
+/** A parent's card: which of their children this post reached. */
+function ChildTag({ label }: { label: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', paddingHorizontal: 10, height: 26, borderRadius: radius.full, backgroundColor: colors.brandTint, marginBottom: -spacing.xs }}>
+      <Icon name="child" size={13} color={colors.brand} />
+      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }} numberOfLines={1}>{label}</Text>
+    </View>
+  );
 }
 
 function KindTag({ note }: { note: boolean }) {

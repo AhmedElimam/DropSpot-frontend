@@ -1,9 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Animated as RNAnimated, Easing as RNEasing, Image as RNImage, Platform, useWindowDimensions } from 'react-native';
-import Animated, {
-  Easing, FadeIn, FadeInDown, cancelAnimation, interpolate, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSpring, withTiming,
-} from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, TouchableOpacity, ActivityIndicator, Animated as RNAnimated, Easing as RNEasing, Platform, useWindowDimensions } from 'react-native';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,9 +13,7 @@ import { haptic } from '@/utils/haptics';
 import { openThreadVideoPlay, reportThreadCapture, type ThreadPlay, type ThreadVideo } from '@/api/threads';
 import { addScreenCaptureListener, isScreenCaptured } from '@/lib/drosMedia';
 import { STREAM_HEADERS } from './mediaHeaders';
-
-const brandLogo = require('@/assets/images/brand-logo.png');
-const LOGO_ASPECT = 1.14;
+import { CrestMedallion, CrestOutro } from './CrestOutro';
 
 type CaptureKind = 'screenshot' | 'recording';
 
@@ -40,22 +34,32 @@ type CaptureKind = 'screenshot' | 'recording';
  *     a screenshot (expo-screen-capture's listener) and, on iOS, a screen RECORDING — running
  *     when the video opens, or started while it plays (DrosMedia: UIScreen.isCaptured). Android
  *     cannot report a recording at all; FLAG_SECURE turns it black instead.
- *  5. At the end, a TikTok-style outro: the DrosSpot mark, «حكاوي», the teacher, the play code.
+ *  5. At the end, the outro in Madam Rose's crest (CrestOutro.tsx, founder 2026-10-15): the gold
+ *     ring and laurel, the DS medallion, «حكاوي», the teacher's ribbon, the website, the viewer
+ *     and the play code — under the same moving watermark.
  *
  * No fullscreen hand-off, no picture-in-picture: both would take the picture out from under
  * the overlay.
  */
-export function ThreadVideoPlayer({ video, teacherName, onClose }: { video: ThreadVideo | null; teacherName?: string | null; onClose: () => void }) {
+export type OutroTeacher = { name: string; subject?: string | null; logo_url?: string | null };
+
+export function ThreadVideoPlayer({ video, teacher, gradeName, onClose }: {
+  video: ThreadVideo | null;
+  /** For the outro's ribbon and line: name, subject and logo when the server sends them. */
+  teacher?: OutroTeacher | null;
+  gradeName?: string | null;
+  onClose: () => void;
+}) {
   const visible = !!video;
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onClose} statusBarTranslucent presentationStyle="fullScreen">
-      {video ? <PlayerBody video={video} teacherName={teacherName ?? null} onClose={onClose} /> : null}
+      {video ? <PlayerBody video={video} teacher={teacher ?? null} gradeName={gradeName ?? null} onClose={onClose} /> : null}
     </Modal>
   );
 }
 
-function PlayerBody({ video, teacherName, onClose }: { video: ThreadVideo; teacherName: string | null; onClose: () => void }) {
+function PlayerBody({ video, teacher, gradeName, onClose }: { video: ThreadVideo; teacher: OutroTeacher | null; gradeName: string | null; onClose: () => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -152,7 +156,9 @@ function PlayerBody({ video, teacherName, onClose }: { video: ThreadVideo; teach
         </View>
       )}
 
-      {play && ended ? <EndCard teacherName={teacherName} code={play.watermark.code} onReplay={replay} bottomInset={insets.bottom} /> : null}
+      {play && ended ? (
+        <CrestOutro teacher={teacher} gradeName={gradeName} viewerName={play.watermark.name} code={play.watermark.code} onReplay={replay} onBack={onClose} />
+      ) : null}
 
       {/* (2) The forensic overlay. Above the player AND the end card, below the buttons; never intercepts touches. */}
       {play ? <Watermark play={play} width={width} height={height} /> : null}
@@ -185,82 +191,9 @@ function PlayerBody({ video, teacherName, onClose }: { video: ThreadVideo; teach
 }
 
 /**
- * The outro, like TikTok's: the DrosSpot mark spins in on a glowing disc (a light sweeps
- * across it, a ring pulses out), «حكاوي», the teacher's name and this viewing's code; the
- * «شوف تاني» button arrives after ~3 s. All on the UI thread (Reanimated).
- */
-function EndCard({ teacherName, code, onReplay, bottomInset }: { teacherName: string | null; code: string; onReplay: () => void; bottomInset: number }) {
-  const { t } = useTranslation();
-  const enter = useSharedValue(0);
-  const sweep = useSharedValue(0);
-  const ring = useSharedValue(0);
-  const DISC = 128;
-
-  useEffect(() => {
-    enter.value = withSpring(1, { damping: 12, stiffness: 110, mass: 0.9 });
-    sweep.value = withDelay(650, withRepeat(withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.quad) }), -1, false));
-    ring.value = withDelay(450, withRepeat(withTiming(1, { duration: 1700, easing: Easing.out(Easing.quad) }), -1, false));
-    return () => { cancelAnimation(enter); cancelAnimation(sweep); cancelAnimation(ring); };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const discStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(enter.value, [0, 0.4, 1], [0, 1, 1]),
-    transform: [
-      { scale: interpolate(enter.value, [0, 1], [0.35, 1]) },
-      { rotate: `${interpolate(enter.value, [0, 1], [-200, 0])}deg` },
-    ],
-  }));
-  const sweepStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: interpolate(sweep.value, [0, 1], [-DISC * 1.2, DISC * 1.2]) }, { rotate: '20deg' }],
-  }));
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(ring.value, [0, 1], [0.55, 0]),
-    transform: [{ scale: interpolate(ring.value, [0, 1], [1, 1.9]) }],
-  }));
-
-  const logoH = 50;
-  return (
-    <Animated.View entering={FadeIn.duration(350)} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}>
-      <LinearGradient colors={['rgba(8,14,38,0.86)', 'rgba(20,25,49,0.96)', 'rgba(8,14,38,0.98)']} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg, padding: spacing.xl }}>
-        <View style={{ width: DISC, height: DISC, alignItems: 'center', justifyContent: 'center' }}>
-          <Animated.View style={[{ position: 'absolute', width: DISC, height: DISC, borderRadius: DISC / 2, borderWidth: 2, borderColor: '#FFB454' }, ringStyle]} />
-          <Animated.View style={[{ width: DISC, height: DISC, borderRadius: DISC / 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }, discStyle]}>
-            <LinearGradient colors={['#4A57B5', '#1E2657']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} />
-            <RNImage source={brandLogo} style={{ height: logoH, width: Math.round(logoH * LOGO_ASPECT), tintColor: '#FFFFFF' }} resizeMode="contain" />
-            <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: -DISC * 0.25, width: 26, height: DISC * 1.5, backgroundColor: 'rgba(255,255,255,0.22)' }, sweepStyle]} />
-          </Animated.View>
-        </View>
-
-        <View style={{ alignItems: 'center', gap: 6 }}>
-          <Animated.Text entering={FadeInDown.delay(380).duration(380)} style={{ fontFamily: fonts.bold, fontSize: 30, color: '#FFFFFF' }}>
-            {t('threads.end_title')}
-          </Animated.Text>
-          {teacherName ? (
-            <Animated.Text entering={FadeInDown.delay(560).duration(380)} style={{ fontFamily: fonts.medium, fontSize: 16, color: 'rgba(255,255,255,0.85)' }}>
-              {t('threads.end_by', { name: teacherName })}
-            </Animated.Text>
-          ) : null}
-          <Animated.Text entering={FadeIn.delay(740).duration(380)} style={{ fontFamily: fonts.medium, fontSize: 13, letterSpacing: 1, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
-            {t('threads.end_code', { code })}
-          </Animated.Text>
-        </View>
-
-        <Animated.View entering={FadeInDown.delay(3000).duration(420)} style={{ position: 'absolute', bottom: bottomInset + spacing.xl * 2 }}>
-          <TouchableOpacity onPress={onReplay} activeOpacity={0.85} accessibilityRole="button"
-            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.xl, height: 50, borderRadius: radius.full, backgroundColor: '#FFFFFF' }}>
-            <Icon name="replay" size={20} color="#1E2657" />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#1E2657' }}>{t('threads.replay')}</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </LinearGradient>
-    </Animated.View>
-  );
-}
-
-/**
  * Two marks. The big one — name | student code | play code — glides along a slow diagonal
  * path that never repeats exactly (two incommensurate periods), so no fixed crop removes it.
- * The small DrosSpot mark + play code hops between corners every few seconds.
+ * The small crest medallion + play code hops between corners every few seconds.
  */
 function Watermark({ play, width, height }: { play: ThreadPlay; width: number; height: number }) {
   const x = useRef(new RNAnimated.Value(0)).current;
@@ -308,7 +241,7 @@ function Watermark({ play, width, height }: { play: ThreadPlay; width: number; h
         </Text>
       </RNAnimated.View>
       <View style={[{ position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm, backgroundColor: 'rgba(0,0,0,0.35)' }, cornerStyle]}>
-        <RNImage source={brandLogo} style={{ height: 13, width: Math.round(13 * LOGO_ASPECT), tintColor: 'rgba(255,255,255,0.9)' }} resizeMode="contain" />
+        <CrestMedallion size={20} />
         <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: 'rgba(255,255,255,0.85)', letterSpacing: 1 }}>{play.watermark.code}</Text>
       </View>
     </View>

@@ -19,10 +19,12 @@ import { arDigits, filterCounts, matchesFilter, stateOf, type ThreadFilter } fro
  * a social composer on top and — while their own switch is off — an amber card that says
  * their students see nothing yet. Settings and the reports queue live in the page hero.
  */
-export function ThreadsFeed({ onOpen, onCompose, onSettings }: {
+export function ThreadsFeed({ onOpen, onCompose, onSettings, reader }: {
   onOpen: (id: number) => void;
   onCompose?: (kind: 'question' | 'note') => void;
   onSettings?: () => void;
+  /** A parent's feed (founder 2026-10-15): their wording, read-only. */
+  reader?: 'parent';
 }) {
   const { t } = useTranslation();
   const focused = useIsFocused();
@@ -48,6 +50,10 @@ export function ThreadsFeed({ onOpen, onCompose, onSettings }: {
 
   const isTeacher = !!data?.settings;
   const isStaff = isTeacher || data?.open_reports !== undefined;
+  const isParent = reader === 'parent' || list[0]?.permissions.role === 'parent';
+  // A student is told, calmly, that their parents can read حكاوي (founder 2026-10-15).
+  const parentsSee = !isStaff && !isParent && list.some((th) => th.parents_can_see && th.permissions.role === 'student');
+  const closedByParent = !isStaff && !isParent && data?.participation === 'off';
 
   if (isLoading) return <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl4 }} />;
   if (isError) return <ErrorState onRetry={() => refetch()} />;
@@ -60,9 +66,14 @@ export function ThreadsFeed({ onOpen, onCompose, onSettings }: {
     ...(counts.notes > 0 ? [{ key: 'notes' as const, label: t('threads.filter_notes'), icon: 'lightbulb' as const }] : []),
   ];
 
+  if (closedByParent && list.length === 0) return <ClosedByParent />;
+
   return (
     <View style={{ gap: spacing.md }}>
       {isTeacher && data?.settings && !data.settings.enabled ? <OffCard onPress={onSettings} /> : null}
+
+      {parentsSee ? <CalmNote icon="people" text={t('threads.parents_can_see')} /> : null}
+      {isParent && list.length > 0 ? <CalmNote icon="shield" text={t('threads.parent_note')} /> : null}
 
       {isStaff && !isTeacher ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brandTint }}>
@@ -93,7 +104,7 @@ export function ThreadsFeed({ onOpen, onCompose, onSettings }: {
       ) : null}
 
       {list.length === 0 ? (
-        <EmptyFeed teacher={isTeacher} onCompose={onCompose ? () => onCompose('question') : undefined} />
+        <EmptyFeed teacher={isTeacher} parent={isParent} onCompose={onCompose ? () => onCompose('question') : undefined} />
       ) : shown.length === 0 ? (
         <Animated.Text entering={FadeIn.duration(200)} style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }}>
           {t('threads.filter_empty')}
@@ -183,7 +194,7 @@ function OffCard({ onPress }: { onPress?: () => void }) {
  * Nothing posted yet: three tokens of what حكاوي holds — a question, a tip, the spark of a
  * good answer — leaning on each other, then a line for this reader.
  */
-function EmptyFeed({ teacher, onCompose }: { teacher: boolean; onCompose?: () => void }) {
+function EmptyFeed({ teacher, parent, onCompose }: { teacher: boolean; parent?: boolean; onCompose?: () => void }) {
   const { t } = useTranslation();
   const bubble = (icon: IconName, bg: string, ink: string, size: number, tilt: string, lift = 0) => (
     <View style={{ width: size, height: size, borderRadius: size / 2.6, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: tilt }, { translateY: lift }], borderWidth: 3, borderColor: colors.background }}>
@@ -199,7 +210,7 @@ function EmptyFeed({ teacher, onCompose }: { teacher: boolean; onCompose?: () =>
       </View>
       <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, textAlign: 'center' }}>{teacher ? t('threads.empty_teacher_title') : t('threads.empty_title')}</Text>
       <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'center', marginTop: 6 }}>
-        {teacher ? t('threads.empty_teacher') : t('threads.empty_student')}
+        {teacher ? t('threads.empty_teacher') : parent ? t('threads.empty_parent') : t('threads.empty_student')}
       </Text>
       {teacher && onCompose ? (
         <TouchableOpacity onPress={onCompose} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.lg, paddingHorizontal: spacing.xl, height: 46, borderRadius: radius.full, backgroundColor: colors.brand }}>
@@ -207,6 +218,33 @@ function EmptyFeed({ teacher, onCompose }: { teacher: boolean; onCompose?: () =>
           <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: '#FFFFFF' }}>{t('threads.empty_teacher_cta')}</Text>
         </TouchableOpacity>
       ) : null}
+    </Animated.View>
+  );
+}
+
+/** One calm line on the feed's top: who can see, what a parent can do. Never alarming. */
+export function CalmNote({ icon, text }: { icon: IconName; text: string }) {
+  return (
+    <Animated.View entering={FadeIn.duration(220)} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brandTint }}>
+      <Icon name={icon} size={16} color={colors.brand} outline />
+      <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.textPrimary }}>{text}</Text>
+    </Animated.View>
+  );
+}
+
+/** حكاوي closed for this student by their parent: friendly, no blame, nothing to press. */
+export function ClosedByParent() {
+  const { t } = useTranslation();
+  return (
+    <Animated.View entering={FadeInDown.duration(320)} style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, borderRadius: radius.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight }}>
+      <View style={{ width: 76, height: 76, borderRadius: 28, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm }}>
+        <Icon name="lock" size={32} color={colors.brand} />
+        <View style={{ position: 'absolute', bottom: -6, end: -6, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.accentWarm, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.surface }}>
+          <Icon name="people" size={14} color={colors.onAccent} />
+        </View>
+      </View>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, textAlign: 'center' }}>{t('threads.off_title')}</Text>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'center' }}>{t('threads.off_body')}</Text>
     </Animated.View>
   );
 }
