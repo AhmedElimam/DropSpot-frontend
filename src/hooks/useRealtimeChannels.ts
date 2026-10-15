@@ -72,7 +72,13 @@ export function useRealtimeChannels(
         ]);
         // The RN build is a CommonJS bundle; depending on the interop path the class is
         // the module itself or its `default`. Take whichever is the constructor.
-        const Pusher: any = (mod as any).default ?? mod;
+        // The RN build is a CommonJS bundle and the interop differs between dev and release:
+        // the class can be the module, its `default`, its named `Pusher`, or nested one level
+        // deeper. Release builds exposed {Pusher, default} with a non-callable `default`, so
+        // the old `default ?? mod` threw here and every phone silently polled (founder
+        // 2026-10-15: «web to mobile is slow» — the Pusher console never saw a phone).
+        const m: any = mod;
+        const Pusher: any = [m, m?.default, m?.Pusher, m?.default?.default, m?.default?.Pusher].find((c) => typeof c === 'function');
         if (typeof Pusher !== 'function') { fail('pusher-js/react-native did not export a constructor', Object.keys(mod as any)); return; }
         const token = await SecureStore.getItemAsync('access_token');
         if (!alive) return;
