@@ -1,46 +1,61 @@
-import { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { AppModal as Modal } from '@/ui/AppModal';
+import { useEffect, useState, type ReactNode } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Switch, ActivityIndicator, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { SheetModal } from '@/components/ui/SheetModal';
 import { useAnswerThread, useResolveThreadReport, useThreadReports, useThreadVideoAudience, useUpdateThreadSettings, useUploadThreadVideo } from '@/hooks/useThreads';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { timeAgo } from '@/utils/format';
 import { VideoRecorder, type RecordedClip } from './VideoRecorder';
-import { TIMER_PRESETS } from './ComposeThreadSheet';
+import { InitialsAvatar } from './Avatar';
+import { TIMER_PRESETS, ago, arDigits } from './format';
 import type { ThreadSettings } from '@/api/threads';
 
-/** The shared bottom-sheet frame: overlay, rounded top, title row with a close button. */
-export function Sheet({ visible, title, onClose, children, busy }: { visible: boolean; title: string; onClose: () => void; children: React.ReactNode; busy?: boolean }) {
-  const insets = useSafeAreaInsets();
+type Tone = 'brand' | 'warm' | 'success' | 'danger' | 'warning';
+
+const toneOf = (tone: Tone) => ({
+  brand: { bg: colors.brandTint, ink: colors.brand },
+  warm: { bg: colors.accentWarmTint, ink: colors.accentText },
+  success: { bg: colors.successLight, ink: colors.success },
+  danger: { bg: colors.dangerLight, ink: colors.danger },
+  warning: { bg: colors.warningLight, ink: colors.warning },
+}[tone]);
+
+/**
+ * حكاوي's bottom sheet: the app's SheetModal (swipe down, tap the dim, hardware back), with a
+ * head that says what this is — a tinted icon, the title, an optional line — and a close.
+ * While `busy` (an upload, a publish) it cannot be dismissed.
+ */
+export function Sheet({ visible, title, subtitle, icon = 'threads', tone = 'brand', onClose, children, busy }: {
+  visible: boolean; title: string; subtitle?: string; icon?: IconName; tone?: Tone; onClose: () => void; children: ReactNode; busy?: boolean;
+}) {
+  const tint = toneOf(tone);
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
-        <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, maxHeight: '90%' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg, paddingBottom: spacing.sm }}>
-            <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, textAlign: 'right' }}>{title}</Text>
-            <TouchableOpacity onPress={onClose} disabled={busy} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg + insets.bottom, gap: spacing.md }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {children}
-          </ScrollView>
+    <SheetModal visible={visible} onClose={() => { if (!busy) onClose(); }} avoidKeyboard>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
+        <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: tint.bg, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name={icon} size={21} color={tint.ink} />
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{title}</Text>
+          {subtitle ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.textSecondary }}>{subtitle}</Text> : null}
+        </View>
+        <TouchableOpacity onPress={onClose} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel="إغلاق"
+          style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight, opacity: busy ? 0.4 : 1 }}>
+          <Icon name="close" size={18} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+      <View style={{ gap: spacing.md }}>{children}</View>
+    </SheetModal>
   );
 }
 
 // A function, not a constant: theme tokens are live and change with the phone's scheme.
 export const threadInputStyle = () => ({
   minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-  fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right' as const, backgroundColor: colors.surfaceSunken,
+  fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right' as const, backgroundColor: colors.surface,
 });
 
 /** A student reports another student's answer: a reason chip and an optional line. */
@@ -53,34 +68,28 @@ export function ReportSheet({ visible, reasons, pending, onClose, onSubmit }: {
   useEffect(() => { if (visible) { setReason(null); setNote(''); } }, [visible]);
 
   return (
-    <Sheet visible={visible} title={t('threads.report')} onClose={onClose} busy={pending}>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary, textAlign: 'right' }}>{t('threads.report_hint')}</Text>
+    <Sheet visible={visible} title={t('threads.report')} subtitle={t('threads.report_hint')} icon="flag" tone="danger" onClose={onClose} busy={pending}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-        {Object.entries(reasons).map(([k, label]) => {
-          const on = reason === k;
-          return (
-            <TouchableOpacity key={k} onPress={() => setReason(k)} accessibilityRole="radio" accessibilityState={{ selected: on }} style={{ minHeight: 42, justifyContent: 'center', paddingHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surface }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: on ? colors.brandDeep : colors.textSecondary }}>{label}</Text>
-            </TouchableOpacity>
-          );
-        })}
+        {Object.entries(reasons).map(([k, label]) => (
+          <Choice key={k} label={label} active={reason === k} onPress={() => setReason(k)} />
+        ))}
       </View>
-      <TextInput value={note} onChangeText={setNote} placeholder={t('threads.report_note')} placeholderTextColor={colors.textTertiary} maxLength={500} multiline style={[threadInputStyle(), { minHeight: 72 }]} />
+      <TextInput value={note} onChangeText={setNote} placeholder={t('threads.report_note')} placeholderTextColor={colors.textTertiary} maxLength={500} multiline style={[threadInputStyle(), { minHeight: 72, textAlignVertical: 'top' }]} />
       <Button title={t('threads.report_send')} variant="destructive" onPress={() => reason && onSubmit(reason, note.trim())} disabled={!reason || pending} loading={pending} />
     </Sheet>
   );
 }
 
 /** One line of text the caller needs — the hide reason. */
-export function TextSheet({ visible, title, placeholder, confirm, pending, onClose, onSubmit }: {
-  visible: boolean; title: string; placeholder: string; confirm: string; pending: boolean; onClose: () => void; onSubmit: (text: string) => void;
+export function TextSheet({ visible, title, subtitle, placeholder, confirm, pending, onClose, onSubmit }: {
+  visible: boolean; title: string; subtitle?: string; placeholder: string; confirm: string; pending: boolean; onClose: () => void; onSubmit: (text: string) => void;
 }) {
   const [text, setText] = useState('');
   useEffect(() => { if (visible) setText(''); }, [visible]);
   return (
-    <Sheet visible={visible} title={title} onClose={onClose} busy={pending}>
-      <TextInput value={text} onChangeText={setText} placeholder={placeholder} placeholderTextColor={colors.textTertiary} maxLength={160} multiline autoFocus style={[threadInputStyle(), { minHeight: 72 }]} />
-      <Button title={confirm} onPress={() => onSubmit(text.trim())} disabled={pending} loading={pending} />
+    <Sheet visible={visible} title={title} subtitle={subtitle} icon="eyeOff" tone="warning" onClose={onClose} busy={pending}>
+      <TextInput value={text} onChangeText={setText} placeholder={placeholder} placeholderTextColor={colors.textTertiary} maxLength={160} multiline autoFocus style={[threadInputStyle(), { minHeight: 72, textAlignVertical: 'top' }]} />
+      <Button title={confirm} variant="destructive" onPress={() => onSubmit(text.trim())} disabled={pending} loading={pending} />
     </Sheet>
   );
 }
@@ -112,26 +121,43 @@ export function AnswerSheet({ visible, threadId, maxSeconds, onClose, onDone }: 
   };
 
   return (
-    <>
-      <Sheet visible={visible} title={t('threads.answer_title')} onClose={onClose} busy={busy}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, color: colors.textSecondary, textAlign: 'right' }}>{t('threads.answer_hint')}</Text>
-        <TextInput value={body} onChangeText={setBody} placeholder={t('threads.answer_placeholder')} placeholderTextColor={colors.textTertiary} maxLength={4000} multiline style={[threadInputStyle(), { minHeight: 110, textAlignVertical: 'top' }]} />
-        {clip ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.successLight }}>
-            <Icon name="video" size={20} color={colors.successText} />
-            <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.successText, textAlign: 'right' }}>{t('threads.video_attached', { seconds: clip.duration })}</Text>
-            <TouchableOpacity onPress={() => setClip(null)}><Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.danger }}>{t('threads.remove_video')}</Text></TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity onPress={() => setRecorderOpen(true)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 50, borderRadius: radius.lg, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.borderStrong }}>
-            <Icon name="video" size={20} color={colors.brand} outline />
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('threads.or_record')}</Text>
-          </TouchableOpacity>
-        )}
-        <Button title={upload.isPending ? t('threads.uploading') : t('threads.publish_answer')} variant="success" onPress={publish} disabled={busy || (!body.trim() && !clip)} loading={busy} />
-      </Sheet>
+    <Sheet visible={visible} title={t('threads.answer_title')} subtitle={t('threads.answer_hint')} icon="teacher" tone="success" onClose={onClose} busy={busy}>
+      <TextInput value={body} onChangeText={setBody} placeholder={t('threads.answer_placeholder')} placeholderTextColor={colors.textTertiary} maxLength={4000} multiline style={[threadInputStyle(), { minHeight: 120, textAlignVertical: 'top' }]} />
+      <VideoAttach clip={clip} onRecord={() => setRecorderOpen(true)} onRemove={() => setClip(null)} label={t('threads.or_record')} hint={t('threads.record_video_hint', { seconds: arDigits(maxSeconds) })} />
+      <Button title={upload.isPending ? t('threads.uploading') : t('threads.publish_answer')} variant="success" onPress={publish} disabled={busy || (!body.trim() && !clip)} loading={busy} />
+      {/* Inside the sheet's window, so iOS presents it over the sheet instead of queueing it. */}
       <VideoRecorder visible={recorderOpen} maxSeconds={maxSeconds} onClose={() => setRecorderOpen(false)} onRecorded={(c) => { setClip(c); setRecorderOpen(false); }} />
-    </>
+    </Sheet>
+  );
+}
+
+/** The video tile of a compose / answer sheet: a dashed «record» tile, or the clip, ready. */
+export function VideoAttach({ clip, onRecord, onRemove, label, hint }: { clip: RecordedClip | null; onRecord: () => void; onRemove: () => void; label: string; hint: string }) {
+  const { t } = useTranslation();
+  if (clip) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.successLight }}>
+        <View style={{ width: 40, height: 56, borderRadius: 8, backgroundColor: '#1E2657', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="play" size={18} color="#FFFFFF" />
+        </View>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.successText }}>{t('threads.video_attached', { seconds: arDigits(Math.round(clip.duration)) })}</Text>
+        <TouchableOpacity onPress={onRemove} hitSlop={8} style={{ paddingHorizontal: spacing.md, height: 32, borderRadius: radius.full, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger }}>{t('threads.remove_video')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+  return (
+    <TouchableOpacity onPress={onRecord} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.borderStrong, backgroundColor: colors.surface }}>
+      <View style={{ width: 40, height: 56, borderRadius: 8, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="video" size={20} color={colors.brand} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{label}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{hint}</Text>
+      </View>
+      <Icon name="add" size={20} color={colors.brand} />
+    </TouchableOpacity>
   );
 }
 
@@ -139,14 +165,13 @@ export function AnswerSheet({ visible, threadId, maxSeconds, onClose, onDone }: 
 export function ExtendSheet({ visible, pending, onClose, onSubmit }: { visible: boolean; pending: boolean; onClose: () => void; onSubmit: (minutes: number | null) => void }) {
   const { t } = useTranslation();
   return (
-    <Sheet visible={visible} title={t('threads.extend_title')} onClose={onClose} busy={pending}>
+    <Sheet visible={visible} title={t('threads.extend_title')} subtitle={t('threads.extend_hint')} icon="timer" onClose={onClose} busy={pending}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {TIMER_PRESETS.map((p) => (
-          <TouchableOpacity key={p.minutes} onPress={() => onSubmit(p.minutes > 0 ? p.minutes : null)} disabled={pending} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.lg, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface }}>
-            <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }}>{t(p.key)}</Text>
-          </TouchableOpacity>
+          <Choice key={p.minutes} label={t(p.key)} active={false} disabled={pending} onPress={() => onSubmit(p.minutes > 0 ? p.minutes : null)} />
         ))}
       </View>
+      {pending ? <ActivityIndicator color={colors.primary} /> : null}
     </Sheet>
   );
 }
@@ -156,29 +181,33 @@ export function AudienceSheet({ videoId, onClose }: { videoId: number | null; on
   const { t } = useTranslation();
   const { data, isLoading } = useThreadVideoAudience(videoId, !!videoId);
   return (
-    <Sheet visible={!!videoId} title={t('threads.who_watched')} onClose={onClose}>
+    <Sheet visible={!!videoId} title={t('threads.who_watched')} icon="eye" onClose={onClose}>
       {isLoading ? <ActivityIndicator color={colors.primary} /> : !data || data.viewers.length === 0 ? (
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'right' }}>{t('threads.who_watched_empty')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary }}>{t('threads.who_watched_empty')}</Text>
       ) : (
         <>
-          <View style={{ flexDirection: 'row', gap: spacing.md }}>
+          <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>
             <Stat label={t('threads.plays', { count: data.plays_count })} tone="brand" />
             {data.capture_attempts > 0 ? <Stat label={t('threads.capture_attempts', { count: data.capture_attempts })} tone="danger" /> : null}
           </View>
-          {data.viewers.map((v) => (
-            <View key={v.user_id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
-              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: v.capture_attempts ? colors.dangerLight : colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name={v.capture_attempts ? 'warning' : 'eye'} size={18} color={v.capture_attempts ? colors.danger : colors.brand} outline />
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderLight, overflow: 'hidden' }}>
+            {data.viewers.map((v, i) => (
+              <View key={v.user_id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderTopWidth: i ? 1 : 0, borderTopColor: colors.borderLight }}>
+                <InitialsAvatar id={v.user_id} name={v.name} size={38} ring={v.capture_attempts ? colors.danger : null} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>{v.name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
+                    {v.student_code ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, writingDirection: 'ltr' }}>{v.student_code}</Text> : null}
+                    {v.codes.slice(0, 3).map((c) => (
+                      <Text key={c} style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand, backgroundColor: colors.brandTint, paddingHorizontal: 6, borderRadius: 6, overflow: 'hidden', writingDirection: 'ltr' }}>{c}</Text>
+                    ))}
+                    {v.last_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }}>{ago(v.last_at)}</Text> : null}
+                  </View>
+                </View>
+                {v.capture_attempts ? <Stat label={t('threads.capture_attempts', { count: v.capture_attempts })} tone="danger" /> : null}
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right' }}>{v.name}{v.student_code ? ` · ${v.student_code}` : ''}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, textAlign: 'right' }}>
-                  {v.codes.slice(0, 3).join('  ')}{v.last_at ? ` · ${timeAgo(v.last_at)}` : ''}
-                </Text>
-              </View>
-              {v.capture_attempts ? <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.danger }}>{t('threads.capture_attempts', { count: v.capture_attempts })}</Text> : null}
-            </View>
-          ))}
+            ))}
+          </View>
         </>
       )}
     </Sheet>
@@ -192,9 +221,9 @@ export function SettingsSheet({ visible, settings, onClose }: { visible: boolean
   const set = (patch: Partial<ThreadSettings>) => update.mutate(patch, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) });
 
   return (
-    <Sheet visible={visible} title={t('threads.settings')} onClose={onClose}>
-      <Row title={t('threads.settings_enabled')} hint={t('threads.settings_enabled_hint')} value={!!settings?.enabled} onChange={(v) => set({ enabled: v })} />
-      <Row title={t('threads.settings_downvotes')} value={settings?.downvotes_enabled ?? true} onChange={(v) => set({ downvotes_enabled: v })} />
+    <Sheet visible={visible} title={t('threads.settings')} icon="settings" onClose={onClose}>
+      <Row icon="threads" title={t('threads.settings_enabled')} hint={t('threads.settings_enabled_hint')} value={!!settings?.enabled} onChange={(v) => set({ enabled: v })} />
+      <Row icon="voteDown" title={t('threads.settings_downvotes')} hint={t('threads.settings_downvotes_hint')} value={settings?.downvotes_enabled ?? true} onChange={(v) => set({ downvotes_enabled: v })} />
     </Sheet>
   );
 }
@@ -205,21 +234,32 @@ export function ReportsSheet({ visible, onClose, onOpenThread }: { visible: bool
   const { data, isLoading } = useThreadReports(visible);
   const resolve = useResolveThreadReport();
   return (
-    <Sheet visible={visible} title={t('threads.reports')} onClose={onClose}>
+    <Sheet visible={visible} title={t('threads.reports')} icon="flag" tone="warning" onClose={onClose}>
       {isLoading ? <ActivityIndicator color={colors.primary} /> : !data?.length ? (
-        <EmptyState icon="flag" title={t('threads.reports_empty')} />
-      ) : data.map((r) => (
-        <View key={r.id} style={{ padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: colors.warning, gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.warningText }}>{r.reason_label}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary }}>{t('threads.report_on', { name: r.reported_user.name })} · {t('threads.report_by', { name: r.reporter.name })}</Text>
+        <View style={{ alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm }}>
+          <View style={{ width: 64, height: 64, borderRadius: 24, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="shield" size={30} color={colors.success} />
           </View>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right', padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surfaceSunken }}>{r.captured_body}</Text>
-          {r.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, textAlign: 'right' }}>«{r.note}»</Text> : null}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('threads.reports_empty')}</Text>
+        </View>
+      ) : data.map((r) => (
+        <View key={r.id} style={{ padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight, gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <InitialsAvatar id={r.reported_user.id} name={r.reported_user.name} size={34} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }} numberOfLines={1}>{t('threads.report_on', { name: r.reported_user.name })}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }} numberOfLines={1}>{t('threads.report_by', { name: r.reporter.name })}  |  {ago(r.created_at)}</Text>
+            </View>
+            <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.full, backgroundColor: colors.warningLight }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.warningText }}>{r.reason_label}</Text>
+            </View>
+          </View>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 22, color: colors.textPrimary, padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surfaceSunken }}>{r.captured_body}</Text>
+          {r.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>«{r.note}»</Text> : null}
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <View style={{ flex: 1 }}><Button title={r.already_hidden ? t('threads.hidden') : t('threads.report_remove')} variant="destructive" onPress={() => resolve.mutate({ reportId: r.id, action: 'remove' })} disabled={resolve.isPending} /></View>
             <View style={{ flex: 1 }}><Button title={t('threads.report_dismiss')} variant="outline" onPress={() => resolve.mutate({ reportId: r.id, action: 'dismiss' })} disabled={resolve.isPending} /></View>
-            <TouchableOpacity onPress={() => onOpenThread(r.thread_id)} style={{ width: 52, alignItems: 'center', justifyContent: 'center', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border }}>
+            <TouchableOpacity onPress={() => onOpenThread(r.thread_id)} accessibilityLabel={t('threads.report_open')} style={{ width: 52, alignItems: 'center', justifyContent: 'center', borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
               <Icon name="back" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -229,12 +269,26 @@ export function ReportsSheet({ visible, onClose, onOpenThread }: { visible: bool
   );
 }
 
-function Row({ title, hint, value, onChange }: { title: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
+/** A selectable chip: reasons, timer presets. */
+export function Choice({ label, sub, active, onPress, disabled }: { label: string; sub?: string; active: boolean; onPress: () => void; disabled?: boolean }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.borderLight }}>
+    <TouchableOpacity onPress={onPress} disabled={disabled} activeOpacity={0.8} accessibilityRole="radio" accessibilityState={{ selected: active, disabled }}
+      style={{ minHeight: 42, justifyContent: 'center', paddingHorizontal: spacing.md, paddingVertical: sub ? 6 : 0, borderRadius: radius.md, borderWidth: 1.5, borderColor: active ? colors.brand : colors.border, backgroundColor: active ? colors.brandTint : colors.surface }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: active ? colors.brand : colors.textPrimary }}>{label}</Text>
+      {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: active ? colors.brand : colors.textTertiary }}>{sub}</Text> : null}
+    </TouchableOpacity>
+  );
+}
+
+function Row({ icon, title, hint, value, onChange }: { icon: IconName; title: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight }}>
+      <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: value ? colors.brandTint : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={icon} size={18} color={value ? colors.brand : colors.textTertiary} />
+      </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right' }}>{title}</Text>
-        {hint ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right', marginTop: 2 }}>{hint}</Text> : null}
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }}>{title}</Text>
+        {hint ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, marginTop: 2 }}>{hint}</Text> : null}
       </View>
       <Switch value={value} onValueChange={onChange} trackColor={{ true: colors.brand, false: colors.border }} />
     </View>
@@ -243,8 +297,8 @@ function Row({ title, hint, value, onChange }: { title: string; hint?: string; v
 
 function Stat({ label, tone }: { label: string; tone: 'brand' | 'danger' }) {
   return (
-    <View style={{ paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.full, backgroundColor: tone === 'brand' ? colors.brandTint : colors.dangerLight }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: tone === 'brand' ? colors.brandDeep : colors.dangerText }}>{label}</Text>
+    <View style={{ paddingHorizontal: spacing.md, paddingVertical: 5, borderRadius: radius.full, backgroundColor: tone === 'brand' ? colors.brandTint : colors.dangerLight }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: tone === 'brand' ? colors.brand : colors.dangerText }}>{label}</Text>
     </View>
   );
 }

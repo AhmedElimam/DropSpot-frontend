@@ -1,44 +1,36 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { AppModal as Modal } from '@/ui/AppModal';
+import { View, Text, TextInput, TouchableOpacity, Switch, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius } from '@/theme/index';
+import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { useCreateThread, useUploadThreadVideo } from '@/hooks/useThreads';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { VideoRecorder, type RecordedClip } from './VideoRecorder';
+import { Choice, Sheet, VideoAttach, threadInputStyle } from './ThreadSheets';
+import { TIMER_PRESETS, arDigits } from './format';
 import type { ThreadGrade, ThreadLimits, ThreadSettings } from '@/api/threads';
 
-/** The timer presets a teacher actually reaches for, in minutes; 0 = no timer. */
-export const TIMER_PRESETS: { minutes: number; key: string }[] = [
-  { minutes: 15, key: 'threads.timer_15m' },
-  { minutes: 60, key: 'threads.timer_1h' },
-  { minutes: 180, key: 'threads.timer_3h' },
-  { minutes: 1440, key: 'threads.timer_1d' },
-  { minutes: 2880, key: 'threads.timer_2d' },
-  { minutes: 10080, key: 'threads.timer_1w' },
-  { minutes: 0, key: 'threads.timer_none' },
-];
+export { TIMER_PRESETS } from './format';
 
 /**
- * The teacher writes a question (or a note) to one grade. Grade chips carry the live audience
- * size so the teacher sees who will be pushed before tapping publish. A recorded clip is
- * uploaded first, then claimed by the post — a failed upload never leaves a half post.
+ * The teacher writes a حكاية — a question (with a clock, maybe in quiz mode) or a تكة (a tip,
+ * no round) — to one grade. Grade chips carry the live audience size so the teacher sees who
+ * will be pushed before tapping publish. A recorded clip is uploaded first, then claimed by
+ * the post — a failed upload never leaves a half post.
  */
-export function ComposeThreadSheet({ visible, grades, settings, limits, onClose, onCreated }: {
+export function ComposeThreadSheet({ visible, grades, settings, limits, initialKind = 'question', onClose, onCreated }: {
   visible: boolean;
   grades: ThreadGrade[];
   settings: ThreadSettings | undefined;
   limits: ThreadLimits | undefined;
+  initialKind?: 'question' | 'note';
   onClose: () => void;
   onCreated: (threadId: number) => void;
 }) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
-  const [kind, setKind] = useState<'question' | 'note'>('question');
+  const [kind, setKind] = useState<'question' | 'note'>(initialKind);
   const [gradeId, setGradeId] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -51,16 +43,19 @@ export function ComposeThreadSheet({ visible, grades, settings, limits, onClose,
 
   useEffect(() => {
     if (visible) {
-      setKind('question'); setTitle(''); setBody(''); setQuiz(false); setClip(null);
+      setKind(initialKind); setTitle(''); setBody(''); setQuiz(false); setClip(null);
       setGradeId(grades[0]?.id ?? null);
       const def = (settings?.default_close_hours ?? 24) * 60;
       setMinutes(TIMER_PRESETS.some((p) => p.minutes === def) ? def : 1440);
     }
-  }, [visible]);
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const maxVideo = limits?.video_max_seconds ?? 120;
+  const titleMax = limits?.title_max_chars ?? 200;
+  const bodyMax = limits?.body_max_chars ?? 4000;
   const busy = create.isPending || upload.isPending;
-  const canPublish = !!gradeId && !busy && (kind === 'note' ? (title.trim() || body.trim() || clip) : title.trim().length > 0);
+  const question = kind === 'question';
+  const canPublish = !!gradeId && !busy && (question ? title.trim().length > 0 : !!(title.trim() || body.trim() || clip));
 
   const publish = async () => {
     if (!gradeId) return;
@@ -72,8 +67,8 @@ export function ComposeThreadSheet({ visible, grades, settings, limits, onClose,
       }
       const thread = await create.mutateAsync({
         kind, grade_id: gradeId, title: title.trim() || undefined, body: body.trim() || undefined, video_id: videoId,
-        close_minutes: kind === 'question' ? (minutes > 0 ? minutes : null) : undefined,
-        reveal_at_close: kind === 'question' ? quiz : false,
+        close_minutes: question ? (minutes > 0 ? minutes : null) : undefined,
+        reveal_at_close: question ? quiz : false,
       });
       onCreated(thread.id);
     } catch (e) {
@@ -82,118 +77,108 @@ export function ComposeThreadSheet({ visible, grades, settings, limits, onClose,
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
-        <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, maxHeight: '92%' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg, paddingBottom: spacing.sm }}>
-            <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 19, color: colors.textPrimary, textAlign: 'right' }}>{kind === 'question' ? t('threads.compose') : t('threads.compose_note')}</Text>
-            <TouchableOpacity onPress={onClose} disabled={busy} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="close" size={22} color={colors.textSecondary} />
+    <Sheet
+      visible={visible}
+      title={question ? t('threads.compose') : t('threads.compose_note')}
+      subtitle={question ? t('threads.compose_sub') : t('threads.compose_note_sub')}
+      icon={question ? 'question' : 'lightbulb'}
+      tone={question ? 'brand' : 'warm'}
+      onClose={onClose}
+      busy={busy}
+    >
+      {/* Kind */}
+      <View style={{ flexDirection: 'row', padding: 4, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.borderLight }}>
+        {(['question', 'note'] as const).map((k) => {
+          const on = kind === k;
+          const ink = k === 'question' ? colors.brand : colors.accentText;
+          return (
+            <TouchableOpacity key={k} onPress={() => setKind(k)} activeOpacity={0.85} accessibilityRole="radio" accessibilityState={{ selected: on }}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: radius.md, backgroundColor: on ? colors.surface : 'transparent', ...(on ? shadows.sm : null) }}>
+              <Icon name={k === 'question' ? 'question' : 'lightbulb'} size={17} color={on ? ink : colors.textTertiary} outline={!on} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: on ? ink : colors.textTertiary }}>{t(k === 'question' ? 'threads.kind_question' : 'threads.kind_note')}</Text>
             </TouchableOpacity>
-          </View>
+          );
+        })}
+      </View>
 
-          <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg + insets.bottom, gap: spacing.lg }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {/* Kind */}
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-              {(['question', 'note'] as const).map((k) => {
-                const on = kind === k;
-                return (
-                  <TouchableOpacity key={k} onPress={() => setKind(k)} accessibilityRole="radio" accessibilityState={{ selected: on }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surface }}>
-                    <Icon name={k === 'question' ? 'question' : 'lightbulb'} size={17} color={on ? colors.brandDeep : colors.textSecondary} outline={!on} />
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: on ? colors.brandDeep : colors.textSecondary }}>{t(k === 'question' ? 'threads.kind_question' : 'threads.kind_note')}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Grade */}
-            <View>
-              <Label text={t('threads.grade')} />
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-                {grades.map((g) => {
-                  const on = gradeId === g.id;
-                  return (
-                    <TouchableOpacity key={g.id} onPress={() => setGradeId(g.id)} accessibilityRole="radio" accessibilityState={{ selected: on }} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surface }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: on ? colors.brandDeep : colors.textPrimary }}>{g.name}</Text>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: on ? colors.brandDeep : colors.textTertiary }}>{t('threads.grade_audience', { students: g.students, courses: g.courses })}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Title / body */}
-            <View>
-              <Label text={t('threads.title_label')} />
-              <TextInput
-                value={title} onChangeText={setTitle} placeholder={t('threads.title_placeholder')} placeholderTextColor={colors.textTertiary}
-                maxLength={limits?.title_max_chars ?? 200} multiline
-                style={{ minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, fontFamily: fonts.medium, fontSize: 16, color: colors.textPrimary, textAlign: 'right', backgroundColor: colors.surfaceSunken }}
-              />
-            </View>
-            <View>
-              <Label text={t('threads.body_label')} />
-              <TextInput
-                value={body} onChangeText={setBody} placeholder={t('threads.body_placeholder')} placeholderTextColor={colors.textTertiary}
-                maxLength={limits?.body_max_chars ?? 4000} multiline
-                style={{ minHeight: 84, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary, textAlign: 'right', textAlignVertical: 'top', backgroundColor: colors.surfaceSunken }}
-              />
-            </View>
-
-            {/* Timer + quiz mode */}
-            {kind === 'question' ? (
-              <>
-                <View>
-                  <Label text={t('threads.timer')} />
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-                    {TIMER_PRESETS.map((p) => {
-                      const on = minutes === p.minutes;
-                      return (
-                        <TouchableOpacity key={p.minutes} onPress={() => setMinutes(p.minutes)} accessibilityRole="radio" accessibilityState={{ selected: on }} style={{ minHeight: 40, justifyContent: 'center', paddingHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surface }}>
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: on ? colors.brandDeep : colors.textSecondary }}>{t(p.key)}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.borderLight }}>
-                  <Icon name="eyeOff" size={20} color={colors.textSecondary} outline />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, textAlign: 'right' }}>{t('threads.quiz_mode')}</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, textAlign: 'right' }}>{t('threads.quiz_mode_hint')}</Text>
-                  </View>
-                  <Switch value={quiz} onValueChange={setQuiz} trackColor={{ true: colors.brand, false: colors.border }} />
-                </View>
-              </>
-            ) : null}
-
-            {/* Video */}
-            <View>
-              <Label text={t('threads.attach_video')} />
-              {clip ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.successLight, borderWidth: 1, borderColor: '#BFE3D2' }}>
-                  <Icon name="video" size={20} color={colors.successText} />
-                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.successText, textAlign: 'right' }}>{t('threads.video_attached', { seconds: clip.duration })}</Text>
-                  <TouchableOpacity onPress={() => setClip(null)}><Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.danger }}>{t('threads.remove_video')}</Text></TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity onPress={() => setRecorderOpen(true)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.borderStrong }}>
-                  <Icon name="video" size={20} color={colors.brand} outline />
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('threads.record_video')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <Button title={busy ? (upload.isPending ? t('threads.uploading') : t('common.loading')) : t('threads.publish')} onPress={publish} disabled={!canPublish} loading={busy} />
-          </ScrollView>
+      {/* Grade */}
+      <Section label={t('threads.grade')}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {grades.map((g) => (
+            <Choice key={g.id} label={g.name} sub={t('threads.grade_audience', { students: arDigits(g.students), courses: arDigits(g.courses) })} active={gradeId === g.id} onPress={() => setGradeId(g.id)} />
+          ))}
         </View>
-      </KeyboardAvoidingView>
+      </Section>
 
+      {/* Title / body */}
+      <Section label={question ? t('threads.title_label') : t('threads.title_label_note')} counter={{ used: title.length, max: titleMax }}>
+        <TextInput
+          value={title} onChangeText={setTitle} placeholder={question ? t('threads.title_placeholder') : t('threads.title_placeholder_note')} placeholderTextColor={colors.textTertiary}
+          maxLength={titleMax} multiline
+          style={[threadInputStyle(), { fontFamily: fonts.medium, fontSize: 16 }]}
+        />
+      </Section>
+      <Section label={t('threads.body_label')} counter={{ used: body.length, max: bodyMax }}>
+        <TextInput
+          value={body} onChangeText={setBody} placeholder={t('threads.body_placeholder')} placeholderTextColor={colors.textTertiary}
+          maxLength={bodyMax} multiline
+          style={[threadInputStyle(), { minHeight: 84, textAlignVertical: 'top' }]}
+        />
+      </Section>
+
+      {/* Timer + quiz mode */}
+      {question ? (
+        <>
+          <Section label={t('threads.timer')}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              {TIMER_PRESETS.map((p) => (
+                <Choice key={p.minutes} label={t(p.key)} active={minutes === p.minutes} onPress={() => setMinutes(p.minutes)} />
+              ))}
+            </View>
+          </Section>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: quiz ? colors.brandTint : colors.surface, borderWidth: 1, borderColor: quiz ? colors.brand : colors.borderLight }}>
+            <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: quiz ? colors.brand : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="lock" size={18} color={quiz ? colors.onPrimary : colors.textTertiary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }}>{t('threads.quiz_mode')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>{t('threads.quiz_mode_hint')}</Text>
+            </View>
+            <Switch value={quiz} onValueChange={setQuiz} trackColor={{ true: colors.brand, false: colors.border }} />
+          </View>
+        </>
+      ) : null}
+
+      {/* Video */}
+      <VideoAttach
+        clip={clip}
+        onRecord={() => setRecorderOpen(true)}
+        onRemove={() => setClip(null)}
+        label={t('threads.record_video')}
+        hint={t('threads.record_video_hint', { seconds: arDigits(maxVideo) })}
+      />
+
+      <Button title={busy ? (upload.isPending ? t('threads.uploading') : t('common.loading')) : t('threads.publish')} onPress={publish} disabled={!canPublish} loading={busy} />
+
+      {/* Inside the sheet's window, so iOS presents it over the sheet instead of queueing it. */}
       <VideoRecorder visible={recorderOpen} maxSeconds={maxVideo} onClose={() => setRecorderOpen(false)} onRecorded={(c) => { setClip(c); setRecorderOpen(false); }} />
-    </Modal>
+    </Sheet>
   );
 }
 
-function Label({ text }: { text: string }) {
-  return <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.textSecondary, textAlign: 'right', marginBottom: spacing.sm }}>{text}</Text>;
+/** A labelled block; an optional chars-left counter on the far side, red near the cap. */
+function Section({ label, counter, children }: { label: string; counter?: { used: number; max: number }; children: React.ReactNode }) {
+  const left = counter ? counter.max - counter.used : 0;
+  const near = counter ? left <= Math.max(10, Math.round(counter.max * 0.1)) : false;
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary }}>{label}</Text>
+        {counter && counter.used > 0 ? (
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: near ? colors.danger : colors.textTertiary, fontVariant: ['tabular-nums'] }}>{arDigits(left)}</Text>
+        ) : null}
+      </View>
+      {children}
+    </View>
+  );
 }
