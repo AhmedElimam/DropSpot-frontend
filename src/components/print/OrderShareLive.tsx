@@ -1,3 +1,4 @@
+import { useIsFocused } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Animated, Easing, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -30,10 +31,13 @@ export function useOrderShare(jobId: number | null, tripLive: boolean, server: T
   const refresh = useCallback(() => { readLiveShare().then(setLive); }, []);
   useEffect(refresh, [refresh]);
   // the countdown, and noticing the end
+  const focused = useIsFocused();
   useEffect(() => {
+    if (!focused) return;
+    refresh();
     const t = setInterval(() => { tick((n) => n + 1); refresh(); }, 30_000);
     return () => clearInterval(t);
-  }, [refresh]);
+  }, [refresh, focused]);
 
   const mineLive = !!live && live.jobId === jobId && live.until > Date.now();
   const mode: ShareMode = mineLive ? 'live'

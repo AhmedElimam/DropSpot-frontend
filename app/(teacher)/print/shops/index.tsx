@@ -18,7 +18,8 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber } from '@/utils/format';
-import { LiveMap, useMyLocation, type MapPoint } from '@/components/LiveMap';
+import { LiveMap, MAP_BG, useMyLocation, type MapPoint } from '@/components/LiveMap';
+import { useArrived } from '@/hooks/useArrived';
 import { ShopLogo } from '@/components/print/ShopLogo';
 import { Surface } from '@/ui/surfaces';
 import { Image } from 'expo-image';
@@ -337,6 +338,9 @@ function FilterChip({ on, label, onPress, count, disabled = false, icon }: { on:
  * where it is the header, it stays open.
  */
 export default function PrintShops() {
+  // The map is a WebView: build it once the push has finished sliding, not inside the
+  // tap's first frame (the stack starts the animation only after the first render).
+  const arrived = useArrived();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { height: H, width: W } = useWindowDimensions();
@@ -509,12 +513,13 @@ export default function PrintShops() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style={isDark() ? 'light' : 'dark'} />
       {/* the map, the whole page */}
-      <LiveMap mapsKey={options.data?.maps_key} showMe hideLocate rounded={false} height="100%" padBottom={H - HALF} centerTo={centre}
+      {!arrived ? <View style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0, backgroundColor: MAP_BG[isDark() ? 'dark' : 'light'] }} /> : null}
+      {arrived ? <LiveMap mapsKey={options.data?.maps_key} showMe hideLocate rounded={false} height="100%" padBottom={H - HALF} centerTo={centre}
         refitKey={`${query}|${need.join(',')}`} followMe={following} onDragMap={() => { setFollowing(false); setBarOpen(false); }}
         dest={place ? { lat: place.lat, lng: place.lng, label: place.name } : null}
         style={{ position: 'absolute', top: 0, start: 0, end: 0, bottom: 0 }}
         selectedShop={picked} onShop={pickOnMap}
-        shops={list.filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, logo: s.logo ?? null, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} />
+        shops={list.filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.vendor_id, lat: s.lat!, lng: s.lng!, label: s.name, logo: s.logo ?? null, price: s.price_from.bw != null ? `${formatNumber(s.price_from.bw, { maximumFractionDigits: 2 })} ${egp}` : s.name }))} /> : null}
 
       {/* live tracking over «موقعي», riding above the sheet */}
       <Animated.View pointerEvents={stop === 'full' ? 'none' : 'auto'} style={[{ position: 'absolute', top: 0, end: spacing.lg }, locateStyle]}>

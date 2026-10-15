@@ -64,7 +64,9 @@ export default function PrintTab() {
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const qc = useQueryClient();
-  const jobs = useQuery({ queryKey: ['print-jobs'], queryFn: getPrintJobs, refetchInterval: 30_000 });
+  // Polled only while this tab is in front: hidden tabs stay mounted (not frozen), and a 30 s
+  // poll of the whole job list from another tab was a radio wake-up and a cache write for nothing.
+  const jobs = useQuery({ queryKey: ['print-jobs'], queryFn: getPrintJobs, refetchInterval: focused ? 30_000 : false });
   const shops = useQuery({ queryKey: ['print-shops'], queryFn: getPrintShops });
   // «سجل الدفع» — money: the teacher's alone, never fetched for an assistant.
   const isAssistant = useAuthStore((st) => st.role === 'assistant');

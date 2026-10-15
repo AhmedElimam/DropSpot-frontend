@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import * as Location from 'expo-location';
+import { useIsFocused } from '@react-navigation/native';
 import client from '@/api/client';
 import { getApiBaseOverride } from '@/api/apiBase';
 import { colors, radius, shadows } from '@/theme/index';
@@ -33,9 +34,14 @@ export const lastKnownFix = () => lastFix;
  * The phone's own position, live (founder 2026-10-14: «live location like Talabat … get the
  * location right away»). Starts from the last place any map saw this phone, then the OS's
  * last known fix, then one quick reading — so the dot is there at once — and watches while
- * the screen that asked is mounted. Null only before any fix ever, or without permission.
+ * the screen that asked is in front. Null only before any fix ever, or without permission.
  */
-export function useMyLocation(enabled = true): { me: MyPoint | null; denied: boolean } {
+export function useMyLocation(wanted = true): { me: MyPoint | null; denied: boolean } {
+  // Only while the asking screen is in front: a page pushed over the map, or another tab,
+  // must not keep high-accuracy GPS running underneath (battery, heat — founder 2026-10-15
+  // «the app's becoming slow again»). Coming back resumes from the last fix at once.
+  const focused = useIsFocused();
+  const enabled = wanted && focused;
   const [me, setMe] = useState<MyPoint | null>(() => (enabled ? lastFix : null));
   const [denied, setDenied] = useState(false);
   useEffect(() => {
