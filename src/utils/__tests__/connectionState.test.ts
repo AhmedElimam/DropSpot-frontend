@@ -1,4 +1,4 @@
-import { connectionView, syncAge, type NetSnapshot } from '../connectionState';
+import { connectionView, isStale, syncAge, type NetSnapshot } from '../connectionState';
 
 const wifi = (strength?: number | null): NetSnapshot => ({ isConnected: true, isInternetReachable: true, type: 'wifi', strength });
 const cell = (gen: string | null): NetSnapshot => ({ isConnected: true, isInternetReachable: true, type: 'cellular', cellularGeneration: gen });
@@ -45,5 +45,26 @@ describe('syncAge', () => {
     expect(syncAge(now - 20_000, now)).toEqual({ key: 'just_now' });
     expect(syncAge(now - 5 * 60_000, now)).toEqual({ key: 'minutes_ago', n: 5 });
     expect(syncAge(now - 125 * 60_000, now)).toEqual({ key: 'hours_ago', n: 2 });
+  });
+});
+
+describe('the indicator raises flags, not just bars (founder 2026-10-12: «it doesn\'t raise any flag»)', () => {
+  it('says the SERVER is down when the internet works but our answers keep failing', () => {
+    expect(connectionView(wifi(80), false, false, 1, 2).state).toBe('online');
+    expect(connectionView(wifi(80), false, false, 2, 2)).toEqual({ state: 'server', link: 'wifi', bars: 3 });
+    // A dead phone link is still «offline», and a pass in flight still «syncing».
+    expect(connectionView({ isConnected: false, isInternetReachable: null, type: 'none' }, false, false, 5, 2).state).toBe('offline');
+    expect(connectionView(wifi(80), false, true, 5, 2).state).toBe('syncing');
+    // The server state beats «weak»: it says what is actually wrong.
+    expect(connectionView(wifi(80), true, false, 3, 2).state).toBe('server');
+  });
+
+  it('flags old data once the server has not answered for the backend\'s window', () => {
+    const now = 10 * 60 * 60_000;
+    expect(isStale(now - 5 * 60_000, now, 30, 0)).toBe(false);
+    expect(isStale(now - 31 * 60_000, now, 30, 0)).toBe(true);
+    // No answer yet this launch: a grace of the same length, then a flag.
+    expect(isStale(null, now, 30, now - 10 * 60_000)).toBe(false);
+    expect(isStale(null, now, 30, now - 40 * 60_000)).toBe(true);
   });
 });

@@ -531,6 +531,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.course_detail.slots.add_button` — element · assistant: manage_sessions · app/(teacher)/courses/[id].tsx
 - `teacher.course_detail.slots.edit_button` — element · assistant: manage_courses · app/(teacher)/courses/[id].tsx
 - `teacher.course_detail.slots.retire_button` — element · assistant: manage_courses · app/(teacher)/courses/[id].tsx
+- `teacher.courses.filter_kind` — element · app/(teacher)/courses/index.tsx
 - `teacher.courses.list` — element · app/(teacher)/courses/index.tsx
 - `teacher.courses.new_button` — element · assistant: manage_courses · app/(teacher)/courses/index.tsx
 - `teacher.enroll.course_picker` — element · app/(teacher)/enroll.tsx
@@ -574,6 +575,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.home.attention_complaints` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.attention_phones` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.attention_sync` — element · app/(teacher)/(tabs)/index.tsx
+- `teacher.home.attention_termination` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.attention_tickets` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.connection_line` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.greeting` — element · app/(teacher)/(tabs)/index.tsx
@@ -890,7 +892,6 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.schedule_overrides.slots` — element · app/(teacher)/schedule-overrides.tsx
 - `teacher.schedule_tools.row_courses` — element · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_new_course` — element · assistant: manage_courses · src/components/teacher/ScheduleToolsSheet.tsx
-- `teacher.schedule_tools.row_new_slot` — element · assistant: manage_sessions · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_pause` — element · assistant: cancel_sessions · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_revisions` — element · assistant: teacher · src/components/teacher/ScheduleToolsSheet.tsx
 - `teacher.schedule_tools.row_schedule_merge` — element · assistant: manage_courses · src/components/teacher/ScheduleToolsSheet.tsx

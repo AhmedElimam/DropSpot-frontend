@@ -259,6 +259,7 @@ function serverMeta(meta: unknown): void {
 client.interceptors.response.use(
   (res) => {
     useOfflineStore.getState().noteNetworkOk();
+    useOfflineStore.getState().noteServerOk();
     // The backend may steer the app with this answer (meta.popup / meta.navigate).
     if (res?.data?.meta) serverMeta(res.data.meta);
     return res;
@@ -266,6 +267,11 @@ client.interceptors.response.use(
   async (error) => {
     const original = error.config;
     if (error.response?.data?.meta) serverMeta(error.response.data.meta);
+    // The server answered (even a refusal): it is up. A 5xx or no answer at all counts
+    // against it — the indicator raises «الخادم لا يرد» after a few in a row.
+    const status = error.response?.status;
+    if (status && status < 500) useOfflineStore.getState().noteServerOk();
+    else if (useOfflineStore.getState().online) useOfflineStore.getState().noteServerFailure();
     // No answer at all (offline, timeout, DNS): a dropout, not a verdict.
     if (!error.response && original) {
       useOfflineStore.getState().noteNetworkFailure();

@@ -31,6 +31,11 @@ const iosGoogleServicesStaging = existsSync(resolve(__dirname, 'GoogleService-In
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
+  // OTA to a store build that is already out: publish under the runtime that build carries
+  // (EXUpdates.bundle/fingerprint in the .ipa, assets/fingerprint in the .aab). The
+  // fingerprint counts the stamped build number, so no two store builds share a runtime and
+  // a publish computed from main reaches none of them. Never set for a build.
+  ...(process.env.OTA_RUNTIME_VERSION ? { runtimeVersion: process.env.OTA_RUNTIME_VERSION } : {}),
   name: STAGING ? 'DrosSpot Staging' : 'DrosSpot',
   slug: 'DrosSpot',
   // A staging build updates from its own OTA branch, never production's.
@@ -101,6 +106,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    // Google Play flags READ_MEDIA_IMAGES (photo/video policy) — every photo we take is a
+    // one-off pick (payment proof, card photo, ticket file, logo, receipt), which the policy
+    // says belongs to the system photo picker. expo-image-picker already uses that picker on
+    // Android 13+ and asks for nothing there; the permission came from expo-screen-capture's
+    // screenshot LISTENER, which we never use (tutorials only block capture: FLAG_SECURE).
+    // AD_ID: no ads, and firebase.json turns ad-ID collection off — so the Play declaration
+    // is «No», and the permission the measurement library would merge in is stripped to match.
+    blockedPermissions: [
+      'android.permission.READ_MEDIA_IMAGES',
+      'android.permission.READ_MEDIA_VIDEO',
+      'com.google.android.gms.permission.AD_ID',
+    ],
   },
   web: {
     output: 'static',

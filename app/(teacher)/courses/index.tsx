@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { FlatList } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
@@ -8,6 +8,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { FilterChips, type ChipOption } from '@/components/ui/FilterChips';
 import { FormScreen, HeaderAction, HeaderCount } from '@/components/ui/Form';
 import { useCourses } from '@/hooks/useCourses';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -63,6 +64,8 @@ const CourseRow = memo(function CourseRow({ c, onPress }: { c: CourseSummary; on
   );
 });
 
+type CourseKind = 'all' | 'groups' | 'private';
+
 /**
  * «المقررات» — the teacher's courses. Tap one for its settings, GPS anchor and weekly
  * slots; «+» creates one (manage_courses — the ability the API enforces, not the role).
@@ -72,7 +75,17 @@ export default function TeacherCourses() {
   const insets = useSafeAreaInsets();
   const { data: courses, isLoading, refetch } = useCourses();
   const { refreshing, onRefresh } = usePullRefresh(refetch);
-  const list = courses ?? [];
+  const all = courses ?? [];
+  // Groups vs private lessons — the row only appears once the teacher has both kinds.
+  const [kind, setKind] = useState<CourseKind>('all');
+  const privateCount = useMemo(() => all.filter((c) => c.tracks_attendance === false).length, [all]);
+  const mixed = privateCount > 0 && privateCount < all.length;
+  const list = useMemo(() => (!mixed || kind === 'all' ? all : all.filter((c) => (c.tracks_attendance === false) === (kind === 'private'))), [all, kind, mixed]);
+  const kinds: ChipOption<CourseKind>[] = [
+    { key: 'all', label: t('course_ui.filter_all', { n: formatNumber(all.length) }) },
+    { key: 'groups', label: t('course_ui.filter_groups', { n: formatNumber(all.length - privateCount) }) },
+    { key: 'private', label: t('course_ui.filter_private', { n: formatNumber(privateCount) }) },
+  ];
   const open = (id: string) => router.push(`/(teacher)/courses/${id}` as Href);
 
   return (
@@ -80,13 +93,15 @@ export default function TeacherCourses() {
     <FormScreen title={t('teacher.courses_title')} scroll={false}
       right={(
         <>
-          {list.length > 0 ? <HeaderCount n={list.length} /> : null}
+          {all.length > 0 ? <HeaderCount n={all.length} /> : null}
           <Surface id="teacher.courses.new_button" assistantNeeds="manage_courses"><HeaderAction icon="add" label={t('teacher.new_course')} onPress={() => router.push('/(teacher)/courses/create' as Href)} /></Surface>
         </>
       )}>
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
+        <>
+        {mixed ? <Surface id="teacher.courses.filter_kind"><FilterChips options={kinds} value={kind} onChange={setKind} /></Surface> : null}
         <Surface id="teacher.courses.list">
         <FlatList showsVerticalScrollIndicator={false}
           data={list}
@@ -98,6 +113,7 @@ export default function TeacherCourses() {
           ListEmptyComponent={<EmptyState icon="book" title={t('teacher.courses_empty_title')} message={t('teacher.courses_empty_hint')} />}
         />
         </Surface>
+        </>
       )}
     </FormScreen>
     </Surface>

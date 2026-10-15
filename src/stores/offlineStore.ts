@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { countPendingScans, countRejectedScans } from '@/db/offlineScans';
 import { countPendingMarks, countRejectedMarks } from '@/db/offlineMarks';
 import { countPendingActions, countRejectedActions } from '@/db/outbox';
+import type { PendingByKind } from '@/utils/connectionState';
 
 /**
  * Always-available counts of buffered scans, so a badge can show "something is
@@ -27,8 +28,26 @@ interface OfflineState {
   lastQueued: { label: string; at: number } | null;
   /** A sync pass is sending right now (the header indicator turns its arrows meanwhile). */
   syncing: boolean;
-  /** When the last sync pass finished talking to the server (ms), for «آخر مزامنة». */
+  /** When the last sync pass finished talking to the server (ms), for «آخر مزامنة». Kept on disk across launches. */
   lastSyncAt: number | null;
+  /** The last sync pass failed (the server refused it or did not answer) — said on the indicator, not swallowed. */
+  lastSyncFailedAt: number | null;
+  /** What `pending` is made of, so the indicator can say WHAT is waiting, not just how many. */
+  pendingByKind: PendingByKind;
+  /**
+   * Did OUR SERVER answer? (founder 2026-10-12: «it doesn't raise any flag».) The phone's
+   * network says nothing about it: Wi-Fi can be perfect while the API is down. Every answer
+   * the API client gets stamps `serverOkAt`; a request with no answer or a 5xx counts a
+   * failure in a row, reset by the next answer.
+   */
+  serverOkAt: number | null;
+  serverFailures: number;
+  /** When this launch started — the «data is getting old» rule waits this long before its first verdict. */
+  launchedAt: number;
+  noteServerOk: () => void;
+  noteServerFailure: () => void;
+  /** Read `lastSyncAt` back from disk at launch. */
+  hydrateSyncStamp: () => Promise<void>;
   // How many scans window-bounded auto-sync has uploaded since the teacher last
   // dismissed the notice (§7). Accumulates across runs; shown as a dismissible
   // passive confirmation. The records are audit-logged regardless, so dismissing
@@ -56,6 +75,11 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
   lastQueued: null,
   syncing: false,
   lastSyncAt: null,
+  lastSyncFailedAt: null,
+  pendingByKind: { scans: 0, marks: 0, actions: 0 },
+  serverOkAt: null,
+  serverFailures: 0,
+  launchedAt: Date.now(),
   autoSynced: 0,
   refresh: async () => {
     try {
@@ -65,7 +89,7 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
         countPendingMarks().catch(() => 0), countRejectedMarks().catch(() => 0),
         countPendingActions().catch(() => 0), countRejectedActions().catch(() => 0),
       ]);
-      set({ pending: ps + pm + pa, rejected: rs + rm + ra });
+      set({ pending: ps + pm + pa, rejected: rs + rm + ra, pendingByKind: { scans: ps, marks: pm, actions: pa } });
     } catch {
       // DB not ready yet — leave the counts as-is.
     }
@@ -81,7 +105,54 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
     if (get().weak) set({ weak: false });
   },
   noteQueued: (label) => set((s) => ({ lastQueued: { label, at: Date.now() }, pending: s.pending + 1 })),
-  setSyncing: (syncing, finishedOk) => set(finishedOk ? { syncing, lastSyncAt: Date.now() } : { syncing }),
+  setSyncing: (syncing, finishedOk) => {
+    if (syncing) { set({ syncing }); return; }
+    if (finishedOk) {
+      const at = Date.now();
+      set({ syncing, lastSyncAt: at, lastSyncFailedAt: null });
+      void saveSyncStamp(at);
+    } else {
+      // A pass that ended badly is a flag, not a silence.
+      set({ syncing, lastSyncFailedAt: Date.now() });
+    }
+  },
+  noteServerOk: () => {
+    const s = get();
+    // One write a second at most: every answer passes through here.
+    const now = Date.now();
+    if (s.serverFailures !== 0 || !s.serverOkAt || now - s.serverOkAt > 1000) set({ serverOkAt: now, serverFailures: 0 });
+  },
+  noteServerFailure: () => set((s) => ({ serverFailures: s.serverFailures + 1 })),
+  hydrateSyncStamp: async () => {
+    const at = await readSyncStamp();
+    if (at && (!get().lastSyncAt || at > (get().lastSyncAt ?? 0))) set({ lastSyncAt: at });
+  },
   bumpAutoSynced: (n) => set((s) => ({ autoSynced: s.autoSynced + n })),
   dismissAutoSynced: () => set({ autoSynced: 0 }),
 }));
+
+// «آخر مزامنة» survives a restart: it used to read «لم تتم بعد» after every launch, which made
+// the indicator look like it had never done anything. Its own little kv store, lazy-required
+// so tests and headless tasks that import the store never load the native module.
+const SYNC_KEY = 'sync:lastAt';
+function metaStore(): { getItemAsync(k: string): Promise<string | null>; setItemAsync(k: string, v: string): Promise<void> } | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { SQLiteStorage } = require('expo-sqlite/kv-store') as typeof import('expo-sqlite/kv-store');
+    return new SQLiteStorage('app-meta');
+  } catch {
+    return null;
+  }
+}
+async function saveSyncStamp(at: number): Promise<void> {
+  try { await metaStore()?.setItemAsync(SYNC_KEY, String(at)); } catch { /* best-effort */ }
+}
+async function readSyncStamp(): Promise<number | null> {
+  try {
+    const v = await metaStore()?.getItemAsync(SYNC_KEY);
+    const n = Number(v);
+    return v && Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}

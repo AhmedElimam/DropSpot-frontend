@@ -1,5 +1,5 @@
 import client from './client';
-import { extractList } from './utils';
+import { extractList, extractAttrs } from './utils';
 
 /**
  * Resolution Center — the teacher's consolidated review queues (previously web-only):
@@ -90,6 +90,15 @@ export interface SwapItem {
   created_at: string | null;
 }
 
+/**
+ * One review-queue row: the server sends JSON:API items, fields under `attributes`. Reading
+ * them off the item itself showed blank cards and sent terminate with no enrolment id
+ * (founder 2026-10-13); servers since then also flatten them, this reads either.
+ */
+function reviewItem(a: any) {
+  return { ...a, ...extractAttrs(a), id: Number(a.id) };
+}
+
 export async function getResolutionSummary(): Promise<ResolutionSummary> {
   const { data } = await client.get('/teacher/resolution/summary');
   return (data.data ?? data) as ResolutionSummary;
@@ -97,7 +106,7 @@ export async function getResolutionSummary(): Promise<ResolutionSummary> {
 
 export async function getPendingExcuses(): Promise<ExcuseItem[]> {
   const { data } = await client.get('/teacher/excuses');
-  return extractList(data, 'absence-excuse').map((a: any) => ({ id: Number(a.id), ...a })) as ExcuseItem[];
+  return extractList(data, 'absence-excuse').map(reviewItem) as ExcuseItem[];
 }
 
 export async function approveExcuse(id: number): Promise<void> {
@@ -110,7 +119,7 @@ export async function rejectExcuse(id: number): Promise<void> {
 
 export async function getPendingSwaps(): Promise<SwapItem[]> {
   const { data } = await client.get('/teacher/session-swaps/pending');
-  return extractList(data, 'session-swap').map((a: any) => ({ id: Number(a.id), ...a })) as SwapItem[];
+  return extractList(data, 'session-swap').map(reviewItem) as SwapItem[];
 }
 
 export async function approveSwap(id: number): Promise<void> {
@@ -124,7 +133,7 @@ export async function rejectSwap(id: number): Promise<void> {
 /** Students with 3 consecutive unexcused absences — flagged for the teacher to confirm termination. */
 export async function getTerminationCandidates(): Promise<TerminationCandidate[]> {
   const { data } = await client.get('/teacher/termination-candidates');
-  return extractList(data, 'termination-candidate').map((a: any) => ({ id: Number(a.id), ...a })) as TerminationCandidate[];
+  return extractList(data, 'termination-candidate').map(reviewItem) as TerminationCandidate[];
 }
 
 /** Confirm termination of a flagged enrollment (soft-drop + parent notice — same as manual). */

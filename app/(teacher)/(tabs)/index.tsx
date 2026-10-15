@@ -7,6 +7,7 @@ import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getResolutionSummary } from '@/api/resolution';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index';
 import { onWhite } from '@/theme/onWhite';
@@ -98,7 +99,11 @@ export default function TeacherHome() {
   const channelsQ = useChatChannels(chatOn);
   const threadsUnreadQ = useThreadsUnread(threadsOn);
   const conversationsUnread = (channelsQ.data ?? []).reduce((n, c) => n + (c.unread || 0), 0) + (threadsUnreadQ.data ?? 0);
-  const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch, ...(chatOn ? [channelsQ.refetch] : []), ...(threadsOn ? [threadsUnreadQ.refetch] : []));
+  // Students with consecutive unexcused absences, waiting for the teacher's decision in
+  // «مركز المتابعة» (founder 2026-10-13: it belongs on Home too, with what needs you).
+  const resolutionQ = useQuery({ queryKey: ['resolution-summary'], queryFn: getResolutionSummary });
+  const terminationCount = resolutionQ.data?.termination_candidates ?? 0;
+  const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch, resolutionQ.refetch, ...(chatOn ? [channelsQ.refetch] : []), ...(threadsOn ? [threadsUnreadQ.refetch] : []));
   const [addOpen, setAddOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   // Swipe on a session card (founder 2026-10-04): right → left cancels it (after a
@@ -154,6 +159,7 @@ export default function TeacherHome() {
 
   const attention = [
     offlineAttention > 0 && { key: 'sync', icon: (rejected > 0 ? 'error' : 'refresh') as IconName, short: rejected > 0 ? t('connection.rejected') : t('connection.pending'), tone: rejected > 0 ? 'danger' : 'warn', title: pending > 0 ? t('offline.pending_any', { count: pending }) : t('teacher.rejected_title', { count: rejected }), sub: t('teacher.tap_to_reconcile'), badge: offlineAttention, href: '/(teacher)/reconcile' },
+    terminationCount > 0 && { key: 'termination', icon: 'warning' as IconName, short: t('home.termination_short'), tone: 'danger', title: t('resolution.termination'), sub: t('home.termination_sub', { count: terminationCount }), badge: terminationCount, href: '/(teacher)/resolution' },
     (phonesQ.data?.count ?? 0) > 0 && { key: 'phones', icon: 'phone' as IconName, short: t('home.phones_title'), tone: 'warn', title: t('home.phones_title'), sub: t('home.phones_sub', { count: phonesQ.data?.count ?? 0 }), badge: phonesQ.data?.count ?? 0, href: '/(teacher)/phone-confirmations' },
     (bookingQ.data?.length ?? 0) > 0 && { key: 'booking', icon: 'bell' as IconName, short: t('booking_requests.title'), tone: 'warn', title: t('booking_requests.title'), sub: t('booking_requests.manage_sub'), badge: bookingQ.data?.length ?? 0, href: '/(teacher)/booking-requests' },
     cashAttention > 0 && { key: 'cash', icon: 'money' as IconName, short: rose.named ? rose.name : t('home.cash_short'), tone: 'warn', title: cashPending ? t('cash.banner_pending', { rose: rose.name }) : rose.title, sub: cashPending ? t('cash.banner_pending_sub', { amount: formatNumber(cashPending.collected, { maximumFractionDigits: 0 }) }) : t('home.cash_attention_sub'), badge: cashAttention, href: '/(teacher)/cash-reconcile' },
@@ -303,7 +309,7 @@ export default function TeacherHome() {
               <SectionHead icon="warning" color={colors.warning} title={t('home.needs_you')} action={t('home.attention_count', { count: attentionTotal })} />
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
                 {/* One id per chip: <Surface id="teacher.home.attention_sync"> <Surface id="teacher.home.attention_phones"> <Surface id="teacher.home.attention_booking">
-                    <Surface id="teacher.home.attention_cash"> <Surface id="teacher.home.attention_actions"> <Surface id="teacher.home.attention_tickets"> <Surface id="teacher.home.attention_complaints"> */}
+                    <Surface id="teacher.home.attention_cash"> <Surface id="teacher.home.attention_actions"> <Surface id="teacher.home.attention_tickets"> <Surface id="teacher.home.attention_complaints"> <Surface id="teacher.home.attention_termination"> */}
                 {attention.map((a) => (
                   <Surface key={a.key} id={`teacher.home.attention_${a.key}`}>
                   <TouchableOpacity onPress={() => router.push(a.href as Href)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={`${a.title} — ${a.sub}`}

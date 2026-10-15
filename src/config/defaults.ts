@@ -18,6 +18,10 @@ export interface AppConfigRules {
   password_min_length: number;
   /** How long before a session the app treats it as «قريبة». */
   session_early_min: number;
+  /** Failed requests in a row (no answer / 5xx) while the phone is online before the indicator says «الخادم لا يرد». */
+  server_fail_flag_after?: number;
+  /** Minutes without one successful answer from the server before the indicator flags the data as old. */
+  sync_stale_after_min?: number;
 }
 
 export interface AppConfigContact {
@@ -138,6 +142,8 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
     otp_resend_seconds: 60,
     password_min_length: 6,
     session_early_min: 30,
+    server_fail_flag_after: 2,
+    sync_stale_after_min: 30,
   },
   copy: {},
   ui: {

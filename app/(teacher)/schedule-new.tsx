@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Alert } from '@/ui/dialog';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
@@ -24,7 +24,9 @@ export default function ScheduleNew() {
   const { data: courses, isLoading } = useTeacherCourses();
   const create = useCreateSchedule();
 
-  const [courseId, setCourseId] = useState<number | null>(null);
+  // Opened from a course's page: that course is already chosen.
+  const params = useLocalSearchParams<{ courseId?: string }>();
+  const [courseId, setCourseId] = useState<number | null>(params.courseId ? Number(params.courseId) : null);
   const [day, setDay] = useState<number>(6);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
