@@ -19,7 +19,22 @@ interface State {
   config: AppConfigPayload;
   hydrate: () => Promise<void>;
   setConfig: (server: Partial<AppConfigPayload>) => void;
+  /**
+   * Drop everything that belongs to the PERSON who just signed out: the per-user flag map,
+   * the beta keys and their version — in memory now and in the last-good cache, so the next
+   * person on this phone starts from the bundled defaults (no inherited beta UI, not even
+   * across a relaunch before the first fetch). Everything else (rules, copy, contact…) is
+   * platform-wide and stays.
+   */
+  resetUserFlags: () => void;
 }
+
+/** The per-user part of the payload, at its bundled value. */
+const USER_FLAG_DEFAULTS: Pick<AppConfigPayload, 'feature_flags' | 'feature_beta' | 'feature_flags_version'> = {
+  feature_flags: {},
+  feature_beta: [],
+  feature_flags_version: undefined,
+};
 
 /** Overlay a (partial) server payload on the bundled defaults — never drop a default. */
 export function mergeConfig(server: Partial<AppConfigPayload>): AppConfigPayload {
@@ -29,10 +44,20 @@ export function mergeConfig(server: Partial<AppConfigPayload>): AppConfigPayload
     app_retired: server.app_retired ?? false,
     migration: server.migration ?? null,
     feature_flags: { ...(server.feature_flags ?? {}) },
+    // Both optional on the wire: today's server sends neither, and the app must behave
+    // exactly as before (no chip anywhere, every flag read unchanged).
+    feature_beta: Array.isArray(server.feature_beta) ? server.feature_beta.filter((k): k is string => typeof k === 'string') : [],
+    feature_flags_version: typeof server.feature_flags_version === 'string' ? server.feature_flags_version : undefined,
     rules: { ...CONFIG_DEFAULTS.rules, ...(server.rules ?? {}) },
     copy: { ...(server.copy ?? {}) },
     pricing: { ...CONFIG_DEFAULTS.pricing, ...(server.pricing ?? {}) },
     contact: { ...CONFIG_DEFAULTS.contact, ...(server.contact ?? {}) },
+    // The backend-code manifest (hidden surfaces, gates, popups, slots, theme…). It was
+    // dropped here before — every setConfig() left `config.ui` undefined, so nothing the
+    // server hid ever left a screen (found in the 2026-10-15 flag-leak audit). Each section
+    // falls back to its bundled default, so a partial manifest never loses the validators.
+    ui: { ...CONFIG_DEFAULTS.ui!, ...(server.ui ?? {}) },
+    abilities: server.abilities ?? CONFIG_DEFAULTS.abilities,
     // A null side from the server keeps the bundled link: a blocked user must always
     // have somewhere to go.
     store: {
@@ -51,7 +76,7 @@ function storage(): { getItem: (k: string) => Promise<string | null>; setItem: (
   }
 }
 
-export const useAppConfigStore = create<State>((set) => ({
+export const useAppConfigStore = create<State>((set, get) => ({
   config: CONFIG_DEFAULTS,
   hydrate: async () => {
     try {
@@ -65,6 +90,11 @@ export const useAppConfigStore = create<State>((set) => ({
     set({ config: mergeConfig(server) });
     storage()?.setItem(CACHE_KEY, JSON.stringify(server)).catch(() => {});
   },
+  resetUserFlags: () => {
+    const stripped = { ...get().config, ...USER_FLAG_DEFAULTS };
+    set({ config: stripped });
+    storage()?.setItem(CACHE_KEY, JSON.stringify(stripped)).catch(() => {});
+  },
 }));
 
 /** Non-React accessor for a single rule (e.g. offline batching in src/db). */
@@ -75,4 +105,9 @@ export function configRule<K extends keyof AppConfigRules>(key: K): AppConfigRul
 /** A single contact/payment value — server override ← bundled default. */
 export function configContact<K extends keyof AppConfigPayload['contact']>(key: K): AppConfigPayload['contact'][K] {
   return useAppConfigStore.getState().config.contact?.[key] ?? CONFIG_DEFAULTS.contact[key];
+}
+
+/** Non-React: is this feature on for the current user only through beta targeting? */
+export function isBetaFeature(key: string): boolean {
+  return (useAppConfigStore.getState().config.feature_beta ?? []).includes(key);
 }

@@ -6,8 +6,10 @@ import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CommunityComingSoon } from '@/components/parent/CommunityComingSoon';
 import { ChatInbox, ChatInboxList, InboxChips } from '@/components/chat/ChatInbox';
-import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
-import { useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
+import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
+import { THREADS_FLAG, useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
+import { useBetaFeature } from '@/hooks/useBetaFeature';
+import { BetaLine } from '@/components/ui/Beta';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
 import { Segments } from '@/components/threads/Segments';
@@ -59,6 +61,9 @@ function ParentConversations() {
   const showThreads = threadsEnabled && (segment === 'threads' || !chatEnabled);
   const [consentOpen, setConsentOpen] = useState(false);
   const [filter, setFilter] = useState<InboxFilter>('all');
+  // Reached this parent as a beta (feature targeting): marked on the segment and under the hero.
+  const chatBeta = useBetaFeature(CHAT_FLAG);
+  const threadsBeta = useBetaFeature(THREADS_FLAG);
 
   const { data: channels, refetch: refetchChat } = useChatChannels(chatEnabled);
   const { data: unreadThreads, refetch: refetchUnread } = useThreadsUnread(threadsEnabled);
@@ -88,7 +93,9 @@ function ParentConversations() {
             { value: arDigits(unreadThreads ?? 0), label: t('threads.stat_new'), warn: (unreadThreads ?? 0) > 0 },
             { value: arDigits(counts.answered), label: t('threads.stat_answered') },
           ] : undefined}
-        />
+        >
+          <BetaLine feature={showThreads ? THREADS_FLAG : CHAT_FLAG} style={{ paddingHorizontal: 0, paddingTop: spacing.md }} />
+        </PageHero>
 
         {both ? (
           <View style={{ paddingHorizontal: spacing.lg, marginTop: -(spacing.xl4 - spacing.sm), marginBottom: spacing.md }}>
@@ -96,8 +103,8 @@ function ParentConversations() {
               value={segment}
               onChange={setSegment}
               items={[
-                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread },
-                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: unreadThreads ?? 0 },
+                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread, beta: chatBeta },
+                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: unreadThreads ?? 0, beta: threadsBeta },
               ]}
             />
           </View>

@@ -5,8 +5,9 @@ import { fonts } from '@/theme/typography';
 import { colors, radius, shadows, spacing } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { arDigits } from './format';
+import { BetaChip } from '@/components/ui/Beta';
 
-export interface SegmentItem<K extends string> { key: K; label: string; icon: IconName; badge: number }
+export interface SegmentItem<K extends string> { key: K; label: string; icon: IconName; badge: number; /** This side reached the reader as a beta: a small gold «تجريبي» beside its name. */ beta?: boolean }
 
 const PAD = 4;
 
@@ -46,6 +47,7 @@ export function Segments<K extends string>({ items, value, onChange }: { items: 
           >
             <Icon name={it.icon} size={17} color={on ? colors.onPrimary : colors.textSecondary} outline={!on} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: on ? colors.onPrimary : colors.textSecondary }}>{it.label}</Text>
+            {it.beta ? <BetaChip /> : null}
             {it.badge > 0 ? (
               <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: on ? 'rgba(255,255,255,0.25)' : colors.danger, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onPrimary }}>{it.badge > 99 ? '+٩٩' : arDigits(it.badge)}</Text>

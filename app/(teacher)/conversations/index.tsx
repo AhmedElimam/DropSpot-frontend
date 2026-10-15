@@ -4,12 +4,14 @@ import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { colors, spacing, nav } from '@/theme/index';
-import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
+import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
+import { useBetaFeature } from '@/hooks/useBetaFeature';
+import { BetaLine } from '@/components/ui/Beta';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ChatInbox, ChatInboxList } from '@/components/chat/ChatInbox';
-import { useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
+import { THREADS_FLAG, useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
 import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
 import { ComposeThreadSheet } from '@/components/threads/ComposeThreadSheet';
 import { ReportsSheet, SettingsSheet } from '@/components/threads/ThreadSheets';
@@ -60,6 +62,9 @@ function ConversationsWithThreads() {
   const [composeKind, setComposeKind] = useState<'question' | 'note'>('question');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  // Reached this teacher as a beta (feature targeting): marked on the segment and under the hero.
+  const chatBeta = useBetaFeature(CHAT_FLAG);
+  const threadsBeta = useBetaFeature(THREADS_FLAG);
 
   const { data: channels, refetch: refetchChat } = useChatChannels(chatEnabled);
   const { data: threadsFeed, refetch: refetchThreads } = useThreadsFeed(threadsEnabled);
@@ -103,7 +108,9 @@ function ConversationsWithThreads() {
               { value: arDigits(counts.waiting), label: t('threads.stat_waiting_teacher'), warn: counts.waiting > 0 },
               { value: arDigits(counts.answered), label: t('threads.stat_answered') },
             ] : undefined}
-          />
+          >
+            <BetaLine feature={showThreads ? THREADS_FLAG : CHAT_FLAG} style={{ marginHorizontal: 0, marginTop: spacing.md }} />
+          </PageHero>
         </Surface>
 
         {threadsEnabled && chatEnabled ? (
@@ -113,8 +120,8 @@ function ConversationsWithThreads() {
               value={tab}
               onChange={setTab}
               items={[
-                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread },
-                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: threadsBadge },
+                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread, beta: chatBeta },
+                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: threadsBadge, beta: threadsBeta },
               ]}
             />
           </View>

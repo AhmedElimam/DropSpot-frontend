@@ -14,16 +14,22 @@ name: Feature branch health
 # The `integrate` job then merges main + every tracked branch into `staging` (see below).
 #
 # To track another branch: add it to BRANCHES and to `on.push.branches`.
+#
+# Branch tests (what the merged-tree checks below cover, per branch):
+#   feature-targeting — `npx tsc --noEmit` + `npx jest` (per-user flag store: reset on sign-out,
+#                       refetch on sign-in / session switch / foreground; useBetaFeature, BetaChip, BetaLine)
+#   print-market      — `npx tsc --noEmit` + `npx jest`
+#   threads           — `npx tsc --noEmit` + `npx jest`
 
 on:
   push:
-    branches: [print-market, threads]
+    branches: [feature-targeting, print-market, threads]
   workflow_dispatch:
   schedule:
     - cron: '0 6 * * 1' # Mondays 06:00 UTC
 
 env:
-  BRANCHES: '["print-market","threads"]'
+  BRANCHES: '["feature-targeting","print-market","threads"]'
 
 jobs:
   pick:
