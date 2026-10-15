@@ -53,7 +53,9 @@ function ConversationsWithThreads() {
   const insets = useSafeAreaInsets();
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
-  const [tab, setTab] = useState<'threads' | 'chat'>(threadsEnabled ? 'threads' : 'chat');
+  // Chat first (founder 2026-10-15); until the teacher picks a side the default follows the flags.
+  const [picked, setTab] = useState<'threads' | 'chat' | null>(null);
+  const tab = picked ?? (chatEnabled ? 'chat' : 'threads');
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeKind, setComposeKind] = useState<'question' | 'note'>('question');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -111,8 +113,8 @@ function ConversationsWithThreads() {
               value={tab}
               onChange={setTab}
               items={[
-                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: threadsBadge },
                 { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread },
+                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: threadsBadge },
               ]}
             />
           </View>

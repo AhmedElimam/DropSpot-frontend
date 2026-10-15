@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["DrosMediaModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.drosmedia.DrosMediaModule"]
+  }
+}

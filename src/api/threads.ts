@@ -267,19 +267,36 @@ export async function resolveThreadReport(reportId: number, action: 'dismiss' | 
   await client.post(`/threads/reports/${reportId}/resolve`, { action });
 }
 
+export interface UploadThreadVideoInput {
+  uri: string;
+  name: string;
+  mime: string;
+  duration: number;
+  width?: number;
+  height?: number;
+  /** A JPEG frame (file uri) the server keeps as the poster; without it cards show the ink tile. */
+  posterUri?: string | null;
+}
+
 /**
- * Upload a recording. Multipart; the server checks the bytes' type and the duration cap.
- * The result is claimed by the next create/answer call through `video_id`.
+ * Upload a clip (recorded, or picked + trimmed + compressed on the phone). Multipart; the server
+ * checks the bytes' type, the size cap and the reported duration. The result is claimed by the
+ * next create/answer call through `video_id`. `onProgress` gets 0..1 as the bytes leave.
  */
-export async function uploadThreadVideo(input: { uri: string; name: string; mime: string; duration: number; width?: number; height?: number }): Promise<ThreadVideo> {
+export async function uploadThreadVideo(input: UploadThreadVideoInput, onProgress?: (fraction: number) => void): Promise<ThreadVideo> {
   const form = new FormData();
   form.append('duration', String(Math.max(1, Math.round(input.duration))));
-  if (input.width) form.append('width', String(input.width));
-  if (input.height) form.append('height', String(input.height));
+  if (input.width) form.append('width', String(Math.round(input.width)));
+  if (input.height) form.append('height', String(Math.round(input.height)));
   form.append('file', { uri: input.uri, name: input.name, type: input.mime } as unknown as Blob);
+  if (input.posterUri) form.append('poster', { uri: input.posterUri, name: 'poster.jpg', type: 'image/jpeg' } as unknown as Blob);
   const { data } = await client.post('/threads/videos', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 300000,
+    // Five minutes of video is ~75 MB: on a slow uplink that is many minutes, not one.
+    timeout: 20 * 60 * 1000,
+    onUploadProgress: onProgress
+      ? (e) => { if (e.total) onProgress(Math.max(0, Math.min(1, e.loaded / e.total))); }
+      : undefined,
   });
   return data.video as ThreadVideo;
 }

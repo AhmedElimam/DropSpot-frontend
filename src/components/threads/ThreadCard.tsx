@@ -8,6 +8,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import type { Thread, ThreadVideo } from '@/api/threads';
+import { useMediaHeaders } from './mediaHeaders';
 import { InitialsAvatar } from './Avatar';
 import { Countdown, TimerBar } from './Countdown';
 import { ago, arDigits, stateOf, type ThreadState } from './format';
@@ -221,11 +222,13 @@ function Pill({ icon, text }: { icon: IconName; text: string }) {
  */
 export const PosterThumb = memo(function PosterThumb({ video, width }: { video: ThreadVideo; width: number }) {
   const height = Math.round(width * 1.5);
+  // The poster is an authenticated API route: bearer (+ the staging door key), shared by every card.
+  const headers = useMediaHeaders();
   return (
     <View style={{ width, height, borderRadius: radius.md, overflow: 'hidden', backgroundColor: '#1E2657', alignItems: 'center', justifyContent: 'center' }}>
       <LinearGradient colors={['#2A356F', '#141931']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-      {video.poster_url && !video.expired ? (
-        <Image source={{ uri: video.poster_url }} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} contentFit="cover" />
+      {video.poster_url && !video.expired && headers ? (
+        <Image source={{ uri: video.poster_url, headers }} transition={150} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} contentFit="cover" />
       ) : null}
       <View style={{ width: width * 0.48, height: width * 0.48, borderRadius: width * 0.24, backgroundColor: 'rgba(0,0,0,0.35)', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.75)', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={video.expired ? 'clock' : 'play'} size={width * 0.24} color="#FFFFFF" style={{ marginStart: video.expired ? 0 : 2 }} />

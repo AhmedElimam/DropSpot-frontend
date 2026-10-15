@@ -174,6 +174,7 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
               isModerator={isModerator}
               onMore={postMenu.length ? () => setMenu({ title: t('threads.post_actions'), items: postMenu }) : undefined}
               onPlay={setPlayer}
+              onAudience={isModerator ? setAudienceFor : undefined}
               onElapsed={refetch}
               onAnswer={() => setAnswerOpen(true)}
               onLock={() => Alert.alert(t('threads.lock_now'), t('threads.lock_confirm'), [
@@ -184,7 +185,7 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
             />
 
             <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl, gap: spacing.md }}>
-              {question && thread.answer ? <AnswerCard thread={thread} onPlay={setPlayer} /> : null}
+              {question && thread.answer ? <AnswerCard thread={thread} onPlay={setPlayer} onAudience={isModerator ? setAudienceFor : undefined} /> : null}
 
               {question && !thread.answer && !thread.open && !isModerator ? (
                 <Notice icon="hourglass" tone="warning" text={thread.closed_reason === 'locked' ? t('threads.closed_banner_locked') : t('threads.closed_banner_timer')} />
@@ -267,7 +268,7 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
         ) : null}
       </KeyboardAvoidingView>
 
-      <ThreadVideoPlayer video={player} onClose={() => setPlayer(null)} />
+      <ThreadVideoPlayer video={player} teacherName={thread?.teacher.name} onClose={() => setPlayer(null)} />
       <MenuSheet menu={menu} onClose={() => setMenu(null)} />
       <ReportSheet
         visible={!!reportFor} reasons={data?.report_reasons ?? {}} pending={report.isPending} onClose={() => setReportFor(null)}
@@ -281,7 +282,7 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
         onClose={() => setHideFor(null)}
         onSubmit={(reason) => hideFor && hide.mutate({ commentId: hideFor.id, reason: reason || undefined }, { onSuccess: () => setHideFor(null), onError: fail })}
       />
-      {thread ? <AnswerSheet visible={answerOpen} threadId={thread.id} maxSeconds={data?.limits.video_max_seconds ?? 120} onClose={() => setAnswerOpen(false)} onDone={() => { setAnswerOpen(false); haptic('success'); }} /> : null}
+      {thread ? <AnswerSheet visible={answerOpen} threadId={thread.id} limits={data?.limits} onClose={() => setAnswerOpen(false)} onDone={() => { setAnswerOpen(false); haptic('success'); }} /> : null}
       <ExtendSheet visible={extendOpen} pending={extend.isPending} onClose={() => setExtendOpen(false)} onSubmit={(m) => extend.mutate(m, { onSuccess: () => setExtendOpen(false), onError: fail })} />
       <AudienceSheet videoId={audienceFor} onClose={() => setAudienceFor(null)} />
     </View>
@@ -315,13 +316,15 @@ function TopBar() {
   );
 }
 
-function Hero({ thread, state, perms, isModerator, onMore, onPlay, onElapsed, onAnswer, onLock, onExtend }: {
+function Hero({ thread, state, perms, isModerator, onMore, onPlay, onAudience, onElapsed, onAnswer, onLock, onExtend }: {
   thread: Thread;
   state: ThreadState;
   perms: ThreadPermissions | undefined;
   isModerator: boolean;
   onMore?: () => void;
   onPlay: (v: ThreadVideo) => void;
+  /** Moderators: «مين شاف» right on the video (who watched, who tried to capture it). */
+  onAudience?: (videoId: number) => void;
   onElapsed: () => void;
   onAnswer: () => void;
   onLock: () => void;
@@ -381,7 +384,7 @@ function Hero({ thread, state, perms, isModerator, onMore, onPlay, onElapsed, on
 
       {thread.video ? (
         <View style={{ marginTop: spacing.md }}>
-          <VideoBlock video={thread.video} onPlay={() => onPlay(thread.video!)} onHero />
+          <VideoBlock video={thread.video} onPlay={() => onPlay(thread.video!)} onAudience={onAudience ? () => onAudience(thread.video!.id) : undefined} onHero />
         </View>
       ) : null}
 
@@ -468,7 +471,7 @@ function QuizChip() {
 // ── Under the hero ──────────────────────────────────────────────────────────
 
 /** The teacher's answer, pinned: green, the words, the vertical video. */
-function AnswerCard({ thread, onPlay }: { thread: Thread; onPlay: (v: ThreadVideo) => void }) {
+function AnswerCard({ thread, onPlay, onAudience }: { thread: Thread; onPlay: (v: ThreadVideo) => void; onAudience?: (videoId: number) => void }) {
   const { t } = useTranslation();
   const a = thread.answer!;
   return (
@@ -483,14 +486,14 @@ function AnswerCard({ thread, onPlay }: { thread: Thread; onPlay: (v: ThreadVide
       </View>
       <View style={{ padding: spacing.lg, gap: spacing.md }}>
         {a.body ? <Text selectable style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 27, color: colors.textPrimary }}>{a.body}</Text> : null}
-        {a.video ? <VideoBlock video={a.video} onPlay={() => onPlay(a.video!)} /> : null}
+        {a.video ? <VideoBlock video={a.video} onPlay={() => onPlay(a.video!)} onAudience={onAudience ? () => onAudience(a.video!.id) : undefined} /> : null}
       </View>
     </Animated.View>
   );
 }
 
 /** A short vertical video: its tall poster with the play glyph, and what protects it. */
-function VideoBlock({ video, onPlay, onHero }: { video: ThreadVideo; onPlay: () => void; onHero?: boolean }) {
+function VideoBlock({ video, onPlay, onAudience, onHero }: { video: ThreadVideo; onPlay: () => void; onAudience?: () => void; onHero?: boolean }) {
   const { t } = useTranslation();
   const ink = onHero ? colors.onHero : colors.textPrimary;
   const soft = onHero ? colors.onHeroSoft : colors.textTertiary;
@@ -502,12 +505,21 @@ function VideoBlock({ video, onPlay, onHero }: { video: ThreadVideo; onPlay: () 
       <View style={{ flex: 1, gap: 6 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: ink }}>{video.expired ? t('threads.video_expired') : t('threads.video_watch')}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: soft }}>{t('threads.video_protected')}</Text>
-        {!video.expired ? (
-          <TouchableOpacity onPress={onPlay} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: spacing.md, height: 34, borderRadius: radius.full, backgroundColor: colors.brand }}>
-            <Icon name="play" size={14} color={colors.onPrimary} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onPrimary }}>{t('threads.video_play')}</Text>
-          </TouchableOpacity>
-        ) : null}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {!video.expired ? (
+            <TouchableOpacity onPress={onPlay} activeOpacity={0.85} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, height: 34, borderRadius: radius.full, backgroundColor: colors.brand }}>
+              <Icon name="play" size={14} color={colors.onPrimary} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onPrimary }}>{t('threads.video_play')}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {onAudience ? (
+            <TouchableOpacity onPress={onAudience} activeOpacity={0.85} accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, height: 34, borderRadius: radius.full, borderWidth: 1, borderColor: onHero ? colors.onHeroChipBorder : colors.border, backgroundColor: onHero ? colors.onHeroChip : colors.surface }}>
+              <Icon name="eye" size={14} color={ink} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: ink }}>{t('threads.who_watched')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
     </View>
   );
