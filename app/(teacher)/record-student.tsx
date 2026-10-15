@@ -173,7 +173,10 @@ export default function RecordStudent() {
     }
   }
 
-  if (flags?.fast_register === false) {
+  // Off for THIS person (per-user flags, 2026-10-15) or not in the map at all → not here:
+  // the sheet that leads in (AddStudentSheet) and the search index already read it that way,
+  // so a flag that is missing after a sign-out reset never shows the form by accident.
+  if (!flags?.fast_register) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
         <Icon name="info" size={40} color={colors.textSecondary} />

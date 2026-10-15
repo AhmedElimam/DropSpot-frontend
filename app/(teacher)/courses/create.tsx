@@ -15,6 +15,7 @@ import { useCourseFormOptions, useCreateCourse } from '@/hooks/useCourses';
 import { useTeacherOnboarding, useMarkOnboardingStep } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
+import { BetaLine } from '@/components/ui/Beta';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 type Slot = { day_of_week: number; start_time: string; end_time: string };
@@ -141,6 +142,8 @@ export default function CourseCreateScreen() {
     <FormScreen title={t('teacher.create_course')} subtitle={t('teacher.create_course_sub')} loading={isLoading || !options}>
       {options ? (
         <>
+          {/* Private lessons reached this teacher as a beta: say so under the hero, with the way to send notes. */}
+          {privateOptions?.enabled ? <BetaLine feature="private_courses" style={{ marginHorizontal: 0, marginTop: 0, marginBottom: spacing.md }} /> : null}
           {showExplainer ? (
             <Surface id="teacher.course_create.explainer">
             <Banner tone="info" icon="book">
