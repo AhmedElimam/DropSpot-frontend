@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -6,7 +7,9 @@ import { useIsFocused } from '@react-navigation/native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { SheetModal } from '@/components/ui/SheetModal';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, gradients, isDark, nav } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -19,7 +22,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { IS_STAGING } from '@/config/env';
 import { OrderSection } from '@/components/print/OrderSection';
 import { CreditRing, creditTint, egpAmount, daysText, jobsText, graceText } from '@/components/print/CreditBits';
-import { getPrintCredit, creditUsed, type PrintCredit } from '@/api/print';
+import { getPrintCredit, disputePrintStrike, creditUsed, type PrintCredit } from '@/api/print';
 
 // The hero is deep ink in BOTH schemes (founder: no washed tops), so what sits on it is white.
 const ON = '#FFFFFF';
@@ -60,6 +63,14 @@ export default function PrintCreditScreen() {
   const focused = useIsFocused();
   const isAssistant = useAuthStore((st) => st.role === 'assistant');
   const credit = useQuery({ queryKey: ['print-credit'], queryFn: getPrintCredit, enabled: !isAssistant });
+  // Disputing a strike: once per strike, a line of what happened; the admin answers in a notification.
+  const qc = useQueryClient();
+  const [disputing, setDisputing] = useState<number | null>(null);
+  const [note, setNote] = useState('');
+  const dispute = useMutation({
+    mutationFn: ({ id, n }: { id: number; n: string }) => disputePrintStrike(id, n),
+    onSuccess: (fresh) => { qc.setQueryData(['print-credit'], fresh); setDisputing(null); setNote(''); },
+  });
   const { refreshing, onRefresh } = usePullRefresh(credit.refetch);
   const c = credit.data;
   const egp = t('teacher.egp');
@@ -184,6 +195,7 @@ export default function PrintCreditScreen() {
                       <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.surfaceSunken, overflow: 'hidden' }}>
                         <View style={{ width: `${Math.round(r * 100)}%`, height: '100%', borderRadius: 4, backgroundColor: fill }} />
                       </View>
+                      {p.hint ? <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: colors.textTertiary, marginTop: 4 }}>{p.hint}</Text> : null}
                     </View>
                   );
                 })}
@@ -194,9 +206,19 @@ export default function PrintCreditScreen() {
                 <OrderSection icon="warning" title={t('print.credit_strikes_title')} hint={t('print.credit_strikes_hint')} tint={{ bg: colors.dangerLight, fg: colors.dangerText }}>
                   {c.strikes.map((s, i) => (
                     <View key={`${s.at}-${i}`} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: 9, borderBottomWidth: i === c.strikes.length - 1 ? 0 : 1, borderBottomColor: colors.borderLight }}>
-                      <View style={{ flex: 1 }}>
+                      <View style={{ flex: 1, gap: 2 }}>
                         <Text style={{ fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.textPrimary }}>{s.label}</Text>
                         <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }}>{formatShortDate(s.at)}</Text>
+                        {s.dispute_open ? (
+                          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.warningText }}>{t('print.credit_dispute_pending')}</Text>
+                        ) : s.dispute_answer ? (
+                          <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>{t('print.credit_dispute_answer', { a: s.dispute_answer })}</Text>
+                        ) : s.can_dispute && s.id ? (
+                          <TouchableOpacity onPress={() => setDisputing(s.id!)} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 12, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                            <Icon name="ticket" size={13} color={colors.brand} />
+                            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('print.credit_dispute')}</Text>
+                          </TouchableOpacity>
+                        ) : null}
                       </View>
                       <View style={{ paddingHorizontal: 9, height: 24, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center' }}>
                         <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.dangerText }}>{t('print.credit_strike_points', { p: formatNumber(s.points) })}</Text>
@@ -260,6 +282,15 @@ export default function PrintCreditScreen() {
           ) : null}
         </View>
       </ScrollView>
+      <SheetModal visible={disputing !== null} onClose={() => { setDisputing(null); dispute.reset(); }} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('print.credit_dispute_title')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: spacing.xs }}>{t('print.credit_dispute_hint')}</Text>
+        <TextInput value={note} onChangeText={setNote} placeholder={t('print.credit_dispute_ph')} placeholderTextColor={colors.textTertiary} multiline maxLength={500}
+          style={{ fontFamily: fonts.regular, fontSize: 15, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.lg, marginTop: spacing.md, marginBottom: spacing.md, color: colors.textPrimary, textAlign: 'right', minHeight: 96, textAlignVertical: 'top', borderWidth: 1, borderColor: colors.border }} />
+        {dispute.isError ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.dangerText, marginBottom: spacing.sm }}>{getFriendlyErrorMessage(dispute.error)}</Text> : null}
+        <Button title={t('print.credit_dispute_send')} loading={dispute.isPending} disabled={note.trim().length < 5}
+          onPress={() => { if (disputing !== null && note.trim().length >= 5) dispute.mutate({ id: disputing, n: note.trim() }); }} />
+      </SheetModal>
     </View>
     </Surface>
   );

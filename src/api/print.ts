@@ -53,8 +53,10 @@ export interface PrintCredit {
   tier: CreditTier;
   tier_label: string;
   tone: CreditTone;
-  parts: { key: string; label: string; points: number; max: number }[];
-  strikes: { label: string; points: number; at: string }[];
+  /** `hint` says how the part is counted (an overdue subscription lowers «اشتراك المنصة»). */
+  parts: { key: string; label: string; points: number; max: number; hint?: string }[];
+  /** Standing strikes; each may be disputed once, the admin answers. */
+  strikes: { id?: number; label: string; points: number; at: string; job_id?: number | null; can_dispute?: boolean; dispute_open?: boolean; dispute_answer?: string | null }[];
   facts: {
     paid_jobs: number; on_time: number; late: number; avg_pay_days: number | null; late_cancels: number;
     no_shows: number; late_pickups: number; months: number; subscriber: boolean; jobs: number;
@@ -356,6 +358,12 @@ const unwrap = <T,>(data: any): T => (data?.data ?? data) as T;
 
 export async function getPrintCredit(): Promise<PrintCredit> {
   const { data } = await client.get('/teacher/print/credit');
+  return unwrap<PrintCredit>(data);
+}
+
+/** Dispute one strike on the teacher's own record (once); returns the record as it now stands. */
+export async function disputePrintStrike(id: number, note: string): Promise<PrintCredit> {
+  const { data } = await client.post(`/teacher/print/credit/strikes/${id}/dispute`, { note });
   return unwrap<PrintCredit>(data);
 }
 

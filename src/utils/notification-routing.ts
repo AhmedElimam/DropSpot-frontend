@@ -63,6 +63,7 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
     }
     case 'print_credit_frozen':
     case 'print_credit_restored':
+    case 'print_credit_dispute_answered':
       return isAssistant ? null : '/(teacher)/print/credit';
     case 'rose_briefing':
       return '/(teacher)/sessions';
