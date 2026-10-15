@@ -5,7 +5,7 @@ import type { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
-import { colors, shadows, isDark } from '@/theme/index';
+import { colors, shadows, isDark, isRevisionTheme } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { TourTarget } from '@/tour/TourTarget';
 
@@ -120,6 +120,8 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
                     // By night the button is the emblem's own: deep navy, a silver rim that turns
                     // orange when the tab is open (silver on the orange fill would not read).
                     ...(dark ? { backgroundColor: colors.logoButton, borderWidth: 2, borderColor: focused ? colors.tabActive : colors.logoRing } : null),
+                    // «وضع المراجعة» by day: the season's amber rim round the indigo button.
+                    ...(!dark && isRevisionTheme() ? { borderWidth: 2.5, borderColor: colors.logoRing } : null),
                     alignItems: 'center',
                     justifyContent: 'center',
                     opacity: focused ? 1 : 0.92,

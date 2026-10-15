@@ -51,6 +51,7 @@ import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
 import { RevisionCurtain } from '@/components/RevisionCurtain';
+import { RevisionThemeGuard } from '@/hooks/useRevisionTheme';
 import { colors } from '@/theme/index';
 import { shouldRefetchOnFocus } from '@/api/queryFocus';
 
@@ -293,8 +294,10 @@ export default function RootLayout() {
             {/* Firebase Analytics: screens as route patterns, the role, off while impersonating. */}
             <AnalyticsTracker />
           </View>
-          {/* The season's curtain: outside the keyed tree, so the rebuild happens under it. */}
+          {/* The season's curtain and its sign-out guard: OUTSIDE the keyed tree, so the rebuild
+              happens under the curtain and never unmounts the guard. */}
           <RevisionCurtain />
+          <RevisionThemeGuard />
           </AppConfigGate>
         </HydrationGate>
       </SafeAreaProvider>

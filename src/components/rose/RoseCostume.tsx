@@ -13,15 +13,15 @@ import { Surface } from '@/ui/surfaces';
  * is PROPS drawn as vectors over her portrait, in its own 400-unit square, made to read as one
  * deliberate outfit for exam season rather than stickers:
  *
- *   glasses     her reading glasses pushed up into her hair — gold frames, a casual tilt —
- *               the look of someone between two tasks (on the head layer, so they tilt with her)
+ *   pencil      an amber marking pencil tucked into her hair behind her ear — the look of
+ *               someone between two papers (on the head layer, so it tilts with her)
  *   lanyard     an amber lanyard round her neck, a stopwatch hanging at her right: the invigilator.
  *               Its hand jumps a quarter turn every few seconds while she is alive (one 400 ms
  *               UI-thread transform, then stillness — no per-frame work, no heat)
  *   papers      a stack of exam papers, amber-clipped, at the foot of her frame
  *   sash        an amber «موسم المراجعة» ribbon across the bottom rim of her medallion
  *
- * `detail` picks how much of it a small portrait can carry: a 30-pt chip gets the glasses and
+ * `detail` picks how much of it a small portrait can carry: a 30-pt chip gets the pencil and
  * the ribbon alone; her desk (148 pt) gets everything. Nothing here renders while the season
  * is off — RoseCostume returns null — so her usual portrait is untouched.
  *
@@ -36,23 +36,25 @@ const PAGE = '#FBF8EE';
 const RULE = '#B9B2A0';
 const AMBER = REVISION_INK.amber;
 const AMBER_DEEP = REVISION_INK.amberDeep;
-const WATCH = { x: 292, y: 322, r: 19 };
+const WATCH = { x: 306, y: 330, r: 19 };
 
 export type CostumeDetail = 'light' | 'full';
 
-/** Glasses pushed up into her hair — inner units, so pass it inside the head's layer. */
-export const Glasses = memo(function Glasses() {
+/**
+ * An amber marking pencil tucked into her hair behind her left ear (her portrait already
+ * wears reading glasses on her nose — so no second pair): inner units, pass it inside the
+ * head's layer so it tilts with her.
+ */
+export const Pencil = memo(function Pencil() {
   return (
-    <G transform="rotate(-7 200 150)">
-      {/* temples, folded back into the hair */}
-      <Path d="M165 151 L150 146 M235 151 L250 146" stroke={GOLD} strokeWidth={2.4} strokeLinecap="round" />
-      {/* lenses */}
-      <Ellipse cx={181} cy={151} rx={14} ry={9.6} fill="rgba(228,231,246,0.38)" stroke={GOLD} strokeWidth={2.8} />
-      <Ellipse cx={219} cy={151} rx={14} ry={9.6} fill="rgba(228,231,246,0.38)" stroke={GOLD} strokeWidth={2.8} />
-      <Path d="M172 147 q4 -4 9 -3" stroke="#FFFFFF" strokeOpacity={0.8} strokeWidth={1.6} strokeLinecap="round" fill="none" />
-      <Path d="M210 147 q4 -4 9 -3" stroke="#FFFFFF" strokeOpacity={0.8} strokeWidth={1.6} strokeLinecap="round" fill="none" />
-      {/* bridge */}
-      <Path d="M195 150 Q200 146 205 150" stroke={GOLD} strokeWidth={2.6} strokeLinecap="round" fill="none" />
+    <G transform="rotate(24 104 192)">
+      {/* the shaft, the ferrule, the eraser, the sharpened tip — out in the hair, above her ear */}
+      <Rect x={99} y={146} width={10} height={70} rx={2} fill={AMBER} />
+      <Rect x={99} y={146} width={3.5} height={70} fill={AMBER_DEEP} opacity={0.55} />
+      <Rect x={98.5} y={154} width={11} height={6} fill={GOLD} />
+      <Rect x={99.5} y={144} width={9} height={11} rx={3} fill="#E89AA0" />
+      <Path d="M99 216 L104 230 L109 216 Z" fill="#F2DDB8" />
+      <Path d="M102 224 L104 230 L106 224 Z" fill="#2B2B2B" />
     </G>
   );
 });
@@ -62,13 +64,13 @@ function Lanyard() {
   return (
     <G>
       {/* the cord, from both shoulders down to the watch */}
-      <Path d="M174 266 C 196 304, 250 312, 290 302" stroke={AMBER} strokeWidth={4.5} strokeLinecap="round" fill="none" />
-      <Path d="M226 266 C 248 284, 274 290, 291 300" stroke={AMBER_DEEP} strokeWidth={4.5} strokeLinecap="round" fill="none" />
+      <Path d="M174 266 C 198 306, 262 318, 304 310" stroke={AMBER} strokeWidth={4.5} strokeLinecap="round" fill="none" />
+      <Path d="M226 266 C 252 286, 288 296, 305 308" stroke={AMBER_DEEP} strokeWidth={4.5} strokeLinecap="round" fill="none" />
       {/* the clasp */}
-      <Rect x={286} y={296} width={12} height={9} rx={2.5} fill={GOLD} />
+      <Rect x={300} y={304} width={12} height={9} rx={2.5} fill={GOLD} />
       {/* crown and side button */}
-      <Rect x={288} y={300} width={8} height={7} rx={2} fill={GOLD} />
-      <Rect x={304} y={306} width={7} height={5} rx={2} fill={GOLD} transform="rotate(35 307 308)" />
+      <Rect x={302} y={308} width={8} height={7} rx={2} fill={GOLD} />
+      <Rect x={318} y={314} width={7} height={5} rx={2} fill={GOLD} transform="rotate(35 321 316)" />
       {/* the case and the face */}
       <Circle cx={WATCH.x} cy={WATCH.y} r={WATCH.r} fill={NAVY} />
       <Circle cx={WATCH.x} cy={WATCH.y} r={WATCH.r - 3.5} fill={PAGE} />
@@ -134,7 +136,7 @@ function Papers() {
 /** The amber «موسم المراجعة» sash across the bottom rim of her medallion. */
 export function RoseSash({ size, text = 'موسم المراجعة' }: { size: number; text?: string }) {
   const k = size / 400;
-  const withText = size >= 56;
+  const withText = size >= 96;
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <Svg width={size} height={size} viewBox="0 0 400 400" style={StyleSheet.absoluteFill}>
@@ -173,11 +175,11 @@ export function RoseCostumeBody({ size, alive, detail }: { size: number; alive: 
   );
 }
 
-/** The glasses alone, as a still layer over a still portrait (RosePortrait, RoseSleeping). */
-export function RoseGlassesLayer({ size, tilt = 0 }: { size: number; tilt?: number }) {
+/** The pencil alone, as a still layer over a still portrait (RosePortrait, RoseSleeping). */
+export function RoseHeadLayer({ size, tilt = 0 }: { size: number; tilt?: number }) {
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, tilt ? { transform: [{ rotate: `${tilt}deg` }], transformOrigin: [size / 2, size * 0.98, 0] } : null]}>
-      <Svg width={size} height={size} viewBox="0 0 400 400"><G transform={FRAME}><Glasses /></G></Svg>
+      <Svg width={size} height={size} viewBox="0 0 400 400"><G transform={FRAME}><Pencil /></G></Svg>
     </View>
   );
 }
@@ -185,7 +187,7 @@ export function RoseGlassesLayer({ size, tilt = 0 }: { size: number; tilt?: numb
 /**
  * The whole costume for a STILL portrait (the home shortcut, a hub row, her sleeping picture):
  * null while the season is off. The live figure composes the pieces itself (RoseLive), so the
- * glasses can ride on her head layer.
+ * pencil can ride on her head layer.
  */
 export function RoseCostume({ size, detail = size >= 100 ? 'full' : 'light', tilt = 0, sash = true }: { size: number; detail?: CostumeDetail; tilt?: number; sash?: boolean }) {
   const on = useRevisionActive();
@@ -193,7 +195,7 @@ export function RoseCostume({ size, detail = size >= 100 ? 'full' : 'light', til
   return (
     <Surface id="teacher.rose.costume">
       <RoseCostumeBody size={size} alive={false} detail={detail} />
-      <RoseGlassesLayer size={size} tilt={tilt} />
+      <RoseHeadLayer size={size} tilt={tilt} />
       {sash ? <RoseSash size={size} /> : null}
     </Surface>
   );

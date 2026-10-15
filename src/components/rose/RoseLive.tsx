@@ -9,7 +9,7 @@ import Animated, {
 import { useAmbientMotion } from '@/hooks/useAmbientMotion';
 import { useRose } from '@/hooks/useRose';
 import { RoseProps, type RoseActivity } from './RoseProps';
-import { Glasses, RoseCostumeBody, RoseSash } from './RoseCostume';
+import { Pencil, RoseCostumeBody, RoseSash } from './RoseCostume';
 import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { Surface } from '@/ui/surfaces';
 
@@ -81,7 +81,7 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
   // In front of you, app active, motion allowed, page still (founder 2026-10-09: light on every phone).
   const alive = useAmbientMotion(paused);
   const working = activity !== 'cash';
-  // «وضع المراجعة»: her season costume (RoseCostume) — glasses on the head layer, the
+  // «وضع المراجعة»: her season costume (RoseCostume) — the pencil on the head layer, the
   // lanyard and papers on her body under what she holds, the sash on the frame's rim.
   const season = useRevisionActive();
 
@@ -316,7 +316,7 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
         {season ? <Surface id="teacher.rose.live.costume"><RoseCostumeBody size={size} alive={alive} detail="full" /></Surface> : null}
         {season ? (
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <Svg width={size} height={size} viewBox="0 0 400 400"><G transform={FRAME}><Glasses /></G></Svg>
+            <Svg width={size} height={size} viewBox="0 0 400 400"><G transform={FRAME}><Pencil /></G></Svg>
           </View>
         ) : null}
         {layer(brow('M163 182 Q180 172 196 180'), brL, at(BROW_L))}

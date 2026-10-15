@@ -50,11 +50,23 @@ export function RevisionThemeSync() {
     store.setRevision(wanted, first ? undefined : { animate: true, returnTo });
   }, [wanted, teacherSide, pathname]);
 
-  useEffect(() => () => {
+  return null;
+}
+
+/**
+ * Lifts the season on sign-out or when the signed-in role is not a teacher's. Mounted at the
+ * ROOT, outside the re-keyed tree — the sync above lives inside it, and an unmount cleanup
+ * there would run on every rebuild (the season's own re-key included), lift the season,
+ * re-key again, and loop the app into the ground (found on the simulator 2026-10-16).
+ */
+export function RevisionThemeGuard() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const role = useAuthStore((s) => s.role);
+  useEffect(() => {
+    if (isAuthenticated && (role === 'teacher' || role === 'assistant')) return;
     synced = false;
     useThemeStore.getState().setRevision(false);
-  }, []);
-
+  }, [isAuthenticated, role]);
   return null;
 }
 
