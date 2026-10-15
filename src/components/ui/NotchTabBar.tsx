@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import type { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { BETA_GOLD } from '@/components/ui/Beta';
 import { fonts } from '@/theme/typography';
 import { colors, shadows, isDark } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -61,6 +62,8 @@ interface NotchTabBarProps extends BottomTabBarProps {
   centerGlyph?: (color: string, focused: boolean) => ReactNode;
   /** A count on a side tab (e.g. print jobs on their way); 0 or missing = none. */
   badges?: Record<string, number>;
+  /** Tabs that reached this person as a beta (feature targeting): a small gold dot on the icon, unless a count is showing. */
+  beta?: readonly string[];
 }
 
 /**
@@ -73,7 +76,7 @@ interface NotchTabBarProps extends BottomTabBarProps {
  * is left to navigation. Opaque on purpose, like the bar it replaces: a translucent
  * floating bar is continuous compositing work on mid-range Android.
  */
-export function NotchTabBar({ state, descriptors, navigation, tabs, center, labels, icons, centerGlyph, badges }: NotchTabBarProps) {
+export function NotchTabBar({ state, descriptors, navigation, tabs, center, labels, icons, centerGlyph, badges, beta }: NotchTabBarProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -157,6 +160,8 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
                 <View style={{ position: 'absolute', top: -4, end: 0, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.accent, borderWidth: 1.5, borderColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onAccent }}>{badges[name] > 9 ? '9+' : badges[name]}</Text>
                 </View>
+              ) : beta?.includes(name) ? (
+                <View testID={`tab-beta:${name}`} accessibilityLabel={t('beta.chip_a11y')} style={{ position: 'absolute', top: -2, end: 2, width: 9, height: 9, borderRadius: 5, backgroundColor: BETA_GOLD, borderWidth: 1.5, borderColor: colors.surface }} />
               ) : null}
               <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.medium, fontSize: 12, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 2, paddingHorizontal: 2 }}>
                 {label}
