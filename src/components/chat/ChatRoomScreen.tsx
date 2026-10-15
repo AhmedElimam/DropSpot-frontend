@@ -114,11 +114,18 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
   // stale. A frame is a nicety: nothing here is stored, and a lost one costs nothing.
   const [typers, setTypers] = useState<Record<number, { name: string; until: number }>>({});
   const typingSentAt = useRef(0);
+  // A typing frame that left just before its sender's message can land just after it, and a
+  // poll can still list them: «يكتب…» came back under a message already sent (founder
+  // 2026-10-15). Remember when each member's message arrived and ignore typing for a moment.
+  const lastSentBy = useRef<Record<number, number>>({});
+  const justSent = (userId: number) => Date.now() - (lastSentBy.current[userId] ?? 0) < 3000;
   const onTyping = useCallback((tp: { user_id: number; name: string }) => {
     if (me && tp.user_id === me.id) return; // my own frame comes back too
+    if (justSent(tp.user_id)) return;
     setTypers((prev) => ({ ...prev, [tp.user_id]: { name: tp.name || '…', until: Date.now() + 4000 } }));
   }, [me]);
   const forgetTyper = useCallback((userId: number) => {
+    lastSentBy.current[userId] = Date.now();
     setTypers((prev) => { if (!prev[userId]) return prev; const next = { ...prev }; delete next[userId]; return next; });
   }, []);
   useEffect(() => {
@@ -135,15 +142,18 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
     return () => clearInterval(id);
   }, [typers]);
   // Without a socket the room payload carries who was typing in the last seconds (polled).
+  // With one, the frames are fresher — a poll's list is seconds old and re-added «يكتب…» for
+  // someone whose message had just arrived (the web room already worked this way).
   const polledTyping = room.data?.typing;
+  const [socketUp, setSocketUp] = useState(false);
   useEffect(() => {
-    if (!polledTyping?.length) return;
+    if (socketUp || !polledTyping?.length) return;
     setTypers((prev) => {
       const next = { ...prev };
-      for (const tp of polledTyping) { if (!me || tp.user_id !== me.id) next[tp.user_id] = { name: tp.name || '…', until: Date.now() + 5000 }; }
+      for (const tp of polledTyping) { if ((!me || tp.user_id !== me.id) && !justSent(tp.user_id)) next[tp.user_id] = { name: tp.name || '…', until: Date.now() + 5000 }; }
       return next;
     });
-  }, [polledTyping, me]);
+  }, [polledTyping, me, socketUp]);
   const typingLabel = useMemo(() => {
     const names = Object.values(typers).map((x) => x.name);
     if (!names.length) return null;
@@ -210,7 +220,7 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
       setReactionOverrides((prev) => ({ ...prev, [r.message_id]: r.reactions }));
     }, []),
   }, focused);
-  useEffect(() => { setSocketLive(connected); }, [connected]);
+  useEffect(() => { setSocketLive(connected); setSocketUp(connected); }, [connected]);
   // One small frame every few seconds while typing — and only when a socket is there to
   // carry it; without one nobody could see the indicator anyway.
   const onDraftChange = (v: string) => {
