@@ -1,0 +1,82 @@
+name: Feature branch health
+
+# Long-lived feature branches (print-market and threads may take years — founder 2026-10-15)
+# must never quietly fall behind `main`. Every run: how far behind main each branch is and
+# since when, whether main still merges in cleanly (and which files conflict if not), and the
+# type check and tests ON THE MERGED TREE — so a green run means «this would still work if we
+# merged today». Builds nothing and publishes nothing.
+#
+# ONE file, identical on every tracked branch and on `main`. A push checks the branch that
+# was pushed; a manual run (Actions → Run workflow) and the weekly run check them all.
+# GitHub runs `schedule` only from the DEFAULT branch's copy — the weekly check starts once
+# this file is also on `main`.
+#
+# To track another branch: add it to BRANCHES and to `on.push.branches`.
+
+on:
+  push:
+    branches: [print-market, threads]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+
+env:
+  BRANCHES: '["print-market","threads"]'
+
+jobs:
+  pick:
+    runs-on: ubuntu-latest
+    outputs:
+      branches: ${{ steps.b.outputs.branches }}
+    steps:
+      - id: b
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo 'branches=["${{ github.ref_name }}"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "branches=$BRANCHES" >> "$GITHUB_OUTPUT"
+          fi
+
+  health:
+    needs: pick
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJSON(needs.pick.outputs.branches) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+          fetch-depth: 0
+
+      - name: Drift from main
+        run: |
+          git config user.email "ci@drosspot.app"; git config user.name "Branch health"
+          base=$(git merge-base HEAD origin/main)
+          behind=$(git rev-list --count HEAD..origin/main)
+          ahead=$(git rev-list --count origin/main..HEAD)
+          days=$(( ( $(date +%s) - $(git log -1 --format=%ct "$base") ) / 86400 ))
+          {
+            echo "## ${{ matrix.branch }} ← main"
+            echo "| behind main | ahead of main | main last merged in |"
+            echo "|---|---|---|"
+            echo "| **$behind** commits | $ahead commits | $days days ago ($(git log -1 --format=%cs "$base")) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if git merge --no-commit --no-ff origin/main >/dev/null 2>&1; then
+            echo "- ✅ main merges in cleanly — the checks below run on the merged tree." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ merging main conflicts in:" >> "$GITHUB_STEP_SUMMARY"
+            git diff --name-only --diff-filter=U | sed 's/^/  - `/; s/$/`/' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx jest --ci
