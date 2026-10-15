@@ -19,7 +19,10 @@ import { TourTarget } from '@/tour/TourTarget';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
-import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
+import { useRevisionToggle } from '@/components/teacher/RevisionSwitch';
+import { useRevisionActive } from '@/hooks/useRevisionTheme';
+import { REVISION_INK } from '@/theme/revision';
+import { RevisionRibbon } from '@/components/RevisionRibbon';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useTeacherCourses, useTeacherStudents } from '@/hooks/useStudents';
 import { formatDate, formatNumber } from '@/utils/format';
@@ -43,11 +46,11 @@ export default function TeacherSettings() {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const isAssistant = user?.user_type_id === 6;
-  const { data: reviseOn } = useReviseMode();
+  const revise = useRevisionToggle();
+  const season = useRevisionActive();
   const { data: students } = useTeacherStudents();
   const { data: courses } = useTeacherCourses();
   const { data: flags } = useFeatureFlags();
-  const setRevise = useSetReviseMode();
 
   // The tour scrolls this page to reach «شروحات التطبيق» further down (founder 2026-10-09).
   const tourScroll = useTourScroll();
@@ -64,6 +67,7 @@ export default function TeacherSettings() {
         >
           {/* Who: the logo or the generated mark in a ring, the name, then role and number as
               two quiet chips (founder 2026-10-11: «some UI love on the top part»). */}
+          <RevisionRibbon compact style={{ marginBottom: spacing.md }} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <View style={{ padding: 3, borderRadius: 26, borderWidth: 2, borderColor: colors.onHeroChipBorder, backgroundColor: colors.onHeroChip }}>
               <View style={{ borderRadius: 20, overflow: 'hidden', ...shadows.sm }}>
@@ -145,17 +149,18 @@ export default function TeacherSettings() {
             {flags?.revise_mode ? (
               <Surface id="teacher.settings.row_revise_switch" assistantNeeds="teacher">
               <Row
-                icon="reports"
-                tint={colors.brand}
-                tintBg={colors.brandTint}
+                icon="book"
+                tint={season ? REVISION_INK.amber : colors.brand}
+                tintBg={season ? colors.accentLight : colors.brandTint}
                 label={t('teacher.revise_switch_title')}
-                sub={t('teacher.revise_switch_sub')}
+                sub={season ? t('revision.settings_hint') : t('teacher.revise_switch_sub')}
                 trailing={
+                  // The same short confirmation as the Home pill, then the curtain (useRevisionToggle).
                   <Switch
-                    value={!!reviseOn}
-                    onValueChange={(v) => setRevise.mutate(v)}
-                    disabled={setRevise.isPending || reviseOn === undefined}
-                    trackColor={{ true: colors.brand, false: colors.border }}
+                    value={revise.on}
+                    onValueChange={(v) => revise.toggle(v)}
+                    disabled={revise.pending || !revise.known}
+                    trackColor={{ true: REVISION_INK.amber, false: colors.border }}
                     thumbColor={colors.white}
                   />
                 }

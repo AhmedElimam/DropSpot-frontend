@@ -25,6 +25,11 @@ import { useRoseExport, ExportPill } from '@/components/rose/RoseExport';
 import { useRoseDialog } from '@/components/rose/RoseDialog';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useRose } from '@/hooks/useRose';
+import { useRevisionActive } from '@/hooks/useRevisionTheme';
+import { useRevisions } from '@/hooks/useRevisions';
+import { useMinuteClock } from '@/hooks/useMinuteClock';
+import { countdown, nextExam, revisionFacts } from '@/utils/revisionDesk';
+import { countdownText } from '@/components/teacher/RevisionDesk';
 import { useArrived } from '@/hooks/useArrived';
 import { useTutorials } from '@/hooks/useTutorials';
 import { useComplaints } from '@/hooks/useComplaints';
@@ -902,6 +907,21 @@ export default function CashReconcileScreen() {
   const arrived = useArrived();
   const roseVideo = (useTutorials().data ?? []).some((c) => c.key === 'rose');
   const hold = useRoseHold();
+  // «وضع المراجعة»: the facts on her desk — sessions this week, exams ahead, the next one's
+  // distance. Facts only (she never grades the teacher); none while the season is off.
+  const season = useRevisionActive();
+  const seasonNow = useMinuteClock();
+  const seasonRevisions = useRevisions(season).data ?? [];
+  const seasonLines = useMemo(() => {
+    if (!season) return undefined;
+    const facts = revisionFacts(seasonRevisions, seasonNow);
+    const next = nextExam(seasonRevisions, seasonNow);
+    return [
+      t('revision.rose_week', { n: formatNumber(facts.thisWeek) }),
+      t('revision.rose_exams', { n: formatNumber(facts.examsAhead) }),
+      next ? t('revision.rose_next', { when: countdownText(countdown(next.at, seasonNow), t) }) : t('revision.rose_none'),
+    ];
+  }, [season, seasonRevisions, seasonNow, t]);
   // Period filter (founder 2026-09-25): this week by default; step back through past weeks or months.
   const [period, setPeriod] = useState<'week' | 'month'>('week');
   const [weekOffset, setWeekOffset] = useState(0);
@@ -1010,6 +1030,7 @@ export default function CashReconcileScreen() {
           exportingAll={exporting === 'all'}
           onExportSheet={() => exportPdf('sheet')}
           exportingSheet={exporting === 'sheet'}
+          lines={seasonLines}
         >
           {isPast ? (
             <RoseHeroCard icon="calendar" title={t('cash.viewing_past')} sub={t('cash.back_to_now')} chevron onPress={() => { setPeriod('week'); setWeekOffset(0); setSegment('week'); }} />

@@ -21,6 +21,11 @@ import { DayMarker } from '@/components/session/DayMarker';
 import { SessionMonthPicker } from '@/components/session/SessionMonthPicker';
 import type { TeacherSession } from '@/api/teacher';
 import { Surface } from '@/ui/surfaces';
+import { useRevisionActive } from '@/hooks/useRevisionTheme';
+import { useRevisions } from '@/hooks/useRevisions';
+import { isRevisionCard, revisionToCard, revisionsOnDay, sortForSeason } from '@/utils/revisionDesk';
+import { goToRevisionScan } from '@/components/teacher/RevisionDesk';
+import { RevisionRibbon } from '@/components/RevisionRibbon';
 
 const MONTH_FMT = new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' });
 
@@ -63,7 +68,16 @@ export default function TeacherSessions() {
   }, [q.data]);
 
   const dayKey = key(selected);
-  const list = byDay.get(dayKey) ?? [];
+  // «وضع المراجعة»: the day's revision / exam sessions (from the revision engine, which the
+  // weekly feed does not carry) join the day and sort first, with their indigo cards.
+  const season = useRevisionActive();
+  const revisionsQ = useRevisions(season);
+  const list = useMemo(() => {
+    const own = byDay.get(dayKey) ?? [];
+    if (!season) return own;
+    const extra = revisionsOnDay(revisionsQ.data ?? [], dayKey).map(revisionToCard);
+    return sortForSeason([...extra, ...own], true);
+  }, [byDay, dayKey, season, revisionsQ.data]);
   // A private lesson (tracks_attendance false) has no attendance: it adds nothing to «present of roster».
   const present = list.reduce((n, s) => n + (s.tracks_attendance === false ? 0 : s.checked_in_count ?? 0), 0);
   const roster = list.reduce((n, s) => n + (s.tracks_attendance === false ? 0 : s.enrolled_count ?? 0), 0);
@@ -75,6 +89,7 @@ export default function TeacherSessions() {
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.sm, paddingBottom: spacing.md, paddingHorizontal: spacing.lg, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
         {/* Compact header, as on Students: one line for title · month (date filter) · اليوم · +. */}
+        <RevisionRibbon compact style={{ marginBottom: spacing.xs }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t('teacher.tab_sessions')}</Text>
           {/* Date filter — any day, from a month calendar. */}
@@ -138,7 +153,10 @@ export default function TeacherSessions() {
       <FlatList showsVerticalScrollIndicator={false}
         data={list}
         keyExtractor={(s) => s.id}
-        renderItem={({ item }) => (
+        renderItem={({ item }) => isRevisionCard(item) ? (
+          <SessionCard s={item} now={now} onOpen={() => router.push('/(teacher)/revisions' as Href)}
+            onScan={canScan && item.instance_id != null ? () => goToRevisionScan({ id: item.revision_id, instance_id: item.instance_id, title: item.course_name ?? '', billing_mode: item.billing_mode }) : undefined} />
+        ) : (
           <SessionCard s={item} now={now} onOpen={(s) => router.push(`/(teacher)/sessions/${s.id}` as Href)} onScan={canScan ? (s) => goToScan(s as TeacherSession) : undefined} />
         )}
         style={{ opacity: q.isPlaceholderData ? 0.5 : 1 }}

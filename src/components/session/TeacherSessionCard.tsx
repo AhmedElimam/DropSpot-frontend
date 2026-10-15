@@ -7,6 +7,8 @@ import { Icon } from '@/components/ui/Icon';
 import { AttendanceBar } from './AttendanceVisuals';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
+import { REVISION_INK } from '@/theme/revision';
+import { RevisionChip } from '@/components/RevisionRibbon';
 
 import { sessionPhase, type SessionPhase } from '@/utils/sessionPhase';
 
@@ -29,6 +31,11 @@ export interface SessionCardData {
   tracks_attendance?: boolean;
   /** The server's words for a private lesson; always drawn when present. */
   attendance_label?: string | null;
+  /** §1 session type — a big physical exam on a weekly slot (the detail payload carries it). */
+  type?: 'normal_sheet' | 'quiz_exam';
+  is_exam?: boolean;
+  /** A revision-engine session (src/utils/revisionDesk.ts revisionToCard) or a merged exam. */
+  kind?: 'revision' | 'exam';
 }
 
 const PHASE = (): Record<SessionPhase, { stripe: string; chipBg: string; chipText: string; key: string }> => ({
@@ -37,6 +44,9 @@ const PHASE = (): Record<SessionPhase, { stripe: string; chipBg: string; chipTex
   done: { stripe: colors.borderStrong, chipBg: colors.surfaceSunken, chipText: colors.textSecondary, key: 'session.completed' },
   cancelled: { stripe: colors.danger, chipBg: colors.dangerLight, chipText: colors.dangerText, key: 'session.cancelled' },
 });
+
+/** «مراجعة» / «امتحان»: the season's cards carry an indigo (or amber, for an exam) stripe. */
+const seasonKind = (s: SessionCardData): 'revision' | 'exam' | null => s.kind ?? (s.is_exam || s.type === 'quiz_exam' ? 'exam' : null);
 
 /**
  * The ONE session card (Home timeline, Sessions tab): a coloured stripe on the start edge
@@ -49,7 +59,9 @@ export const SessionCard = memo(function SessionCard({
 }: { s: SessionCardData; now: number; onOpen: (s: SessionCardData) => void; onScan?: (s: SessionCardData) => void; compact?: boolean }) {
   const { t } = useTranslation();
   const phase = sessionPhase(s, now);
-  const p = PHASE()[phase];
+  const kind = seasonKind(s);
+  // A live session stays green; otherwise the stripe says what kind of session this is.
+  const p = { ...PHASE()[phase], ...(kind && phase !== 'live' && phase !== 'cancelled' ? { stripe: kind === 'exam' ? REVISION_INK.amber : REVISION_INK.indigo } : {}) };
   const present = s.checked_in_count ?? 0;
   const absent = s.absent_count ?? 0;
   const total = s.enrolled_count ?? 0;
@@ -94,6 +106,7 @@ export const SessionCard = memo(function SessionCard({
 
         <Surface id="teacher.session_card.meta">
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+          {kind ? <Surface id="teacher.session_card.season_chip" ctx={{ session: s }}><RevisionChip kind={kind} /></Surface> : null}
           {noDoor ? (
             <Surface id="teacher.session_card.private_chip" ctx={{ session: s }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.accentLight, borderRadius: radius.full, paddingVertical: 1, paddingHorizontal: 8 }}>

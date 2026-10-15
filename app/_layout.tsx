@@ -50,6 +50,7 @@ import { installErrorReporting } from '@/lib/errorReport';
 import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
+import { RevisionCurtain } from '@/components/RevisionCurtain';
 import { colors } from '@/theme/index';
 import { shouldRefetchOnFocus } from '@/api/queryFocus';
 
@@ -216,6 +217,8 @@ export default function RootLayout() {
   const scheme = useThemeStore((s) => s.scheme);
   // The backend repainted a token (config/mobile_ui.php → theme): rebuild on the new colours.
   const paintEpoch = useThemeStore((s) => s.paintEpoch);
+  // «وضع المراجعة» paints the day hero deep indigo, so the status bar icons go light with it.
+  const revision = useThemeStore((s) => s.revision);
 
   useEffect(() => {
     if (fontError) {
@@ -260,7 +263,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         {/* Status bar icons follow the scheme: dark on the day mist, light on the night navy.
             The auth screens, deep ink in both schemes, set their own while mounted. */}
-        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={scheme === 'dark' || revision ? 'light' : 'dark'} />
         <HydrationGate>
           <AppConfigGate>
           <View key={`${scheme}-${paintEpoch}`} style={{ flex: 1, backgroundColor: colors.background }}>
@@ -290,6 +293,8 @@ export default function RootLayout() {
             {/* Firebase Analytics: screens as route patterns, the role, off while impersonating. */}
             <AnalyticsTracker />
           </View>
+          {/* The season's curtain: outside the keyed tree, so the rebuild happens under it. */}
+          <RevisionCurtain />
           </AppConfigGate>
         </HydrationGate>
       </SafeAreaProvider>

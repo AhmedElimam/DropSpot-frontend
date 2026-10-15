@@ -7,6 +7,7 @@ import { colors, radius, shadows, spacing } from '@/theme/index';
 import { useRose } from '@/hooks/useRose';
 import { useThemeStore } from '@/stores/themeStore';
 import { reactRose } from './RoseLive';
+import { RoseCostume, StampRibbon } from './RoseCostume';
 import { Surface } from '@/ui/surfaces';
 
 /**
@@ -67,6 +68,8 @@ export function RoseStamp({ ink = 'navy', size = 48, animate = false, tilt = -8,
     <Surface id="teacher.rose.stamp">
     <Animated.View style={[{ width: size, height: size }, st, style]} pointerEvents="none" accessibilityRole="image" accessibilityLabel={`ختم ${rose.name}`}>
       <Image source={STAMP[ink]} style={StyleSheet.absoluteFill} contentFit="contain" tintColor={night ? NIGHT_INK[ink] : undefined} />
+      {/* An amber ribbon under the stamp while «وضع المراجعة» is on — the ink itself never changes. */}
+      <StampRibbon size={size} />
     </Animated.View>
     </Surface>
   );
@@ -84,6 +87,8 @@ export function RosePortrait({ size = 64, nod = true, large = false, style }: { 
     <Surface id="teacher.rose.portrait">
     <Animated.View style={[{ width: size, height: size }, st, style]}>
       <Image source={large || size > 100 ? ROSE_PORTRAIT_LARGE : ROSE_PORTRAIT} style={StyleSheet.absoluteFill} contentFit="contain" accessibilityLabel={rose.name} />
+      {/* Her season costume over the still portrait (null while «وضع المراجعة» is off). */}
+      <RoseCostume size={size} />
     </Animated.View>
     </Surface>
   );

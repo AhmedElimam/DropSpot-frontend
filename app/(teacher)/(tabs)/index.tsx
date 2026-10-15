@@ -48,6 +48,10 @@ import { useRose } from '@/hooks/useRose';
 import { RosePortrait } from '@/components/rose/RoseStamp';
 import { RoseCalling } from '@/components/rose/RoseCalling';
 import { useComplaints } from '@/hooks/useComplaints';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useRevisionActive } from '@/hooks/useRevisionTheme';
+import { RevisionModePill } from '@/components/teacher/RevisionSwitch';
+import { RevisionDesk, RevisionHeroLine, UsualDayHead, useNextExam } from '@/components/teacher/RevisionDesk';
 
 function greetingKey(now: number): string {
   const h = new Date(now).getHours();
@@ -71,6 +75,12 @@ export default function TeacherHome() {
   const canCancel = can(ABILITY.CANCEL_SESSIONS);
   const now = useMinuteClock();
   const rose = useRose();
+  // «وضع المراجعة» (founder 2026-10-16): the switch lives in the hero; while the season is on,
+  // Home opens on the revision desk and everything below stays as it was.
+  const { data: flags } = useFeatureFlags();
+  const seasonSwitch = !!flags?.revise_mode;
+  const season = useRevisionActive();
+  const desk = useNextExam(now, season);
 
   const sessionsQ = useTeacherTodaySessions();
   const pending = useOfflineStore((s) => s.pending);
@@ -209,6 +219,8 @@ export default function TeacherHome() {
           {/* Live connection: Wi-Fi / mobile / offline, and what waits to be sent — tap for details. */}
           <Surface id="teacher.home.connection_line"><ConnectionLine style={{ marginTop: spacing.sm }} /></Surface>
           <Surface id="teacher.home.teacher_switcher"><TeacherSwitcher /></Surface>
+          {/* The season switch — the teacher's, where the day starts (assistants see the season, not the switch). */}
+          {seasonSwitch ? <Surface id="teacher.home.revision_pill" assistantNeeds="teacher"><RevisionModePill style={{ marginTop: spacing.md }} /></Surface> : null}
           {/* The gap sits OUTSIDE the measured box, so the hole stops at the tiles and leaves the date line alone. */}
           <Surface id="teacher.home.stats">
           <TourTarget id="home:stats" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -231,6 +243,15 @@ export default function TeacherHome() {
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           <Slot id="teacher.home.top" style={{ marginBottom: spacing.lg }} />
+          {/* The revision desk, first, while the season is on: the next exam, today's revision
+              sessions, the tools in priority order, the season in numbers. Then the usual day. */}
+          {season ? (
+            <>
+              <RevisionHeroLine now={now} next={desk.next} loading={desk.loading} />
+              <RevisionDesk now={now} revisions={desk.revisions} loading={desk.loading} canScan={canCash} />
+              <UsualDayHead />
+            </>
+          ) : null}
           {/* Spotlight — the session that matters now. */}
           <Surface id="teacher.home.spotlight">
           <TourTarget id="home:spotlight">

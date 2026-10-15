@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
 import { Alert } from '@/ui/dialog';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
@@ -25,7 +25,9 @@ export default function RevisionCreate() {
   const qc = useQueryClient();
   const { data: grades, isLoading } = useQuery({ queryKey: ['revision-create-options'], queryFn: getRevisionCreateOptions });
 
-  const [purpose, setPurpose] = useState<'revision' | 'quiz_exam'>('revision');
+  // «امتحان جديد» from the revision desk opens the form already set to an exam.
+  const params = useLocalSearchParams<{ purpose?: string }>();
+  const [purpose, setPurpose] = useState<'revision' | 'quiz_exam'>(params.purpose === 'quiz_exam' ? 'quiz_exam' : 'revision');
   const [maxMark, setMaxMark] = useState('');
   const [title, setTitle] = useState('');
   const [gradeId, setGradeId] = useState<number | null>(null);
