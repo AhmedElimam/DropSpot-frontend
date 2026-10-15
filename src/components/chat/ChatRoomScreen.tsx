@@ -19,7 +19,7 @@ import {
   useChatChannels, useChatReports, useMuteChatUser, useSetChatSettings,
   mergeChatMessage, dropChatMessage,
 } from '@/hooks/useChat';
-import { discardChatOutbox, enqueueChatMessage, flushChatOutbox, retryChatOutbox, useChatOutbox } from '@/chat/outbox';
+import { discardChatOutbox, enqueueChatMessage, flushChatOutbox, localKeyOf, retryChatOutbox, serverIdOf, useChatOutbox } from '@/chat/outbox';
 import { mergeOutbox } from '@/chat/outboxCore';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useChatSocket } from '@/hooks/useChatSocket';
@@ -245,7 +245,11 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
   const seenSome = room.data?.seen_upto?.some;
   const seenAll = room.data?.seen_upto?.all;
   const messages = useMemo(() => {
-    const base = win ? win.messages : mergeOutbox(mergeById(older, room.data?.messages ?? []), outboxItems, courseId);
+    const server = mergeById(older, room.data?.messages ?? []);
+    // For the instant both exist (the server copy lands before the bubble leaves), show one.
+    const landed = new Set(server.map((m) => m.id));
+    const waitingItems = outboxItems.filter((x) => { const id = serverIdOf(x.key); return id === undefined || !landed.has(id); });
+    const base = win ? win.messages : mergeOutbox(server, waitingItems, courseId);
     const upto = seenSome !== undefined && seenAll !== undefined ? { some: seenSome, all: seenAll } : null;
     const hasOverrides = Object.keys(reactionOverrides).length > 0;
     if ((!me || !upto) && !hasOverrides) return base;
@@ -276,7 +280,7 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
       return next;
     });
   }, [pollData]);
-  const rows = useMemo(() => buildRows(messages).reverse(), [messages]);
+  const rows = useMemo(() => buildRows(messages, localKeyOf).reverse(), [messages]);
   const rowKeyExtractor = useCallback((r: RoomRow) => r.key, []);
   const waiting = useMemo(() => outboxItems.filter((x) => x.courseId === courseId && x.status !== 'failed').length, [outboxItems, courseId]);
   const pageSize = room.data?.page_size || 50;
@@ -370,9 +374,14 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
     else void jumpTo(jumpReq.messageId ? { aroundId: jumpReq.messageId } : { aroundDate: jumpReq.date });
   }, [jumpReq, courseId, focused, toLatest, jumpTo]);
 
+  // Reading the newest messages, or scrolled up into the past? (inverted: offset 0 = newest)
+  const [atNewest, setAtNewest] = useState(true);
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const far = e.nativeEvent.contentOffset.y > 500; // inverted: the offset is the distance from the newest
+    const y = e.nativeEvent.contentOffset.y;
+    const far = y > 500;
     setShowJump((v) => (v === far ? v : far));
+    const near = y < 120;
+    setAtNewest((v) => (v === near ? v : near));
   }, []);
 
   // The floating date: the day at the top of the screen, shown while the list moves (and
@@ -411,18 +420,20 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
     const text = draft.trim();
     if (!text) return;
     setDraft('');
-    toLatest();
     enqueueChatMessage({ courseId, body: text, sender, replyTo });
     setReplyTo(null);
+    // After the bubble is in the list, not before: scrolling while the row is being added
+    // fought the list's own position-keeping.
+    toLatest();
   };
 
   // ── Attachments (§8) — all through one upload door, caption = whatever is in the box ──
   const sendAttachment = (input: { kind: 'image' | 'file' | 'voice'; uri: string; name: string; mime: string; duration?: number; size?: number; meta?: { width?: number; height?: number } | null }) => {
     const body = draft.trim() || null;
     setDraft('');
-    toLatest();
     enqueueChatMessage({ courseId, body, attachment: input, sender, replyTo });
     setReplyTo(null);
+    toLatest();
   };
 
   // A message the server refused. The retry under the bubble sends it again; the long
@@ -835,7 +846,11 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
             onStartReachedThreshold={0.5}
             // Keeps the reader's place when messages arrive below or pages load; at the bottom it
             // follows the newest message instead.
-            maintainVisibleContentPosition={win ? { minIndexForVisible: 0 } : { minIndexForVisible: 0, autoscrollToTopThreshold: 120 }}
+            // Hold the reader's place only while they read the past (or a jumped-to day). At the
+            // newest, an inverted list already keeps the newest in view by itself — and iOS's
+            // position-keeping on an inverted list jumped to the OLDEST message when the newest
+            // row changed, i.e. on every send (founder 2026-10-15).
+            maintainVisibleContentPosition={win || !atNewest ? { minIndexForVisible: 0 } : undefined}
             onViewableItemsChanged={onViewable}
             viewabilityConfig={viewabilityConfig}
             onScrollBeginDrag={showPill}
