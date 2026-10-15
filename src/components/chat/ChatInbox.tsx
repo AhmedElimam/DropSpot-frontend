@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav } from '@/theme/index';
-import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
+import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
+import { BetaLine } from '@/components/ui/Beta';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { PageHero } from '@/components/ui/PageHero';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -80,6 +81,7 @@ export function ChatInbox({ role, onOpen, onBack }: { role: InboxRole; onOpen: (
               ) : null}
             </View>
           ) : null}
+          <BetaLine feature={CHAT_FLAG} style={{ paddingHorizontal: 0, marginHorizontal: 0, marginTop: spacing.md, paddingTop: 0 }} />
         </PageHero>
 
         {list.length ? (

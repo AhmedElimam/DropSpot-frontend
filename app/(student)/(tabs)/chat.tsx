@@ -7,8 +7,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, gradients } from '@/theme/index';
-import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
-import { useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
+import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
+import { THREADS_FLAG, useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
+import { useBetaFeature } from '@/hooks/useBetaFeature';
+import { BetaLine } from '@/components/ui/Beta';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { ChatInbox, ChatInboxList } from '@/components/chat/ChatInbox';
 import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
@@ -58,6 +60,9 @@ function StudentConversations() {
   const segment: Segment = picked ?? (chatEnabled ? 'chat' : 'threads');
   const both = chatEnabled && threadsEnabled;
   const showThreads = threadsEnabled && (segment === 'threads' || !chatEnabled);
+  // Reached this student as a beta (feature targeting): marked on the segment and under the hero.
+  const chatBeta = useBetaFeature(CHAT_FLAG);
+  const threadsBeta = useBetaFeature(THREADS_FLAG);
 
   const { data: channels, refetch: refetchChat } = useChatChannels(chatEnabled);
   const { data: unreadThreads, refetch: refetchUnread } = useThreadsUnread(threadsEnabled);
@@ -95,6 +100,7 @@ function StudentConversations() {
               <HeroCount icon="success" value={counts.answered} label={t('threads.stat_answered')} />
             </View>
           ) : null}
+          <BetaLine feature={showThreads ? THREADS_FLAG : CHAT_FLAG} style={{ paddingHorizontal: 0, paddingTop: spacing.md }} />
         </LinearGradient>
 
         {both ? (
@@ -103,8 +109,8 @@ function StudentConversations() {
               value={segment}
               onChange={setSegment}
               items={[
-                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread },
-                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: unreadThreads ?? 0 },
+                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread, beta: chatBeta },
+                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: unreadThreads ?? 0, beta: threadsBeta },
               ]}
             />
           </View>
