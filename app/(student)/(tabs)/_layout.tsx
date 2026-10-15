@@ -6,6 +6,8 @@ import { NotchTabBar } from '@/components/ui/NotchTabBar';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useChatEnabled } from '@/hooks/useChat';
+import { useThreadsEnabled } from '@/hooks/useThreads';
 
 // The five tabs. Every other student screen lives in the stack around this navigator
 // (app/(student)/_layout.tsx), so it has the iOS edge swipe back (founder 2026-10-04).
@@ -14,7 +16,8 @@ const sceneLayout = boundedSceneLayout(VISIBLE_TABS);
 
 // The same notched bar as the teacher and the parent, the app's emblem in the raised middle
 // (founder 2026-10-06 — it replaces the stock bar the student kept until now). The middle is
-// «مجموعاتي»: group chat and threads, a coming-soon screen until they open.
+// «مجموعاتي»: group chat and threads — the real conversations while either flag is on
+// (threads branch), the coming-soon screen while both are off.
 const TAB_ORDER = ['index', 'check-in', 'chat', 'invoices', 'profile'] as const;
 const CENTER_TAB = 'chat';
 const labels: Record<string, string> = {
@@ -42,6 +45,13 @@ export default function StudentTabsLayout() {
   const center = tabs.includes(CENTER_TAB) ? CENTER_TAB : (tabs[Math.floor(tabs.length / 2)] ?? CENTER_TAB);
   // Freezing the hidden tabs is a super-admin FLAG, off by default (react-native-screens #2971).
   const freezeTabs = useFeatureFlags().data?.freeze_hidden_tabs === true;
+  // The centre tab is named after whichever conversation surface is on (both → «المحادثات»).
+  const chatEnabled = useChatEnabled();
+  const threadsEnabled = useThreadsEnabled();
+  const tabLabels = chatEnabled || threadsEnabled
+    ? { ...labels, chat: chatEnabled && threadsEnabled ? 'chat.conversations' : threadsEnabled ? 'threads.tab' : 'nav.chat' }
+    : labels;
+  const tabIcons = !chatEnabled && threadsEnabled ? { ...icons, chat: 'threads' as IconName } : icons;
   return (
     <Tabs
       // Hardware back follows visit history, so pushed detail screens (marks, swap,
@@ -49,7 +59,7 @@ export default function StudentTabsLayout() {
       // to the Home tab.
       backBehavior="history"
       screenLayout={sceneLayout}
-      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
+      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={tabLabels} icons={tabIcons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
       screenOptions={({ route }) => ({
         headerShown: false,
         freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),

@@ -115,6 +115,8 @@ export const FEATURES: FeatureEntry[] = [
   // ── Follow-up & people ──
   { id: 'resolution', titleKey: 'teacher.resolution_title', subKey: 'teacher.resolution_sub', area: 'manage', icon: 'bell', href: '/(teacher)/resolution',
     keywords: ['اعذار', 'عذر غياب', 'تبديل حصة', 'متابعة', 'فصل طالب', 'excuse', 'swap'] },
+  { id: 'conversations', titleKey: 'chat.conversations', subKey: 'chat.conversations_sub', area: 'manage', icon: 'chat', href: '/(teacher)/conversations',
+    keywords: ['محادثات', 'دردشة', 'شات', 'جروب', 'مجموعة', 'نقاش', 'نقاشات', 'ثريد', 'chat', 'threads', 'group', 'رسائل الطلاب', 'كلام الطلاب'] },
   { id: 'tickets', titleKey: 'teacher.tab_tickets', subKey: 'manage.tickets_sub', area: 'manage', icon: 'tickets', href: '/(teacher)/tickets',
     keywords: ['تذاكر', 'شكاوى', 'رسائل الاهل', 'اولياء الامور', 'رد', 'tickets', 'شكوى ولي امر', 'رسالة ولي امر', 'دعم', 'الادارة', 'support'] },
   { id: 'complaints', titleKey: 'complaints.title', subKey: 'complaints.manage_sub', area: 'manage', icon: 'note', href: '/(teacher)/complaints',

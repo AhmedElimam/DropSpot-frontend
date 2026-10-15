@@ -49,6 +49,8 @@ import { RosePortrait } from '@/components/rose/RoseStamp';
 import { RoseCalling } from '@/components/rose/RoseCalling';
 import { useComplaints } from '@/hooks/useComplaints';
 import { PrintArrivingCard } from '@/components/print/PrintArrivingCard';
+import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
+import { useThreadsEnabled, useThreadsUnread } from '@/hooks/useThreads';
 
 function greetingKey(now: number): string {
   const h = new Date(now).getHours();
@@ -91,11 +93,18 @@ export default function TeacherHome() {
   const complaintsQ = useComplaints('pending');
   const pendingComplaints = complaintsQ.data?.counts.pending ?? 0;
   const openTickets = (ticketsQ.data ?? []).filter((x) => x.status === 'open').length;
+  // The conversations tile: unread chat + unread threads. The queries are gated on the flags.
+  const chatOn = useChatEnabled();
+  const threadsOn = useThreadsEnabled();
+  const conversationsOn = chatOn || threadsOn;
+  const channelsQ = useChatChannels(chatOn);
+  const threadsUnreadQ = useThreadsUnread(threadsOn);
+  const conversationsUnread = (channelsQ.data ?? []).reduce((n, c) => n + (c.unread || 0), 0) + (threadsUnreadQ.data ?? 0);
   // Students with consecutive unexcused absences, waiting for the teacher's decision in
   // «مركز المتابعة» (founder 2026-10-13: it belongs on Home too, with what needs you).
   const resolutionQ = useQuery({ queryKey: ['resolution-summary'], queryFn: getResolutionSummary });
   const terminationCount = resolutionQ.data?.termination_candidates ?? 0;
-  const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch, resolutionQ.refetch);
+  const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch, resolutionQ.refetch, ...(chatOn ? [channelsQ.refetch] : []), ...(threadsOn ? [threadsUnreadQ.refetch] : []));
   const [addOpen, setAddOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   // Swipe on a session card (founder 2026-10-04): right → left cancels it (after a
@@ -169,9 +178,14 @@ export default function TeacherHome() {
     canCash && { key: 'collect', icon: 'money' as IconName, label: t('home.collect'), color: colors.success, tint: colors.successLight, onPress: () => router.push('/(teacher)/pending-collections' as Href) },
     // The scheduling tools in a sheet, like «إضافة طالب».
     { key: 'schedule', icon: 'calendar' as IconName, label: t('home.schedule_short'), color: colors.accent, tint: colors.accentLight, onPress: () => setScheduleOpen(true) },
-    !isAssistant
-      ? { key: 'insights', icon: 'reports' as IconName, label: t('home.insights_short'), color: colors.info, tint: colors.infoLight, onPress: () => router.push('/(teacher)/insights' as Href) }
-      : { key: 'students', icon: 'children' as IconName, label: t('teacher.tab_students'), color: colors.info, tint: colors.infoLight, onPress: () => router.push('/(teacher)/students' as Href) },
+    // Chat rooms and threads, one tap from home, with what is unread on the badge (founder
+    // 2026-10-12: «replace insights with chat and threads» — insights stays in the money hub).
+    // Before the flags are on, the old tile: insights for a teacher, students for an assistant.
+    conversationsOn
+      ? { key: 'conversations', icon: 'chat' as IconName, label: t('home.conversations_short'), color: colors.info, tint: colors.infoLight, badge: conversationsUnread, onPress: () => router.push('/(teacher)/conversations' as Href) }
+      : !isAssistant
+        ? { key: 'insights', icon: 'reports' as IconName, label: t('home.insights_short'), color: colors.info, tint: colors.infoLight, onPress: () => router.push('/(teacher)/insights' as Href) }
+        : { key: 'students', icon: 'children' as IconName, label: t('teacher.tab_students'), color: colors.info, tint: colors.infoLight, onPress: () => router.push('/(teacher)/students' as Href) },
   ].filter(Boolean) as { key: string; icon: IconName; label: string; color: string; tint: string; badge?: number; onPress: () => void }[];
   const roseShortcut = canCash ? { key: 'rose', icon: 'note' as IconName, label: rose.name, color: colors.accent, tint: colors.accentLight, badge: cashAttention, onPress: () => router.push('/(teacher)/cash-reconcile' as Href) } : null;
   const shortcuts = roseShortcut
@@ -267,7 +281,7 @@ export default function TeacherHome() {
           <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             {/* One id per shortcut: <Surface id="teacher.home.shortcut_add"> <Surface id="teacher.home.shortcut_collect"> <Surface id="teacher.home.shortcut_schedule">
-                <Surface id="teacher.home.shortcut_insights"> <Surface id="teacher.home.shortcut_students"> <Surface id="teacher.home.shortcut_rose"> */}
+                <Surface id="teacher.home.shortcut_conversations"> <Surface id="teacher.home.shortcut_insights"> <Surface id="teacher.home.shortcut_students"> <Surface id="teacher.home.shortcut_rose"> */}
             {shortcuts.map((x) => (
               <Surface key={x.key} id={`teacher.home.shortcut_${x.key}`}>
               <TouchableOpacity onPress={x.onPress} activeOpacity={0.85} accessibilityRole="button" style={{ width: tileWidth, alignItems: 'center' }}>

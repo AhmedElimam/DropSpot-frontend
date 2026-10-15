@@ -15,6 +15,7 @@ import { syncScheduleCacheOnOpen } from '@/db/scheduleCache';
 import { registerBackgroundRefresh } from '@/background/refreshTask';
 import { setSurfaceContext } from '@/ui/surfaces';
 import { registerForPushNotifications } from '@/utils/push-notifications';
+import { sendDeviceHeartbeat } from '@/api/device';
 import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
@@ -58,7 +59,7 @@ export default function TeacherLayout() {
     // Today's rosters are pre-fetched after the schedule so the attendance sheet opens
     // offline for sessions the teacher never opened while connected.
     syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-      .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); scheduleWarmUp(5000); });
+      .finally(() => { void triggerAutoSync().finally(() => sendDeviceHeartbeat(stampTeacherId(useAuthStore.getState()), true)); void prefetchTodayRosters(); scheduleWarmUp(5000); });
     let lastRefresh = { at: Date.now(), day: new Date().toDateString() };
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') {
@@ -70,9 +71,10 @@ export default function TeacherLayout() {
         const today = new Date().toDateString();
         const due = Date.now() - lastRefresh.at > SCHEDULE_REFRESH_MS || lastRefresh.day !== today;
         if (due) lastRefresh = { at: Date.now(), day: today };
-        // Refresh the cache first so auto-sync runs against fresh windows.
+        // Refresh the cache first so auto-sync runs against fresh windows; then tell the
+        // server what the buffer looks like (device heartbeat — counts only, never contents).
         syncScheduleCacheOnOpen(due && useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
-          .finally(() => { void triggerAutoSync(); if (due) { void prefetchTodayRosters(); scheduleWarmUp(2000); } });
+          .finally(() => { void triggerAutoSync().finally(() => sendDeviceHeartbeat(stampTeacherId(useAuthStore.getState()))); if (due) { void prefetchTodayRosters(); scheduleWarmUp(2000); } });
       }
     });
     return () => {

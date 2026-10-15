@@ -10,13 +10,13 @@ import { setImpersonationWrite } from '@/api/impersonation';
 /**
  * Persistent, impossible-to-miss banner shown on every screen while a super-admin
  * impersonation session is active on this device. Renders nothing otherwise.
- * "Exit" ends the session (revokes the token) and returns to login; the write
- * toggle is hidden for student targets (read-only always).
+ * "Exit" ends the session (revokes the token) and returns to login; the write toggle is
+ * offered for every impersonated role — the server is the authority on whether it is
+ * honoured, so this never decides who may write.
  */
 export function ImpersonationBanner() {
   const { t } = useTranslation();
   const impersonation = useAuthStore((s) => s.impersonation);
-  const role = useAuthStore((s) => s.role);
   const leaveImpersonation = useAuthStore((s) => s.leaveImpersonation);
   const setImpersonation = useAuthStore((s) => s.setImpersonation);
   const insets = useSafeAreaInsets();
@@ -67,17 +67,18 @@ export function ImpersonationBanner() {
         {t('family_ui.imp_banner', { name: impersonation.name, mode: impersonation.write ? t('family_ui.imp_mode_write') : t('family_ui.imp_mode_read') })}
       </Text>
 
-      {role !== 'student' && (
-        <TouchableOpacity
-          onPress={toggleWrite}
-          disabled={busy}
-          style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 6 }}
-        >
-          <Text style={{ color: '#fff', fontFamily: fonts.medium, fontSize: 12 }}>
-            {impersonation.write ? t('family_ui.imp_write_off') : t('family_ui.imp_write_on')}
-          </Text>
-        </TouchableOpacity>
-      )}
+      {/* Offered for EVERY impersonated role, students included (founder 2026-09-16). The
+          server decides whether the switch is honoured — it refuses a developer outright —
+          so hiding it here only ever hid a capability that existed. */}
+      <TouchableOpacity
+        onPress={toggleWrite}
+        disabled={busy}
+        style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 6 }}
+      >
+        <Text style={{ color: '#fff', fontFamily: fonts.medium, fontSize: 12 }}>
+          {impersonation.write ? t('family_ui.imp_write_off') : t('family_ui.imp_write_on')}
+        </Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         onPress={exit}

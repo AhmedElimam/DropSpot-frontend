@@ -49,7 +49,8 @@ export default function ImpersonatePicker() {
   });
 
   const start = (u: ImpersonatableUser) => {
-    const canWrite = role !== 'student' && write; // students are read-only always
+    // Students are no longer forced to read-only (founder 2026-09-16); the server decides.
+    const canWrite = write;
     Alert.alert(
       t('family_ui.imp_start_title'),
       canWrite ? t('family_ui.imp_start_body_write', { name: u.name }) : t('family_ui.imp_start_body_read', { name: u.name }),
@@ -165,15 +166,14 @@ export default function ImpersonatePicker() {
             }}
           />
 
-          {/* Write-mode toggle (never for students) */}
-          {role !== 'student' && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, marginBottom: spacing.md }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary }}>
-                {t('family_ui.imp_write_mode')}
-              </Text>
-              <Switch value={write} onValueChange={setWrite} />
-            </View>
-          )}
+          {/* Write mode, offered for every role including students (founder 2026-09-16).
+              Off by default: it is a deliberate choice made before the session starts. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, marginBottom: spacing.md }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary }}>
+              {t('family_ui.imp_write_mode')}
+            </Text>
+            <Switch value={write} onValueChange={setWrite} />
+          </View>
 
           {isFetching ? (
             <ActivityIndicator style={{ marginTop: spacing.xl }} color={colors.brand} />

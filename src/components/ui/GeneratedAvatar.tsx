@@ -32,6 +32,8 @@ const BLUSH = '#E9655C';
 export const avatarSeed = {
   student: (id: number | string | null | undefined, fallback = '?') => (id === null || id === undefined || id === '' ? fallback : `student-${id}`),
   user: (id: number | string | null | undefined, fallback = '?') => (id === null || id === undefined || id === '' ? fallback : `user-${id}`),
+  /** A chat room (src/chat/room.ts): the students' room by its course, the parents' room its own. */
+  room: (room: number) => (room < 0 ? `course-${-room}-parents` : `course-${room}`),
 };
 
 function hashCode(s: string): number {

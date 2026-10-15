@@ -30,6 +30,28 @@ export interface TermsRoleContent {
 export interface TermsContent {
   version: string;
   roles: Record<TermsRole, TermsRoleContent>;
+  /**
+   * Short "what changed in this version" lines per role, for the re-consent popup.
+   * A summary, never the binding text — that is always `roles[role].body`. Empty
+   * while a super-admin override is live (the server withholds it there).
+   */
+  changes?: Record<TermsRole, string[]>;
+}
+
+export interface TermsState {
+  version: string;
+  must_accept_terms: boolean;
+  terms_update: boolean;
+}
+
+/**
+ * The terms gate for the signed-in user, recomputed server-side right now. Access
+ * tokens live 15 days, so without this poll a published version would not reach a
+ * user who is already signed in until their next login.
+ */
+export async function getTermsState(): Promise<TermsState> {
+  const { data } = await client.get('/terms/state');
+  return (data?.data ?? data) as TermsState;
 }
 
 /**

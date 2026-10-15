@@ -3,7 +3,7 @@ import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, shadows, nav, gradients } from '@/theme/index';
+import { colors, spacing, radius, shadows, nav } from '@/theme/index';
 import { useTickets } from '@/hooks/useTickets';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,9 +28,13 @@ const priorityColors = (): Record<string, string> => ({
   high: colors.danger,
 });
 
-// Teacher-side ticket list. Teachers respond to tickets (parents create them),
-// so there is no "new ticket" action here. Reuses the shared ticket hooks/API.
-export default function TeacherTicketsList() {
+/**
+ * The parents' tickets — the threads parents opened with this teacher. Chat rooms and
+ * student threads used to share this screen as segments; they are their own screen now
+ * (app/(teacher)/conversations, founder 2026-10-12), so this is the ticket list it was.
+ * A pushed screen since tickets left the tab bar (2026-10-04) — so it carries its back.
+ */
+export default function TeacherTickets() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { data: tickets, isLoading, isError, refetch } = useTickets();
@@ -44,8 +48,9 @@ export default function TeacherTicketsList() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* A pushed screen since tickets left the tab bar (2026-10-04) — so it needs its back. */}
-        <Surface id="teacher.tickets.hero"><PageHero onBack title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} /></Surface>
+        <Surface id="teacher.tickets.hero">
+          <PageHero onBack title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} />
+        </Surface>
 
         <Surface id="teacher.tickets.list">
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg, gap: spacing.md }}>

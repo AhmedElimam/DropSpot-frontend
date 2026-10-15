@@ -221,6 +221,33 @@ async function refreshAccessToken(): Promise<string | null> {
   return at;
 }
 
+/**
+ * The endpoints a 401 must NEVER be refreshed for.
+ *
+ *  - /auth/login    a 401 is the wrong password, not an expired session.
+ *  - /auth/refresh  refreshing the refresh call is the obvious infinite loop.
+ *  - /auth/logout   a 401 means the session is ALREADY gone, so there is nothing to refresh
+ *                   and nothing to sign out of. Without it the failure handler ran
+ *                   endImpersonationOrLogout() → logout() → POST /auth/logout → 401 →
+ *                   itself, hundreds of times a second (founder 2026-09-20). logout()'s own
+ *                   try/catch could not stop it: the recursion is in the INTERCEPTOR, one
+ *                   level above the call being caught.
+ *  - /impersonation/stop  refused = the token is already dead. Running the "session over"
+ *                   recovery for it deadlocked the exit from impersonation (founder
+ *                   2026-10-02, «loops until it crashes»): the recovery joins the in-flight
+ *                   leaveImpersonation(), which awaits this request, which awaits the recovery.
+ *  - /auth/verify-otp, /auth/reset-password  a wrong code is an answer, not an expired
+ *                   session: never «refresh» over it.
+ */
+const NO_REFRESH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout', '/impersonation/stop', '/auth/verify-otp', '/auth/reset-password'];
+
+/** Exported for the regression test — the rule, without the axios machinery around it. */
+export function shouldAttemptRefresh(status: number | undefined, url: string | undefined, alreadyRetried: boolean): boolean {
+  if (status !== 401 || alreadyRetried) return false;
+
+  return !NO_REFRESH_PATHS.some((p) => (url ?? '').includes(p));
+}
+
 /** Loaded on first use: the popup module reaches the dialog, the router and the stores, which must not load with this client (tests, headless tasks). */
 function serverMeta(meta: unknown): void {
   try {
@@ -257,23 +284,8 @@ client.interceptors.response.use(
         return syntheticQueuedResponse(original);
       }
     }
-    if (
-      error.response?.status === 401 &&
-      !original._retry &&
-      !original.url?.includes('/auth/login') &&
-      !original.url?.includes('/auth/refresh') &&
-      // A sign-out or an impersonation stop that is refused is ALREADY what it asked for:
-      // the token is dead. Running the "session over" recovery for it is what deadlocked
-      // the exit from impersonation (founder 2026-10-02, «loops until it crashes»): the
-      // recovery joins the in-flight leaveImpersonation(), which is awaiting this very
-      // request, which is awaiting the recovery — a spinner for good, and on relaunch the
-      // dead session repeats the cycle. These two just fail and let their caller carry on.
-      !original.url?.includes('/auth/logout') &&
-      !original.url?.includes('/impersonation/stop') &&
-      // A wrong code is an answer, not an expired session: never «refresh» over it.
-      !original.url?.includes('/auth/verify-otp') &&
-      !original.url?.includes('/auth/reset-password')
-    ) {
+    // Which 401s may be refreshed over: shouldAttemptRefresh (NO_REFRESH_PATHS above).
+    if (shouldAttemptRefresh(error.response?.status, original?.url, !!original?._retry)) {
       original._retry = true;
       try {
         // Join the in-flight refresh if one is already running; otherwise start it.

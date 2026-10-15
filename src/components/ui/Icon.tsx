@@ -1,4 +1,7 @@
 import { memo } from 'react';
+// Import the ONE family directly, never the '@expo/vector-icons' barrel: Metro does no
+// tree-shaking, so the barrel drags every family's font file (MaterialCommunityIcons alone
+// is 1.3 MB) into the APK as assets the app never draws.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
 import { colors } from '@/theme/index';
@@ -31,7 +34,18 @@ const ICON_MAP = {
   kids: 'happy',
   clock: 'time',
   quiz: 'document-text',
+  terms: 'document-text',
   chat: 'chatbubbles',
+  check: 'checkmark',
+  attach: 'attach',
+  camera: 'camera',
+  mic: 'mic',
+  play: 'play',
+  pause: 'pause',
+  flag: 'flag',
+  block: 'ban',
+  mute: 'mic-off',
+  bellOff: 'notifications-off',
   grades: 'ribbon',
   attendance: 'checkmark-circle',
   present: 'checkmark-circle',
@@ -86,8 +100,18 @@ const ICON_MAP = {
   storefront: 'storefront',
   pricetag: 'pricetag',
   'person-remove': 'person-remove',
+  // Threads («النقاشات»): question feed, votes, timer, the answer video and the recorder.
+  threads: 'chatbox-ellipses',
+  question: 'help-circle',
+  thumbUp: 'thumbs-up',
+  thumbDown: 'thumbs-down',
+  timer: 'timer',
+  video: 'videocam',
+  stop: 'stop-circle',
+  people: 'people',
+  flipCamera: 'camera-reverse',
+  lightbulb: 'bulb',
   /** «اعتراض على الدرجة»: photograph the paper, pick it, draw on it, undo a line. */
-  camera: 'camera',
   image: 'image',
   brush: 'brush',
   // The photo editor's shape tools («علِّم على الخطأ»).
@@ -95,14 +119,14 @@ const ICON_MAP = {
   shapeArrow: 'arrow-forward',
   undo: 'arrow-undo',
   // Threads («النقاشات») — also the student's «مجموعاتي» coming-soon tab.
-  threads: 'chatbox-ellipses',
-  question: 'help-circle',
-  thumbUp: 'thumbs-up',
-  play: 'play',
   // The «شروحات» player's own controls.
-  pause: 'pause',
   redo: 'arrow-redo',
   list: 'list',
+  // A room's shelf: its links and its photo grid.
+  link: 'link',
+  // Swipe-to-reply.
+  reply: 'arrow-undo',
+  grid: 'grid',
   // Brand glyph — no outline variant, never pass `outline`.
   whatsapp: 'logo-whatsapp',
   delivery: 'bicycle',

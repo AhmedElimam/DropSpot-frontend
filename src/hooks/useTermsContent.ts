@@ -20,5 +20,13 @@ export function useTermsContent() {
     contentFor(role: TermsRole): TermsRoleContent | null {
       return data?.roles?.[role] ?? null;
     },
+    /**
+     * What changed in this version, for the re-consent popup. Empty when the server
+     * withholds it (a super-admin override is live) or the fetch hasn't landed — the
+     * popup then shows the document alone, which is still correct, just less kind.
+     */
+    changesFor(role: TermsRole): string[] {
+      return data?.changes?.[role] ?? [];
+    },
   };
 }

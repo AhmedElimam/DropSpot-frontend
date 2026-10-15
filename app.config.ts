@@ -16,13 +16,18 @@ const STAGING = process.env.EXPO_PUBLIC_APP_ENV === 'staging';
 const APP_ID = STAGING ? 'com.drosspot.app.stg' : 'com.drosspot.app';
 // Firebase config files are keyed by package / bundle id, so a staging build needs the
 // staging apps registered in Firebase and their files beside the production ones.
-const androidGoogleServices = STAGING ? './google-services.staging.json' : './google-services.json';
-if (STAGING && !existsSync(resolve(__dirname, androidGoogleServices))) {
-  throw new Error('Staging build: google-services.staging.json is missing (register com.drosspot.app.stg in Firebase and download it).');
+// Until com.drosspot.app.stg is registered in Firebase the staging build falls back to the
+// production files: iOS then only logs a bundle-id mismatch (no push on staging anyway), and
+// Android's Gradle refuses loudly ("No matching client found for package name") — which is
+// the point; the CI workflow also requires the staging file before it starts.
+const hasStagingAndroid = existsSync(resolve(__dirname, './google-services.staging.json'));
+if (STAGING && !hasStagingAndroid) {
+  console.warn('[app.config] Staging build without google-services.staging.json — an Android build will fail until com.drosspot.app.stg is registered in Firebase.');
 }
+const androidGoogleServices = STAGING && hasStagingAndroid ? './google-services.staging.json' : './google-services.json';
 const iosGoogleServicesStaging = existsSync(resolve(__dirname, 'GoogleService-Info.staging.plist'))
   ? { googleServicesFile: './GoogleService-Info.staging.plist' }
-  : {};
+  : iosGoogleServices;
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -228,7 +233,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-camera',
       {
         cameraPermission:
-          'يستخدم التطبيق الكاميرا لمسح رمز الحضور أو التحقق من الكارت.',
+          'يستخدم التطبيق الكاميرا لمسح رمز الحضور أو التحقق من الكارت، وليسجّل المعلم فيديو إجابة قصيرًا في النقاشات.',
+        // Recording a thread answer needs sound. Same string as the chat recorder so the
+        // OS prompt reads the same wherever the mic is first asked for.
+        microphonePermission:
+          'يستخدم التطبيق الميكروفون لتسجيل رسالة صوتية في دردشة المقرر أو فيديو إجابة في النقاشات.',
       },
     ],
     [
@@ -239,16 +248,32 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // so the Android camera prompt never appears and the scanner is dead. Give it
       // the SAME justified Arabic string as expo-camera so CAMERA stays declared and
       // the iOS usage string is consistent regardless of plugin order. The picker
-      // never records audio, so microphone stays removed.
+      // microphonePermission used to be `false` here, which — exactly like the camera
+      // case above — emits tools:node="remove" for RECORD_AUDIO and would strip the
+      // permission the chat voice recorder (expo-audio) needs. Same justified string.
       'expo-image-picker',
       {
         photosPermission:
-          'يستخدم التطبيق صورك لإرفاق إثبات الدفع أو صورة الكارت عند الطلب.',
+          'يستخدم التطبيق صورك لإرفاق إثبات الدفع أو صورة الكارت، أو لإرسال صورة في دردشة المقرر.',
         cameraPermission:
           'يستخدم التطبيق الكاميرا لمسح رمز الحضور أو التحقق من الكارت.',
-        microphonePermission: false,
+        microphonePermission:
+          'يستخدم التطبيق الميكروفون لتسجيل رسالة صوتية في دردشة المقرر.',
       },
     ],
+    [
+      // Course chat voice notes (recorder + player). The mic string is shown on the OS
+      // prompt and read by store review; the recorder is only reachable from a room.
+      'expo-audio',
+      {
+        microphonePermission:
+          'يستخدم التطبيق الميكروفون لتسجيل رسالة صوتية في دردشة المقرر.',
+      },
+    ],
+    // Thread answers as short video: the teacher records with expo-camera (already linked),
+    // students play with expo-video. expo-video needs its plugin for the Android media
+    // session / iOS background-audio entitlements it declares; no permission strings.
+    'expo-video',
     [
       'expo-splash-screen',
       {

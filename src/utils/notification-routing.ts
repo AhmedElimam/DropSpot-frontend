@@ -22,6 +22,16 @@ export type NotificationRouteInput = {
   can?: (ability: string) => boolean;
 };
 
+/**
+ * The chat room a push is about, as the client's room id (src/chat/room.ts): the course for
+ * the students' room, minus it for the parents' room (`data.room === 'parents'`).
+ */
+function chatRoom(data: Record<string, unknown> | null | undefined): string | null {
+  const course = id(data, 'course_id');
+  if (!course) return null;
+  return data?.room === 'parents' ? `-${course}` : course;
+}
+
 function id(data: Record<string, unknown> | null | undefined, ...keys: string[]): string | null {
   for (const k of keys) {
     const v = data?.[k];
@@ -39,6 +49,15 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
   const course = id(data, 'course_id');
 
   if (ADMIN_TICKET_TYPES.has(type)) return '/(teacher)/resolution';
+  // Threads (a timer ran out, a report, a new answer) open the thread; chat opens the room.
+  if (type.startsWith('thread_')) {
+    const thread = id(data, 'thread_id');
+    return thread ? `/(teacher)/conversations/threads/${thread}` : '/(teacher)/conversations';
+  }
+  if (type.startsWith('chat_')) {
+    const room = chatRoom(data);
+    return room ? `/(teacher)/conversations/chat/${room}` : '/(teacher)/conversations';
+  }
 
   switch (type) {
     // ── مدام روز's 11 am «ورقة النهارده»: the day's sessions ──
@@ -157,6 +176,12 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
   const child = student ? `/(parent)/child/${student}` : '/(parent)/(tabs)';
 
   if (ADMIN_TICKET_TYPES.has(type)) return '/(parent)/support';
+  // A message in a parents' room (or a child's room they follow) opens that room; a child's
+  // mute opens the child's room, where it happened.
+  if (type === 'chat_message' || type === 'chat_muted_parent' || type === 'chat_muted') {
+    const room = chatRoom(data);
+    return room ? `/(parent)/chat/${room}` : '/(parent)/(tabs)/community';
+  }
 
   switch (type) {
     // A decided complaint: a payment one lands on the invoices; attendance / grade ones on
@@ -212,6 +237,16 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
 
 function studentRoute(type: string, data: Record<string, unknown> | null | undefined): string | null {
   if (ADMIN_TICKET_TYPES.has(type)) return '/(student)/support';
+  // Chat lands in the room; a thread event (new question, the teacher's answer, a pick,
+  // a removed comment) on the thread; both fall back to the Conversations tab.
+  if (type.startsWith('chat_')) {
+    const course = id(data, 'course_id');
+    return course ? `/(student)/chat/${course}` : '/(student)/(tabs)/chat';
+  }
+  if (type.startsWith('thread_')) {
+    const thread = id(data, 'thread_id');
+    return thread ? `/(student)/chat/thread/${thread}` : '/(student)/(tabs)/chat';
+  }
 
   switch (type) {
     // A decided complaint opens where the disputed record lives.

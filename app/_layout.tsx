@@ -37,6 +37,7 @@ import { PERSIST_MAX_AGE_MS } from '@/lib/queryPersistRules';
 import { OfflinePill } from '@/components/OfflinePill';
 import { DialogHost } from '@/ui/dialog';
 import { StagingRibbon } from '@/components/StagingRibbon';
+import { startChatOutbox } from '@/chat/outbox';
 import { AnalyticsTracker } from '@/components/AnalyticsTracker';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -46,6 +47,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
 import { SurveyModal } from '@/components/SurveyModal';
 import { TeacherOnboardingModal } from '@/components/TeacherOnboardingModal';
+import { TermsUpdateModal } from '@/components/auth/TermsUpdateModal';
 import { AppConfigGate } from '@/components/AppConfigGate';
 import { installErrorReporting } from '@/lib/errorReport';
 import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
@@ -148,6 +150,10 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
       useDriverStore.getState().hydrate().catch(() => {});
     }
   }, [hydrate, hydrationStarted]);
+
+  // Chat messages written offline leave by themselves when there is a network again or the
+  // app comes to the front — for every role, so it is wired here once.
+  useEffect(() => { startChatOutbox(); }, []);
 
   // The saved appearance choice, applied before the first screen paints. Keyed on
   // `themeReady`, not on a "started" flag: hydrate() is idempotent, and if the store is ever
@@ -283,6 +289,10 @@ export default function RootLayout() {
             <SurveyModal />
             {/* Teacher onboarding — Step 1 intro popup for a brand-new teacher. */}
             <TeacherOnboardingModal />
+            {/* "The agreement has been updated" — for anyone who consented to an
+                earlier version. Polls on open/foreground, because the flag otherwise
+                rides a 15-day access token. */}
+            <TermsUpdateModal />
             {/* «ما الجديد» — once per installed version, after the two above. */}
             <WhatsNewModal />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}
