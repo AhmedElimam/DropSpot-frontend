@@ -105,7 +105,16 @@ export interface AppConfigPayload {
   } | null;
   // Optional remote override of the API base URL (empty/absent = keep the bundled URL).
   api_base_url?: string;
+  /** Per-CURRENT-USER flag map (anonymous → the global map). */
   feature_flags: Record<string, boolean>;
+  /**
+   * Keys this user has ONLY through beta targeting (feature-targeting contract 2026-10-15):
+   * the app marks those features «تجريبي». Empty for everyone-releases and anonymous.
+   * Optional on the wire — an older server never sends it.
+   */
+  feature_beta?: string[];
+  /** Short hash of (modes + targets + this user's scope); differs → the per-user flags changed. */
+  feature_flags_version?: string;
   rules: AppConfigRules;
   copy: Record<string, string>;
   pricing: { tiers: unknown[] };
@@ -130,6 +139,7 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
   app_retired: false,
   migration: null,
   feature_flags: {},
+  feature_beta: [],
   rules: {
     geofence_max_accuracy_m: 50,
     checkin_window_before_min: 10,
