@@ -22,7 +22,7 @@ export function useChatSocket(
     onReaction?: (r: { message_id: number; reactions: ChatReaction[] }) => void;
   },
   enabled = true,
-): { connected: boolean; status: ChatSocketStatus } {
+): { connected: boolean; status: ChatSocketStatus; detail: string } {
   const channels = useMemo(
     // A room id: the course for the students' room, minus it for the parents' room.
     () => (realtime?.channel_prefix && courseId !== 0 ? [roomSocketChannel(courseId, realtime.channel_prefix)] : []),
