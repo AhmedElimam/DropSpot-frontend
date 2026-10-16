@@ -88,7 +88,7 @@ describe('countdown block (manage card hero)', () => {
   it('days: the number and its Arabic unit form', () => {
     expect(countdownBlock(countdown(now + 3 * 24 * H, now))).toEqual({ n: 3, unitKey: 'revision.unit_days_few' });
     expect(countdownBlock(countdown(now + 1 * 24 * H + H, now))).toEqual({ n: 1, unitKey: 'revision.unit_days_one' });
-    expect(countdownBlock(countdown(now + 2 * 24 * H, now))).toEqual({ n: 2, unitKey: 'revision.unit_days_two' });
+    expect(countdownBlock(countdown(now + 2 * 24 * H, now))).toEqual({ n: 2, unitKey: 'revision.unit_days_few' }); // «٢ أيام», never «٢ يومان»
     expect(countdownBlock(countdown(now + 14 * 24 * H, now))).toEqual({ n: 14, unitKey: 'revision.unit_days_many' });
   });
   it('hours and minutes under a day', () => {

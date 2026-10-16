@@ -143,7 +143,10 @@ export interface CountdownBlock { n: number | null; unitKey: string }
 export function countdownBlock(cd: Countdown): CountdownBlock {
   if (cd.key === 'revision.now') return { n: null, unitKey: 'revision.now' };
   const unit = cd.key === 'revision.in_days' ? 'days' : cd.key === 'revision.in_hours' ? 'hours' : 'minutes';
-  return { n: cd.n, unitKey: `revision.unit_${unit}_${arabicCountForm(cd.n)}` };
+  // The number is printed above the unit, so 2 takes the plural «٢ أيام» — the dual «يومان»
+  // already says "two" and reads «٢ يومان» = "2 two-days" (founder review 2026-10-17).
+  const form = arabicCountForm(cd.n);
+  return { n: cd.n, unitKey: `revision.unit_${unit}_${form === 'two' ? 'few' : form}` };
 }
 
 /**
