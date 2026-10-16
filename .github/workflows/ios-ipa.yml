@@ -205,6 +205,52 @@ jobs:
           cp "$RUNNER_TEMP"/export/*.ipa "artifacts/drosspot-${GITHUB_SHA::7}-b${BUILD}.ipa"
           ls -lh artifacts
 
+      # Push needs `aps-environment` in the app's SIGNATURE, and neither step above puts it
+      # there: prebuild writes an empty DrosSpot.entitlements (expo-notifications adds none),
+      # and an archive built with CODE_SIGNING_ALLOWED=NO carries no entitlements for
+      # -exportArchive to keep. Every store build since September shipped without it, so iOS
+      # never gave the app a push token and no iPhone got a notification (2026-10-16: one iOS
+      # token on production, from 2026-09-03, against 48 Android). The entitlement is added
+      # here and not in app.config.ts on purpose: the free Personal Team used for local
+      # sideloads cannot sign it, and a local build would stop signing.
+      - name: Add the push entitlement and re-sign
+        run: |
+          set -euo pipefail
+          IPA="$(ls artifacts/*.ipa | head -1)"
+          WORK="$RUNNER_TEMP/resign"; rm -rf "$WORK"; mkdir -p "$WORK"
+          unzip -q "$IPA" -d "$WORK"
+          APP="$(ls -d "$WORK"/Payload/*.app | head -1)"
+
+          APS="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$RUNNER_TEMP/profile.plist" 2>/dev/null || true)"
+          if [ -z "$APS" ]; then
+            echo "::error::The provisioning profile has no aps-environment — enable Push Notifications on the App ID, regenerate the profile and update IOS_PROVISIONING_PROFILE_BASE64."
+            exit 1
+          fi
+
+          # Keep exactly what export signed (identifier, team, beta reports, get-task-allow)
+          # and add the one missing key.
+          ENTS="$RUNNER_TEMP/app.entitlements"
+          codesign -d --entitlements :- "$APP" > "$ENTS" 2>/dev/null
+          /usr/libexec/PlistBuddy -c "Delete :aps-environment" "$ENTS" >/dev/null 2>&1 || true
+          /usr/libexec/PlistBuddy -c "Add :aps-environment string $APS" "$ENTS"
+
+          IDENTITY="$(codesign -dvv "$APP" 2>&1 | sed -n 's/^Authority=//p' | head -1)"
+          echo "Re-signing with: $IDENTITY (aps-environment=$APS)"
+          codesign -f -s "$IDENTITY" --entitlements "$ENTS" --generate-entitlement-der "$APP"
+          codesign --verify --deep --strict "$APP"
+
+          SIGNED="$(codesign -d --entitlements :- "$APP" 2>/dev/null | plutil -extract aps-environment raw - 2>/dev/null || true)"
+          if [ "$SIGNED" != "$APS" ]; then
+            echo "::error::aps-environment is not in the signed app — push would not work"
+            exit 1
+          fi
+
+          # Re-pack every top-level folder export wrote (Payload, SwiftSupport, Symbols).
+          rm -f "$IPA"
+          (cd "$WORK" && zip -qry "$GITHUB_WORKSPACE/$IPA" .)
+          echo "Push entitlement: aps-environment = $SIGNED ✓" >> "$GITHUB_STEP_SUMMARY"
+          ls -lh artifacts
+
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
