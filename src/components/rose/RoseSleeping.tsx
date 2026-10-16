@@ -91,8 +91,8 @@ const StillFace = memo(function StillFace({ size }: { size: number }) {
       <Svg width={size} height={size} viewBox="0 0 400 400" style={StyleSheet.absoluteFill}>
         <Face />
       </Svg>
-      {/* She dozes with the pencil still in her hair during the season (null otherwise). */}
-      <RoseCostume size={size} detail="light" />
+      {/* She dozes in her season look too (null while «وضع المراجعة» is off). */}
+      <RoseCostume size={size} base={BASE} />
     </View>
   );
 });

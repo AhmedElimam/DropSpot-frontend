@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { memo, useMemo, useState, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
@@ -12,7 +12,8 @@ import { useRevisions } from '@/hooks/useRevisions';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { formatNumber, formatDate } from '@/utils/format';
 import { dayKey } from '@/utils/sessionDays';
-import { countdown, nextExam, revisionFacts, revisionToCard, revisionsOnDay, type NextExam, type RevisionCardData } from '@/utils/revisionDesk';
+import { arabicCountForm, countdown, countdownBlock, nextExam, revisionFacts, revisionToCard, revisionsOnDay, splitRevisionTitle, type NextExam, type RevisionCardData } from '@/utils/revisionDesk';
+import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { SessionCard } from '@/components/session/TeacherSessionCard';
 import { GuestPassModal } from '@/components/teacher/GuestPassModal';
 import type { RevisionSummary } from '@/api/revisions';
@@ -42,11 +43,15 @@ export function goToRevisionMarks(rev: Pick<RevisionSummary, 'id' | 'instance_id
 /** «الامتحان القادم بعد ٣ أيام» — the hero's season line. */
 export function useNextExam(now: number, enabled = true): { next: NextExam | null; loading: boolean; revisions: RevisionSummary[] } {
   const q = useRevisions(enabled);
-  const revisions = q.data ?? [];
-  return { next: nextExam(revisions, now), loading: q.isLoading, revisions };
+  // Stable while the data and the minute hold, so the memoised desk skips a focus re-render.
+  const revisions = q.data ?? NO_REVISIONS;
+  const next = useMemo(() => nextExam(revisions, now), [revisions, now]);
+  return { next, loading: q.isLoading, revisions };
 }
+const NO_REVISIONS: RevisionSummary[] = [];
 
-export function RevisionHeroLine({ now, next, loading }: { now: number; next: NextExam | null; loading: boolean }) {
+// Memoised, like the desk below: Home re-renders on every focus, these only when their inputs move.
+export const RevisionHeroLine = memo(function RevisionHeroLine({ now, next, loading }: { now: number; next: NextExam | null; loading: boolean }) {
   const { t } = useTranslation();
   const cd = next ? countdown(next.at, now) : null;
   // A card, like the spotlight it replaces at the top of the page: it overlaps the hero's
@@ -75,16 +80,15 @@ export function RevisionHeroLine({ now, next, loading }: { now: number; next: Ne
     </View>
     </Surface>
   );
-}
+});
 
-const PLURAL = (n: number) => (n === 1 ? 'one' : n === 2 ? 'two' : n >= 3 && n <= 10 ? 'few' : 'many');
 export function countdownText(cd: ReturnType<typeof countdown>, t: (k: string, o?: Record<string, unknown>) => string): string {
   if (cd.key === 'revision.now') return t('revision.now');
-  return t(`${cd.key}_${PLURAL(cd.n)}`, { n: formatNumber(cd.n) });
+  return t(`${cd.key}_${arabicCountForm(cd.n)}`, { n: formatNumber(cd.n) });
 }
 
 /** The desk itself — under the hero, above everything Home had before. */
-export function RevisionDesk({ now, revisions, loading, canScan }: { now: number; revisions: RevisionSummary[]; loading: boolean; canScan: boolean }) {
+export const RevisionDesk = memo(function RevisionDesk({ now, revisions, loading, canScan }: { now: number; revisions: RevisionSummary[]; loading: boolean; canScan: boolean }) {
   const { t } = useTranslation();
   const { can, isAssistant } = useActiveAbilities();
   const today = revisionsOnDay(revisions, dayKey(new Date(now)));
@@ -169,7 +173,7 @@ export function RevisionDesk({ now, revisions, loading, canScan }: { now: number
     </View>
     </Surface>
   );
-}
+});
 
 /** Under a revision card: guest pass (teacher / abled assistant) and, for an exam, the marks. */
 export function RevisionCardActions({ rev, onGuest }: { rev: RevisionSummary; onGuest: () => void }) {
@@ -201,41 +205,72 @@ export function RevisionCardActions({ rev, onGuest }: { rev: RevisionSummary; on
   );
 }
 
-/** The manage hub's featured card while the season is on: countdown + three ways in. */
-export function RevisionFeatureCard({ now }: { now: number }) {
+/**
+ * The manage hub's featured card while the season is on (founder 2026-10-16: «not really good
+ * on the first banner»). The countdown is the hero — one amber number and its unit in a
+ * rounded block at the start — then what it counts down to (title, the exam's name, its
+ * subject, each on its own line), then three equal ways in. No corner ribbon: the indigo ink
+ * and the amber number already say «season». Owns its minute clock, so the manage screen
+ * itself never re-renders on a tick or a tab switch.
+ */
+export function RevisionFeatureCard() {
   const { t } = useTranslation();
+  const now = useMinuteClock();
   const { next, loading, revisions } = useNextExam(now);
   const cd = next ? countdown(next.at, now) : null;
+  const block = cd ? countdownBlock(cd) : null;
   const exam = revisions.filter((r) => r.is_quiz_exam || r.purpose === 'quiz_exam')[0] ?? null;
+  const parts = next ? splitRevisionTitle(next.rev.title) : null;
   const mini = (icon: IconName, label: string, onPress: () => void, surface: string, assistantNeeds?: string) => (
     <Surface id={surface} assistantNeeds={assistantNeeds}>
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} accessibilityRole="button"
-      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, minHeight: 40, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.26)' }}>
-      <Icon name={icon} size={15} color="#FFFFFF" />
-      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#FFFFFF' }} numberOfLines={1}>{label}</Text>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={label}
+      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, paddingHorizontal: 6, borderRadius: radius.lg, backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' }}>
+      <Icon name={icon} size={16} color={REVISION_INK.amber} />
+      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#FFFFFF' }} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
     </Surface>
   );
   return (
     <Surface id="teacher.manage.revision_feature_card">
-    <TouchableOpacity activeOpacity={0.9} onPress={() => router.push('/(teacher)/revisions' as Href)} accessibilityRole="button" style={{ marginBottom: spacing.md }}>
-      <LinearGradient colors={[REVISION_INK.indigo, REVISION_INK.indigoDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: radius.xl, padding: spacing.lg, overflow: 'hidden', ...shadows.md }}>
-        {/* The amber corner ribbon — the season's mark. */}
-        <View pointerEvents="none" style={{ position: 'absolute', top: 12, end: -34, width: 130, transform: [{ rotate: '45deg' }], backgroundColor: REVISION_INK.amber, paddingVertical: 3, alignItems: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#FFFFFF' }}>{t('revision.season')}</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.26)', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="book" size={24} color="#FFFFFF" />
+    <TouchableOpacity activeOpacity={0.92} onPress={() => router.push('/(teacher)/revisions' as Href)} accessibilityRole="button" style={{ marginBottom: spacing.md }}>
+      <LinearGradient colors={[REVISION_INK.indigo, REVISION_INK.indigoDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: radius.xl, padding: spacing.md, ...shadows.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'stretch', gap: spacing.md }}>
+          {/* The hero: how long is left, big and amber. */}
+          <View style={{ width: 92, minHeight: 92, borderRadius: radius.lg, backgroundColor: REVISION_INK.indigoDeeper, borderWidth: 1, borderColor: 'rgba(231,145,58,0.45)', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.sm }}>
+            {loading && !next ? <ActivityIndicator color={REVISION_INK.amber} /> : block ? (
+              block.n == null ? (
+                <Text style={{ fontFamily: fonts.bold, fontSize: 24, lineHeight: 32, color: REVISION_INK.amber }}>{t('revision.now')}</Text>
+              ) : (
+                <>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 11, lineHeight: 14, color: 'rgba(255,255,255,0.65)' }}>{t('revision.left')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 36, lineHeight: 44, color: REVISION_INK.amber }} numberOfLines={1} adjustsFontSizeToFit>{formatNumber(block.n)}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, lineHeight: 17, color: '#FFFFFF' }} numberOfLines={1}>{t(block.unitKey)}</Text>
+                </>
+              )
+            ) : (
+              <Icon name="trophy" size={30} color={REVISION_INK.amber} />
+            )}
           </View>
-          <View style={{ flex: 1, paddingEnd: 40 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#FFFFFF' }} numberOfLines={1}>{t('revision.feature_card_title')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: 'rgba(255,255,255,0.78)', marginTop: 2 }} numberOfLines={2}>
-              {loading && !next ? t('revision.feature_card_sub') : next && cd ? `${t(next.kind === 'exam' ? 'revision.next_exam' : 'revision.next_revision')} ${countdownText(cd, t)} | ${next.rev.title}` : t('revision.no_next')}
-            </Text>
+          {/* What it counts down to — one idea per line, nothing wraps. */}
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, lineHeight: 16, color: REVISION_INK.amber }} numberOfLines={1}>{t('revision.season')}</Text>
+            {next && parts ? (
+              <>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, lineHeight: 23, color: '#FFFFFF', marginTop: 2 }} numberOfLines={1}>{t(next.kind === 'exam' ? 'revision.next_exam' : 'revision.next_revision')}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: 'rgba(255,255,255,0.92)' }} numberOfLines={1} ellipsizeMode="tail">{parts.name}</Text>
+                {parts.subject ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 18, color: 'rgba(255,255,255,0.68)' }} numberOfLines={1}>{parts.subject}</Text> : null}
+              </>
+            ) : (
+              <>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, lineHeight: 23, color: '#FFFFFF', marginTop: 2 }} numberOfLines={1}>{t(loading ? 'revision.feature_card_title' : 'revision.feature_none_title')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 18, color: 'rgba(255,255,255,0.68)' }} numberOfLines={1}>{t(loading ? 'revision.feature_card_sub' : 'revision.feature_none_sub')}</Text>
+              </>
+            )}
           </View>
+          <View style={{ justifyContent: 'center' }}><Icon name="back" size={18} color="rgba(255,255,255,0.55)" /></View>
         </View>
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+        <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.10)', marginVertical: spacing.md }} />
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           {mini('scan', t('revision.scan_into'), () => (next ? goToRevisionScan(next.rev) : router.push('/(teacher)/revisions' as Href)), 'teacher.manage.revision_feature_scan', 'teacher')}
           {mini('card', t('revision.tool_guest_passes'), () => router.push('/(teacher)/revisions' as Href), 'teacher.manage.revision_feature_guests', 'issue_guest_passes')}
           {mini('grades', t('revision.marks'), () => (exam ? goToRevisionMarks(exam) : router.push('/(teacher)/revisions' as Href)), 'teacher.manage.revision_feature_marks', 'teacher')}

@@ -9,7 +9,7 @@ import Animated, {
 import { useAmbientMotion } from '@/hooks/useAmbientMotion';
 import { useRose } from '@/hooks/useRose';
 import { RoseProps, type RoseActivity } from './RoseProps';
-import { Pencil, RoseCostumeBody, RoseSash } from './RoseCostume';
+import { RoseSeasonLook } from './RoseCostume';
 import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { Surface } from '@/ui/surfaces';
 
@@ -81,8 +81,8 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
   // In front of you, app active, motion allowed, page still (founder 2026-10-09: light on every phone).
   const alive = useAmbientMotion(paused);
   const working = activity !== 'cash';
-  // «وضع المراجعة»: her season costume (RoseCostume) — the pencil on the head layer, the
-  // lanyard and papers on her body under what she holds, the sash on the frame's rim.
+  // «وضع المراجعة»: her season look (RoseCostume, ROSE_REVISION_LOOK) — over her picture and
+  // under what she holds, inside the view that breathes and nods, so it moves with her.
   const season = useRevisionActive();
 
   const gx = useSharedValue(0);
@@ -313,12 +313,7 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
     <Pressable onPress={react} accessibilityRole="image" accessibilityLabel={rose.name} style={style}>
       <Animated.View style={[{ width: size, height: size, transformOrigin: [CHIN.x * k, CHIN.y * k, 0] }, whole]}>
         <Image source={BASE} style={StyleSheet.absoluteFill} contentFit="contain" />
-        {season ? <Surface id="teacher.rose.live.costume"><RoseCostumeBody size={size} alive={alive} detail="full" /></Surface> : null}
-        {season ? (
-          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <Svg width={size} height={size} viewBox="0 0 400 400"><G transform={FRAME}><Pencil /></G></Svg>
-          </View>
-        ) : null}
+        {season ? <Surface id="teacher.rose.live.costume"><RoseSeasonLook size={size} base={BASE} alive={alive} /></Surface> : null}
         {layer(brow('M163 182 Q180 172 196 180'), brL, at(BROW_L))}
         {layer(brow('M204 180 Q220 172 237 182'), brR, at(BROW_R))}
         {layer(eye(180), eyeL, at(EYE_L))}
@@ -348,7 +343,6 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
         {layer(hoop(146), hoopLs, at(HOOP_L))}
         {layer(hoop(254), hoopRs, at(HOOP_R))}
         <Surface id="teacher.rose.live.props"><RoseProps activity={activity} size={size} alive={alive} /></Surface>
-        {season ? <Surface id="teacher.rose.live.sash"><RoseSash size={size} /></Surface> : null}
       </Animated.View>
     </Pressable>
   );

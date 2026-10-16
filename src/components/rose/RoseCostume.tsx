@@ -1,92 +1,111 @@
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { G, Rect, Path, Circle, Ellipse, Line } from 'react-native-svg';
+import { Image } from 'expo-image';
+import Svg, { Circle, ClipPath, Defs, G, Image as SvgImage, Line, Path, Rect } from 'react-native-svg';
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { fonts } from '@/theme/typography';
 import { REVISION_INK } from '@/theme/revision';
 import { useRevisionActive } from '@/hooks/useRevisionTheme';
+import { useRevisions } from '@/hooks/useRevisions';
+import { seasonShareLeft } from '@/utils/revisionDesk';
 import { Surface } from '@/ui/surfaces';
 
 /**
- * مدام روز's revision-season costume (founder 2026-10-16: «Madam Rose to change her look to
- * indicate revision mode — be creative»). No new artwork — there is no artist — so her look
- * is PROPS drawn as vectors over her portrait, in its own 400-unit square, made to read as one
- * deliberate outfit for exam season rather than stickers:
+ * مدام روز's look for «وضع المراجعة» (founder 2026-10-16: «I don't like how Madam Rose is
+ * looking» — the first costume read as stickers). THREE directions, each one idea, for the
+ * founder to choose from; switching is the one constant below.
  *
- *   pencil      an amber marking pencil tucked into her hair behind her ear — the look of
- *               someone between two papers (on the head layer, so it tilts with her)
- *   lanyard     an amber lanyard round her neck, a stopwatch hanging at her right: the invigilator.
- *               Its hand jumps a quarter turn every few seconds while she is alive (one 400 ms
- *               UI-thread transform, then stillness — no per-frame work, no heat)
- *   papers      a stack of exam papers, amber-clipped, at the foot of her frame
- *   sash        an amber «موسم المراجعة» ribbon across the bottom rim of her medallion
+ *   A «المراقِبة»       the exam proctor: an amber academic stole laid along her lapels (her
+ *                        name badge stays pinned ON it — the badge is drawn back over the stole
+ *                        from her own picture), and a small stopwatch pinned as a brooch on the
+ *                        left band. Nothing in her hair.
+ *   B «موسم التخرّج»    graduation: a navy mortarboard sitting on her hair, its amber tassel
+ *                        falling to one side; her frame's laurel turns amber.
+ *   C «الإطار يحكي»     nothing on her at all: the gold ring turns amber with a thin cream
+ *                        countdown arc round it (the share of the season left before the next
+ *                        exam — seasonShareLeft), and a small amber tab «موسم المراجعة» on the
+ *                        ring beside the DS medallion.
  *
- * `detail` picks how much of it a small portrait can carry: a 30-pt chip gets the pencil and
- * the ribbon alone; her desk (148 pt) gets everything. Nothing here renders while the season
- * is off — RoseCostume returns null — so her usual portrait is untouched.
- *
- * The 400-square: the face is drawn inside FRAME (inner units; see RoseLive); the body props
- * are in outer units like RoseProps. Her medallion is the circle r≈171 around (200, 211).
+ * Every prop is a vector in her own 400-unit square (the medallion: ring centre (200, 211.8),
+ * radius 176.2, 5 units wide; the DS medallion r 30 at (200, 35); her name badge 54.6 × 22.8 at
+ * (225.2, 325.6), tilted −2.6°), drawn to sit ON the illustration — never over her face or her
+ * name badge. The live figure (RoseLive) puts the layers inside the view that breathes, nods
+ * and sleeps, so every option moves with her; nothing here animates except look A's stopwatch
+ * hand (a quarter turn every few seconds, only while she is alive). Off season: nothing renders.
+ * She states facts — the tab names the season; nothing here speaks to the teacher.
  */
-const FRAME = 'translate(200 212) scale(0.9) translate(-200 -200)';
+export type RoseRevisionLook = 'A' | 'B' | 'C';
+/** The founder's pick. One line to switch: 'A' «المراقِبة» · 'B' «موسم التخرّج» · 'C' «الإطار يحكي». */
+export const ROSE_REVISION_LOOK: RoseRevisionLook = 'A';
+
 const GOLD = '#C9A227';
 const GOLD_LIGHT = '#F3E3A0';
 const NAVY = '#1A2147';
 const PAGE = '#FBF8EE';
-const RULE = '#B9B2A0';
+const CREAM = '#FFF1D6';
 const AMBER = REVISION_INK.amber;
 const AMBER_DEEP = REVISION_INK.amberDeep;
-const WATCH = { x: 306, y: 330, r: 19 };
+const RING = { cx: 200, cy: 211.8, r: 176.2 };
+const LAUREL_AMBER = require('../../../assets/images/rose/rose-laurel-amber.webp');
 
-export type CostumeDetail = 'light' | 'full';
+// ── A «المراقِبة» ────────────────────────────────────────────────────────────────────────
+// The stole's left band, from the shoulder (under the collar's tip) down her lapel to the
+// medallion's rim; the right band is its mirror. Its outer edge carries a light-gold trim.
+const STOLE_L: [number, number][] = [[139, 312], [146.5, 307.5], [159, 311], [181, 336], [195.5, 372], [195, 392], [183, 392]];
+const STOLE_R = STOLE_L.map(([x, y]) => [400 - x, y] as [number, number]);
+const pathOf = (p: [number, number][]) => `M${p.map(([x, y]) => `${x} ${y}`).join(' L')} Z`;
+const shade = (p: [number, number][], side: 1 | -1): [number, number][] => [p[2], p[3], p[4], p[5], [p[5][0] + 6 * side, p[5][1]], [p[4][0] + 6 * side, p[4][1]], [p[3][0] + 5 * side, p[3][1] + 2]];
+const BADGE = { x: 225.2, y: 325.6, w: 54.6, h: 22.8, rx: 3.8, rot: 'rotate(-2.6 252.5 337)' };
+const BROOCH = { x: 166, y: 330, r: 8.5 };
 
-/**
- * An amber marking pencil tucked into her hair behind her left ear (her portrait already
- * wears reading glasses on her nose — so no second pair): inner units, pass it inside the
- * head's layer so it tilts with her.
- */
-export const Pencil = memo(function Pencil() {
-  return (
-    <G transform="rotate(24 104 192)">
-      {/* the shaft, the ferrule, the eraser, the sharpened tip — out in the hair, above her ear */}
-      <Rect x={99} y={146} width={10} height={70} rx={2} fill={AMBER} />
-      <Rect x={99} y={146} width={3.5} height={70} fill={AMBER_DEEP} opacity={0.55} />
-      <Rect x={98.5} y={154} width={11} height={6} fill={GOLD} />
-      <Rect x={99.5} y={144} width={9} height={11} rx={3} fill="#E89AA0" />
-      <Path d="M99 216 L104 230 L109 216 Z" fill="#F2DDB8" />
-      <Path d="M102 224 L104 230 L106 224 Z" fill="#2B2B2B" />
+function Stole({ base, uid }: { base: number; uid: string }) {
+  const band = (p: [number, number][], side: 1 | -1) => (
+    <G>
+      <Path d={pathOf(p)} fill={AMBER} />
+      <Path d={pathOf(shade(p, side))} fill={AMBER_DEEP} opacity={0.45} />
+      <Line x1={p[0][0] - 2 * side} y1={p[0][1] + 1} x2={p[6][0] - 2 * side} y2={p[6][1]} stroke={GOLD_LIGHT} strokeWidth={1.6} opacity={0.9} />
     </G>
   );
-});
+  return (
+    <>
+      <Defs>
+        <ClipPath id={`rmed${uid}`}><Circle cx={RING.cx} cy={RING.cy} r={174} /></ClipPath>
+        <ClipPath id={`rbadge${uid}`}><Rect x={BADGE.x} y={BADGE.y} width={BADGE.w} height={BADGE.h} rx={BADGE.rx} transform={BADGE.rot} /></ClipPath>
+      </Defs>
+      <G clipPath={`url(#rmed${uid})`}>
+        {band(STOLE_L, -1)}
+        {band(STOLE_R, 1)}
+      </G>
+      {/* Her name badge, pinned on the stole: its shadow, then the badge itself from her own picture. */}
+      <Rect x={BADGE.x + 0.4} y={BADGE.y + 1} width={BADGE.w} height={BADGE.h} rx={BADGE.rx} fill="#000000" opacity={0.28} transform={BADGE.rot} />
+      <SvgImage href={base} x={0} y={0} width={400} height={400} preserveAspectRatio="xMidYMid meet" clipPath={`url(#rbadge${uid})`} />
+    </>
+  );
+}
 
-/** The lanyard and the stopwatch's still parts (body, crown, ticks) — outer units. */
-function Lanyard() {
+/** The stopwatch brooch's still parts — pinned on the left band, crown up. */
+function Brooch() {
+  const { x, y, r } = BROOCH;
   return (
     <G>
-      {/* the cord, from both shoulders down to the watch */}
-      <Path d="M174 266 C 198 306, 262 318, 304 310" stroke={AMBER} strokeWidth={4.5} strokeLinecap="round" fill="none" />
-      <Path d="M226 266 C 252 286, 288 296, 305 308" stroke={AMBER_DEEP} strokeWidth={4.5} strokeLinecap="round" fill="none" />
-      {/* the clasp */}
-      <Rect x={300} y={304} width={12} height={9} rx={2.5} fill={GOLD} />
-      {/* crown and side button */}
-      <Rect x={302} y={308} width={8} height={7} rx={2} fill={GOLD} />
-      <Rect x={318} y={314} width={7} height={5} rx={2} fill={GOLD} transform="rotate(35 321 316)" />
-      {/* the case and the face */}
-      <Circle cx={WATCH.x} cy={WATCH.y} r={WATCH.r} fill={NAVY} />
-      <Circle cx={WATCH.x} cy={WATCH.y} r={WATCH.r - 3.5} fill={PAGE} />
+      <Rect x={x - 2.2} y={y - r - 4.6} width={4.4} height={4.2} rx={1.2} fill={GOLD} />
+      <Rect x={x - 3.4} y={y - r - 6} width={6.8} height={2.4} rx={1.2} fill={GOLD} />
+      <Rect x={x + r - 2} y={y - r - 1} width={3.6} height={2.6} rx={1} fill={GOLD} transform={`rotate(45 ${x} ${y})`} />
+      <Circle cx={x} cy={y} r={r} fill={NAVY} />
+      <Circle cx={x} cy={y} r={r - 2} fill={PAGE} />
       {[0, 90, 180, 270].map((a) => (
-        <Line key={a} x1={WATCH.x} y1={WATCH.y - WATCH.r + 5} x2={WATCH.x} y2={WATCH.y - WATCH.r + 8.5} stroke={NAVY} strokeWidth={2} strokeLinecap="round" transform={`rotate(${a} ${WATCH.x} ${WATCH.y})`} />
+        <Line key={a} x1={x} y1={y - r + 3} x2={x} y2={y - r + 4.8} stroke={NAVY} strokeWidth={1.2} strokeLinecap="round" transform={`rotate(${a} ${x} ${y})`} />
       ))}
-      <Circle cx={WATCH.x} cy={WATCH.y} r={2} fill={AMBER} />
+      <Circle cx={x} cy={y} r={1.1} fill={AMBER_DEEP} />
     </G>
   );
 }
 
-/** The stopwatch's hand: a quarter turn every few seconds while she is alive. */
-function WatchHand({ k, alive }: { k: number; alive: boolean }) {
+/** The brooch's hand: a quarter turn every few seconds while she is alive (one UI-thread transform). */
+function BroochHand({ k, alive }: { k: number; alive: boolean }) {
   const angle = useSharedValue(0);
   useEffect(() => {
-    if (!alive) { cancelAnimation(angle); angle.value = 0; return; }
+    if (!alive) { cancelAnimation(angle); return; }
     let t: ReturnType<typeof setTimeout>;
     const tick = () => {
       angle.value = withTiming(angle.value + 90, { duration: 420, easing: Easing.out(Easing.back(1.6)) });
@@ -96,115 +115,155 @@ function WatchHand({ k, alive }: { k: number; alive: boolean }) {
     return () => clearTimeout(t);
   }, [alive, angle]);
   const st = useAnimatedStyle(() => ({ transform: [{ rotate: `${angle.value}deg` }] }));
-  const r = WATCH.r;
+  const r = BROOCH.r;
   return (
-    <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: (WATCH.x - r) * k, top: (WATCH.y - r) * k, width: 2 * r * k, height: 2 * r * k }, st]}>
+    <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: (BROOCH.x - r) * k, top: (BROOCH.y - r) * k, width: 2 * r * k, height: 2 * r * k }, st]}>
       <Svg width={2 * r * k} height={2 * r * k} viewBox={`0 0 ${2 * r} ${2 * r}`}>
-        <Line x1={r} y1={r} x2={r} y2={6} stroke={AMBER_DEEP} strokeWidth={2.2} strokeLinecap="round" />
+        <Line x1={r} y1={r} x2={r + 3.6} y2={r - 3} stroke={AMBER_DEEP} strokeWidth={1.4} strokeLinecap="round" />
       </Svg>
     </Animated.View>
   );
 }
 
-/** A stack of exam papers at the foot of her frame, amber-clipped — outer units. */
-function Papers() {
-  const sheet = (dx: number, dy: number, rot: number, fill: string) => (
-    <G transform={`rotate(${rot} 90 352) translate(${dx} ${dy})`}>
-      <Rect x={54} y={322} width={72} height={60} rx={3} fill={fill} stroke="#E5DDC8" strokeWidth={1.2} />
+// ── B «موسم التخرّج» ─────────────────────────────────────────────────────────────────────
+/** The mortarboard on her hair, the tassel falling at her left (our right). */
+export const Mortarboard = memo(function Mortarboard() {
+  return (
+    <G transform="translate(0 7) rotate(-6 207 92) translate(207 90) scale(0.88) translate(-207 -90)">
+      {/* the skull band, sunk into her hair */}
+      <Path d="M168 88 L168 99 Q207 112 246 99 L246 88 Z" fill={REVISION_INK.indigoDeeper} />
+      <Path d="M168 99 Q207 112 246 99" fill="none" stroke={REVISION_INK.indigo} strokeWidth={1.6} opacity={0.9} />
+      {/* the board: its thickness, then its top */}
+      <Path d="M136 84 L208 98 L280 82 L280 85.5 L208 101.5 L136 87.5 Z" fill={REVISION_INK.indigoDeeper} />
+      <Path d="M136 84 L204 69 L280 82 L208 98 Z" fill={NAVY} />
+      <Path d="M136 84 L204 69 L280 82" fill="none" stroke="#3A4590" strokeWidth={1.2} strokeLinejoin="round" />
+      {/* the tassel: button, cord to the corner, then down */}
+      <Circle cx={207} cy={83} r={3.4} fill={AMBER} />
+      <Path d="M207 83 Q246 80 277 83.5" fill="none" stroke={AMBER} strokeWidth={2.2} strokeLinecap="round" />
+      <Path d="M277 83.5 Q280 98 279 112" fill="none" stroke={AMBER} strokeWidth={2.2} strokeLinecap="round" />
+      <Rect x={275.2} y={110} width={7.6} height={5} rx={1.6} fill={GOLD} />
+      <Path d="M275 115 L283 115 L285.5 134 Q279 137 272.5 134 Z" fill={AMBER} />
+      <Path d="M277.5 117 L276.5 133 M279 117 L279 134.5 M280.5 117 L281.5 133" stroke={AMBER_DEEP} strokeWidth={0.9} opacity={0.8} />
     </G>
   );
+});
+
+// ── C «الإطار يحكي» ──────────────────────────────────────────────────────────────────────
+const GAP_DEG = 9.4; // the ring runs under the DS medallion for ±9.4° around the top
+const at = (deg: number, r = RING.r) => { const a = (deg * Math.PI) / 180; return { x: RING.cx + r * Math.sin(a), y: RING.cy - r * Math.cos(a) }; };
+const arc = (a0: number, a1: number, r = RING.r) => {
+  const p0 = at(a0, r); const p1 = at(a1, r);
+  return `M${p0.x.toFixed(2)} ${p0.y.toFixed(2)} A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`;
+};
+const TAB = { cx: 287, cy: 92, w: 124, h: 24, rot: 36 };
+
+/** The season's share left, for the ring (a cached query; the minute is not worth a timer here). */
+function useShareLeft(enabled: boolean): number | null {
+  const q = useRevisions(enabled);
+  return useMemo(() => (q.data ? seasonShareLeft(q.data, Date.now()) : null), [q.data]);
+}
+
+function FrameRing({ share }: { share: number | null }) {
+  const end = share == null ? null : GAP_DEG + share * (360 - 2 * GAP_DEG);
+  const head = end == null ? null : at(end);
   return (
     <G>
-      {sheet(4, 6, -14, '#F1EBD9')}
-      {sheet(2, 3, -10, '#F6F1E2')}
-      <G transform="rotate(-7 90 352)">
-        <Rect x={54} y={322} width={72} height={60} rx={3} fill={PAGE} stroke="#E5DDC8" strokeWidth={1.2} />
-        <G stroke={RULE} strokeWidth={1.5} strokeLinecap="round">
-          <Path d="M64 340 H112 M64 349 H106 M64 358 H112 M64 367 H98" />
-        </G>
-        {/* the title line and the mark box */}
-        <Path d="M70 331 H110" stroke={NAVY} strokeWidth={2.2} strokeLinecap="round" />
-        <Rect x={104} y={360} width={16} height={12} rx={2} fill="none" stroke={AMBER} strokeWidth={1.6} />
-        {/* the amber clip */}
-        <Rect x={58} y={316} width={14} height={20} rx={4} fill={AMBER} />
-        <Rect x={61} y={319} width={8} height={14} rx={3} fill="none" stroke="#FFFFFF" strokeOpacity={0.55} strokeWidth={1.4} />
-      </G>
+      <Path d={arc(GAP_DEG, 360 - GAP_DEG)} fill="none" stroke={AMBER} strokeWidth={6.2} />
+      <Path d={arc(GAP_DEG, 360 - GAP_DEG)} fill="none" stroke={AMBER_DEEP} strokeWidth={1} opacity={0.6} />
+      {end != null && end > GAP_DEG + 0.5 ? <Path d={arc(GAP_DEG, end)} fill="none" stroke={CREAM} strokeWidth={3} strokeLinecap="round" /> : null}
+      {head ? <Circle cx={head.x} cy={head.y} r={4.6} fill={CREAM} stroke={AMBER_DEEP} strokeWidth={1.4} /> : null}
     </G>
   );
 }
 
-/** The amber «موسم المراجعة» sash across the bottom rim of her medallion. */
-export function RoseSash({ size, text = 'موسم المراجعة' }: { size: number; text?: string }) {
+function FrameTab() {
+  return (
+    <G transform={`rotate(${TAB.rot} ${TAB.cx} ${TAB.cy})`}>
+      <Rect x={TAB.cx - TAB.w / 2} y={TAB.cy - TAB.h / 2} width={TAB.w} height={TAB.h} rx={TAB.h / 2} fill={AMBER} stroke={AMBER_DEEP} strokeWidth={1} />
+    </G>
+  );
+}
+
+function FrameTabText({ k }: { k: number }) {
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: (TAB.cx - TAB.w / 2) * k, top: (TAB.cy - TAB.h / 2) * k, width: TAB.w * k, height: TAB.h * k, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: `${TAB.rot}deg` }] }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 15.5 * k, lineHeight: 20 * k, color: '#FFFFFF', includeFontPadding: false }} numberOfLines={1}>موسم المراجعة</Text>
+    </View>
+  );
+}
+
+// ── the look, whichever it is ──────────────────────────────────────────────────────────────
+let uidSeq = 0;
+
+/**
+ * Every layer of the chosen look, over a portrait of `size` drawn from `base` (her badge is
+ * restored from it in look A). Live figure: `alive` runs the stopwatch hand. Detail drops with
+ * size — a 30-pt chip keeps the idea (the stole, the cap, the amber ring), not the small parts.
+ */
+export const RoseSeasonLook = memo(function RoseSeasonLook({ size, base, alive = false, look = ROSE_REVISION_LOOK }: { size: number; base: number; alive?: boolean; look?: RoseRevisionLook }) {
   const k = size / 400;
+  const uid = useMemo(() => String(++uidSeq), []);
+  const share = useShareLeft(look === 'C');
+  const small = size < 60;
   const withText = size >= 96;
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    // LTR on purpose: the overlays below are placed in the picture's own x (left = the
+    // picture's left); under the app's forced RTL a bare `left` would mirror them.
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { direction: 'ltr' }]}>
+      {look === 'B' ? <Image source={LAUREL_AMBER} style={StyleSheet.absoluteFill} contentFit="contain" /> : null}
       <Svg width={size} height={size} viewBox="0 0 400 400" style={StyleSheet.absoluteFill}>
-        {/* folded tails, then the band over them */}
-        <Path d="M96 372 L82 396 L120 396 L112 372 Z" fill={AMBER_DEEP} />
-        <Path d="M304 372 L318 396 L280 396 L288 372 Z" fill={AMBER_DEEP} />
-        <Rect x={104} y={366} width={192} height={30} rx={5} fill={AMBER} />
-        <Rect x={104} y={366} width={192} height={5} rx={2.5} fill={GOLD_LIGHT} opacity={0.55} />
-        <Rect x={104} y={391} width={192} height={5} rx={2.5} fill={AMBER_DEEP} opacity={0.6} />
+        {look === 'A' ? <><Stole base={base} uid={uid} />{small ? null : <Brooch />}</> : null}
+        {look === 'B' ? <Mortarboard /> : null}
+        {look === 'C' ? <><FrameRing share={share} />{withText ? <FrameTab /> : null}</> : null}
       </Svg>
-      {withText ? (
-        <View style={{ position: 'absolute', left: 104 * k, top: 366 * k, width: 192 * k, height: 30 * k, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: Math.max(8, 16 * k), lineHeight: Math.max(10, 20 * k), color: '#FFFFFF', includeFontPadding: false }} numberOfLines={1}>{text}</Text>
-        </View>
-      ) : null}
+      {look === 'A' && !small ? <BroochHand k={k} alive={alive} /> : null}
+      {look === 'C' && withText ? <FrameTabText k={k} /> : null}
     </View>
   );
-}
+});
 
 /**
- * Everything on her body (not the head): the lanyard, the watch, the papers — drawn OVER the
- * portrait and UNDER whatever she holds (RoseProps), so a ledger in her hands sits in front
- * of the watch as it would.
+ * The look over a STILL portrait (the home shortcut, a hub row, a dialog head, her sleeping
+ * picture): null while the season is off. The live figure mounts RoseSeasonLook itself, inside
+ * the view that moves.
  */
-export function RoseCostumeBody({ size, alive, detail }: { size: number; alive: boolean; detail: CostumeDetail }) {
-  const k = size / 400;
-  if (detail !== 'full') return null;
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width={size} height={size} viewBox="0 0 400 400" style={StyleSheet.absoluteFill}>
-        <Papers />
-        <Lanyard />
-      </Svg>
-      <WatchHand k={k} alive={alive} />
-    </View>
-  );
-}
-
-/** The pencil alone, as a still layer over a still portrait (RosePortrait, RoseSleeping). */
-export function RoseHeadLayer({ size, tilt = 0 }: { size: number; tilt?: number }) {
-  return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, tilt ? { transform: [{ rotate: `${tilt}deg` }], transformOrigin: [size / 2, size * 0.98, 0] } : null]}>
-      <Svg width={size} height={size} viewBox="0 0 400 400"><G transform={FRAME}><Pencil /></G></Svg>
-    </View>
-  );
-}
-
-/**
- * The whole costume for a STILL portrait (the home shortcut, a hub row, her sleeping picture):
- * null while the season is off. The live figure composes the pieces itself (RoseLive), so the
- * pencil can ride on her head layer.
- */
-export function RoseCostume({ size, detail = size >= 100 ? 'full' : 'light', tilt = 0, sash = true }: { size: number; detail?: CostumeDetail; tilt?: number; sash?: boolean }) {
+export function RoseCostume({ size, base }: { size: number; base: number }) {
   const on = useRevisionActive();
   if (!on || size < 24) return null;
-  return (
-    <Surface id="teacher.rose.costume">
-      <RoseCostumeBody size={size} alive={false} detail={detail} />
-      <RoseHeadLayer size={size} tilt={tilt} />
-      {sash ? <RoseSash size={size} /> : null}
-    </Surface>
-  );
+  return <Surface id="teacher.rose.costume"><RoseSeasonLook size={size} base={base} /></Surface>;
 }
 
-/** The amber ribbon tails under her stamp while the season is on. */
-export function StampRibbon({ size }: { size: number }) {
+/**
+ * Her stamp's season mark, following the look: A the stole's two amber ends under it, B a
+ * small mortarboard on its crest, C a little amber dial with the same countdown arc.
+ */
+export function StampRibbon({ size, look = ROSE_REVISION_LOOK }: { size: number; look?: RoseRevisionLook }) {
   const on = useRevisionActive();
+  const share = useShareLeft(on && look === 'C');
   if (!on) return null;
+  if (look === 'B') {
+    return (
+      <View pointerEvents="none" style={{ position: 'absolute', left: size * 0.26, top: -size * 0.12, width: size * 0.48, height: size * 0.3, transform: [{ rotate: '-8deg' }] }}>
+        <Svg width="100%" height="100%" viewBox="130 64 160 76"><Mortarboard /></Svg>
+      </View>
+    );
+  }
+  if (look === 'C') {
+    const d = size * 0.36;
+    const end = share == null ? null : share * 360;
+    const c = (deg: number) => { const a = (deg * Math.PI) / 180; return { x: 20 + 15 * Math.sin(a), y: 20 - 15 * Math.cos(a) }; };
+    const p1 = end == null ? null : c(Math.min(end, 359.5));
+    return (
+      <View pointerEvents="none" style={{ position: 'absolute', right: -size * 0.06, bottom: -size * 0.06, width: d, height: d }}>
+        <Svg width="100%" height="100%" viewBox="0 0 40 40">
+          <Circle cx={20} cy={20} r={18} fill={NAVY} />
+          <Circle cx={20} cy={20} r={15} fill="none" stroke={AMBER} strokeWidth={4.5} />
+          {p1 && end! > 1 ? <Path d={`M20 5 A15 15 0 ${end! > 180 ? 1 : 0} 1 ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`} fill="none" stroke={CREAM} strokeWidth={2.6} strokeLinecap="round" /> : null}
+          <Circle cx={20} cy={20} r={2.4} fill={AMBER} />
+        </Svg>
+      </View>
+    );
+  }
   return (
     <View pointerEvents="none" style={{ position: 'absolute', right: -size * 0.06, bottom: -size * 0.1, width: size * 0.42, height: size * 0.34 }}>
       <Svg width="100%" height="100%" viewBox="0 0 42 34">

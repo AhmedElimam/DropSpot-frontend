@@ -1,4 +1,4 @@
-import { countdown, nextExam, revisionFacts, revisionToCard, revisionsOnDay, sortForSeason } from '../revisionDesk';
+import { arabicCountForm, countdown, countdownBlock, nextExam, revisionFacts, revisionToCard, revisionsOnDay, seasonShareLeft, sortForSeason, splitRevisionTitle } from '../revisionDesk';
 import type { RevisionSummary } from '@/api/revisions';
 
 const H = 60 * 60_000;
@@ -81,5 +81,58 @@ describe('revisionToCard', () => {
     const card = revisionToCard(rev(7, now + 2 * H, true));
     expect(card).toMatchObject({ id: 'revision-7', kind: 'exam', revision_id: 7, instance_id: 70, course_name: 'R7', status: 'scheduled', max_mark: 50 });
     expect(card.time).toBeTruthy();
+  });
+});
+
+describe('countdown block (manage card hero)', () => {
+  it('days: the number and its Arabic unit form', () => {
+    expect(countdownBlock(countdown(now + 3 * 24 * H, now))).toEqual({ n: 3, unitKey: 'revision.unit_days_few' });
+    expect(countdownBlock(countdown(now + 1 * 24 * H + H, now))).toEqual({ n: 1, unitKey: 'revision.unit_days_one' });
+    expect(countdownBlock(countdown(now + 2 * 24 * H, now))).toEqual({ n: 2, unitKey: 'revision.unit_days_two' });
+    expect(countdownBlock(countdown(now + 14 * 24 * H, now))).toEqual({ n: 14, unitKey: 'revision.unit_days_many' });
+  });
+  it('hours and minutes under a day', () => {
+    expect(countdownBlock(countdown(now + 5 * H + 20 * 60_000, now))).toEqual({ n: 5, unitKey: 'revision.unit_hours_few' });
+    expect(countdownBlock(countdown(now + 11 * 60_000, now))).toEqual({ n: 11, unitKey: 'revision.unit_minutes_many' });
+  });
+  it('now: no number, the word alone', () => {
+    expect(countdownBlock(countdown(now - 10 * 60_000, now))).toEqual({ n: null, unitKey: 'revision.now' });
+  });
+  it('arabicCountForm', () => {
+    expect([1, 2, 3, 10, 11, 0, 100].map(arabicCountForm)).toEqual(['one', 'two', 'few', 'few', 'many', 'many', 'many']);
+  });
+  it('every unit key exists in ar.json', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const ar = require('@/i18n/ar.json');
+    for (const u of ['days', 'hours', 'minutes']) for (const f of ['one', 'two', 'few', 'many']) expect(typeof ar.revision[`unit_${u}_${f}`]).toBe('string');
+  });
+});
+
+describe('splitRevisionTitle', () => {
+  it('splits the name from the subject at the last dash', () => {
+    expect(splitRevisionTitle('امتحان شامل — الفيزياء')).toEqual({ name: 'امتحان شامل', subject: 'الفيزياء' });
+    expect(splitRevisionTitle('مراجعة - الباب الأول — الكيمياء')).toEqual({ name: 'مراجعة - الباب الأول', subject: 'الكيمياء' });
+  });
+  it('no dash: the whole title, no subject', () => {
+    expect(splitRevisionTitle('مراجعة ليلة الامتحان')).toEqual({ name: 'مراجعة ليلة الامتحان', subject: null });
+    expect(splitRevisionTitle('  ')).toEqual({ name: '', subject: null });
+  });
+});
+
+describe('seasonShareLeft (Rose look C ring)', () => {
+  it('null with nothing ahead', () => {
+    expect(seasonShareLeft([], now)).toBeNull();
+    expect(seasonShareLeft([rev(1, now - 3 * D, true)], now)).toBeNull();
+  });
+  it('a lone exam: its distance over a one-week floor', () => {
+    expect(seasonShareLeft([rev(1, now + 3.5 * D, true)], now)).toBeCloseTo(0.5, 5);
+    expect(seasonShareLeft([rev(1, now + 30 * D, true)], now)).toBe(1);
+  });
+  it('the span starts at the earliest slot already behind', () => {
+    // started 10 days ago, exam in 10 days → half left
+    expect(seasonShareLeft([rev(1, now - 10 * D), rev(2, now + 10 * D, true)], now)).toBeCloseTo(0.5, 5);
+  });
+  it('an exam being sat (inside the grace) is 0, never negative', () => {
+    expect(seasonShareLeft([rev(1, now - H, true)], now)).toBe(0);
   });
 });

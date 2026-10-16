@@ -83,12 +83,13 @@ export function RosePortrait({ size = 64, nod = true, large = false, style }: { 
     if (nod) s.value = withSpring(1, NOD);
   }, [nod, s]);
   const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }, { rotate: `${(1 - s.value) * -36}deg` }] }));
+  const source = large || size > 100 ? ROSE_PORTRAIT_LARGE : ROSE_PORTRAIT;
   return (
     <Surface id="teacher.rose.portrait">
     <Animated.View style={[{ width: size, height: size }, st, style]}>
-      <Image source={large || size > 100 ? ROSE_PORTRAIT_LARGE : ROSE_PORTRAIT} style={StyleSheet.absoluteFill} contentFit="contain" accessibilityLabel={rose.name} />
-      {/* Her season costume over the still portrait (null while «وضع المراجعة» is off). */}
-      <RoseCostume size={size} />
+      <Image source={source} style={StyleSheet.absoluteFill} contentFit="contain" accessibilityLabel={rose.name} />
+      {/* Her season look over the still portrait (null while «وضع المراجعة» is off). */}
+      <RoseCostume size={size} base={source} />
     </Animated.View>
     </Surface>
   );

@@ -1,5 +1,5 @@
 import { isValidElement, type ReactNode } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
@@ -19,7 +19,7 @@ import { TourTarget } from '@/tour/TourTarget';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
-import { useRevisionToggle } from '@/components/teacher/RevisionSwitch';
+import { RevisionSettingsSwitch } from '@/components/teacher/RevisionSwitch';
 import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { REVISION_INK } from '@/theme/revision';
 import { RevisionRibbon } from '@/components/RevisionRibbon';
@@ -46,7 +46,6 @@ export default function TeacherSettings() {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const isAssistant = user?.user_type_id === 6;
-  const revise = useRevisionToggle();
   const season = useRevisionActive();
   const { data: students } = useTeacherStudents();
   const { data: courses } = useTeacherCourses();
@@ -155,14 +154,9 @@ export default function TeacherSettings() {
                 label={t('teacher.revise_switch_title')}
                 sub={season ? t('revision.settings_hint') : t('teacher.revise_switch_sub')}
                 trailing={
-                  // The same short confirmation as the Home pill, then the curtain (useRevisionToggle).
-                  <Switch
-                    value={revise.on}
-                    onValueChange={(v) => revise.toggle(v)}
-                    disabled={revise.pending || !revise.known}
-                    trackColor={{ true: REVISION_INK.amber, false: colors.border }}
-                    thumbColor={colors.white}
-                  />
+                  // The same short confirmation as the Home pill, then the curtain. Its own
+                  // component: the toggle follows the route, and this whole page must not.
+                  <RevisionSettingsSwitch />
                 }
               />
               </Surface>

@@ -3509,6 +3509,21 @@
     "in_minutes_one": "بعد دقيقة",
     "in_minutes_two": "بعد دقيقتين",
     "in_minutes_few": "بعد {{n}} دقائق",
-    "in_minutes_many": "بعد {{n}} دقيقة"
+    "in_minutes_many": "بعد {{n}} دقيقة",
+    "unit_days_one": "يوم",
+    "unit_days_two": "يومان",
+    "unit_days_few": "أيام",
+    "unit_days_many": "يومًا",
+    "unit_hours_one": "ساعة",
+    "unit_hours_two": "ساعتان",
+    "unit_hours_few": "ساعات",
+    "unit_hours_many": "ساعة",
+    "unit_minutes_one": "دقيقة",
+    "unit_minutes_two": "دقيقتان",
+    "unit_minutes_few": "دقائق",
+    "unit_minutes_many": "دقيقة",
+    "left": "باقٍ",
+    "feature_none_title": "لا امتحانات قادمة",
+    "feature_none_sub": "أنشئ امتحانًا من حصص المراجعة"
   }
 }

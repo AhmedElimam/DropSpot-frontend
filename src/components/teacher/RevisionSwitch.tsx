@@ -1,4 +1,4 @@
-import { Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Switch, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { usePathname, type Href } from 'expo-router';
 import { Alert } from '@/ui/dialog';
@@ -65,5 +65,23 @@ export function RevisionModePill({ style }: { style?: StyleProp<ViewStyle> }) {
         <Text style={{ fontFamily: fonts.regular, fontSize: 10.5, lineHeight: 13, color: lit ? 'rgba(255,255,255,0.85)' : colors.onHeroSoft }}>{t(lit ? 'revision.pill_hint_on' : 'revision.pill_hint_off')}</Text>
       </View>
     </TouchableOpacity>
+  );
+}
+
+/**
+ * The Settings row's switch. Its own component on purpose: `useRevisionToggle` follows the
+ * route (usePathname), and called from the Settings screen it re-rendered the whole page on
+ * every tab switch (measured 2026-10-16).
+ */
+export function RevisionSettingsSwitch() {
+  const revise = useRevisionToggle();
+  return (
+    <Switch
+      value={revise.on}
+      onValueChange={(v) => revise.toggle(v)}
+      disabled={revise.pending || !revise.known}
+      trackColor={{ true: REVISION_INK.amber, false: colors.border }}
+      thumbColor={colors.white}
+    />
   );
 }

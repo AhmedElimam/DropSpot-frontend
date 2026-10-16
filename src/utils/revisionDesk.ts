@@ -127,3 +127,52 @@ export function sortForSeason<T extends Pick<SessionCardData, 'type' | 'is_exam'
   const rank = (s: T) => { const k = sessionKind(s); return k === 'exam' ? 0 : k === 'revision' ? 1 : 2; };
   return list.map((s, i) => ({ s, i, r: rank(s) })).sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.s);
 }
+
+/** Arabic count form for a number: ١ one, ٢ two, ٣–١٠ few, else many (يوم / يومان / أيام / يومًا). */
+export type ArabicCountForm = 'one' | 'two' | 'few' | 'many';
+export function arabicCountForm(n: number): ArabicCountForm {
+  return n === 1 ? 'one' : n === 2 ? 'two' : n >= 3 && n <= 10 ? 'few' : 'many';
+}
+
+/**
+ * The countdown as the manage card's hero block: one big number and its unit under it
+ * («٣» / «أيام»). `n` is null when the slot is now (the block says «الآن» alone).
+ * `unitKey` is an i18n key (revision.unit_<days|hours|minutes>_<form>).
+ */
+export interface CountdownBlock { n: number | null; unitKey: string }
+export function countdownBlock(cd: Countdown): CountdownBlock {
+  if (cd.key === 'revision.now') return { n: null, unitKey: 'revision.now' };
+  const unit = cd.key === 'revision.in_days' ? 'days' : cd.key === 'revision.in_hours' ? 'hours' : 'minutes';
+  return { n: cd.n, unitKey: `revision.unit_${unit}_${arabicCountForm(cd.n)}` };
+}
+
+/**
+ * A revision's title as two lines: the exam's own name and its subject. The engine titles
+ * them «امتحان شامل — الفيزياء»; the subject is what follows the LAST dash. No dash = no subject.
+ */
+export function splitRevisionTitle(title: string): { name: string; subject: string | null } {
+  const t = (title ?? '').trim();
+  const m = t.match(/^(.*\S)\s+[—–-]\s+(\S.*)$/);
+  if (!m) return { name: t, subject: null };
+  return { name: m[1].trim(), subject: m[2].trim() };
+}
+
+/**
+ * The share of the season still left before the next exam (0…1), for مدام روز's countdown
+ * ring (look C). The span runs from the earliest revision slot already behind us (the
+ * season's start as far as the engine knows) to the next exam, never shorter than a week —
+ * so a lone exam three days off reads «under half left», not «all of it». Null when nothing
+ * is ahead.
+ */
+export const SEASON_MIN_SPAN_MS = 7 * 24 * 60 * 60_000;
+export function seasonShareLeft(revisions: readonly RevisionSummary[], now: number): number | null {
+  const next = nextExam(revisions, now);
+  if (!next) return null;
+  let start = now;
+  for (const rev of revisions) {
+    const at = ms(rev.scheduled_at);
+    if (at !== null && at < start) start = at;
+  }
+  const span = Math.max(SEASON_MIN_SPAN_MS, next.at - start);
+  return Math.min(1, Math.max(0, (next.at - now) / span));
+}
