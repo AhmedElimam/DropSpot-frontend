@@ -9,6 +9,7 @@ import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import { REVISION_INK } from '@/theme/revision';
 import { RevisionChip } from '@/components/RevisionRibbon';
+import { useRevisionActive } from '@/hooks/useRevisionTheme';
 
 import { sessionPhase, type SessionPhase } from '@/utils/sessionPhase';
 
@@ -59,7 +60,9 @@ export const SessionCard = memo(function SessionCard({
 }: { s: SessionCardData; now: number; onOpen: (s: SessionCardData) => void; onScan?: (s: SessionCardData) => void; compact?: boolean }) {
   const { t } = useTranslation();
   const phase = sessionPhase(s, now);
-  const kind = seasonKind(s);
+  // Only while the season is on: off, a card is exactly production's whatever the payload carries.
+  const season = useRevisionActive();
+  const kind = season ? seasonKind(s) : null;
   // A live session stays green; otherwise the stripe says what kind of session this is.
   const p = { ...PHASE()[phase], ...(kind && phase !== 'live' && phase !== 'cancelled' ? { stripe: kind === 'exam' ? REVISION_INK.amber : colors.primary } : {}) };
   const present = s.checked_in_count ?? 0;
