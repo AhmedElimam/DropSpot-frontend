@@ -24,6 +24,9 @@ import { PrintTabCreditCard } from '@/components/print/PrintTabCreditCard';
 import { useAuthStore } from '@/stores/authStore';
 import { BetaLine } from '@/components/ui/Beta';
 import { getPrintJobs, getPrintShops, getPrintCredit, reorderPrintJob, type PrintJob } from '@/api/print';
+import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
+
+const FEATURE_KEYS = ['print_market'] as const;
 
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: v % 1 ? 2 : 0 });
 
@@ -61,6 +64,8 @@ function SectionHead({ title, count, link, onLink }: { title: string; count?: nu
  * shops by their work, and the past jobs one tap from printing again.
  */
 export default function PrintTab() {
+  // The market reached this teacher but its agreement is still due: bring it back here.
+  useFeatureTermsOnFocus(FEATURE_KEYS);
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
