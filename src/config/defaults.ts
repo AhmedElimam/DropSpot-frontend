@@ -81,6 +81,20 @@ export interface UiManifest {
 /** One assistant ability as the server names it (`abilities` in /app-config). */
 export interface AbilityDef { key: string; label: string; takeaway?: boolean; default?: boolean }
 
+/** One feature's add-on agreement for this person's role (see `feature_terms`). */
+export interface FeatureTermsDoc {
+  key: string;
+  version: string;
+  title: string;
+  role: 'student' | 'parent' | 'teacher' | 'assistant';
+  heading: string;
+  intro: string;
+  body: string[];
+  checkbox: string;
+  /** They accepted an EARLIER version: the text changed (said as an update). */
+  update?: boolean;
+}
+
 export interface AppConfigPayload {
   schema_version: number;
   ui?: UiManifest;
@@ -115,6 +129,12 @@ export interface AppConfigPayload {
   feature_beta?: string[];
   /** Short hash of (modes + targets + this user's scope); differs → the per-user flags changed. */
   feature_flags_version?: string;
+  /**
+   * Feature agreements due for this person (backend App\Support\FeatureTerms, 2026-10-17): a
+   * feature that just reached them — their teacher targeted in beta, or the full release —
+   * brings its add-on agreement. Empty when nothing new is on for them; never sent by older servers.
+   */
+  feature_terms?: FeatureTermsDoc[];
   rules: AppConfigRules;
   copy: Record<string, string>;
   pricing: { tiers: unknown[] };
@@ -140,6 +160,7 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
   migration: null,
   feature_flags: {},
   feature_beta: [],
+  feature_terms: [],
   rules: {
     geofence_max_accuracy_m: 50,
     checkin_window_before_min: 10,

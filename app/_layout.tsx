@@ -49,6 +49,7 @@ import { AppConfigGate } from '@/components/AppConfigGate';
 import { installErrorReporting } from '@/lib/errorReport';
 import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
+import { FeatureTermsPrompt } from '@/components/FeatureTermsPrompt';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
 import { colors } from '@/theme/index';
 import { shouldRefetchOnFocus } from '@/api/queryFocus';
@@ -280,6 +281,8 @@ export default function RootLayout() {
             <TeacherOnboardingModal />
             {/* «ما الجديد» — once per installed version, after the two above. */}
             <WhatsNewModal />
+            {/* A feature that just reached this person brings its add-on agreement (feature targeting). */}
+            <FeatureTermsPrompt />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}
             <SpotlightOverlay />
             {/* «بدون إنترنت» — a few seconds when the connection drops, then out of the way. */}
