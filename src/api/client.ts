@@ -313,8 +313,32 @@ client.interceptors.response.use(
         return Promise.reject(error);
       }
     }
+    // A feature's add-on agreement is due (backend feature.terms:{key}): open it wherever the
+    // person is — an old build, a deep link or a stale push reached the feature first. The
+    // caller still gets its error (and the screen behind says why on its own).
+    if (status === 423 && error.response?.data?.code === 'FEATURE_TERMS_REQUIRED' && typeof error.response.data.feature === 'string') {
+      featureTermsRequired(error.response.data.feature);
+    }
     return Promise.reject(error);
   }
 );
+
+/**
+ * Open the agreement for `key`, refreshing /app-config first when this build has not got the
+ * document yet. Lazy requires: the store and the sync both import this client.
+ */
+function featureTermsRequired(key: string): void {
+  try {
+    const { useAppConfigStore } = require('@/stores/appConfigStore');
+    const { useFeatureTermsStore } = require('@/stores/featureTermsStore');
+    const known = (useAppConfigStore.getState().config.feature_terms ?? []).some((d: { key: string }) => d.key === key);
+    // Put off with «لاحقًا»: a background poll (an unread badge) must not keep raising it — only
+    // touching the feature does (useFeatureTerms().guard). Otherwise it opens here.
+    if (!useFeatureTermsStore.getState().later.includes(key)) useFeatureTermsStore.getState().open(key);
+    if (!known) void require('@/stores/appConfigSync').syncAppConfig();
+  } catch {
+    // Never let the agreement plumbing turn a refusal into a crash.
+  }
+}
 
 export default client;

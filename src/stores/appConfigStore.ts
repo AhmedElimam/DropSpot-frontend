@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { CONFIG_DEFAULTS, type AppConfigPayload, type AppConfigRules } from '@/config/defaults';
+import { CONFIG_DEFAULTS, type AppConfigPayload, type AppConfigRules, type FeatureTermsDoc } from '@/config/defaults';
 
 const CACHE_KEY = 'app_config.last_good';
 
@@ -21,20 +21,31 @@ interface State {
   setConfig: (server: Partial<AppConfigPayload>) => void;
   /**
    * Drop everything that belongs to the PERSON who just signed out: the per-user flag map,
-   * the beta keys and their version — in memory now and in the last-good cache, so the next
+   * the beta keys and their version, the feature agreements due — in memory now and in the last-good cache, so the next
    * person on this phone starts from the bundled defaults (no inherited beta UI, not even
    * across a relaunch before the first fetch). Everything else (rules, copy, contact…) is
    * platform-wide and stays.
    */
   resetUserFlags: () => void;
+  /** A feature agreement was just accepted: drop it from the due list (until the next sync says otherwise). */
+  dropFeatureTerms: (key: string) => void;
 }
 
 /** The per-user part of the payload, at its bundled value. */
-const USER_FLAG_DEFAULTS: Pick<AppConfigPayload, 'feature_flags' | 'feature_beta' | 'feature_flags_version'> = {
+const USER_FLAG_DEFAULTS: Pick<AppConfigPayload, 'feature_flags' | 'feature_beta' | 'feature_flags_version' | 'feature_terms'> = {
   feature_flags: {},
   feature_beta: [],
   feature_flags_version: undefined,
+  feature_terms: [],
 };
+
+/** Keep only well-formed agreement documents (an odd payload never reaches the screen). */
+function cleanFeatureTerms(v: unknown): FeatureTermsDoc[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((d): d is FeatureTermsDoc => !!d && typeof d === 'object'
+    && typeof (d as FeatureTermsDoc).key === 'string' && typeof (d as FeatureTermsDoc).title === 'string'
+    && Array.isArray((d as FeatureTermsDoc).body) && typeof (d as FeatureTermsDoc).checkbox === 'string');
+}
 
 /** Overlay a (partial) server payload on the bundled defaults — never drop a default. */
 export function mergeConfig(server: Partial<AppConfigPayload>): AppConfigPayload {
@@ -48,6 +59,7 @@ export function mergeConfig(server: Partial<AppConfigPayload>): AppConfigPayload
     // exactly as before (no chip anywhere, every flag read unchanged).
     feature_beta: Array.isArray(server.feature_beta) ? server.feature_beta.filter((k): k is string => typeof k === 'string') : [],
     feature_flags_version: typeof server.feature_flags_version === 'string' ? server.feature_flags_version : undefined,
+    feature_terms: cleanFeatureTerms(server.feature_terms),
     rules: { ...CONFIG_DEFAULTS.rules, ...(server.rules ?? {}) },
     copy: { ...(server.copy ?? {}) },
     pricing: { ...CONFIG_DEFAULTS.pricing, ...(server.pricing ?? {}) },
@@ -89,6 +101,12 @@ export const useAppConfigStore = create<State>((set, get) => ({
   setConfig: (server) => {
     set({ config: mergeConfig(server) });
     storage()?.setItem(CACHE_KEY, JSON.stringify(server)).catch(() => {});
+  },
+  dropFeatureTerms: (key) => {
+    const config = get().config;
+    const next = { ...config, feature_terms: (config.feature_terms ?? []).filter((d) => d.key !== key) };
+    set({ config: next });
+    storage()?.setItem(CACHE_KEY, JSON.stringify(next)).catch(() => {});
   },
   resetUserFlags: () => {
     const stripped = { ...get().config, ...USER_FLAG_DEFAULTS };
