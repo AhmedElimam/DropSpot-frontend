@@ -36,7 +36,7 @@ const CHIP_BORDER = 'rgba(255,255,255,0.22)';
 const PORTRAIT = 148;
 
 export function RoseHero({
-  greeting, sub, sheet, activity = 'cash', live = true, hold, onBack, onSettings, onExportAll, exportingAll = false, onExportSheet, exportingSheet = false, children,
+  greeting, sub, sheet, activity = 'cash', live = true, hold, onBack, onSettings, onExportAll, exportingAll = false, onExportSheet, exportingSheet = false, children, lines,
 }: {
   greeting: string;
   sub: string;
@@ -58,6 +58,8 @@ export function RoseHero({
   exportingSheet?: boolean;
   /** Cards under the bubble (viewing a past period, a load error). */
   children?: ReactNode;
+  /** Facts on her desk under the greeting — «وضع المراجعة»: sessions this week, exams ahead… */
+  lines?: string[];
 }) {
   const { t } = useTranslation();
   const rose = useRose();
@@ -108,6 +110,17 @@ export function RoseHero({
               keeps its full width while it types and the centred text never shifts. */}
           <TypedGreeting text={greeting} start={live} onTalking={setTalking} />
           {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2, textAlign: 'center' }}>{sub}</Text> : null}
+          {lines && lines.length > 0 ? (
+            <Surface id="teacher.rose.hero.season_lines">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: spacing.sm }}>
+              {lines.map((line) => (
+                <View key={line} style={{ backgroundColor: colors.brandTint, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{line}</Text>
+                </View>
+              ))}
+            </View>
+            </Surface>
+          ) : null}
           {sheet && sheet.lines.length > 0 ? <Surface id="teacher.rose.hero.today_sheet"><SheetList sheet={sheet} open={open} onToggle={() => setOpen((o) => !o)} onExport={onExportSheet} exporting={exportingSheet} /></Surface> : null}
         </View>
       </View>
