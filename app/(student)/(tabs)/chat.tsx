@@ -19,6 +19,9 @@ import { Segments } from '@/components/threads/Segments';
 import { arDigits, filterCounts } from '@/components/threads/format';
 import { TogetherComingSoon } from '@/components/student/TogetherComingSoon';
 import { Surface } from '@/ui/surfaces';
+import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
+
+const FEATURE_KEYS = ['course_chat', 'threads'] as const;
 
 type Segment = 'threads' | 'chat';
 
@@ -33,6 +36,8 @@ type Segment = 'threads' | 'chat';
  * that one surface. Chat leads when both are on (founder 2026-10-15: «make the chat first»).
  */
 export default function StudentChatTab() {
+  // Chat / حكاوي reached this person but an agreement is still due: bring it back here.
+  useFeatureTermsOnFocus(FEATURE_KEYS);
   // «مجموعاتي» (main, 2026-10-06): the coming-soon screen while both flags are off.
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();

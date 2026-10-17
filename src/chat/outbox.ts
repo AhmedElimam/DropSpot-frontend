@@ -222,12 +222,20 @@ export function startChatOutbox(): void {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const NetInfo = (require('@react-native-community/netinfo') as typeof import('@react-native-community/netinfo')).default;
+    // Its OWN memory of the last state: reading (and writing) the shared flag first made the
+    // teacher layout's listener — called after this one — see «already online» and skip the
+    // offline-scan upload on reconnect (audit 2026-10-17). The flag itself is still kept true to
+    // life here for the student and parent apps, which have no other listener.
+    let was = useOfflineStore.getState().online;
     NetInfo.addEventListener((state) => {
       const online = !!state.isConnected && state.isInternetReachable !== false;
-      const was = useOfflineStore.getState().online;
-      // The student app has no other NetInfo listener: keep the shared flag true to life here too.
-      useOfflineStore.getState().setOnline(online, state.type === 'wifi' ? 'wifi' : state.type === 'cellular' ? 'cellular' : 'other');
-      if (online && !was) void flushChatOutbox();
+      const came = online && !was;
+      was = online;
+      const role = require('@/stores/authStore').useAuthStore.getState().role as string | null;
+      if (role !== 'teacher' && role !== 'assistant') {
+        useOfflineStore.getState().setOnline(online, state.type === 'wifi' ? 'wifi' : state.type === 'cellular' ? 'cellular' : 'other');
+      }
+      if (came) void flushChatOutbox();
     });
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { AppState } = require('react-native') as typeof import('react-native');
