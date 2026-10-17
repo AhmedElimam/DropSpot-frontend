@@ -19,6 +19,9 @@ import { PageHero, type HeroAction } from '@/components/ui/PageHero';
 import type { InboxFilter } from '@/chat/inbox';
 import { colors, spacing, nav } from '@/theme/index';
 import { Surface } from '@/ui/surfaces';
+import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
+
+const FEATURE_KEYS = ['course_chat', 'threads'] as const;
 
 type Segment = 'chat' | 'threads';
 
@@ -34,6 +37,8 @@ type Segment = 'chat' | 'threads';
  * shield opens «حكاوي لأولادي», each child's participation.
  */
 export default function ParentCommunity() {
+  // Chat / حكاوي reached this person but an agreement is still due: bring it back here.
+  useFeatureTermsOnFocus(FEATURE_KEYS);
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
   return (

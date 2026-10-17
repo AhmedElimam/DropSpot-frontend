@@ -19,6 +19,9 @@ import { Segments } from '@/components/threads/Segments';
 import { arDigits, filterCounts } from '@/components/threads/format';
 import { PageHero, type HeroAction } from '@/components/ui/PageHero';
 import { Surface } from '@/ui/surfaces';
+import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
+
+const FEATURE_KEYS = ['course_chat', 'threads'] as const;
 
 /**
  * The teacher's conversations with their STUDENTS — two segments:
@@ -36,6 +39,8 @@ import { Surface } from '@/ui/surfaces';
  * A pushed screen over the tabs, so it carries its own back.
  */
 export default function TeacherConversations() {
+  // Chat / حكاوي reached this person but an agreement is still due: bring it back here.
+  useFeatureTermsOnFocus(FEATURE_KEYS);
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
   // Chat alone (threads hidden, founder 2026-10-12): the shared conversations screen.
