@@ -1,3 +1,4 @@
+import { useFeatureTermsStore } from '@/stores/featureTermsStore';
 import * as SecureStore from 'expo-secure-store';
 import i18n from '@/i18n';
 import { getAppConfig } from '@/api/appConfig';
@@ -170,9 +171,12 @@ export function watchSessionForConfig(): () => void {
     if (next === 'anon') {
       // A sign-out — or a cold start that found no session: nothing of a person may stay.
       useAppConfigStore.getState().resetUserFlags();
+      useFeatureTermsStore.getState().reset();
       void syncAppConfig();
       return;
     }
+    // Another person on this phone (a switch): their «لاحقًا» choices are not this one's.
+    useFeatureTermsStore.getState().reset();
     // Hydration handed back the persisted session: the start-up fetch already carries its
     // token, so this is not a switch and costs no second request.
     if (wasPending) return;
