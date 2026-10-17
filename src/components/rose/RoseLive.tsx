@@ -9,8 +9,7 @@ import Animated, {
 import { useAmbientMotion } from '@/hooks/useAmbientMotion';
 import { useRose } from '@/hooks/useRose';
 import { RoseProps, type RoseActivity } from './RoseProps';
-import { RoseSeasonLook } from './RoseCostume';
-import { useRevisionActive } from '@/hooks/useRevisionTheme';
+import { useRosePictures } from './RoseCostume';
 import { Surface } from '@/ui/surfaces';
 
 /**
@@ -21,7 +20,9 @@ import { Surface } from '@/ui/surfaces';
  * The portrait is a still picture WITHOUT the parts that move (assets/…/madam-rose-live-base:
  * the site's madam-rose.svg minus rm-look / rm-lid / rm-lips / rm-hoop and the two brows —
  * checked pixel-identical with the parts drawn back), and those parts are vector layers, each
- * in its own Animated.View — every motion a view transform on the UI thread.
+ * in its own Animated.View — every motion a view transform on the UI thread. In «وضع المراجعة»
+ * the base is her season picture (madam-rose-season-live-base: the cardigan, the pencil, the
+ * lamp — drawn into the artwork, founder 2026-10-17), registered on the same layers.
  *
  *   always     eyes glance on their own; blinks at irregular intervals (each eye its own lid);
  *              hoops swing out of step; lips move while she `talking`
@@ -63,8 +64,6 @@ const AT_WORK: [number, number][] = [[0, 2.2], [0.6, 2.4], [0, 2.2], [-0.8, 2.3]
 type Expression = 'smile' | 'brows' | 'think' | 'nod' | 'sleepy' | 'drowsy' | 'yawn';
 const POOL: Expression[] = ['smile', 'smile', 'smile', 'brows', 'think', 'think', 'nod', 'nod', 'sleepy', 'sleepy', 'drowsy', 'drowsy', 'yawn'];
 
-const BASE = require('../../../assets/images/rose/madam-rose-live-base.webp');
-
 // ── reactions from elsewhere (a stamp landing on her desk) ──
 const listeners = new Set<() => void>();
 /** Make every live portrait on screen react once. */
@@ -81,9 +80,9 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
   // In front of you, app active, motion allowed, page still (founder 2026-10-09: light on every phone).
   const alive = useAmbientMotion(paused);
   const working = activity !== 'cash';
-  // «وضع المراجعة»: her season look (RoseCostume, ROSE_REVISION_LOOK) — over her picture and
-  // under what she holds, inside the view that breathes and nods, so it moves with her.
-  const season = useRevisionActive();
+  // «وضع المراجعة»: her season picture (RoseCostume) — the look is in the artwork itself, so it
+  // breathes and nods with her; nothing is laid over her any more.
+  const pictures = useRosePictures();
 
   const gx = useSharedValue(0);
   const gy = useSharedValue(0);
@@ -312,8 +311,7 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
   return (
     <Pressable onPress={react} accessibilityRole="image" accessibilityLabel={rose.name} style={style}>
       <Animated.View style={[{ width: size, height: size, transformOrigin: [CHIN.x * k, CHIN.y * k, 0] }, whole]}>
-        <Image source={BASE} style={StyleSheet.absoluteFill} contentFit="contain" />
-        {season ? <Surface id="teacher.rose.live.costume"><RoseSeasonLook size={size} base={BASE} alive={alive} /></Surface> : null}
+        <Image source={pictures.liveBase} style={StyleSheet.absoluteFill} contentFit="contain" />
         {layer(brow('M163 182 Q180 172 196 180'), brL, at(BROW_L))}
         {layer(brow('M204 180 Q220 172 237 182'), brR, at(BROW_R))}
         {layer(eye(180), eyeL, at(EYE_L))}

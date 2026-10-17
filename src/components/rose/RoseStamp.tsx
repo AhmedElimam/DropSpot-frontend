@@ -7,7 +7,7 @@ import { colors, radius, shadows, spacing } from '@/theme/index';
 import { useRose } from '@/hooks/useRose';
 import { useThemeStore } from '@/stores/themeStore';
 import { reactRose } from './RoseLive';
-import { RoseCostume, StampRibbon } from './RoseCostume';
+import { useRosePictures } from './RoseCostume';
 import { Surface } from '@/ui/surfaces';
 
 /**
@@ -29,9 +29,8 @@ const STAMP: Record<StampInk, number> = {
   navy: require('../../../assets/images/rose/rose-stamp-navy.webp'),
   red: require('../../../assets/images/rose/rose-stamp-red.webp'),
 };
-export const ROSE_PORTRAIT = require('../../../assets/images/rose/madam-rose.webp');
-/** 600 px — for the large frame on her desk (the 300 px one blurs above ~100 pt on a 3× screen). */
-export const ROSE_PORTRAIT_LARGE = require('../../../assets/images/rose/madam-rose-600.webp');
+// Her portrait (300 px, and 600 px for the large frame on her desk) comes from RoseCostume's
+// useRosePictures(): her season picture while «وضع المراجعة» is on, else her own.
 /** Her crest's shield — her LOGO at small sizes (≤ 56 pt): her notifications, her notes. */
 export const ROSE_SHIELD = require('../../../assets/images/rose/rose-shield-128.webp');
 
@@ -67,9 +66,8 @@ export function RoseStamp({ ink = 'navy', size = 48, animate = false, tilt = -8,
   return (
     <Surface id="teacher.rose.stamp">
     <Animated.View style={[{ width: size, height: size }, st, style]} pointerEvents="none" accessibilityRole="image" accessibilityLabel={`ختم ${rose.name}`}>
+      {/* The same stamp in and out of «وضع المراجعة» (founder 2026-10-17: the season is in her picture, not on her ink). */}
       <Image source={STAMP[ink]} style={StyleSheet.absoluteFill} contentFit="contain" tintColor={night ? NIGHT_INK[ink] : undefined} />
-      {/* An amber ribbon under the stamp while «وضع المراجعة» is on — the ink itself never changes. */}
-      <StampRibbon size={size} />
     </Animated.View>
     </Surface>
   );
@@ -83,13 +81,12 @@ export function RosePortrait({ size = 64, nod = true, large = false, style }: { 
     if (nod) s.value = withSpring(1, NOD);
   }, [nod, s]);
   const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }, { rotate: `${(1 - s.value) * -36}deg` }] }));
-  const source = large || size > 100 ? ROSE_PORTRAIT_LARGE : ROSE_PORTRAIT;
+  const pictures = useRosePictures();
+  const source = large || size > 100 ? pictures.large : pictures.portrait;
   return (
     <Surface id="teacher.rose.portrait">
     <Animated.View style={[{ width: size, height: size }, st, style]}>
       <Image source={source} style={StyleSheet.absoluteFill} contentFit="contain" accessibilityLabel={rose.name} />
-      {/* Her season look over the still portrait (null while «وضع المراجعة» is off). */}
-      <RoseCostume size={size} base={source} />
     </Animated.View>
     </Surface>
   );

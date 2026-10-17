@@ -1,4 +1,4 @@
-import { arabicCountForm, countdown, countdownBlock, nextExam, revisionFacts, revisionToCard, revisionsOnDay, seasonShareLeft, sortForSeason, splitRevisionTitle } from '../revisionDesk';
+import { arabicCountForm, countdown, countdownBlock, nextExam, nextSlot, revisionFacts, revisionToCard, revisionsOnDay, seasonShareLeft, sortForSeason, splitRevisionTitle } from '../revisionDesk';
 import type { RevisionSummary } from '@/api/revisions';
 
 const H = 60 * 60_000;
@@ -10,6 +10,15 @@ const iso = (t: number) => new Date(t).toISOString();
 const rev = (id: number, at: number | null, exam = false): RevisionSummary => ({
   id, title: `R${id}`, billing_mode: 'free', purpose: exam ? 'quiz_exam' : 'revision', is_quiz_exam: exam, max_mark: exam ? 50 : null,
   instance_id: at === null ? null : id * 10, scheduled_at: at === null ? null : iso(at),
+});
+
+describe('nextSlot', () => {
+  it('is the soonest slot ahead, exam or not — where the kiosk opens', () => {
+    const list = [rev(1, now + 1 * D, true), rev(2, now + 2 * H), rev(3, now - 3 * H)];
+    expect(nextSlot(list, now)?.rev.id).toBe(2);
+    expect(nextSlot([rev(1, now - 1 * H)], now)?.rev.id).toBe(1);
+    expect(nextSlot([rev(1, null), rev(2, now - 1 * D)], now)).toBeNull();
+  });
 });
 
 describe('nextExam', () => {

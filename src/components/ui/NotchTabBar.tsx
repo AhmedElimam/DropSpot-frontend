@@ -77,14 +77,15 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
   const { width } = useWindowDimensions();
   const height = BAR_HEIGHT + insets.bottom;
   const dark = isDark();
-  // The glyph on the centre button: white on the day indigo, SILVER on the night navy.
-  const onButton = dark ? colors.logo : '#FFFFFF';
+  const season = isRevisionTheme();
+  // The glyph on the centre button: white on the day indigo (and the season's), SILVER on the night navy.
+  const onButton = dark && !season ? colors.logo : '#FFFFFF';
 
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: height + RAISE }}>
       <Svg width={width} height={height + RAISE} style={{ position: 'absolute', top: 0, left: 0 }} pointerEvents="none">
         <Path d={notchPath(width, height)} fill={colors.tabBar} />
-        <Path d={notchPath(width, height)} fill="none" stroke={colors.border} strokeWidth={1} />
+        <Path d={notchPath(width, height)} fill="none" stroke={season ? 'rgba(255,255,255,0.10)' : colors.border} strokeWidth={1} />
       </Svg>
 
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingTop: RAISE, height: height + RAISE }}>
@@ -119,9 +120,9 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
                     backgroundColor: colors.tabActive,
                     // By night the button is the emblem's own: deep navy, a silver rim that turns
                     // orange when the tab is open (silver on the orange fill would not read).
-                    ...(dark ? { backgroundColor: colors.logoButton, borderWidth: 2, borderColor: focused ? colors.tabActive : colors.logoRing } : null),
-                    // «وضع المراجعة» by day: the season's amber rim round the indigo button.
-                    ...(!dark && isRevisionTheme() ? { borderWidth: 2.5, borderColor: colors.logoRing } : null),
+                    // «وضع المراجعة» takes the same treatment in both schemes: the indigo button on the
+                    // indigo / ink bar, its amber rim brightening when the tab is open.
+                    ...(dark || season ? { backgroundColor: colors.logoButton, borderWidth: 2, borderColor: focused ? colors.tabActive : colors.logoRing } : null),
                     alignItems: 'center',
                     justifyContent: 'center',
                     opacity: focused ? 1 : 0.92,

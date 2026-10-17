@@ -43,6 +43,14 @@ describe('contrast with the season on', () => {
     ['tabActive', 'tabBar', 3],
     ['textPrimary', 'brandTint', 4.5],
     ['onHeroChipActive', 'heroChipActive', 2],
+    // The season owns the page now (founder 2026-10-17): its canvas, cards and bar must read.
+    ['textPrimary', 'background', 7],
+    ['textPrimary', 'surface', 7],
+    ['textSecondary', 'surface', 4.5],
+    ['textSecondary', 'background', 4.5],
+    ['textTertiary', 'surface', 2.5],
+    ['tabInactive', 'tabBar', 3],
+    ['accentText', 'accentLight', 4.5],
   ];
   it.each(['light', 'dark'] as const)('%s', (scheme) => {
     const p = overlaid(scheme);
@@ -80,11 +88,16 @@ describe('the live tokens', () => {
     expect(setRevisionTheme(true)).toBe(true);
     expect(isRevisionTheme()).toBe(true);
     expect(colors.primary).toBe(REVISION_INK.indigo);
-    expect(colors.background).toBe(light.background); // never a wall
+    // The season's own exam-paper canvas — but the cards stay white: never a wall.
+    expect(colors.background).toBe(revisionOverlay.light.background);
+    expect(colors.background).not.toBe(light.background);
+    expect(colors.surface).toBe('#FFFFFF');
     expect(gradients.hero).toEqual(revisionGradients.light.hero);
     applyScheme('dark');
     expect(colors.primary).toBe(revisionOverlay.dark.primary);
-    expect(colors.surface).toBe(dark.surface);
+    // Ink, not Midnight's navy: the night season reads apart from the night scheme.
+    expect(colors.background).toBe(revisionOverlay.dark.background);
+    expect(colors.background).not.toBe(dark.background);
     expect(setRevisionTheme(true)).toBe(false); // idempotent
     expect(setRevisionTheme(false)).toBe(true);
     expect({ ...colors }).toEqual(dark);

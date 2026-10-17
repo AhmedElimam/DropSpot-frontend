@@ -29,7 +29,7 @@ import { useComplaints } from '@/hooks/useComplaints';
 import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
 import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { RevisionFeatureCard } from '@/components/teacher/RevisionDesk';
-import { RevisionRibbon } from '@/components/RevisionRibbon';
+import { SeasonPaper } from '@/components/SeasonPaper';
 
 type Group = 'students' | 'schedule' | 'money' | 'followup';
 const GROUPS: Group[] = ['students', 'schedule', 'money', 'followup'];
@@ -121,7 +121,8 @@ export default function TeacherManage() {
         style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
         {/* Compact header, as on Students: title + what waits on one line, the groups as one
             row of pills underneath. */}
-        <RevisionRibbon compact style={{ marginBottom: spacing.xs }} />
+        {/* «وضع المراجعة»: the season's paper under the header. */}
+        <SeasonPaper radius={radius.xl} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t('teacher.tab_manage')}</Text>
           <Surface id="teacher.manage.attention_pill">

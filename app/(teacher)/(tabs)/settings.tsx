@@ -22,7 +22,7 @@ import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
 import { RevisionSettingsSwitch } from '@/components/teacher/RevisionSwitch';
 import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { REVISION_INK } from '@/theme/revision';
-import { RevisionRibbon } from '@/components/RevisionRibbon';
+import { SeasonPaper } from '@/components/SeasonPaper';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useTeacherCourses, useTeacherStudents } from '@/hooks/useStudents';
 import { formatDate, formatNumber } from '@/utils/format';
@@ -64,9 +64,10 @@ export default function TeacherSettings() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xl }}
         >
+          {/* «وضع المراجعة»: the season's paper under the profile. */}
+          <SeasonPaper />
           {/* Who: the logo or the generated mark in a ring, the name, then role and number as
               two quiet chips (founder 2026-10-11: «some UI love on the top part»). */}
-          <RevisionRibbon compact style={{ marginBottom: spacing.md }} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <View style={{ padding: 3, borderRadius: 26, borderWidth: 2, borderColor: colors.onHeroChipBorder, backgroundColor: colors.onHeroChip }}>
               <View style={{ borderRadius: 20, overflow: 'hidden', ...shadows.sm }}>

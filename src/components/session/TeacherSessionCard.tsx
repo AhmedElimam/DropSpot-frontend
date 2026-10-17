@@ -61,7 +61,7 @@ export const SessionCard = memo(function SessionCard({
   const phase = sessionPhase(s, now);
   const kind = seasonKind(s);
   // A live session stays green; otherwise the stripe says what kind of session this is.
-  const p = { ...PHASE()[phase], ...(kind && phase !== 'live' && phase !== 'cancelled' ? { stripe: kind === 'exam' ? REVISION_INK.amber : REVISION_INK.indigo } : {}) };
+  const p = { ...PHASE()[phase], ...(kind && phase !== 'live' && phase !== 'cancelled' ? { stripe: kind === 'exam' ? REVISION_INK.amber : colors.primary } : {}) };
   const present = s.checked_in_count ?? 0;
   const absent = s.absent_count ?? 0;
   const total = s.enrolled_count ?? 0;

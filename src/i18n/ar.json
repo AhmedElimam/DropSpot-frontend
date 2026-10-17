@@ -3524,6 +3524,9 @@
     "unit_minutes_many": "دقيقة",
     "left": "باقٍ",
     "feature_none_title": "لا امتحانات قادمة",
-    "feature_none_sub": "أنشئ امتحانًا من حصص المراجعة"
+    "feature_none_sub": "أنشئ امتحانًا من حصص المراجعة",
+    "tool_kiosk_none": "لا توجد حصة مراجعة قادمة",
+    "tool_new_revision_hint": "الموعد والمجموعات والسعر",
+    "tools_sub": "مرتّبة حسب ما تحتاجه قبل الامتحان"
   }
 }

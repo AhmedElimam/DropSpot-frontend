@@ -4,24 +4,6 @@ import { fonts } from '@/theme/typography';
 import { colors, radius } from '@/theme/index';
 import { REVISION_INK } from '@/theme/revision';
 import { Icon } from '@/components/ui/Icon';
-import { useRevisionActive } from '@/hooks/useRevisionTheme';
-
-/**
- * «وضع المراجعة» — the thin status line for screens where the season is not obvious from
- * the hero alone (a form, a list with its own header). Amber on indigo, one line, never a
- * wall. Renders nothing while the season is off, so screens can mount it unconditionally.
- */
-export function RevisionRibbon({ style, compact = false }: { style?: StyleProp<ViewStyle>; compact?: boolean }) {
-  const { t } = useTranslation();
-  const on = useRevisionActive();
-  if (!on) return null;
-  return (
-    <View accessibilityRole="text" style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: compact ? 'flex-start' : 'stretch', backgroundColor: REVISION_INK.indigoDeep, paddingVertical: compact ? 3 : 5, paddingHorizontal: 12, borderRadius: compact ? radius.full : 0, borderBottomWidth: compact ? 0 : 2, borderBottomColor: REVISION_INK.amber }, style]}>
-      <Icon name="book" size={12} color={REVISION_INK.amber} />
-      <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: '#FFFFFF', letterSpacing: 0.2 }}>{t('revision.ribbon')}</Text>
-    </View>
-  );
-}
 
 /** On a teacher's card for a student or parent: «موسم المراجعة» — the family sees the season, not the theme. */
 export function TeacherSeasonChip({ style }: { style?: StyleProp<ViewStyle> }) {

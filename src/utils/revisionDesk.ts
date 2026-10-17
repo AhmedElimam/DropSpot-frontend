@@ -40,6 +40,18 @@ export function nextExam(revisions: readonly RevisionSummary[], now: number): Ne
   return ahead.find((x) => x.kind === 'exam') ?? ahead[0] ?? null;
 }
 
+/**
+ * The soonest slot still ahead (or begun less than two hours ago), exam or revision alike —
+ * where the kiosk tool opens. `nextExam` prefers an exam even when a revision comes first.
+ */
+export function nextSlot(revisions: readonly RevisionSummary[], now: number): NextExam | null {
+  const grace = 2 * 60 * 60_000;
+  return revisions
+    .map((rev) => ({ rev, kind: kindOf(rev), at: ms(rev.scheduled_at) }))
+    .filter((x): x is NextExam => x.at !== null && x.at + grace > now)
+    .sort((a, b) => a.at - b.at)[0] ?? null;
+}
+
 export interface Countdown {
   /** The i18n key for the line («بعد ٣ أيام» …) and its number. */
   key: 'revision.in_days' | 'revision.in_hours' | 'revision.in_minutes' | 'revision.now';

@@ -25,7 +25,7 @@ import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { useRevisions } from '@/hooks/useRevisions';
 import { isRevisionCard, revisionToCard, revisionsOnDay, sortForSeason } from '@/utils/revisionDesk';
 import { goToRevisionScan } from '@/components/teacher/RevisionDesk';
-import { RevisionRibbon } from '@/components/RevisionRibbon';
+import { SeasonPaper } from '@/components/SeasonPaper';
 
 const MONTH_FMT = new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' });
 
@@ -89,7 +89,8 @@ export default function TeacherSessions() {
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.sm, paddingBottom: spacing.md, paddingHorizontal: spacing.lg, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
         {/* Compact header, as on Students: one line for title · month (date filter) · اليوم · +. */}
-        <RevisionRibbon compact style={{ marginBottom: spacing.xs }} />
+        {/* «وضع المراجعة»: the season's paper under the header. */}
+        <SeasonPaper radius={radius.xl} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t('teacher.tab_sessions')}</Text>
           {/* Date filter — any day, from a month calendar. */}
