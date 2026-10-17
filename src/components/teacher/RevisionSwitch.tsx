@@ -47,7 +47,8 @@ export function useRevisionToggle(): { on: boolean; known: boolean; pending: boo
  * the first cut was a big pill wedged between the connection line and the day's numbers).
  * Off: a quiet glass chip «وضع المراجعة». On: amber, «موسم المراجعة» — tap to end it, after
  * the same short confirmation. An assistant sees the season (the chip, not tappable) but never
- * the switch (assistants never see a control they cannot use).
+ * the switch (assistants never see a control they cannot use). Made smaller 2026-10-18 (founder:
+ * «make it smaller») — 26 pt tall; the hitSlop keeps the tap target finger-sized.
  */
 export function SeasonSwitchChip({ canSwitch }: { canSwitch: boolean }) {
   const { t } = useTranslation();
@@ -56,20 +57,20 @@ export function SeasonSwitchChip({ canSwitch }: { canSwitch: boolean }) {
   const lit = on || active;
   if (!canSwitch && !lit) return null;
   const body = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 11, borderRadius: radius.full, backgroundColor: lit ? REVISION_INK.amber : colors.onHeroChip, borderWidth: 1, borderColor: lit ? 'rgba(255,255,255,0.28)' : colors.onHeroChipBorder, opacity: known || lit ? 1 : 0.6 }}>
-      <Icon name="book" size={14} color={lit ? '#FFFFFF' : colors.onHero} />
-      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: lit ? '#FFFFFF' : colors.onHero }} numberOfLines={1}>{t(lit ? 'revision.season' : 'revision.pill_off')}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, height: 26, paddingHorizontal: 8, borderRadius: radius.full, backgroundColor: lit ? REVISION_INK.amber : colors.onHeroChip, borderWidth: 1, borderColor: lit ? 'rgba(255,255,255,0.28)' : colors.onHeroChipBorder, opacity: known || lit ? 1 : 0.6 }}>
+      <Icon name="book" size={12} color={lit ? '#FFFFFF' : colors.onHero} />
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: lit ? '#FFFFFF' : colors.onHero }} numberOfLines={1}>{t(lit ? 'revision.season' : 'revision.pill_off')}</Text>
       {/* A switch's knob, small: the chip says it toggles. */}
       {canSwitch ? (
-        <View style={{ width: 24, height: 14, borderRadius: 7, backgroundColor: lit ? 'rgba(255,255,255,0.38)' : colors.onHeroChipBorder, justifyContent: 'center', paddingHorizontal: 2 }}>
-          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: lit ? '#FFFFFF' : colors.onHeroSoft, alignSelf: lit ? 'flex-start' : 'flex-end' }} />
+        <View style={{ width: 18, height: 11, borderRadius: 5.5, backgroundColor: lit ? 'rgba(255,255,255,0.38)' : colors.onHeroChipBorder, justifyContent: 'center', paddingHorizontal: 1.5 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: lit ? '#FFFFFF' : colors.onHeroSoft, alignSelf: lit ? 'flex-start' : 'flex-end' }} />
         </View>
       ) : null}
     </View>
   );
   if (!canSwitch) return <View accessibilityRole="text" accessibilityLabel={t('revision.season')}>{body}</View>;
   return (
-    <TouchableOpacity onPress={() => toggle()} disabled={!known || pending} activeOpacity={0.85} hitSlop={6} accessibilityRole="switch" accessibilityState={{ checked: lit, disabled: !known || pending }}
+    <TouchableOpacity onPress={() => toggle()} disabled={!known || pending} activeOpacity={0.85} hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }} accessibilityRole="switch" accessibilityState={{ checked: lit, disabled: !known || pending }}
       accessibilityLabel={t('revision.ribbon')} accessibilityHint={t(lit ? 'revision.pill_hint_on' : 'revision.pill_hint_off')} style={{ flexShrink: 1 }}>
       {body}
     </TouchableOpacity>
