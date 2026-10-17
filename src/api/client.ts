@@ -320,7 +320,9 @@ function featureTermsRequired(key: string): void {
     const { useAppConfigStore } = require('@/stores/appConfigStore');
     const { useFeatureTermsStore } = require('@/stores/featureTermsStore');
     const known = (useAppConfigStore.getState().config.feature_terms ?? []).some((d: { key: string }) => d.key === key);
-    useFeatureTermsStore.getState().open(key);
+    // Put off with «لاحقًا»: a background poll (an unread badge) must not keep raising it — only
+    // touching the feature does (useFeatureTerms().guard). Otherwise it opens here.
+    if (!useFeatureTermsStore.getState().later.includes(key)) useFeatureTermsStore.getState().open(key);
     if (!known) void require('@/stores/appConfigSync').syncAppConfig();
   } catch {
     // Never let the agreement plumbing turn a refusal into a crash.
