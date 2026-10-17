@@ -10,6 +10,7 @@ import { useAppConfigStore } from '@/stores/appConfigStore';
 import { syncAppConfig } from '@/stores/appConfigSync';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { isVersionBelow } from '@/utils/semver';
+import { binaryVersion } from '@/utils/binaryVersion';
 import { checkForOtaUpdate, reloadIfReady } from '@/updates/otaUpdates';
 import { reportCapabilities } from '@/capabilities';
 import { storeLinksFor } from '@/utils/storeLinks';
@@ -108,12 +109,11 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // The binary's version (app.json expo.version). With runtimeVersion policy "appVersion"
-  // an OTA update only ever reaches the binary it was built for, so an update can never
-  // report a version the installed store build doesn't have. The floor arrives per
-  // platform (the server resolves it from X-App-Platform), so raising iOS never blocks
-  // Android. Re-checked on every foreground: lower the floor and the screen lifts.
-  const current = Constants.expoConfig?.version ?? '0.0.0';
+  // The installed store build's version, read natively — never the OTA manifest's, which
+  // says whatever app.json said when the update was published (utils/binaryVersion). The
+  // floor arrives per platform (the server resolves it from X-App-Platform), so raising iOS
+  // never blocks Android. Re-checked on every foreground: lower the floor and the screen lifts.
+  const current = binaryVersion();
   if (isVersionBelow(current, min)) {
     const links = storeLinksFor(Platform.OS, cfg.store, Constants.expoConfig?.android?.package ?? 'com.drosspot.app');
     return (

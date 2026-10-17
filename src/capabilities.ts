@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 import client from '@/api/client';
 import { runningUpdate } from '@/updates/otaUpdates';
+import { binaryVersion } from '@/utils/binaryVersion';
 import { SQLiteStorage } from 'expo-sqlite/kv-store';
 
 /**
@@ -59,7 +59,7 @@ const store = new SQLiteStorage('app-meta');
 /** Tell the backend what this build can do — once per build (version + OTA update), silently. */
 export async function reportCapabilities(): Promise<boolean> {
   const u = runningUpdate();
-  const version = Constants.expoConfig?.version ?? '0.0.0';
+  const version = binaryVersion();
   const stamp = `${Platform.OS}|${version}|${u.update_id ?? 'store'}`;
   try {
     if ((await store.getItemAsync('capabilities:reported')) === stamp) return false;
