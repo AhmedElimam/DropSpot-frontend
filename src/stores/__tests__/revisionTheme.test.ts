@@ -16,7 +16,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   applyScheme('light');
   useThemeStore.getState().setRevision(false);
-  useThemeStore.setState({ preference: 'system', scheme: 'light', hydrated: true, returnTo: null, paintEpoch: 0, curtain: null, revision: false });
+  useThemeStore.setState({ preference: 'system', scheme: 'light', hydrated: true, returnTo: null, paintEpoch: 0, curtain: null, revision: false, welcome: false });
 });
 afterEach(() => { jest.useRealTimers(); });
 
@@ -45,6 +45,26 @@ describe('themeStore.setRevision', () => {
     expect(useThemeStore.getState().curtain).not.toBeNull();
     useThemeStore.getState().curtainDone();
     expect(useThemeStore.getState().curtain).toBeNull();
+  });
+
+  it('welcomes the season once its curtain falls — only on the way in, never at launch', () => {
+    useThemeStore.getState().setRevision(true);
+    expect(useThemeStore.getState().welcome).toBe(false); // launch / restore: silent
+    useThemeStore.getState().setRevision(false);
+    useThemeStore.getState().setRevision(true, { animate: true });
+    jest.advanceTimersByTime(CURTAIN_IN_MS);
+    expect(useThemeStore.getState().welcome).toBe(false); // not while the curtain is up
+    useThemeStore.getState().curtainDone();
+    expect(useThemeStore.getState().welcome).toBe(true);
+    useThemeStore.getState().dismissWelcome();
+    expect(useThemeStore.getState().welcome).toBe(false);
+    // Leaving: no welcome, and one still open is closed by the flip.
+    useThemeStore.setState({ welcome: true });
+    useThemeStore.getState().setRevision(false, { animate: true });
+    expect(useThemeStore.getState().welcome).toBe(false);
+    jest.advanceTimersByTime(CURTAIN_IN_MS);
+    useThemeStore.getState().curtainDone();
+    expect(useThemeStore.getState().welcome).toBe(false);
   });
 
   it('uses the remembered screen when the flip arrives without one, once', () => {

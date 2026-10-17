@@ -9,7 +9,7 @@ import { useSurface } from '@/ui/surfaces';
  * pipeline as her own picture (the site's madam-rose.svg, rendered in Chrome at 1200 px,
  * Lanczos down, cwebp q90 for 300 px / q88 for 600 px):
  *
- *   · her navy blazer is a warm knit cardigan — ribbed front bands where the lapels were, a
+ *   · her navy blazer is a warm AMBER knit cardigan — ribbed front bands where the lapels were, a
  *     ribbed pocket edge, a horn button where the bands cross; her cream blouse, white collar,
  *     gold rose button and brass name plate «مدام روز» stay exactly where they were
  *   · a yellow pencil tucked into her curls above her right ear (the picture's right, by the
@@ -27,13 +27,6 @@ import { useSurface } from '@/ui/surfaces';
  * pictures of before. The server can still keep her in her blazer through the season by
  * hiding `teacher.rose.costume` (the old look's surface id).
  */
-export type RoseSeasonLook = 'amber' | 'burgundy';
-/**
- * The founder's pick. One line to switch: 'amber' (the default — a mustard cardigan) or
- * 'burgundy' (the same night in a deep maroon cardigan, a small navy pocket square).
- */
-export const ROSE_SEASON_LOOK: RoseSeasonLook = 'amber';
-
 export type RosePictures = {
   /** 300 px — every portrait up to ~100 pt. */
   portrait: number;
@@ -49,22 +42,17 @@ const NORMAL: RosePictures = {
   liveBase: require('../../../assets/images/rose/madam-rose-live-base.webp'),
 };
 
-const SEASON: Record<RoseSeasonLook, RosePictures> = {
-  amber: {
-    portrait: require('../../../assets/images/rose/madam-rose-season.webp'),
-    large: require('../../../assets/images/rose/madam-rose-season-600.webp'),
-    liveBase: require('../../../assets/images/rose/madam-rose-season-live-base.webp'),
-  },
-  burgundy: {
-    portrait: require('../../../assets/images/rose/madam-rose-season-alt.webp'),
-    large: require('../../../assets/images/rose/madam-rose-season-alt-600.webp'),
-    liveBase: require('../../../assets/images/rose/madam-rose-season-alt-live-base.webp'),
-  },
+// The amber cardigan, chosen by the founder 2026-10-17 («I like it, let's set it»); the burgundy
+// alternative was drawn for the comparison and left out of the app.
+const SEASON: RosePictures = {
+  portrait: require('../../../assets/images/rose/madam-rose-season.webp'),
+  large: require('../../../assets/images/rose/madam-rose-season-600.webp'),
+  liveBase: require('../../../assets/images/rose/madam-rose-season-live-base.webp'),
 };
 
 /** Her pictures, in or out of the season. */
-export function rosePictures(season: boolean, look: RoseSeasonLook = ROSE_SEASON_LOOK): RosePictures {
-  return season ? SEASON[look] : NORMAL;
+export function rosePictures(season: boolean): RosePictures {
+  return season ? SEASON : NORMAL;
 }
 
 /** Her pictures for now: the season's while «وضع المراجعة» is on (and the server lets her dress for it). */

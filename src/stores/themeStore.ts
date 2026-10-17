@@ -83,6 +83,13 @@ interface ThemeState {
   /** The screen about to flip the season (before the server has answered). */
   rememberReturn: (href: Href | null) => void;
   curtainDone: () => void;
+  /**
+   * «وضع المراجعة مفعّل الآن» — the welcome sheet after the season was switched ON by hand
+   * (founder 2026-10-17: «a popup that revision mode is active now, and what it is»). Raised
+   * when the entering curtain falls; never at launch, never on the way out.
+   */
+  welcome: boolean;
+  dismissWelcome: () => void;
   /** Read the saved choice and apply it against the phone's scheme. Safe to call twice. */
   hydrate: (system: SystemScheme) => Promise<void>;
   /** Change the choice, apply it, persist it. `returnTo` = where the switch was flipped. */
@@ -117,6 +124,7 @@ export const useThemeStore = create<ThemeState>((set, get) => {
     returnTo: null,
     revision: isRevisionTheme(),
     curtain: null,
+    welcome: false,
     repainted: () => set({ paintEpoch: get().paintEpoch + 1 }),
 
     setRevision: (on, opts) => {
@@ -130,14 +138,20 @@ export const useThemeStore = create<ThemeState>((set, get) => {
         return true;
       }
       curtainSeq += 1;
-      set({ curtain: { to: on, key: curtainSeq } });
+      set({ curtain: { to: on, key: curtainSeq }, ...(on ? null : { welcome: false }) });
       curtainTimer = setTimeout(() => { curtainTimer = null; land(on, returnTo); }, CURTAIN_IN_MS);
       return true;
     },
 
     rememberReturn: (href) => { pendingReturn = href; },
 
-    curtainDone: () => { if (!curtainTimer) set({ curtain: null }); },
+    curtainDone: () => {
+      if (curtainTimer) return;
+      const entered = get().curtain?.to === true && get().revision;
+      set({ curtain: null, ...(entered ? { welcome: true } : null) });
+    },
+
+    dismissWelcome: () => set({ welcome: false }),
 
     hydrate: async (system) => {
       let preference: ThemePreference = 'system';
