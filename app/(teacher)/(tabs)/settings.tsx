@@ -1,5 +1,8 @@
 import { isValidElement, type ReactNode } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, Linking, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { syncAppConfig } from '@/stores/appConfigSync';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
@@ -47,8 +50,11 @@ export default function TeacherSettings() {
   const logout = useLogout();
   const isAssistant = user?.user_type_id === 6;
   const season = useRevisionActive();
-  const { data: students } = useTeacherStudents();
-  const { data: courses } = useTeacherCourses();
+  const { data: students, refetch: refetchStudents } = useTeacherStudents();
+  const { data: courses, refetch: refetchCourses } = useTeacherCourses();
+  // Pull to refresh like every other tab (founder 2026-10-18: «on profile I can pull the page,
+  // not refresh»): the counts, and the backend config the rows below follow (flags, hidden rows).
+  const { refreshing, onRefresh } = usePullRefresh(refetchStudents, refetchCourses, syncAppConfig);
   const { data: flags } = useFeatureFlags();
 
   // The tour scrolls this page to reach «شروحات التطبيق» further down (founder 2026-10-09).
@@ -56,7 +62,8 @@ export default function TeacherSettings() {
   return (
     <Surface id="screen.teacher.settings" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView {...tourScroll} contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+      <ScrollView {...tourScroll} contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         <Surface id="teacher.settings.profile_hero">
         <LinearGradient
           colors={gradients.hero}

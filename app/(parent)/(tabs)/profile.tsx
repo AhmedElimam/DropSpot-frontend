@@ -1,4 +1,6 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { Alert } from '@/ui/dialog';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
@@ -32,7 +34,9 @@ export default function ParentSettings() {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
-  const { data: children } = useChildren();
+  const { data: children, refetch: refetchChildren } = useChildren();
+  // Pull to refresh like every other tab (founder 2026-10-18).
+  const { refreshing, onRefresh } = usePullRefresh(refetchChildren);
 
   // Every row does something real — no dead settings (elderly-usability rule)
   const settings: SettingItem[] = [
@@ -83,7 +87,8 @@ export default function ParentSettings() {
   return (
     <Surface id="screen.parent.profile" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         <Surface id="parent.profile.hero">
         <PageHero title={user?.name ?? ''} subtitle={user?.phone ?? undefined} avatar={avatarSeed.user(user?.id, user?.name ?? '?')}>
         <View style={{ alignSelf: 'flex-start', marginTop: spacing.md, backgroundColor: colors.onHeroChip, paddingVertical: spacing.xs, paddingHorizontal: spacing.lg, borderRadius: radius.full, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, shadows, isDark, isRevisionTheme } from '@/theme/index';
+import { usePreloadTabs } from '@/navigation/usePreloadTabs';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { TourTarget } from '@/tour/TourTarget';
 
@@ -80,6 +81,8 @@ export function NotchTabBar({ state, descriptors, navigation, tabs, center, labe
   const season = isRevisionTheme();
   // The glyph on the centre button: white on the day indigo (and the season's), SILVER on the night navy.
   const onButton = dark && !season ? colors.logo : '#FFFFFF';
+  // Build the other tabs in the background once launch settles: no blank first frame on a tab's first tap.
+  usePreloadTabs(navigation as unknown as Parameters<typeof usePreloadTabs>[0], state, tabs);
 
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: height + RAISE }}>
