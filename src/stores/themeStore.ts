@@ -15,6 +15,13 @@ import { applyScheme, currentScheme, isRevisionTheme, setRevisionTheme, type Sch
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 const KEY = 'theme_preference';
+/**
+ * The season as last painted, restored by hydrate() BEFORE the first screen (founder
+ * 2026-10-18: a blink of the whole app, nav bar included, a second after every cold start —
+ * the app painted normal, then the season landed and re-keyed the tree). The server's value
+ * still decides; this only makes the first paint match the last one.
+ */
+const REVISION_KEY = 'revision_season_painted';
 const RETURN_WINDOW_MS = 4000;
 
 function storage(): { getItem: (k: string) => Promise<string | null>; setItem: (k: string, v: string) => Promise<void> } | null {
@@ -114,6 +121,7 @@ export const useThemeStore = create<ThemeState>((set, get) => {
   const land = (on: boolean, returnTo: Href | null) => {
     setRevisionTheme(on);
     set({ revision: on, paintEpoch: get().paintEpoch + 1, returnTo: returnTo ? { href: returnTo, at: Date.now() } : null });
+    storage()?.setItem(REVISION_KEY, on ? '1' : '0').catch(() => {});
   };
 
   return {
@@ -155,11 +163,19 @@ export const useThemeStore = create<ThemeState>((set, get) => {
 
     hydrate: async (system) => {
       let preference: ThemePreference = 'system';
+      let season = false;
       try {
-        const raw = await storage()?.getItem(KEY);
+        const [raw, painted] = await Promise.all([storage()?.getItem(KEY), storage()?.getItem(REVISION_KEY)]);
         if (isPreference(raw)) preference = raw;
+        season = painted === '1';
       } catch {
-        // Unreadable storage: follow the phone.
+        // Unreadable storage: follow the phone, no season.
+      }
+      // The season first, so the scheme below paints with it; no epoch bump — nothing has
+      // been drawn yet (the root waits for `hydrated`, the splash is still up).
+      if (season && !get().revision) {
+        setRevisionTheme(true);
+        set({ revision: true });
       }
       set({ preference, hydrated: true });
       apply(preference, system);

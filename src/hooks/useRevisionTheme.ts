@@ -4,6 +4,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useReviseMode } from '@/hooks/useReviseMode';
+import { useAppConfigStore } from '@/stores/appConfigStore';
 
 /**
  * ONE source of truth for «وضع المراجعة» on the phone (founder 2026-10-16).
@@ -21,6 +22,11 @@ import { useReviseMode } from '@/hooks/useReviseMode';
 export function useRevisionWanted(): boolean | undefined {
   const { data: flags } = useFeatureFlags();
   const { data: reviseOn } = useReviseMode();
+  // Not known until the saved config is read: the bundled defaults have no flags, and acting
+  // on that «off» at launch marked the sync done, so the real value a moment later looked
+  // like a flip — a curtain and a rebuilt app on every cold start (founder 2026-10-18).
+  const configReady = useAppConfigStore((s) => s.hydrated);
+  if (!configReady) return undefined;
   if (!flags?.revise_mode) return false;
   return reviseOn === undefined ? undefined : reviseOn === true;
 }

@@ -20,6 +20,7 @@ jest.mock('@/stores/authStore', () => ({ useAuthStore: (sel: (s: typeof mockAuth
 
 import { RevisionThemeGuard, RevisionThemeSync, resetRevisionSync } from '../useRevisionTheme';
 import { CURTAIN_IN_MS, useThemeStore } from '@/stores/themeStore';
+import { useAppConfigStore } from '@/stores/appConfigStore';
 import { applyScheme } from '@/theme/index';
 
 /**
@@ -32,6 +33,7 @@ beforeEach(() => {
   applyScheme('light');
   resetRevisionSync();
   useThemeStore.setState({ revision: false, curtain: null, paintEpoch: 0, returnTo: null });
+  useAppConfigStore.setState({ hydrated: true });
   mockReviseOn = true; mockFlags = { revise_mode: true }; mockPathname = '/'; mockAuth.isAuthenticated = true; mockAuth.role = 'teacher';
 });
 afterEach(() => { useThemeStore.getState().setRevision(false); jest.useRealTimers(); });
@@ -73,6 +75,43 @@ describe('RevisionThemeSync', () => {
     act(() => { tree = create(createElement(RevisionThemeSync)); });
     expect(useThemeStore.getState().revision).toBe(false);
     act(() => { tree.unmount(); });
+  });
+});
+
+describe('cold start (founder 2026-10-18: a blink of the whole app a second after launch)', () => {
+  it('waits for the saved config: the bundled «no flags» is not taken as «off», so no curtain later', () => {
+    useAppConfigStore.setState({ hydrated: false });
+    mockFlags = {}; // bundled defaults: no flags yet
+    let tree!: ReactTestRenderer;
+    act(() => { tree = create(createElement(RevisionThemeSync)); });
+    expect(useThemeStore.getState()).toMatchObject({ revision: false, paintEpoch: 0 });
+    // The saved config lands with the flag on, the switch is on: the FIRST known value — silent.
+    mockFlags = { revise_mode: true };
+    act(() => { useAppConfigStore.setState({ hydrated: true }); tree.update(createElement(RevisionThemeSync)); });
+    expect(useThemeStore.getState()).toMatchObject({ revision: true, curtain: null });
+    act(() => { tree.unmount(); });
+  });
+
+  it('a season restored before the first paint makes the first sync a no-op: no re-key', async () => {
+    const storage = jest.requireMock('@react-native-async-storage/async-storage').default as { getItem: jest.Mock };
+    storage.getItem.mockImplementation(async (k: string) => (k === 'revision_season_painted' ? '1' : null));
+    useThemeStore.setState({ hydrated: false });
+    await useThemeStore.getState().hydrate('light');
+    expect(useThemeStore.getState()).toMatchObject({ revision: true, hydrated: true, paintEpoch: 0 });
+    let tree!: ReactTestRenderer;
+    act(() => { tree = create(createElement(RevisionThemeSync)); });
+    expect(useThemeStore.getState()).toMatchObject({ revision: true, curtain: null, paintEpoch: 0 });
+    act(() => { tree.unmount(); });
+    storage.getItem.mockImplementation(async () => null);
+  });
+
+  it('landing the season saves it for the next launch', () => {
+    const storage = jest.requireMock('@react-native-async-storage/async-storage').default as { setItem: jest.Mock };
+    storage.setItem.mockClear();
+    useThemeStore.getState().setRevision(true);
+    expect(storage.setItem).toHaveBeenCalledWith('revision_season_painted', '1');
+    useThemeStore.getState().setRevision(false);
+    expect(storage.setItem).toHaveBeenCalledWith('revision_season_painted', '0');
   });
 });
 

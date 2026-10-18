@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react';
 import { AppState, InteractionManager } from 'react-native';
 
 /** After launch settles, how long before the first tab is built in the background. */
-export const PRELOAD_START_MS = 1500;
+export const PRELOAD_START_MS = 600;
 /** Gap between two tabs, so building them never lands in one long JS frame. */
-export const PRELOAD_GAP_MS = 400;
+export const PRELOAD_GAP_MS = 250;
 
 type TabNavigation = { preload: (name: string) => void };
 export type PreloadTabState = {
@@ -66,8 +66,8 @@ export function scheduleTabPreload(
  * Bottom tabs are lazy: a tab is first rendered when it is first tapped, so that first tap
  * shows the bare scene background for a frame or more while the screen builds. Turning
  * `lazy` off would build every tab at launch, on the critical path. Instead, after Home is
- * up and the interactions have finished, each remaining tab is PRELOADed (React Navigation
- * 7) with a gap between them — the same work the first visit would have done, moved off
+ * up and the interactions have finished (+0.6 s — a quick first tap after a cold start must
+ * find the tab built), each remaining tab is PRELOADed (React Navigation 7) 0.25 s apart — the same work the first visit would have done, moved off
  * the moment the user is waiting. The tab router keeps preloaded screens out of the back
  * history, and an unfocused screen does not run focus effects (no ambient motion, no
  * focus refetch). Tabs a user never opens cost their first query, once.
