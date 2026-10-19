@@ -9,7 +9,7 @@ import { AppModal as Modal } from '@/ui/AppModal';
 import { fonts } from '@/theme/typography';
 import { colors, gradients, radius, spacing } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
-import { BETA_GOLD, BETA_INK } from '@/components/ui/Beta';
+import { BETA_GOLD, BETA_INK } from '@/components/ui/betaTokens';
 import { useAuthStore } from '@/stores/authStore';
 import { useAppConfigStore } from '@/stores/appConfigStore';
 import { pickFeatureTerms, useFeatureTermsStore } from '@/stores/featureTermsStore';
