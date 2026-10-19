@@ -1219,6 +1219,20 @@ export default function CashReconcileScreen() {
           </TouchableOpacity>
           </Surface>
         ) : null}
+        {/* «منطقة الخطر» (founder 2026-10-19): last in her settings, the teacher's alone. */}
+        {data?.role === 'teacher' ? (
+          <Surface id="teacher.cash_reconcile.danger_zone">
+          <TouchableOpacity onPress={() => { setSettingsOpen(false); router.push('/(teacher)/rose-reset' as Href); }} accessibilityRole="button"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xl, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.danger, backgroundColor: colors.dangerLight }}>
+            <Icon name="warning" size={20} color={colors.danger} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>{t('rose_reset.entry_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('rose_reset.entry_hint')}</Text>
+            </View>
+            <Icon name="back" size={16} color={colors.danger} />
+          </TouchableOpacity>
+          </Surface>
+        ) : null}
       </Sheet>
       </Surface>
       <Surface id="teacher.cash_reconcile.stamp_burst">{burstNode}</Surface>

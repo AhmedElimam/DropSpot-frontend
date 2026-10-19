@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
-import { formatNumber } from '@/utils/format';
+import { formatNumber, formatShortDate } from '@/utils/format';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { FilterChips } from '@/components/ui/FilterChips';
@@ -174,6 +174,12 @@ export default function InsightsScreen() {
       <View style={{ gap: spacing.sm, paddingBottom: spacing.sm }}>
         {/* Period bar — every number below answers the question this row is asking. */}
         <Surface id="teacher.insights.filters.range"><FilterChips options={presets} value={range} onChange={setRange} /></Surface>
+
+        {d?.since ? (
+          <Surface id="teacher.insights.since_reset">
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, textAlign: 'center' }}>{t('rose_reset.insights_since', { date: formatShortDate(d.since) })}</Text>
+          </Surface>
+        ) : null}
 
         {/* Venue filter — every figure below follows it, including the cash block. */}
         <Surface id="teacher.insights.filters.venue">

@@ -18,16 +18,18 @@ import { Surface } from '@/ui/surfaces';
  *
  *   navy  — the cash book: counts, handovers, closed weeks, accepted expenses.
  *   red   — the complaints book: a decision recorded.
+ *   violet — a closed book: the archive copy downloaded before «تصفير» (founder 2026-10-19).
  *
  * The thump is the landing page's: she lands from above, tilted and large, presses, settles.
  * A teacher who switched her name off (useRose().named) sees no stamp anywhere; the words
  * on the screen already carry the fact without her.
  */
-export type StampInk = 'navy' | 'red';
+export type StampInk = 'navy' | 'red' | 'violet';
 
 const STAMP: Record<StampInk, number> = {
   navy: require('../../../assets/images/rose/rose-stamp-navy.webp'),
   red: require('../../../assets/images/rose/rose-stamp-red.webp'),
+  violet: require('../../../assets/images/rose/rose-stamp-violet.webp'),
 };
 // Her portrait (300 px, and 600 px for the large frame on her desk) comes from RoseCostume's
 // useRosePictures(): her season picture while «وضع المراجعة» is on, else her own.
@@ -37,7 +39,7 @@ export const ROSE_SHIELD = require('../../../assets/images/rose/rose-shield-128.
 // By night the navy ink sat on navy cards and vanished (founder 2026-10-07). The stamp is ONE
 // ink with alpha, so expo-image's tintColor re-inks it whole: a pale moonlit blue for the cash
 // book, a brighter red for the complaints book. By day the original inks stay untouched.
-const NIGHT_INK: Record<StampInk, string> = { navy: '#B9C4F4', red: '#F2647A' };
+const NIGHT_INK: Record<StampInk, string> = { navy: '#B9C4F4', red: '#F2647A', violet: '#B4A6FF' };
 
 const LAND = { damping: 11, stiffness: 190, mass: 0.8 };
 const NOD = { damping: 9, stiffness: 150, mass: 0.9 };
