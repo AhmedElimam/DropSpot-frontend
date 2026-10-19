@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import type { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { BETA_GOLD } from '@/components/ui/Beta';
+import { BETA_GOLD } from '@/components/ui/betaTokens';
 import { fonts } from '@/theme/typography';
 import { colors, shadows, isDark, isRevisionTheme } from '@/theme/index';
 import { usePreloadTabs } from '@/navigation/usePreloadTabs';
