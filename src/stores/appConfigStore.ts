@@ -17,6 +17,12 @@ const CACHE_KEY = 'app_config.last_good';
  */
 interface State {
   config: AppConfigPayload;
+  /**
+   * The last-good cache has been read (or there was none) or a server payload landed. Until
+   * then `config` is the bundled defaults, which say nothing about the person's flags — a
+   * reader that must not act on «off by default» (the season sync) waits for this.
+   */
+  hydrated: boolean;
   hydrate: () => Promise<void>;
   setConfig: (server: Partial<AppConfigPayload>) => void;
   /**
@@ -90,16 +96,19 @@ function storage(): { getItem: (k: string) => Promise<string | null>; setItem: (
 
 export const useAppConfigStore = create<State>((set, get) => ({
   config: CONFIG_DEFAULTS,
+  hydrated: false,
   hydrate: async () => {
     try {
       const raw = await storage()?.getItem(CACHE_KEY);
       if (raw) set({ config: mergeConfig(JSON.parse(raw)) });
     } catch {
       // No cache / bad JSON — stay on bundled defaults.
+    } finally {
+      set({ hydrated: true });
     }
   },
   setConfig: (server) => {
-    set({ config: mergeConfig(server) });
+    set({ config: mergeConfig(server), hydrated: true });
     storage()?.setItem(CACHE_KEY, JSON.stringify(server)).catch(() => {});
   },
   dropFeatureTerms: (key) => {

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Href } from 'expo-router';
-import { applyScheme, currentScheme, type Scheme } from '@/theme/index';
+import { applyScheme, currentScheme, isRevisionTheme, setRevisionTheme, type Scheme } from '@/theme/index';
 
 /**
  * The person's appearance choice (founder 2026-10-03: «make also dark mode — not black,
@@ -15,6 +15,13 @@ import { applyScheme, currentScheme, type Scheme } from '@/theme/index';
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 const KEY = 'theme_preference';
+/**
+ * The season as last painted, restored by hydrate() BEFORE the first screen (founder
+ * 2026-10-18: a blink of the whole app, nav bar included, a second after every cold start —
+ * the app painted normal, then the season landed and re-keyed the tree). The server's value
+ * still decides; this only makes the first paint match the last one.
+ */
+const REVISION_KEY = 'revision_season_painted';
 const RETURN_WINDOW_MS = 4000;
 
 function storage(): { getItem: (k: string) => Promise<string | null>; setItem: (k: string, v: string) => Promise<void> } | null {
@@ -52,6 +59,14 @@ function isPreference(v: unknown): v is ThemePreference {
   return v === 'system' || v === 'light' || v === 'dark';
 }
 
+/**
+ * The season switch's curtain: `to` is the mode being entered, `key` makes each crossing its
+ * own mount. The tokens flip CURTAIN_IN_MS after it rises, under cover, and the curtain
+ * component drops itself once the rebuilt tree has painted (curtainDone).
+ */
+export interface RevisionCurtain { to: boolean; key: number }
+export const CURTAIN_IN_MS = 240;
+
 interface ThemeState {
   preference: ThemePreference;
   /** The scheme the live tokens currently carry. */
@@ -61,6 +76,27 @@ interface ThemeState {
   repainted: () => void;
   hydrated: boolean;
   returnTo: { href: Href; at: number } | null;
+  /** «وضع المراجعة» is painted over the scheme (src/theme/revision.ts). */
+  revision: boolean;
+  curtain: RevisionCurtain | null;
+  /**
+   * Lay the season over the scheme, or lift it. Idempotent. `animate` raises the curtain first
+   * (a switch the person just flipped); without it the tokens flip at once (the saved value
+   * restored at launch, a sign-out). `returnTo` = the screen that flipped it, honoured by the
+   * root resolve route after the tree is rebuilt — a pending `rememberReturn` is used when none
+   * is given. Returns whether anything changed.
+   */
+  setRevision: (on: boolean, opts?: { animate?: boolean; returnTo?: Href }) => boolean;
+  /** The screen about to flip the season (before the server has answered). */
+  rememberReturn: (href: Href | null) => void;
+  curtainDone: () => void;
+  /**
+   * «وضع المراجعة مفعّل الآن» — the welcome sheet after the season was switched ON by hand
+   * (founder 2026-10-17: «a popup that revision mode is active now, and what it is»). Raised
+   * when the entering curtain falls; never at launch, never on the way out.
+   */
+  welcome: boolean;
+  dismissWelcome: () => void;
   /** Read the saved choice and apply it against the phone's scheme. Safe to call twice. */
   hydrate: (system: SystemScheme) => Promise<void>;
   /** Change the choice, apply it, persist it. `returnTo` = where the switch was flipped. */
@@ -79,21 +115,67 @@ export const useThemeStore = create<ThemeState>((set, get) => {
     if (next !== get().scheme) set({ scheme: next });
   };
 
+  let pendingReturn: Href | null = null;
+  let curtainSeq = 0;
+  let curtainTimer: ReturnType<typeof setTimeout> | null = null;
+  const land = (on: boolean, returnTo: Href | null) => {
+    setRevisionTheme(on);
+    set({ revision: on, paintEpoch: get().paintEpoch + 1, returnTo: returnTo ? { href: returnTo, at: Date.now() } : null });
+    storage()?.setItem(REVISION_KEY, on ? '1' : '0').catch(() => {});
+  };
+
   return {
     preference: 'system',
     scheme: currentScheme(),
     paintEpoch: 0,
     hydrated: false,
     returnTo: null,
+    revision: isRevisionTheme(),
+    curtain: null,
+    welcome: false,
     repainted: () => set({ paintEpoch: get().paintEpoch + 1 }),
+
+    setRevision: (on, opts) => {
+      if (on === get().revision && !curtainTimer) return false;
+      const returnTo = opts?.returnTo ?? pendingReturn;
+      pendingReturn = null;
+      if (curtainTimer) { clearTimeout(curtainTimer); curtainTimer = null; }
+      if (!opts?.animate) {
+        if (on === get().revision) return false;
+        land(on, returnTo);
+        return true;
+      }
+      curtainSeq += 1;
+      set({ curtain: { to: on, key: curtainSeq }, ...(on ? null : { welcome: false }) });
+      curtainTimer = setTimeout(() => { curtainTimer = null; land(on, returnTo); }, CURTAIN_IN_MS);
+      return true;
+    },
+
+    rememberReturn: (href) => { pendingReturn = href; },
+
+    curtainDone: () => {
+      if (curtainTimer) return;
+      const entered = get().curtain?.to === true && get().revision;
+      set({ curtain: null, ...(entered ? { welcome: true } : null) });
+    },
+
+    dismissWelcome: () => set({ welcome: false }),
 
     hydrate: async (system) => {
       let preference: ThemePreference = 'system';
+      let season = false;
       try {
-        const raw = await storage()?.getItem(KEY);
+        const [raw, painted] = await Promise.all([storage()?.getItem(KEY), storage()?.getItem(REVISION_KEY)]);
         if (isPreference(raw)) preference = raw;
+        season = painted === '1';
       } catch {
-        // Unreadable storage: follow the phone.
+        // Unreadable storage: follow the phone, no season.
+      }
+      // The season first, so the scheme below paints with it; no epoch bump — nothing has
+      // been drawn yet (the root waits for `hydrated`, the splash is still up).
+      if (season && !get().revision) {
+        setRevisionTheme(true);
+        set({ revision: true });
       }
       set({ preference, hydrated: true });
       apply(preference, system);

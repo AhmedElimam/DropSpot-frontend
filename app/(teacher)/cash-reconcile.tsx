@@ -25,6 +25,11 @@ import { useRoseExport, ExportPill } from '@/components/rose/RoseExport';
 import { useRoseDialog } from '@/components/rose/RoseDialog';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useRose } from '@/hooks/useRose';
+import { useRevisionActive } from '@/hooks/useRevisionTheme';
+import { useRevisions } from '@/hooks/useRevisions';
+import { useMinuteClock } from '@/hooks/useMinuteClock';
+import { countdown, nextExam, revisionFacts } from '@/utils/revisionDesk';
+import { countdownText } from '@/components/teacher/RevisionDesk';
 import { useArrived } from '@/hooks/useArrived';
 import { useTutorials } from '@/hooks/useTutorials';
 import { useComplaints } from '@/hooks/useComplaints';
@@ -902,6 +907,21 @@ export default function CashReconcileScreen() {
   const arrived = useArrived();
   const roseVideo = (useTutorials().data ?? []).some((c) => c.key === 'rose');
   const hold = useRoseHold();
+  // «وضع المراجعة»: the facts on her desk — sessions this week, exams ahead, the next one's
+  // distance. Facts only (she never grades the teacher); none while the season is off.
+  const season = useRevisionActive();
+  const seasonNow = useMinuteClock();
+  const seasonRevisions = useRevisions(season).data ?? [];
+  const seasonLines = useMemo(() => {
+    if (!season) return undefined;
+    const facts = revisionFacts(seasonRevisions, seasonNow);
+    const next = nextExam(seasonRevisions, seasonNow);
+    return [
+      t('revision.rose_week', { n: formatNumber(facts.thisWeek) }),
+      t('revision.rose_exams', { n: formatNumber(facts.examsAhead) }),
+      next ? t('revision.rose_next', { when: countdownText(countdown(next.at, seasonNow), t) }) : t('revision.rose_none'),
+    ];
+  }, [season, seasonRevisions, seasonNow, t]);
   // Period filter (founder 2026-09-25): this week by default; step back through past weeks or months.
   const [period, setPeriod] = useState<'week' | 'month'>('week');
   const [weekOffset, setWeekOffset] = useState(0);
@@ -1010,6 +1030,7 @@ export default function CashReconcileScreen() {
           exportingAll={exporting === 'all'}
           onExportSheet={() => exportPdf('sheet')}
           exportingSheet={exporting === 'sheet'}
+          lines={seasonLines}
         >
           {isPast ? (
             <RoseHeroCard icon="calendar" title={t('cash.viewing_past')} sub={t('cash.back_to_now')} chevron onPress={() => { setPeriod('week'); setWeekOffset(0); setSegment('week'); }} />
@@ -1195,6 +1216,20 @@ export default function CashReconcileScreen() {
             <Icon name="play" size={18} color={colors.accent} />
             <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('tutorials.rose_link')}</Text>
             <Icon name="back" size={16} color={colors.textTertiary} />
+          </TouchableOpacity>
+          </Surface>
+        ) : null}
+        {/* «منطقة الخطر» (founder 2026-10-19): last in her settings, the teacher's alone. */}
+        {data?.role === 'teacher' ? (
+          <Surface id="teacher.cash_reconcile.danger_zone">
+          <TouchableOpacity onPress={() => { setSettingsOpen(false); router.push('/(teacher)/rose-reset' as Href); }} accessibilityRole="button"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xl, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.danger, backgroundColor: colors.dangerLight }}>
+            <Icon name="warning" size={20} color={colors.danger} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>{t('rose_reset.entry_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('rose_reset.entry_hint')}</Text>
+            </View>
+            <Icon name="back" size={16} color={colors.danger} />
           </TouchableOpacity>
           </Surface>
         ) : null}

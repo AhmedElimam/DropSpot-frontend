@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 import client from '@/api/client';
 import { runningUpdate } from '@/updates/otaUpdates';
+import { binaryVersion } from '@/utils/binaryVersion';
 import { SQLiteStorage } from 'expo-sqlite/kv-store';
 
 /**
@@ -27,6 +27,8 @@ export const CAPABILITIES: ReadonlyArray<{ key: string; where: string }> = [
   { key: 'cash_reconcile', where: 'app/(teacher)/cash-reconcile.tsx' },
   { key: 'expenses', where: 'app/(teacher)/expenses.tsx' },
   { key: 'rose_export', where: 'src/components/rose/RoseExport.tsx' },
+  { key: 'rose_reset', where: 'app/(teacher)/rose-reset.tsx' },
+  { key: 'home_batch', where: 'src/api/homeBatch.ts' },
   { key: 'pending_collections', where: 'app/(teacher)/pending-collections.tsx' },
   { key: 'payment_proofs', where: 'app/(teacher)/payment-proofs.tsx' },
   { key: 'billing_settings', where: 'app/(teacher)/billing-settings.tsx' },
@@ -60,7 +62,7 @@ const store = new SQLiteStorage('app-meta');
 /** Tell the backend what this build can do — once per build (version + OTA update), silently. */
 export async function reportCapabilities(): Promise<boolean> {
   const u = runningUpdate();
-  const version = Constants.expoConfig?.version ?? '0.0.0';
+  const version = binaryVersion();
   const stamp = `${Platform.OS}|${version}|${u.update_id ?? 'store'}`;
   try {
     if ((await store.getItemAsync('capabilities:reported')) === stamp) return false;

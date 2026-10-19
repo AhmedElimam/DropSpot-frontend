@@ -1,4 +1,5 @@
 import client from './client';
+import { homePart } from '@/api/homeBatch';
 import { extractList, extractAttrs } from './utils';
 
 export interface CheckinPermission {
@@ -52,7 +53,7 @@ export interface TeacherSession {
 }
 
 export async function getTeacherTodaySessions(): Promise<TeacherSession[]> {
-  const { data } = await client.get('/teacher/sessions/today');
+  const data = await homePart('today', () => client.get('/teacher/sessions/today').then((r) => r.data));
   return extractList(data, 'teacher-session').map((item: any) => {
     const attrs = extractAttrs(item);
     return { id: item.id ?? attrs.id, ...attrs } as TeacherSession;

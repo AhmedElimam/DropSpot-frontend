@@ -8,6 +8,7 @@ import Animated, {
 import { useAmbientMotion } from '@/hooks/useAmbientMotion';
 import { fonts } from '@/theme/typography';
 import { useRose } from '@/hooks/useRose';
+import { useRosePictures } from './RoseCostume';
 import { Surface } from '@/ui/surfaces';
 
 /**
@@ -20,9 +21,10 @@ import { Surface } from '@/ui/surfaces';
  * as RoseLive, her head already resting to one side. The only motion is a puff of three small
  * «Z» every six seconds (opacity + transform on the UI thread, ~2 s), and nothing in between:
  * the full rig is what heated MediaTek phones (2026-10-08), and the founder wants no heat, lag
- * or glitch from her. Off-screen, backgrounded or under reduced motion, nothing runs.
+ * or glitch from her. Off-screen, backgrounded or under reduced motion, nothing runs. In
+ * «وضع المراجعة» she dozes in her season picture (RoseCostume: the cardigan and the pencil are
+ * in the artwork itself, founder 2026-10-17).
  */
-const BASE = require('../../../assets/images/rose/madam-rose-live-base.webp');
 const FRAME = 'translate(200 212) scale(0.9) translate(-200 -200)';
 const CHIN = { x: 200, y: 392 };
 const INK = '#1A1F38';
@@ -83,10 +85,11 @@ function Zee({ puff, delay, size, x }: { puff: number; delay: number; size: numb
  */
 const StillFace = memo(function StillFace({ size }: { size: number }) {
   const k = size / 400;
+  const pictures = useRosePictures();
   return (
     // Her head already resting to one side — still. Scaling the picture every frame was the costly part.
     <View style={{ width: size, height: size, transformOrigin: [CHIN.x * k, CHIN.y * k, 0], transform: [{ rotate: '-4deg' }] }}>
-      <Image source={BASE} style={StyleSheet.absoluteFill} contentFit="contain" />
+      <Image source={pictures.liveBase} style={StyleSheet.absoluteFill} contentFit="contain" />
       <Svg width={size} height={size} viewBox="0 0 400 400" style={StyleSheet.absoluteFill}>
         <Face />
       </Svg>

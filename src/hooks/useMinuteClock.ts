@@ -11,7 +11,10 @@ export function useMinuteClock(periodMs = 60_000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!onScreen) return;
-    setNow(Date.now());
+    // Coming back inside the same period keeps the value it had: the screen is already
+    // right, and a fresh number would re-render the whole tab on every switch (measured
+    // 2026-10-16: Home and Sessions rendered twice per tab press).
+    setNow((prev) => (Math.floor(Date.now() / periodMs) === Math.floor(prev / periodMs) ? prev : Date.now()));
     const id = setInterval(() => setNow(Date.now()), periodMs);
     return () => clearInterval(id);
   }, [onScreen, periodMs]);

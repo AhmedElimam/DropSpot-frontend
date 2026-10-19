@@ -1,4 +1,5 @@
 import client from './client';
+import { homePart } from '@/api/homeBatch';
 
 /**
  * «أرقام تحتاج تأكيد» — the phone-verification resolution list (spec §5).
@@ -34,7 +35,7 @@ export interface PhoneConfirmation {
 }
 
 export async function getPhoneConfirmations(): Promise<{ items: PhoneConfirmation[]; count: number }> {
-  const { data } = await client.get('/teacher/phone-confirmations');
+  const data = await homePart('phone_confirmations', () => client.get('/teacher/phone-confirmations').then((r) => r.data));
   const payload = data.data ?? data;
   return { items: payload.items ?? [], count: payload.count ?? 0 };
 }

@@ -12,6 +12,7 @@ import { useAuthStore, resolveRole } from '@/stores/authStore';
 import { ensureApiBaseHydrated, getApiBaseOverride } from '@/api/apiBase';
 import { getCachedAccessToken, setCachedAccessToken } from '@/api/tokenCache';
 import { resolveAppId } from '@/utils/appIdentity';
+import { binaryVersion } from '@/utils/binaryVersion';
 
 /**
  * Resolve the API base URL.
@@ -115,7 +116,7 @@ client.interceptors.request.use(async (config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   // App version for server-side observability (never a hard gate — the blocking
   // update screen is enforced client-side against the shipped binary version).
-  const appVersion = Constants.expoConfig?.version;
+  const appVersion = binaryVersion();
   if (appVersion) config.headers['X-App-Version'] = appVersion;
   // App IDENTITY (bundle id / package name) + platform. This is what lets the server
   // retire ONE published app — the one on a developer account we share — while the

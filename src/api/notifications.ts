@@ -1,4 +1,5 @@
 import client from './client';
+import { homePart } from '@/api/homeBatch';
 import { extractList, extractAttrs } from './utils';
 
 export interface Notification {
@@ -43,7 +44,7 @@ export async function markAllRead(): Promise<void> {
 }
 
 export async function getUnreadCount(): Promise<number> {
-  const { data } = await client.get('/notifications/unread-count');
+  const data = await homePart('unread', () => client.get('/notifications/unread-count').then((r) => r.data));
   return data.data?.count ?? data.count ?? 0;
 }
 
