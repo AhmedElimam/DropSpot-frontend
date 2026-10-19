@@ -13,6 +13,7 @@ import { ensureApiBaseHydrated, getApiBaseOverride } from '@/api/apiBase';
 import { getCachedAccessToken, setCachedAccessToken } from '@/api/tokenCache';
 import { resolveAppId } from '@/utils/appIdentity';
 import { binaryVersion } from '@/utils/binaryVersion';
+import { noteFlagsStamp } from './flagsStamp';
 
 /**
  * Resolve the API base URL.
@@ -263,11 +264,14 @@ client.interceptors.response.use(
     useOfflineStore.getState().noteServerOk();
     // The backend may steer the app with this answer (meta.popup / meta.navigate).
     if (res?.data?.meta) serverMeta(res.data.meta);
+    // A flag flipped in /ops: the config sync picks it up now (src/api/flagsStamp.ts).
+    noteFlagsStamp(res?.headers?.['x-flags-state']);
     return res;
   },
   async (error) => {
     const original = error.config;
     if (error.response?.data?.meta) serverMeta(error.response.data.meta);
+    noteFlagsStamp(error.response?.headers?.['x-flags-state']);
     // The server answered (even a refusal): it is up. A 5xx or no answer at all counts
     // against it — the indicator raises «الخادم لا يرد» after a few in a row.
     const status = error.response?.status;

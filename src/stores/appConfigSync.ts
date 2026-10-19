@@ -6,6 +6,7 @@ import { useAppConfigStore } from '@/stores/appConfigStore';
 import { useAuthStore } from '@/stores/authStore';
 import { ensureApiBaseHydrated, getApiBaseOverride, setApiBaseOverride } from '@/api/apiBase';
 import { setErrorReportingEnabled } from '@/lib/errorReport';
+import { onFlagsStampChange, resetFlagsStamp } from '@/api/flagsStamp';
 
 /** Apply the curated copy overlay onto i18n (dotted keys handled by addResource). */
 function applyCopyOverlay(copy: Record<string, string>): void {
@@ -142,13 +143,22 @@ export function syncAppConfig(): Promise<void> {
  * for this teacher appears without a relaunch), coalesced: a teacher who switches apps
  * twenty times in a minute pays for one request (founder 2026-10-09: «light on all
  * devices»). The server throttles it too; the payload is small.
+ *
+ * Five minutes, not one (2026-10-19 staging audit: «the app isn't optimised like
+ * production»): every sync replaced the whole config and re-rendered every screen that
+ * reads a flag or a surface, ~116 of them across the preloaded tabs. A beta opened for a
+ * teacher still lands within five minutes, at once on a sign-in or a teacher switch.
  */
-export const FOREGROUND_CONFIG_GAP_MS = 60_000;
+export const FOREGROUND_CONFIG_GAP_MS = 5 * 60_000;
 
 export function syncAppConfigOnForeground(now: number = Date.now()): Promise<void> | null {
   if (inFlight || now - lastSyncStartedAt < FOREGROUND_CONFIG_GAP_MS) return null;
   return syncAppConfig();
 }
+
+// The server says its switchboard moved (X-Flags-State): refetch now, whatever the gap.
+// Single-flight, and setConfig's dedupe drops an answer that changed nothing for this person.
+onFlagsStampChange(() => { void syncAppConfig(); });
 
 /**
  * React to the session changing — sign-in, sign-out, entering or leaving impersonation,
@@ -171,6 +181,7 @@ export function watchSessionForConfig(): () => void {
     if (next === 'anon') {
       // A sign-out — or a cold start that found no session: nothing of a person may stay.
       useAppConfigStore.getState().resetUserFlags();
+      resetFlagsStamp();
       useFeatureTermsStore.getState().reset();
       void syncAppConfig();
       return;

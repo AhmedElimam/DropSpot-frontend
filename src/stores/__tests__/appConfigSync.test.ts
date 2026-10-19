@@ -44,3 +44,32 @@ describe('syncAppConfig', () => {
     expect(i18n.t('common.logout')).not.toBe('common.logout');
   });
 });
+
+describe('X-Flags-State (a flag flipped in /ops)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { noteFlagsStamp, resetFlagsStamp } = require('@/api/flagsStamp') as typeof import('@/api/flagsStamp');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { __resetSyncStateForTests, syncAppConfigOnForeground } = require('../appConfigSync') as typeof import('../appConfigSync');
+
+  beforeEach(() => { resetFlagsStamp(); __resetSyncStateForTests(); });
+
+  it('the first stamp is remembered; a moved one refetches at once, inside the five-minute gap', async () => {
+    mockGet.mockResolvedValue({ ...CONFIG_DEFAULTS, feature_flags: { course_chat: false } });
+    await syncAppConfig();
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    // A foreground right now is inside the gap: no request.
+    expect(syncAppConfigOnForeground()).toBeNull();
+
+    noteFlagsStamp('aaa');
+    noteFlagsStamp('aaa');
+    noteFlagsStamp(undefined);
+    expect(mockGet).toHaveBeenCalledTimes(1);
+
+    mockGet.mockResolvedValue({ ...CONFIG_DEFAULTS, feature_flags: { course_chat: true } });
+    noteFlagsStamp('bbb');
+    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(useAppConfigStore.getState().config.feature_flags.course_chat).toBe(true);
+  });
+});
