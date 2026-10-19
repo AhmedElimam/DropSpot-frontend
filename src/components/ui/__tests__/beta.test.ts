@@ -1,7 +1,8 @@
 /**
  * «تجريبي» marks (feature-targeting contract 2026-10-15): drawn only for a key the person
- * holds through beta targeting; the line opens the tickets screen for staff and is a bare
- * chip for a student or a parent.
+ * holds through beta targeting; the line opens the feedback sheet in place, for every role
+ * (it used to push the teacher's tickets screen, where nothing reaches the platform), and
+ * is a bare chip for a super-admin wearing the account.
  */
 import { createElement } from 'react';
 import { CONFIG_DEFAULTS } from '@/config/defaults';
@@ -16,11 +17,15 @@ jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(
 jest.mock('@expo/vector-icons/Ionicons', () => ({ __esModule: true, default: () => null }));
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => `t:${k}` }) }));
 jest.mock('expo-secure-store', () => ({ getItemAsync: async () => null, setItemAsync: async () => {}, deleteItemAsync: async () => {} }));
+// The sheet has its own test; here only whether the line opens it, and for which feature.
+jest.mock('@/components/ui/BetaFeedbackSheet', () => ({
+  BetaFeedbackSheet: (p: Record<string, unknown>) => require('react').createElement('feedback-sheet', p),
+}));
 
 import { useAppConfigStore } from '@/stores/appConfigStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useBetaFeature, useBetaFeatures } from '@/hooks/useBetaFeature';
-import { BetaChip, BetaLine, BETA_FEEDBACK_ROUTE } from '../Beta';
+import { BetaChip, BetaLine } from '../Beta';
 
 const setBeta = (keys: string[]) => useAppConfigStore.setState({ config: { ...CONFIG_DEFAULTS, feature_flags: Object.fromEntries(keys.map((k) => [k, true])), feature_beta: keys } });
 const setRole = (role: 'teacher' | 'assistant' | 'student' | 'parent') =>
@@ -102,24 +107,29 @@ describe('BetaLine', () => {
     expect(byTestId(mount(createElement(BetaLine, { feature: 'private_courses' })), 'beta-line')).toHaveLength(0);
   });
 
-  it.each(['teacher', 'assistant'] as const)('for a %s: the line, tappable, opening the tickets screen', (role) => {
+  const sheet = (tree: ReactTestRenderer) => tree.root.findAll((n) => n.type === 'feedback-sheet')[0];
+
+  it.each(['teacher', 'assistant', 'student', 'parent'] as const)('for a %s: the line opens the feedback sheet in place — never a route', (role) => {
     setRole(role);
-    setBeta(['private_courses']);
-    const tree = mount(createElement(BetaLine, { feature: 'private_courses' }));
+    setBeta(['course_chat']);
+    const tree = mount(createElement(BetaLine, { feature: 'course_chat' }));
     expect(byTestId(tree, 'beta-line')).toHaveLength(1);
-    expect(textsOf(tree)).toEqual(expect.arrayContaining(['t:beta.line', 't:beta.chip']));
+    expect(textsOf(tree)).toEqual(expect.arrayContaining(['t:beta.line', 't:beta.line_cta', 't:beta.chip']));
+    expect(sheet(tree).props).toMatchObject({ feature: 'course_chat', visible: false });
     act(() => { pressable(tree, 'beta-line').props.onPress(); });
-    expect(mockPush).toHaveBeenCalledWith(BETA_FEEDBACK_ROUTE);
-    expect(BETA_FEEDBACK_ROUTE).toBe('/(teacher)/tickets');
+    expect(sheet(tree).props.visible).toBe(true);
+    expect(mockPush).not.toHaveBeenCalled();
+    act(() => { sheet(tree).props.onClose(); });
+    expect(sheet(tree).props.visible).toBe(false);
   });
 
-  it.each(['student', 'parent'] as const)('for a %s: the chip only — no line, nothing to tap', (role) => {
-    setRole(role);
-    setBeta(['chat']);
-    const tree = mount(createElement(BetaLine, { feature: 'chat' }));
-    expect(byTestId(tree, 'beta-line')).toHaveLength(1);
-    expect(tree.root.findAll((n) => n.props.testID === 'beta-line' && typeof n.props.onPress === 'function')).toHaveLength(0);
+  it('for a super-admin wearing the account: the chip only — a note would go out in their name', () => {
+    setBeta(['course_chat']);
+    act(() => { useAuthStore.setState({ impersonation: { active: true } as never }); });
+    const tree = mount(createElement(BetaLine, { feature: 'course_chat' }));
     expect(byTestId(tree, 'beta-chip')).toHaveLength(1);
-    expect(textsOf(tree)).not.toContain('t:beta.line');
+    expect(tree.root.findAll((n) => n.props.testID === 'beta-line' && typeof n.props.onPress === 'function')).toHaveLength(0);
+    expect(tree.root.findAll((n) => n.type === 'feedback-sheet')).toHaveLength(0);
+    act(() => { useAuthStore.setState({ impersonation: null as never }); });
   });
 });
