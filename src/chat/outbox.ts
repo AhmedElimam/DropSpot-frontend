@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { sendChatMessage, uploadChatAttachment, type ChatReplyRef, type ChatSender } from '@/api/chat';
 import { getQueryClient } from '@/lib/queryClientRef';
-import { mergeChatMessage } from '@/hooks/useChat';
+import { CHAT_FLAG, mergeChatMessage } from '@/hooks/useChat';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
@@ -212,6 +212,23 @@ export function flushChatOutbox(): Promise<void> {
 }
 
 let started = false;
+
+/**
+ * Only when chat is on for this person: the flush opens the outbox's own SQLite store, and
+ * it ran on every launch and every return for everyone, chat or not (2026-10-19 staging
+ * audit). A message sent while chat is on still flushes from the send itself.
+ */
+function flushIfChatOn(): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { useAppConfigStore } = require('@/stores/appConfigStore') as typeof import('@/stores/appConfigStore');
+    if (!useAppConfigStore.getState().config.feature_flags?.[CHAT_FLAG]) return;
+  } catch {
+    return;
+  }
+  void flushChatOutbox();
+}
+
 /**
  * Wire the triggers once per app run: a network that comes back, the app returning to the
  * front. Both roles chat, so this lives in the root layout — not in the teacher's.
@@ -235,13 +252,13 @@ export function startChatOutbox(): void {
       if (role !== 'teacher' && role !== 'assistant') {
         useOfflineStore.getState().setOnline(online, state.type === 'wifi' ? 'wifi' : state.type === 'cellular' ? 'cellular' : 'other');
       }
-      if (came) void flushChatOutbox();
+      if (came) flushIfChatOn();
     });
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { AppState } = require('react-native') as typeof import('react-native');
-    AppState.addEventListener('change', (s) => { if (s === 'active') void flushChatOutbox(); });
+    AppState.addEventListener('change', (s) => { if (s === 'active') flushIfChatOn(); });
   } catch {
     // Headless or test: nothing to wire.
   }
-  void flushChatOutbox();
+  flushIfChatOn();
 }
