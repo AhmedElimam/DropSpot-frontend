@@ -29,11 +29,11 @@ import { useTermsContent } from '@/hooks/useTermsContent';
  * Only for people who have consented BEFORE (`terms_update`). A first-time
  * acceptance is not an update and goes straight to the full document.
  */
-export function TermsUpdateModal() {
-  const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
-  const pathname = usePathname();
+/** A foreground re-checks the version at most this often (a launch always checks). */
+export const TERMS_RECHECK_MS = 15 * 60_000;
+let lastTermsCheckAt = 0;
 
+export function TermsUpdateModal() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
   const role = useAuthStore((s) => s.role);
@@ -45,11 +45,9 @@ export function TermsUpdateModal() {
   const termsRole: TermsRole =
     role === 'student' ? 'student' : role === 'parent' ? 'parent' : role === 'assistant' ? 'assistant' : 'teacher';
 
-  const { changesFor } = useTermsContent();
-  const changes = changesFor(termsRole);
-
   // Ask the server whether this user still stands on the current version — on mount
-  // and on every foreground. Silent on failure: a network blip must never invent a
+  // and on a foreground at most every TERMS_RECHECK_MS (it asked on EVERY return before:
+  // 2026-10-19 staging audit). Silent on failure: a network blip must never invent a
   // consent prompt, and the launch gate still catches the user either way.
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -58,6 +56,7 @@ export function TermsUpdateModal() {
     const check = async () => {
       if (checking.current) return;
       checking.current = true;
+      lastTermsCheckAt = Date.now();
       try {
         const state = await getTermsState();
         if (!alive) return;
@@ -85,7 +84,7 @@ export function TermsUpdateModal() {
 
     check();
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
-      if (s === 'active') check();
+      if (s === 'active' && Date.now() - lastTermsCheckAt >= TERMS_RECHECK_MS) check();
     });
 
     return () => {
@@ -94,17 +93,26 @@ export function TermsUpdateModal() {
     };
   }, [isAuthenticated, setSession]);
 
+  const wanted = !!isAuthenticated && !!user?.must_accept_terms && !!user?.terms_update && !deferred;
+  // Nothing to show (the usual case): no legal text fetched, no route subscription — the
+  // sheet below mounts only for a person who has an update waiting.
+  if (!wanted) return null;
+  return <TermsUpdateSheet termsRole={termsRole} onLater={() => setDeferred(true)} />;
+}
+
+function TermsUpdateSheet({ termsRole, onLater }: { termsRole: TermsRole; onLater: () => void }) {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  const { changesFor } = useTermsContent();
+  const changes = changesFor(termsRole);
+
   // Never over the acceptance screen itself — there the document IS the screen.
   // (The auth stack needs no check: this only renders for a signed-in user.)
-  const onGateScreen = pathname === '/accept-terms';
-
-  const visible =
-    !!isAuthenticated && !!user?.must_accept_terms && !!user?.terms_update && !deferred && !onGateScreen;
-
-  if (!visible) return null;
+  if (pathname === '/accept-terms') return null;
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={() => setDeferred(true)}>
+    <Modal visible transparent animationType="fade" onRequestClose={onLater}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: spacing.xl }}>
         <View
           style={{
@@ -203,7 +211,7 @@ export function TermsUpdateModal() {
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('terms.update_review')}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setDeferred(true)} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
+          <TouchableOpacity onPress={onLater} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
             <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>
               {t('terms.update_later')}
             </Text>

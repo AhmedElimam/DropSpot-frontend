@@ -46,8 +46,30 @@ export function shouldPersistQuery(query: Pick<Query, 'queryKey' | 'state' | 'me
   if (query.state.status !== 'success') return false;
   if (query.meta?.persist === false) return false;
   if (NEVER.has(String(query.queryKey[0]))) return false;
+  if (featureOff(String(query.queryKey[0]))) return false;
 
   return now - query.state.dataUpdatedAt < PERSIST_MAX_AGE_MS;
+}
+
+/** The feature a query family belongs to; its pages stay on disk only while it is on. */
+const FAMILY_FLAG: Record<string, string> = { chat: 'course_chat', threads: 'threads' };
+
+/**
+ * Chat rooms (50 messages each) and the threads feed were kept on disk, and restored and
+ * re-written on every launch, for days after the feature was switched off for this person
+ * (2026-10-19 staging audit). While it is on nothing changes — a room still resumes from
+ * its saved page; once off, the next cache write drops them.
+ */
+function featureOff(family: string): boolean {
+  const flag = FAMILY_FLAG[family];
+  if (!flag) return false;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { useAppConfigStore } = require('@/stores/appConfigStore') as typeof import('@/stores/appConfigStore');
+    return !useAppConfigStore.getState().config.feature_flags?.[flag];
+  } catch {
+    return false;
+  }
 }
 
 /** On restore: drop the «today» queries that were fetched on another day. */

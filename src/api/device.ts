@@ -11,17 +11,28 @@ import { countPendingScans, oldestPendingScanAt } from '@/db/offlineScans';
  * swallowed; this must never affect scanning, syncing or launch.
  */
 let lastSentAt = 0;
+let lastCheckedAt = 0;
+let lastSentCount = -1;
 const MIN_GAP_MS = 60_000;
+/**
+ * A healthy phone (nothing waiting, nothing changed) reports at most this often — it posted
+ * every minute of foreground use before (2026-10-19 staging audit). Scans waiting, or a
+ * count that moved, still report at once: that is what ops watches.
+ */
+export const HEARTBEAT_IDLE_MS = 15 * 60_000;
 
 export async function sendDeviceHeartbeat(activeTeacherId?: number | null, force = false): Promise<void> {
   try {
-    if (!force && Date.now() - lastSentAt < MIN_GAP_MS) return;
-    lastSentAt = Date.now();
-    const [device_id, pending_scan_count, oldest] = await Promise.all([
-      getDeviceId(),
-      countPendingScans(),
-      oldestPendingScanAt(),
-    ]);
+    const now = Date.now();
+    if (!force && now - lastCheckedAt < MIN_GAP_MS) return;
+    lastCheckedAt = now;
+    const pending = await countPendingScans();
+    const news = pending > 0 || pending !== lastSentCount || now - lastSentAt >= HEARTBEAT_IDLE_MS;
+    if (!force && !news) return;
+    lastSentAt = now;
+    lastSentCount = pending;
+    const [device_id, oldest] = await Promise.all([getDeviceId(), pending > 0 ? oldestPendingScanAt() : Promise.resolve(null)]);
+    const pending_scan_count = pending;
     await client.post('/device/heartbeat', {
       device_id,
       pending_scan_count,
