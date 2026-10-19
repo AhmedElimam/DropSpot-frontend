@@ -1,4 +1,5 @@
 import client from './client';
+import { homePart } from '@/api/homeBatch';
 import { extractList, extractAttrs } from './utils';
 
 export interface Ticket {
@@ -66,7 +67,7 @@ export interface TeacherInfo {
 }
 
 export async function getTickets(): Promise<Ticket[]> {
-  const { data } = await client.get('/tickets');
+  const data = await homePart('tickets', () => client.get('/tickets').then((r) => r.data));
   return extractList(data, 'tickets').map((item: any) => {
     const attrs = extractAttrs(item);
     return { id: item.id, ...attrs };

@@ -51,6 +51,14 @@ import { useComplaints } from '@/hooks/useComplaints';
 import { PrintArrivingCard } from '@/components/print/PrintArrivingCard';
 import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { useThreadsEnabled, useThreadsUnread } from '@/hooks/useThreads';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useRevisionActive } from '@/hooks/useRevisionTheme';
+import { SeasonSwitchChip } from '@/components/teacher/RevisionSwitch';
+import { RevisionDesk, SeasonCountdown, UsualDayHead, useNextExam } from '@/components/teacher/RevisionDesk';
+import { SeasonPaper } from '@/components/SeasonPaper';
+
+/** «وضع المراجعة»: the hero band's rounded foot (the day hero runs into the page instead). */
+const SEASON_HERO_RADIUS = 28;
 
 function greetingKey(now: number): string {
   const h = new Date(now).getHours();
@@ -74,6 +82,13 @@ export default function TeacherHome() {
   const canCancel = can(ABILITY.CANCEL_SESSIONS);
   const now = useMinuteClock();
   const rose = useRose();
+  // «وضع المراجعة» (founder 2026-10-16/17): the switch sits in the top bar beside the logo; while
+  // the season is on, the hero carries the next exam's countdown, the revision desk opens the
+  // page, and everything Home had before stays below it.
+  const { data: flags } = useFeatureFlags();
+  const seasonSwitch = !!flags?.revise_mode;
+  const season = useRevisionActive();
+  const desk = useNextExam(now, season);
 
   const sessionsQ = useTeacherTodaySessions();
   const pending = useOfflineStore((s) => s.pending);
@@ -207,7 +222,8 @@ export default function TeacherHome() {
       >
         {/* Hero — greeting and today in three numbers. */}
         <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.xl, paddingBottom: spacing.xl4 + spacing.xl }}>
+          style={[{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.xl, paddingBottom: spacing.xl4 + spacing.xl }, season ? { borderBottomLeftRadius: SEASON_HERO_RADIUS, borderBottomRightRadius: SEASON_HERO_RADIUS } : null]}>
+          <SeasonPaper radius={season ? SEASON_HERO_RADIUS : 0} />
           <HeaderBrandBar
             onBell={() => router.push('/(teacher)/notifications' as Href)}
             unread={unread}
@@ -215,12 +231,15 @@ export default function TeacherHome() {
             scanBadge={offlineAttention}
             onSearch={() => router.push('/(teacher)/search' as Href)}
             surfacePrefix="teacher.header"
+            beside={seasonSwitch ? <Surface id="teacher.home.revision_pill"><SeasonSwitchChip canSwitch={!isAssistant} /></Surface> : undefined}
           />
           {/* Name and date centred at the top (founder 2026-10-05). */}
           <Surface id="teacher.home.greeting">
           <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.onHero, textAlign: 'center' }}>{`${t(greetingKey(now))}، ${firstName}`}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2, textAlign: 'center' }}>{formatDayDate(new Date(now))}</Text>
           </Surface>
+          {/* The season's countdown — the hero's own, right under the greeting. */}
+          {season ? <SeasonCountdown now={now} next={desk.next} loading={desk.loading} revisions={desk.revisions} /> : null}
           {/* Live connection: Wi-Fi / mobile / offline, and what waits to be sent — tap for details. */}
           <Surface id="teacher.home.connection_line"><ConnectionLine style={{ marginTop: spacing.sm }} /></Surface>
           <Surface id="teacher.home.teacher_switcher"><TeacherSwitcher /></Surface>
@@ -246,6 +265,14 @@ export default function TeacherHome() {
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           <Slot id="teacher.home.top" style={{ marginBottom: spacing.lg }} />
+          {/* The revision desk, first, while the season is on: today's revision sessions, then
+              the tool kit. Then the usual day, exactly as it was. */}
+          {season ? (
+            <>
+              <RevisionDesk now={now} revisions={desk.revisions} loading={desk.loading} canScan={canCash} />
+              <UsualDayHead />
+            </>
+          ) : null}
           {/* Spotlight — the session that matters now. */}
           <Surface id="teacher.home.spotlight">
           <TourTarget id="home:spotlight">

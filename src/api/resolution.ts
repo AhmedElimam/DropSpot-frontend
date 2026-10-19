@@ -1,4 +1,5 @@
 import client from './client';
+import { homePart } from '@/api/homeBatch';
 import { extractList, extractAttrs } from './utils';
 
 /**
@@ -100,7 +101,7 @@ function reviewItem(a: any) {
 }
 
 export async function getResolutionSummary(): Promise<ResolutionSummary> {
-  const { data } = await client.get('/teacher/resolution/summary');
+  const data = await homePart('resolution', () => client.get('/teacher/resolution/summary').then((r) => r.data));
   return (data.data ?? data) as ResolutionSummary;
 }
 

@@ -1,5 +1,8 @@
 import { isValidElement, type ReactNode } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Linking, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, Linking, RefreshControl } from 'react-native';
+import { ScrollView } from '@/components/ui/Refreshable';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { syncAppConfig } from '@/stores/appConfigSync';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
@@ -19,7 +22,10 @@ import { TourTarget } from '@/tour/TourTarget';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
-import { useReviseMode, useSetReviseMode } from '@/hooks/useReviseMode';
+import { RevisionSettingsSwitch } from '@/components/teacher/RevisionSwitch';
+import { useRevisionActive } from '@/hooks/useRevisionTheme';
+import { REVISION_INK } from '@/theme/revision';
+import { SeasonPaper } from '@/components/SeasonPaper';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useTeacherCourses, useTeacherStudents } from '@/hooks/useStudents';
 import { formatDate, formatNumber } from '@/utils/format';
@@ -43,18 +49,21 @@ export default function TeacherSettings() {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const isAssistant = user?.user_type_id === 6;
-  const { data: reviseOn } = useReviseMode();
-  const { data: students } = useTeacherStudents();
-  const { data: courses } = useTeacherCourses();
+  const season = useRevisionActive();
+  const { data: students, refetch: refetchStudents } = useTeacherStudents();
+  const { data: courses, refetch: refetchCourses } = useTeacherCourses();
+  // Pull to refresh like every other tab (founder 2026-10-18: «on profile I can pull the page,
+  // not refresh»): the counts, and the backend config the rows below follow (flags, hidden rows).
+  const { refreshing, onRefresh } = usePullRefresh(refetchStudents, refetchCourses, syncAppConfig);
   const { data: flags } = useFeatureFlags();
-  const setRevise = useSetReviseMode();
 
   // The tour scrolls this page to reach «شروحات التطبيق» further down (founder 2026-10-09).
   const tourScroll = useTourScroll();
   return (
     <Surface id="screen.teacher.settings" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView {...tourScroll} contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}>
+      <ScrollView {...tourScroll} contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         <Surface id="teacher.settings.profile_hero">
         <LinearGradient
           colors={gradients.hero}
@@ -62,6 +71,8 @@ export default function TeacherSettings() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xl }}
         >
+          {/* «وضع المراجعة»: the season's paper under the profile. */}
+          <SeasonPaper />
           {/* Who: the logo or the generated mark in a ring, the name, then role and number as
               two quiet chips (founder 2026-10-11: «some UI love on the top part»). */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -145,19 +156,15 @@ export default function TeacherSettings() {
             {flags?.revise_mode ? (
               <Surface id="teacher.settings.row_revise_switch" assistantNeeds="teacher">
               <Row
-                icon="reports"
-                tint={colors.brand}
-                tintBg={colors.brandTint}
+                icon="book"
+                tint={season ? REVISION_INK.amber : colors.brand}
+                tintBg={season ? colors.accentLight : colors.brandTint}
                 label={t('teacher.revise_switch_title')}
-                sub={t('teacher.revise_switch_sub')}
+                sub={season ? t('revision.settings_hint') : t('teacher.revise_switch_sub')}
                 trailing={
-                  <Switch
-                    value={!!reviseOn}
-                    onValueChange={(v) => setRevise.mutate(v)}
-                    disabled={setRevise.isPending || reviseOn === undefined}
-                    trackColor={{ true: colors.brand, false: colors.border }}
-                    thumbColor={colors.white}
-                  />
+                  // The same short confirmation as the Home pill, then the curtain. Its own
+                  // component: the toggle follows the route, and this whole page must not.
+                  <RevisionSettingsSwitch />
                 }
               />
               </Surface>

@@ -19,6 +19,8 @@ export interface StudentTeacher {
   id: number;
   name: string;
   logo_url: string | null;
+  /** The teacher is in «وضع المراجعة» (backend need 2026-10-16: not yet in the payload). */
+  revise_mode?: boolean;
   courses: StudentCourseStanding[];
   present: number;
   absent: number;
