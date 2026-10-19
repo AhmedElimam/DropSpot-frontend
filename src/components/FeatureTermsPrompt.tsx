@@ -75,8 +75,11 @@ function Agreement({ doc }: { doc: FeatureTermsDoc }) {
     onSuccess: () => {
       useAppConfigStore.getState().dropFeatureTerms(doc.key);
       useFeatureTermsStore.getState().done(doc.key);
-      // Whatever the feature refused with 423 while this was due loads now.
-      void queryClient.invalidateQueries();
+      // Whatever THIS feature refused with 423 while it was due loads now — only those.
+      // A bare invalidateQueries() refetched every query in the app on each acceptance, and
+      // a demo account with three agreements due took the app down accepting them in a row
+      // (founder 2026-10-19: «shows all agreements … until the app breaks»).
+      void queryClient.invalidateQueries({ predicate: (q) => refusedFor(q.state.error, doc.key) });
     },
   });
   const later = () => useFeatureTermsStore.getState().putOff(doc.key);
@@ -139,4 +142,10 @@ function Agreement({ doc }: { doc: FeatureTermsDoc }) {
       </View>
     </Modal>
   );
+}
+
+/** Did this query fail because THIS feature's agreement was still due (423 FEATURE_TERMS_REQUIRED)? */
+export function refusedFor(error: unknown, key: string): boolean {
+  const data = (error as { response?: { status?: number; data?: { code?: string; feature?: string } } } | null)?.response;
+  return data?.status === 423 && data.data?.code === 'FEATURE_TERMS_REQUIRED' && data.data.feature === key;
 }
