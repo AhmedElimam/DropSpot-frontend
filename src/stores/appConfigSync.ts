@@ -6,6 +6,7 @@ import { useAppConfigStore } from '@/stores/appConfigStore';
 import { useAuthStore } from '@/stores/authStore';
 import { ensureApiBaseHydrated, getApiBaseOverride, setApiBaseOverride } from '@/api/apiBase';
 import { setErrorReportingEnabled } from '@/lib/errorReport';
+import { onFlagsStampChange, resetFlagsStamp } from '@/api/flagsStamp';
 
 /** Apply the curated copy overlay onto i18n (dotted keys handled by addResource). */
 function applyCopyOverlay(copy: Record<string, string>): void {
@@ -155,6 +156,10 @@ export function syncAppConfigOnForeground(now: number = Date.now()): Promise<voi
   return syncAppConfig();
 }
 
+// The server says its switchboard moved (X-Flags-State): refetch now, whatever the gap.
+// Single-flight, and setConfig's dedupe drops an answer that changed nothing for this person.
+onFlagsStampChange(() => { void syncAppConfig(); });
+
 /**
  * React to the session changing — sign-in, sign-out, entering or leaving impersonation,
  * an assistant switching teacher context — the ONE place that keeps the per-user flags in
@@ -176,6 +181,7 @@ export function watchSessionForConfig(): () => void {
     if (next === 'anon') {
       // A sign-out — or a cold start that found no session: nothing of a person may stay.
       useAppConfigStore.getState().resetUserFlags();
+      resetFlagsStamp();
       useFeatureTermsStore.getState().reset();
       void syncAppConfig();
       return;
