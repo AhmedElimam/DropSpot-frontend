@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@/theme/index';
+import { colors, spacing, radius, isRevisionTheme } from '@/theme/index';
 import { fonts } from '@/theme/typography';
 import { Icon } from '@/components/ui/Icon';
 import { BrandMark } from '@/components/ui/BrandMark';
@@ -29,6 +29,8 @@ interface HeaderBrandBarProps {
    * (the teacher home passes "teacher.header"). Absent: nothing is wrapped (student / parent homes).
    */
   surfacePrefix?: string;
+  /** Beside the logo (teacher home: the «وضع المراجعة» switch chip). */
+  beside?: ReactNode;
 }
 
 // A function, not a constant: the hero tokens change with the scheme (light: ink on mist,
@@ -50,7 +52,7 @@ function Badge({ count }: { count: number }) {
  * the logo (last child) at the left, exactly as intended. (The connection status lives
  * under each home's greeting — ConnectionLine.)
  */
-export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scanBadge = 0, onSearch, surfacePrefix }: HeaderBrandBarProps) {
+export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scanBadge = 0, onSearch, surfacePrefix, beside }: HeaderBrandBarProps) {
   const { t } = useTranslation();
   // Ids the teacher home declares (for scripts/list-surfaces.py):
   // <Surface id="teacher.header.bell"> <Surface id="teacher.header.scan"> <Surface id="teacher.header.search"> <Surface id="teacher.header.brand">
@@ -76,8 +78,12 @@ export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scan
         )) : null}
       </View>
 
-      {/* Last child → visual LEFT in RTL: the transparent brand logo. */}
-      {surface('brand', <BrandMark size={logoSize} />)}
+      {/* Last child → visual LEFT in RTL: the transparent brand logo, and what sits beside it.
+          In «وضع المراجعة» the day hero is deep indigo, so the emblem takes the hero's white. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 }}>
+        {beside}
+        {surface('brand', <BrandMark size={beside ? Math.min(logoSize, 48) : logoSize} tint={isRevisionTheme() ? colors.onHero : undefined} />)}
+      </View>
     </View>
   );
 }

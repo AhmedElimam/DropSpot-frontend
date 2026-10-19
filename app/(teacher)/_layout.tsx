@@ -19,6 +19,7 @@ import { sendDeviceHeartbeat } from '@/api/device';
 import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
+import { RevisionThemeSync } from '@/hooks/useRevisionTheme';
 import { colors } from '@/theme/index';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
 
@@ -154,6 +155,8 @@ export default function TeacherLayout() {
     <>
     {/* Relocation prompt — teachers only (assistants never edit geofence anchors). */}
     {isAuthenticated && role === 'teacher' ? <RelocationPrompt enabled /> : null}
+    {/* «وضع المراجعة»: the teacher's switch → the season's colours over the whole app. */}
+    {isAuthenticated ? <RevisionThemeSync /> : null}
     // freezeOnBlur off for THIS stack (founder 2026-10-08: «a stutter in the middle of the back
     // gesture»). enableFreeze(true) in app/_layout made every native-stack screen freeze when
     // covered, so the tabs under a pushed screen sat frozen and the swipe back thawed them

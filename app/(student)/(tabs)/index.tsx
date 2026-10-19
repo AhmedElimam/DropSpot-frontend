@@ -20,6 +20,7 @@ import { CardOrderBanner } from '@/components/cardOrder/CardOrderBanner';
 import { formatDate, formatTime, formatNumber } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/Icon';
+import { TeacherSeasonChip } from '@/components/RevisionRibbon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { ConnectionLine } from '@/components/ui/ConnectionStatus';
 import { TourTarget } from '@/tour/TourTarget';
@@ -376,7 +377,11 @@ function TeacherCard({ teacher }: { teacher: StudentTeacher }) {
           <GeneratedAvatar seed={avatarSeed.user(teacher.id, teacher.name)} size={48} square label={teacher.name} />
         )}
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{teacher.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{teacher.name}</Text>
+            {/* The teacher's revision season — an indigo chip, no theme change for the family. */}
+            {teacher.revise_mode ? <TeacherSeasonChip /> : null}
+          </View>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
             {teacher.courses.map((c) => c.name).join(' · ')}
           </Text>

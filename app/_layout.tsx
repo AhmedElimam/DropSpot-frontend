@@ -1,6 +1,6 @@
 import '../src/i18n';
 import { setQueryClient } from '@/lib/queryClientRef';
-import { I18nManager, View, ActivityIndicator, Text, TextInput, AppState, useColorScheme, type AppStateStatus } from 'react-native';
+import { I18nManager, View, ActivityIndicator, Image, Text, TextInput, AppState, useColorScheme, type AppStateStatus } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
@@ -53,6 +53,9 @@ import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { FeatureTermsPrompt } from '@/components/FeatureTermsPrompt';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
+import { RevisionCurtain } from '@/components/RevisionCurtain';
+import { RevisionWelcome } from '@/components/RevisionWelcome';
+import { RevisionThemeGuard } from '@/hooks/useRevisionTheme';
 import { colors } from '@/theme/index';
 import { shouldRefetchOnFocus } from '@/api/queryFocus';
 
@@ -136,6 +139,12 @@ setQueryClient(queryClient);
 // JS errors go to /admin/app-errors with version, update, screen and stack (src/lib/errorReport.ts).
 installErrorReporting();
 
+// The native splash (app.config.ts → expo-splash-screen), redrawn while the gate restores.
+const SPLASH_LIGHT_BG = '#F4F1EB';
+const SPLASH_DARK_BG = '#080E26';
+const SPLASH_LIGHT_ICON = require('../assets/images/splash-icon.png');
+const SPLASH_DARK_ICON = require('../assets/images/splash-icon-dark.png');
+
 function HydrationGate({ children }: { children: React.ReactNode }) {
   const isLoading = useAuthStore((s) => s.isLoading);
   const hydrate = useAuthStore((s) => s.hydrate);
@@ -188,10 +197,16 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
   // screens underneath would otherwise render one person's UI with the other's session.
   const switching = useAuthStore((s) => s.switching);
 
+  // Still restoring: draw the SPLASH itself, not a spinner. expo-router hides the native
+  // splash on its own after its first frame, so this gate can outlive it by half a second —
+  // a bare spinner page between the splash and Home (founder 2026-10-19: «a blank moment
+  // when I first open the app»). The same logo, size and colours as the native splash
+  // (app.config.ts → expo-splash-screen), following the phone as it does: no seam.
   if (isLoading || !themeReady) {
+    const dark = system === 'dark';
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: dark ? SPLASH_DARK_BG : SPLASH_LIGHT_BG }}>
+        <Image source={dark ? SPLASH_DARK_ICON : SPLASH_LIGHT_ICON} style={{ width: 160, height: 160 }} resizeMode="contain" fadeDuration={0} accessibilityLabel="دروس سبوت" />
       </View>
     );
   }
@@ -223,6 +238,8 @@ export default function RootLayout() {
   const scheme = useThemeStore((s) => s.scheme);
   // The backend repainted a token (config/mobile_ui.php → theme): rebuild on the new colours.
   const paintEpoch = useThemeStore((s) => s.paintEpoch);
+  // «وضع المراجعة» paints the day hero deep indigo, so the status bar icons go light with it.
+  const revision = useThemeStore((s) => s.revision);
 
   useEffect(() => {
     if (fontError) {
@@ -267,7 +284,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         {/* Status bar icons follow the scheme: dark on the day mist, light on the night navy.
             The auth screens, deep ink in both schemes, set their own while mounted. */}
-        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={scheme === 'dark' || revision ? 'light' : 'dark'} />
         <HydrationGate>
           <AppConfigGate>
           <View key={`${scheme}-${paintEpoch}`} style={{ flex: 1, backgroundColor: colors.background }}>
@@ -303,6 +320,11 @@ export default function RootLayout() {
             {/* Firebase Analytics: screens as route patterns, the role, off while impersonating. */}
             <AnalyticsTracker />
           </View>
+          {/* The season's curtain, its welcome sheet and its sign-out guard: OUTSIDE the keyed
+              tree, so the rebuild happens under the curtain and never unmounts them. */}
+          <RevisionCurtain />
+          <RevisionWelcome />
+          <RevisionThemeGuard />
           </AppConfigGate>
         </HydrationGate>
       </SafeAreaProvider>

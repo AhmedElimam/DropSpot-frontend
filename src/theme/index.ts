@@ -1,7 +1,9 @@
 import { Platform } from 'react-native';
 import { fonts } from './typography';
 import { gradientSets, palettes, type GradientSet, type Palette, type Scheme } from './palettes';
+import { revisionGradients, revisionOverlay } from './revision';
 export { fonts } from './typography';
+export { REVISION_INK } from './revision';
 export type { Palette, Scheme } from './palettes';
 
 /**
@@ -46,9 +48,27 @@ export function setThemeOverrides(next: Partial<Record<Scheme, Record<string, st
   return changed;
 }
 
+/**
+ * «وضع المراجعة» (src/theme/revision.ts): the season's indigo + amber layer, on top of the
+ * palette AND the backend's repaint — a teacher who switched the season on asked for it, so it
+ * wins. Off = the palette exactly as before (guarded by src/theme/__tests__/revision.test.ts).
+ */
+let revision = false;
+
+export function setRevisionTheme(on: boolean): boolean {
+  const changed = on !== revision;
+  revision = on;
+  if (changed) paint(scheme);
+  return changed;
+}
+
+export function isRevisionTheme(): boolean {
+  return revision;
+}
+
 function paint(next: Scheme): void {
-  Object.assign(colors, palettes[next], overrides[next] ?? {});
-  Object.assign(gradients, gradientSets[next]);
+  Object.assign(colors, palettes[next], overrides[next] ?? {}, revision ? revisionOverlay[next] : {});
+  Object.assign(gradients, gradientSets[next], revision ? revisionGradients[next] : {});
 }
 
 /** Switch every live token to `next`. Idempotent; returns whether anything changed. */
