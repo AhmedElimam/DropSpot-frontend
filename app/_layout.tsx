@@ -137,6 +137,7 @@ installErrorReporting();
 
 function HydrationGate({ children }: { children: React.ReactNode }) {
   const isLoading = useAuthStore((s) => s.isLoading);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hydrate = useAuthStore((s) => s.hydrate);
   const themeReady = useThemeStore((s) => s.hydrated);
   const system = useColorScheme();
@@ -170,7 +171,10 @@ function HydrationGate({ children }: { children: React.ReactNode }) {
   // root's five-second fallback still releases it if something hangs.
   // The print-shop driver's session too: the start screen picks the driver's map from it, and
   // deciding before it loaded sent a signed-in driver to the login screen on every restart.
-  const driverReady = useDriverStore((s) => s.hydrated);
+  // The driver's saved session matters only to someone NOT signed in (app/index routes a
+  // driver from it): a teacher, parent or student never waits for it at launch (2026-10-19
+  // staging audit — one more Keystore read on the first-paint path for everyone).
+  const driverReady = useDriverStore((s) => s.hydrated) || isAuthenticated;
   const ready = !isLoading && themeReady && driverReady;
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});

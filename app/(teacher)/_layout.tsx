@@ -20,6 +20,8 @@ import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { colors } from '@/theme/index';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
+import { stopStaleLiveShare } from '@/background/shareLocation';
+import { useAppConfigStore } from '@/stores/appConfigStore';
 
 // A deep link straight to a detail screen still has the tabs underneath to go back to.
 export const unstable_settings = { initialRouteName: '(tabs)' };
@@ -59,10 +61,14 @@ export default function TeacherLayout() {
     // offline for sessions the teacher never opened while connected.
     syncScheduleCacheOnOpen(useOfflineStore.getState().online, stampTeacherId(useAuthStore.getState()))
       .finally(() => { void triggerAutoSync(); void prefetchTodayRosters(); scheduleWarmUp(5000); });
+    // A «موقعي المباشر» share whose time ran out (or the print market switched off) stops here.
+    const printOn = () => !!useAppConfigStore.getState().config.feature_flags?.print_market;
+    void stopStaleLiveShare(printOn());
     let lastRefresh = { at: Date.now(), day: new Date().toDateString() };
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
       if (s === 'active') {
         useOfflineStore.getState().refresh();
+        void stopStaleLiveShare(printOn());
         // Every return still prunes stale days (local) and sends the buffered door scans. The
         // network refresh — today's sessions AND the whole roster — runs at most every 10 min
         // or when the day has changed: a teacher switching apps 20 times an hour paid for 60

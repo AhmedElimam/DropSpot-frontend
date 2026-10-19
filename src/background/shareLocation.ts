@@ -123,3 +123,19 @@ export async function stopLiveShare(jobId: number): Promise<void> {
   await clearLiveShare();
   try { await stopPrintLocation(jobId); } catch { /* the server ends it on time anyway */ }
 }
+
+/**
+ * A share whose time is up — or any share at all while the print market is off — must not
+ * keep the GPS and its foreground service running. The task only ended itself when a NEW
+ * location arrived, so a phone that stood still, or an app killed mid-share, kept them on
+ * (2026-10-19 staging audit). Called from the teacher layout at launch and on every return.
+ */
+export async function stopStaleLiveShare(printMarketOn: boolean): Promise<void> {
+  try {
+    if (!(await Location.hasStartedLocationUpdatesAsync(SHARE_LOCATION_TASK))) return;
+    if (printMarketOn && (await readLiveShare())) return;
+    await clearLiveShare();
+  } catch {
+    // Location unavailable (simulator, revoked permission): nothing is running to stop.
+  }
+}
