@@ -1,4 +1,5 @@
 import client from './client';
+import { homePart } from '@/api/homeBatch';
 import { parseAnnotations, serialiseAnnotations, type PhotoAnnotations } from '@/components/complaints/annotationGeometry';
 
 /**
@@ -204,7 +205,10 @@ export async function getFamilyComplaints(): Promise<Complaint[]> {
 // ---- teacher / assistant ----
 
 export async function getComplaints(bucket: ComplaintBucket = 'pending'): Promise<ComplaintList> {
-  const { data } = await client.get('/teacher/complaints', { params: { bucket } });
+  // The pending bucket rides the home batch; the others go straight out.
+  const data = bucket === 'pending'
+    ? await homePart('complaints_pending', () => client.get('/teacher/complaints', { params: { bucket } }).then((r) => r.data))
+    : (await client.get('/teacher/complaints', { params: { bucket } })).data;
   const d = data?.data ?? {};
   return {
     rows: ((d.rows ?? []) as any[]).map(row),

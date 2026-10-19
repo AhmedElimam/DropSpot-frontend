@@ -27,6 +27,7 @@ export const CAPABILITIES: ReadonlyArray<{ key: string; where: string }> = [
   { key: 'expenses', where: 'app/(teacher)/expenses.tsx' },
   { key: 'rose_export', where: 'src/components/rose/RoseExport.tsx' },
   { key: 'rose_reset', where: 'app/(teacher)/rose-reset.tsx' },
+  { key: 'home_batch', where: 'src/api/homeBatch.ts' },
   { key: 'pending_collections', where: 'app/(teacher)/pending-collections.tsx' },
   { key: 'payment_proofs', where: 'app/(teacher)/payment-proofs.tsx' },
   { key: 'billing_settings', where: 'app/(teacher)/billing-settings.tsx' },

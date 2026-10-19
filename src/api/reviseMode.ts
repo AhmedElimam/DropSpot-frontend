@@ -1,4 +1,5 @@
 import client from './client';
+import { homePart } from '@/api/homeBatch';
 
 /**
  * Per-teacher revision / special-session switch. Reachable by the teacher AND
@@ -13,7 +14,7 @@ import client from './client';
  */
 
 export async function getReviseMode(): Promise<boolean> {
-  const { data } = await client.get('/teacher/revise-mode');
+  const data = await homePart('revise_mode', () => client.get('/teacher/revise-mode').then((r) => r.data));
   return data?.data?.enabled === true;
 }
 

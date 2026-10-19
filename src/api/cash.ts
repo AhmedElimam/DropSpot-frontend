@@ -1,4 +1,5 @@
 import client from './client';
+import { homePart } from '@/api/homeBatch';
 import { useRoseStore } from '@/stores/roseStore';
 
 /**
@@ -379,7 +380,10 @@ export interface TeacherCashView {
 export type CashView = AssistantCashView | TeacherCashView;
 
 export async function getCashReconciliation(weekDay?: string): Promise<CashView> {
-  const { data } = await client.get('/teacher/cash/reconciliation', { params: weekDay ? { week: weekDay } : undefined });
+  // The current week rides the home batch; another week goes straight out.
+  const data = weekDay
+    ? (await client.get('/teacher/cash/reconciliation', { params: { week: weekDay } })).data
+    : await homePart('cash', () => client.get('/teacher/cash/reconciliation').then((r) => r.data));
   const view = data.data as CashView;
   noteRoseSetting(view?.settings as CashSettings | undefined);
   return view;
