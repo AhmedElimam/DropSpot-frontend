@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { replaceEqualDeep } from '@tanstack/react-query';
 import { CONFIG_DEFAULTS, type AppConfigPayload, type AppConfigRules, type FeatureTermsDoc } from '@/config/defaults';
 
 const CACHE_KEY = 'app_config.last_good';
@@ -94,6 +95,10 @@ function storage(): { getItem: (k: string) => Promise<string | null>; setItem: (
   }
 }
 
+/** The last server payload applied by setConfig, as sent (the cache write and the no-op check). */
+let lastServerRaw: string | null = null;
+let lastApplied: AppConfigPayload | null = null;
+
 export const useAppConfigStore = create<State>((set, get) => ({
   config: CONFIG_DEFAULTS,
   hydrated: false,
@@ -108,16 +113,29 @@ export const useAppConfigStore = create<State>((set, get) => ({
     }
   },
   setConfig: (server) => {
-    set({ config: mergeConfig(server), hydrated: true });
-    storage()?.setItem(CACHE_KEY, JSON.stringify(server)).catch(() => {});
+    // The same answer as last time (the usual case): nothing to set, nothing to write.
+    // Otherwise unchanged parts keep their objects (replaceEqualDeep), so a screen that
+    // reads `ui` or one flag re-renders only when THAT changed — every sync used to hand
+    // every reader a brand-new config and re-render the whole app (2026-10-19 audit).
+    const raw = JSON.stringify(server);
+    if (raw === lastServerRaw && get().config === lastApplied) {
+      if (!get().hydrated) set({ hydrated: true });
+      return;
+    }
+    lastServerRaw = raw;
+    lastApplied = replaceEqualDeep(get().config, mergeConfig(server));
+    set({ config: lastApplied, hydrated: true });
+    storage()?.setItem(CACHE_KEY, raw).catch(() => {});
   },
   dropFeatureTerms: (key) => {
+    lastServerRaw = null;
     const config = get().config;
     const next = { ...config, feature_terms: (config.feature_terms ?? []).filter((d) => d.key !== key) };
     set({ config: next });
     storage()?.setItem(CACHE_KEY, JSON.stringify(next)).catch(() => {});
   },
   resetUserFlags: () => {
+    lastServerRaw = null;
     const stripped = { ...get().config, ...USER_FLAG_DEFAULTS };
     set({ config: stripped });
     storage()?.setItem(CACHE_KEY, JSON.stringify(stripped)).catch(() => {});

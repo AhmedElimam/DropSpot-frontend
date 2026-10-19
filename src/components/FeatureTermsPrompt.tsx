@@ -9,7 +9,7 @@ import { AppModal as Modal } from '@/ui/AppModal';
 import { fonts } from '@/theme/typography';
 import { colors, gradients, radius, spacing } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
-import { BETA_GOLD, BETA_INK } from '@/components/ui/Beta';
+import { BETA_GOLD, BETA_INK } from '@/components/ui/betaTokens';
 import { useAuthStore } from '@/stores/authStore';
 import { useAppConfigStore } from '@/stores/appConfigStore';
 import { pickFeatureTerms, useFeatureTermsStore } from '@/stores/featureTermsStore';
@@ -38,10 +38,17 @@ const BLOCKING_PREFIXES = [
 const ICONS: Record<string, IconName> = { course_chat: 'chat', threads: 'threads', print_market: 'note' };
 
 export function FeatureTermsPrompt() {
+  const due = useAppConfigStore((s) => s.config.feature_terms ?? NONE);
+  // Nothing due (the usual case): no route subscription at all — this sits at the root, and
+  // usePathname() re-rendered it on every navigation for nothing (2026-10-19 staging audit).
+  if (due.length === 0) return null;
+  return <DuePrompt due={due} />;
+}
+
+function DuePrompt({ due }: { due: FeatureTermsDoc[] }) {
   const user = useAuthStore((s) => s.user);
   const role = useAuthStore((s) => s.role);
   const impersonating = useAuthStore((s) => !!s.impersonation?.active);
-  const due = useAppConfigStore((s) => s.config.feature_terms ?? NONE);
   const later = useFeatureTermsStore((s) => s.later);
   const asked = useFeatureTermsStore((s) => s.asked);
   const pathname = usePathname() ?? '';
@@ -68,8 +75,11 @@ function Agreement({ doc }: { doc: FeatureTermsDoc }) {
     onSuccess: () => {
       useAppConfigStore.getState().dropFeatureTerms(doc.key);
       useFeatureTermsStore.getState().done(doc.key);
-      // Whatever the feature refused with 423 while this was due loads now.
-      void queryClient.invalidateQueries();
+      // Whatever THIS feature refused with 423 while it was due loads now — only those.
+      // A bare invalidateQueries() refetched every query in the app on each acceptance, and
+      // a demo account with three agreements due took the app down accepting them in a row
+      // (founder 2026-10-19: «shows all agreements … until the app breaks»).
+      void queryClient.invalidateQueries({ predicate: (q) => refusedFor(q.state.error, doc.key) });
     },
   });
   const later = () => useFeatureTermsStore.getState().putOff(doc.key);
@@ -132,4 +142,10 @@ function Agreement({ doc }: { doc: FeatureTermsDoc }) {
       </View>
     </Modal>
   );
+}
+
+/** Did this query fail because THIS feature's agreement was still due (423 FEATURE_TERMS_REQUIRED)? */
+export function refusedFor(error: unknown, key: string): boolean {
+  const data = (error as { response?: { status?: number; data?: { code?: string; feature?: string } } } | null)?.response;
+  return data?.status === 423 && data.data?.code === 'FEATURE_TERMS_REQUIRED' && data.data.feature === key;
 }
