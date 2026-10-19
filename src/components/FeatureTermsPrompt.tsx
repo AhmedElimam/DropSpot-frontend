@@ -38,10 +38,17 @@ const BLOCKING_PREFIXES = [
 const ICONS: Record<string, IconName> = { course_chat: 'chat', threads: 'threads', print_market: 'note' };
 
 export function FeatureTermsPrompt() {
+  const due = useAppConfigStore((s) => s.config.feature_terms ?? NONE);
+  // Nothing due (the usual case): no route subscription at all — this sits at the root, and
+  // usePathname() re-rendered it on every navigation for nothing (2026-10-19 staging audit).
+  if (due.length === 0) return null;
+  return <DuePrompt due={due} />;
+}
+
+function DuePrompt({ due }: { due: FeatureTermsDoc[] }) {
   const user = useAuthStore((s) => s.user);
   const role = useAuthStore((s) => s.role);
   const impersonating = useAuthStore((s) => !!s.impersonation?.active);
-  const due = useAppConfigStore((s) => s.config.feature_terms ?? NONE);
   const later = useFeatureTermsStore((s) => s.later);
   const asked = useFeatureTermsStore((s) => s.asked);
   const pathname = usePathname() ?? '';

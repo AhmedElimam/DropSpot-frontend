@@ -142,8 +142,13 @@ export function syncAppConfig(): Promise<void> {
  * for this teacher appears without a relaunch), coalesced: a teacher who switches apps
  * twenty times in a minute pays for one request (founder 2026-10-09: «light on all
  * devices»). The server throttles it too; the payload is small.
+ *
+ * Five minutes, not one (2026-10-19 staging audit: «the app isn't optimised like
+ * production»): every sync replaced the whole config and re-rendered every screen that
+ * reads a flag or a surface, ~116 of them across the preloaded tabs. A beta opened for a
+ * teacher still lands within five minutes, at once on a sign-in or a teacher switch.
  */
-export const FOREGROUND_CONFIG_GAP_MS = 60_000;
+export const FOREGROUND_CONFIG_GAP_MS = 5 * 60_000;
 
 export function syncAppConfigOnForeground(now: number = Date.now()): Promise<void> | null {
   if (inFlight || now - lastSyncStartedAt < FOREGROUND_CONFIG_GAP_MS) return null;
