@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { useBetaFeature } from '@/hooks/useBetaFeature';
 import { BetaFeedbackSheet } from '@/components/ui/BetaFeedbackSheet';
+import { BETA_GOLD, BETA_INK } from '@/components/ui/betaTokens';
 
 /**
  * «تجريبي» — the marks a feature carries while this person has it only through beta
@@ -18,8 +19,7 @@ import { BetaFeedbackSheet } from '@/components/ui/BetaFeedbackSheet';
  * `feature` gates the component on its own; omit it inside a block that is already gated.
  * RTL: 'row' only (never 'row-reverse').
  */
-export const BETA_GOLD = '#F5C542';
-export const BETA_INK = '#3B2A06';
+export { BETA_GOLD, BETA_INK };
 
 const CHIP_TEST_ID = 'beta-chip';
 const LINE_TEST_ID = 'beta-line';
