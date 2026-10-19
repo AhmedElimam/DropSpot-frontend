@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useState, type ReactNode } from 'react';
+import { NavigationContext } from '@react-navigation/native';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAppConfigStore } from '@/stores/appConfigStore';
@@ -143,9 +144,24 @@ function Disabled({ reason, children }: { reason: string; children: ReactNode })
  * cannot start until the screen's first render has committed, so a page with a few
  * hundred elements held the tap for the time its whole tree took; now the page slides in
  * at once and fills a frame later, under the animation. Off for non-screen surfaces.
+ *
+ * Off for a TAB too (founder 2026-10-19: «the routing blank moment from home to sessions or
+ * students when I first open the app»). A tab switch has no slide to hide that frame under:
+ * the blank page WAS the switch — Home after the splash, and a tab not yet preloaded for the
+ * whole time its tree took to build. A tab renders its content in its first commit; the
+ * background preload (usePreloadTabs) keeps that off the moment of the tap.
  */
+export function isTabScreen(navigation: { getState?: () => { type?: string } | undefined } | undefined): boolean {
+  try {
+    return navigation?.getState?.()?.type === 'tab';
+  } catch {
+    return false;
+  }
+}
+
 function useFirstFrame(deferred: boolean): boolean {
-  const [ready, setReady] = useState(!deferred);
+  const navigation = useContext(NavigationContext);
+  const [ready, setReady] = useState(!deferred || isTabScreen(navigation));
   useEffect(() => {
     if (ready) return;
     const h = requestAnimationFrame(() => setReady(true));

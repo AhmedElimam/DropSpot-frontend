@@ -20,6 +20,8 @@ export interface Child {
   excused_count: number;
   teachers: {
     id: string; name: string; phone?: string | null; logo_url?: string | null; is_distinguished_member?: boolean;
+    /** The teacher is in «وضع المراجعة» (backend need 2026-10-16: not yet in the payload). */
+    revise_mode?: boolean;
     /** What the child takes with this teacher: the course and its weekly slot (2026-10-06). */
     courses?: ({ name: string | null; day: string | null; time: string | null } & AttendanceModeFields)[];
     /** How the child attends this teacher's sessions: recorded, present/late, absent. */

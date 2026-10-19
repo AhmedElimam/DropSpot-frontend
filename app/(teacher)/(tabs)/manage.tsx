@@ -27,6 +27,9 @@ import { getAssistantActions } from '@/api/assistantActions';
 import { getCashReconciliation } from '@/api/cash';
 import { useComplaints } from '@/hooks/useComplaints';
 import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
+import { useRevisionActive } from '@/hooks/useRevisionTheme';
+import { RevisionFeatureCard } from '@/components/teacher/RevisionDesk';
+import { SeasonPaper } from '@/components/SeasonPaper';
 
 type Group = 'students' | 'schedule' | 'money' | 'followup';
 const GROUPS: Group[] = ['students', 'schedule', 'money', 'followup'];
@@ -108,6 +111,8 @@ export default function TeacherManage() {
 
   const totalAttention = visible.reduce((n, g) => n + counts[g], 0);
   const tint = GROUP_LOOK()[group].tint;
+  // «وضع المراجعة»: the revision row becomes a featured card above whichever group is open.
+  const season = useRevisionActive();
 
   return (
     <Surface id="screen.teacher.manage" screen>
@@ -116,6 +121,8 @@ export default function TeacherManage() {
         style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
         {/* Compact header, as on Students: title + what waits on one line, the groups as one
             row of pills underneath. */}
+        {/* «وضع المراجعة»: the season's paper under the header. */}
+        <SeasonPaper radius={radius.xl} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t('teacher.tab_manage')}</Text>
           <Surface id="teacher.manage.attention_pill">
@@ -163,6 +170,7 @@ export default function TeacherManage() {
         contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        {season && flags?.revise_mode ? <Surface id="teacher.manage.revision_feature" assistantNeeds="teacher"><RevisionFeatureCard /></Surface> : null}
         {group === 'students' ? (
           <Surface id="teacher.manage.group_students">
             <Surface id="teacher.manage.row_add_student" assistantNeeds="manage_students"><HubRow tint={tint} icon="add" title={t('add_student.title')} sub={t('add_student.subtitle')} onPress={() => setAddOpen(true)} /></Surface>

@@ -1,4 +1,5 @@
 import client from './client';
+import { homePart } from '@/api/homeBatch';
 import { useRoseStore } from '@/stores/roseStore';
 
 /**
@@ -137,6 +138,43 @@ export async function getRoseReportUrl(params: { section: RoseReportSection; wee
   const url = data?.data?.url;
   if (!url) throw new Error('no url');
   return String(url);
+}
+
+/**
+ * «منطقة الخطر — تصفير دفتر مدام روز» (founder 2026-10-19). Teacher only. The server refuses the
+ * reset until the archive PDF (her whole book, blue-violet stamp) was downloaded in the last
+ * `archive_valid_minutes` and nothing was recorded since; collections and dues never change.
+ */
+export interface RoseResetPreview {
+  confirm_word: string;
+  archive_valid_minutes: number;
+  clears: {
+    expenses: { count: number; total: number };
+    drawers: { count: number };
+    handovers: { count: number; total: number };
+    corrections: { count: number };
+  };
+  keeps: { pending_total: number; collected_total: number };
+  /** The copy that unlocks the reset, or null (none yet / too old / the book changed since). */
+  archive: { code: string; downloaded_at: string; expires_at: string } | null;
+  last_reset_at: string | null;
+}
+
+export async function getRoseReset(): Promise<RoseResetPreview> {
+  const { data } = await client.get('/teacher/cash/reset');
+  return data.data as RoseResetPreview;
+}
+
+export async function getRoseArchiveUrl(): Promise<string> {
+  const { data } = await client.get('/teacher/cash/reset/pdf-url');
+  const url = data?.data?.url;
+  if (!url) throw new Error('no url');
+  return String(url);
+}
+
+export async function resetRoseBook(confirm: string): Promise<{ counts: Record<string, number>; archive_code: string; preview: RoseResetPreview }> {
+  const { data } = await client.post('/teacher/cash/reset', { confirm });
+  return data.data;
 }
 
 export async function getCashInsights(): Promise<CashInsights> {
@@ -342,7 +380,10 @@ export interface TeacherCashView {
 export type CashView = AssistantCashView | TeacherCashView;
 
 export async function getCashReconciliation(weekDay?: string): Promise<CashView> {
-  const { data } = await client.get('/teacher/cash/reconciliation', { params: weekDay ? { week: weekDay } : undefined });
+  // The current week rides the home batch; another week goes straight out.
+  const data = weekDay
+    ? (await client.get('/teacher/cash/reconciliation', { params: { week: weekDay } })).data
+    : await homePart('cash', () => client.get('/teacher/cash/reconciliation').then((r) => r.data));
   const view = data.data as CashView;
   noteRoseSetting(view?.settings as CashSettings | undefined);
   return view;

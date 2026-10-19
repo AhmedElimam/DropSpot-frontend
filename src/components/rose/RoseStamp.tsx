@@ -7,6 +7,7 @@ import { colors, radius, shadows, spacing } from '@/theme/index';
 import { useRose } from '@/hooks/useRose';
 import { useThemeStore } from '@/stores/themeStore';
 import { reactRose } from './RoseLive';
+import { useRosePictures } from './RoseCostume';
 import { Surface } from '@/ui/surfaces';
 
 /**
@@ -17,27 +18,28 @@ import { Surface } from '@/ui/surfaces';
  *
  *   navy  — the cash book: counts, handovers, closed weeks, accepted expenses.
  *   red   — the complaints book: a decision recorded.
+ *   violet — a closed book: the archive copy downloaded before «تصفير» (founder 2026-10-19).
  *
  * The thump is the landing page's: she lands from above, tilted and large, presses, settles.
  * A teacher who switched her name off (useRose().named) sees no stamp anywhere; the words
  * on the screen already carry the fact without her.
  */
-export type StampInk = 'navy' | 'red';
+export type StampInk = 'navy' | 'red' | 'violet';
 
 const STAMP: Record<StampInk, number> = {
   navy: require('../../../assets/images/rose/rose-stamp-navy.webp'),
   red: require('../../../assets/images/rose/rose-stamp-red.webp'),
+  violet: require('../../../assets/images/rose/rose-stamp-violet.webp'),
 };
-export const ROSE_PORTRAIT = require('../../../assets/images/rose/madam-rose.webp');
-/** 600 px — for the large frame on her desk (the 300 px one blurs above ~100 pt on a 3× screen). */
-export const ROSE_PORTRAIT_LARGE = require('../../../assets/images/rose/madam-rose-600.webp');
+// Her portrait (300 px, and 600 px for the large frame on her desk) comes from RoseCostume's
+// useRosePictures(): her season picture while «وضع المراجعة» is on, else her own.
 /** Her crest's shield — her LOGO at small sizes (≤ 56 pt): her notifications, her notes. */
 export const ROSE_SHIELD = require('../../../assets/images/rose/rose-shield-128.webp');
 
 // By night the navy ink sat on navy cards and vanished (founder 2026-10-07). The stamp is ONE
 // ink with alpha, so expo-image's tintColor re-inks it whole: a pale moonlit blue for the cash
 // book, a brighter red for the complaints book. By day the original inks stay untouched.
-const NIGHT_INK: Record<StampInk, string> = { navy: '#B9C4F4', red: '#F2647A' };
+const NIGHT_INK: Record<StampInk, string> = { navy: '#B9C4F4', red: '#F2647A', violet: '#B4A6FF' };
 
 const LAND = { damping: 11, stiffness: 190, mass: 0.8 };
 const NOD = { damping: 9, stiffness: 150, mass: 0.9 };
@@ -66,6 +68,7 @@ export function RoseStamp({ ink = 'navy', size = 48, animate = false, tilt = -8,
   return (
     <Surface id="teacher.rose.stamp">
     <Animated.View style={[{ width: size, height: size }, st, style]} pointerEvents="none" accessibilityRole="image" accessibilityLabel={`ختم ${rose.name}`}>
+      {/* The same stamp in and out of «وضع المراجعة» (founder 2026-10-17: the season is in her picture, not on her ink). */}
       <Image source={STAMP[ink]} style={StyleSheet.absoluteFill} contentFit="contain" tintColor={night ? NIGHT_INK[ink] : undefined} />
     </Animated.View>
     </Surface>
@@ -80,10 +83,12 @@ export function RosePortrait({ size = 64, nod = true, large = false, style }: { 
     if (nod) s.value = withSpring(1, NOD);
   }, [nod, s]);
   const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }, { rotate: `${(1 - s.value) * -36}deg` }] }));
+  const pictures = useRosePictures();
+  const source = large || size > 100 ? pictures.large : pictures.portrait;
   return (
     <Surface id="teacher.rose.portrait">
     <Animated.View style={[{ width: size, height: size }, st, style]}>
-      <Image source={large || size > 100 ? ROSE_PORTRAIT_LARGE : ROSE_PORTRAIT} style={StyleSheet.absoluteFill} contentFit="contain" accessibilityLabel={rose.name} />
+      <Image source={source} style={StyleSheet.absoluteFill} contentFit="contain" accessibilityLabel={rose.name} />
     </Animated.View>
     </Surface>
   );

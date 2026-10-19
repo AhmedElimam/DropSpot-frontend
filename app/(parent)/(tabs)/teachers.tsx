@@ -13,6 +13,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import client from '@/api/client';
 import { Icon } from '@/components/ui/Icon';
+import { TeacherSeasonChip } from '@/components/RevisionRibbon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DistinguishedBadge } from '@/components/DistinguishedBadge';
 import { getFriendlyErrorMessage } from '@/utils/errors';
@@ -154,6 +155,8 @@ function TeacherCardView({ card, showChildName, removingKey, onTicket, onRemove 
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }} numberOfLines={2}>{teacher.name}</Text>
           {teacher.is_distinguished_member ? <View style={{ marginTop: 4, alignSelf: 'flex-start' }}><DistinguishedBadge size="sm" /></View> : null}
+          {/* The teacher's revision season — an indigo chip, no theme change for the family. */}
+          {teacher.revise_mode ? <TeacherSeasonChip style={{ marginTop: 4 }} /> : null}
         </View>
       </View>
 

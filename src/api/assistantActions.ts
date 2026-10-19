@@ -1,4 +1,5 @@
 import client from './client';
+import { homePart } from '@/api/homeBatch';
 
 /**
  * Teacher oversight of an assistant's money actions (payment-proof approvals + pending
@@ -18,7 +19,7 @@ export interface AssistantAction {
 }
 
 export async function getAssistantActions(): Promise<AssistantAction[]> {
-  const { data } = await client.get('/teacher/assistant-actions');
+  const data = await homePart('assistant_actions', () => client.get('/teacher/assistant-actions').then((r) => r.data));
   const rows = (data?.data ?? []) as any[];
   // JSON:API: the id sits beside `attributes`, not inside it — reading attributes alone
   // left every row without an id (no React key, and «رفض» posted to /undefined).

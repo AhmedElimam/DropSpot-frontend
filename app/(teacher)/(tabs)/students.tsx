@@ -20,6 +20,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getTeacherCardOrders, type TeacherCardOrder, type RosterStudent } from '@/api/students';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
+import { SeasonPaper } from '@/components/SeasonPaper';
 
 type Segment = 'students' | 'cards';
 type Quick = 'all' | 'low' | 'overdue' | 'exempt';
@@ -211,6 +212,8 @@ export default function TeacherStudents() {
           for title · count · cards · add, one for search, one for the filter pills. */}
       <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.xl }}>
+        {/* «وضع المراجعة»: the season's paper under the header. */}
+        <SeasonPaper radius={radius.xl} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero }}>{t(segment === 'cards' ? 'teacher.seg_cards' : 'teacher.tab_students')}</Text>
           {segment === 'students' ? (

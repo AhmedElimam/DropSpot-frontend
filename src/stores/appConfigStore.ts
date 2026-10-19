@@ -18,6 +18,12 @@ const CACHE_KEY = 'app_config.last_good';
  */
 interface State {
   config: AppConfigPayload;
+  /**
+   * The last-good cache has been read (or there was none) or a server payload landed. Until
+   * then `config` is the bundled defaults, which say nothing about the person's flags — a
+   * reader that must not act on «off by default» (the season sync) waits for this.
+   */
+  hydrated: boolean;
   hydrate: () => Promise<void>;
   setConfig: (server: Partial<AppConfigPayload>) => void;
   /**
@@ -95,12 +101,15 @@ let lastApplied: AppConfigPayload | null = null;
 
 export const useAppConfigStore = create<State>((set, get) => ({
   config: CONFIG_DEFAULTS,
+  hydrated: false,
   hydrate: async () => {
     try {
       const raw = await storage()?.getItem(CACHE_KEY);
       if (raw) set({ config: mergeConfig(JSON.parse(raw)) });
     } catch {
       // No cache / bad JSON — stay on bundled defaults.
+    } finally {
+      set({ hydrated: true });
     }
   },
   setConfig: (server) => {
@@ -109,10 +118,13 @@ export const useAppConfigStore = create<State>((set, get) => ({
     // reads `ui` or one flag re-renders only when THAT changed — every sync used to hand
     // every reader a brand-new config and re-render the whole app (2026-10-19 audit).
     const raw = JSON.stringify(server);
-    if (raw === lastServerRaw && get().config === lastApplied) return;
+    if (raw === lastServerRaw && get().config === lastApplied) {
+      if (!get().hydrated) set({ hydrated: true });
+      return;
+    }
     lastServerRaw = raw;
     lastApplied = replaceEqualDeep(get().config, mergeConfig(server));
-    set({ config: lastApplied });
+    set({ config: lastApplied, hydrated: true });
     storage()?.setItem(CACHE_KEY, raw).catch(() => {});
   },
   dropFeatureTerms: (key) => {

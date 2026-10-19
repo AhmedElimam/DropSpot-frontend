@@ -20,6 +20,7 @@ import { getTourStatus, completeTour } from '@/api/tour';
 import { useTourStore, nextShowable, routeFor } from './store';
 import { tourSeen, markTourSeen } from './seen';
 import { tourForRole } from './tours';
+import { useRosePictures } from '@/components/rose/RoseCostume';
 import { holeFor, placeCard, onScreen, toFrame, holePath, stackDim, scrollNeeded, HOLE_RADIUS, type Hole, type Frame } from './geometry';
 
 const ARect = Animated.createAnimatedComponent(Rect);
@@ -29,7 +30,6 @@ const SPRING = { damping: 26, stiffness: 70, mass: 1.1 };
 const CARD_SPRING = { damping: 24, stiffness: 95, mass: 1 };
 // مدام روز's nod as each step opens — her own small motion; the hole's glide is untouched.
 const NOD_SPRING = { damping: 9, stiffness: 150, mass: 0.9 };
-const ROSE = require('../../assets/images/rose/madam-rose.webp');
 /** Her portrait on a centred card / a spotlight card; half of it rises above the card. */
 const ROSE_BIG = 104;
 const ROSE_SMALL = 58;
@@ -121,6 +121,8 @@ function Runner() {
   // The teacher side's tour is presented by مدام روز (her name as this person's screens show it).
   const narrated = tour!.narrator === 'rose';
   const rose = useRose();
+  // Her portrait — her season picture while «وضع المراجعة» is on (founder 2026-10-17).
+  const rosePortrait = useRosePictures().portrait;
   const nod = useSharedValue(1);
   useEffect(() => {
     if (!narrated) return;
@@ -334,7 +336,7 @@ function Runner() {
             // A full-width row does the placing (centre / start = the right in RTL); the portrait nods inside it.
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: centred ? 'center' : 'flex-start', paddingHorizontal: spacing.lg }}>
               <Animated.View style={[{ width: centred ? ROSE_BIG : ROSE_SMALL, height: centred ? ROSE_BIG : ROSE_SMALL }, nodStyle]}>
-                <Image source={ROSE} style={{ width: '100%', height: '100%' }} contentFit="contain" accessibilityLabel={rose.name} />
+                <Image source={rosePortrait} style={{ width: '100%', height: '100%' }} contentFit="contain" accessibilityLabel={rose.name} />
               </Animated.View>
             </View>
           ) : null}

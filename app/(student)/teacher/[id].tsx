@@ -77,6 +77,51 @@ export default function StudentTeacherPage() {
     );
   }
 
+  // Exam results — placed ABOVE the sheet marks while this teacher is in «وضع المراجعة».
+  const examsBlock = (
+    <>
+      {/* Exam results. */}
+      <Surface id="student.teacher.exams">
+      <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
+        <SectionHead icon="reports" color={colors.accent} title={t('student_teacher.exams')} />
+        {d.exams.length === 0 ? (
+          <Text style={[textPresets.bodySmall, { color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.lg }]}>{t('student_teacher.no_exams')}</Text>
+        ) : d.exams.map((e, i) => {
+          const pass = e.pct != null ? e.pct >= 50 : true;
+          return (
+            <View key={`${e.source}-${e.attendance_record_id ?? e.revision_attendance_id ?? i}`} style={{ paddingVertical: spacing.md, borderBottomWidth: i < d.exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{ width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: pass ? colors.successLight : colors.dangerLight }}>
+                <Icon name="reports" size={20} color={pass ? colors.success : colors.danger} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>{e.title}</Text>
+                {e.date ? <Text style={textPresets.caption}>{formatDate(new Date(e.date), { weekday: 'long', day: 'numeric', month: 'short' })}</Text> : null}
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: pass ? colors.success : colors.danger }}>
+                  {formatNumber(e.mark)}{e.max ? ` / ${formatNumber(e.max)}` : ''}
+                </Text>
+                {e.pct != null ? <Text style={textPresets.caption}>{formatNumber(e.pct)}%</Text> : null}
+              </View>
+            </View>
+            <GradeComplaintStatus
+              complaint={e.complaint}
+              onComplain={(() => {
+                const target = gradeTargetFromExam(e, t('student_teacher.exams'));
+                return target ? () => setGradeTarget(target) : undefined;
+              })()}
+            />
+            </View>
+          );
+        })}
+      </View>
+      </Surface>
+
+      {/* The attendance record under this teacher. */}
+    </>
+  );
+
   return (
     <Surface id="screen.student.teacher.detail" screen>
     <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
@@ -171,6 +216,8 @@ export default function StudentTeacherPage() {
           </View>
           </Surface>
 
+          {d.revise_mode ? examsBlock : null}
+
           {/* Sheet marks with their average. */}
           <Surface id="student.teacher.marks">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
@@ -210,45 +257,8 @@ export default function StudentTeacherPage() {
           </View>
           </Surface>
 
-          {/* Exam results. */}
-          <Surface id="student.teacher.exams">
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
-            <SectionHead icon="reports" color={colors.accent} title={t('student_teacher.exams')} />
-            {d.exams.length === 0 ? (
-              <Text style={[textPresets.bodySmall, { color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.lg }]}>{t('student_teacher.no_exams')}</Text>
-            ) : d.exams.map((e, i) => {
-              const pass = e.pct != null ? e.pct >= 50 : true;
-              return (
-                <View key={`${e.source}-${e.attendance_record_id ?? e.revision_attendance_id ?? i}`} style={{ paddingVertical: spacing.md, borderBottomWidth: i < d.exams.length - 1 ? 1 : 0, borderBottomColor: colors.borderLight }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-                  <View style={{ width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: pass ? colors.successLight : colors.dangerLight }}>
-                    <Icon name="reports" size={20} color={pass ? colors.success : colors.danger} />
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>{e.title}</Text>
-                    {e.date ? <Text style={textPresets.caption}>{formatDate(new Date(e.date), { weekday: 'long', day: 'numeric', month: 'short' })}</Text> : null}
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: pass ? colors.success : colors.danger }}>
-                      {formatNumber(e.mark)}{e.max ? ` / ${formatNumber(e.max)}` : ''}
-                    </Text>
-                    {e.pct != null ? <Text style={textPresets.caption}>{formatNumber(e.pct)}%</Text> : null}
-                  </View>
-                </View>
-                <GradeComplaintStatus
-                  complaint={e.complaint}
-                  onComplain={(() => {
-                    const target = gradeTargetFromExam(e, t('student_teacher.exams'));
-                    return target ? () => setGradeTarget(target) : undefined;
-                  })()}
-                />
-                </View>
-              );
-            })}
-          </View>
-          </Surface>
+          {!d.revise_mode ? examsBlock : null}
 
-          {/* The attendance record under this teacher. */}
           <Surface id="student.teacher.past_attendance">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
             <SectionHead icon="attendance" color={colors.success} title={t('student_teacher.past')} />

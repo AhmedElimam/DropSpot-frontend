@@ -1,4 +1,5 @@
 import client from './client';
+import { homePart } from '@/api/homeBatch';
 
 /**
  * Booking requests from already-registered students (student-code shortcut on the family
@@ -15,7 +16,7 @@ export interface BookingRequest {
 }
 
 export async function getBookingRequests(): Promise<BookingRequest[]> {
-  const { data } = await client.get('/teacher/booking-requests');
+  const data = await homePart('booking_requests', () => client.get('/teacher/booking-requests').then((r) => r.data));
   const rows = (data?.data ?? []) as any[];
   return rows.map((r) => (r.attributes ?? r) as BookingRequest);
 }

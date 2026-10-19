@@ -89,6 +89,8 @@ export interface TeacherInsights {
   quiz: { attempts: number; avg_pct: number; pass_rate: number };
   range: InsightsRange;
   presets: { key: InsightsRangeKey; label: string }[];
+  /** Set after «تصفير دفتر مدام روز»: counts start here; money figures are untouched. Absent on older servers. */
+  since?: string | null;
 }
 
 export async function getTeacherInsights(params: InsightsRangeParams = {}): Promise<TeacherInsights> {
