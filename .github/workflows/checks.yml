@@ -1,0 +1,75 @@
+name: Checks
+
+# Every push and pull request: types, the full jest suite (including the performance guardrails in
+# src/__tests__/performanceGuardrails.test.ts) and the Android bundle budget (perf-budget.json).
+# docs/PERFORMANCE.md is the why. Builds and OTA stay manual (the other workflows).
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['docs/**', '**/*.md']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The guardrails can only be loosened on purpose: a change to an exception list, a ceiling
+      # or the budget needs "[perf-guard-change]" in the commit message — a founder decision,
+      # never a way for anyone (or any AI tool) to turn a red build green.
+      - name: Guard files untouched (or changed on purpose)
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          GUARDS='src/__tests__/performanceGuardrails.test.ts perf-budget.json scripts/check-bundle-budget.js'
+          if [ "$GITHUB_REF_NAME" = main ] && [ "$GITHUB_EVENT_NAME" = push ]; then
+            # main: exactly what this push brought.
+            BASE="$BEFORE"; git cat-file -e "${BASE}^{commit}" 2>/dev/null || BASE=$(git rev-parse HEAD~1)
+          else
+            # a branch or a PR: what it changed since it left main (main's own changes don't count).
+            BASE=$(git merge-base origin/main HEAD)
+          fi
+          changed=$(git diff --name-only "$BASE" HEAD -- $GUARDS)
+          if [ -n "$changed" ]; then
+            { echo "## ⚠️ Performance guard files changed"; echo '```diff'; git diff "$BASE" HEAD -- $GUARDS | head -200; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            if ! git log --format=%B "$BASE..HEAD" | grep -q '\[perf-guard-change\]'; then
+              echo "::error title=Performance guard changed::$(echo $changed) changed without [perf-guard-change] in a commit message. Fix the code instead, or get the founder's decision."
+              exit 1
+            fi
+            echo "::warning title=Performance guard changed on purpose::$(echo $changed)"
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Types
+        run: npx tsc --noEmit
+
+      - name: Tests (with the performance guardrails)
+        run: npx jest --ci
+
+      - name: Android bundle budget
+        env:
+          EXPO_PUBLIC_APP_ENV: production
+          EXPO_PUBLIC_API_URL: https://drosspot.app/api/v1
+        run: |
+          npx expo export --platform android --output-dir dist-perf
+          node scripts/check-bundle-budget.js dist-perf

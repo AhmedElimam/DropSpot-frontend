@@ -1,0 +1,11 @@
+---
+description: Dros Spot mobile app — binding performance guardrails (CI-enforced)
+alwaysApply: true
+---
+
+Follow AGENTS.md at the repository root. It is binding. Its performance guardrails are enforced
+by CI (src/__tests__/performanceGuardrails.test.ts, scripts/check-bundle-budget.js). The reasons
+are in docs/PERFORMANCE.md.
+
+Never add to an ALLOW_* list, raise a ceiling, or raise perf-budget.json to make CI pass. Fix the
+code, or stop and ask the founder.
