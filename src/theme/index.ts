@@ -130,7 +130,21 @@ const ANDROID_ELEVATION = false;
 const el = (n: number) => (Platform.OS === 'android' && !ANDROID_ELEVATION ? {} : { elevation: n });
 
 type Shadow = { shadowColor: string; shadowOffset: { width: number; height: number }; shadowOpacity: number; shadowRadius: number; elevation?: number };
-const shadow = (height: number, opacity: number, blur: number, elevation: number): Shadow => ({
+
+/**
+ * iPhone flat cards — the backend's `ios_flat_shadows` flag (off by default), applied at launch
+ * by AppConfigGate. A recording of the back swipe (founder 2026-10-20) hitched in its first
+ * frames with nothing running in JS; ~130 shadowed views are the native suspect, and this
+ * switch compares the two on a phone without a rebuild. Opacity 0 = iOS draws no shadow pass.
+ */
+let iosFlatShadows = false;
+export function setIosFlatShadows(on: boolean): void {
+  iosFlatShadows = on;
+}
+const flatOnIos = () => Platform.OS === 'ios' && iosFlatShadows;
+const NO_SHADOW = (): Shadow => ({ shadowColor: 'transparent', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0, shadowRadius: 0 });
+
+const shadow = (height: number, opacity: number, blur: number, elevation: number): Shadow => flatOnIos() ? NO_SHADOW() : ({
   shadowColor: colors.shadow,
   shadowOffset: { width: 0, height },
   shadowOpacity: isDark() ? Math.min(0.6, opacity * 3) : opacity,
@@ -144,6 +158,7 @@ export const shadows = {
   get lg(): Shadow { return shadow(10, 0.12, 24, 8); },
   // Used by the bottom tab bar — a soft lift by day; by night the neon breathes under it.
   get glow(): Shadow {
+    if (flatOnIos()) return NO_SHADOW();
     return isDark()
       ? { shadowColor: colors.neon, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.22, shadowRadius: 16, ...el(8) }
       : shadow(-2, 0.06, 12, 8);
