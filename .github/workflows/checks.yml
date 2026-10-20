@@ -35,7 +35,7 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          GUARDS='src/__tests__/performanceGuardrails.test.ts perf-budget.json scripts/check-bundle-budget.js'
+          GUARDS='src/__tests__/performanceGuardrails.test.ts perf-budget.json scripts/check-bundle-budget.js .github/workflows/checks.yml'
           if [ "$GITHUB_REF_NAME" = main ] && [ "$GITHUB_EVENT_NAME" = push ]; then
             # main: exactly what this push brought.
             BASE="$BEFORE"; git cat-file -e "${BASE}^{commit}" 2>/dev/null || BASE=$(git rev-parse HEAD~1)
@@ -45,8 +45,11 @@ jobs:
           fi
           changed=$(git diff --name-only "$BASE" HEAD -- $GUARDS)
           if [ -n "$changed" ]; then
-            { echo "## ⚠️ Performance guard files changed"; echo '```diff'; git diff "$BASE" HEAD -- $GUARDS | head -200; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-            if ! git log --format=%B "$BASE..HEAD" | grep -q '\[perf-guard-change\]'; then
+            # No early-closing pipes (head, grep -q) under pipefail: they end in SIGPIPE (exit 141).
+            git diff "$BASE" HEAD -- $GUARDS > "$RUNNER_TEMP/guard.diff"
+            { echo "## ⚠️ Performance guard files changed"; echo '```diff'; sed -n '1,200p' "$RUNNER_TEMP/guard.diff"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            messages=$(git log --format=%B "$BASE..HEAD")
+            if [[ "$messages" != *"[perf-guard-change]"* ]]; then
               echo "::error title=Performance guard changed::$(echo $changed) changed without [perf-guard-change] in a commit message. Fix the code instead, or get the founder's decision."
               exit 1
             fi
