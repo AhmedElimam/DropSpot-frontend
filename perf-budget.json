@@ -1,0 +1,8 @@
+{
+  "_why": "Size ceilings for the Android export (npx expo export --platform android), checked by scripts/check-bundle-budget.js in CI. Measured 2026-10-20: bytecode 9,136,595 B, assets 1,873,128 B in 41 files. Bigger bundles parse slower and use more memory on MediaTek Helio phones. Raise a number only by a founder decision, never to make CI pass.",
+  "android": {
+    "bytecodeMaxBytes": 9600000,
+    "assetsMaxBytes": 2000000,
+    "singleAssetMaxBytes": 400000
+  }
+}
