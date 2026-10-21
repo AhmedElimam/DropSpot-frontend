@@ -83,7 +83,7 @@ export default function ParentNazerOffice() {
               <View style={{ alignItems: 'center', marginTop: spacing.md }}>
                 <View>
                   <NazerFace mood={say.mood} size={150} />
-                  {say.stamp ? <NazerStamp kind={say.stamp} size={64} style={{ position: 'absolute', bottom: -4, left: -16 }} /> : null}
+                  {say.stamp ? <NazerStamp kind={say.stamp} size={64} style={{ position: 'absolute', bottom: -4, end: -16 }} /> : null}
                 </View>
                 <View style={{ marginTop: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, maxWidth: 340, ...shadows.sm }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 16, lineHeight: 26, color: colors.textPrimary, textAlign: 'center' }}>{say.line}</Text>

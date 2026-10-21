@@ -24,7 +24,8 @@ export const NazerFace = memo(function NazerFace({ mood = 'neutral', size = 72, 
   const recipe = NAZER_MOODS[mood];
   const eyesOpen = !('lid_happy_l' in recipe);
   return (
-    <View style={[{ width: size, height: size }, style]} accessibilityRole="image" accessibilityLabel="الناظر صلاح الدين">
+    // direction 'ltr': the app forces RTL, which turns `left` into `start`; his parts are placed on physical edges.
+    <View style={[{ width: size, height: size, direction: 'ltr' }, style]} accessibilityRole="image" accessibilityLabel="الناظر صلاح الدين">
       <Image source={NAZER_LAYERS.base.source} style={StyleSheet.absoluteFill} contentFit="fill" />
       {(Object.keys(recipe) as NazerLayer[]).map((name) => (
         <Part key={name} name={name} move={recipe[name] ?? {}} k={k} />
@@ -38,12 +39,13 @@ function Part({ name, move, k }: { name: NazerLayer; move: NazerMove; k: number 
   const l = NAZER_LAYERS[name];
   const pivot = NAZER_PIVOTS[name] ?? [l.x + l.w / 2, l.y + l.h / 2];
   // Turn and grow about the pivot: step to it, transform, step back (RN applies the list right to left).
+  // The manifest's `rot` is counter-clockwise, as the rig's preview tool draws it; RN turns clockwise.
   const ox = (pivot[0] - (l.x + l.w / 2)) * k;
   const oy = (pivot[1] - (l.y + l.h / 2)) * k;
   const transform = [
     { translateX: (move.dx ?? 0) * k + ox },
     { translateY: (move.dy ?? 0) * k + oy },
-    { rotate: `${move.rot ?? 0}deg` },
+    { rotate: `${-(move.rot ?? 0)}deg` },
     { scale: move.scale ?? 1 },
     { translateX: -ox },
     { translateY: -oy },

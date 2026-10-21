@@ -28,7 +28,7 @@ export function NazerCard({ say, onPress }: { say: NazerSay; onPress: () => void
           </View>
         ) : null}
       </View>
-      {say.stamp ? <NazerStamp kind={say.stamp} size={54} style={{ position: 'absolute', top: 6, left: 6, opacity: 0.85 }} /> : null}
+      {say.stamp ? <NazerStamp kind={say.stamp} size={54} style={{ position: 'absolute', top: 6, end: 6, opacity: 0.85 }} /> : null}
     </TouchableOpacity>
   );
 }
