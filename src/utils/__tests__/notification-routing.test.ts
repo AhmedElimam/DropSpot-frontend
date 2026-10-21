@@ -32,6 +32,7 @@ describe('notificationRouteFor (feed + push taps)', () => {
     expect(notificationRouteFor({ role: 'parent', type: 'payment_received', data: { student_id: 5 } })).toBe('/(parent)/(tabs)/invoices');
     expect(notificationRouteFor({ role: 'parent', type: 'daily_digest', data: { student_id: 5 } })).toBe('/(parent)/today');
     expect(notificationRouteFor({ role: 'parent', type: 'ticket_reply', data: { ticket_id: 8 } })).toBe('/(parent)/tickets/8');
+    expect(notificationRouteFor({ role: 'parent', type: 'ticket_new', data: { ticket_id: 9 } })).toBe('/(parent)/tickets/9');
   });
 
   it('sends a student to their own screens and ignores the unknown', () => {

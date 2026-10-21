@@ -170,6 +170,8 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
       return '/(parent)/children';
     case 'parent_number_approved':
       return '/(parent)/profile';
+    // The teacher opened a ticket with the parent (founder 2026-10-21), or replied on one.
+    case 'ticket_new':
     case 'ticket_reply': {
       const ticket = id(data, 'ticket_id');
       return ticket ? `/(parent)/tickets/${ticket}` : '/(parent)/tickets';

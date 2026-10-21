@@ -34,6 +34,7 @@ import { dayLabel, formatDayDate, formatNumber, relationshipLabel } from '@/util
 import { Surface } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
 import { SendReportSheet } from '@/components/tickets/SendReportSheet';
+import { OpenTicketSheet } from '@/components/tickets/OpenTicketSheet';
 
 /** One person to call: who, the number with who has proved it, call (and report, for a parent). */
 function ContactRow({ icon, label, name, phone, badge, empty, onCall, onFlag, divider = false }: {
@@ -116,6 +117,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   const allowanceBlock = useSetStudentAllowanceBlock(Number(id));
   const [exporting, setExporting] = useState(false);
   const [sendReportOpen, setSendReportOpen] = useState(false);
+  const [openTicket, setOpenTicket] = useState(false);
   // Cancel a specific collected payment (teacher-only; the server enforces + returns
   // an empty `collected` list for assistants, so the UI is naturally hidden for them).
   const [reversing, setReversing] = useState<number | null>(null);
@@ -637,6 +639,16 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               button's surface gate says who (the server's ui.gates can widen it). */}
           <Surface id="teacher.student_profile.quick_actions">
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md }}>
+            {/* A ticket with the parent, answered in their app (founder 2026-10-21). */}
+            {s.parents.length > 0 ? (
+              <Surface id="teacher.student_profile.open_ticket_button" ctx={{ student: s }} assistantNeeds="reply_tickets">
+              <TouchableOpacity onPress={() => setOpenTicket(true)} accessibilityRole="button" activeOpacity={0.85}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.brandTint, borderRadius: radius.full, borderWidth: 1, borderColor: colors.brand, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+                <Icon name="tickets" size={16} color={colors.brand} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('tickets.open_with_parent')}</Text>
+              </TouchableOpacity>
+              </Surface>
+            ) : null}
             <Surface id="teacher.student_profile.edit_request_button" ctx={{ student: s }} assistantNeeds="manage_students">
             <TouchableOpacity onPress={() => setEditOpen(true)} accessibilityRole="button" activeOpacity={0.85}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
@@ -1050,6 +1062,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
       {s ? (
         <Surface id="teacher.student_profile.send_report_sheet" ctx={{ student: s }}>
           <SendReportSheet visible={sendReportOpen} onClose={() => setSendReportOpen(false)} studentId={Number(s.id)} studentName={s.name ?? ''} />
+          <OpenTicketSheet visible={openTicket} onClose={() => setOpenTicket(false)} studentId={Number(s.id)} studentName={s.name ?? ''} parents={s.parents} />
         </Surface>
       ) : null}
 

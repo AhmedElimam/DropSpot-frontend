@@ -45,6 +45,10 @@ export interface TicketDetail extends Ticket {
   student_id?: number;
   /** Staff may send the student's performance report into the thread. */
   can_send_report?: boolean;
+  /** Only staff set the status; a parent answers (older servers omit it). */
+  can_change_status?: boolean;
+  /** The teacher's side opened this ticket with the parent. */
+  opened_by_teacher?: boolean;
   messages: TicketMessage[];
 }
 
@@ -88,6 +92,22 @@ export async function createTicket(payload: {
 }) {
   const { data } = await client.post('/tickets', payload);
   return data;
+}
+
+/**
+ * Teacher or assistant: a ticket with one of the student's parents (the primary one when
+ * `parent_id` is left out). `parent_reached_by` says how the parent hears: the app, or one
+ * SMS with the activation link when they never activated.
+ */
+export async function openTicketWithParent(payload: {
+  student_id: number;
+  parent_id?: number;
+  subject: string;
+  description: string;
+}): Promise<{ id: string; parent_name?: string | null; parent_reached_by?: 'app' | 'sms' }> {
+  const { data } = await client.post('/tickets', payload);
+  const node = data?.data ?? data;
+  return { id: String(node?.id ?? ''), ...extractAttrs(node) };
 }
 
 export async function addMessage(ticketId: string, message: string, files: PendingFile[] = []) {

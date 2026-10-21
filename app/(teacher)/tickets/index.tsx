@@ -28,8 +28,8 @@ const priorityColors = (): Record<string, string> => ({
   high: colors.danger,
 });
 
-// Teacher-side ticket list. Teachers respond to tickets (parents create them),
-// so there is no "new ticket" action here. Reuses the shared ticket hooks/API.
+// Teacher-side ticket list. A new ticket with a parent starts from the student's page
+// («مراسلة وليّ الأمر»), where the parent is known. Reuses the shared ticket hooks/API.
 export default function TeacherTicketsList() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
