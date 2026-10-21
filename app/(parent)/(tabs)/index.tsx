@@ -32,6 +32,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { timeAgo, formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
+import { NazerCard } from '@/components/nazer/NazerCard';
+import { parentSay } from '@/nazer/mood';
 
 /**
  * Parent Home — "Sanad" simple mode, built for an older parent (founder 2026-10-03: «some
@@ -76,6 +78,13 @@ export default function ParentHome() {
   const well = kids.filter((c) => (c.attendance_rate ?? 0) >= 75).length;
   const allWell = kids.length > 0 && well === kids.length;
   const attention = (billingAlerts?.length ?? 0) + (risks?.length ?? 0);
+  // الناظر's one line about today, from what this screen already knows.
+  const say = parentSay({
+    children: kids.map((c) => ({ name: c.name, student_id: c.student_id, attendance_rate: c.attendance_rate ?? 0, present_count: c.present_count ?? 0, absent_count: c.absent_count ?? 0 })),
+    billing: billingAlerts ?? [],
+    risks: risks ?? [],
+    latestNotification: latest ?? null,
+  }, (key, opts) => String(t(key, opts)));
 
   const tourScroll = useTourScroll();
   return (
@@ -139,6 +148,13 @@ export default function ParentHome() {
             </View></TourTarget>
             </Surface>
           ) : null}
+
+          {/* «من مكتب الناظر» — his face in today's mood and one sentence; the office has the rest. */}
+          <Surface id="parent.home.nazer">
+            <View style={{ marginTop: spacing.md }}>
+              <NazerCard say={say} onPress={() => router.push('/(parent)/nazer' as Href)} />
+            </View>
+          </Surface>
 
           <View style={{ gap: spacing.md, marginTop: spacing.md }}>
             <Surface id="parent.home.card_order_banner"><CardOrderBanner scope="parent" /></Surface>

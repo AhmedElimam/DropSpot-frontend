@@ -73,6 +73,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `parent.home.header_bar` — element · app/(parent)/(tabs)/index.tsx
 - `parent.home.hero` — element · app/(parent)/(tabs)/index.tsx
 - `parent.home.latest_update` — element · app/(parent)/(tabs)/index.tsx
+- `parent.home.nazer` — element · app/(parent)/(tabs)/index.tsx
 - `parent.home.pending_invites` — element · app/(parent)/(tabs)/index.tsx
 - `parent.home.risk_alerts` — element · app/(parent)/(tabs)/index.tsx
 - `parent.home.sibling_claims` — element · app/(parent)/(tabs)/index.tsx
@@ -92,6 +93,8 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `parent.invoices.list` — element · app/(parent)/(tabs)/invoices.tsx
 - `parent.invoices.payment_section` — element · app/(parent)/(tabs)/invoices.tsx
 - `parent.invoices.pending_dues` — element · app/(parent)/(tabs)/invoices.tsx
+- `parent.nazer.footer` — element · app/(parent)/nazer.tsx
+- `parent.nazer.hero` — element · app/(parent)/nazer.tsx
 - `parent.profile.account` — element · app/(parent)/(tabs)/profile.tsx
 - `parent.profile.account_info` — element · app/(parent)/(tabs)/profile.tsx
 - `parent.profile.delete_account` — element · app/(parent)/(tabs)/profile.tsx
@@ -150,6 +153,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `screen.parent.community` — screen · app/(parent)/(tabs)/community.tsx
 - `screen.parent.index` — screen · app/(parent)/(tabs)/index.tsx
 - `screen.parent.invoices` — screen · app/(parent)/(tabs)/invoices.tsx
+- `screen.parent.nazer` — screen · app/(parent)/nazer.tsx
 - `screen.parent.notifications` — screen · app/(parent)/notifications.tsx
 - `screen.parent.order-card` — screen · app/(parent)/order-card.tsx
 - `screen.parent.profile` — screen · app/(parent)/(tabs)/profile.tsx
@@ -168,6 +172,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `screen.student.index` — screen · app/(student)/(tabs)/index.tsx
 - `screen.student.invoices` — screen · app/(student)/(tabs)/invoices.tsx
 - `screen.student.marks` — screen · app/(student)/marks.tsx
+- `screen.student.nazer` — screen · app/(student)/nazer.tsx
 - `screen.student.notifications` — screen · app/(student)/notifications.tsx
 - `screen.student.order-card` — screen · app/(student)/order-card.tsx
 - `screen.student.profile` — screen · app/(student)/(tabs)/profile.tsx
@@ -254,6 +259,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `student.home.card_order_banner` — element · app/(student)/(tabs)/index.tsx
 - `student.home.header_bar` — element · app/(student)/(tabs)/index.tsx
 - `student.home.hero` — element · app/(student)/(tabs)/index.tsx
+- `student.home.nazer` — element · app/(student)/(tabs)/index.tsx
 - `student.home.risk_alerts` — element · app/(student)/(tabs)/index.tsx
 - `student.home.session_row.private_label` — element · app/(student)/(tabs)/index.tsx
 - `student.home.shortcuts` — element · app/(student)/(tabs)/index.tsx
@@ -274,6 +280,8 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `student.marks.grades` — element · app/(student)/marks.tsx
 - `student.marks.hero` — element · app/(student)/marks.tsx
 - `student.marks.tabs` — element · app/(student)/marks.tsx
+- `student.nazer.footer` — element · app/(student)/nazer.tsx
+- `student.nazer.hero` — element · app/(student)/nazer.tsx
 - `student.profile.account` — element · app/(student)/(tabs)/profile.tsx
 - `student.profile.account_info` — element · app/(student)/(tabs)/profile.tsx
 - `student.profile.card_block` — element · app/(student)/(tabs)/profile.tsx
@@ -1014,6 +1022,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.student_profile.flag_number_sheet` — element · src/components/teacher/StudentProfile.tsx
 - `teacher.student_profile.flag_parent_number` — element · assistant: report_incidents · src/components/teacher/StudentProfile.tsx
 - `teacher.student_profile.hero` — element · src/components/teacher/StudentProfile.tsx
+- `teacher.student_profile.open_ticket_button` — element · assistant: reply_tickets · src/components/teacher/StudentProfile.tsx
 - `teacher.student_profile.parent_number_notice` — element · src/components/teacher/StudentProfile.tsx
 - `teacher.student_profile.position_sheet` — element · src/components/teacher/StudentProfile.tsx
 - `teacher.student_profile.prior_month_button` — element · assistant: manage_students · src/components/teacher/StudentProfile.tsx

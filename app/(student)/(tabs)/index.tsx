@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
@@ -34,6 +34,8 @@ import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { getStudentTeachers, type StudentTeacher } from '@/api/studentOverview';
 import { Surface } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
+import { NazerCard } from '@/components/nazer/NazerCard';
+import { studentSay } from '@/nazer/mood';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
 import { tracksAttendance, attendanceLabel } from '@/utils/privateLesson';
 
@@ -77,6 +79,16 @@ export default function StudentDashboard() {
   const spotlight = list.find((s) => s.status === 'live')
     ?? list.find((s) => s.status === 'scheduled' && !s.attendance_status && new Date(s.scheduled_at).getTime() >= now);
   const firstName = (user?.name ?? '').split(' ')[0];
+  // الناظر's one line about today, from what this screen already knows.
+  const live = list.find((s) => s.status === 'live');
+  const upcoming = list.find((s) => s.status === 'scheduled' && new Date(s.scheduled_at).getTime() >= now);
+  const say = studentSay({
+    billing: billingAlerts ?? [],
+    risks: risks ?? [],
+    coverage: { present: stats?.present ?? 0, late: stats?.late ?? 0, absent: stats?.absent ?? 0, total },
+    live: live ? { course_name: live.course_name, checked_in: !!live.checked_in || !!live.attendance_status } : null,
+    next: upcoming ? { course_name: upcoming.course_name, scheduled_at: upcoming.scheduled_at } : null,
+  }, (key, opts) => String(t(key, opts)));
 
   const shortcuts = [
     { key: 'checkin', icon: 'card' as const, label: t('attendance.check_in'), color: colors.brand, tint: colors.brandTint, onPress: () => router.navigate('/(student)/(tabs)/check-in') },
@@ -158,6 +170,13 @@ export default function StudentDashboard() {
             </TouchableOpacity>
           )}
           </TourTarget>
+          </Surface>
+
+          {/* «من مكتب الناظر» — his face in today's mood and one sentence; the office has the rest. */}
+          <Surface id="student.home.nazer">
+            <View style={{ marginTop: spacing.md }}>
+              <NazerCard say={say} onPress={() => router.push('/(student)/nazer' as Href)} />
+            </View>
           </Surface>
 
           <View style={{ gap: spacing.md, marginTop: spacing.md }}>
