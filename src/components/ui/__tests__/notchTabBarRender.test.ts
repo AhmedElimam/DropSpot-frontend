@@ -2,14 +2,29 @@ import { createElement } from 'react';
 
 // react-test-renderer ships without type declarations here; this is the shape the test uses.
 type ReactTestInstance = { type: unknown; props: Record<string, any>; parent: ReactTestInstance | null; findAll(pred: (n: ReactTestInstance) => boolean): ReactTestInstance[]; findAllByType(type: unknown): ReactTestInstance[] };
-type ReactTestRenderer = { root: ReactTestInstance };
+type ReactTestRenderer = { root: ReactTestInstance; unmount(): void };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { act, create } = require('react-test-renderer') as { act: (cb: () => void) => void; create: (el: unknown) => ReactTestRenderer };
+const { act, create: render } = require('react-test-renderer') as { act: (cb: () => void) => void; create: (el: unknown) => ReactTestRenderer };
 import { NotchTabBar, BUTTON } from '../NotchTabBar';
 
 jest.mock('@expo/vector-icons/Ionicons', () => ({ __esModule: true, default: () => null }));
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => `t:${k}` }) }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 20, left: 0, right: 0 }) }));
+
+// Every tree is unmounted after its test. NotchTabBar schedules the tab preloader (600 ms and
+// on, reading AppState) and cancels it only on unmount: left mounted, those timers fired after
+// this file had finished, inside the NEXT test file on the same worker, and failed it there
+// (sessionCache / errorReport: «Cannot read properties of undefined (reading 'currentState')») —
+// the random red CI run on a commit whose other run was green.
+const mounted: ReactTestRenderer[] = [];
+const create = (el: unknown): ReactTestRenderer => {
+  const tree = render(el);
+  mounted.push(tree);
+  return tree;
+};
+afterEach(() => {
+  act(() => { mounted.splice(0).forEach((tree) => tree.unmount()); });
+});
 
 const TABS = ['index', 'teachers', 'children', 'invoices', 'profile'] as const;
 const labels: Record<string, string> = { index: 'nav.home', teachers: 'parent.teachers', children: 'nav.children', invoices: 'nav.invoices', profile: 'nav.settings' };
