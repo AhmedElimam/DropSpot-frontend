@@ -12,6 +12,7 @@ import { isAxiosError } from 'axios';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, control, nav, shadows } from '@/theme/index';
 import { StudentInvitationModal } from '@/components/teacher/StudentInvitationModal';
+import { GroupFilter, useGroupFilter } from '@/components/teacher/GroupFilter';
 import { formatNumber } from '@/utils/format';
 import type { IconName } from '@/components/ui/Icon';
 import { Icon } from '@/components/ui/Icon';
@@ -76,6 +77,7 @@ export default function RecordStudent() {
 
   const eligible = useMemo(() => (options?.courses ?? []).filter((c) => c.has_schedule), [options]);
   const course = useMemo(() => eligible.find((c) => c.id === courseId) ?? null, [eligible, courseId]);
+  const groups = useGroupFilter(eligible, (c) => `${c.name} ${c.grade_name ?? ''}`, (c) => c.grade_name);
 
   const nameError = name.trim() !== '' && !isArabicName(name);
   const phoneError = parentPhone.trim() !== '' && !isEgyptPhone(parentPhone);
@@ -235,7 +237,6 @@ export default function RecordStudent() {
           subtitle={t('fast_register.subtitle')}
           onBack
           action={{ icon: 'scan', label: t('fast_register.scan'), onPress: scanInstead, accessibilityLabel: t('fast_register.scan_hint') }}
-          stats={[{ value: formatNumber(count), label: t('fast_register.added_now') }]}
         />
         </Surface>
 
@@ -245,11 +246,14 @@ export default function RecordStudent() {
           <View style={sectionCard}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: colors.textPrimary }}>{t('fast_register.pick_group')}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md }}>{t('fast_register.pick_group_hint')}</Text>
+            <GroupFilter grades={groups.grades} grade={groups.grade} onGrade={groups.setGrade} query={groups.query} onQuery={groups.setQuery} searchable={groups.searchable} />
             {eligible.length === 0 ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary }}>{t('enroll_ui.no_scheduled_courses')}</Text>
+            ) : groups.filtered.length === 0 ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary }}>{t('group_filter.none')}</Text>
             ) : (
               <View style={{ gap: spacing.sm }}>
-                {eligible.map((c: InvitationCourseOption) => {
+                {groups.filtered.map((c: InvitationCourseOption) => {
                   const n = addedByCourse[c.id] ?? 0;
                   return (
                     <TouchableOpacity key={c.id} onPress={() => openForm(c.id)} activeOpacity={0.85} accessibilityRole="button"
@@ -318,11 +322,6 @@ export default function RecordStudent() {
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }} numberOfLines={1}>{course?.name}{course?.grade_name ? ` · ${course.grade_name}` : ''}</Text>
               {course?.schedule_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary }} numberOfLines={1}>{course.schedule_label}</Text> : null}
             </View>
-            <Surface id="teacher.record_student.count_badge">
-            <View style={{ minWidth: 38, height: 38, borderRadius: 12, paddingHorizontal: 8, backgroundColor: count ? colors.successLight : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }} accessibilityLabel={t('fast_register.added_now')}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: count ? colors.successText : colors.textTertiary }}>{formatNumber(count)}</Text>
-            </View>
-            </Surface>
             <TouchableOpacity onPress={() => setFormOpen(false)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.close')}
               style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="close" size={18} color={colors.textPrimary} />

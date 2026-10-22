@@ -676,7 +676,6 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.manage.row_assistants` — element · assistant: teacher · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_billing_settings` — element · assistant: teacher · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_booking_requests` — element · assistant: manage_students · app/(teacher)/(tabs)/manage.tsx
-- `teacher.manage.row_card_order_link` — element · assistant: manage_students · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_cards` — element · assistant: manage_students · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_cash_reconcile` — element · assistant: scan_attendance · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_complaints` — element · app/(teacher)/(tabs)/manage.tsx
@@ -759,7 +758,6 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.reconcile.rejected_scans.dismiss` — element · app/(teacher)/reconcile.tsx
 - `teacher.reconcile.rejected_scans.requeue` — element · app/(teacher)/reconcile.tsx
 - `teacher.record_student.added_names` — element · app/(teacher)/record-student.tsx
-- `teacher.record_student.count_badge` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.course_picker` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.dedupe_modal` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.dedupe_modal.create_new` — element · app/(teacher)/record-student.tsx
