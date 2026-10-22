@@ -711,11 +711,13 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.pay_dues_modal.refuse_button` — element · src/components/teacher/PayDuesModal.tsx
 - `teacher.pay_dues_modal.sheet` — element · src/components/teacher/PayDuesModal.tsx
 - `teacher.payment_proofs.approve_button` — element · app/(teacher)/payment-proofs.tsx
+- `teacher.payment_proofs.header` — element · app/(teacher)/payment-proofs.tsx
 - `teacher.payment_proofs.lightbox` — element · app/(teacher)/payment-proofs.tsx
-- `teacher.payment_proofs.pending_section` — element · app/(teacher)/payment-proofs.tsx
+- `teacher.payment_proofs.pending_card` — element · app/(teacher)/payment-proofs.tsx
 - `teacher.payment_proofs.reject_button` — element · app/(teacher)/payment-proofs.tsx
 - `teacher.payment_proofs.reject_sheet` — element · app/(teacher)/payment-proofs.tsx
-- `teacher.payment_proofs.reviewed_section` — element · app/(teacher)/payment-proofs.tsx
+- `teacher.payment_proofs.reviewed_card` — element · app/(teacher)/payment-proofs.tsx
+- `teacher.payment_proofs.tabs` — element · app/(teacher)/payment-proofs.tsx
 - `teacher.pending_collections.bill_corrections` — element · app/(teacher)/pending-collections.tsx
 - `teacher.pending_collections.cancel_due_button` — element · assistant: teacher · app/(teacher)/pending-collections.tsx
 - `teacher.pending_collections.collect_button` — element · app/(teacher)/pending-collections.tsx
