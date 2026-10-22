@@ -21,6 +21,7 @@ import { useTourStore, nextShowable, routeFor } from './store';
 import { tourSeen, markTourSeen } from './seen';
 import { tourForRole } from './tours';
 import { useRosePictures } from '@/components/rose/RoseCostume';
+import { NazerFace } from '@/components/nazer/NazerFace';
 import { holeFor, placeCard, onScreen, toFrame, holePath, stackDim, scrollNeeded, HOLE_RADIUS, type Hole, type Frame } from './geometry';
 
 const ARect = Animated.createAnimatedComponent(Rect);
@@ -119,8 +120,12 @@ function Runner() {
   const steps = tour!.steps;
   const current = steps[step];
   // The teacher side's tour is presented by مدام روز (her name as this person's screens show it).
-  const narrated = tour!.narrator === 'rose';
+  const narrated = tour!.narrator === 'rose' || tour!.narrator === 'nazer';
+  // The family side's tour is presented by الناظر صلاح الدين (founder 2026-10-22).
+  const byNazer = tour!.narrator === 'nazer';
   const rose = useRose();
+  const narratorName = byNazer ? 'الناظر صلاح الدين' : rose.name;
+  const narratorRole = byNazer ? 'tour.narrator_role_nazer' : 'tour.narrator_role';
   // Her portrait — her season picture while «وضع المراجعة» is on (founder 2026-10-17).
   const rosePortrait = useRosePictures().portrait;
   const nod = useSharedValue(1);
@@ -279,13 +284,13 @@ function Runner() {
               centred ? (
                 // Her name under her portrait — she is the one speaking.
                 <View style={{ alignItems: 'center', marginTop: ROSE_BIG / 2 - spacing.sm, marginBottom: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{rose.name}</Text>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textTertiary }}>{t('tour.narrator_role')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{narratorName}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textTertiary }}>{t(narratorRole)}</Text>
                 </View>
               ) : (
                 <View style={{ marginBottom: spacing.sm }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: ROSE_SMALL / 2, paddingStart: ROSE_SMALL + spacing.sm, marginTop: -spacing.xs }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{rose.name}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{narratorName}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
                     {Array.from({ length: spotSteps }).map((_, i) => (
@@ -336,7 +341,7 @@ function Runner() {
             // A full-width row does the placing (centre / start = the right in RTL); the portrait nods inside it.
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: centred ? 'center' : 'flex-start', paddingHorizontal: spacing.lg }}>
               <Animated.View style={[{ width: centred ? ROSE_BIG : ROSE_SMALL, height: centred ? ROSE_BIG : ROSE_SMALL }, nodStyle]}>
-                <Image source={rosePortrait} style={{ width: '100%', height: '100%' }} contentFit="contain" accessibilityLabel={rose.name} />
+                {byNazer ? <NazerFace size={centred ? ROSE_BIG : ROSE_SMALL} blink={false} /> : <Image source={rosePortrait} style={{ width: '100%', height: '100%' }} contentFit="contain" accessibilityLabel={rose.name} />}
               </Animated.View>
             </View>
           ) : null}

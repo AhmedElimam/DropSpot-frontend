@@ -32,7 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { timeAgo, formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
-import { NazerCard } from '@/components/nazer/NazerCard';
+import { NazerHub } from '@/components/nazer/NazerHub';
 import { parentSay } from '@/nazer/mood';
 
 /**
@@ -149,13 +149,6 @@ export default function ParentHome() {
             </Surface>
           ) : null}
 
-          {/* «من مكتب الناظر» — his face in today's mood and one sentence; the office has the rest. */}
-          <Surface id="parent.home.nazer">
-            <View style={{ marginTop: spacing.md }}>
-              <NazerCard say={say} onPress={() => router.push('/(parent)/nazer' as Href)} />
-            </View>
-          </Surface>
-
           <View style={{ gap: spacing.md, marginTop: spacing.md }}>
             <Surface id="parent.home.card_order_banner"><CardOrderBanner scope="parent" /></Surface>
             <Surface id="parent.home.whats_new"><WhatsNewCard /></Surface>
@@ -193,11 +186,21 @@ export default function ParentHome() {
           <Surface id="parent.home.actions">
           <View style={{ marginTop: spacing.xl }}>
             <SectionHead icon="star" color={colors.accent} title={t('home.actions_section')} />
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.sm }}>
-              <Surface id="parent.home.action_today"><ActionTile icon="calendar" color={colors.brand} tint={colors.brandTint} title={t('today.title')} subtitle={t('today.subtitle')} onPress={() => router.push('/(parent)/today')} /></Surface>
-              <Surface id="parent.home.action_invoices"><ActionTile icon="invoices" color={colors.success} tint={colors.successLight} title={t('home.invoices_title')} onPress={() => router.push('/(parent)/(tabs)/invoices')} /></Surface>
-              <Surface id="parent.home.action_report_cards"><ActionTile icon="reports" color={colors.info} tint={colors.infoLight} title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')} onPress={() => router.push('/(parent)/report-cards')} /></Surface>
-              <Surface id="parent.home.action_tickets"><ActionTile icon="ticket" color={colors.accentWarm} tint={colors.accentWarmTint} title={t('parent.teacher_tickets_title')} subtitle={t('parent.teacher_tickets_sub')} onPress={() => router.push('/(parent)/tickets')} /></Surface>
+            {/* الناظر in the middle of the four actions (founder 2026-10-22): two tiles each side, his face between. */}
+            <View style={{ flexDirection: 'row', alignItems: 'stretch', justifyContent: 'space-between' }}>
+              <View style={{ width: '39%', gap: spacing.sm }}>
+                <Surface id="parent.home.action_today"><ActionTile width="100%" icon="calendar" color={colors.brand} tint={colors.brandTint} title={t('today.title')} subtitle={t('today.subtitle')} onPress={() => router.push('/(parent)/today')} /></Surface>
+                <Surface id="parent.home.action_report_cards"><ActionTile width="100%" icon="reports" color={colors.info} tint={colors.infoLight} title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')} onPress={() => router.push('/(parent)/report-cards')} /></Surface>
+              </View>
+              <Surface id="parent.home.nazer">
+                <TourTarget id="home:nazer" style={{ width: '100%', flex: 1, justifyContent: 'center' }}>
+                  <NazerHub say={say} size={74} onPress={() => router.push('/(parent)/nazer' as Href)} />
+                </TourTarget>
+              </Surface>
+              <View style={{ width: '39%', gap: spacing.sm }}>
+                <Surface id="parent.home.action_invoices"><ActionTile width="100%" icon="invoices" color={colors.success} tint={colors.successLight} title={t('home.invoices_title')} onPress={() => router.push('/(parent)/(tabs)/invoices')} /></Surface>
+                <Surface id="parent.home.action_tickets"><ActionTile width="100%" icon="ticket" color={colors.accentWarm} tint={colors.accentWarmTint} title={t('parent.teacher_tickets_title')} subtitle={t('parent.teacher_tickets_sub')} onPress={() => router.push('/(parent)/tickets')} /></Surface>
+              </View>
             </View>
           </View>
           </Surface>

@@ -154,12 +154,14 @@ describe('a scrolled home on replay (founder 2026-10-07)', () => {
     expect(scrollNeeded({ x: 16, y: 200, width: 358, height: 90 }, area, top, bottom)).toBe(0);
   });
 
-  // Founder 2026-10-07: مدام روز presents the teacher side's tour, in her own voice; the
-  // parent and student tours stay as they were.
-  it('is presented by مدام روز on the teacher side only', () => {
+  // Founder 2026-10-07: مدام روز presents the teacher side's tour, in her own voice.
+  // Founder 2026-10-22: الناظر صلاح الدين presents the family side's, with a stop at his hub.
+  it('is presented by مدام روز for teachers and by الناظر for families', () => {
     expect(TEACHER_TOUR.narrator).toBe('rose');
-    expect(PARENT_TOUR.narrator).toBeUndefined();
-    expect(STUDENT_TOUR.narrator).toBeUndefined();
+    expect(PARENT_TOUR.narrator).toBe('nazer');
+    expect(STUDENT_TOUR.narrator).toBe('nazer');
+    expect(PARENT_TOUR.steps.some((s) => s.target === 'home:nazer')).toBe(true);
+    expect(STUDENT_TOUR.steps.some((s) => s.target === 'home:nazer')).toBe(true);
   });
 });
 

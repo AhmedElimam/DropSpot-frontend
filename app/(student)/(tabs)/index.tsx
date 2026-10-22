@@ -34,7 +34,7 @@ import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { getStudentTeachers, type StudentTeacher } from '@/api/studentOverview';
 import { Surface } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
-import { NazerCard } from '@/components/nazer/NazerCard';
+import { NazerHub } from '@/components/nazer/NazerHub';
 import { studentSay } from '@/nazer/mood';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
 import { tracksAttendance, attendanceLabel } from '@/utils/privateLesson';
@@ -172,13 +172,6 @@ export default function StudentDashboard() {
           </TourTarget>
           </Surface>
 
-          {/* «من مكتب الناظر» — his face in today's mood and one sentence; the office has the rest. */}
-          <Surface id="student.home.nazer">
-            <View style={{ marginTop: spacing.md }}>
-              <NazerCard say={say} onPress={() => router.push('/(student)/nazer' as Href)} />
-            </View>
-          </Surface>
-
           <View style={{ gap: spacing.md, marginTop: spacing.md }}>
             <Surface id="student.home.card_order_banner"><CardOrderBanner scope="student" /></Surface>
             <Surface id="student.home.whats_new"><WhatsNewCard /></Surface>
@@ -196,8 +189,15 @@ export default function StudentDashboard() {
 
           {/* Shortcuts — four coloured, labelled buttons. */}
           <Surface id="student.home.shortcuts">
-          <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            {shortcuts.map((x) => <ShortcutTile key={x.key} icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
+          {/* الناظر in the middle of the four shortcuts (founder 2026-10-22): two each side, his face between. */}
+          <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            {shortcuts.slice(0, 2).map((x) => <ShortcutTile key={x.key} width="19%" icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
+            <Surface id="student.home.nazer">
+              <TourTarget id="home:nazer" style={{ width: '22%', alignItems: 'center' }}>
+                <NazerHub say={say} size={58} onPress={() => router.push('/(student)/nazer' as Href)} />
+              </TourTarget>
+            </Surface>
+            {shortcuts.slice(2).map((x) => <ShortcutTile key={x.key} width="19%" icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
           </View></TourTarget>
           </Surface>
 
