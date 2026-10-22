@@ -33,7 +33,7 @@ describe('الناظر marks', () => {
   });
 
   it('his lines state facts and nudge, never praise', () => {
-    const all = lines((ar as any).nazer);
+    const all = [...lines((ar as any).nazer), ...lines((ar as any).nazer_unlock)];
     expect(all.length).toBeGreaterThan(20);
     for (const line of all) {
       for (const word of PATRONISING) expect(line).not.toContain(word);

@@ -33,6 +33,7 @@ import { SessionCard, sessionPhase, type SessionCardData } from '@/components/se
 import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { SessionRosterSheet } from '@/components/session/SessionRosterSheet';
 import { SwipeRow, type SwipeAction } from '@/components/ui/SwipeRow';
+import { SessionNotesSheet } from '@/components/session/SessionNotesSheet';
 import { cancelSession } from '@/api/teacherSessions';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -117,6 +118,7 @@ export default function TeacherHome() {
   // «كشف الحضور» in a sheet.
   const qc = useQueryClient();
   const [rosterFor, setRosterFor] = useState<string | null>(null);
+  const [notesFor, setNotesFor] = useState<string | null>(null);
   const confirmCancel = (s: { id: string; course_name?: string | null; status?: string; scheduled_at?: string | null; duration_minutes?: number | null }) => {
     const past = s.status === 'completed' || sessionPhase(s as TeacherSession, now) === 'done';
     Alert.alert(t('teacher.cancel_session_title'), [s.course_name, t(past ? 'teacher.cancel_past_session_hint' : 'teacher.cancel_session_hint')].filter(Boolean).join('\n\n'), [
@@ -139,14 +141,14 @@ export default function TeacherHome() {
   // The server's rule (2026-10-06): a session anyone was checked into happened and stays; one
   // nobody attended can be cancelled even after it ended (it leaves the billing cycle).
   // Once it has ended and can no longer be cancelled (founder 2026-10-22), the same swipe opens
-  // its «ملاحظات الحصة» instead of doing nothing: the session page with the editor up.
+  // its «ملاحظات الحصة» instead of doing nothing — in a sheet over home, not another page.
   const swipesFor = (s: TeacherSession): { action?: SwipeAction; leftAction: SwipeAction } => {
     const ended = s.status === 'completed' || sessionPhase(s, now) === 'done';
     const cancellable = canCancel && s.status !== 'cancelled' && (!ended || (s.checked_in_count ?? 1) === 0);
     const notes = !cancellable && ended && s.status !== 'cancelled';
     return {
       action: cancellable ? { icon: 'close', label: t('teacher.cancel_session'), color: colors.danger, onTrigger: () => confirmCancel(s) }
-        : notes ? { icon: 'note', label: t('session_notes.card_title'), color: colors.brand, onTrigger: () => router.push(`/(teacher)/sessions/${s.id}?notes=1` as Href) }
+        : notes ? { icon: 'note', label: t('session_notes.card_title'), color: colors.brand, onTrigger: () => setNotesFor(s.id) }
         : undefined,
       leftAction: { icon: 'attendance', label: t('sessions_tab.sheet'), color: colors.success, onTrigger: () => setRosterFor(s.id) },
     };
@@ -369,6 +371,7 @@ export default function TeacherHome() {
       </ScrollView>
       <AddStudentSheet visible={addOpen} onClose={() => setAddOpen(false)} />
       <ScheduleToolsSheet visible={scheduleOpen} onClose={() => setScheduleOpen(false)} />
+      <SessionNotesSheet sessionId={notesFor} onClose={() => setNotesFor(null)} />
       <SessionRosterSheet sessionId={rosterFor} onClose={() => setRosterFor(null)} onOpenFull={(id) => { setRosterFor(null); openSheet({ id }); }} />
     </View>
     </Surface>
