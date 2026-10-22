@@ -9,7 +9,7 @@ import { NAZER_LAYERS, NAZER_MOODS } from '../manifest';
  * as مدام روز's marks test).
  */
 const ASSETS = join(__dirname, '../../../assets/images/nazer');
-const LAYERS = ['base', 'brow_l', 'brow_r', 'mouth_smile', 'mouth_flat', 'mouth_half', 'mouth_sad', 'lid_happy_l', 'lid_happy_r', 'lid_blink_l', 'lid_blink_r', 'portrait-160'];
+const LAYERS = ['base', 'brow_l', 'brow_r', 'mouth_smile', 'mouth_flat', 'mouth_half', 'mouth_sad', 'lid_happy_l', 'lid_happy_r', 'lid_blink_l', 'lid_blink_r', 'portrait-160', 'stamp-navy', 'stamp-red'];
 const PATRONISING = ['راضي', 'مبسوط', 'بتحب', 'بيعجب', 'شاطر', 'برافو', 'يوم حلو', 'أحسنت', 'تسلم إيد', 'يا بطل', 'يا قمر', 'حبيب'];
 
 function lines(node: unknown): string[] {
