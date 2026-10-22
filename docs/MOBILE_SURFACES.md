@@ -98,6 +98,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `parent.invoices.pending_dues` — element · app/(parent)/(tabs)/invoices.tsx
 - `parent.nazer.footer` — element · app/(parent)/nazer.tsx
 - `parent.nazer.hero` — element · app/(parent)/nazer.tsx
+- `parent.nazer.reports` — element · app/(parent)/nazer.tsx
 - `parent.profile.account` — element · app/(parent)/(tabs)/profile.tsx
 - `parent.profile.account_info` — element · app/(parent)/(tabs)/profile.tsx
 - `parent.profile.delete_account` — element · app/(parent)/(tabs)/profile.tsx
@@ -287,6 +288,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `student.marks.tabs` — element · app/(student)/marks.tsx
 - `student.nazer.footer` — element · app/(student)/nazer.tsx
 - `student.nazer.hero` — element · app/(student)/nazer.tsx
+- `student.nazer.reports` — element · app/(student)/nazer.tsx
 - `student.profile.account` — element · app/(student)/(tabs)/profile.tsx
 - `student.profile.account_info` — element · app/(student)/(tabs)/profile.tsx
 - `student.profile.card_block` — element · app/(student)/(tabs)/profile.tsx

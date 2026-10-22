@@ -17,6 +17,8 @@ import { useStudentBillingStatus } from '@/hooks/useInvoices';
 import { useTodaySessions, useUpcomingSessions } from '@/hooks/useSessions';
 import { useSessionNotes } from '@/hooks/useSessionNotes';
 import { latestNotes } from '@/nazer/notes';
+import { NazerReportsCard } from '@/components/nazer/NazerReportsCard';
+import { getChildReportUrl, getMyReportUrl } from '@/api/nazerReport';
 import { formatEGP } from '@/utils/currency';
 import { formatDayDate, formatTime, formatNumber } from '@/utils/format';
 
@@ -104,6 +106,7 @@ export default function StudentNazerOffice() {
         ListHeaderComponent={
           <View>
             <Surface id="student.nazer.hero"><NazerHero say={say} lines={lines} onBack={() => (router.canGoBack() ? router.back() : router.replace('/(student)/(tabs)' as Href))} /></Surface>
+            <Surface id="student.nazer.reports"><NazerReportsCard items={[{ key: 'me', name: t('nazer.my_report_name'), url: getMyReportUrl }]} /></Surface>
             <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
               <SectionHead icon="note" color={colors.accent} title={t('nazer.notes_title')} />
             </View>

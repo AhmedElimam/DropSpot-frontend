@@ -32,6 +32,7 @@ describe('notificationRouteFor (feed + push taps)', () => {
     expect(notificationRouteFor({ role: 'parent', type: 'payment_received', data: { student_id: 5 } })).toBe('/(parent)/(tabs)/invoices');
     expect(notificationRouteFor({ role: 'parent', type: 'daily_digest', data: { student_id: 5 } })).toBe('/(parent)/today');
     expect(notificationRouteFor({ role: 'parent', type: 'session_notes', data: { student_id: 5 } })).toBe('/(parent)/session-notes?student_id=5');
+    expect(notificationRouteFor({ role: 'parent', type: 'nazer_morning', data: { student_id: 5 } })).toBe('/(parent)/nazer');
     expect(notificationRouteFor({ role: 'parent', type: 'ticket_reply', data: { ticket_id: 8 } })).toBe('/(parent)/tickets/8');
     expect(notificationRouteFor({ role: 'parent', type: 'ticket_new', data: { ticket_id: 9 } })).toBe('/(parent)/tickets/9');
   });
@@ -40,6 +41,7 @@ describe('notificationRouteFor (feed + push taps)', () => {
     expect(notificationRouteFor({ role: 'student', type: 'grade', data: { mark: 9 } })).toBe('/(student)/marks');
     expect(notificationRouteFor({ role: 'student', type: 'session_notes', data: { student_id: 5 } })).toBe('/(student)/session-notes');
     expect(notificationRouteFor({ role: 'student', type: 'daily_digest' })).toBe('/(student)/session-notes');
+    expect(notificationRouteFor({ role: 'student', type: 'nazer_morning' })).toBe('/(student)/nazer');
     expect(notificationRouteFor({ role: 'student', type: 'card_released', data: { student_id: 5 } })).toBe('/(student)/order-card');
     expect(notificationRouteFor({ role: 'student', type: 'test_notification' })).toBeNull();
     expect(notificationRouteFor({ role: null, type: 'grade' })).toBeNull();

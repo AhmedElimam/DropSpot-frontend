@@ -19,6 +19,8 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useTickets } from '@/hooks/useTickets';
 import { useSessionNotes } from '@/hooks/useSessionNotes';
 import { latestNotes } from '@/nazer/notes';
+import { NazerReportsCard } from '@/components/nazer/NazerReportsCard';
+import { getChildReportUrl, getMyReportUrl } from '@/api/nazerReport';
 import { formatEGP } from '@/utils/currency';
 import { formatNumber } from '@/utils/format';
 
@@ -100,6 +102,7 @@ export default function ParentNazerOffice() {
         ListHeaderComponent={
           <View>
             <Surface id="parent.nazer.hero"><NazerHero say={say} lines={lines} onBack={() => (router.canGoBack() ? router.back() : router.replace('/(parent)/(tabs)' as Href))} /></Surface>
+            <Surface id="parent.nazer.reports"><NazerReportsCard items={kids.map((c) => ({ key: String(c.student_id), name: c.name, url: () => getChildReportUrl(c.student_id) }))} /></Surface>
             <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
               <SectionHead icon="note" color={colors.accent} title={t('nazer.notes_title')} />
             </View>

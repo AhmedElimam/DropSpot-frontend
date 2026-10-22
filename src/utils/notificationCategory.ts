@@ -4,7 +4,7 @@ export type NotificationCategory = 'attendance' | 'money' | 'students' | 'follow
 // (`assistant_checkin_review` is attendance, `payment_proof_submitted` is money).
 const RULES: [NotificationCategory, RegExp][] = [
   // A teacher's session notes, reported by الناظر, sit with the day's digest — not attendance.
-  ['followup', /^session_notes$/],
+  ['followup', /^(session_notes|nazer_morning)$/],
   ['money', /invoice|payment|cash|expense|billing|financial|subscription/],
   ['attendance', /attendance|absence|left_early|checkin|session|schedule|excuse|swap|pending_scans/],
   ['students', /student|card|enrollment|booking|sibling|parent|guardian|invitation|grade|graduation|linked|termination/],

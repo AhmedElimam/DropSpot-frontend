@@ -145,6 +145,9 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
       return '/(parent)/report-cards';
     case 'daily_digest':
       return '/(parent)/today';
+    // الناظر's 11 am sheet: today's sessions, absences and bills — his office.
+    case 'nazer_morning':
+      return '/(parent)/nazer';
     // الناظر reports a session note written after that day's digest (founder 2026-10-22).
     case 'session_notes':
       return student ? `/(parent)/session-notes?student_id=${student}` : '/(parent)/session-notes';
@@ -197,6 +200,8 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
       return '/(student)/(tabs)/invoices';
     case 'grade':
       return '/(student)/marks';
+    case 'nazer_morning':
+      return '/(student)/nazer';
     // الناظر's day summary and a late session note: the student's notes history.
     case 'daily_digest':
     case 'session_notes':
