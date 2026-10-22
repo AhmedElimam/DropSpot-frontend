@@ -37,6 +37,9 @@ export interface SessionCardData {
   is_exam?: boolean;
   /** A revision-engine session (src/utils/revisionDesk.ts revisionToCard) or a merged exam. */
   kind?: 'revision' | 'exam';
+  /** «ملاحظات الحصة»: the notes window (48 h after the end) and whether the session note was written. */
+  notes_state?: 'upcoming' | 'open' | 'closed' | 'cancelled';
+  notes_written?: boolean;
 }
 
 const PHASE = (): Record<SessionPhase, { stripe: string; chipBg: string; chipText: string; key: string }> => ({
@@ -115,6 +118,15 @@ export const SessionCard = memo(function SessionCard({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.accentLight, borderRadius: radius.full, paddingVertical: 1, paddingHorizontal: 8 }}>
               <Icon name="attendance" size={11} color={colors.accentText} outline />
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.accentText }} numberOfLines={1}>{s.attendance_label ?? t('course_ui.private_chip')}</Text>
+            </View>
+            </Surface>
+          ) : null}
+          {phase === 'done' && s.notes_state === 'open' && s.notes_written === false ? (
+            // Ended, notes still open and unwritten: a nudge, gone once written or after 48 h.
+            <Surface id="teacher.session_card.notes_chip" ctx={{ session: s }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.warningLight, borderRadius: radius.full, paddingVertical: 1, paddingHorizontal: 8 }}>
+              <Icon name="note" size={11} color={colors.warningText} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.warningText }} numberOfLines={1}>{t('session_notes.awaiting_chip')}</Text>
             </View>
             </Surface>
           ) : null}

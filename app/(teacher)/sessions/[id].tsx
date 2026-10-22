@@ -17,6 +17,7 @@ import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { MarkRow, MarksHeader, type SessionKind } from '@/components/session/SessionMarks';
+import { SessionNotesCard } from '@/components/session/SessionNotesCard';
 import { sessionPhase } from '@/utils/sessionPhase';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
@@ -149,6 +150,8 @@ export default function SessionDetailScreen() {
   const started = s?.scheduled_at ? now >= new Date(s.scheduled_at).getTime() : false;
   const live = phase === 'live';
   const awaitingRows = baseList.filter((a) => bucketOf(a.status) === 'awaiting');
+  // A child's note follows the session's notes window; an older server sends none (always open).
+  const notesShut = !!s?.notes_window && s.notes_window.state !== 'open';
 
   const markRestAbsent = () => {
     if (!awaitingRows.length) return;
@@ -340,6 +343,10 @@ export default function SessionDetailScreen() {
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <View style={{ marginBottom: spacing.sm, gap: spacing.sm }}>
+              {/* «ملاحظات الحصة» — to the whole session; open 48 h after the end, then reopenable. */}
+              <Surface id="teacher.session_detail.notes_card" ctx={{ session: s }}>
+              <SessionNotesCard s={s} save={controls.summary} reopen={controls.reopen} />
+              </Surface>
               {/* Two tabs on one session: who came, and their marks. A private lesson has only marks. */}
               {noDoor ? null : (
               <Surface id="teacher.session_detail.mode_tabs" ctx={{ session: s }}>
@@ -561,12 +568,22 @@ export default function SessionDetailScreen() {
 
                 <Surface id="teacher.session_detail.student_sheet.note">
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.parent_note')}</Text>
-                <TextInput value={noteDraft} onChangeText={setNoteDraft} placeholder={t('teacher.parent_note_placeholder')} placeholderTextColor={colors.textTertiary} multiline
-                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, minHeight: 80, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlignVertical: 'top' }} />
-                <View style={{ marginTop: spacing.md }}>
-                  <Button title={t('teacher.save_note')} variant="secondary" loading={controls.note.isPending}
-                    onPress={() => controls.note.mutate({ studentId: current.student_id, note: noteDraft.trim() })} />
-                </View>
+                {notesShut ? (
+                  // The notes window (48 h after the end) closed: reopening is on the session card.
+                  <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
+                    {current.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textPrimary, marginBottom: 4 }}>{current.note}</Text> : null}
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>{t(s?.notes_window?.state === 'upcoming' ? 'session_notes.child_upcoming' : 'session_notes.child_closed')}</Text>
+                  </View>
+                ) : (
+                  <>
+                    <TextInput value={noteDraft} onChangeText={setNoteDraft} placeholder={t('teacher.parent_note_placeholder')} placeholderTextColor={colors.textTertiary} multiline
+                      style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, minHeight: 80, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlignVertical: 'top' }} />
+                    <View style={{ marginTop: spacing.md }}>
+                      <Button title={t('teacher.save_note')} variant="secondary" loading={controls.note.isPending}
+                        onPress={() => controls.note.mutate({ studentId: current.student_id, note: noteDraft.trim() }, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) })} />
+                    </View>
+                  </>
+                )}
                 </Surface>
               </ScrollView>
             ) : null}

@@ -15,6 +15,8 @@ import {
   cancelSession,
   restoreSession,
   recordNote,
+  recordSummary,
+  reopenNotes,
   recordSheetGrade,
   toggleSheet,
   toggleSheetExcluded,
@@ -140,6 +142,8 @@ export function useSessionControls(id: string) {
     mutationFn: (v: { studentId: number; note: string }) => recordNote(id, v.studentId, v.note),
     onSuccess: sync,
   });
+  const summary = useMutation({ mutationFn: (body: string) => recordSummary(id, body), onSuccess: sync });
+  const reopen = useMutation({ mutationFn: () => reopenNotes(id), onSuccess: sync });
   const grade = useMutation({
     mutationFn: (v: { studentId: number; mark: number | null }) => recordSheetGrade(id, v.studentId, v.mark),
     onSuccess: sync,
@@ -149,7 +153,7 @@ export function useSessionControls(id: string) {
   const sheetMax = useMutation({ mutationFn: (max: number | null) => updateSheetMaxMark(id, max), onSuccess: sync });
   const setType = useMutation({ mutationFn: (type: 'normal_sheet' | 'quiz_exam') => setSessionType(id, type), onSuccess: sync });
 
-  return { mark, cancel, restore, note, grade, sheet, sheetExcluded, sheetMax, setType };
+  return { mark, cancel, restore, note, summary, reopen, grade, sheet, sheetExcluded, sheetMax, setType };
 }
 
 export function usePauseSessions() {

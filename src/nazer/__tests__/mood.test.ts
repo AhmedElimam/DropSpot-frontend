@@ -70,3 +70,31 @@ describe('الناظر — what he says to a student', () => {
     expect(later.line).toMatch(/daily_/);
   });
 });
+
+describe('الناظر — the teachers’ session notes', () => {
+  it('a session note the teacher wrote in the last two days is his news, naming teacher and course', () => {
+    const say = parentSay({ children: [kid('يوسف', 80)], billing: [], risks: [], latestNotification: { type: 'session_notes', created_at: '2026-10-21T20:00:00', data: { teacher_name: 'سامي', course_name: 'فيزياء' } }, now }, t);
+    expect(say.mood).toBe('checking');
+    expect(say.line).toContain('session_note');
+    expect(say.line).toContain('سامي');
+    expect(say.route).toBe('/(parent)/session-notes');
+  });
+
+  it('from the history when no notification says it; an old note is not news', () => {
+    const fresh = studentSay({ billing: [], risks: [], coverage: { present: 1, late: 0, absent: 1, total: 2 }, freshNote: { teacher_name: 'سامي', course_name: 'فيزياء', written_at: '2026-10-21T18:00:00' }, now }, t);
+    expect(fresh).toMatchObject({ mood: 'checking', route: '/(student)/session-notes' });
+    const old = studentSay({ billing: [], risks: [], coverage: { present: 1, late: 0, absent: 1, total: 2 }, freshNote: { teacher_name: 'سامي', course_name: 'فيزياء', written_at: '2026-10-10T18:00:00' }, now }, t);
+    expect(old.mood).toBe('neutral');
+  });
+
+  it('a bill and absences still come first', () => {
+    const say = parentSay({ children: [kid('يوسف', 80)], billing: [{ student_id: 1, amount: 50, blocking: false }], risks: [], freshNote: { written_at: now.toISOString() }, now }, t);
+    expect(say.mood).toBe('sad');
+  });
+
+  it('the night’s digest points a parent at the day, a student at the notes', () => {
+    const digest = { type: 'daily_digest', created_at: '2026-10-21T22:00:00' };
+    expect(parentSay({ children: [kid('يوسف', 80)], billing: [], risks: [], latestNotification: digest, now }, t)).toMatchObject({ route: '/(parent)/today' });
+    expect(studentSay({ billing: [], risks: [], coverage: { present: 0, late: 0, absent: 0, total: 0 }, latestNotification: digest, now }, t)).toMatchObject({ route: '/(student)/session-notes' });
+  });
+});

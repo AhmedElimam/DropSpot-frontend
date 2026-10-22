@@ -15,6 +15,8 @@ import { studentSay } from '@/nazer/mood';
 import { useCoverageStats, useStudentAttendanceRisk } from '@/hooks/useAttendance';
 import { useStudentBillingStatus } from '@/hooks/useInvoices';
 import { useTodaySessions, useUpcomingSessions } from '@/hooks/useSessions';
+import { useSessionNotes } from '@/hooks/useSessionNotes';
+import { latestNotes } from '@/nazer/notes';
 import { formatEGP } from '@/utils/currency';
 import { formatDayDate, formatTime, formatNumber } from '@/utils/format';
 
@@ -43,6 +45,8 @@ export default function StudentNazerOffice() {
   const { data: billing } = useStudentBillingStatus();
   const { data: today } = useTodaySessions();
   const { data: upcoming } = useUpcomingSessions(3);
+  const { data: notesPages } = useSessionNotes('student');
+  const recentNotes = latestNotes(notesPages?.pages[0]?.items ?? []);
 
   const total = stats?.total ?? 0;
   const rate = total > 0 ? Math.round((((stats?.present ?? 0) + (stats?.late ?? 0)) / total) * 100) : null;
@@ -56,6 +60,7 @@ export default function StudentNazerOffice() {
     coverage: { present: stats?.present ?? 0, late: stats?.late ?? 0, absent: stats?.absent ?? 0, total },
     live: live ? { course_name: live.course_name, checked_in: !!live.checked_in || !!live.attendance_status } : null,
     next: nextToday ? { course_name: nextToday.course_name, scheduled_at: nextToday.scheduled_at } : null,
+    freshNote: recentNotes.latest,
   }, (key, opts) => String(t(key, opts)));
 
   const dueTotal = (billing ?? []).reduce((a, b) => a + b.amount, 0);
@@ -65,6 +70,7 @@ export default function StudentNazerOffice() {
   if (dueTotal > 0) lines.push(t('nazer.chip_due', { amount: formatEGP(dueTotal) }));
   const next = (upcoming ?? [])[0];
   if (next?.course_name) lines.push(t('nazer.chip_next', { course: next.course_name }));
+  if (recentNotes.fresh) lines.push(t('nazer.chip_new_notes', { count: formatNumber(recentNotes.fresh) }));
 
   const notes: Note[] = [];
   if (rate !== null) {
@@ -75,6 +81,10 @@ export default function StudentNazerOffice() {
   }
   for (const r of risks ?? []) {
     notes.push({ id: `risk-${r.course_name ?? ''}`, icon: 'absent', tone: 'warning', title: t('nazer.note_absences_me', { count: r.absences, course: r.course_name ?? '' }), stamp: r.absences >= 3 ? 'notice' : undefined, route: '/(student)/attendance' as Href });
+  }
+  // What the teachers wrote after the sessions, newest three; the rest in «ملاحظات الحصص».
+  for (const e of recentNotes.top) {
+    notes.push({ id: `notes-${e.id}`, icon: 'book', tone: 'info', title: t('nazer.note_latest_title', { course: e.course_name ?? '', teacher: e.teacher_name ?? '' }), sub: e.summary ?? e.note ?? undefined, route: '/(student)/session-notes' as Href });
   }
   for (const s of (upcoming ?? []).slice(0, 3)) {
     notes.push({ id: `next-${s.id}`, icon: 'sessions', tone: 'info', title: s.course_name ?? t('nazer.see_sessions'), sub: `${formatDayDate(s.scheduled_at)} · ${formatTime(s.scheduled_at)}`, route: '/(student)/(tabs)/check-in' as Href });

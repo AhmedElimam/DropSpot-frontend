@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { formatTime } from '@/utils/format';
@@ -58,7 +58,8 @@ export default function TodayScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <Surface id="parent.today.hero">
-        <PageHero title={t('today.title')} subtitle={t('today.subtitle')} onBack compact />
+        <PageHero title={t('today.title')} subtitle={t('today.subtitle')} onBack compact
+          action={{ icon: 'note', label: t('session_notes.all_link'), onPress: () => router.push('/(parent)/session-notes' as Href) }} />
         </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg, gap: spacing.lg }}>
@@ -117,6 +118,15 @@ function SessionRow({ session, last, t }: { session: FeedSession; last: boolean;
           </View>
         )}
       </View>
+      {session.summary ? (
+        // «ملاحظات الحصة» — the teacher's note to the whole session.
+        <Surface id="parent.today.session_summary">
+        <View style={{ marginTop: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.md, padding: spacing.md }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.brand, marginBottom: 2 }}>{t('session_notes.summary_label')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textPrimary }}>{session.summary}</Text>
+        </View>
+        </Surface>
+      ) : null}
       {session.note ? (
         <Surface id="parent.today.session_note">
         <View style={{ marginTop: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md }}>

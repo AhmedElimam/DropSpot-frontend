@@ -17,6 +17,8 @@ import { useParentAttendanceRisk } from '@/hooks/useAttendance';
 import { useParentBillingStatus } from '@/hooks/useInvoices';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useTickets } from '@/hooks/useTickets';
+import { useSessionNotes } from '@/hooks/useSessionNotes';
+import { latestNotes } from '@/nazer/notes';
 import { formatEGP } from '@/utils/currency';
 import { formatNumber } from '@/utils/format';
 
@@ -45,6 +47,8 @@ export default function ParentNazerOffice() {
   const { data: billing } = useParentBillingStatus();
   const { data: notifications } = useNotifications();
   const { data: tickets } = useTickets();
+  const { data: notesPages } = useSessionNotes('parent');
+  const recentNotes = latestNotes(notesPages?.pages[0]?.items ?? []);
 
   const kids = children ?? [];
   const say = parentSay({
@@ -52,6 +56,7 @@ export default function ParentNazerOffice() {
     billing: billing ?? [],
     risks: risks ?? [],
     latestNotification: (notifications ?? [])[0] ?? null,
+    freshNote: recentNotes.latest,
   }, (key, opts) => String(t(key, opts)));
 
   const open = (tickets ?? []).filter((x) => x.status === 'open' || x.status === 'in_progress').length;
@@ -61,6 +66,7 @@ export default function ParentNazerOffice() {
   if (dueTotal > 0) lines.push(t('nazer.chip_due', { amount: formatEGP(dueTotal) }));
   if (risks?.length) lines.push(t('nazer.chip_absent', { count: formatNumber(risks.reduce((a, r) => a + r.absences, 0)) }));
   if (open) lines.push(t('nazer.chip_tickets', { count: formatNumber(open) }));
+  if (recentNotes.fresh) lines.push(t('nazer.chip_new_notes', { count: formatNumber(recentNotes.fresh) }));
 
   const notes: Note[] = [];
   for (const c of kids) {
@@ -73,6 +79,10 @@ export default function ParentNazerOffice() {
   }
   for (const r of risks ?? []) {
     notes.push({ id: `risk-${r.student_id}-${r.course_name ?? ''}`, icon: 'absent', tone: 'warning', title: t('nazer.note_absences', { name: r.student_name ?? '', count: r.absences, course: r.course_name ?? '' }), stamp: r.absences >= 3 ? 'notice' : undefined, route: `/(parent)/child/${r.student_id}` as Href });
+  }
+  // What the teachers wrote after the sessions, newest three; the rest in «ملاحظات الحصص».
+  for (const e of recentNotes.top) {
+    notes.push({ id: `notes-${e.id}`, icon: 'book', tone: 'info', title: t('nazer.note_latest_title', { course: e.course_name ?? '', teacher: e.teacher_name ?? '' }), sub: e.summary ?? e.note ?? undefined, route: `/(parent)/session-notes?student_id=${e.student_id}` as Href });
   }
   if (open) notes.push({ id: 'tickets', icon: 'tickets', tone: 'info', title: t('nazer.note_tickets', { count: open }), route: '/(parent)/tickets' as Href });
   if (notes.length === 0) notes.push({ id: 'empty', icon: 'success', tone: 'success', title: t('nazer.note_empty') });

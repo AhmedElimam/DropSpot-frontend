@@ -17,6 +17,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `family.invoices.upload_proof` — element · src/components/parent/PaymentSection.tsx
 - `family.nazer.hero.bubble` — element · src/components/nazer/NazerHero.tsx
 - `family.nazer.hero.portrait` — element · src/components/nazer/NazerHero.tsx
+- `family.session_notes.card` — element · src/components/nazer/SessionNotesScreen.tsx
 - `family.support.admin_reply` — element · src/components/support/SupportCenter.tsx
 - `family.support.compose_card` — element · src/components/support/SupportCenter.tsx
 - `family.support.hero` — element · src/components/support/SupportCenter.tsx
@@ -120,6 +121,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `parent.reports.hero` — element · app/(parent)/reports.tsx
 - `parent.reports.tabs` — element · app/(parent)/reports.tsx
 - `parent.reports.top_teachers` — element · app/(parent)/reports.tsx
+- `parent.session_notes.children` — element · src/components/nazer/SessionNotesScreen.tsx
 - `parent.teachers.contact_teacher` — element · app/(parent)/(tabs)/teachers.tsx
 - `parent.teachers.course_private_chip` — element · app/(parent)/(tabs)/teachers.tsx
 - `parent.teachers.hero` — element · app/(parent)/(tabs)/teachers.tsx
@@ -142,6 +144,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `parent.today.hero` — element · app/(parent)/today.tsx
 - `parent.today.session_note` — element · app/(parent)/today.tsx
 - `parent.today.session_private_label` — element · app/(parent)/today.tsx
+- `parent.today.session_summary` — element · app/(parent)/today.tsx
 
 ## screen
 
@@ -930,6 +933,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.session_card.actions.sheet` — element · src/components/session/TeacherSessionCard.tsx
 - `teacher.session_card.attendance_bar` — element · src/components/session/TeacherSessionCard.tsx
 - `teacher.session_card.meta` — element · src/components/session/TeacherSessionCard.tsx
+- `teacher.session_card.notes_chip` — element · src/components/session/TeacherSessionCard.tsx
 - `teacher.session_card.open_details_button` — element · src/components/session/TeacherSessionCard.tsx
 - `teacher.session_card.phase_chip` — element · src/components/session/TeacherSessionCard.tsx
 - `teacher.session_card.private_chip` — element · src/components/session/TeacherSessionCard.tsx
@@ -944,6 +948,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.session_detail.header.stats` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.marks_header` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.mode_tabs` — element · app/(teacher)/sessions/[id].tsx
+- `teacher.session_detail.notes_card` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.offline_hint` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.rest_absent_button` — element · assistant: mark_attendance_manual · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.row_quick_marks` — element · assistant: mark_attendance_manual · app/(teacher)/sessions/[id].tsx
