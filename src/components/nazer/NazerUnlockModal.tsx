@@ -5,24 +5,19 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppModal as Modal } from '@/ui/AppModal';
-import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
+import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { useWhatsNew } from '@/hooks/useReleaseNotes';
 import { usePendingSurvey } from '@/hooks/useSurvey';
 import { useTourStore } from '@/tour/store';
 import { getTourStatus } from '@/api/tour';
-import { NazerFace } from './NazerFace';
-import { Image } from 'expo-image';
+import { NazerUnlockStage, RiseIn, type UnlockPhase } from './NazerUnlockStage';
 import { BrandMark } from '@/components/ui/BrandMark';
 
 const KEY = 'nazer_unlocked';
 const LOGO = 64;
-/** His crest (the line-art stamp) as a watermark in the band's own navy, a shade lighter. */
-const CREST = require('../../../assets/images/nazer/stamp-navy.webp');
-const CREST_TINT = 'rgba(255,255,255,0.07)';
 const BLOCKING_PREFIXES = [
   '/accept-terms', '/change-password', '/verify-own-number', '/parent-setup', '/needs-teacher',
   '/request-name-correction', '/impersonate', '/invite', '/login', '/register', '/verify-otp', '/forgot-password',
@@ -67,6 +62,7 @@ export function NazerUnlockModal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seen, tour]);
 
+  const [phase, setPhase] = useState<UnlockPhase>('lock');
   const visible = family && seen === false && !!tour?.completed && !touring && !showPopup && !survey && !blocked && !impersonating;
   if (!family) return null;
 
@@ -81,22 +77,11 @@ export function NazerUnlockModal() {
             card's top edge (founder 2026-10-22: «the logo on top of the popup, like our popups»). */}
         <View style={{ paddingTop: LOGO / 2 }}>
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, overflow: 'hidden', ...shadows.md }}>
-          {/* His band: the office navy with his crest drawn in the band's own colour behind him,
-              «شخصية جديدة» unlocked, his face large. */}
-          <LinearGradient colors={[...gradients.auth]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ alignItems: 'center', paddingTop: LOGO / 2 + spacing.md, paddingBottom: spacing.lg, overflow: 'hidden' }}>
-            <Image source={CREST} tintColor={CREST_TINT} contentFit="contain" accessible={false}
-              style={{ position: 'absolute', width: 300, height: 300, top: 6, alignSelf: 'center', opacity: 1 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
-              <Icon name="success" size={13} color={colors.accent} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#FFFFFF' }}>{t('nazer_unlock.badge')}</Text>
-            </View>
-            <View style={{ marginTop: spacing.md }}>
-              <NazerFace mood="proud" size={132} />
-            </View>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: '#FFFFFF', marginTop: spacing.sm }}>{t('nazer.name')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)' }}>{t('nazer.role')}</Text>
-          </LinearGradient>
+          {/* His band is the stage of the unlock (NazerUnlockStage): locked, broken open, revealed. */}
+          <NazerUnlockStage play={visible} onPhase={setPhase} />
 
+
+          <RiseIn show={phase === 'done'}>
           <View style={{ padding: spacing.lg }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, lineHeight: 25, color: colors.textPrimary, textAlign: 'center' }}>{t(`nazer_unlock.${who}_hello`)}</Text>
             <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
@@ -119,6 +104,7 @@ export function NazerUnlockModal() {
               <Text style={{ fontFamily: fonts.medium, fontSize: 14.5, color: colors.textSecondary }}>{t('nazer_unlock.later')}</Text>
             </TouchableOpacity>
           </View>
+          </RiseIn>
         </View>
         <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' }}>
           <View style={{ width: LOGO, height: LOGO, borderRadius: LOGO / 2, backgroundColor: colors.surface, borderWidth: 4, borderColor: colors.background, alignItems: 'center', justifyContent: 'center', ...shadows.sm }}>
