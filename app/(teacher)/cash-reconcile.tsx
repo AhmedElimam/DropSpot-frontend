@@ -455,8 +455,20 @@ const HandoverRow = memo(function HandoverRow({ h, onReview }: { h: Handover; on
       </Text>
       {onReview ? (
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
-          <Surface id="teacher.cash_reconcile.handover_confirm_button"><View style={{ flex: 1 }}><Button title={t('cash.handover_confirm')} variant="success" onPress={() => onReview(h, 'confirm')} /></View></Surface>
-          <Surface id="teacher.cash_reconcile.handover_reject_button"><View style={{ flex: 1 }}><Button title={t('cash.handover_reject')} variant="outline" onPress={() => onReview(h, 'reject')} /></View></Surface>
+          {/* The same compact pair as the count prompt above, not the full-size Button. */}
+          <Surface id="teacher.cash_reconcile.handover_confirm_button">
+          <TouchableOpacity onPress={() => onReview(h, 'confirm')} activeOpacity={0.85} accessibilityRole="button"
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, paddingHorizontal: spacing.sm, borderRadius: radius.md, backgroundColor: colors.success }}>
+            <Icon name="success" size={16} color="#fff" />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff', flexShrink: 1 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{t('cash.handover_confirm')}</Text>
+          </TouchableOpacity>
+          </Surface>
+          <Surface id="teacher.cash_reconcile.handover_reject_button">
+          <TouchableOpacity onPress={() => onReview(h, 'reject')} activeOpacity={0.85} accessibilityRole="button"
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', height: 44, paddingHorizontal: spacing.sm, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{t('cash.handover_reject')}</Text>
+          </TouchableOpacity>
+          </Surface>
         </View>
       ) : null}
     </View>

@@ -63,6 +63,7 @@ function ItemCard({ e, review, isTeacher, onDecided }: { e: Expense; review: Wee
   const [panel, setPanel] = useState<null | 'question' | 'reject'>(null);
   const [text, setText] = useState('');
   const [reason, setReason] = useState<string | null>(null);
+  const sendOff = panel === 'question' ? text.trim() === '' : !reason || (reason === 'other' && text.trim() === '');
   const difference = review.reconciliation.difference;
   const locked = review.closed || e.locked;
 
@@ -156,17 +157,23 @@ function ItemCard({ e, review, isTeacher, onDecided }: { e: Expense; review: Wee
               placeholder={panel === 'question' ? t('review.question_placeholder') : t('review.reject_note')} placeholderTextColor={colors.textTertiary}
               style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, textAlign: 'right', minHeight: 56, marginTop: spacing.sm, backgroundColor: colors.surface }} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: panel === 'reject' ? colors.danger : colors.textSecondary, marginTop: spacing.sm }}>{impact(panel)}</Text>
+            {/* Compact pair sized to the panel, like her desk's (cash-reconcile PromptCard): the
+                full-size Button wrapped «رفض المصروف» / «إرسال السؤال» at half width and stood
+                taller than «إلغاء» (founder 2026-10-22). */}
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
-              <View style={{ flex: 1 }}>
-                <Button
-                  title={panel === 'question' ? t('review.send_question') : t('review.confirm_reject')}
-                  variant={panel === 'reject' ? 'destructive' : 'primary'}
-                  loading={decide.isPending}
-                  disabled={panel === 'question' ? text.trim() === '' : !reason || (reason === 'other' && text.trim() === '')}
-                  onPress={() => decide.mutate(panel === 'question' ? { action: 'question', note: text.trim() } : { action: 'reject', reason: reason as string, note: text.trim() || undefined })}
-                />
-              </View>
-              <View style={{ flex: 1 }}><Button title={t('common.cancel')} variant="outline" onPress={() => setPanel(null)} /></View>
+              <TouchableOpacity
+                onPress={() => decide.mutate(panel === 'question' ? { action: 'question', note: text.trim() } : { action: 'reject', reason: reason as string, note: text.trim() || undefined })}
+                disabled={sendOff || decide.isPending} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ disabled: sendOff }}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, paddingHorizontal: spacing.sm, borderRadius: radius.md, backgroundColor: panel === 'reject' ? colors.danger : colors.brand, opacity: sendOff ? 0.5 : 1 }}>
+                {decide.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name={panel === 'reject' ? 'close' : 'send'} size={16} color="#fff" />}
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff', flexShrink: 1 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                  {panel === 'question' ? t('review.send_question') : t('review.confirm_reject')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setPanel(null)} activeOpacity={0.85} accessibilityRole="button"
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', height: 44, paddingHorizontal: spacing.sm, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary }} numberOfLines={1}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
             </View>
           </View>
           </Surface>

@@ -172,8 +172,9 @@ export default function ComplaintsScreen() {
             const on = bucket === s.key;
             const chip = (
               <TouchableOpacity key={s.key} onPress={() => setBucket(s.key)} activeOpacity={0.9} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, borderRadius: radius.full, backgroundColor: on ? colors.primary : 'transparent' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.onPrimary : colors.textSecondary }}>{s.label}</Text>
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 40, paddingHorizontal: 6, borderRadius: radius.full, backgroundColor: on ? colors.primary : 'transparent' }}>
+                {/* One line always, like her desk's segments: «بانتظار القرار» + its count wrapped and spilled out of the 40-pt pill on a 360-pt phone. */}
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.onPrimary : colors.textSecondary, flexShrink: 1 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{s.label}</Text>
                 {s.badge ? (
                   <View style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: on ? colors.onPrimary : colors.accent, alignItems: 'center', justifyContent: 'center' }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: on ? colors.primary : colors.onAccent }}>{formatNumber(s.badge)}</Text>
