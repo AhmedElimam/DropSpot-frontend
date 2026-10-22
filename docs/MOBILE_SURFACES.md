@@ -15,6 +15,8 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `family.invoices.cash_note` — element · src/components/parent/PaymentSection.tsx
 - `family.invoices.due_payment_methods` — element · src/components/parent/PendingDueCard.tsx
 - `family.invoices.upload_proof` — element · src/components/parent/PaymentSection.tsx
+- `family.nazer.hero.bubble` — element · src/components/nazer/NazerHero.tsx
+- `family.nazer.hero.portrait` — element · src/components/nazer/NazerHero.tsx
 - `family.support.admin_reply` — element · src/components/support/SupportCenter.tsx
 - `family.support.compose_card` — element · src/components/support/SupportCenter.tsx
 - `family.support.hero` — element · src/components/support/SupportCenter.tsx

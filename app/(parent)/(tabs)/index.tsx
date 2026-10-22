@@ -194,7 +194,7 @@ export default function ParentHome() {
               </View>
               <Surface id="parent.home.nazer">
                 <TourTarget id="home:nazer" style={{ width: '100%', flex: 1, justifyContent: 'center' }}>
-                  <NazerHub say={say} size={74} onPress={() => router.push('/(parent)/nazer' as Href)} />
+                  <NazerHub say={say} size={64} onPress={() => router.push('/(parent)/nazer' as Href)} />
                 </TourTarget>
               </Surface>
               <View style={{ width: '39%', gap: spacing.sm }}>

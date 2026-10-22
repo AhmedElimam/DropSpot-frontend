@@ -5,20 +5,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
-import { PageHero } from '@/components/ui/PageHero';
+import { SectionHead } from '@/components/ui/SectionHead';
 import { Surface } from '@/ui/surfaces';
 import { useDialogPersona } from '@/ui/dialog';
+import { NazerHero } from '@/components/nazer/NazerHero';
 import { NazerFace } from '@/components/nazer/NazerFace';
-import { NazerStamp } from '@/components/nazer/NazerStamp';
+import { NazerStamp, type NazerStampKind } from '@/components/nazer/NazerStamp';
 import { studentSay } from '@/nazer/mood';
 import { useCoverageStats, useStudentAttendanceRisk } from '@/hooks/useAttendance';
 import { useStudentBillingStatus } from '@/hooks/useInvoices';
 import { useTodaySessions, useUpcomingSessions } from '@/hooks/useSessions';
 import { formatEGP } from '@/utils/currency';
-import { formatDayDate, formatTime } from '@/utils/format';
+import { formatDayDate, formatTime, formatNumber } from '@/utils/format';
 
 type Tone = 'success' | 'warning' | 'danger' | 'info';
-interface Note { id: string; icon: IconName; tone: Tone; title: string; route?: Href }
+interface Note { id: string; icon: IconName; tone: Tone; title: string; sub?: string; stamp?: NazerStampKind; route?: Href }
 
 const TONES = (): Record<Tone, { bg: string; fg: string }> => ({
   success: { bg: colors.successLight, fg: colors.success },
@@ -28,9 +29,10 @@ const TONES = (): Record<Tone, { bg: string; fg: string }> => ({
 });
 
 /**
- * «مكتب الناظر» for a student: his face in today's mood with his line, then his notes — the
- * attendance standing, any overdue bill, runs of absence, the next sessions — from data the
- * home already fetches. A FlatList (no ScrollView + map: that count may only shrink).
+ * «مكتب الناظر» for a student, laid out like مدام روز's desk: the navy band with his face,
+ * his typed line and the day's facts as chips; then his notes — the attendance standing,
+ * any overdue bill, runs of absence, the next sessions — stamped where the matter is
+ * formal. All from data the home already fetches; a FlatList (no ScrollView + map).
  */
 export default function StudentNazerOffice() {
   const { t } = useTranslation();
@@ -43,6 +45,7 @@ export default function StudentNazerOffice() {
   const { data: upcoming } = useUpcomingSessions(3);
 
   const total = stats?.total ?? 0;
+  const rate = total > 0 ? Math.round((((stats?.present ?? 0) + (stats?.late ?? 0)) / total) * 100) : null;
   const list = today ?? [];
   const nowMs = Date.now();
   const live = list.find((s) => s.status === 'live');
@@ -55,19 +58,26 @@ export default function StudentNazerOffice() {
     next: nextToday ? { course_name: nextToday.course_name, scheduled_at: nextToday.scheduled_at } : null,
   }, (key, opts) => String(t(key, opts)));
 
+  const dueTotal = (billing ?? []).reduce((a, b) => a + b.amount, 0);
+  const lines: string[] = [];
+  if (rate !== null) lines.push(t('nazer.chip_attendance', { rate: formatNumber(rate) }));
+  if (stats?.absent) lines.push(t('nazer.chip_absent', { count: formatNumber(stats.absent) }));
+  if (dueTotal > 0) lines.push(t('nazer.chip_due', { amount: formatEGP(dueTotal) }));
+  const next = (upcoming ?? [])[0];
+  if (next?.course_name) lines.push(t('nazer.chip_next', { course: next.course_name }));
+
   const notes: Note[] = [];
-  if (total > 0) {
-    const rate = Math.round((((stats?.present ?? 0) + (stats?.late ?? 0)) / total) * 100);
-    notes.push({ id: 'attendance', icon: 'attendance', tone: rate >= 90 ? 'success' : rate >= 75 ? 'info' : 'warning', title: t('nazer.note_attendance_me', { rate, absent: stats?.absent ?? 0, total }), route: '/(student)/attendance' as Href });
+  if (rate !== null) {
+    notes.push({ id: 'attendance', icon: 'attendance', tone: rate >= 90 ? 'success' : rate >= 75 ? 'info' : 'warning', title: t('nazer.note_attendance_me', { rate, absent: stats?.absent ?? 0, total }), stamp: total >= 4 && rate >= 90 ? 'approved' : undefined, route: '/(student)/attendance' as Href });
   }
   for (const b of billing ?? []) {
-    notes.push({ id: `due-${b.teacher_name ?? ''}-${b.amount}`, icon: 'money', tone: b.blocking ? 'danger' : 'warning', title: t('nazer.note_due_me', { amount: formatEGP(b.amount), teacher: b.teacher_name ?? '' }), route: '/(student)/(tabs)/invoices' as Href });
+    notes.push({ id: `due-${b.teacher_name ?? ''}-${b.amount}`, icon: 'money', tone: b.blocking ? 'danger' : 'warning', title: t('nazer.note_due_me', { amount: formatEGP(b.amount), teacher: b.teacher_name ?? '' }), stamp: b.blocking ? 'notice' : undefined, route: '/(student)/(tabs)/invoices' as Href });
   }
   for (const r of risks ?? []) {
-    notes.push({ id: `risk-${r.course_name ?? ''}`, icon: 'absent', tone: 'warning', title: t('nazer.note_absences_me', { count: r.absences, course: r.course_name ?? '' }), route: '/(student)/attendance' as Href });
+    notes.push({ id: `risk-${r.course_name ?? ''}`, icon: 'absent', tone: 'warning', title: t('nazer.note_absences_me', { count: r.absences, course: r.course_name ?? '' }), stamp: r.absences >= 3 ? 'notice' : undefined, route: '/(student)/attendance' as Href });
   }
   for (const s of (upcoming ?? []).slice(0, 3)) {
-    notes.push({ id: `next-${s.id}`, icon: 'sessions', tone: 'info', title: t('nazer.note_next', { course: s.course_name ?? '', when: `${formatDayDate(s.scheduled_at)} ${formatTime(s.scheduled_at)}` }), route: '/(student)/(tabs)/check-in' as Href });
+    notes.push({ id: `next-${s.id}`, icon: 'sessions', tone: 'info', title: s.course_name ?? t('nazer.see_sessions'), sub: `${formatDayDate(s.scheduled_at)} · ${formatTime(s.scheduled_at)}`, route: '/(student)/(tabs)/check-in' as Href });
   }
   if (notes.length === 0) notes.push({ id: 'empty', icon: 'success', tone: 'success', title: t('nazer.note_empty') });
 
@@ -83,37 +93,21 @@ export default function StudentNazerOffice() {
         contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom }}
         ListHeaderComponent={
           <View>
-            <Surface id="student.nazer.hero">
-            <PageHero title={t('nazer.office_title')} subtitle={t('nazer.subtitle')} onBack>
-              <View style={{ alignItems: 'center', marginTop: spacing.md }}>
-                <View>
-                  <NazerFace mood={say.mood} size={150} />
-                  {say.stamp ? <NazerStamp kind={say.stamp} size={64} style={{ position: 'absolute', bottom: -4, end: -16 }} /> : null}
-                </View>
-                <View style={{ marginTop: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, maxWidth: 340, ...shadows.sm }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 16, lineHeight: 26, color: colors.textPrimary, textAlign: 'center' }}>{say.line}</Text>
-                  {say.route ? (
-                    <TouchableOpacity onPress={() => router.push(say.route as Href)} accessibilityRole="button" activeOpacity={0.8} style={{ marginTop: spacing.sm, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{say.routeLabel}</Text>
-                      <Icon name="back" size={14} color={colors.brand} />
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              </View>
-            </PageHero>
-            </Surface>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary, paddingHorizontal: spacing.lg, marginTop: spacing.lg, marginBottom: spacing.sm }}>{t('nazer.notes_title')}</Text>
+            <Surface id="student.nazer.hero"><NazerHero say={say} lines={lines} onBack={() => (router.canGoBack() ? router.back() : router.replace('/(student)/(tabs)' as Href))} /></Surface>
+            <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
+              <SectionHead icon="note" color={colors.accent} title={t('nazer.notes_title')} />
+            </View>
           </View>
         }
         renderItem={({ item }) => <NoteRow note={item} />}
         ListFooterComponent={
           <Surface id="student.nazer.footer">
-          <View style={{ marginHorizontal: spacing.lg, marginTop: spacing.lg, backgroundColor: '#1B2A5E', borderRadius: radius.xxl, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            <NazerFace mood="neutral" size={48} blink={false} />
+          <View style={{ marginHorizontal: spacing.lg, marginTop: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md, ...shadows.sm }}>
+            <NazerFace mood="neutral" size={56} blink={false} />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: '#F6EFE0' }}>{t('nazer.office_close')}</Text>
-              <TouchableOpacity onPress={() => router.push('/(student)/support' as Href)} accessibilityRole="button" activeOpacity={0.8} style={{ marginTop: spacing.sm, alignSelf: 'flex-start', backgroundColor: '#C9A227', borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: spacing.md }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#1B2A5E' }}>{t('nazer.write_teacher')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary }}>{t('nazer.office_close')}</Text>
+              <TouchableOpacity onPress={() => router.push('/(student)/support' as Href)} accessibilityRole="button" activeOpacity={0.8} style={{ marginTop: spacing.sm, alignSelf: 'flex-start', backgroundColor: colors.brand, borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onPrimary }}>{t('nazer.write_teacher')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -128,12 +122,15 @@ export default function StudentNazerOffice() {
 function NoteRow({ note }: { note: Note }) {
   const tone = TONES()[note.tone];
   const body = (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginHorizontal: spacing.lg, marginBottom: spacing.sm, borderStartWidth: 4, borderStartColor: tone.fg }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginHorizontal: spacing.lg, marginBottom: spacing.sm, ...shadows.sm }}>
       <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: tone.bg, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={note.icon} size={20} color={tone.fg} />
       </View>
-      <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, lineHeight: 21, color: colors.textPrimary }}>{note.title}</Text>
-      {note.route ? <Icon name="back" size={16} color={colors.textTertiary} /> : null}
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, lineHeight: 21, color: colors.textPrimary }}>{note.title}</Text>
+        {note.sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 18, color: colors.textSecondary, marginTop: 1 }}>{note.sub}</Text> : null}
+      </View>
+      {note.stamp ? <NazerStamp kind={note.stamp} size={40} style={{ marginEnd: 2 }} /> : note.route ? <Icon name="back" size={16} color={colors.textTertiary} /> : null}
     </View>
   );
   if (!note.route) return body;

@@ -215,7 +215,7 @@ export function RoseHeroCard({ icon, title, sub, onPress, chevron = false }: { i
  * Its own component, so each letter re-renders this one line — not her face and the sheet.
  * The untyped rest is drawn transparent: the centred line keeps its width and never shifts.
  */
-function TypedGreeting({ text, start, onTalking }: { text: string; start: boolean; onTalking: (talking: boolean) => void }) {
+export function TypedGreeting({ text, start, onTalking }: { text: string; start: boolean; onTalking: (talking: boolean) => void }) {
   const [n, setN] = useState(0);
   // A swipe back that starts while she is still typing (founder 2026-10-20: «swipe back
   // mid-animation stuttering») stops the typing on the spot with no render at all — the page
