@@ -547,6 +547,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.enroll.course_picker` — element · app/(teacher)/enroll.tsx
 - `teacher.enroll.frame` — element · app/(teacher)/enroll.tsx
 - `teacher.enroll.header` — element · app/(teacher)/enroll.tsx
+- `teacher.enroll.invitation_waiting` — element · app/(teacher)/enroll.tsx
 - `teacher.enroll.invite_by_phone` — element · app/(teacher)/enroll.tsx
 - `teacher.enroll.miss_card` — element · app/(teacher)/enroll.tsx
 - `teacher.enroll.review_sheet` — element · app/(teacher)/enroll.tsx
@@ -757,7 +758,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.reconcile.rejected_scans` — element · app/(teacher)/reconcile.tsx
 - `teacher.reconcile.rejected_scans.dismiss` — element · app/(teacher)/reconcile.tsx
 - `teacher.reconcile.rejected_scans.requeue` — element · app/(teacher)/reconcile.tsx
-- `teacher.record_student.count_badge` — element · app/(teacher)/record-student.tsx
+- `teacher.record_student.added_names` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.course_picker` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.dedupe_modal` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.dedupe_modal.create_new` — element · app/(teacher)/record-student.tsx
@@ -765,6 +766,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.record_student.existing_modal.enroll_here` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.flash` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.header` — element · app/(teacher)/record-student.tsx
+- `teacher.record_student.invitation_modal` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.order_cards` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.parent_name` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.parent_phone` — element · app/(teacher)/record-student.tsx
@@ -898,6 +900,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.scan.pay_confirm.confirm_button` — element · app/(teacher)/scan.tsx
 - `teacher.scan.pay_confirm.pay_full` — element · app/(teacher)/scan.tsx
 - `teacher.scan.pay_dues_modal` — element · app/(teacher)/scan.tsx
+- `teacher.scan.student_invitation` — element · app/(teacher)/scan.tsx
 - `teacher.scan.tip` — element · app/(teacher)/scan.tsx
 - `teacher.schedule_merge.destination` — element · app/(teacher)/schedule-merge.tsx
 - `teacher.schedule_merge.intro_banner` — element · app/(teacher)/schedule-merge.tsx

@@ -1,6 +1,6 @@
 import { track } from '@/lib/analytics';
 import { useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { Alert } from '@/ui/dialog';
 import { router } from 'expo-router';
@@ -8,7 +8,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, control, nav } from '@/theme/index';
+import { colors, spacing, radius, control, nav, shadows } from '@/theme/index';
+import { PageHero } from '@/components/ui/PageHero';
+import { StudentInvitationModal } from '@/components/teacher/StudentInvitationModal';
+import { formatNumber } from '@/utils/format';
+import type { IconName } from '@/components/ui/Icon';
 import { Icon } from '@/components/ui/Icon';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { isArabicName, isEgyptPhone } from '@/utils/validators';
@@ -59,6 +63,8 @@ export default function RecordStudent() {
   // QR-style popup: the entered student phone already exists in the system.
   const [ownStudent, setOwnStudent] = useState<ExistingStudentOffer | null>(null);
   const [orderingCards, setOrderingCards] = useState(false);
+  // Names added in this batch, newest first (the page clears its fields after each one).
+  const [added, setAdded] = useState<string[]>([]);
 
   const eligible = useMemo(() => (options?.courses ?? []).filter((c) => c.has_schedule), [options]);
   const course = useMemo(() => eligible.find((c) => c.id === courseId) ?? null, [eligible, courseId]);
@@ -81,6 +87,7 @@ export default function RecordStudent() {
 
   function afterCreated(enrollmentId: number | null, note?: string) {
     setCount((c) => c + 1);
+    if (name.trim()) setAdded((list) => [name.trim(), ...list]);
     if (enrollmentId) setEnrollmentIds((ids) => [...ids, enrollmentId]);
     setName('');
     setStudentPhone('');
@@ -134,6 +141,14 @@ export default function RecordStudent() {
     } finally {
       setSaving(false);
     }
+  }
+
+  /**
+   * A student who already has a card, or a parent's invitation QR, is not typed in: the scan
+   * goes to the enrol screen with this group chosen (and a stranger there is «دعوة طالب»).
+   */
+  function scanInstead() {
+    router.push({ pathname: '/(teacher)/enroll', params: courseId != null ? { course_id: String(courseId) } : {} });
   }
 
   /**
@@ -198,166 +213,210 @@ export default function RecordStudent() {
     return <ErrorState onRetry={refetch} />;
   }
 
+  const sectionCard = { backgroundColor: colors.surface, borderRadius: radius.xxl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm } as const;
+
   return (
     <Surface id="screen.teacher.record-student" screen>
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingTop: insets.top + spacing.md, paddingBottom: nav.pageEnd + insets.bottom + spacing.xxl }} keyboardShouldPersistTaps="handled">
-        {/* Header + running count */}
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom + spacing.xxl }} keyboardShouldPersistTaps="handled">
+        {/* Header: what this page is for, how many so far, and a scan for a student who already has a card or an invitation. */}
         <Surface id="teacher.record_student.header">
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.lg }}>
-          <TouchableOpacity onPress={() => router.back()}><Icon name="forward" size={26} color={colors.textSecondary} /></TouchableOpacity>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('enroll_ui.fast_register_title')}</Text>
-          <Surface id="teacher.record_student.count_badge">
-          <View style={{ backgroundColor: colors.brandTint, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 4 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{count}</Text>
+        <PageHero
+          title={t('enroll_ui.fast_register_title')}
+          subtitle={t('fast_register.subtitle')}
+          onBack
+          action={{ icon: 'scan', label: t('fast_register.scan'), onPress: scanInstead, accessibilityLabel: t('fast_register.scan_hint') }}
+          stats={[
+            { value: formatNumber(count), label: t('fast_register.added_now') },
+            ...(course ? [{ value: course.name, label: t('fast_register.group') }] : []),
+          ]}
+        />
+        </Surface>
+
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
+          {/* 1 · The group — chosen once, then a compact row for the rest of the batch. */}
+          <Surface id="teacher.record_student.course_picker">
+          <View style={sectionCard}>
+            <StepHead n={1} icon="calendar" title={t('fast_register.step_group')} />
+            {eligible.length === 0 ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary }}>{t('enroll_ui.no_scheduled_courses')}</Text>
+            ) : course ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.md }}>
+                <Icon name="success" size={20} color={colors.brand} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{course.name}{course.grade_name ? ` · ${course.grade_name}` : ''}</Text>
+                  {course.schedule_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{course.schedule_label}</Text> : null}
+                </View>
+                <TouchableOpacity onPress={() => setCourseId(null)} hitSlop={8} accessibilityRole="button">
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('fast_register.change')}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={{ gap: spacing.sm }}>
+                {eligible.map((c: InvitationCourseOption) => (
+                  <TouchableOpacity key={c.id} onPress={() => setCourseId(c.id)} activeOpacity={0.85}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="book" size={18} color={colors.brand} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}</Text>
+                      {c.schedule_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{c.schedule_label}</Text> : null}
+                    </View>
+                    <Icon name="back" size={16} color={colors.textTertiary} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
           </Surface>
-        </View>
-        </Surface>
 
-        {/* Course picker (choose once) */}
-        <Surface id="teacher.record_student.course_picker">
-        <Text style={label()}>{t('invite_phone.course')}</Text>
-        {eligible.length === 0 ? (
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary, marginBottom: spacing.lg }}>{t('enroll_ui.no_scheduled_courses')}</Text>
-        ) : (
-          <View style={{ gap: spacing.sm, marginBottom: spacing.lg }}>
-            {eligible.map((c: InvitationCourseOption) => {
-              const selected = c.id === courseId;
-              return (
-                <TouchableOpacity key={c.id} onPress={() => setCourseId(c.id)} activeOpacity={0.85}
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: selected ? colors.brandTint : colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1.5, borderColor: selected ? colors.brand : 'transparent' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}</Text>
-                    {c.schedule_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{c.schedule_label}</Text> : null}
-                  </View>
-                  {selected ? <Icon name="success" size={20} color={colors.brand} /> : null}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
-        </Surface>
+          {courseId != null && (
+            <>
+              {/* 2 · The student */}
+              <View style={sectionCard}>
+                <StepHead n={2} icon="child" title={t('fast_register.step_student')} />
+                <Surface id="teacher.record_student.student_name">
+                <Text style={label()}>{t('invite_phone.student_name')}</Text>
+                <TextInput
+                  ref={nameRef}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder={t('enroll_ui.full_name_ph')}
+                  placeholderTextColor={colors.textTertiary}
+                  style={{ ...field(), marginBottom: spacing.xs, borderColor: nameError ? colors.danger : (name ? colors.brand : colors.borderStrong) }}
+                  returnKeyType="next"
+                />
+                {nameError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>{t('enroll_ui.name_arabic_error')}</Text> : <View style={{ height: spacing.md }} />}
+                </Surface>
 
-        {courseId != null && (
-          <>
-            {/* Student name */}
-            <Surface id="teacher.record_student.student_name">
-            <Text style={label()}>{t('invite_phone.student_name')}</Text>
-            <TextInput
-              ref={nameRef}
-              value={name}
-              onChangeText={setName}
-              placeholder={t('enroll_ui.full_name_ph')}
-              placeholderTextColor={colors.textTertiary}
-              style={{ ...field(), marginBottom: spacing.xs, borderColor: nameError ? colors.danger : (name ? colors.brand : colors.borderStrong) }}
-              returnKeyType="next"
-            />
-            {nameError ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>{t('enroll_ui.name_arabic_error')}</Text> : <View style={{ height: spacing.md }} />}
-            </Surface>
-
-            {/* Student's own phone — their login handle when the app launches */}
-            <Surface id="teacher.record_student.student_phone">
-            <Text style={label()}>{t('invite_phone.student_phone')} <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}>{t('enroll_ui.optional_paren')}</Text></Text>
-            <TextInput
-              value={studentPhone}
-              onChangeText={setStudentPhone}
-              placeholder="01xxxxxxxxx"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="phone-pad"
-              style={{ ...field(), marginBottom: spacing.xs, borderColor: (studentPhoneError || sameAsParentError) ? colors.danger : (studentPhone ? colors.brand : colors.borderStrong) }}
-              returnKeyType="next"
-            />
-            {sameAsParentError
-              ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>{t('enroll_ui.phone_same_as_parent')}</Text>
-              : studentPhoneError
-                ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.md }}>{t('enroll_ui.phone_invalid')}</Text>
-                : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.md }}>{t('enroll_ui.student_phone_hint')}</Text>}
-            </Surface>
-
-            {/* Parent phone — the activation anchor */}
-            <Surface id="teacher.record_student.parent_phone">
-            <Text style={label()}>{t('enroll_ui.parent_phone')}</Text>
-            <TextInput
-              value={parentPhone}
-              onChangeText={setParentPhone}
-              placeholder="01xxxxxxxxx"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="phone-pad"
-              style={{ ...field(), marginBottom: spacing.xs, borderColor: phoneError ? colors.danger : (parentPhone ? colors.brand : colors.borderStrong) }}
-              onSubmitEditing={() => canSubmit && submit()}
-            />
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>{t('enroll_ui.parent_phone_hint')}</Text>
-            </Surface>
-
-            {/* Parent name — OPTIONAL (the parent can set/modify it at setup). */}
-            <Surface id="teacher.record_student.parent_name">
-            <Text style={label()}>{t('enroll_ui.parent_name_optional')}</Text>
-            <TextInput
-              value={parentName}
-              onChangeText={setParentName}
-              placeholder={t('enroll_ui.full_name_ph')}
-              placeholderTextColor={colors.textTertiary}
-              style={{ ...field(), marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
-            />
-            </Surface>
-
-            {/* Relationship — OPTIONAL, tap to toggle. */}
-            <Surface id="teacher.record_student.relationship">
-            <Text style={label()}>{t('enroll_ui.relationship_optional')}</Text>
-            <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
-              {([['father', t('auth.father')], ['mother', t('auth.mother')], ['guardian', t('profile.role_parent')]] as const).map(([value, ar]) => {
-                const active = relationship === value;
-                return (
-                  <TouchableOpacity
-                    key={value}
-                    onPress={() => setRelationship(active ? null : value)}
-                    activeOpacity={0.85}
-                    style={{
-                      flex: 1, paddingVertical: spacing.md, alignItems: 'center', borderRadius: radius.lg, borderWidth: 1.5,
-                      borderColor: active ? colors.brand : colors.borderStrong,
-                      backgroundColor: active ? colors.brandTint : colors.surface,
-                    }}
-                  >
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: active ? colors.brand : colors.textSecondary }}>{ar}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            </Surface>
-
-            {/* شروط التسجيل — the same sheet every door shows. */}
-            <Surface id="teacher.record_student.terms_sheet"><EnrollmentTermsSheet terms={terms} /></Surface>
-
-            {/* Save */}
-            <Surface id="teacher.record_student.save_button">
-            <TouchableOpacity onPress={() => submit()} disabled={!canSubmit} activeOpacity={0.85}
-              style={{ opacity: canSubmit ? 1 : 0.5, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.lg, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm }}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Icon name="add" size={20} color="#fff" />}
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('enroll_ui.save_next')}</Text>
-            </TouchableOpacity>
-            </Surface>
-
-            {flash ? (
-              <Surface id="teacher.record_student.flash">
-              <View style={{ marginTop: spacing.md, backgroundColor: colors.successLight, borderRadius: radius.lg, padding: spacing.md, alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.successText }}>✅ {flash}</Text>
+                {/* Student's own phone — their login handle when the app launches */}
+                <Surface id="teacher.record_student.student_phone">
+                <Text style={label()}>{t('invite_phone.student_phone')} <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}>{t('enroll_ui.optional_paren')}</Text></Text>
+                <TextInput
+                  value={studentPhone}
+                  onChangeText={setStudentPhone}
+                  placeholder="01xxxxxxxxx"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="phone-pad"
+                  style={{ ...field(), marginBottom: spacing.xs, borderColor: (studentPhoneError || sameAsParentError) ? colors.danger : (studentPhone ? colors.brand : colors.borderStrong) }}
+                  returnKeyType="next"
+                />
+                {sameAsParentError
+                  ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger }}>{t('enroll_ui.phone_same_as_parent')}</Text>
+                  : studentPhoneError
+                    ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger }}>{t('enroll_ui.phone_invalid')}</Text>
+                    : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>{t('enroll_ui.student_phone_hint')}</Text>}
+                </Surface>
               </View>
-              </Surface>
-            ) : null}
 
-            {/* Bulk card order for everyone added this session */}
-            {enrollmentIds.length > 0 ? (
-              <Surface id="teacher.record_student.order_cards">
-              <TouchableOpacity onPress={bulkOrderCards} disabled={orderingCards} activeOpacity={0.85}
-                style={{ marginTop: spacing.lg, borderWidth: 1.5, borderColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm }}>
-                {orderingCards ? <ActivityIndicator color={colors.brand} /> : <Icon name="card" size={18} color={colors.brand} />}
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('enroll_ui.order_cards_for_added', { count: enrollmentIds.length })}</Text>
+              {/* 3 · The parent — the activation anchor */}
+              <View style={sectionCard}>
+                <StepHead n={3} icon="phone" title={t('fast_register.step_parent')} />
+                <Surface id="teacher.record_student.parent_phone">
+                <Text style={label()}>{t('enroll_ui.parent_phone')}</Text>
+                <TextInput
+                  value={parentPhone}
+                  onChangeText={setParentPhone}
+                  placeholder="01xxxxxxxxx"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="phone-pad"
+                  style={{ ...field(), marginBottom: spacing.xs, borderColor: phoneError ? colors.danger : (parentPhone ? colors.brand : colors.borderStrong) }}
+                  onSubmitEditing={() => canSubmit && submit()}
+                />
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>{t('enroll_ui.parent_phone_hint')}</Text>
+                </Surface>
+
+                {/* Parent name — OPTIONAL (the parent can set/modify it at setup). */}
+                <Surface id="teacher.record_student.parent_name">
+                <Text style={label()}>{t('enroll_ui.parent_name_optional')}</Text>
+                <TextInput
+                  value={parentName}
+                  onChangeText={setParentName}
+                  placeholder={t('enroll_ui.full_name_ph')}
+                  placeholderTextColor={colors.textTertiary}
+                  style={{ ...field(), marginBottom: spacing.lg, borderColor: parentName ? colors.brand : colors.borderStrong }}
+                />
+                </Surface>
+
+                {/* Relationship — OPTIONAL, tap to toggle. */}
+                <Surface id="teacher.record_student.relationship">
+                <Text style={label()}>{t('enroll_ui.relationship_optional')}</Text>
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  {([['father', t('auth.father')], ['mother', t('auth.mother')], ['guardian', t('profile.role_parent')]] as const).map(([value, ar]) => {
+                    const active = relationship === value;
+                    return (
+                      <TouchableOpacity
+                        key={value}
+                        onPress={() => setRelationship(active ? null : value)}
+                        activeOpacity={0.85}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        style={{
+                          flex: 1, paddingVertical: spacing.md, alignItems: 'center', borderRadius: radius.full, borderWidth: 1.5,
+                          borderColor: active ? colors.brand : colors.borderStrong,
+                          backgroundColor: active ? colors.brandTint : colors.surface,
+                        }}
+                      >
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: active ? colors.brand : colors.textSecondary }}>{ar}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                </Surface>
+              </View>
+
+              {/* شروط التسجيل — the same sheet every door shows. */}
+              <Surface id="teacher.record_student.terms_sheet"><EnrollmentTermsSheet terms={terms} /></Surface>
+
+              {/* Save */}
+              <Surface id="teacher.record_student.save_button">
+              <TouchableOpacity onPress={() => submit()} disabled={!canSubmit} activeOpacity={0.85} accessibilityRole="button"
+                style={{ marginTop: spacing.md, opacity: canSubmit ? 1 : 0.5, backgroundColor: colors.brand, borderRadius: radius.lg, minHeight: 56, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, ...shadows.sm }}>
+                {saving ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="add" size={20} color={colors.onPrimary} />}
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onPrimary }}>{t('enroll_ui.save_next')}</Text>
               </TouchableOpacity>
               </Surface>
-            ) : null}
-          </>
-        )}
+
+              {flash ? (
+                <Surface id="teacher.record_student.flash">
+                <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.successLight, borderRadius: radius.lg, padding: spacing.md }}>
+                  <Icon name="success" size={20} color={colors.successText} />
+                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.successText }}>{flash}</Text>
+                </View>
+                </Surface>
+              ) : null}
+
+              {/* Who went in this batch, newest first — a glance, not a list to manage. */}
+              {added.length > 0 ? (
+                <Surface id="teacher.record_student.added_names">
+                <View style={{ marginTop: spacing.lg }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('fast_register.added_title')}</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {added.slice(0, 12).map((n, i) => (
+                      <View key={`${n}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4 }}>
+                        <Icon name="success" size={12} color={colors.success} />
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textPrimary }}>{n}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+                </Surface>
+              ) : null}
+
+              {/* Bulk card order for everyone added this session */}
+              {enrollmentIds.length > 0 ? (
+                <Surface id="teacher.record_student.order_cards">
+                <TouchableOpacity onPress={bulkOrderCards} disabled={orderingCards} activeOpacity={0.85}
+                  style={{ marginTop: spacing.lg, borderWidth: 1.5, borderColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm }}>
+                  {orderingCards ? <ActivityIndicator color={colors.brand} /> : <Icon name="card" size={18} color={colors.brand} />}
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('enroll_ui.order_cards_for_added', { count: enrollmentIds.length })}</Text>
+                </TouchableOpacity>
+                </Surface>
+              ) : null}
+            </>
+          )}
+        </View>
       </ScrollView>
 
       {/* Dedupe modal — a student with this parent phone already exists */}
@@ -389,10 +448,22 @@ export default function RecordStudent() {
       </Modal>
       </Surface>
 
+      {/* «دعوة طالب» — the phone belongs to a student already on دروس سبوت but not on this
+          teacher's list: the same invitation the scanner shows, enrolling into this group. */}
+      <Surface id="teacher.record_student.invitation_modal">
+      <StudentInvitationModal
+        student={ownStudent && !ownStudent.is_own && !ownStudent.already_in_target ? { name: ownStudent.name, grade: ownStudent.grade, via: 'card' } : null}
+        course={ownStudent?.target_course_name ?? course?.name ?? null}
+        busy={saving}
+        onEnroll={() => ownStudent && submit('link', ownStudent.student_id)}
+        onClose={() => setOwnStudent(null)}
+      />
+      </Surface>
+
       {/* QR-style popup — the entered phone is already one of THIS teacher's students.
           Same shape the scanner shows on a "wrong group" card: profile + enroll-here. */}
       <Surface id="teacher.record_student.existing_modal">
-      <Modal visible={ownStudent !== null} transparent animationType="fade" onRequestClose={() => setOwnStudent(null)}>
+      <Modal visible={ownStudent !== null && (!!ownStudent.is_own || !!ownStudent.already_in_target)} transparent animationType="fade" onRequestClose={() => setOwnStudent(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: spacing.lg }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, alignItems: 'center' }}>
             <Icon name="children" size={48} color={colors.brand} />
@@ -443,5 +514,18 @@ export default function RecordStudent() {
       </Surface>
     </KeyboardAvoidingView>
     </Surface>
+  );
+}
+
+/** A numbered section head: the order a teacher fills the form in. */
+function StepHead({ n, icon, title }: { n: number; icon: IconName; title: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
+      <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onPrimary }}>{formatNumber(n)}</Text>
+      </View>
+      <Icon name={icon} size={16} color={colors.textSecondary} />
+      <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: colors.textPrimary }}>{title}</Text>
+    </View>
   );
 }
