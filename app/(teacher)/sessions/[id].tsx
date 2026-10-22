@@ -65,7 +65,8 @@ const ORDER: Record<Bucket, number> = { awaiting: 0, present: 1, absent: 2, excu
 export default function SessionDetailScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `notes=1`: arrived by the home card's swipe — open «ملاحظات الحصة» at once.
+  const { id, notes: notesParam } = useLocalSearchParams<{ id: string; notes?: string }>();
   const { data: s, isLoading, refetch, error } = useSessionDetail(id);
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const controls = useSessionControls(id!);
@@ -345,7 +346,7 @@ export default function SessionDetailScreen() {
             <View style={{ marginBottom: spacing.sm, gap: spacing.sm }}>
               {/* «ملاحظات الحصة» — to the whole session; open 48 h after the end, then reopenable. */}
               <Surface id="teacher.session_detail.notes_card" ctx={{ session: s }}>
-              <SessionNotesCard s={s} save={controls.summary} reopen={controls.reopen} />
+              <SessionNotesCard s={s} save={controls.summary} reopen={controls.reopen} autoOpen={notesParam === '1'} />
               </Surface>
               {/* Two tabs on one session: who came, and their marks. A private lesson has only marks. */}
               {noDoor ? null : (

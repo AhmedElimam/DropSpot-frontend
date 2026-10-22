@@ -113,7 +113,8 @@ export default function TeacherHome() {
   const [addOpen, setAddOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   // Swipe on a session card (founder 2026-10-04): right → left cancels it (after a
-  // confirmation), left → right shows its «كشف الحضور» in a sheet.
+  // confirmation) — or, once it took place, opens its notes — left → right shows its
+  // «كشف الحضور» in a sheet.
   const qc = useQueryClient();
   const [rosterFor, setRosterFor] = useState<string | null>(null);
   const confirmCancel = (s: { id: string; course_name?: string | null; status?: string; scheduled_at?: string | null; duration_minutes?: number | null }) => {
@@ -137,11 +138,16 @@ export default function TeacherHome() {
   };
   // The server's rule (2026-10-06): a session anyone was checked into happened and stays; one
   // nobody attended can be cancelled even after it ended (it leaves the billing cycle).
+  // Once it has ended and can no longer be cancelled (founder 2026-10-22), the same swipe opens
+  // its «ملاحظات الحصة» instead of doing nothing: the session page with the editor up.
   const swipesFor = (s: TeacherSession): { action?: SwipeAction; leftAction: SwipeAction } => {
     const ended = s.status === 'completed' || sessionPhase(s, now) === 'done';
     const cancellable = canCancel && s.status !== 'cancelled' && (!ended || (s.checked_in_count ?? 1) === 0);
+    const notes = !cancellable && ended && s.status !== 'cancelled';
     return {
-      action: cancellable ? { icon: 'close', label: t('teacher.cancel_session'), color: colors.danger, onTrigger: () => confirmCancel(s) } : undefined,
+      action: cancellable ? { icon: 'close', label: t('teacher.cancel_session'), color: colors.danger, onTrigger: () => confirmCancel(s) }
+        : notes ? { icon: 'note', label: t('session_notes.card_title'), color: colors.brand, onTrigger: () => router.push(`/(teacher)/sessions/${s.id}?notes=1` as Href) }
+        : undefined,
       leftAction: { icon: 'attendance', label: t('sessions_tab.sheet'), color: colors.success, onTrigger: () => setRosterFor(s.id) },
     };
   };

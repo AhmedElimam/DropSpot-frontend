@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,8 +22,10 @@ const MAX = 1000;
  * it closes by itself and one tap reopens it for 48 hours more. Nothing before the start,
  * nothing on a cancelled session.
  */
-export function SessionNotesCard({ s, save, reopen }: {
+export function SessionNotesCard({ s, save, reopen, autoOpen = false }: {
   s: SessionDetail;
+  /** Open the editor as soon as the notes are open (the home card's swipe). Once per mount. */
+  autoOpen?: boolean;
   save: UseMutationResult<SessionDetail, Error, string>;
   reopen: UseMutationResult<SessionDetail, Error, void>;
 }) {
@@ -32,6 +34,13 @@ export function SessionNotesCard({ s, save, reopen }: {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const win = s.notes_window;
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!autoOpen || opened.current || win?.state !== 'open') return;
+    opened.current = true;
+    setDraft(s.summary?.body ?? '');
+    setEditing(true);
+  }, [autoOpen, win?.state, s.summary?.body]);
   if (!win || win.state === 'upcoming' || win.state === 'cancelled') return null;
 
   const body = s.summary?.body ?? '';
