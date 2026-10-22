@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, RefreshControl } from 'react-native';
+import { FlatList } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +19,7 @@ import { useParentBillingStatus } from '@/hooks/useInvoices';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useTickets } from '@/hooks/useTickets';
 import { useSessionNotes } from '@/hooks/useSessionNotes';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { latestNotes } from '@/nazer/notes';
 import { NazerReportsCard } from '@/components/nazer/NazerReportsCard';
 import { getChildReportUrl, getMyReportUrl } from '@/api/nazerReport';
@@ -44,12 +46,14 @@ export default function ParentNazerOffice() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   useDialogPersona('nazer');
-  const { data: children } = useChildren();
-  const { data: risks } = useParentAttendanceRisk();
-  const { data: billing } = useParentBillingStatus();
-  const { data: notifications } = useNotifications();
-  const { data: tickets } = useTickets();
-  const { data: notesPages } = useSessionNotes('parent');
+  const { data: children, refetch: refetchChildren } = useChildren();
+  const { data: risks, refetch: refetchRisks } = useParentAttendanceRisk();
+  const { data: billing, refetch: refetchBilling } = useParentBillingStatus();
+  const { data: notifications, refetch: refetchNotifications } = useNotifications();
+  const { data: tickets, refetch: refetchTickets } = useTickets();
+  const { data: notesPages, refetch: refetchNotes } = useSessionNotes('parent');
+  // Pull to refresh (founder 2026-10-22): the office re-reads everything it shows; the page itself stays put.
+  const { refreshing, onRefresh } = usePullRefresh(refetchChildren, refetchRisks, refetchBilling, refetchNotifications, refetchTickets, refetchNotes);
   const recentNotes = latestNotes(notesPages?.pages[0]?.items ?? []);
 
   const kids = children ?? [];
@@ -98,7 +102,8 @@ export default function ParentNazerOffice() {
         initialNumToRender={10}
         windowSize={5}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
           <View>
             <Surface id="parent.nazer.hero"><NazerHero say={say} lines={lines} onBack={() => (router.canGoBack() ? router.back() : router.replace('/(parent)/(tabs)' as Href))} /></Surface>

@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, RefreshControl } from 'react-native';
+import { FlatList } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ import { useCoverageStats, useStudentAttendanceRisk } from '@/hooks/useAttendanc
 import { useStudentBillingStatus } from '@/hooks/useInvoices';
 import { useTodaySessions, useUpcomingSessions } from '@/hooks/useSessions';
 import { useSessionNotes } from '@/hooks/useSessionNotes';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { latestNotes } from '@/nazer/notes';
 import { NazerReportsCard } from '@/components/nazer/NazerReportsCard';
 import { getChildReportUrl, getMyReportUrl } from '@/api/nazerReport';
@@ -42,12 +44,14 @@ export default function StudentNazerOffice() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   useDialogPersona('nazer');
-  const { data: stats } = useCoverageStats();
-  const { data: risks } = useStudentAttendanceRisk();
-  const { data: billing } = useStudentBillingStatus();
-  const { data: today } = useTodaySessions();
-  const { data: upcoming } = useUpcomingSessions(3);
-  const { data: notesPages } = useSessionNotes('student');
+  const { data: stats, refetch: refetchStats } = useCoverageStats();
+  const { data: risks, refetch: refetchRisks } = useStudentAttendanceRisk();
+  const { data: billing, refetch: refetchBilling } = useStudentBillingStatus();
+  const { data: today, refetch: refetchToday } = useTodaySessions();
+  const { data: upcoming, refetch: refetchUpcoming } = useUpcomingSessions(3);
+  const { data: notesPages, refetch: refetchNotes } = useSessionNotes('student');
+  // Pull to refresh (founder 2026-10-22): the office re-reads everything it shows; the page itself stays put.
+  const { refreshing, onRefresh } = usePullRefresh(refetchStats, refetchRisks, refetchBilling, refetchToday, refetchUpcoming, refetchNotes);
   const recentNotes = latestNotes(notesPages?.pages[0]?.items ?? []);
 
   const total = stats?.total ?? 0;
@@ -102,7 +106,8 @@ export default function StudentNazerOffice() {
         initialNumToRender={10}
         windowSize={5}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
           <View>
             <Surface id="student.nazer.hero"><NazerHero say={say} lines={lines} onBack={() => (router.canGoBack() ? router.back() : router.replace('/(student)/(tabs)' as Href))} /></Surface>
