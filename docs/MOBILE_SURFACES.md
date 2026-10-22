@@ -766,6 +766,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.record_student.existing_modal` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.existing_modal.enroll_here` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.flash` — element · app/(teacher)/record-student.tsx
+- `teacher.record_student.form_sheet` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.header` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.invitation_modal` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.order_cards` — element · app/(teacher)/record-student.tsx

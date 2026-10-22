@@ -3606,7 +3606,9 @@
     "step_student": "الطالب",
     "step_parent": "ولي الأمر",
     "change": "تغيير",
-    "added_title": "أُضيفوا في هذه الجلسة"
+    "added_title": "أُضيفوا في هذه الجلسة",
+    "pick_group": "اختر المجموعة",
+    "pick_group_hint": "اضغط على المجموعة لتسجّل طلابها واحدًا بعد الآخر."
   },
   "invitation_modal": {
     "badge": "دعوة طالب",
