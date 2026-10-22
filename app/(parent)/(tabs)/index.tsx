@@ -168,22 +168,7 @@ export default function ParentHome() {
             <Surface id="parent.home.pending_invites"><PendingInvites t={t} /></Surface>
           </View>
 
-          {/* Children */}
-          <Surface id="parent.home.children">
-          <View style={{ marginTop: spacing.xl }}>
-            <SectionHead icon="children" color={colors.brand} title={t('home.children_section')} action={t('notifications.view_all')} onAction={() => router.push('/(parent)/children' as Href)} />
-            {childrenLoading ? (
-              <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl }} />
-            ) : (
-              <View style={{ gap: spacing.sm }}>
-                {kids.map((child) => <ChildCard key={child.id} child={child} t={t} />)}
-              </View>
-            )}
-          </View>
-          </Surface>
-
-          {/* Actions — big, coloured, two per row. */}
-          {/* One row of shortcuts with الناظر in the middle, the way the teacher home seats مدام روز (founder 2026-10-22). */}
+          {/* One row of shortcuts with الناظر in the middle, the way the teacher home seats مدام روز (founder 2026-10-22) — above the children (founder 2026-10-23). */}
           <Surface id="parent.home.actions">
           <TourTarget id="home:shortcuts" style={{ marginTop: spacing.xl }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Surface id="parent.home.action_today"><ShortcutTile width="19.5%" icon="calendar" label={t('home.shortcut_today')} color={colors.brand} tint={colors.brandTint} onPress={() => router.push('/(parent)/today')} /></Surface>
@@ -196,6 +181,20 @@ export default function ParentHome() {
             <Surface id="parent.home.action_invoices"><ShortcutTile width="19.5%" icon="invoices" label={t('home.shortcut_invoices')} color={colors.success} tint={colors.successLight} onPress={() => router.push('/(parent)/(tabs)/invoices')} /></Surface>
             <Surface id="parent.home.action_tickets"><ShortcutTile width="19.5%" icon="ticket" label={t('home.shortcut_tickets')} color={colors.accentWarm} tint={colors.accentWarmTint} onPress={() => router.push('/(parent)/tickets')} /></Surface>
           </View></TourTarget>
+          </Surface>
+
+          {/* Children */}
+          <Surface id="parent.home.children">
+          <View style={{ marginTop: spacing.xl }}>
+            <SectionHead icon="children" color={colors.brand} title={t('home.children_section')} action={t('notifications.view_all')} onAction={() => router.push('/(parent)/children' as Href)} />
+            {childrenLoading ? (
+              <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl }} />
+            ) : (
+              <View style={{ gap: spacing.sm }}>
+                {kids.map((child) => <ChildCard key={child.id} child={child} t={t} />)}
+              </View>
+            )}
+          </View>
           </Surface>
 
           {/* Latest update */}

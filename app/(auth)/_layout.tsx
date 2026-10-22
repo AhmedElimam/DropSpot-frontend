@@ -1,4 +1,5 @@
 import { Redirect, Stack } from 'expo-router';
+import { transitionListeners } from '@/navigation/transitions';
 import { useAuthStore } from '@/stores/authStore';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
 import { gradients } from '@/theme/index';
@@ -22,7 +23,7 @@ export default function AuthLayout() {
   // The auth screens sit on the deep gradient, so the scene behind a swipe-back is its top
   // colour — not the light canvas (dark mode showed a white sheet under the page).
   return (
-    <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: gradients.auth[0] } }}>
+    <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: gradients.auth[0] } }}>
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
       <Stack.Screen name="verify-otp" />

@@ -7,6 +7,7 @@ import * as SystemUI from 'expo-system-ui';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
+import { installTransitionScheduler, transitionListeners } from '@/navigation/transitions';
 import { enableFreeze } from 'react-native-screens';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -134,6 +135,8 @@ const queryClient = new QueryClient({
   },
 });
 setQueryClient(queryClient);
+// While a screen slides, query results wait for it to land (src/navigation/transitions.ts).
+installTransitionScheduler();
 // JS errors go to /admin/app-errors with version, update, screen and stack (src/lib/errorReport.ts).
 installErrorReporting();
 
@@ -290,7 +293,7 @@ export default function RootLayout() {
                   root stack pushes pages OVER a whole role (notification preferences, change
                   password, «ما الجديد»…), and a frozen role thawed mid-swipe-back stuttered
                   the gesture (founder 2026-10-12, same cause as the role stacks on 10-08). */}
-              <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />
+              <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />
             </View>
             {/* Super-admin survey prompt — checked on app-open/login, once across platforms. */}
             <SurveyModal />

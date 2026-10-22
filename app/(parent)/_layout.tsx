@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Redirect, Stack } from 'expo-router';
+import { transitionListeners } from '@/navigation/transitions';
 import { View, ActivityIndicator, AppState, AppStateStatus } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { colors } from '@/theme/index';
@@ -81,7 +82,7 @@ export default function ParentLayout() {
     // mid-gesture — React flushed the whole covered screen's pending renders inside the
     // transition. The screen underneath now stays live (one or two screens deep, not the 30
     // hidden tabs the freeze was for — those keep their own `freeze_hidden_tabs` switch).
-    <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
+    <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
     </Stack>
   );
