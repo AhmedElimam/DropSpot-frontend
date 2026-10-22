@@ -14,9 +14,13 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same BRANCH cancels the older run (it is about to be tested anyway).
+# Never on main: two PRs merged back-to-back cancelled the first merge's run, and GitHub
+# reports a cancelled run with a ✖ and a notification like a failure (founder 2026-10-23:
+# «on mobile it still shows failure»). Every push to main is tested to the end.
 concurrency:
   group: checks-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   checks:
