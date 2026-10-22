@@ -190,14 +190,14 @@ export default function StudentDashboard() {
           {/* Shortcuts — four coloured, labelled buttons. */}
           <Surface id="student.home.shortcuts">
           {/* الناظر in the middle of the four shortcuts (founder 2026-10-22): two each side, his face between. */}
-          <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            {shortcuts.slice(0, 2).map((x) => <ShortcutTile key={x.key} width="19%" icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
+          <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            {shortcuts.slice(0, 2).map((x) => <ShortcutTile key={x.key} width="19.5%" icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
             <Surface id="student.home.nazer">
-              <TourTarget id="home:nazer" style={{ width: '22%', alignItems: 'center' }}>
+              <TourTarget id="home:nazer" style={{ width: '19.5%', alignItems: 'center' }}>
                 <NazerHub say={say} size={64} onPress={() => router.push('/(student)/nazer' as Href)} />
               </TourTarget>
             </Surface>
-            {shortcuts.slice(2).map((x) => <ShortcutTile key={x.key} width="19%" icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
+            {shortcuts.slice(2).map((x) => <ShortcutTile key={x.key} width="19.5%" icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
           </View></TourTarget>
           </Surface>
 

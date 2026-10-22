@@ -27,7 +27,7 @@ import { ConnectionLine } from '@/components/ui/ConnectionStatus';
 import { TourTarget } from '@/tour/TourTarget';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { SectionHead } from '@/components/ui/SectionHead';
-import { ActionTile } from '@/components/ui/ShortcutTile';
+import { ShortcutTile } from '@/components/ui/ShortcutTile';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { timeAgo, formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
@@ -183,26 +183,19 @@ export default function ParentHome() {
           </Surface>
 
           {/* Actions — big, coloured, two per row. */}
+          {/* One row of shortcuts with الناظر in the middle, the way the teacher home seats مدام روز (founder 2026-10-22). */}
           <Surface id="parent.home.actions">
-          <View style={{ marginTop: spacing.xl }}>
-            <SectionHead icon="star" color={colors.accent} title={t('home.actions_section')} />
-            {/* الناظر in the middle of the four actions (founder 2026-10-22): two tiles each side, his face between. */}
-            <View style={{ flexDirection: 'row', alignItems: 'stretch', justifyContent: 'space-between' }}>
-              <View style={{ width: '39%', gap: spacing.sm }}>
-                <Surface id="parent.home.action_today"><ActionTile width="100%" icon="calendar" color={colors.brand} tint={colors.brandTint} title={t('today.title')} subtitle={t('today.subtitle')} onPress={() => router.push('/(parent)/today')} /></Surface>
-                <Surface id="parent.home.action_report_cards"><ActionTile width="100%" icon="reports" color={colors.info} tint={colors.infoLight} title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')} onPress={() => router.push('/(parent)/report-cards')} /></Surface>
-              </View>
-              <Surface id="parent.home.nazer">
-                <TourTarget id="home:nazer" style={{ width: '100%', flex: 1, justifyContent: 'center' }}>
-                  <NazerHub say={say} size={64} onPress={() => router.push('/(parent)/nazer' as Href)} />
-                </TourTarget>
-              </Surface>
-              <View style={{ width: '39%', gap: spacing.sm }}>
-                <Surface id="parent.home.action_invoices"><ActionTile width="100%" icon="invoices" color={colors.success} tint={colors.successLight} title={t('home.invoices_title')} onPress={() => router.push('/(parent)/(tabs)/invoices')} /></Surface>
-                <Surface id="parent.home.action_tickets"><ActionTile width="100%" icon="ticket" color={colors.accentWarm} tint={colors.accentWarmTint} title={t('parent.teacher_tickets_title')} subtitle={t('parent.teacher_tickets_sub')} onPress={() => router.push('/(parent)/tickets')} /></Surface>
-              </View>
-            </View>
-          </View>
+          <TourTarget id="home:shortcuts" style={{ marginTop: spacing.xl }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Surface id="parent.home.action_today"><ShortcutTile width="19.5%" icon="calendar" label={t('home.shortcut_today')} color={colors.brand} tint={colors.brandTint} onPress={() => router.push('/(parent)/today')} /></Surface>
+            <Surface id="parent.home.action_report_cards"><ShortcutTile width="19.5%" icon="reports" label={t('home.shortcut_reports')} color={colors.info} tint={colors.infoLight} onPress={() => router.push('/(parent)/report-cards')} /></Surface>
+            <Surface id="parent.home.nazer">
+              <TourTarget id="home:nazer" style={{ width: '19.5%', alignItems: 'center' }}>
+                <NazerHub say={say} onPress={() => router.push('/(parent)/nazer' as Href)} />
+              </TourTarget>
+            </Surface>
+            <Surface id="parent.home.action_invoices"><ShortcutTile width="19.5%" icon="invoices" label={t('home.shortcut_invoices')} color={colors.success} tint={colors.successLight} onPress={() => router.push('/(parent)/(tabs)/invoices')} /></Surface>
+            <Surface id="parent.home.action_tickets"><ShortcutTile width="19.5%" icon="ticket" label={t('home.shortcut_tickets')} color={colors.accentWarm} tint={colors.accentWarmTint} onPress={() => router.push('/(parent)/tickets')} /></Surface>
+          </View></TourTarget>
           </Surface>
 
           {/* Latest update */}
