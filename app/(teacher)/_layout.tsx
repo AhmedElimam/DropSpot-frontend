@@ -171,6 +171,9 @@ export default function TeacherLayout() {
       {/* A «شروحات» video plays full screen over whatever opened it. Transparent, because the
           player paints its own black and fades it as you swipe it down — the screen behind shows
           through, like closing a TikTok video (founder 2026-10-09). */}
+      {/* Fast register opens as a sheet over whatever opened it (founder 2026-10-22: «on click
+          show a modal that has the inputs»): the native page sheet on iOS, a slide-up on Android. */}
+      <Stack.Screen name="record-student" options={{ presentation: 'modal', ...(Platform.OS === 'android' ? { animation: 'slide_from_bottom' as const } : {}) }} />
       <Stack.Screen name="tutorial/[key]" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom', contentStyle: { backgroundColor: 'transparent' }, gestureEnabled: false }} />
       {/* A student opened from a list: a native page sheet over it (iOS), a slide-up on Android.
           Not a form sheet with detents: its pan swallowed the profile's scrolling and left a

@@ -1,6 +1,6 @@
 import { track } from '@/lib/analytics';
 import { useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { Alert } from '@/ui/dialog';
 import { router } from 'expo-router';
@@ -9,7 +9,6 @@ import { useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, control, nav, shadows } from '@/theme/index';
-import { PageHero } from '@/components/ui/PageHero';
 import { StudentInvitationModal } from '@/components/teacher/StudentInvitationModal';
 import { formatNumber } from '@/utils/format';
 import type { IconName } from '@/components/ui/Icon';
@@ -217,56 +216,59 @@ export default function RecordStudent() {
 
   return (
     <Surface id="screen.teacher.record-student" screen>
-    <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background }}>
+    {/* iOS page sheet: it starts below the status bar, so the keyboard's overlap is measured from there. */}
+    <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 10 : 0} style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom + spacing.xxl }} keyboardShouldPersistTaps="handled">
-        {/* Header: what this page is for, how many so far, and a scan for a student who already has a card or an invitation. */}
+        {/* A sheet, not a page (founder 2026-10-22): a grabber, the title with this batch's count,
+            a scan for a student who already has a card or an invitation, and a close. */}
         <Surface id="teacher.record_student.header">
-        <PageHero
-          title={t('enroll_ui.fast_register_title')}
-          subtitle={t('fast_register.subtitle')}
-          onBack
-          action={{ icon: 'scan', label: t('fast_register.scan'), onPress: scanInstead, accessibilityLabel: t('fast_register.scan_hint') }}
-          stats={[
-            { value: formatNumber(count), label: t('fast_register.added_now') },
-            ...(course ? [{ value: course.name, label: t('fast_register.group') }] : []),
-          ]}
-        />
+        <View style={{ paddingTop: (Platform.OS === 'ios' ? spacing.sm : insets.top + spacing.sm), paddingHorizontal: spacing.lg, paddingBottom: spacing.md }}>
+          {Platform.OS === 'ios' ? <View style={{ alignSelf: 'center', width: 38, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: spacing.md }} /> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.close')}
+              style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="close" size={18} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.textPrimary }}>{t('enroll_ui.fast_register_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary }} numberOfLines={1}>{t('fast_register.subtitle')}</Text>
+            </View>
+            <Surface id="teacher.record_student.count_badge">
+            <View style={{ minWidth: 38, height: 38, borderRadius: 12, paddingHorizontal: 8, backgroundColor: count ? colors.successLight : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }} accessibilityLabel={t('fast_register.added_now')}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: count ? colors.successText : colors.textTertiary }}>{formatNumber(count)}</Text>
+            </View>
+            </Surface>
+            <TouchableOpacity onPress={scanInstead} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('fast_register.scan_hint')}
+              style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="scan" size={19} color={colors.brand} />
+            </TouchableOpacity>
+          </View>
+        </View>
         </Surface>
 
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
-          {/* 1 · The group — chosen once, then a compact row for the rest of the batch. */}
+        <View style={{ paddingHorizontal: spacing.lg }}>
+          {/* The group — chips; the chosen one's times under them. */}
           <Surface id="teacher.record_student.course_picker">
           <View style={sectionCard}>
             <StepHead n={1} icon="calendar" title={t('fast_register.step_group')} />
             {eligible.length === 0 ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary }}>{t('enroll_ui.no_scheduled_courses')}</Text>
-            ) : course ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.md }}>
-                <Icon name="success" size={20} color={colors.brand} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{course.name}{course.grade_name ? ` · ${course.grade_name}` : ''}</Text>
-                  {course.schedule_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{course.schedule_label}</Text> : null}
-                </View>
-                <TouchableOpacity onPress={() => setCourseId(null)} hitSlop={8} accessibilityRole="button">
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('fast_register.change')}</Text>
-                </TouchableOpacity>
-              </View>
             ) : (
-              <View style={{ gap: spacing.sm }}>
-                {eligible.map((c: InvitationCourseOption) => (
-                  <TouchableOpacity key={c.id} onPress={() => setCourseId(c.id)} activeOpacity={0.85}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
-                    <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name="book" size={18} color={colors.brand} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}</Text>
-                      {c.schedule_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{c.schedule_label}</Text> : null}
-                    </View>
-                    <Icon name="back" size={16} color={colors.textTertiary} />
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                  {eligible.map((c: InvitationCourseOption) => {
+                    const on = c.id === courseId;
+                    return (
+                      <TouchableOpacity key={c.id} onPress={() => setCourseId(c.id)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: spacing.md, borderRadius: radius.full, borderWidth: 1.5, borderColor: on ? colors.brand : colors.borderStrong, backgroundColor: on ? colors.brand : colors.surface }}>
+                        {on ? <Icon name="success" size={14} color={colors.onPrimary} /> : null}
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: on ? colors.onPrimary : colors.textSecondary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {course?.schedule_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: spacing.sm }}>{course.schedule_label}</Text> : null}
+              </>
             )}
           </View>
           </Surface>

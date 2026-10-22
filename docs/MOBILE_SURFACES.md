@@ -759,6 +759,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.reconcile.rejected_scans.dismiss` — element · app/(teacher)/reconcile.tsx
 - `teacher.reconcile.rejected_scans.requeue` — element · app/(teacher)/reconcile.tsx
 - `teacher.record_student.added_names` — element · app/(teacher)/record-student.tsx
+- `teacher.record_student.count_badge` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.course_picker` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.dedupe_modal` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.dedupe_modal.create_new` — element · app/(teacher)/record-student.tsx
