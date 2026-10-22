@@ -90,7 +90,9 @@ LIST="$TMP/builds"; : > "$LIST"
 add_runs() { # workflow platform artifact
   local wf="$1" platform="$2" art="$3" ids
   if [ ${#RUNS[@]} -gt 0 ]; then ids="${RUNS[*]}"
-  else ids="$(gh run list --workflow "$wf" --status success --limit "$LAST" --json databaseId --jq '.[].databaseId' | tr '\n' ' ')"; fi
+  # Not `--status success`: on 2026-10-22 it returned nothing for ios-ipa.yml while successful
+  # runs existed, so iOS was silently left out. List more and keep the successful ones here.
+  else ids="$(gh run list --workflow "$wf" --limit 40 --json databaseId,conclusion --jq "[.[] | select(.conclusion == \"success\")][:$LAST] | .[].databaseId" | tr '\n' ' ')"; fi
   local id; for id in $ids; do
     local w; w="$(gh run view "$id" --json workflowName,headSha --jq '.workflowName + " " + .headSha')"
     case "$w" in
