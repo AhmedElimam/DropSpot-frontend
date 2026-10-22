@@ -676,7 +676,6 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.manage.row_assistants` — element · assistant: teacher · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_billing_settings` — element · assistant: teacher · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_booking_requests` — element · assistant: manage_students · app/(teacher)/(tabs)/manage.tsx
-- `teacher.manage.row_cards` — element · assistant: manage_students · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_cash_reconcile` — element · assistant: scan_attendance · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_complaints` — element · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_courses` — element · app/(teacher)/(tabs)/manage.tsx
