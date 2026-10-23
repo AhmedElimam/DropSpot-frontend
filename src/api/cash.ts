@@ -248,6 +248,8 @@ export interface Drawer {
   opening_balance: number | null; // null = unknown — never guessed
   /** Automatic: last week's counted closing ('carried'), its expected when it was never counted ('carried_expected'), zero on the first week ('assumed_zero'); 'teacher' = overwritten by hand. */
   opening_source: 'carried' | 'carried_expected' | 'assumed_zero' | 'teacher' | null;
+  /** Beside a custom opening ('teacher'): the figure the automatic rule would give. */
+  opening_auto?: number | null;
   opening_reason: 'first_week' | 'previous_unreconciled' | null;
   collected: number;
   expenses: number;
@@ -404,6 +406,12 @@ export async function respondReconciliation(
 
 export async function setOpeningBalance(id: number, amount: number): Promise<Drawer> {
   const { data } = await client.post(`/teacher/cash/reconciliation/${id}/opening-balance`, { amount });
+  return data.data as Drawer;
+}
+
+/** Back to the automatic opening: the teacher's custom figure for the week is dropped. */
+export async function clearOpeningBalance(id: number): Promise<Drawer> {
+  const { data } = await client.delete(`/teacher/cash/reconciliation/${id}/opening-balance`);
   return data.data as Drawer;
 }
 

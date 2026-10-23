@@ -35,7 +35,7 @@ import { useTutorials } from '@/hooks/useTutorials';
 import { useComplaints } from '@/hooks/useComplaints';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
-  getCashReconciliation, respondReconciliation, setOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights, getRoseSheet,
+  getCashReconciliation, respondReconciliation, setOpeningBalance, clearOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights, getRoseSheet,
   type AssistantCashView, type TeacherCashView, type Drawer, type TeacherDrawer, type Handover, type ReconciliationResult, type ReconciliationStatus, type VenueRef, type Observation, type CashView,
 } from '@/api/cash';
 import { Surface } from '@/ui/surfaces';
@@ -197,12 +197,15 @@ function Details({ d, extra }: { d: Drawer; extra?: React.ReactNode }) {
 
 // ───────────────────────── the assistant's count, answered in place ─────────────────────────
 
-function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void }) {
+/** `onOpeningSaved`: the teacher counting their OWN drawer may set its opening here too. */
+function PromptCard({ row, onDone, onOpeningSaved }: { row: Drawer; onDone: (d: Drawer) => void; onOpeningSaved?: () => void }) {
   const { t } = useTranslation();
   const rose = useRose();
   const egp = t('insights.egp');
   const [mode, setMode] = useState<'ask' | 'diff'>(row.expected === null ? 'diff' : 'ask');
   const [registry, setRegistry] = useState(row.expected !== null ? String(row.expected) : '');
+  // A new opening moves the expected figure: the prefilled count follows it.
+  useEffect(() => { setRegistry(row.expected !== null ? String(row.expected) : ''); }, [row.expected]);
   const [reason, setReason] = useState('');
 
   const registryNum = Number(registry);
@@ -232,6 +235,7 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
         left={{ label: t('cash.collected'), value: money(row.collected) }}
         right={{ label: t('cash.expected'), value: row.expected !== null ? money(row.expected) : '—', tint: row.expected !== null ? colors.brand : colors.warningDark }}
       />
+      {onOpeningSaved && row.is_teacher_drawer && !row.closed_at ? <OpeningRow d={row} onSaved={onOpeningSaved} /> : null}
       {row.expected === null ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.warningDark, marginBottom: spacing.sm }}>
           {row.opening_reason === 'previous_unreconciled' ? t('cash.opening_prev_unreconciled') : t('cash.opening_first_week')}
@@ -290,29 +294,80 @@ function PromptCard({ row, onDone }: { row: Drawer; onDone: (d: Drawer) => void 
 
 // ───────────────────────── drawers ─────────────────────────
 
-function OpeningEntry({ d, onSaved }: { d: Drawer; onSaved: () => void }) {
+/**
+ * «الرصيد الافتتاحي» of the week, on the card itself (founder 2026-10-23: a custom opening for
+ * the week): the figure, automatic or custom, and a tap to set it, change it, or give it back to
+ * the automatic one. Teacher only, until the week is closed.
+ */
+function OpeningRow({ d, onSaved }: { d: Drawer; onSaved: () => void }) {
   const { t } = useTranslation();
-  const { tell, dialog } = useRoseDialog();
-  const [amount, setAmount] = useState('');
-  const n = Number(amount);
-  const save = useMutation({
-    mutationFn: () => setOpeningBalance(d.id, n),
-    onSuccess: () => { void tell(t('cash.opening_saved')); onSaved(); },
-    onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
-  });
+  const egp = t('insights.egp');
+  const [open, setOpen] = useState(false);
+  const custom = d.opening_source === 'teacher';
   return (
-    <Surface id="teacher.cash_reconcile.opening_entry">
-    <View style={{ marginTop: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('cash.opening_set')}</Text>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>{t('cash.opening_set_hint')}</Text>
-      <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
-        <TextInput value={amount} onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={colors.textTertiary}
-          style={{ flex: 1, fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 8, textAlign: 'right', backgroundColor: colors.surface }} />
-        <Button title={t('common.save')} onPress={() => save.mutate()} disabled={amount === '' || !Number.isFinite(n)} loading={save.isPending} />
+    <>
+      <Surface id="teacher.cash_reconcile.opening_row">
+      <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('cash.opening_sheet_title')}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10, marginBottom: spacing.sm }}>
+        <Icon name="money" size={16} color={colors.brand} />
+        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }} numberOfLines={1}>{t('cash.opening')}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: d.opening_balance === null ? colors.warningDark : colors.textPrimary }}>
+          {d.opening_balance === null ? t('cash.opening_unknown') : `${money(d.opening_balance)} ${egp}`}
+        </Text>
+        <Pill text={custom ? t('cash.opening_custom') : t('cash.opening_auto')} tint={custom ? colors.accent : colors.textTertiary} />
+        <Icon name="note" size={15} color={colors.brand} />
+      </TouchableOpacity>
+      </Surface>
+      <Sheet open={open} onClose={() => setOpen(false)} title={t('cash.opening_sheet_title')}>
+        <OpeningSheetBody d={d} onDone={() => { setOpen(false); onSaved(); }} />
+      </Sheet>
+    </>
+  );
+}
+
+function OpeningSheetBody({ d, onDone }: { d: Drawer; onDone: () => void }) {
+  const { t } = useTranslation();
+  const egp = t('insights.egp');
+  const custom = d.opening_source === 'teacher';
+  // What the automatic rule gives: the current figure, or — beside a custom one — opening_auto.
+  const auto = custom ? (d.opening_auto ?? null) : d.opening_balance;
+  const why = custom ? t('cash.opening_src_any')
+    : d.opening_source === 'carried' ? t('cash.opening_src_carried')
+    : d.opening_source === 'carried_expected' ? t('cash.opening_carried_expected')
+    : d.opening_source === 'assumed_zero' ? t('cash.opening_src_zero') : null;
+  const [amount, setAmount] = useState(custom && d.opening_balance !== null ? String(d.opening_balance) : '');
+  const n = Number(amount);
+  const onError = (e: unknown) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e));
+  const save = useMutation({ mutationFn: () => setOpeningBalance(d.id, n), onSuccess: onDone, onError });
+  const reset = useMutation({ mutationFn: () => clearOpeningBalance(d.id), onSuccess: onDone, onError });
+  return (
+    <View>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, color: colors.textSecondary }}>{t('cash.opening_set_hint')}</Text>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{t('cash.week_of', { start: formatShortDate(d.week_start), end: formatShortDate(d.week_end) })}</Text>
+      {auto !== null ? (
+        <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{t('cash.opening_auto_is')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{money(auto)} {egp}</Text>
+          </View>
+          {why ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 4 }}>{why}</Text> : null}
+        </View>
+      ) : null}
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginTop: spacing.lg, marginBottom: 6 }}>{t('cash.opening_custom_label')}</Text>
+      <TextInput value={amount} onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder={auto !== null ? money(auto) : '0'} placeholderTextColor={colors.textTertiary}
+        style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10, textAlign: 'right', backgroundColor: colors.surface }} />
+      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 6 }}>{t('cash.opening_custom_note')}</Text>
+      <View style={{ marginTop: spacing.lg }}>
+        <Button title={t('cash.opening_save')} onPress={() => save.mutate()} disabled={amount === '' || !Number.isFinite(n) || reset.isPending} loading={save.isPending} />
       </View>
-      {dialog}
+      {custom ? (
+        <TouchableOpacity onPress={() => reset.mutate()} disabled={reset.isPending || save.isPending} accessibilityRole="button"
+          style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: spacing.md, paddingHorizontal: spacing.lg }}>
+          {reset.isPending ? <ActivityIndicator size="small" color={colors.brand} /> : <Icon name="refresh" size={15} color={colors.brand} />}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('cash.opening_reset')}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
-    </Surface>
   );
 }
 
@@ -342,8 +397,9 @@ function DrawerCard({ d, name, isTeacher, onChanged, freshStamp = false }: { d: 
           : { label: t('cash.net_movement'), value: `${(d.net_movement ?? 0) > 0 ? '+' : ''}${money(d.net_movement ?? 0)}`, tint: colors.warningDark }}
         right={{ label: t('cash.actual'), value: answered ? money(d.actual ?? d.registry ?? 0) : '—', tint: answered && d.result && d.result !== 'unknown' ? RESULT_TINT()[d.result] : undefined }}
       />
+      {isTeacher && !d.closed_at ? <OpeningRow d={d} onSaved={onChanged} /> : null}
       <SurplusNotice d={d} />
-      <Details d={d} extra={isTeacher && d.opening_source !== 'teacher' && !d.closed_at ? <OpeningEntry d={d} onSaved={onChanged} /> : null} />
+      <Details d={d} />
       {/* The weekly review is the teacher's screen only (founder 2026-09-26); an assistant
           follows their expenses, and answers questions, from the expenses list. */}
       {isTeacher ? (
@@ -1325,7 +1381,7 @@ function WeekSegment({ data, onChanged, onOpenHandover, freshStamp }: { data: Ca
       ) : (
         v.drawers.map((d) => d.is_teacher_drawer && d.registry === null && !d.closed_at
           // The teacher counts their OWN drawer in place — the same card an assistant answers.
-          ? <PromptCard key={d.id} row={d} onDone={() => onChanged()} />
+          ? <PromptCard key={d.id} row={d} onDone={() => onChanged()} onOpeningSaved={onChanged} />
           : <DrawerCard key={d.id} d={d} name={d.name} isTeacher onChanged={onChanged} freshStamp={d.id === freshStamp} />)
       )}
       </Surface>
