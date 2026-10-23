@@ -1,5 +1,4 @@
 import { View, Text } from 'react-native';
-import { fonts } from '@/theme/typography';
 import { colors } from '@/theme/index';
 import { formatNumber } from '@/utils/format';
 
@@ -22,10 +21,16 @@ export function CountBadge({ count, max = 9, offset = 4, at, size = 20 }: {
 }) {
   if (!count || count <= 0) return null;
   const over = count > max;
-  const text = { fontFamily: fonts.bold, fontSize: 10.5, lineHeight: 13, color: '#fff', includeFontPadding: false } as const;
+  // The digits are in the phone's own font, as the system draws app-icon badges: Cairo's tall
+  // ascent sits its digits off the middle of a small line box, so the number never looked centred
+  // in the circle (founder 2026-10-23). The line box is exactly the inside of the 2-pt ring.
+  const inner = size - 4;
+  const text = { fontSize: 11, fontWeight: '700', lineHeight: inner, height: inner, color: '#fff', textAlign: 'center', textAlignVertical: 'center', includeFontPadding: false } as const;
+  // One digit: a true circle, not a pill.
+  const single = !over && count < 10;
   return (
     <View pointerEvents="none"
-      style={{ position: 'absolute', top: at ? at.top : -offset, end: at ? at.end : -offset, zIndex: 2, minWidth: size, height: size, borderRadius: size / 2, paddingHorizontal: 4,
+      style={{ position: 'absolute', top: at ? at.top : -offset, end: at ? at.end : -offset, zIndex: 2, minWidth: size, width: single ? size : undefined, height: size, borderRadius: size / 2, paddingHorizontal: single ? 0 : 4,
         backgroundColor: colors.danger, borderWidth: 2, borderColor: colors.background, flexDirection: 'row', direction: 'ltr', alignItems: 'center', justifyContent: 'center' }}>
       <Text style={text}>{formatNumber(over ? max : count)}</Text>
       {over ? <Text style={text}>+</Text> : null}
