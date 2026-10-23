@@ -27,8 +27,10 @@ const BLOCKING_PREFIXES = [
 /**
  * «شخصية جديدة» (founder 2026-10-22): the first time a parent or student opens the app after
  * الناظر arrived, he introduces himself — who he is and what he does for them — once per
- * account on this phone. A new account meets him in the tour he narrates, so it is not shown
- * there; and it waits for «ما الجديد», the survey and a running tour, one popup at a time.
+ * account on this phone. A new account meets him here too, BEFORE the tour (founder
+ * 2026-10-23: «new people don't know this is a new character»): the first tour waits for this
+ * popup (`introHeld`), and its one button hands over to the tour he narrates. It waits for
+ * «ما الجديد», the survey and a running tour, one popup at a time.
  */
 export function NazerUnlockModal() {
   const { t } = useTranslation();
@@ -56,14 +58,16 @@ export function NazerUnlockModal() {
     setSeen(true);
     if (key) AsyncStorage.setItem(key, '1').catch(() => {});
   };
-  // A new account has not had the tour yet: he introduces himself there instead.
+  // Until this account has met him on this phone, a first tour waits for him.
+  const setIntroHeld = useTourStore((s) => s.setIntroHeld);
   useEffect(() => {
-    if (seen === false && tour && !tour.completed) done();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seen, tour]);
+    setIntroHeld(family && !impersonating && seen !== true);
+  }, [family, impersonating, seen, setIntroHeld]);
 
   const [phase, setPhase] = useState<UnlockPhase>('lock');
-  const visible = family && seen === false && !!tour?.completed && !touring && !showPopup && !survey && !blocked && !impersonating;
+  // A first visit: the tour comes straight after him, so the popup leads into it.
+  const firstTime = !!tour && !tour.completed;
+  const visible = family && seen === false && !!tour && !touring && !showPopup && !survey && !blocked && !impersonating;
   if (!family) return null;
 
   const who = role === 'parent' ? 'parent' : 'student';
@@ -96,13 +100,15 @@ export function NazerUnlockModal() {
             </View>
             <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, lineHeight: 21, color: colors.textTertiary, textAlign: 'center', marginTop: spacing.md }}>{t('nazer_unlock.signoff')}</Text>
 
-            <TouchableOpacity onPress={() => { done(); router.push(office); }} activeOpacity={0.85} accessibilityRole="button"
+            <TouchableOpacity onPress={() => { done(); if (!firstTime) router.push(office); }} activeOpacity={0.85} accessibilityRole="button"
               style={{ marginTop: spacing.lg, minHeight: 52, borderRadius: radius.lg, backgroundColor: colors.brand, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onPrimary }}>{t('nazer_unlock.enter_office')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onPrimary }}>{t(firstTime ? 'nazer_unlock.start_tour' : 'nazer_unlock.enter_office')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={done} activeOpacity={0.7} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: spacing.md, paddingHorizontal: spacing.xl }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14.5, color: colors.textSecondary }}>{t('nazer_unlock.later')}</Text>
-            </TouchableOpacity>
+            {firstTime ? <View style={{ height: spacing.md }} /> : (
+              <TouchableOpacity onPress={done} activeOpacity={0.7} accessibilityRole="button" style={{ alignSelf: 'center', paddingVertical: spacing.md, paddingHorizontal: spacing.xl }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 14.5, color: colors.textSecondary }}>{t('nazer_unlock.later')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
           </RiseIn>
         </View>
