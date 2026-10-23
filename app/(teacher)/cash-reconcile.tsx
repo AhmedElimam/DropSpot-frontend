@@ -35,8 +35,8 @@ import { useTutorials } from '@/hooks/useTutorials';
 import { useComplaints } from '@/hooks/useComplaints';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
-  getCashReconciliation, respondReconciliation, setOpeningBalance, clearOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights, getRoseSheet,
-  type AssistantCashView, type TeacherCashView, type Drawer, type TeacherDrawer, type Handover, type ReconciliationResult, type ReconciliationStatus, type VenueRef, type Observation, type CashView,
+  getCashReconciliation, respondReconciliation, setOpeningBalance, setOpeningFor, clearOpeningBalance, recordHandover, reviewHandover, updateCashSettings, getCashInsights, getRoseSheet,
+  type AssistantCashView, type TeacherCashView, type OpeningBoardEntry, type Drawer, type TeacherDrawer, type Handover, type ReconciliationResult, type ReconciliationStatus, type VenueRef, type Observation, type CashView,
 } from '@/api/cash';
 import { Surface } from '@/ui/surfaces';
 
@@ -325,7 +325,18 @@ function OpeningRow({ d, onSaved }: { d: Drawer; onSaved: () => void }) {
   );
 }
 
-function OpeningSheetBody({ d, onDone }: { d: Drawer; onDone: () => void }) {
+/** What the opening sheet works on: a drawer's row, or — before it has one this week — its holder. */
+type OpeningTarget = {
+  id: number | null;
+  holder_id?: number;
+  opening_balance: number | null;
+  opening_source: Drawer['opening_source'];
+  opening_auto?: number | null;
+  week_start?: string;
+  week_end?: string;
+};
+
+function OpeningSheetBody({ d, onDone }: { d: OpeningTarget; onDone: () => void }) {
   const { t } = useTranslation();
   const egp = t('insights.egp');
   const custom = d.opening_source === 'teacher';
@@ -338,12 +349,12 @@ function OpeningSheetBody({ d, onDone }: { d: Drawer; onDone: () => void }) {
   const [amount, setAmount] = useState(custom && d.opening_balance !== null ? String(d.opening_balance) : '');
   const n = Number(amount);
   const onError = (e: unknown) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e));
-  const save = useMutation({ mutationFn: () => setOpeningBalance(d.id, n), onSuccess: onDone, onError });
-  const reset = useMutation({ mutationFn: () => clearOpeningBalance(d.id), onSuccess: onDone, onError });
+  const save = useMutation({ mutationFn: () => (d.id !== null ? setOpeningBalance(d.id, n) : setOpeningFor(d.holder_id as number, n)), onSuccess: onDone, onError });
+  const reset = useMutation({ mutationFn: () => clearOpeningBalance(d.id as number), onSuccess: onDone, onError });
   return (
     <View>
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, color: colors.textSecondary }}>{t('cash.opening_set_hint')}</Text>
-      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{t('cash.week_of', { start: formatShortDate(d.week_start), end: formatShortDate(d.week_end) })}</Text>
+      {d.week_start && d.week_end ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 2 }}>{t('cash.week_of', { start: formatShortDate(d.week_start), end: formatShortDate(d.week_end) })}</Text> : null}
       {auto !== null ? (
         <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -360,7 +371,7 @@ function OpeningSheetBody({ d, onDone }: { d: Drawer; onDone: () => void }) {
       <View style={{ marginTop: spacing.lg }}>
         <Button title={t('cash.opening_save')} onPress={() => save.mutate()} disabled={amount === '' || !Number.isFinite(n) || reset.isPending} loading={save.isPending} />
       </View>
-      {custom ? (
+      {custom && d.id !== null ? (
         <TouchableOpacity onPress={() => reset.mutate()} disabled={reset.isPending || save.isPending} accessibilityRole="button"
           style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: spacing.md, paddingHorizontal: spacing.lg }}>
           {reset.isPending ? <ActivityIndicator size="small" color={colors.brand} /> : <Icon name="refresh" size={15} color={colors.brand} />}
@@ -368,6 +379,52 @@ function OpeningSheetBody({ d, onDone }: { d: Drawer; onDone: () => void }) {
         </TouchableOpacity>
       ) : null}
     </View>
+  );
+}
+
+/**
+ * The week's «الرصيد الافتتاحي» card, at the top of the week (founder 2026-10-23: «where's the
+ * opening balance button?» — a drawer has its own card only once something happened in it that
+ * week). Every drawer — the teacher's own first, then each assistant's — with its opening,
+ * automatic or custom; a tap opens the same sheet as the drawer card's row. Teacher only.
+ */
+function OpeningBoard({ v, onChanged }: { v: TeacherCashView; onChanged: () => void }) {
+  const { t } = useTranslation();
+  const egp = t('insights.egp');
+  const [target, setTarget] = useState<OpeningBoardEntry | null>(null);
+  const entries = v.opening_board ?? [];
+  if (entries.length === 0) return null;
+  return (
+    <Surface id="teacher.cash_reconcile.opening_board">
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="money" size={17} color={colors.brand} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('cash.opening_sheet_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('cash.opening_board_hint')}</Text>
+        </View>
+      </View>
+      {entries.map((e, i) => {
+        const custom = e.opening_source === 'teacher';
+        return (
+          <TouchableOpacity key={`${e.holder_id}:${e.venue?.id ?? 0}`} onPress={() => setTarget(e)} disabled={e.closed} activeOpacity={0.8} accessibilityRole="button"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.borderLight, marginTop: i === 0 ? spacing.sm : 0, opacity: e.closed ? 0.55 : 1 }}>
+            <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{[e.name, e.venue?.name].filter(Boolean).join(' · ')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: e.opening_balance === null ? colors.warningDark : colors.textPrimary }}>
+              {e.opening_balance === null ? t('cash.opening_unknown') : `${money(e.opening_balance)} ${egp}`}
+            </Text>
+            <Pill text={custom ? t('cash.opening_custom') : t('cash.opening_auto')} tint={custom ? colors.accent : colors.textTertiary} />
+            <Icon name={e.closed ? 'lock' : 'note'} size={15} color={e.closed ? colors.textTertiary : colors.brand} />
+          </TouchableOpacity>
+        );
+      })}
+      <Sheet open={target !== null} onClose={() => setTarget(null)} title={target ? `${t('cash.opening_sheet_title')} — ${target.name}` : ''}>
+        {target ? <OpeningSheetBody d={{ ...target, week_start: v.week.start, week_end: v.week.end }} onDone={() => { setTarget(null); onChanged(); }} /> : null}
+      </Sheet>
+    </View>
+    </Surface>
   );
 }
 
@@ -1363,6 +1420,7 @@ function WeekSegment({ data, onChanged, onOpenHandover, freshStamp }: { data: Ca
         ))}
       </View>
       </Surface>
+      <OpeningBoard v={v} onChanged={onChanged} />
       {/* Where the week's money sits — the base of every drawer's equation, from the collection ledger. */}
       {v.collected_breakdown ? (
         <Surface id="teacher.cash_reconcile.collected_split_note">
