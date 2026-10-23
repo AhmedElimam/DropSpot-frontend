@@ -72,6 +72,7 @@ function useAutoStart() {
   const impersonating = useAuthStore((s) => !!s.impersonation?.active);
   const homeReady = useTourStore((s) => !!s.targets['home:stats']);
   const running = useTourStore((s) => s.tour !== null);
+  const introHeld = useTourStore((s) => s.introHeld);
   const start = useTourStore((s) => s.start);
   const pathname = usePathname() ?? '';
   const { data: survey } = usePendingSurvey();
@@ -81,7 +82,8 @@ function useAutoStart() {
   const { data: status } = useQuery({ queryKey: ['tour-status', user?.id], queryFn: getTourStatus, enabled: eligible, staleTime: 5 * 60_000 });
   const onboardingDue = role === 'teacher' && !!onboarding && onboarding.active && !onboarding.steps.intro && !onboarding.has_courses;
   const blocked = BLOCKING_PREFIXES.some((p) => pathname.startsWith(p));
-  const quiet = !survey && !onboardingDue && !showPopup && !blocked;
+  // A parent or student meets الناظر first (his «شخصية جديدة» popup), then he gives the tour.
+  const quiet = !survey && !onboardingDue && !showPopup && !blocked && !introHeld;
   const tried = useRef<string | null>(null);
 
   useEffect(() => {
@@ -90,15 +92,21 @@ function useAutoStart() {
     const stamp = `${role}:${user!.id}`;
     if (tried.current === stamp) return;
     tried.current = stamp;
-    let cancelled = false;
+    let cancelled = false, settled = false;
     // The phone remembers a finish the server never heard (offline at the time): no second run.
     tourSeen(role!, user!.id).then((seen) => {
       if (cancelled) return;
-      if (seen) { void completeTour().catch(() => {}); return; }
+      if (seen) { settled = true; void completeTour().catch(() => {}); return; }
       // A breath after the home screen settles, so the dim does not land on a loading spinner.
-      setTimeout(() => { if (!cancelled && !useTourStore.getState().tour) start(def, { mandatory: true }); }, 900);
+      setTimeout(() => {
+        const s = useTourStore.getState();
+        if (cancelled || s.tour || s.introHeld) return;
+        settled = true;
+        start(def, { mandatory: true });
+      }, 900);
     });
-    return () => { cancelled = true; };
+    // Interrupted before it started (a popup came up first): try again once it is quiet.
+    return () => { cancelled = true; if (!settled) tried.current = null; };
   }, [eligible, running, homeReady, quiet, status, role, user, start]);
 }
 

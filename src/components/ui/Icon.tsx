@@ -69,6 +69,8 @@ const ICON_MAP = {
   eyeOff: 'eye-off',
   mail: 'mail',
   lock: 'lock-closed',
+  /** الناظر's padlock as it breaks open (NazerUnlockStage). */
+  unlock: 'lock-open',
   /** A 15-day billing exemption (founder 2026-10-04). */
   shield: 'shield-checkmark',
   phone: 'phone-portrait',

@@ -195,3 +195,18 @@ describe('the page a step belongs on', () => {
     expect(routeFor(s, 0)).toBeUndefined();
   });
 });
+
+describe('الناظر before the first tour', () => {
+  it('holds the first tour while his popup is to come, and lets it go after', () => {
+    const { setIntroHeld } = useTourStore.getState();
+    setIntroHeld(true);
+    expect(useTourStore.getState().introHeld).toBe(true);
+    setIntroHeld(false);
+    expect(useTourStore.getState().introHeld).toBe(false);
+  });
+
+  it('has the popup button that hands over to the tour', () => {
+    expect(has('nazer_unlock.start_tour')).toBe(true);
+    expect(has('nazer_unlock.tap_to_open')).toBe(true);
+  });
+});

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { AppState, View, Text, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,8 +12,9 @@ import { fonts } from '@/theme/typography';
 import { spacing, radius, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { NazerFace } from './NazerFace';
+import { useUnlockSound } from './unlockSound';
 
-export type UnlockPhase = 'lock' | 'reveal' | 'done';
+export type UnlockPhase = 'lock' | 'crack' | 'reveal' | 'done';
 
 const FACE = 132;
 const RAYS = 360;
@@ -37,11 +38,15 @@ const RAY_PATHS = Array.from({ length: 16 }, (_, i) => {
 /**
  * الناظر's unlock, played like a game (founder 2026-10-22: «make hype of the unlocking, like
  * video games when you unlock a character»): his silhouette rumbles under a gold padlock while
- * rays gather («شخصية جديدة…»), the padlock breaks off, a flash — he bursts in with a shockwave,
- * sparks and confetti, and «شخصية جديدة انفتحت!» slams in. Then his name rises and the popup's
- * card unfolds (`onPhase('done')`). A tap skips to him; reduced motion starts at the end.
- * Every motion is a one-shot burst on the UI thread — nothing loops, and all of it is cancelled
- * when the popup closes.
+ * rays gather («شخصية جديدة…») — and then he WAITS, locked, until it is opened, like his frame
+ * on the website (founder 2026-10-23: «it stays on until unlocking»). A tap on him or on
+ * «اضغط لفتح الشخصية» breaks the padlock in full view: it jumps, springs open, a gold ring bursts
+ * off it, it falls away — a flash, he bursts in with a shockwave, sparks and confetti, and
+ * «شخصية جديدة انفتحت!» slams in, all to his unlock sound (unlockSound.ts, the website's file).
+ * Then his name rises and the popup's card unfolds (`onPhase('done')`). Reduced motion starts at
+ * the end. Every motion is a one-shot burst on the UI thread; while he waits, the padlock gives a
+ * short shake every few seconds and nothing moves in between. All of it is cancelled when the
+ * popup closes.
  */
 export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p: UnlockPhase) => void }) {
   const { t } = useTranslation();
@@ -61,7 +66,11 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
   const spin = useSharedValue(0);
   const slam = useSharedValue(still ? 1 : 0);
   const name = useSharedValue(still ? 1 : 0);
-  const values = [shake, lockDrop, shadow, face, flash, wave, burst, fall, rays, spin, slam, name];
+  const lockPop = useSharedValue(0);
+  const lockWiggle = useSharedValue(0);
+  const lockRing = useSharedValue(0);
+  const values = [shake, lockDrop, shadow, face, flash, wave, burst, fall, rays, spin, slam, name, lockPop, lockWiggle, lockRing];
+  const sound = useUnlockSound(play && !still);
 
   const go = (p: UnlockPhase) => { setPhase(p); onPhase(p); };
   const clear = () => { timers.current.forEach(clearTimeout); timers.current = []; };
@@ -70,7 +79,7 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
     clear();
     values.forEach((v) => cancelAnimation(v));
     shake.value = withTiming(0, { duration: 80 });
-    lockDrop.value = withTiming(1, { duration: 420, easing: Easing.in(Easing.quad) });
+    if (lockDrop.value < 1) lockDrop.value = withTiming(1, { duration: 200, easing: Easing.in(Easing.quad) });
     flash.value = withSequence(withTiming(0.95, { duration: 110 }), withTiming(0, { duration: 520 }));
     shadow.value = withTiming(0, { duration: 260 });
     face.value = withSequence(withTiming(0.62, { duration: 1 }), withSpring(1, { damping: 7, stiffness: 160, mass: 0.7 }));
@@ -88,6 +97,38 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
     }, 1250));
   };
 
+  // The padlock breaks in full view, then he bursts in on the sound's chime (CHIME_AT).
+  const crack = () => {
+    if (phase !== 'lock') return;
+    clear();
+    sound(0);
+    cancelAnimation(lockWiggle);
+    lockWiggle.value = withTiming(0, { duration: 60 });
+    shake.value = withSequence(withTiming(-3, { duration: 50 }), withTiming(3, { duration: 60 }), withTiming(0, { duration: 60 }));
+    lockPop.value = withSequence(withTiming(1, { duration: 170, easing: Easing.out(Easing.back(2)) }), withDelay(200, withTiming(1, { duration: 1 })));
+    lockRing.value = withSequence(withTiming(0, { duration: 1 }), withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    lockDrop.value = withDelay(380, withTiming(1, { duration: 420, easing: Easing.in(Easing.quad) }));
+    rays.value = withTiming(0.8, { duration: 600 });
+    go('crack');
+    timers.current.push(setTimeout(reveal, 820));
+  };
+
+  // While he waits: a short shake of the padlock every few seconds, never while the app is away.
+  useEffect(() => {
+    if (!play || still || phase !== 'lock') return;
+    let alive = true;
+    const nudge = () => {
+      if (!alive) return;
+      if (AppState.currentState === 'active') {
+        lockWiggle.value = withSequence(...[10, -9, 7, -5, 3, 0].map((a) => withTiming(a, { duration: 70 })));
+      }
+      wait = setTimeout(nudge, 3200);
+    };
+    let wait = setTimeout(nudge, 1900);
+    return () => { alive = false; clearTimeout(wait); cancelAnimation(lockWiggle); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [play, still, phase]);
+
   useEffect(() => {
     if (!play) {
       clear();
@@ -101,7 +142,6 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
     shake.value = withSequence(withTiming(0, { duration: 120 }), ...swings);
     rays.value = withTiming(0.45, { duration: 700 });
     face.value = withTiming(1.06, { duration: 1150, easing: Easing.in(Easing.quad) });
-    timers.current.push(setTimeout(reveal, 1250));
     return clear;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [play, still]);
@@ -110,8 +150,12 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
   const shadowStyle = useAnimatedStyle(() => ({ opacity: shadow.value, transform: [{ scale: 1 + (1 - shadow.value) * 0.25 }] }));
   const lockStyle = useAnimatedStyle(() => ({
     opacity: 1 - lockDrop.value,
-    transform: [{ translateY: lockDrop.value * 70 }, { rotate: `${lockDrop.value * 38}deg` }, { scale: 1 - lockDrop.value * 0.2 }],
+    transform: [
+      { translateY: lockDrop.value * 80 - lockPop.value * 12 }, { rotate: `${lockDrop.value * 40 + lockWiggle.value - lockPop.value * 8}deg` },
+      { scale: 1 + lockPop.value * 0.28 - lockDrop.value * 0.5 },
+    ],
   }));
+  const lockRingStyle = useAnimatedStyle(() => ({ opacity: lockRing.value === 0 ? 0 : 0.9 * (1 - lockRing.value), transform: [{ scale: 1 + lockRing.value * 1.1 }] }));
   const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
   const waveStyle = useAnimatedStyle(() => ({ opacity: wave.value === 0 ? 0 : 1 - wave.value, transform: [{ scale: 0.9 + wave.value * 1.4 }] }));
   const raysStyle = useAnimatedStyle(() => ({ opacity: rays.value, transform: [{ scale: 0.6 + rays.value * 0.45 }, { rotate: `${spin.value * 100}deg` }] }));
@@ -119,13 +163,14 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
   const nameStyle = useAnimatedStyle(() => ({ opacity: name.value, transform: [{ translateY: (1 - name.value) * 10 }] }));
 
   const locked = phase === 'lock';
+  const closed = phase === 'lock' || phase === 'crack';
   return (
     <LinearGradient colors={[...gradients.auth]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ alignItems: 'center', paddingTop: 32 + spacing.md, paddingBottom: spacing.lg, overflow: 'hidden' }}>
       <Image source={CREST} tintColor={CREST_TINT} contentFit="contain" accessible={false}
         style={{ position: 'absolute', width: 300, height: 300, top: 6, alignSelf: 'center' }} />
 
       {/* «شخصية جديدة…» while locked; «انفتحت!» slams in at the reveal. */}
-      {locked ? (
+      {closed ? (
         <View style={{ borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 4, borderWidth: 1.5, borderColor: 'rgba(201,162,39,0.7)', backgroundColor: 'rgba(255,255,255,0.06)' }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: GOLD }}>{t('nazer_unlock.badge_wait')}</Text>
         </View>
@@ -136,7 +181,7 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
         </Animated.View>
       )}
 
-      <Pressable onPress={locked ? reveal : undefined} accessibilityRole={locked ? 'button' : undefined} accessibilityLabel={locked ? t('nazer_unlock.skip') : undefined}
+      <Pressable onPress={locked ? crack : undefined} accessibilityRole={locked ? 'button' : undefined} accessibilityLabel={locked ? t('nazer_unlock.tap_to_open') : undefined}
         style={{ marginTop: spacing.md, width: FACE, height: FACE, alignItems: 'center', justifyContent: 'center' }}>
         <Animated.View pointerEvents="none" style={[styles.center, { width: RAYS, height: RAYS, marginLeft: -RAYS / 2, marginTop: -RAYS / 2 }, raysStyle]}>
           <Svg width={RAYS} height={RAYS}>
@@ -157,20 +202,30 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
           </Animated.View>
         </Animated.View>
         {SPARKS.map((s, i) => <Spark key={i} spark={s} burst={burst} />)}
-        {phase !== 'done' ? (
-          <Animated.View pointerEvents="none" style={[{ position: 'absolute', bottom: -18, width: 44, height: 44, borderRadius: 22, backgroundColor: '#C9A227', borderWidth: 3, borderColor: '#1A2147', alignItems: 'center', justifyContent: 'center' }, lockStyle]}>
-            <Icon name="lock" size={20} color="#1A2147" />
+        {closed || phase === 'reveal' ? (
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute', bottom: -18, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', zIndex: 2 }, lockStyle]}>
+            <Animated.View style={[{ position: 'absolute', width: 50, height: 50, borderRadius: 25, borderWidth: 3, borderColor: '#FFE08A' }, lockRingStyle]} />
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#C9A227', borderWidth: 3, borderColor: '#1A2147', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name={locked ? 'lock' : 'unlock'} size={20} color="#1A2147" />
+            </View>
           </Animated.View>
         ) : null}
       </Pressable>
 
-      <Animated.View style={[{ alignItems: 'center', marginTop: spacing.sm }, nameStyle]}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: '#FFFFFF' }}>{t('nazer.name')}</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)' }}>{t('nazer.role')}</Text>
-      </Animated.View>
-      {locked ? (
-        <Text style={{ position: 'absolute', bottom: spacing.sm, fontFamily: fonts.medium, fontSize: 11.5, color: 'rgba(255,255,255,0.55)' }}>{t('nazer_unlock.skip')}</Text>
-      ) : null}
+      {/* While locked, the call to open him (the website frame's «اضغط لفتح الشخصية»); his name rises in its place. */}
+      <View style={{ marginTop: spacing.lg, minHeight: 50, alignItems: 'center', justifyContent: 'center' }}>
+        {closed ? (
+          <Pressable onPress={locked ? crack : undefined} accessibilityRole="button" hitSlop={8}
+            style={({ pressed }) => ({ backgroundColor: '#C9A227', borderRadius: radius.full, paddingHorizontal: spacing.xl, paddingVertical: 10, opacity: phase === 'crack' ? 0.6 : pressed ? 0.85 : 1 })}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#1A2147' }}>{t('nazer_unlock.tap_to_open')}</Text>
+          </Pressable>
+        ) : (
+          <Animated.View style={[{ alignItems: 'center' }, nameStyle]}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: '#FFFFFF' }}>{t('nazer.name')}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)' }}>{t('nazer.role')}</Text>
+          </Animated.View>
+        )}
+      </View>
 
       {CONFETTI.map((c, i) => <Confetto key={i} piece={c} fall={fall} />)}
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#FFF6D6' }, flashStyle]} />

@@ -42,6 +42,9 @@ interface TourState {
   step: number;
   /** The first tour, the server's call: it cannot be skipped. A replay can. */
   mandatory: boolean;
+  /** الناظر's «شخصية جديدة» popup is still to come: a first tour waits for it (NazerUnlockModal). */
+  introHeld: boolean;
+  setIntroHeld: (held: boolean) => void;
   /** The scroll view of the screen in focus (a home screen), with the token of who set it. */
   scroller: { owner: object; api: TourScroller } | null;
   setScroller: (owner: object, api: TourScroller) => void;
@@ -70,6 +73,8 @@ export const useTourStore = create<TourState>((set, get) => ({
   tour: null,
   step: 0,
   mandatory: false,
+  introHeld: false,
+  setIntroHeld: (introHeld) => { if (get().introHeld !== introHeld) set({ introHeld }); },
   scroller: null,
   setScroller: (owner, api) => set({ scroller: { owner, api } }),
   // Only the screen that set it may clear it: a blur that lands after the next focus must
