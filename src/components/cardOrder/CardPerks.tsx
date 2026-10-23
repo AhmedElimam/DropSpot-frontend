@@ -5,6 +5,7 @@ import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { NazerFramed } from '@/components/nazer/NazerFramed';
+import { formatNumber } from '@/utils/format';
 
 /**
  * What the Dros Spot card is for (founder 2026-10-24: «what the card does… not bound to one
@@ -33,6 +34,52 @@ export function CardPerks({ compact = false }: { compact?: boolean }) {
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, lineHeight: 22, color: colors.textPrimary }}>{t(`card_order.perk_${p.key}_title`)}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, color: colors.textSecondary }}>{t(`card_order.perk_${p.key}_body`)}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** «ليه محتاج كارت؟» on the card page: the record, the door, the backup. */
+const WHY: { key: string; icon: IconName }[] = [
+  { key: 'record', icon: 'success' },
+  { key: 'fast', icon: 'scan' },
+  { key: 'backup', icon: 'lock' },
+];
+export function CardWhy() {
+  const { t } = useTranslation();
+  return (
+    <View style={{ gap: spacing.md }}>
+      {WHY.map((w) => (
+        <View key={w.key} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
+          <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name={w.icon} size={18} color={colors.brand} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, lineHeight: 22, color: colors.textPrimary }}>{t(`card_info.why_${w.key}_title`)}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, color: colors.textSecondary }}>{t(`card_info.why_${w.key}_body`)}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** «إزاي يوصلك؟»: order in the app, reviewed and printed, delivered to the address. */
+const STEPS = ['order', 'review', 'deliver'] as const;
+export function CardSteps() {
+  const { t } = useTranslation();
+  return (
+    <View style={{ gap: spacing.md }}>
+      {STEPS.map((s, i) => (
+        <View key={s} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
+          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.onPrimary, includeFontPadding: false }}>{formatNumber(i + 1)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, lineHeight: 22, color: colors.textPrimary }}>{t(`card_info.how_${s}_title`)}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, color: colors.textSecondary }}>{t(`card_info.how_${s}_body`)}</Text>
           </View>
         </View>
       ))}

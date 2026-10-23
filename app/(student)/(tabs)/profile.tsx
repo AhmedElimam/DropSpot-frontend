@@ -19,6 +19,8 @@ import { DeleteAccountButton } from '@/components/DeleteAccountButton';
 import { SupportContact } from '@/components/SupportContact';
 import { ThemeRow } from '@/components/ThemeRow';
 import { TourRow } from '@/tour/TourRow';
+import { useTourScroll } from '@/tour/useTourScroll';
+import { CardInfoRow } from '@/components/cardOrder/CardInfoRow';
 import { useQuery } from '@tanstack/react-query';
 import { getMyCardStatus } from '@/api/profile';
 import { PageHero } from '@/components/ui/PageHero';
@@ -59,10 +61,13 @@ export default function StudentProfile() {
     ? Math.round(((coverage.present + coverage.late) / coverage.total) * 100)
     : 0;
 
+  // The tour's last step aims at «كارت دروس سبوت» below the card block; it scrolls to reach it.
+  const tourScroll = useTourScroll();
   return (
     <Surface id="screen.student.profile" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
+        {...tourScroll}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
@@ -168,6 +173,8 @@ export default function StudentProfile() {
             </View>
           </View>
           </Surface>
+
+          <Surface id="student.profile.card_info"><CardInfoRow /></Surface>
 
           <Surface id="student.profile.account">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
