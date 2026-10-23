@@ -17,14 +17,29 @@ import { notifyManager } from '@tanstack/react-query';
  *     result re-renders a sliding page (`installTransitionScheduler`);
  *   - `useOnScreen` answers false, so ambient motion, clocks and polls wait for the end.
  * A transition that never reports its end (a deep link, a replace) expires on its own.
+ *
+ * A swipe back is different (founder 2026-10-23: «it stalls when my finger touches something
+ * clickable during the swipe»): it lasts as long as the finger is held, and a slow, resting
+ * swipe outlived the cap — everything held then landed at once under the finger. A swipe
+ * takes the finger's touch from React Native as it begins (react-native-screens cancels JS
+ * touches, so a button under the finger never fires), so a transition that starts within
+ * moments of a cancelled touch is the finger's: it holds until the swipe finishes or is let
+ * go (`transitionEnd` / `gestureCancel`), with only a far cap. The root view reports its
+ * cancelled touches (`noteTouchCancel`).
  */
 
 /** No native transition is longer; after this the flag clears on its own. */
 export const TRANSITION_MAX_MS = 900;
+/** A swipe follows the finger: its cap is only for a swipe whose end never comes. */
+export const SWIPE_MAX_MS = 8000;
+/** A touch cancelled this close to a transition's start was taken by that transition's swipe. */
+export const SWIPE_LINK_MS = 350;
 
 let active = false;
 let until = 0;
 let expiry: ReturnType<typeof setTimeout> | null = null;
+let startedAt = -Infinity;
+let cancelledAt = -Infinity;
 const listeners = new Set<() => void>();
 const now = () => Date.now();
 
@@ -37,14 +52,26 @@ function notify(): void {
   listeners.forEach((l) => l());
 }
 
+function hold(ms: number): void {
+  until = now() + ms;
+  if (expiry) clearTimeout(expiry);
+  expiry = setTimeout(settle, ms);
+}
+
 /** A transition has started (or is still running): hold until it ends, or until the cap. */
 export function markTransition(): void {
   const was = inTransition();
   active = true;
-  until = now() + TRANSITION_MAX_MS;
-  if (expiry) clearTimeout(expiry);
-  expiry = setTimeout(settle, TRANSITION_MAX_MS);
+  startedAt = now();
+  hold(now() - cancelledAt <= SWIPE_LINK_MS ? SWIPE_MAX_MS : TRANSITION_MAX_MS);
   if (!was) notify();
+}
+
+/** The root view's `onTouchCancel`: a touch was taken away — by a swipe back, if one starts now. */
+export function noteTouchCancel(): void {
+  cancelledAt = now();
+  // The swipe's start may have been reported first.
+  if (inTransition() && cancelledAt - startedAt <= SWIPE_LINK_MS) hold(SWIPE_MAX_MS);
 }
 
 /** The transition ended, was cancelled, or hit the cap: release everything that waited. */
@@ -99,6 +126,8 @@ export function installTransitionScheduler(): void {
 export function _resetTransitions(): void {
   active = false;
   until = 0;
+  startedAt = -Infinity;
+  cancelledAt = -Infinity;
   if (expiry) { clearTimeout(expiry); expiry = null; }
   held.splice(0);
   listeners.clear();

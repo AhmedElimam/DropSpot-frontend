@@ -9,7 +9,7 @@ import { colors, spacing, radius, shadows } from '@/theme/index';
 import { useRose } from '@/hooks/useRose';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { RosePortrait } from '@/components/rose/RoseStamp';
-import { NazerFace } from '@/components/nazer/NazerFace';
+import { NazerFramed } from '@/components/nazer/NazerFramed';
 
 /**
  * The app's own popup in place of the system alert (founder 2026-10-10: «I don't like the
@@ -192,7 +192,7 @@ export function DialogHost({ nested = false }: { nested?: boolean }) {
             {asRose ? (
               <RosePortrait size={HEAD} />
             ) : asNazer ? (
-              <NazerFace size={HEAD} blink={false} />
+              <NazerFramed size={HEAD} blink={false} />
             ) : (
               <View style={{ width: HEAD, height: HEAD, borderRadius: HEAD / 2, backgroundColor: colors.surface, borderWidth: 4, borderColor: colors.background, alignItems: 'center', justifyContent: 'center', ...shadows.sm }}>
                 <BrandMark size={32} />

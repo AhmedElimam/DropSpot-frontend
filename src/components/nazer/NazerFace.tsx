@@ -2,7 +2,7 @@ import { memo, useEffect, useState } from 'react';
 import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { useAmbientMotion } from '@/hooks/useAmbientMotion';
-import { NAZER_FRAME, NAZER_LAYERS, NAZER_MOODS, NAZER_PIVOTS, NAZER_PORTRAIT_160, type NazerLayer, type NazerMood, type NazerMove } from '@/nazer/manifest';
+import { NAZER_FRAME, NAZER_LAYERS, NAZER_MOODS, NAZER_PIVOTS, NAZER_PORTRAIT_160, NAZER_RIG_SCALE, type NazerLayer, type NazerMood, type NazerMove } from '@/nazer/manifest';
 
 /**
  * الناظر صلاح الدين's face: the painted base with the mood's parts laid over it, each part
@@ -35,9 +35,12 @@ export const NazerFace = memo(function NazerFace({ mood = 'neutral', size = 72, 
   );
 });
 
-function Part({ name, move, k }: { name: NazerLayer; move: NazerMove; k: number }) {
+function Part({ name, move, k: frameK }: { name: NazerLayer; move: NazerMove; k: number }) {
   const l = NAZER_LAYERS[name];
   const pivot = NAZER_PIVOTS[name] ?? [l.x + l.w / 2, l.y + l.h / 2];
+  // The base is his figure grown ×NAZER_RIG_SCALE about the centre: every part grows with it.
+  const k = frameK * NAZER_RIG_SCALE;
+  const shift = (NAZER_FRAME / 2) * frameK * (1 - NAZER_RIG_SCALE);
   // Turn and grow about the pivot: step to it, transform, step back (RN applies the list right to left).
   // The manifest's `rot` is counter-clockwise, as the rig's preview tool draws it; RN turns clockwise.
   const ox = (pivot[0] - (l.x + l.w / 2)) * k;
@@ -53,7 +56,7 @@ function Part({ name, move, k }: { name: NazerLayer; move: NazerMove; k: number 
   return (
     <Image
       source={l.source}
-      style={{ position: 'absolute', left: l.x * k, top: l.y * k, width: l.w * k, height: l.h * k, transform }}
+      style={{ position: 'absolute', left: shift + l.x * k, top: shift + l.y * k, width: l.w * k, height: l.h * k, transform }}
       contentFit="fill"
     />
   );

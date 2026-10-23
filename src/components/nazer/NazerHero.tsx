@@ -8,8 +8,7 @@ import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Surface } from '@/ui/surfaces';
 import { TypedGreeting } from '@/components/rose/RoseHero';
-import { NazerFace } from './NazerFace';
-import { NazerStamp } from './NazerStamp';
+import { NazerFramed } from './NazerFramed';
 import type { NazerSay } from '@/nazer/mood';
 
 const ON = '#FFFFFF';
@@ -19,9 +18,10 @@ const PORTRAIT = 148;
 
 /**
  * «مكتب الناظر» — the band at the top of his office, built the way مدام روز's desk is
- * (RoseHero): the navy gradient, a square back button, his face large with his name and
- * title under it, and a speech bubble pointing up at him that types what he says today. His
- * stamp sits by the bubble when the matter is formal; facts as chips under the line.
+ * (RoseHero): the navy gradient, a square back button, his portrait large in her frame (her
+ * ring and crown — NazerFramed, founder 2026-10-23) with his name and title under it, and a
+ * speech bubble pointing up at him that types what he says today; facts as chips under the
+ * line. No stamp on his picture (founder 2026-10-23): his stamps are on his notes and reports.
  */
 export function NazerHero({ say, lines, onBack, children }: { say: NazerSay; lines?: string[]; onBack: () => void; children?: ReactNode }) {
   const { t } = useTranslation();
@@ -39,10 +39,7 @@ export function NazerHero({ say, lines, onBack, children }: { say: NazerSay; lin
 
       <Surface id="family.nazer.hero.portrait">
       <View style={{ alignItems: 'center', marginTop: -spacing.lg }}>
-        <View>
-          <NazerFace mood={say.mood} size={PORTRAIT} />
-          {say.stamp ? <NazerStamp kind={say.stamp} size={64} style={{ position: 'absolute', bottom: -6, end: -22 }} /> : null}
-        </View>
+        <NazerFramed mood={say.mood} size={PORTRAIT} />
         <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: ON, marginTop: spacing.xs }}>{t('nazer.name')}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: ON_SOFT }}>{t('nazer.role')}</Text>
       </View>

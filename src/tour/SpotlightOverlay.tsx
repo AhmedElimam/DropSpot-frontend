@@ -21,7 +21,7 @@ import { useTourStore, nextShowable, routeFor } from './store';
 import { tourSeen, markTourSeen } from './seen';
 import { tourForRole } from './tours';
 import { useRosePictures } from '@/components/rose/RoseCostume';
-import { NazerFace } from '@/components/nazer/NazerFace';
+import { NazerFramed } from '@/components/nazer/NazerFramed';
 import { holeFor, placeCard, onScreen, toFrame, holePath, stackDim, scrollNeeded, HOLE_RADIUS, type Hole, type Frame } from './geometry';
 
 const ARect = Animated.createAnimatedComponent(Rect);
@@ -349,7 +349,7 @@ function Runner() {
             // A full-width row does the placing (centre / start = the right in RTL); the portrait nods inside it.
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: centred ? 'center' : 'flex-start', paddingHorizontal: spacing.lg }}>
               <Animated.View style={[{ width: centred ? ROSE_BIG : ROSE_SMALL, height: centred ? ROSE_BIG : ROSE_SMALL }, nodStyle]}>
-                {byNazer ? <NazerFace size={centred ? ROSE_BIG : ROSE_SMALL} blink={false} /> : <Image source={rosePortrait} style={{ width: '100%', height: '100%' }} contentFit="contain" accessibilityLabel={rose.name} />}
+                {byNazer ? <NazerFramed size={centred ? ROSE_BIG : ROSE_SMALL} blink={false} /> : <Image source={rosePortrait} style={{ width: '100%', height: '100%' }} contentFit="contain" accessibilityLabel={rose.name} />}
               </Animated.View>
             </View>
           ) : null}

@@ -11,12 +11,15 @@ import Animated, {
 import { fonts } from '@/theme/typography';
 import { spacing, radius, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
-import { NazerFace } from './NazerFace';
+import { NazerFramed } from './NazerFramed';
 import { useUnlockSound } from './unlockSound';
 
 export type UnlockPhase = 'lock' | 'crack' | 'reveal' | 'done';
 
-const FACE = 132;
+/** His picture in مدام روز's frame (NazerFramed's 400-unit box), and his medallion inside it. */
+const FRAME = 150;
+const FACE = FRAME * (352.8 / 400);
+const FACE_AT = { left: FRAME * (23.6 / 400), top: FRAME * (35.6 / 400), width: FACE, height: FACE } as const;
 const RAYS = 360;
 const LOCKED = require('../../../assets/images/nazer/locked.webp');
 /** His crest (the line-art stamp) as a watermark in the band's own navy, a shade lighter. */
@@ -43,6 +46,8 @@ const RAY_PATHS = Array.from({ length: 16 }, (_, i) => {
  * «اضغط لفتح الشخصية» breaks the padlock in full view: it jumps, springs open, a gold ring bursts
  * off it, it falls away — a flash, he bursts in with a shockwave, sparks and confetti, and
  * «شخصية جديدة انفتحت!» slams in, all to his unlock sound (unlockSound.ts, the website's file).
+ * He stands in مدام روز's frame (NazerFramed): its ring is iron while he is locked, turns gold
+ * as he bursts in, and the crown is set down on it — the website's unlock, in the app.
  * Then his name rises and the popup's card unfolds (`onPhase('done')`). Reduced motion starts at
  * the end. Every motion is a one-shot burst on the UI thread; while he waits, the padlock gives a
  * short shake every few seconds and nothing moves in between. All of it is cancelled when the
@@ -66,10 +71,13 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
   const spin = useSharedValue(0);
   const slam = useSharedValue(still ? 1 : 0);
   const name = useSharedValue(still ? 1 : 0);
+  // Her frame's own moment, as on the website: the iron ring turns gold, then the crown is set down.
+  const gold = useSharedValue(still ? 1 : 0);
+  const crown = useSharedValue(still ? 1 : 0);
   const lockPop = useSharedValue(0);
   const lockWiggle = useSharedValue(0);
   const lockRing = useSharedValue(0);
-  const values = [shake, lockDrop, shadow, face, flash, wave, burst, fall, rays, spin, slam, name, lockPop, lockWiggle, lockRing];
+  const values = [shake, lockDrop, shadow, face, flash, wave, burst, fall, rays, spin, slam, name, lockPop, lockWiggle, lockRing, gold, crown];
   const sound = useUnlockSound(play && !still);
 
   const go = (p: UnlockPhase) => { setPhase(p); onPhase(p); };
@@ -90,6 +98,8 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
     spin.value = withTiming(1, { duration: 6000, easing: Easing.out(Easing.quad) });
     slam.value = withSequence(withTiming(0, { duration: 1 }), withSpring(1, { damping: 8, stiffness: 220 }));
     name.value = withDelay(350, withTiming(1, { duration: 420 }));
+    gold.value = withTiming(1, { duration: 550, easing: Easing.out(Easing.quad) });
+    crown.value = withDelay(450, withSpring(1, { damping: 9, stiffness: 140, mass: 0.8 }));
     go('reveal');
     timers.current.push(setTimeout(() => {
       rays.value = withTiming(0.55, { duration: 1400 });
@@ -137,6 +147,8 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
     }
     if (still) { go('done'); return; }
     go('lock');
+    gold.value = 0;
+    crown.value = 0;
     // The rumble grows: each swing a little wider than the last, about a second in all.
     const swings = [1, -2, 3, -4, 5, -6, 7, -7, 8, -8].map((a, i) => withTiming(a, { duration: 70 + i * 6 }));
     shake.value = withSequence(withTiming(0, { duration: 120 }), ...swings);
@@ -159,6 +171,11 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
   const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
   const waveStyle = useAnimatedStyle(() => ({ opacity: wave.value === 0 ? 0 : 1 - wave.value, transform: [{ scale: 0.9 + wave.value * 1.4 }] }));
   const raysStyle = useAnimatedStyle(() => ({ opacity: rays.value, transform: [{ scale: 0.6 + rays.value * 0.45 }, { rotate: `${spin.value * 100}deg` }] }));
+  const goldStyle = useAnimatedStyle(() => ({ opacity: gold.value }));
+  const crownStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(crown.value, [0, 0.3], [0, 1], Extrapolation.CLAMP),
+    transform: [{ translateY: (1 - crown.value) * -0.14 * FRAME }, { scale: 0.6 + crown.value * 0.4 }],
+  }));
   const slamStyle = useAnimatedStyle(() => ({ opacity: interpolate(slam.value, [0, 0.4], [0, 1], Extrapolation.CLAMP), transform: [{ scale: interpolate(slam.value, [0, 1], [2.4, 1]) }] }));
   const nameStyle = useAnimatedStyle(() => ({ opacity: name.value, transform: [{ translateY: (1 - name.value) * 10 }] }));
 
@@ -182,7 +199,9 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
       )}
 
       <Pressable onPress={locked ? crack : undefined} accessibilityRole={locked ? 'button' : undefined} accessibilityLabel={locked ? t('nazer_unlock.tap_to_open') : undefined}
-        style={{ marginTop: spacing.md, width: FACE, height: FACE, alignItems: 'center', justifyContent: 'center' }}>
+        style={{ marginTop: spacing.sm, width: FRAME, height: FRAME, alignItems: 'center', justifyContent: 'center' }}>
+        {/* The rays, the shockwave and the sparks start from his medallion's centre, not the frame's. */}
+        <View pointerEvents="none" style={[{ position: 'absolute' }, FACE_AT]}>
         <Animated.View pointerEvents="none" style={[styles.center, { width: RAYS, height: RAYS, marginLeft: -RAYS / 2, marginTop: -RAYS / 2 }, raysStyle]}>
           <Svg width={RAYS} height={RAYS}>
             <Defs>
@@ -195,15 +214,20 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
           </Svg>
         </Animated.View>
         <Animated.View pointerEvents="none" style={[styles.center, { width: FACE, height: FACE, marginLeft: -FACE / 2, marginTop: -FACE / 2, borderRadius: FACE / 2, borderWidth: 4, borderColor: '#FFE08A' }, waveStyle]} />
+        </View>
         <Animated.View style={shakeStyle}>
-          <NazerFace mood="neutral" size={FACE} blink={phase === 'done'} />
-          <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, shadowStyle]}>
-            <Image source={LOCKED} style={{ width: FACE, height: FACE }} contentFit="contain" accessible={false} />
-          </Animated.View>
+          <NazerFramed size={FRAME} blink={phase === 'done'} goldStyle={goldStyle} crownStyle={crownStyle}
+            over={(
+              <Animated.View style={[StyleSheet.absoluteFill, shadowStyle]}>
+                <Image source={LOCKED} style={{ width: '100%', height: '100%' }} contentFit="contain" accessible={false} />
+              </Animated.View>
+            )} />
         </Animated.View>
-        {SPARKS.map((s, i) => <Spark key={i} spark={s} burst={burst} />)}
+        <View pointerEvents="none" style={[{ position: 'absolute' }, FACE_AT]}>
+          {SPARKS.map((s, i) => <Spark key={i} spark={s} burst={burst} />)}
+        </View>
         {closed || phase === 'reveal' ? (
-          <Animated.View pointerEvents="none" style={[{ position: 'absolute', bottom: -18, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', zIndex: 2 }, lockStyle]}>
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute', bottom: -14, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', zIndex: 2 }, lockStyle]}>
             <Animated.View style={[{ position: 'absolute', width: 50, height: 50, borderRadius: 25, borderWidth: 3, borderColor: '#FFE08A' }, lockRingStyle]} />
             <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#C9A227', borderWidth: 3, borderColor: '#1A2147', alignItems: 'center', justifyContent: 'center' }}>
               <Icon name={locked ? 'lock' : 'unlock'} size={20} color="#1A2147" />

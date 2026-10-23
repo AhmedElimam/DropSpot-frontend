@@ -7,7 +7,7 @@ import * as SystemUI from 'expo-system-ui';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
-import { installTransitionScheduler, transitionListeners } from '@/navigation/transitions';
+import { installTransitionScheduler, noteTouchCancel, transitionListeners } from '@/navigation/transitions';
 import { enableFreeze } from 'react-native-screens';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -276,7 +276,9 @@ export default function RootLayout() {
 
   return (
     // gesture-handler components (the notifications swipe) need this at the very root.
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+    // onTouchCancel: a swipe back takes the finger's touch as it begins — the transition hold
+    // keeps for as long as that swipe is held (src/navigation/transitions.ts).
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }} onTouchCancel={noteTouchCancel}>
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <SafeAreaProvider>
         {/* Status bar icons follow the scheme: dark on the day mist, light on the night navy.

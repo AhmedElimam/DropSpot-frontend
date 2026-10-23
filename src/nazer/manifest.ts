@@ -6,6 +6,15 @@
  */
 export const NAZER_FRAME = 1024;
 
+/**
+ * His figure on مدام روز's medallion (founder 2026-10-23, the website's look): the base is his
+ * figure lifted off his old painted lattice and ring, scaled ×NAZER_RIG_SCALE about the centre
+ * so his shoulders meet her ring, over her own blue. The parts were cut from the unscaled
+ * painting, so NazerFace grows their places and sizes by the same factor (the website's
+ * App\Support\Nazer::RIG_SCALE; the website serves the same base).
+ */
+export const NAZER_RIG_SCALE = 1.084746;
+
 export type NazerLayer =
   | 'base'
   | 'brow_l'
