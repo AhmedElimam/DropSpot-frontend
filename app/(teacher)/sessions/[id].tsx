@@ -358,7 +358,14 @@ export default function SessionDetailScreen() {
           <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
             <Icon name="forward" size={22} color={colors.onHero} />
           </TouchableOpacity>
-          <View style={{ flex: 1 }} />
+          {/* The session's state rides in the bar, so the card below is one row shorter. */}
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {s ? (phase === 'cancelled' ? <Chip label={t('session.cancelled')} bg={colors.danger} />
+              : phase === 'done' ? <Chip label={t('session.completed')} bg={colors.onHeroChip} />
+              : phase === 'live' ? <Chip label={t('teacher.live_now')} bg={colors.success} />
+              : <Chip label={t('session_ui.upcoming')} bg={colors.onHeroChip} />) : null}
+            {s?.is_exam ? <Chip label={t('teacher.type_quiz_exam')} bg={colors.accent} dark /> : null}
+          </View>
           {s ? (
             <Surface id="teacher.session_detail.header.settings_button">
             <TouchableOpacity onPress={() => setSettingsOpen(true)} accessibilityRole="button" accessibilityLabel={t('session_ui.settings')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
@@ -402,28 +409,22 @@ export default function SessionDetailScreen() {
               <Surface id="teacher.session_detail.header.card">
               {/* Top to bottom, from the bar's own colour: the bar and the card read as one band. */}
               <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
-                style={{ marginHorizontal: -spacing.lg, marginTop: -spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
+                style={{ marginHorizontal: -spacing.lg, marginTop: -spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xs }}>
                   <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      {phase === 'cancelled' ? <Chip label={t('session.cancelled')} bg={colors.danger} />
-                        : phase === 'done' ? <Chip label={t('session.completed')} bg={colors.onHeroChip} />
-                        : phase === 'live' ? <Chip label={t('teacher.live_now')} bg={colors.success} />
-                        : <Chip label={t('session_ui.upcoming')} bg={colors.onHeroChip} />}
-                      {s.is_exam ? <Chip label={t('teacher.type_quiz_exam')} bg={colors.accent} dark /> : null}
-                    </View>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero, marginTop: 6 }} numberOfLines={2}>{s.course_name ?? t('session.session_details')}</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.onHeroSoft, marginTop: 2 }}>
+                    {/* Compact (founder 2026-10-23: «the top section swallows a huge chunk of the screen»). */}
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 18, lineHeight: 27, color: colors.onHero }} numberOfLines={1}>{s.course_name ?? t('session.session_details')}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.onHeroSoft }} numberOfLines={1}>
                       {dayLabel(s.scheduled_at)}{s.time ? ` · ${s.time}` : ''}{s.location ? ` · ${s.location}` : ''}
                     </Text>
                   </View>
-                  {noDoor ? null : <Surface id="teacher.session_detail.header.ring" ctx={{ session: s }}><AttendanceRing present={counts.present} total={total} onHero size={84} /></Surface>}
+                  {noDoor ? null : <Surface id="teacher.session_detail.header.ring" ctx={{ session: s }}><AttendanceRing present={counts.present} total={total} onHero size={58} stroke={6} /></Surface>}
                 </View>
 
                 {noDoor ? (
                   // No attendance to count: the server's words say what this session is.
                   <Surface id="teacher.session_detail.header.private_label" ctx={{ session: s }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
                     <Icon name="grades" size={18} color={colors.onHero} />
                     <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, lineHeight: 19, color: colors.onHero }}>{s.attendance_label ?? t('course_ui.private_marks_only')}</Text>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHeroSoft }}>{`${formatNumber(markedCount)}/${formatNumber(total)}`}</Text>
@@ -431,17 +432,15 @@ export default function SessionDetailScreen() {
                   </Surface>
                 ) : (
                 <Surface id="teacher.session_detail.header.stats" ctx={{ session: s }}>
-                <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+                <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
                   {stats.map((x) => {
                     const on = filter === x.key;
                     return (
                       <TouchableOpacity key={x.key} onPress={() => setFilter(on ? null : x.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
-                        style={{ flex: 1, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: on ? colors.heroChipActive : colors.onHeroChip, borderWidth: 1, borderColor: on ? colors.heroChipActive : colors.onHeroChipBorder }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: x.color }} />
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 19, lineHeight: 25, color: on ? colors.onHeroChipActive : colors.onHero }}>{formatNumber(counts[x.key])}</Text>
-                        </View>
-                        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.onHeroChipActive : colors.onHeroSoft }}>{x.label}</Text>
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: radius.md, paddingVertical: 7, paddingHorizontal: spacing.sm, backgroundColor: on ? colors.heroChipActive : colors.onHeroChip, borderWidth: 1, borderColor: on ? colors.heroChipActive : colors.onHeroChipBorder }}>
+                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: x.color }} />
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 15, lineHeight: 20, color: on ? colors.onHeroChipActive : colors.onHero }}>{formatNumber(counts[x.key])}</Text>
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.onHeroChipActive : colors.onHeroSoft }} numberOfLines={1}>{x.label}</Text>
                       </TouchableOpacity>
                     );
                   })}
