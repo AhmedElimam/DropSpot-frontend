@@ -54,6 +54,7 @@ import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { SeasonSwitchChip } from '@/components/teacher/RevisionSwitch';
 import { RevisionDesk, SeasonCountdown, UsualDayHead, useNextExam } from '@/components/teacher/RevisionDesk';
 import { SeasonPaper } from '@/components/SeasonPaper';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 /** «وضع المراجعة»: the hero band's rounded foot (the day hero runs into the page instead). */
 const SEASON_HERO_RADIUS = 28;
@@ -307,11 +308,9 @@ export default function TeacherHome() {
                 <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: x.key === 'rose' && rose.named ? 'transparent' : x.tint, alignItems: 'center', justifyContent: 'center' }}>
                   {/* مدام روز waves when something is waiting on her desk (founder 2026-10-08). */}
                   {x.key === 'rose' && rose.named ? <RoseCalling size={64} calling={!!x.badge} /> : <Icon name={x.icon} size={26} color={x.color} />}
-                  {x.badge ? (
-                    <View style={{ position: 'absolute', top: -4, end: -4, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.background }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{x.badge}</Text>
-                    </View>
-                  ) : null}
+                  {/* Her framed portrait (64) is wider than the tile (58): her badge sits further out,
+                      clear of her ring and crown; the icon tiles keep the usual corner. */}
+                  <CountBadge count={x.badge} max={99} offset={x.key === 'rose' && rose.named ? 10 : 6} />
                 </View>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary, marginTop: 6, textAlign: 'center' }} numberOfLines={1}>{x.label}</Text>
               </TouchableOpacity>

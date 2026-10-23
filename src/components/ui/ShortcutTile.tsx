@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, type DimensionValue } from 'react-native'
 import { fonts } from '@/theme/typography';
 import { colors, radius, shadows, spacing } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { CountBadge } from './CountBadge';
 
 /**
  * The coloured, word-labelled shortcuts the teacher home uses, shared with the student and
@@ -15,11 +16,7 @@ export function ShortcutTile({ icon, label, color, tint, onPress, badge, width =
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={label} style={{ width, alignItems: 'center' }}>
       <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={icon} size={26} color={color} />
-        {badge ? (
-          <View style={{ position: 'absolute', top: -4, end: -4, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.background }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onPrimary }}>{badge > 99 ? '99+' : badge}</Text>
-          </View>
-        ) : null}
+        <CountBadge count={badge} max={99} />
       </View>
       <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary, marginTop: 6, textAlign: 'center' }} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
