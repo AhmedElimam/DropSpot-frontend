@@ -13,6 +13,7 @@ import { ensureApiBaseHydrated, getApiBaseOverride } from '@/api/apiBase';
 import { getCachedAccessToken, setCachedAccessToken } from '@/api/tokenCache';
 import { resolveAppId } from '@/utils/appIdentity';
 import { binaryVersion } from '@/utils/binaryVersion';
+import { otaIdentity } from '@/utils/otaIdentity';
 
 /**
  * Resolve the API base URL.
@@ -125,6 +126,10 @@ client.interceptors.request.use(async (config) => {
   const appId = resolveAppId();
   if (appId) config.headers['X-App-Id'] = appId;
   config.headers['X-App-Platform'] = Platform.OS;
+  // Which OTA it runs (the DevOps page's OTA tracker): the update id and the commit it came from.
+  const ota = otaIdentity();
+  config.headers['X-App-Update'] = ota.update;
+  config.headers['X-App-Bundle'] = ota.bundle;
   // The staging door (src/config/env.ts): a staging build carries the key on every request.
   if (STAGING_KEY) config.headers[STAGING_HEADER] = STAGING_KEY;
 

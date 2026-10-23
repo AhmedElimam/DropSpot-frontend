@@ -110,7 +110,7 @@ if [ "$CHECK" = 0 ] && [ "$SKIP_TESTS" = 0 ]; then
   npx tsc --noEmit -p . && npx jest --ci --silent >/dev/null || die "tests failed — nothing published"
 fi
 
-PUBLISHED=0; SKIPPED=0
+PUBLISHED=0; SKIPPED=0; DONE=()
 while read -r id platform art sha; do
   short="${sha:0:7}"
   dir="$TMP/$id"; mkdir -p "$dir"
@@ -142,13 +142,28 @@ while read -r id platform art sha; do
 
   say "▸ $label  runtime ${rt:0:8}  → publishing"
   env -u EXPO_PUBLIC_STAGING_KEY EXPO_PUBLIC_APP_ENV=production EXPO_PUBLIC_API_URL=https://drosspot.app/api/v1 \
+    EXPO_PUBLIC_BUNDLE_COMMIT="$HEAD_SHA" \
     OTA_RUNTIME_VERSION="$rt" npx eas-cli update --branch "$CHANNEL" --platform "$platform" \
     --message "$MSG ($platform b$build)" --non-interactive >"$TMP/eas.log" 2>&1 \
     || { tail -20 "$TMP/eas.log"; die "publish failed for $label"; }
   [ "$(served_at "$rt" "$platform")" -ge "$HEAD_TIME" ] || die "published, but EAS does not serve it to $label"
   say "  ✓ served"
   PUBLISHED=$((PUBLISHED + 1))
+  DONE+=("$platform b$build")
 done < "$LIST"
 
 [ "$CHECK" = 1 ] && exit 0
 say "Done: $PUBLISHED runtime(s) published, $SKIPPED skipped. Phones take it on the next full restart."
+
+# The record the DevOps page's OTA tracker reads (/admin/delivery): an annotated tag per publish,
+# `ota/<UTC time>` on the published commit, with the message and the builds it reached. A tag,
+# because the server's read-only GitHub token reads tags (Contents) but not Deployments.
+if [ "$PUBLISHED" -gt 0 ]; then
+  TAG="ota/$(date -u +%Y%m%d-%H%M%S)"
+  if printf '%s\n\nbuilds: %s\nskipped: %s\n' "$MSG" "${DONE[*]}" "$SKIPPED" | git tag -a "$TAG" -F - "$HEAD_SHA" \
+    && git push -q origin "refs/tags/$TAG"; then
+    say "Recorded as $TAG (the DevOps page's OTA tracker)."
+  else
+    say "⚠ could not record $TAG — the DevOps page will not list this publish"
+  fi
+fi
