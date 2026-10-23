@@ -30,6 +30,10 @@ export interface User {
    * or correct it. Cleared by confirming or editing — never blocks the account.
    */
   should_confirm_name?: boolean;
+  /** Student: nobody has proved the parent's number yet — the app asks for a code from the parent (soft). */
+  needs_parent_number_check?: boolean;
+  /** The masked parent number that code goes to («010•••••789»). */
+  parent_phone_hint?: string | null;
   /** First-cohort teacher — the app shows a «عضو مؤسس» (Founding Member) badge. */
   is_founding_teacher?: boolean;
   /** The single flagship «عضو مميز» tier (violet-gold badge, lifetime subscription-exempt). */

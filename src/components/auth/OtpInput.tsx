@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable } from 'react-native';
+import { View, Text, TextInput, Pressable, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { fonts } from '@/theme/typography';
 import { colors, radius, spacing } from '@/theme/index';
 
@@ -20,6 +20,12 @@ interface OtpInputProps {
  * the keyboard as it does for any ordinary field (founder 2026-10-10: neither worked).
  * Cells are laid out left-to-right explicitly: a code is a number, and the SMS shows it
  * that way, so the eye should match digit for digit even inside an RTL app.
+ *
+ * The cells FIT the width they are given (founder 2026-10-24: «on some devices it gets messy»):
+ * six fixed 46-pt cells and their gaps needed 316 pt, more than a 360-dp Android or a 375-pt
+ * iPhone has inside the auth card, so the outer cells spilled past it. Now the row measures
+ * itself and each cell takes its share (at most 52 pt), and the digit is sized to the cell with
+ * the system's text scaling off — a code digit that outgrows its box helps nobody.
  */
 export function OtpInput({ value, onChange, onComplete, length = 6, error, autoFocus = true }: OtpInputProps) {
   const ref = useRef<TextInput>(null);
@@ -37,9 +43,21 @@ export function OtpInput({ value, onChange, onComplete, length = 6, error, autoF
   const cells = Array.from({ length }, (_, i) => value[i] ?? '');
   const active = Math.min(value.length, length - 1);
 
+  // Until the row has measured itself, assume the auth card's width (screen − 72).
+  const win = useWindowDimensions();
+  const [width, setWidth] = useState(Math.max(240, win.width - 72));
+  const onLayout = (e: LayoutChangeEvent) => {
+    const w = Math.round(e.nativeEvent.layout.width);
+    if (w > 0 && Math.abs(w - width) > 1) setWidth(w);
+  };
+  const gap = width < 300 ? 6 : spacing.sm;
+  const cell = Math.max(34, Math.min(52, Math.floor((width - gap * (length - 1)) / length)));
+  const cellHeight = Math.round(cell * 1.2);
+  const digit = Math.round(cell * 0.56);
+
   return (
-    <Pressable onPress={() => ref.current?.focus()} accessibilityRole="none" accessibilityLabel="رمز التحقق">
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, direction: 'ltr' }}>
+    <Pressable onPress={() => ref.current?.focus()} accessibilityRole="none" accessibilityLabel="رمز التحقق" onLayout={onLayout} style={{ alignSelf: 'stretch' }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap, direction: 'ltr' }}>
         {cells.map((d, i) => {
           const isActive = focused && i === active && value.length < length;
           const tone = error ? colors.danger : isActive ? colors.brand : d ? colors.textPrimary : colors.borderStrong;
@@ -47,8 +65,8 @@ export function OtpInput({ value, onChange, onComplete, length = 6, error, autoF
             <View
               key={i}
               style={{
-                width: 46,
-                height: 56,
+                width: cell,
+                height: cellHeight,
                 borderRadius: radius.md,
                 borderWidth: isActive || error ? 2 : 1.5,
                 borderColor: tone,
@@ -57,8 +75,8 @@ export function OtpInput({ value, onChange, onComplete, length = 6, error, autoF
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: error ? colors.danger : colors.textPrimary }}>{d}</Text>
-              {isActive && !d ? <View style={{ position: 'absolute', width: 2, height: 24, backgroundColor: colors.brand, borderRadius: 1 }} /> : null}
+              <Text allowFontScaling={false} style={{ fontFamily: fonts.bold, fontSize: digit, lineHeight: Math.round(digit * 1.35), color: error ? colors.danger : colors.textPrimary, includeFontPadding: false, textAlignVertical: 'center' }}>{d}</Text>
+              {isActive && !d ? <View style={{ position: 'absolute', width: 2, height: Math.round(cellHeight * 0.42), backgroundColor: colors.brand, borderRadius: 1 }} /> : null}
             </View>
           );
         })}
@@ -83,7 +101,8 @@ export function OtpInput({ value, onChange, onComplete, length = 6, error, autoF
         selectionColor="transparent"
         accessibilityLabel="رمز التحقق"
         // Over the cells, same size, invisible text: taps focus it, a long-press pastes.
-        style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, color: 'transparent', backgroundColor: 'transparent', fontSize: 26, textAlign: 'center' }}
+        allowFontScaling={false}
+        style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, color: 'transparent', backgroundColor: 'transparent', fontSize: digit, textAlign: 'center' }}
       />
     </Pressable>
   );

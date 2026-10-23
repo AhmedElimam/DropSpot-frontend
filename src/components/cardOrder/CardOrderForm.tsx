@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { Image } from 'expo-image';
@@ -11,12 +11,18 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { getCardOrderTargets, createFamilyCardOrder, type CardOrderTarget } from '@/api/cardOrders';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuthStore } from '@/stores/authStore';
+import { CardPerks, CardIntroModal } from './CardPerks';
 
 /**
  * The family self-order screen body (student self / parent for a child). Routes here
  * from the homepage banner. Picks the student (pre-selected when there's one), captures
  * the delivery address + payment (cash-on-delivery, or pay-now to the teacher's number
  * with a proof screenshot), and files a SUBMITTED order for super-admin review.
+ *
+ * What the card is for opens the screen (founder 2026-10-24): الناظر's popup once per account
+ * on this phone (CardIntroModal), and the same perks at the top of the form, with a link back.
  */
 export function CardOrderForm({ preselectStudentId }: { preselectStudentId?: number }) {
   const { t } = useTranslation();
@@ -30,6 +36,17 @@ export function CardOrderForm({ preselectStudentId }: { preselectStudentId?: num
   const [payment, setPayment] = useState<'cash_on_delivery' | 'pay_now'>('cash_on_delivery');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const userId = useAuthStore((st) => st.user?.id);
+  const [intro, setIntro] = useState(false);
+  useEffect(() => {
+    if (!userId) return;
+    AsyncStorage.getItem(`card_intro_seen:${userId}`).then((v) => { if (v !== '1') setIntro(true); }).catch(() => {});
+  }, [userId]);
+  const closeIntro = () => {
+    setIntro(false);
+    if (userId) AsyncStorage.setItem(`card_intro_seen:${userId}`, '1').catch(() => {});
+  };
 
   const list = targets ?? [];
   const selected: CardOrderTarget | undefined = useMemo(
@@ -92,11 +109,15 @@ export function CardOrderForm({ preselectStudentId }: { preselectStudentId?: num
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background }}>
       <Header />
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + spacing.xxl }}>
-        {/* Perks */}
+        {/* What the card is for — the same list as الناظر's popup. */}
         <View style={cardStyle}>
-          <PerkRow icon="attendance" text={t('card_order.perk_scan')} />
-          <View style={{ height: spacing.sm }} />
-          <PerkRow icon="warning" text={t('card_order.perk_bridge')} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+            <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('card_order.perks_title')}</Text>
+            <TouchableOpacity onPress={() => setIntro(true)} hitSlop={8} accessibilityRole="button">
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('card_order.intro_link')}</Text>
+            </TouchableOpacity>
+          </View>
+          <CardPerks compact />
         </View>
 
         {/* Student picker — only when there's more than one and none pre-selected. */}
@@ -188,15 +209,7 @@ export function CardOrderForm({ preselectStudentId }: { preselectStudentId?: num
           </>
         ) : null}
       </ScrollView>
+      <CardIntroModal visible={intro} onOrder={closeIntro} onLater={() => { closeIntro(); if (router.canGoBack()) router.back(); }} />
     </KeyboardAvoidingView>
-  );
-}
-
-function PerkRow({ icon, text }: { icon: any; text: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-      <Icon name={icon} size={18} color={colors.brand} />
-      <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>{text}</Text>
-    </View>
   );
 }

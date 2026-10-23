@@ -51,6 +51,7 @@ import { installErrorReporting } from '@/lib/errorReport';
 import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { NazerUnlockModal } from '@/components/nazer/NazerUnlockModal';
+import { ParentNumberCheckModal } from '@/components/student/ParentNumberCheckModal';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
 import { RevisionCurtain } from '@/components/RevisionCurtain';
 import { RevisionWelcome } from '@/components/RevisionWelcome';
@@ -305,6 +306,8 @@ export default function RootLayout() {
             <WhatsNewModal />
             {/* الناظر introduces himself to a parent or student, once — after «ما الجديد». */}
             <NazerUnlockModal />
+            {/* After him and his tour: a student proves their parent's number (soft, «بعدين»). */}
+            <ParentNumberCheckModal />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}
             <SpotlightOverlay />
             {/* «بدون إنترنت» — a few seconds when the connection drops, then out of the way. */}

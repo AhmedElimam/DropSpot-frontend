@@ -50,6 +50,8 @@ export const PARENT_TOUR: TourDef = {
     card('tour.parent.welcome_title', 'tour.parent.welcome_body', 'tour.start'),
     spot('home:stats', 'tour.parent.stats_title', 'tour.parent.stats_body', P),
     spot('home:nazer', 'tour.parent.nazer_title', 'tour.parent.nazer_body'),
+    // What the card is for, in his words (founder 2026-10-24): one card, every teacher, every year.
+    card('tour.parent.card_title', 'tour.parent.card_body', 'tour.next'),
     spot('home:spotlight', 'tour.parent.verdict_title', 'tour.parent.verdict_body'),
     spot('header:bell', 'tour.parent.bell_title', 'tour.parent.bell_body'),
     spot('tab:teachers', 'tour.parent.teachers_title', 'tour.parent.teachers_body', '/(parent)/(tabs)/teachers' as Href),
@@ -70,6 +72,7 @@ export const STUDENT_TOUR: TourDef = {
     spot('home:spotlight', 'tour.student.spotlight_title', 'tour.student.spotlight_body'),
     spot('home:shortcuts', 'tour.student.shortcuts_title', 'tour.student.shortcuts_body'),
     spot('home:nazer', 'tour.student.nazer_title', 'tour.student.nazer_body'),
+    card('tour.student.card_title', 'tour.student.card_body', 'tour.next'),
     spot('header:bell', 'tour.student.bell_title', 'tour.student.bell_body'),
     spot('tab:check-in', 'tour.student.checkin_title', 'tour.student.checkin_body', '/(student)/(tabs)/check-in' as Href),
     spot('tab:chat', 'tour.student.chat_title', 'tour.student.chat_body', '/(student)/(tabs)/chat' as Href),
