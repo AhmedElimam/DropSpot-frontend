@@ -38,8 +38,8 @@ interface HeaderBrandBarProps {
 // dark: white on navy) and a module-level object would keep the values of first import.
 const iconButton = () => ({ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, justifyContent: 'center', alignItems: 'center' } as const);
 
-// On the button's corner, outside the glyph (CountBadge) — it used to sit inside, on the bell.
-const Badge = ({ count }: { count: number }) => <CountBadge count={count} offset={6} size={19} />;
+// Centred on the button's rounded corner (radius 14), off the glyph — it used to sit inside, on the bell.
+const Badge = ({ count }: { count: number }) => <CountBadge count={count} offset={5} size={19} />;
 
 /**
  * The shared top bar for every role's home hero: the brand logo on the visual

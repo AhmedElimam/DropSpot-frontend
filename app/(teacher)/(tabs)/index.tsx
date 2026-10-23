@@ -308,9 +308,9 @@ export default function TeacherHome() {
                 <View style={{ width: 58, height: 58, borderRadius: 20, backgroundColor: x.key === 'rose' && rose.named ? 'transparent' : x.tint, alignItems: 'center', justifyContent: 'center' }}>
                   {/* مدام روز waves when something is waiting on her desk (founder 2026-10-08). */}
                   {x.key === 'rose' && rose.named ? <RoseCalling size={64} calling={!!x.badge} /> : <Icon name={x.icon} size={26} color={x.color} />}
-                  {/* Her framed portrait (64) is wider than the tile (58): her badge sits further out,
-                      clear of her ring and crown; the icon tiles keep the usual corner. */}
-                  <CountBadge count={x.badge} max={99} offset={x.key === 'rose' && rose.named ? 10 : 6} />
+                  {/* On the icon tiles, centred on the rounded corner; on مدام روز, centred on her ring at
+                      the same corner (her 64-pt portrait overhangs the 58-pt tile by 3 on each side). */}
+                  <CountBadge count={x.badge} max={99} at={x.key === 'rose' && rose.named ? { top: 0, end: -2 } : undefined} />
                 </View>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary, marginTop: 6, textAlign: 'center' }} numberOfLines={1}>{x.label}</Text>
               </TouchableOpacity>

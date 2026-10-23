@@ -77,7 +77,7 @@ export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, s
               style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, minWidth: 40, paddingHorizontal: action.label ? spacing.md : 0, justifyContent: 'center', borderRadius: 12, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
               <Icon name={action.icon} size={20} color={colors.onHero} outline />
               {action.label ? <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{action.label}</Text> : null}
-              <CountBadge count={action.badge} offset={6} size={19} />
+              <CountBadge count={action.badge} offset={5} size={19} />
             </TouchableOpacity>
           ) : null}
         </View>
