@@ -86,6 +86,7 @@ print(int(datetime.datetime.fromisoformat(m["createdAt"].replace("Z", "+00:00"))
 }
 
 # ── Collect the builds ──────────────────────────────────────────────────────────────────
+CLEARED=()
 LIST="$TMP/builds"; : > "$LIST"
 add_runs() { # workflow platform artifact
   local wf="$1" platform="$2" art="$3" ids
@@ -141,9 +142,16 @@ while read -r id platform art sha; do
   if [ "$CHECK" = 1 ]; then say "• $label  runtime ${rt:0:8}  → $status"; continue; fi
 
   say "▸ $label  runtime ${rt:0:8}  → publishing"
+  # Metro caches each file's transform with the EXPO_PUBLIC_* values inlined, and the cache
+  # key does not include them: without a clear, a bundle kept the commit (and API URL, app
+  # env) of whichever export last compiled that file — every OTA since a98d246 reported
+  # a98d246 to the tracker (2026-10-24). The first publish per platform in a run starts from
+  # a clean cache; the rest reuse it, already built with this run's values.
+  clear=""
+  case " ${CLEARED[*]:-} " in *" $platform "*) ;; *) clear="--clear-cache"; CLEARED+=("$platform") ;; esac
   env -u EXPO_PUBLIC_STAGING_KEY EXPO_PUBLIC_APP_ENV=production EXPO_PUBLIC_API_URL=https://drosspot.app/api/v1 \
     EXPO_PUBLIC_BUNDLE_COMMIT="$HEAD_SHA" \
-    OTA_RUNTIME_VERSION="$rt" npx eas-cli update --branch "$CHANNEL" --platform "$platform" \
+    OTA_RUNTIME_VERSION="$rt" npx eas-cli update --branch "$CHANNEL" --platform "$platform" $clear \
     --message "$MSG ($platform b$build)" --non-interactive >"$TMP/eas.log" 2>&1 \
     || { tail -20 "$TMP/eas.log"; die "publish failed for $label"; }
   [ "$(served_at "$rt" "$platform")" -ge "$HEAD_TIME" ] || die "published, but EAS does not serve it to $label"
