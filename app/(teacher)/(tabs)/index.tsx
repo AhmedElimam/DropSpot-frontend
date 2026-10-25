@@ -260,13 +260,14 @@ export default function TeacherHome() {
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           <Slot id="teacher.home.top" style={{ marginBottom: spacing.lg }} />
-          {/* The platform subscription, first thing under the hero (founder 2026-10-25). */}
-          <Surface id="teacher.home.subscription"><SubscriptionStrip /></Surface>
           {/* The revision desk, first, while the season is on: today's revision sessions, then
               the tool kit. Then the usual day, exactly as it was. */}
           {season ? (
             <>
               <RevisionDesk now={now} revisions={desk.revisions} loading={desk.loading} canScan={canCash} />
+              {/* The subscription, right under the day's first card, only when something needs doing —
+                  a bill, a late one, the freeze (founder 2026-10-25). Paid, exempt, trial: nothing. */}
+              <Surface id="teacher.home.subscription"><SubscriptionStrip style={{ marginBottom: spacing.lg }} /></Surface>
               <UsualDayHead />
             </>
           ) : null}
@@ -296,6 +297,8 @@ export default function TeacherHome() {
           )}
           </TourTarget>
           </Surface>
+          {/* Out of season: the subscription right under the spotlight, fully on the page (above). */}
+          {!season ? <Surface id="teacher.home.subscription"><SubscriptionStrip style={{ marginTop: spacing.lg }} /></Surface> : null}
 
           <Surface id="teacher.home.pending_invitations"><PendingInvitations /></Surface>
 

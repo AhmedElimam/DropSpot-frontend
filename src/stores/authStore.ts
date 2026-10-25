@@ -64,6 +64,8 @@ interface AuthState {
   logout: () => Promise<void>;
   /** A 402 SUBSCRIPTION_BLOCKED answer: flag the session so the router shows the wall. */
   markSubscriptionBlocked: (state?: import('@/api/subscription').SubscriptionState | null) => Promise<void>;
+  /** A fresh subscription state from the server (SubscriptionSync): the session's copy follows it. */
+  setSubscription: (state: import('@/api/subscription').SubscriptionState) => Promise<void>;
   /** The soft lock answered by the API (402 ENROLLMENT_LOCKED): adding students is frozen. */
   markEnrollLocked: (state?: import('@/api/subscription').SubscriptionState | null) => Promise<void>;
   /** An impersonation session ended by itself → return to the admin, not to the login screen. */
@@ -111,6 +113,16 @@ export const useAuthStore = create<AuthState>((set, get) => {
       // gate bouncing back on first accept). Persist to disk after.
       set({ user, role, isAuthenticated: true });
       await persist(user, role, activeTeacherId, impersonation);
+    },
+
+    setSubscription: async (state) => {
+      const { user, role, activeTeacherId, impersonation } = get();
+      if (!user) return;
+      const blocked = !!state.blocked;
+      if (JSON.stringify(user.subscription ?? null) === JSON.stringify(state) && !!user.subscription_blocked === blocked) return;
+      const next = { ...user, subscription: state, subscription_blocked: blocked };
+      set({ user: next });
+      if (role) await persist(next, role, activeTeacherId, impersonation);
     },
 
     markEnrollLocked: async (state) => {

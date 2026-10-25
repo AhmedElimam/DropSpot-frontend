@@ -3993,6 +3993,19 @@
     "hero_bill": "{{price}} ج.م مستحقة",
     "hero_lapsed": "الفاتورة تصدر خلال اليوم",
     "pay_method_cash": "نقدًا",
-    "pay_method_other": "أخرى"
+    "pay_method_other": "أخرى",
+    "cta_pay": "ادفع الآن",
+    "cta_details": "التفاصيل",
+    "cta_activate": "فعّل الاشتراك",
+    "banner_days_left": "باقي {{n}} يوم",
+    "banner_last_day": "آخر يوم",
+    "banner_pending_t": "فاتورة الاشتراك مستحقة",
+    "banner_pending_b": "بالسعر العادي حتى {{date}}، ولا يتوقف شيء خلالها.",
+    "banner_late_t": "الاشتراك متأخّر",
+    "banner_late_b": "السعر المتأخّر. يتوقف الدخول يوم {{date}}.",
+    "banner_blocked_b": "سدّد ويرجع حسابك فورًا، وبياناتك كما هي.",
+    "banner_lapsed_b": "انتهت التجربة. تصدر الفاتورة خلال اليوم، ومعك {{days}} يومًا للسداد.",
+    "trial_corner": "تجربة مجانية: باقي {{n}} يوم",
+    "trial_corner_last": "تجربة مجانية: آخر يوم"
   }
 }
