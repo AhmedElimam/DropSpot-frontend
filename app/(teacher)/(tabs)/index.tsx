@@ -21,7 +21,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { HeaderBrandBar } from '@/components/ui/HeaderBrandBar';
 import { ConnectionLine } from '@/components/ui/ConnectionStatus';
 import { TourTarget } from '@/tour/TourTarget';
-import { Surface } from '@/ui/surfaces';
+import { Surface, useSurface } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { TeacherSwitcher } from '@/components/teacher/TeacherSwitcher';
@@ -397,7 +397,9 @@ function SectionHead({ icon, color, title, action, onAction }: { icon: IconName;
   );
 }
 
-/** Green while live (ring fills as students arrive), indigo with a countdown before. */
+/** Green while live (ring fills as students arrive), indigo with a countdown before. One compact
+ *  row (founder 2026-10-25: it took a huge chunk of the home): ring, the session, and «امسح»;
+ *  the card itself opens the attendance sheet. */
 function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now: number; canScan: boolean; onScan: (s: SessionCardData) => void; onOpen: (s: { id: string }) => void }) {
   const { t } = useTranslation();
   const live = sessionPhase(s, now) === 'live';
@@ -407,57 +409,53 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
   // A private lesson (attendance_mode 'none', founder 2026-10-12): nothing to scan, no ring;
   // the server's label says what it is. A missing field = an older server = a door course.
   const noDoor = s.tracks_attendance === false;
+  // The card is the sheet's button now; a server-hidden sheet leaves the card, not opening.
+  const sheetOn = useSurface('teacher.home.spotlight_sheet');
   return (
     <LinearGradient colors={live ? gradients.success : gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-      style={{ borderRadius: radius.xxl, padding: spacing.lg, ...shadows.md }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <View style={{ flex: 1 }}>
+      style={{ borderRadius: radius.xxl, ...shadows.md }}>
+      <TouchableOpacity onPress={() => onOpen(s)} disabled={!sheetOn} activeOpacity={0.9} accessibilityRole="button" accessibilityHint={t('home.spotlight_open_sheet')}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md }}>
+        {total > 0 && !noDoor ? <Surface id="teacher.home.spotlight_ring" ctx={{ session: s }}><AttendanceRing present={present} total={total} size={54} stroke={5} onDark /></Surface> : null}
+        <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {live ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' }} /> : null}
-            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>
+            {live ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#fff' }} /> : null}
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: 'rgba(255,255,255,0.85)' }} numberOfLines={1}>
               {live ? t('teacher.live_now') : startsIn !== null && startsIn <= 180 ? t('home.starts_in', { n: formatNumber(startsIn) }) : t('home.next_session')}
             </Text>
+            {s.cycle_position ? (
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingHorizontal: 7 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{t('teacher.position_of', { n: formatNumber(s.cycle_position.n), of: formatNumber(s.cycle_position.of) })}</Text>
+              </View>
+            ) : null}
           </View>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: '#fff', marginTop: 4 }} numberOfLines={1}>{s.course_name ?? '—'}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 2 }} numberOfLines={1}>
-            {s.time ?? ''}{s.location ? ` · ${s.location}` : ''}
-          </Text>
-          {s.cycle_position ? (
-            <View style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 9, marginTop: spacing.sm }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('teacher.position_of', { n: formatNumber(s.cycle_position.n), of: formatNumber(s.cycle_position.of) })}</Text>
-            </View>
-          ) : null}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff', marginTop: 1 }} numberOfLines={1}>{s.course_name ?? '—'}</Text>
           {noDoor ? (
             <Surface id="teacher.home.spotlight_private_label" ctx={{ session: s }}>
-            <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 3, paddingHorizontal: 9, marginTop: spacing.sm }}>
-              <Icon name="grades" size={13} color="#fff" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>{s.attendance_label ?? t('course_ui.private_marks_only')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Icon name="grades" size={12} color="rgba(255,255,255,0.85)" />
+              <Text style={{ flexShrink: 1, fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.85)' }} numberOfLines={1}>{s.attendance_label ?? t('course_ui.private_marks_only')}</Text>
             </View>
             </Surface>
-          ) : null}
+          ) : (
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.8)' }} numberOfLines={1}>
+              {s.time ?? ''}{s.location ? ` · ${s.location}` : ''}
+            </Text>
+          )}
         </View>
-        {total > 0 && !noDoor ? <Surface id="teacher.home.spotlight_ring" ctx={{ session: s }}><AttendanceRing present={present} total={total} onDark /></Surface> : null}
-      </View>
-      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
         {canScan && !noDoor ? (
           <Surface id="teacher.home.spotlight_scan" ctx={{ session: s }}>
-          <TouchableOpacity onPress={() => onScan(s)} activeOpacity={0.85} accessibilityRole="button"
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50, borderRadius: radius.lg, backgroundColor: '#fff' }}>
-            {/* The button is white in both schemes, so its ink is fixed (onWhite), never a theme
-                token that turns pale in dark mode. */}
-            <Icon name="scan" size={20} color={live ? onWhite.success : onWhite.brand} />
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: live ? onWhite.success : onWhite.brand }}>{t('sessions_tab.scan')}</Text>
+          {/* White in both schemes, so its ink is fixed (onWhite), never a theme token that turns pale in dark mode. */}
+          <TouchableOpacity onPress={() => onScan(s)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('sessions_tab.scan')} hitSlop={6}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: 14, borderRadius: radius.lg, backgroundColor: '#fff' }}>
+            <Icon name="scan" size={19} color={live ? onWhite.success : onWhite.brand} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: live ? onWhite.success : onWhite.brand }}>{t('home.spotlight_scan')}</Text>
           </TouchableOpacity>
           </Surface>
+        ) : sheetOn ? (
+          <Icon name="back" size={18} color="rgba(255,255,255,0.75)" />
         ) : null}
-        <Surface id="teacher.home.spotlight_sheet">
-        <TouchableOpacity onPress={() => onOpen(s)} activeOpacity={0.85} accessibilityRole="button"
-          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50, borderRadius: radius.lg, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.7)' }}>
-          <Icon name="attendance" size={20} color="#fff" outline />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('sessions_tab.sheet')}</Text>
-        </TouchableOpacity>
-        </Surface>
-      </View>
+      </TouchableOpacity>
     </LinearGradient>
   );
 }
