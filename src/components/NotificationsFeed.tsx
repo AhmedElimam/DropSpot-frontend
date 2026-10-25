@@ -13,6 +13,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/api/notifications';
 import { notificationRouteFor } from '@/utils/notification-routing';
+import { SURVEY_NOTIFICATION, useOpenSurveyNotification } from '@/hooks/useSurvey';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SwipeRow } from '@/components/ui/SwipeRow';
@@ -247,11 +248,13 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
       .map((k) => ({ key: k, title: t(`notifications.group_${k}`), data: groups[k] }));
   }, [shown, t]);
 
+  const openSurvey = useOpenSurveyNotification();
   const onOpen = useCallback((n: Notification) => {
     if (!n.is_read) markRead.mutate(n.id);
+    if (n.type === SURVEY_NOTIFICATION) { openSurvey(); return; }
     const route = notificationRouteFor({ role, type: n.type, data: n.data, can });
     if (route) router.push(route as never);
-  }, [markRead, role, can]);
+  }, [markRead, role, can, openSurvey]);
 
   const onToggleRead = useCallback((n: Notification) => {
     if (hint) closeHint();
@@ -369,7 +372,7 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
         renderItem={({ item }) => (
           <FeedRow
             n={item}
-            opens={notificationRouteFor({ role, type: item.type, data: item.data, can }) !== null}
+            opens={item.type === SURVEY_NOTIFICATION || notificationRouteFor({ role, type: item.type, data: item.data, can }) !== null}
             onOpen={onOpen}
             onToggleRead={onToggleRead}
           />

@@ -19,6 +19,16 @@ export function usePendingSurvey() {
   });
 }
 
+/** The push and feed row a survey's publication sends (backend AnnounceSurvey). */
+export const SURVEY_NOTIFICATION = 'survey';
+
+/** A tapped survey notification asks again at once, so the root SurveyModal shows it now
+ *  instead of after the 15-minute check. */
+export function useOpenSurveyNotification(): () => void {
+  const qc = useQueryClient();
+  return () => { void qc.invalidateQueries({ queryKey: ['pending-survey'] }); };
+}
+
 export function useMarkSurveyShown() {
   return useMutation({ mutationFn: (id: string) => markSurveyShown(id) });
 }

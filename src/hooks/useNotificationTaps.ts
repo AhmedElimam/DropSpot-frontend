@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useAuthStore } from '@/stores/authStore';
 import { notificationRouteFor } from '@/utils/notification-routing';
 import { getInitialNotificationResponse, setupNotificationResponseHandler } from '@/utils/push-notifications';
+import { SURVEY_NOTIFICATION, useOpenSurveyNotification } from '@/hooks/useSurvey';
 
 // A launch-tap is asked for once per process: the OS keeps answering with the same
 // response, and every tab-layout mount (a role switch, a re-login) would re-open it.
@@ -17,10 +18,12 @@ let launchTapHandled = false;
 export function useNotificationTaps(can?: (ability: string) => boolean): void {
   const role = useAuthStore((s) => s.role);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const openSurvey = useOpenSurveyNotification();
 
   useEffect(() => {
     if (!isAuthenticated) return;
     const open = (data: Record<string, unknown>) => {
+      if (data?.type === SURVEY_NOTIFICATION) { openSurvey(); return; }
       const route = notificationRouteFor({ role, type: String(data?.type ?? ''), data, can });
       if (route) router.push(route as never);
     };
