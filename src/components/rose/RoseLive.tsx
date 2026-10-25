@@ -197,8 +197,8 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
   }, [react]);
 
   // The parts: each layer at its box in the frame, turning and scaling about its pivot.
-  const eyeL = useAnimatedStyle(() => ({ transform: [{ translateX: gx.value * k }, { translateY: gy.value * k }, { scaleY: Math.max(0.08, 1 - 0.92 * blinkL.value) }] }));
-  const eyeR = useAnimatedStyle(() => ({ transform: [{ translateX: gx.value * k }, { translateY: gy.value * k }, { scaleY: Math.max(0.08, 1 - 0.92 * blinkR.value) }] }));
+  const eyeL = useAnimatedStyle(() => ({ transform: [{ translateX: gx.value * k }, { translateY: gy.value * k }, { scaleY: Math.max(0.1, 1 - 0.9 * blinkL.value) }] }));
+  const eyeR = useAnimatedStyle(() => ({ transform: [{ translateX: gx.value * k }, { translateY: gy.value * k }, { scaleY: Math.max(0.1, 1 - 0.9 * blinkR.value) }] }));
   const brL = useAnimatedStyle(() => ({ transform: [{ translateY: -10 * k * browL.value }, { rotate: `${-4 * browL.value}deg` }] }));
   const brR = useAnimatedStyle(() => ({ transform: [{ translateY: -10 * k * browR.value }, { rotate: `${4 * browR.value}deg` }] }));
   // Talking: the jaw drops from the upper lip (the pivot sits near the top), the mouth widens a little; a smile scales it up.
