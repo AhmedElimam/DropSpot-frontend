@@ -291,7 +291,8 @@ export default function RootLayout() {
         <StatusBar style={scheme === 'dark' || revision ? 'light' : 'dark'} />
         <HydrationGate>
           <AppConfigGate>
-          <View key={`${scheme}-${paintEpoch}`} style={{ flex: 1, backgroundColor: colors.background }}>
+          {/* onLayout: the rebuilt tree has laid out — the season's curtain falls only then. */}
+          <View key={`${scheme}-${paintEpoch}`} style={{ flex: 1, backgroundColor: colors.background }} onLayout={() => useThemeStore.getState().treeLaid(paintEpoch)}>
             {/* Persistent impersonation banner sits above every screen. */}
             <ImpersonationBanner />
             <View style={{ flex: 1 }}>

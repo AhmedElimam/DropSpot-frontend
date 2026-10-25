@@ -11,9 +11,11 @@ import { useSurface } from '@/ui/surfaces';
  * expression (asleep, stern, proud…) must come from the image model with her portrait and
  * الناظر's attached (founder 2026-10-25: hand-painted closed eyes «look unnatural»).
  *
- * «وضع المراجعة»: the season twin (the amber cardigan, the pencil, the lamp) was drawn for
- * the vector picture and does not exist for the painted one yet, so the season shows the
- * same pictures until the founder paints it. `teacher.rose.costume` still gates the switch.
+ * «وضع المراجعة» (founder 2026-10-25: «on revision mode her style used to change»): her season
+ * twin, painted — the same figure with the blazer re-inked into the amber cardigan (badge,
+ * buttons and pocket square kept), a pencil painted into her hair, and a warm desk lamp on her
+ * disc (scratchpad rose2/season.py). Her face is untouched, so the rig's parts sit on the
+ * season base exactly as on the usual one. `teacher.rose.costume` gates the switch.
  */
 export type RosePictures = {
   /** 300 px — every portrait up to ~100 pt. */
@@ -30,8 +32,11 @@ const NORMAL: RosePictures = {
   liveBase: require('../../../assets/images/rose/rig/base-600.webp'),
 };
 
-// Until her season picture is painted: the same pictures (see above).
-const SEASON: RosePictures = NORMAL;
+const SEASON: RosePictures = {
+  portrait: require('../../../assets/images/rose/madam-rose-season.webp'),
+  large: require('../../../assets/images/rose/madam-rose-season-600.webp'),
+  liveBase: require('../../../assets/images/rose/rig/season-base-600.webp'),
+};
 
 /** Her pictures, in or out of the season. */
 export function rosePictures(season: boolean): RosePictures {
