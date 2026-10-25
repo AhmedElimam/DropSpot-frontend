@@ -7,7 +7,6 @@ import Animated, {
 import { colors } from '@/theme/index';
 import { RosePortrait } from './RoseStamp';
 import { useAmbientMotion } from '@/hooks/useAmbientMotion';
-import { RoseSleeping } from './RoseSleeping';
 import { Surface } from '@/ui/surfaces';
 
 /**
@@ -15,7 +14,9 @@ import { Surface } from '@/ui/surfaces';
  * 2026-10-08: «an animation of waving … I want Madam Rose to wave herself»). Every few
  * seconds her own hand rises out of her frame — her blazer sleeve, gold piping, the cream
  * blouse cuff, her hand — waves three times from the elbow, and goes down again, while a ring
- * pulses out around her. With nothing waiting she is the still portrait.
+ * pulses out around her. With nothing waiting she still greets you — one wave, no ring, each
+ * time you arrive on the home — then rests upright (founder 2026-10-25: «her desk was empty,
+ * and instead of waving she was sleeping»). The dozing picture is no longer used here.
  *
  * The arm is drawn in her portrait's 400-unit square and clipped to the medallion (centre
  * 200,211, inside the gold rim), so it reads as coming from her, not pasted on top. A burst,
@@ -62,7 +63,7 @@ function Arm() {
 
 export function RoseCalling({ size, calling }: { size: number; calling: boolean }) {
   // Only while she can be seen, the app is in front and motion is allowed (founder 2026-10-09).
-  const live = useAmbientMotion(!calling);
+  const live = useAmbientMotion();
   const k = size / 400;
 
   const lift = useSharedValue(0); // 0 = down inside her frame … 1 = raised
@@ -89,14 +90,29 @@ export function RoseCalling({ size, calling }: { size: number; calling: boolean 
       ring.value = 0;
       ring.value = withDelay(200, withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) }));
     };
-    // Three waves when you arrive, then one every 20 s: the call is made without her moving a
-    // third of the time the home is open (founder 2026-10-09: «light on all devices»).
+    // An empty desk: one hello as you arrive, nothing after it.
+    if (!calling) {
+      const hello = setTimeout(() => {
+        lift.value = withSequence(
+          withSpring(1, { damping: 13, stiffness: 160 }),
+          withDelay(1350, withTiming(0, { duration: 380, easing: Easing.in(Easing.quad) })),
+        );
+        wave.value = withDelay(260, withSequence(
+          withTiming(1, { duration: 200, easing: ease }), withTiming(-1, { duration: 260, easing: ease }),
+          withTiming(1, { duration: 260, easing: ease }), withTiming(-1, { duration: 260, easing: ease }),
+          withTiming(0.5, { duration: 220, easing: ease }), withTiming(0, { duration: 200, easing: ease }),
+        ));
+      }, 700);
+      return () => clearTimeout(hello);
+    }
+    // Something waiting: three waves when you arrive, then one every 20 s — the call is made
+    // without her moving a third of the time the home is open (founder 2026-10-09: «light on all devices»).
     let n = 0;
     let t: ReturnType<typeof setTimeout>;
     const next = () => { t = setTimeout(() => { burst(); n += 1; next(); }, n < 3 ? EVERY_MS : SETTLED_EVERY_MS); };
     t = setTimeout(() => { burst(); n = 1; next(); }, 700);
     return () => clearTimeout(t);
-  }, [live, lift, wave, ring]);
+  }, [live, calling, lift, wave, ring]);
 
   // The arm's layer is the full 400-square, offset inside the medallion clip; it pivots at the elbow.
   const armSt = useAnimatedStyle(() => ({
@@ -117,9 +133,9 @@ export function RoseCalling({ size, calling }: { size: number; calling: boolean 
         <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: clipLeft, top: clipTop, width: 2 * CLIP.r * k, height: 2 * CLIP.r * k, borderRadius: CLIP.r * k, borderWidth: 3, borderColor: colors.accent }, ringSt]} />
         </Surface>
       ) : null}
-      {/* An empty desk: she dozes (founder 2026-10-09). Something waiting: awake, and calling. */}
-      {calling ? <RosePortrait size={size} nod={false} /> : <Surface id="teacher.rose.sleeping" fallback={<RosePortrait size={size} nod={false} />}><RoseSleeping size={size} /></Surface>}
-      {calling ? (
+      {/* Awake either way: calling when something waits, a hello wave when the desk is empty. */}
+      <RosePortrait size={size} nod={false} />
+      {live || calling ? (
         <Surface id="teacher.rose.calling.wave">
         <View pointerEvents="none" style={{ position: 'absolute', left: clipLeft, top: clipTop, width: 2 * CLIP.r * k, height: 2 * CLIP.r * k, borderRadius: CLIP.r * k, overflow: 'hidden' }}>
           <Animated.View style={[{ position: 'absolute', left: -clipLeft, top: -clipTop, width: size, height: size, transformOrigin: [ELBOW.x * k, ELBOW.y * k, 0] }, armSt]}>
