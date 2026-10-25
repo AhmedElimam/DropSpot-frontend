@@ -52,6 +52,7 @@ import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { NazerUnlockModal } from '@/components/nazer/NazerUnlockModal';
 import { RoseUnlockModal } from '@/components/rose/RoseUnlockModal';
+import { SubscriptionStatusModal } from '@/components/subscription/SubscriptionStatusModal';
 import { ParentNumberCheckModal } from '@/components/student/ParentNumberCheckModal';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
 import { RevisionCurtain } from '@/components/RevisionCurtain';
@@ -309,6 +310,8 @@ export default function RootLayout() {
             <NazerUnlockModal />
             {/* مدام روز's new painted look, unlocked once by a teacher or an assistant (founder 2026-10-25). */}
             <RoseUnlockModal />
+            {/* Then she shows where the subscription stands: receipt, exemption or bill, stamped (founder 2026-10-25). */}
+            <SubscriptionStatusModal />
             {/* After him and his tour: a student proves their parent's number (soft, «بعدين»). */}
             <ParentNumberCheckModal />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}

@@ -31,6 +31,7 @@ import { useTeacherCourses, useTeacherStudents } from '@/hooks/useStudents';
 import { formatDate, formatNumber } from '@/utils/format';
 import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
+import { SubscriptionStatusCard } from '@/components/subscription/SubscriptionStatusCard';
 
 /**
  * Settings (founder 2026-10-03: «some love on the settings page»). A short hero with the
@@ -139,9 +140,10 @@ export default function TeacherSettings() {
           <SectionLabel text={t('common.section_account')} />
           {/* The teacher's own brand logo (shown to parents) — its own card, teacher-only. */}
           <Surface id="teacher.settings.row_logo" assistantNeeds="teacher"><TeacherLogoRow /></Surface>
+          {/* The payment status and its dates, stamped like her popup (founder 2026-10-25). */}
+          <Surface id="teacher.settings.row_subscription" assistantNeeds="teacher"><SubscriptionStatusCard /></Surface>
           <Group>
             <Surface id="teacher.settings.row_assistants" assistantNeeds="teacher"><Row icon="children" tint={colors.brand} tintBg={colors.brandTint} label={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /></Surface>
-            <Surface id="teacher.settings.row_subscription" assistantNeeds="teacher"><Row icon="card" tint={colors.accent} tintBg={colors.accentLight} label={t('subscription.title')} sub={t('subscription.row_sub')} onPress={() => router.push('/(teacher)/subscription' as Href)} /></Surface>
             <Surface id="teacher.settings.row_change_password"><Row icon="lock" tint={colors.success} tintBg={colors.successLight} label={t('auth.change_password')} sub={t('setup.password_hint')} onPress={() => router.push('/change-password')} /></Surface>
           </Group>
           </Surface>

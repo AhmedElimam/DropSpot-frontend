@@ -12,10 +12,12 @@ import { useRose } from '@/hooks/useRose';
 import { useWhatsNew } from '@/hooks/useReleaseNotes';
 import { usePendingSurvey } from '@/hooks/useSurvey';
 import { useTourStore } from '@/tour/store';
+import { useOnboardingIntroPending, useRoseUnlockGate, useSettled } from '@/hooks/usePopupTurn';
 import { NazerUnlockStage, RiseIn, type UnlockPhase } from '@/components/nazer/NazerUnlockStage';
 import { BrandMark } from '@/components/ui/BrandMark';
 
 const KEY = 'rose2_unlocked';
+
 const LOGO = 64;
 const BLOCKING_PREFIXES = [
   '/accept-terms', '/change-password', '/verify-own-number', '/impersonate', '/invite', '/login', '/register', '/verify-otp',
@@ -55,9 +57,15 @@ export function RoseUnlockModal() {
     if (key) AsyncStorage.setItem(key, '1').catch(() => {});
   };
 
+  const pending = staff && rose.named && seen !== true;
+  useEffect(() => { useRoseUnlockGate.setState({ pending }); }, [pending]);
+
   const [phase, setPhase] = useState<UnlockPhase>('lock');
   // A teacher who switched her name off keeps her out of the way: no popup either.
-  const visible = staff && rose.named && seen === false && !touring && !showPopup && !survey && !blocked && !impersonating;
+  // After a brand-new teacher's welcome, and a breath after it closed: two iOS modals presented
+  // together leave one invisible over the screen (2026-10-25, a fresh login froze on it).
+  const introPending = useOnboardingIntroPending();
+  const visible = useSettled(staff && rose.named && seen === false && !introPending && !touring && !showPopup && !survey && !blocked && !impersonating);
   if (!staff) return null;
 
   const points = [1, 2, 3].map((n) => t(`rose_unlock.point_${n}`));

@@ -22,6 +22,7 @@ import { tourSeen, markTourSeen } from './seen';
 import { tourForRole } from './tours';
 import { useRosePictures } from '@/components/rose/RoseCostume';
 import { NazerFramed } from '@/components/nazer/NazerFramed';
+import { useRoseUnlockGate, useStatusPopupGate } from '@/hooks/usePopupTurn';
 import { holeFor, placeCard, onScreen, toFrame, holePath, stackDim, scrollNeeded, HOLE_RADIUS, type Hole, type Frame } from './geometry';
 
 const ARect = Animated.createAnimatedComponent(Rect);
@@ -83,7 +84,11 @@ function useAutoStart() {
   const onboardingDue = role === 'teacher' && !!onboarding && onboarding.active && !onboarding.steps.intro && !onboarding.has_courses;
   const blocked = BLOCKING_PREFIXES.some((p) => pathname.startsWith(p));
   // A parent or student meets الناظر first (his «شخصية جديدة» popup), then he gives the tour.
-  const quiet = !survey && !onboardingDue && !showPopup && !blocked && !introHeld;
+  // مدام روز's unlock and her subscription sheet come first at app open (founder 2026-10-25).
+  const unlockToCome = useRoseUnlockGate((s) => s.pending);
+  const sheetToCome = useStatusPopupGate((s) => s.pending);
+  const roseFirst = unlockToCome || sheetToCome;
+  const quiet = !survey && !onboardingDue && !showPopup && !blocked && !introHeld && !roseFirst;
   const tried = useRef<string | null>(null);
 
   useEffect(() => {

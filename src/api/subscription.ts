@@ -33,6 +33,9 @@ export interface SubscriptionState {
   subscription_id: number | null;
   /** The soft lock: adding students is frozen until the subscription is paid; the rest of the app is open. */
   enroll_locked?: boolean;
+  /** The paid cycle's receipt: when it was paid and when it started (phase `active`). */
+  paid_at?: string | null;
+  started_at?: string | null;
   /** Set when the viewer is an assistant: the state shown is their teacher's. */
   for_assistant?: boolean;
 }
@@ -62,4 +65,9 @@ export async function chooseSubscriptionPlan(plan: 'term' | 'annual'): Promise<S
 export async function sendPaidNotice(payload: { method?: string; note?: string }): Promise<string> {
   const { data } = await client.post('/teacher/subscription/paid-notice', payload);
   return data?.data?.message ?? '';
+}
+
+/** An exemption the admin gave «for life» is stored as a far date; the screens say «مدى الحياة». */
+export function isLifetimeExemption(state: Pick<SubscriptionState, 'phase' | 'exempt_until'>): boolean {
+  return state.phase === 'exempt' && (!state.exempt_until || Number(state.exempt_until.slice(0, 4)) >= 2090);
 }
