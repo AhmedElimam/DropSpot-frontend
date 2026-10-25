@@ -11,6 +11,8 @@ export interface Ticket {
   student_name: string;
   teacher_name: string;
   parent_name?: string;
+  /** The student opened it (founder 2026-10-26) — the parent's list says so. */
+  opened_by_student?: boolean;
   message_count?: number;
   last_message_at?: string;
   created_at: string;
@@ -85,7 +87,8 @@ export async function getTicket(id: string): Promise<TicketDetail> {
 }
 
 export async function createTicket(payload: {
-  student_id: number;
+  /** A parent names the child; a student's own ticket is about themself (the server knows). */
+  student_id?: number;
   teacher_id: number;
   subject: string;
   description: string;

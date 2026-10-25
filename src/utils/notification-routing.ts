@@ -217,8 +217,12 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
       return '/(student)/(tabs)';
     case 'student_edit_result':
       return '/(student)/profile';
-    case 'ticket_reply':
-      return '/(student)/support';
+    // Their own ticket with a teacher (founder 2026-10-26).
+    case 'ticket_new':
+    case 'ticket_reply': {
+      const ticket = id(data, 'ticket_id');
+      return ticket ? `/(student)/tickets/${ticket}` : '/(student)/tickets';
+    }
     default:
       return null;
   }

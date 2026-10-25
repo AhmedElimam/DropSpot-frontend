@@ -16,8 +16,10 @@ import { colors, spacing, radius, textPresets, shadows, gradients, control } fro
 import { Avatar } from '@/components/layout/Avatar';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { useChildren } from '@/hooks/useChildren';
+import { useAuthStore } from '@/stores/authStore';
+import { getStudentTeachers } from '@/api/studentOverview';
 import { createTicket } from '@/api/tickets';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SuccessConfirmation } from '@/components/ui/SuccessConfirmation';
 import { getFriendlyErrorMessage } from '@/utils/errors';
@@ -28,23 +30,32 @@ import { Surface } from '@/ui/surfaces';
 export default function CreateTicket() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data: children } = useChildren();
+  // A student opens one too (founder 2026-10-26), from الناظر's page: the «child» is themself,
+  // the teachers are their own, and the parent sees the ticket.
+  const user = useAuthStore((s) => s.user);
+  const self = useAuthStore((s) => s.role) === 'student';
+  const myId = self ? user?.student_id ?? null : null;
+  const { data: parentChildren } = useChildren(!self);
+  const mine = useQuery({ queryKey: ['student-teachers', myId], queryFn: () => getStudentTeachers(myId as number), enabled: !!myId, staleTime: 60_000 });
+  const children = self
+    ? (myId ? [{ id: 'me', student_id: myId, name: user?.name ?? '', grade: null, teachers: (mine.data ?? []).map((tc) => ({ id: String(tc.id), name: tc.name })) }] : [])
+    : parentChildren;
 
   // Opened from a teacher's card: the child and the teacher come already chosen.
   const params = useLocalSearchParams<{ child?: string; teacher?: string }>();
-  const [selectedChildId, setSelectedChildId] = useState<string | null>(params.child ?? null);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(params.child ?? (self ? 'me' : null));
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | null>(params.teacher ? Number(params.teacher) : null);
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
 
-  const selectedChild = (children ?? []).find((c) => c.id === selectedChildId);
+  const selectedChild = (children ?? []).find((c) => c.id === selectedChildId) as { id: string; student_id: string | number; name: string; grade?: string | null; teachers?: { id: string; name: string }[] } | undefined;
   const selectedTeacher = selectedChild?.teachers?.find((tc) => Number(tc.id) === selectedTeacherId);
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
     mutationFn: () =>
       createTicket({
-        student_id: Number(selectedChild!.student_id),
+        student_id: self ? undefined : Number(selectedChild!.student_id),
         teacher_id: selectedTeacherId!,
         subject,
         description,
@@ -82,7 +93,7 @@ export default function CreateTicket() {
   }
 
   return (
-    <Surface id="screen.parent.tickets.create" screen>
+    <Surface id={self ? 'screen.student.tickets.create' : 'screen.parent.tickets.create'} screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -100,7 +111,11 @@ export default function CreateTicket() {
             {/* Student + Teacher selection */}
             <Surface id="parent.tickets_create.child_picker">
             <View style={{ gap: spacing.md }}>
-              <Text style={textPresets.label}>{t('tickets.select_child')}</Text>
+              {self ? (
+                <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary }}>{t('tickets.student_intro')}</Text>
+              ) : (
+                <Text style={textPresets.label}>{t('tickets.select_child')}</Text>
+              )}
               {(children ?? []).map((child) => {
                 const isSelected = selectedChildId === child.id;
                 return (
@@ -115,6 +130,7 @@ export default function CreateTicket() {
                       ...shadows.sm,
                     }}
                   >
+                    {!self && (
                     <TouchableOpacity
                       onPress={() => handleSelectChild(child.id)}
                       activeOpacity={0.7}
@@ -142,15 +158,18 @@ export default function CreateTicket() {
                       </View>
                       <Icon name={isSelected ? 'down' : 'back'} size={18} color={isSelected ? colors.primary : colors.textTertiary} />
                     </TouchableOpacity>
+                    )}
 
                     {isSelected && (
                       <View
                         style={{
                           paddingHorizontal: spacing.lg,
                           paddingBottom: spacing.lg,
+                          paddingTop: self ? spacing.lg : 0,
                           gap: spacing.sm,
                         }}
                       >
+                        {!self && (
                         <View
                           style={{
                             height: 1,
@@ -158,7 +177,12 @@ export default function CreateTicket() {
                             marginBottom: spacing.sm,
                           }}
                         />
-                        {!child.teachers?.length ? (
+                        )}
+                        {self && mine.isLoading ? (
+                          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.sm }}>
+                            {t('common.loading')}
+                          </Text>
+                        ) : !child.teachers?.length ? (
                           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.sm }}>
                             {t('tickets.no_teachers')}
                           </Text>

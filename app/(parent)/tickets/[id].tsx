@@ -85,7 +85,8 @@ export default function TicketDetail() {
   }
 
   const sc = statusColors()[ticket.status] || statusColors().open;
-  const isParent = user?.user_type_id === 4;
+  // The family — a parent, or the student who opened it — answers; only staff set the status.
+  const isParent = ticket.can_change_status === undefined ? user?.user_type_id === 4 || user?.user_type_id === 5 : !ticket.can_change_status;
 
   return (
     <Surface id="screen.parent.tickets.detail" screen>

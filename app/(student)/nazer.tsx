@@ -124,7 +124,7 @@ export default function StudentNazerOffice() {
             <NazerFace mood="neutral" size={56} blink={false} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary }}>{t('nazer.office_close')}</Text>
-              <TouchableOpacity onPress={() => router.push('/(student)/support' as Href)} accessibilityRole="button" activeOpacity={0.8} style={{ marginTop: spacing.sm, alignSelf: 'flex-start', backgroundColor: colors.brand, borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+              <TouchableOpacity onPress={() => router.push('/(student)/tickets' as Href)} accessibilityRole="button" activeOpacity={0.8} style={{ marginTop: spacing.sm, alignSelf: 'flex-start', backgroundColor: colors.brand, borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: spacing.md }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onPrimary }}>{t('nazer.write_teacher')}</Text>
               </TouchableOpacity>
             </View>
