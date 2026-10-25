@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
@@ -56,9 +57,17 @@ import { RevisionDesk, SeasonCountdown, UsualDayHead, useNextExam } from '@/comp
 import { SeasonPaper } from '@/components/SeasonPaper';
 import { CountBadge } from '@/components/ui/CountBadge';
 import { SubscriptionStrip } from '@/components/subscription/SubscriptionStrip';
+import { useOnScreen } from '@/hooks/useAmbientMotion';
+import { usePopupSlotStore } from '@/ui/popupSlot';
 
 /** «وضع المراجعة»: the hero band's rounded foot (the day hero runs into the page instead). */
 const SEASON_HERO_RADIUS = 28;
+
+/** The session card slides its «كشف الحضور» swipe open by itself, once per app opening and on
+ *  the first two openings only — enough to show it swipes, never a habit. */
+const PEEK_KEY = 'home_spotlight_peek_v1';
+const PEEK_TIMES = 2;
+let peekedThisOpening = false;
 
 function greetingKey(now: number): string {
   const h = new Date(now).getHours();
@@ -91,6 +100,19 @@ export default function TeacherHome() {
   const desk = useNextExam(now, season);
 
   const sessionsQ = useTeacherTodaySessions();
+  const [peeksLeft, setPeeksLeft] = useState(0);
+  useEffect(() => {
+    if (peekedThisOpening) return;
+    AsyncStorage.getItem(PEEK_KEY).then((v) => setPeeksLeft(Math.max(0, PEEK_TIMES - Number(v ?? 0)))).catch(() => {});
+  }, []);
+  // Only while home is in front and nothing covers it: no popup, sheet or alert, none waiting.
+  const quiet = usePopupSlotStore((s) => s.holder === null && s.others === 0 && !Object.values(s.wants).some(Boolean));
+  const onScreen = useOnScreen();
+  const peeked = useCallback(() => {
+    peekedThisOpening = true;
+    setPeeksLeft(0);
+    AsyncStorage.getItem(PEEK_KEY).then((v) => AsyncStorage.setItem(PEEK_KEY, String(Number(v ?? 0) + 1))).catch(() => {});
+  }, []);
   const pending = useOfflineStore((s) => s.pending);
   const rejected = useOfflineStore((s) => s.rejected);
   const offlineAttention = pending + rejected;
@@ -158,6 +180,7 @@ export default function TeacherHome() {
 
   const sessions = sessionsQ.data ?? [];
   const current = pickCurrentSession(sessions, now);
+  const peekNow = peeksLeft > 0 && !peekedThisOpening && quiet && onScreen && !!current;
   const rest = sessions.filter((s) => s.id !== current?.id);
   // A private lesson has no attendance, so it adds nothing to «present of roster».
   const presentToday = sessions.reduce((n, s) => n + (s.tracks_attendance === false ? 0 : s.checked_in_count ?? 0), 0);
@@ -279,7 +302,7 @@ export default function TeacherHome() {
               <ActivityIndicator color={colors.primary} />
             </View>
           ) : current ? (
-            <SwipeRow {...swipesFor(current)} style={{ borderRadius: radius.xxl }} radius={radius.xxl}>
+            <SwipeRow {...swipesFor(current)} style={{ borderRadius: radius.xxl }} radius={radius.xxl} peek={peekNow} onPeeked={peeked}>
               <Spotlight s={current} now={now} canScan={canCash} onScan={scan} onOpen={openSheet} />
             </SwipeRow>
           ) : (
@@ -428,6 +451,13 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
                 <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{t('teacher.position_of', { n: formatNumber(s.cycle_position.n), of: formatNumber(s.cycle_position.of) })}</Text>
               </View>
             ) : null}
+            {/* Says the card opens: the session's page, its details (founder 2026-10-25). */}
+            {sheetOn ? (
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: 'rgba(255,255,255,0.85)' }} numberOfLines={1}>{t('home.spotlight_details')}</Text>
+                <Icon name="back" size={11} color="rgba(255,255,255,0.85)" />
+              </View>
+            ) : null}
           </View>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff', marginTop: 1 }} numberOfLines={1}>{s.course_name ?? '—'}</Text>
           {noDoor ? (
@@ -452,8 +482,6 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
             <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: live ? onWhite.success : onWhite.brand }}>{t('home.spotlight_scan')}</Text>
           </TouchableOpacity>
           </Surface>
-        ) : sheetOn ? (
-          <Icon name="back" size={18} color="rgba(255,255,255,0.75)" />
         ) : null}
       </TouchableOpacity>
     </LinearGradient>
