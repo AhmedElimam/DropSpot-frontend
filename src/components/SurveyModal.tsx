@@ -8,6 +8,11 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { usePendingSurvey, useMarkSurveyShown, useRespondSurvey } from '@/hooks/useSurvey';
 import { usePopupSlot } from '@/ui/popupSlot';
+import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/authStore';
+import { useTourStore } from '@/tour/store';
+import { tourForRole } from '@/tour/tours';
+import { getTourStatus } from '@/api/tour';
 
 /**
  * App-open/login survey prompt. Interrupts with a modal (unlike the passive
@@ -26,8 +31,18 @@ export function SurveyModal() {
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const beaconedId = useRef<string | null>(null);
 
+  // After the app's own intro, never before it (founder 2026-10-26): الناظر met on this phone
+  // (introHeld), no tour running, and the first tour finished — a survey used to hold all three.
+  const user = useAuthStore((s) => s.user);
+  const role = useAuthStore((s) => s.role);
+  const introHeld = useTourStore((s) => s.introHeld);
+  const touring = useTourStore((s) => s.tour !== null);
+  const hasTour = !!user && !!role && !!tourForRole(role);
+  const { data: tourStatus } = useQuery({ queryKey: ['tour-status', user?.id], queryFn: getTourStatus, enabled: hasTour && !!survey, staleTime: 5 * 60_000 });
+  const introDone = !introHeld && !touring && (!hasTour || !!tourStatus?.completed);
+
   // One popup at a time, in order, never over another modal (src/ui/popupSlot.ts).
-  const visible = usePopupSlot('survey', !!survey && dismissedId !== survey.id);
+  const visible = usePopupSlot('survey', !!survey && dismissedId !== survey.id && introDone);
 
   // Reset per-survey answer state when a different survey surfaces.
   useEffect(() => {

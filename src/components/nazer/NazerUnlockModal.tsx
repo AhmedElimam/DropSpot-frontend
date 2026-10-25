@@ -10,7 +10,6 @@ import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { useWhatsNew } from '@/hooks/useReleaseNotes';
-import { usePendingSurvey } from '@/hooks/useSurvey';
 import { useTourStore } from '@/tour/store';
 import { getTourStatus } from '@/api/tour';
 import { NazerUnlockStage, RiseIn, type UnlockPhase } from './NazerUnlockStage';
@@ -51,7 +50,6 @@ export function NazerUnlockModal() {
   const { data: tour } = useQuery({ queryKey: ['tour-status', user?.id], queryFn: getTourStatus, enabled: !!user && family && seen === false, staleTime: 5 * 60_000 });
   const touring = useTourStore((s) => s.tour !== null);
   const { showPopup } = useWhatsNew();
-  const { data: survey } = usePendingSurvey();
   const pathname = usePathname() ?? '';
   const blocked = BLOCKING_PREFIXES.some((p) => pathname.startsWith(p));
 
@@ -69,7 +67,7 @@ export function NazerUnlockModal() {
   // A first visit: the tour comes straight after him, so the popup leads into it.
   const firstTime = !!tour && !tour.completed;
   // One popup at a time, in order, never over another modal (src/ui/popupSlot.ts).
-  const visible = usePopupSlot('nazer_unlock', family && seen === false && !!tour && !touring && !showPopup && !survey && !blocked && !impersonating);
+  const visible = usePopupSlot('nazer_unlock', family && seen === false && !!tour && !touring && !showPopup && !blocked && !impersonating);
   if (!family) return null;
 
   const who = role === 'parent' ? 'parent' : 'student';

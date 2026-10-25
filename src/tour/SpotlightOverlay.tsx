@@ -13,7 +13,6 @@ import { BrandMark } from '@/components/ui/BrandMark';
 import { Image } from 'expo-image';
 import { useRose } from '@/hooks/useRose';
 import { useAuthStore } from '@/stores/authStore';
-import { usePendingSurvey } from '@/hooks/useSurvey';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import { useWhatsNew } from '@/hooks/useReleaseNotes';
 import { getTourStatus, completeTour } from '@/api/tour';
@@ -76,8 +75,8 @@ function useAutoStart() {
   const running = useTourStore((s) => s.tour !== null);
   const introHeld = useTourStore((s) => s.introHeld);
   const start = useTourStore((s) => s.start);
+  const qc = useQueryClient();
   const pathname = usePathname() ?? '';
-  const { data: survey } = usePendingSurvey();
   const { data: onboarding } = useTeacherOnboarding();
   const { showPopup } = useWhatsNew();
   const eligible = !!user && !!role && !impersonating && !!tourForRole(role);
@@ -91,7 +90,7 @@ function useAutoStart() {
   // …and every app-wide popup still showing or waiting its turn (src/ui/popupSlot.ts).
   const popupsBusy = usePopupQueueBusy();
   const roseFirst = unlockToCome || sheetToCome || popupsBusy;
-  const quiet = !survey && !onboardingDue && !showPopup && !blocked && !introHeld && !roseFirst;
+  const quiet = !onboardingDue && !showPopup && !blocked && !introHeld && !roseFirst;
   const tried = useRef<string | null>(null);
 
   useEffect(() => {
@@ -104,7 +103,7 @@ function useAutoStart() {
     // The phone remembers a finish the server never heard (offline at the time): no second run.
     tourSeen(role!, user!.id).then((seen) => {
       if (cancelled) return;
-      if (seen) { settled = true; void completeTour().catch(() => {}); return; }
+      if (seen) { settled = true; void completeTour().then(() => qc.setQueryData(['tour-status', user!.id], { completed: true, completed_at: new Date().toISOString() })).catch(() => {}); return; }
       // A breath after the home screen settles, so the dim does not land on a loading spinner.
       setTimeout(() => {
         const s = useTourStore.getState();
@@ -115,7 +114,7 @@ function useAutoStart() {
     });
     // Interrupted before it started (a popup came up first): try again once it is quiet.
     return () => { cancelled = true; if (!settled) tried.current = null; };
-  }, [eligible, running, homeReady, quiet, status, role, user, start]);
+  }, [eligible, running, homeReady, quiet, status, role, user, start, qc]);
 }
 
 function Runner() {

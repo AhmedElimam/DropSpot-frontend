@@ -13,12 +13,14 @@ import { create } from 'zustand';
  * already has up (AppModal and SheetModal report themselves through `useModalPresence`).
  */
 export const POPUP_ORDER = [
-  'survey',
   'onboarding_intro',
   'whats_new',
   'nazer_unlock',
   'rose_unlock',
   'subscription_status',
+  // A survey comes after the app's own intro (founder 2026-10-26: «nazer intro doesn't show any
+  // more because survey's on»); SurveyModal also waits out الناظر and the first tour.
+  'survey',
   'parent_number_check',
 ] as const;
 export type PopupId = (typeof POPUP_ORDER)[number];

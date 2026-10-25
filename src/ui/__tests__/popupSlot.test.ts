@@ -27,7 +27,7 @@ describe('one app-wide popup at a time', () => {
     setWant('survey', true);
     setWant('parent_number_check', false);
     jest.advanceTimersByTime(GAP_MS + 20);
-    expect(holder()).toBe('survey');
+    expect(holder()).toBe('whats_new');
   });
 
   it('never takes the slot from the popup showing', () => {
