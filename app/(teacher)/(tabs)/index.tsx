@@ -55,6 +55,7 @@ import { SeasonSwitchChip } from '@/components/teacher/RevisionSwitch';
 import { RevisionDesk, SeasonCountdown, UsualDayHead, useNextExam } from '@/components/teacher/RevisionDesk';
 import { SeasonPaper } from '@/components/SeasonPaper';
 import { CountBadge } from '@/components/ui/CountBadge';
+import { SubscriptionStrip } from '@/components/subscription/SubscriptionStrip';
 
 /** «وضع المراجعة»: the hero band's rounded foot (the day hero runs into the page instead). */
 const SEASON_HERO_RADIUS = 28;
@@ -172,16 +173,7 @@ export default function TeacherHome() {
   };
   const scan = (s: SessionCardData) => goToScan(s as TeacherSession);
 
-  // The platform subscription (founder 2026-10-25): the last 3 trial days, an open bill,
-  // the late price. From the login payload — no extra request on the home screen.
-  const sub = user?.subscription;
-  const subBanner = !isAssistant && sub && (
-    (sub.phase === 'trial' && (sub.days_left ?? 99) <= 3) ? { key: 'subscription', icon: 'card' as IconName, short: t('subscription.title'), tone: 'warn' as const, title: t('subscription.banner_trial', { count: sub.days_left ?? 0 }), sub: t('subscription.banner_trial_sub', { term: formatNumber(sub.prices.term, { maximumFractionDigits: 0 }), year: formatNumber(sub.prices.year, { maximumFractionDigits: 0 }) }), badge: 1, href: '/(teacher)/subscription' }
-    : sub.phase === 'pending' ? { key: 'subscription', icon: 'card' as IconName, short: t('subscription.title'), tone: 'warn' as const, title: t('subscription.banner_pending'), sub: t('subscription.banner_pending_sub', { price: formatNumber(sub.price ?? 0, { maximumFractionDigits: 0 }), count: sub.days_left ?? 0 }), badge: 1, href: '/(teacher)/subscription' }
-    : sub.phase === 'late' ? { key: 'subscription', icon: 'card' as IconName, short: t('subscription.title'), tone: 'danger' as const, title: t('subscription.banner_late'), sub: t('subscription.banner_late_sub', { price: formatNumber(sub.price ?? 0, { maximumFractionDigits: 0 }), count: sub.days_left ?? 0 }), badge: 1, href: '/(teacher)/subscription' }
-    : null);
   const attention = [
-    subBanner,
     offlineAttention > 0 && { key: 'sync', icon: (rejected > 0 ? 'error' : 'refresh') as IconName, short: rejected > 0 ? t('connection.rejected') : t('connection.pending'), tone: rejected > 0 ? 'danger' : 'warn', title: pending > 0 ? t('offline.pending_any', { count: pending }) : t('teacher.rejected_title', { count: rejected }), sub: t('teacher.tap_to_reconcile'), badge: offlineAttention, href: '/(teacher)/reconcile' },
     terminationCount > 0 && { key: 'termination', icon: 'warning' as IconName, short: t('home.termination_short'), tone: 'danger', title: t('resolution.termination'), sub: t('home.termination_sub', { count: terminationCount }), badge: terminationCount, href: '/(teacher)/resolution' },
     (phonesQ.data?.count ?? 0) > 0 && { key: 'phones', icon: 'phone' as IconName, short: t('home.phones_title'), tone: 'warn', title: t('home.phones_title'), sub: t('home.phones_sub', { count: phonesQ.data?.count ?? 0 }), badge: phonesQ.data?.count ?? 0, href: '/(teacher)/phone-confirmations' },
@@ -268,6 +260,8 @@ export default function TeacherHome() {
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           <Slot id="teacher.home.top" style={{ marginBottom: spacing.lg }} />
+          {/* The platform subscription, first thing under the hero (founder 2026-10-25). */}
+          <Surface id="teacher.home.subscription"><SubscriptionStrip /></Surface>
           {/* The revision desk, first, while the season is on: today's revision sessions, then
               the tool kit. Then the usual day, exactly as it was. */}
           {season ? (

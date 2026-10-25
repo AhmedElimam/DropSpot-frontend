@@ -3891,6 +3891,16 @@
     "banner_late": "الاشتراك متأخّر",
     "banner_late_sub": "{{price}} ج.م — باقي {{count}} يوم قبل إيقاف الدخول",
     "logout": "تسجيل الخروج",
-    "refresh": "تحديث الحالة"
+    "refresh": "تحديث الحالة",
+    "strip_for_assistant": "اشتراك معلّمك: ",
+    "strip_trial": "تجربتك المجانية — باقي {{count}} يوم",
+    "strip_trial_sub": "بعدها {{term}} ج.م للترم أو {{year}} ج.م للسنة. تنتهي التجربة {{date}}.",
+    "strip_active": "اشتراكك ساري حتى {{date}}",
+    "strip_active_sub": "كل شيء يعمل. شكرًا لك.",
+    "strip_pending": "فاتورة الاشتراك مستحقة: {{price}} ج.م",
+    "strip_pending_sub": "باقي {{count}} يوم بالسعر العادي حتى {{date}}. لا يتوقف شيء خلالها.",
+    "strip_late": "الاشتراك متأخّر — السعر المتأخّر {{price}} ج.م",
+    "strip_late_sub": "باقي {{count}} يوم قبل إيقاف الدخول في {{date}}.",
+    "strip_lapsed_sub": "تصدر الفاتورة خلال اليوم، ومعك {{days}} يومًا للسداد دون أي توقف."
   }
 }
