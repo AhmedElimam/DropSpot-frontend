@@ -73,7 +73,7 @@ export function SubscriptionPanel({ walled = false }: { walled?: boolean }) {
   const chip = phase === 'exempt' || phase === 'active' || phase === 'trial'
     ? { fg: colors.successText, bg: colors.successLight }
     : phase === 'pending' || phase === 'lapsed' ? { fg: colors.warningText, bg: colors.warningLight } : { fg: colors.dangerText, bg: colors.dangerLight };
-  const heroLine = phase === 'trial' ? t('subscription.hero_trial', { count: state.days_left ?? p.trial_days })
+  const heroLine = phase === 'trial' ? t('subscription.hero_trial', { count: state.days_left ?? p.trial_days, n: n(state.days_left ?? p.trial_days) })
     : phase === 'active' ? t('subscription.hero_active', { date: day(state.expires_at) })
     : phase === 'exempt' ? t('subscription.hero_exempt')
     : hasBill ? t('subscription.hero_bill', { price: n(state.price) })
@@ -131,8 +131,8 @@ export function SubscriptionPanel({ walled = false }: { walled?: boolean }) {
           </View>
         ) : null}
         {phase === 'exempt' && state.exempt_reason === 'founding' ? <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: 'rgba(255,255,255,0.86)', marginTop: 4 }}>{t('subscription.exempt_founding')}</Text> : null}
-        {phase === 'pending' ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.86)', marginTop: 4 }}>{t('subscription.days_to_late', { count: state.days_left ?? 0 })}</Text> : null}
-        {phase === 'late' ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: '#FFD0D6', marginTop: 4 }}>{t('subscription.days_to_block', { count: state.days_left ?? 0 })}</Text> : null}
+        {phase === 'pending' ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.86)', marginTop: 4 }}>{t('subscription.days_to_late', { count: state.days_left ?? 0, n: n(state.days_left ?? 0) })}</Text> : null}
+        {phase === 'late' ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: '#FFD0D6', marginTop: 4 }}>{t('subscription.days_to_block', { count: state.days_left ?? 0, n: n(state.days_left ?? 0) })}</Text> : null}
       </LinearGradient>
 
       {/* Her stamped sheet: the receipt, the exemption or the bill */}
@@ -210,11 +210,11 @@ export function SubscriptionPanel({ walled = false }: { walled?: boolean }) {
       <View style={card}>
         <Text style={h}>{t('subscription.rules_title')}</Text>
         <View style={{ marginTop: spacing.sm, gap: 6 }}>
-          <Rule text={t('subscription.rule_trial', { days: p.trial_days })} />
+          <Rule text={t('subscription.rule_trial', { days: n(p.trial_days) })} />
           <Rule text={t('subscription.rule_price', { term: n(p.term), year: n(p.year) })} />
-          <Rule text={t('subscription.rule_grace', { days: p.grace_days })} />
+          <Rule text={t('subscription.rule_grace', { days: n(p.grace_days) })} />
           <Rule text={t('subscription.rule_late', { term: n(p.late_term), year: n(p.late_year) })} />
-          <Rule text={t('subscription.rule_block', { days: p.block_days })} />
+          <Rule text={t('subscription.rule_block', { days: n(p.block_days) })} />
           <Rule text={t('subscription.rule_start')} />
         </View>
       </View>
