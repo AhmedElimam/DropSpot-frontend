@@ -18,11 +18,12 @@ import { ROSE_FRAME, ROSE_RIG, type RoseLayer } from '@/rose/manifest';
  * transform on the UI thread (founder 2026-10-25: «she doesn't move or make reaction or moving
  * her lips when she talks any more»).
  *
- *   always     eyes glance on their own; blinks at irregular intervals (each eye its own)
- *   idle       every 6–12 s one expression: a smile · brows up · a thinking look (eyes up,
- *              one brow raised) · a nod · a slow sleepy blink. Never a wink.
+ *   always     blinks at irregular intervals (each eye its own). The eyes never slide: each
+ *              layer carries its lash line, so a moved eye read as a sly side-eye (founder
+ *              2026-10-25 «still same weird ugly expression»)
+ *   idle       every 6–12 s one expression: a smile · brows up · a thinking look (one brow
+ *              raised, the head tilted) · a nod · a slow sleepy blink. Never a wink.
  *   talking    lips open and close in uneven beats while she types; a light bob
- *   at work    `activity` — she keeps looking down at what she reads
  *   react      a tap, or `reactRose()` from anywhere (a stamp landing): brows up, a double
  *              blink, eyes to you, a hop, a smile
  *
@@ -32,10 +33,6 @@ import { ROSE_FRAME, ROSE_RIG, type RoseLayer } from '@/rose/manifest';
 
 // The pivot of the whole figure: her chin, in the 400-unit frame the hero sizes by.
 const CHIN = { x: 200, y: 392 };
-
-// Where her eyes wander (pt in the 1200 frame). At work, she keeps looking down at what she holds.
-const GLANCES: [number, number][] = [[0, 0], [-7, 2], [0, 0], [6, 1], [0, 4], [0, 0], [-5, 3], [6, 0]];
-const AT_WORK: [number, number][] = [[0, 6], [2, 7], [0, 6], [-2, 7], [0, 0], [0, 6], [5, 1]];
 
 type Expression = 'smile' | 'brows' | 'think' | 'nod' | 'sleepy';
 const POOL: Expression[] = ['smile', 'smile', 'smile', 'brows', 'think', 'think', 'nod', 'nod', 'sleepy', 'sleepy'];
@@ -49,16 +46,13 @@ export function reactRose(): void {
 
 const ease = Easing.inOut(Easing.quad);
 
-export const RoseLive = memo(function RoseLive({ size, talking = false, paused = false, activity = 'cash', style }: { size: number; talking?: boolean; paused?: boolean; activity?: RoseActivity; style?: StyleProp<ViewStyle> }) {
+export const RoseLive = memo(function RoseLive({ size, talking = false, paused = false, activity: _activity = 'cash', style }: { size: number; talking?: boolean; paused?: boolean; activity?: RoseActivity; style?: StyleProp<ViewStyle> }) {
   const rose = useRose();
   const k = size / ROSE_FRAME;
   const kc = size / 400;
   const alive = useAmbientMotion(paused);
-  const working = activity !== 'cash';
   const pictures = useRosePictures();
 
-  const gx = useSharedValue(0);
-  const gy = useSharedValue(0);
   const blinkL = useSharedValue(0);
   const blinkR = useSharedValue(0);
   const browL = useSharedValue(0);
@@ -87,25 +81,6 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
     next();
     return () => clearTimeout(t);
   }, [alive, blinkBoth]);
-
-  // Glances.
-  useEffect(() => {
-    if (!alive) { gx.value = withTiming(0); gy.value = withTiming(0); return; }
-    let i = 0;
-    let t: ReturnType<typeof setTimeout>;
-    const list = working ? AT_WORK : GLANCES;
-    const next = () => {
-      t = setTimeout(() => {
-        i = (i + 1) % list.length;
-        const [x, y] = talking ? [0, 4] : list[i];
-        gx.value = withTiming(x, { duration: 170, easing: Easing.out(Easing.quad) });
-        gy.value = withTiming(y, { duration: 170, easing: Easing.out(Easing.quad) });
-        next();
-      }, 1600 + Math.random() * 1800);
-    };
-    next();
-    return () => clearTimeout(t);
-  }, [alive, talking, working, gx, gy]);
 
   // Breathing: a burst, then quiet, never a loop.
   useEffect(() => {
@@ -149,8 +124,6 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
         hold(browR, 1, 180, 700, 300);
         break;
       case 'think':
-        gx.value = withTiming(-6, { duration: 260 });
-        gy.value = withTiming(-5, { duration: 260 });
         hold(browR, 1, 260, 1500, 360);
         hold(tilt, -1.6, 360, 1300, 420);
         break;
@@ -162,7 +135,7 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
         blinkBoth(false, true);
         break;
     }
-  }, [smile, browL, browR, gx, gy, tilt, blinkBoth]);
+  }, [smile, browL, browR, tilt, blinkBoth]);
 
   useEffect(() => {
     if (!alive) return;
@@ -183,22 +156,20 @@ export const RoseLive = memo(function RoseLive({ size, talking = false, paused =
     if (now - lastReact.current < 600) return;
     lastReact.current = now;
     blinkBoth(true);
-    gx.value = withTiming(0, { duration: 120 });
-    gy.value = withTiming(0, { duration: 120 });
     browL.value = withSequence(withTiming(1, { duration: 140 }), withDelay(500, withTiming(0, { duration: 260 })));
     browR.value = withSequence(withTiming(1, { duration: 140 }), withDelay(500, withTiming(0, { duration: 260 })));
     hop.value = withSequence(withTiming(1.06, { duration: 140, easing: Easing.out(Easing.quad) }), withSpring(1, { damping: 7, stiffness: 180 }));
     tilt.value = withSequence(withTiming(1.6, { duration: 90 }), withTiming(-1.6, { duration: 140 }), withTiming(0.8, { duration: 120 }), withTiming(0, { duration: 160 }));
     smile.value = withSequence(withTiming(1, { duration: 160 }), withDelay(800, withTiming(0, { duration: 260 })));
-  }, [blinkBoth, gx, gy, browL, browR, hop, tilt, smile]);
+  }, [blinkBoth, browL, browR, hop, tilt, smile]);
   useEffect(() => {
     listeners.add(react);
     return () => { listeners.delete(react); };
   }, [react]);
 
   // The parts: each layer at its box in the frame, turning and scaling about its pivot.
-  const eyeL = useAnimatedStyle(() => ({ transform: [{ translateX: gx.value * k }, { translateY: gy.value * k }, { scaleY: Math.max(0.1, 1 - 0.9 * blinkL.value) }] }));
-  const eyeR = useAnimatedStyle(() => ({ transform: [{ translateX: gx.value * k }, { translateY: gy.value * k }, { scaleY: Math.max(0.1, 1 - 0.9 * blinkR.value) }] }));
+  const eyeL = useAnimatedStyle(() => ({ transform: [{ scaleY: Math.max(0.1, 1 - 0.9 * blinkL.value) }] }));
+  const eyeR = useAnimatedStyle(() => ({ transform: [{ scaleY: Math.max(0.1, 1 - 0.9 * blinkR.value) }] }));
   const brL = useAnimatedStyle(() => ({ transform: [{ translateY: -10 * k * browL.value }, { rotate: `${-4 * browL.value}deg` }] }));
   const brR = useAnimatedStyle(() => ({ transform: [{ translateY: -10 * k * browR.value }, { rotate: `${4 * browR.value}deg` }] }));
   // Talking: the jaw drops from the upper lip (the pivot sits near the top), the mouth widens a little; a smile scales it up.
