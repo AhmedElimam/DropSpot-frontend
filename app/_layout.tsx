@@ -51,6 +51,10 @@ import { installErrorReporting } from '@/lib/errorReport';
 import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { NazerUnlockModal } from '@/components/nazer/NazerUnlockModal';
+import { RoseUnlockModal } from '@/components/rose/RoseUnlockModal';
+import { SubscriptionStatusModal } from '@/components/subscription/SubscriptionStatusModal';
+import { SubscriptionCornerTag } from '@/components/subscription/SubscriptionCornerTag';
+import { SubscriptionSync } from '@/components/subscription/SubscriptionSync';
 import { ParentNumberCheckModal } from '@/components/student/ParentNumberCheckModal';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
 import { RevisionCurtain } from '@/components/RevisionCurtain';
@@ -287,7 +291,8 @@ export default function RootLayout() {
         <StatusBar style={scheme === 'dark' || revision ? 'light' : 'dark'} />
         <HydrationGate>
           <AppConfigGate>
-          <View key={`${scheme}-${paintEpoch}`} style={{ flex: 1, backgroundColor: colors.background }}>
+          {/* onLayout: the rebuilt tree has laid out — the season's curtain falls only then. */}
+          <View key={`${scheme}-${paintEpoch}`} style={{ flex: 1, backgroundColor: colors.background }} onLayout={() => useThemeStore.getState().treeLaid(paintEpoch)}>
             {/* Persistent impersonation banner sits above every screen. */}
             <ImpersonationBanner />
             <View style={{ flex: 1 }}>
@@ -298,6 +303,9 @@ export default function RootLayout() {
                   the gesture (founder 2026-10-12, same cause as the role stacks on 10-08). */}
               <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />
             </View>
+            {/* The subscription's quiet tag (trial days, an open or late bill), bottom-right on every teacher screen; touches pass through. */}
+            <SubscriptionCornerTag />
+            <SubscriptionSync />
             {/* Super-admin survey prompt — checked on app-open/login, once across platforms. */}
             <SurveyModal />
             {/* Teacher onboarding — Step 1 intro popup for a brand-new teacher. */}
@@ -306,6 +314,10 @@ export default function RootLayout() {
             <WhatsNewModal />
             {/* الناظر introduces himself to a parent or student, once — after «ما الجديد». */}
             <NazerUnlockModal />
+            {/* مدام روز's new painted look, unlocked once by a teacher or an assistant (founder 2026-10-25). */}
+            <RoseUnlockModal />
+            {/* Then she shows where the subscription stands: receipt, exemption or bill, stamped (founder 2026-10-25). */}
+            <SubscriptionStatusModal />
             {/* After him and his tour: a student proves their parent's number (soft, «بعدين»). */}
             <ParentNumberCheckModal />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}

@@ -16,6 +16,7 @@ import { sendParentNumberCode, verifyParentNumberCode } from '@/api/parentNumber
 import { OtpInput } from '@/components/auth/OtpInput';
 import { NazerFramed } from '@/components/nazer/NazerFramed';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { usePopupSlot } from '@/ui/popupSlot';
 
 const HEAD = 92;
 const RESEND_SECONDS = 60;
@@ -93,7 +94,8 @@ export function ParentNumberCheckModal() {
     if (laterKey) AsyncStorage.setItem(laterKey, today()).catch(() => {});
   };
 
-  const visible = needs && laterOn !== undefined && laterOn !== today() && !!tour?.completed && !touring && !introHeld && !showPopup && !survey && !blocked;
+  // One popup at a time, in order, never over another modal (src/ui/popupSlot.ts).
+  const visible = usePopupSlot('parent_number_check', needs && laterOn !== undefined && laterOn !== today() && !!tour?.completed && !touring && !introHeld && !showPopup && !survey && !blocked);
   if (!student) return null;
 
   return (

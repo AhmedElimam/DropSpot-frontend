@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from 'react-native-reanimated';
@@ -37,18 +37,42 @@ export function RevisionCurtain() {
 function Curtain({ to }: { to: boolean }) {
   const { t } = useTranslation();
   const scheme = useThemeStore((s) => s.scheme);
+  // The rebuilt tree under it has laid out: only then may it fall (themeStore explains why).
+  const rebuilt = useThemeStore((s) => s.curtain?.landed != null && s.laidEpoch >= s.curtain.landed);
+  const landed = useThemeStore((s) => s.curtain?.landed != null);
+  const [held, setHeld] = useState(false);
+  const [falling, setFalling] = useState(false);
   const o = useSharedValue(0);
   const s = useSharedValue(0.92);
   const title = useSharedValue(0);
   useEffect(() => {
-    const done = () => useThemeStore.getState().curtainDone();
-    o.value = withSequence(
-      withTiming(1, { duration: CURTAIN_IN_MS, easing: Easing.out(Easing.quad) }),
-      withDelay(to ? HOLD_IN_MS : HOLD_MS, withTiming(0, { duration: OUT_MS, easing: Easing.in(Easing.quad) }, (finished) => { if (finished) runOnJS(done)(); })),
-    );
+    o.value = withTiming(1, { duration: CURTAIN_IN_MS, easing: Easing.out(Easing.quad) });
     s.value = withTiming(1, { duration: CURTAIN_IN_MS + HOLD_MS, easing: Easing.out(Easing.cubic) });
     title.value = withDelay(900, withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) }));
+    // The least it stays up: the crest and the title seen (entering), a beat (leaving).
+    const h = setTimeout(() => setHeld(true), CURTAIN_IN_MS + (to ? HOLD_IN_MS : HOLD_MS));
+    return () => clearTimeout(h);
   }, [o, s, title, to]);
+  // A tree that never reports (it should): fall anyway, 3 s after the tokens flipped.
+  const [overdue, setOverdue] = useState(false);
+  useEffect(() => {
+    if (!landed) return;
+    const t = setTimeout(() => setOverdue(true), 3000);
+    return () => clearTimeout(t);
+  }, [landed]);
+  useEffect(() => {
+    if (falling || !held || !(rebuilt || overdue)) return;
+    // Two frames after the layout, so the new tree's first paint is on screen under it.
+    let r2 = 0;
+    const r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => {
+        setFalling(true);
+        const done = () => useThemeStore.getState().curtainDone();
+        o.value = withTiming(0, { duration: OUT_MS, easing: Easing.in(Easing.quad) }, (finished) => { if (finished) runOnJS(done)(); });
+      });
+    });
+    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
+  }, [falling, held, rebuilt, overdue, o]);
   const veil = useAnimatedStyle(() => ({ opacity: o.value }));
   const mark = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
   const rise = useAnimatedStyle(() => ({ opacity: title.value, transform: [{ translateY: (1 - title.value) * 14 }] }));

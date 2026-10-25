@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { usePendingSurvey, useMarkSurveyShown, useRespondSurvey } from '@/hooks/useSurvey';
+import { usePopupSlot } from '@/ui/popupSlot';
 
 /**
  * App-open/login survey prompt. Interrupts with a modal (unlike the passive
@@ -25,7 +26,8 @@ export function SurveyModal() {
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const beaconedId = useRef<string | null>(null);
 
-  const visible = !!survey && dismissedId !== survey.id;
+  // One popup at a time, in order, never over another modal (src/ui/popupSlot.ts).
+  const visible = usePopupSlot('survey', !!survey && dismissedId !== survey.id);
 
   // Reset per-survey answer state when a different survey surfaces.
   useEffect(() => {

@@ -6,8 +6,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors } from '@/theme/index';
 import { RosePortrait } from './RoseStamp';
+import { RoseLive } from './RoseLive';
 import { useAmbientMotion } from '@/hooks/useAmbientMotion';
-import { RoseSleeping } from './RoseSleeping';
 import { Surface } from '@/ui/surfaces';
 
 /**
@@ -15,7 +15,9 @@ import { Surface } from '@/ui/surfaces';
  * 2026-10-08: «an animation of waving … I want Madam Rose to wave herself»). Every few
  * seconds her own hand rises out of her frame — her blazer sleeve, gold piping, the cream
  * blouse cuff, her hand — waves three times from the elbow, and goes down again, while a ring
- * pulses out around her. With nothing waiting she is the still portrait.
+ * pulses out around her. With nothing waiting she sleeps (founder 2026-10-25: «if she has
+ * nothing on her desk she should be sleeping»): RoseLive asleep — eyes closed, head resting,
+ * slow breaths, «z z z».
  *
  * The arm is drawn in her portrait's 400-unit square and clipped to the medallion (centre
  * 200,211, inside the gold rim), so it reads as coming from her, not pasted on top. A burst,
@@ -117,8 +119,8 @@ export function RoseCalling({ size, calling }: { size: number; calling: boolean 
         <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: clipLeft, top: clipTop, width: 2 * CLIP.r * k, height: 2 * CLIP.r * k, borderRadius: CLIP.r * k, borderWidth: 3, borderColor: colors.accent }, ringSt]} />
         </Surface>
       ) : null}
-      {/* An empty desk: she dozes (founder 2026-10-09). Something waiting: awake, and calling. */}
-      {calling ? <RosePortrait size={size} nod={false} /> : <Surface id="teacher.rose.sleeping" fallback={<RosePortrait size={size} nod={false} />}><RoseSleeping size={size} /></Surface>}
+      {/* Something waiting: awake, and calling. An empty desk: she sleeps (the shortcut takes the tap). */}
+      {calling ? <RosePortrait size={size} nod={false} /> : <Surface id="teacher.rose.sleeping" fallback={<RosePortrait size={size} nod={false} />}><RoseLive size={size} asleep interactive={false} /></Surface>}
       {calling ? (
         <Surface id="teacher.rose.calling.wave">
         <View pointerEvents="none" style={{ position: 'absolute', left: clipLeft, top: clipTop, width: 2 * CLIP.r * k, height: 2 * CLIP.r * k, borderRadius: CLIP.r * k, overflow: 'hidden' }}>

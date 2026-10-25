@@ -8,6 +8,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { useTeacherOnboarding, useMarkOnboardingStep } from '@/hooks/useTeacherOnboarding';
+import { usePopupSlot } from '@/ui/popupSlot';
 
 /**
  * Teacher Onboarding — Step 1 intro popup, mounted globally (like SurveyModal) so
@@ -24,7 +25,8 @@ export function TeacherOnboardingModal() {
   const [dismissed, setDismissed] = useState(false);
 
   const due = !!state && state.active && !state.steps.intro && !state.has_courses;
-  const visible = due && !dismissed;
+  // One popup at a time, in order, never over another modal (src/ui/popupSlot.ts).
+  const visible = usePopupSlot('onboarding_intro', due && !dismissed);
 
   const complete = () => {
     if (!mark.isPending) mark.mutate('intro');

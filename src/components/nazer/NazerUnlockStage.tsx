@@ -13,6 +13,8 @@ import { spacing, radius, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { NazerFramed } from './NazerFramed';
 import { useUnlockSound } from './unlockSound';
+import { RoseLive } from '@/components/rose/RoseLive';
+import { useRose } from '@/hooks/useRose';
 
 export type UnlockPhase = 'lock' | 'crack' | 'reveal' | 'done';
 
@@ -24,6 +26,10 @@ const RAYS = 360;
 const LOCKED = require('../../../assets/images/nazer/locked.webp');
 /** His crest (the line-art stamp) as a watermark in the band's own navy, a shade lighter. */
 const CREST = require('../../../assets/images/nazer/stamp-navy.webp');
+// مدام روز's unlock (founder 2026-10-25): her new painted look, revealed the same way.
+const ROSE_LOCKED = require('../../../assets/images/rose/locked.webp');
+const ROSE_CREST = require('../../../assets/images/rose/rose-stamp-navy.webp');
+export type UnlockCharacter = 'nazer' | 'rose';
 const CREST_TINT = 'rgba(255,255,255,0.07)';
 const GOLD = '#E8C55A';
 
@@ -53,8 +59,11 @@ const RAY_PATHS = Array.from({ length: 16 }, (_, i) => {
  * short shake every few seconds and nothing moves in between. All of it is cancelled when the
  * popup closes.
  */
-export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p: UnlockPhase) => void }) {
+export function NazerUnlockStage({ play, onPhase, character = 'nazer' }: { play: boolean; onPhase: (p: UnlockPhase) => void; character?: UnlockCharacter }) {
   const { t } = useTranslation();
+  const rose = useRose();
+  const isRose = character === 'rose';
+  const k = isRose ? 'rose_unlock' : 'nazer_unlock';
   const still = useReducedMotion();
   const [phase, setPhase] = useState<UnlockPhase>(still ? 'done' : 'lock');
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -183,22 +192,22 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
   const closed = phase === 'lock' || phase === 'crack';
   return (
     <LinearGradient colors={[...gradients.auth]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ alignItems: 'center', paddingTop: 32 + spacing.md, paddingBottom: spacing.lg, overflow: 'hidden' }}>
-      <Image source={CREST} tintColor={CREST_TINT} contentFit="contain" accessible={false}
+      <Image source={isRose ? ROSE_CREST : CREST} tintColor={CREST_TINT} contentFit="contain" accessible={false}
         style={{ position: 'absolute', width: 300, height: 300, top: 6, alignSelf: 'center' }} />
 
       {/* «شخصية جديدة…» while locked; «انفتحت!» slams in at the reveal. */}
       {closed ? (
         <View style={{ borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 4, borderWidth: 1.5, borderColor: 'rgba(201,162,39,0.7)', backgroundColor: 'rgba(255,255,255,0.06)' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: GOLD }}>{t('nazer_unlock.badge_wait')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: GOLD }}>{t(`${k}.badge_wait`)}</Text>
         </View>
       ) : (
         <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#C9A227', borderRadius: radius.full, paddingHorizontal: spacing.md, paddingVertical: 4 }, slamStyle]}>
           <Icon name="success" size={13} color="#1A2147" />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#1A2147' }}>{t('nazer_unlock.badge')}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: '#1A2147' }}>{t(`${k}.badge`)}</Text>
         </Animated.View>
       )}
 
-      <Pressable onPress={locked ? crack : undefined} accessibilityRole={locked ? 'button' : undefined} accessibilityLabel={locked ? t('nazer_unlock.tap_to_open') : undefined}
+      <Pressable onPress={locked ? crack : undefined} accessibilityRole={locked ? 'button' : undefined} accessibilityLabel={locked ? t(`${k}.tap_to_open`) : undefined}
         style={{ marginTop: spacing.sm, width: FRAME, height: FRAME, alignItems: 'center', justifyContent: 'center' }}>
         {/* The rays, the shockwave and the sparks start from his medallion's centre, not the frame's. */}
         <View pointerEvents="none" style={[{ position: 'absolute' }, FACE_AT]}>
@@ -216,12 +225,22 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
         <Animated.View pointerEvents="none" style={[styles.center, { width: FACE, height: FACE, marginLeft: -FACE / 2, marginTop: -FACE / 2, borderRadius: FACE / 2, borderWidth: 4, borderColor: '#FFE08A' }, waveStyle]} />
         </View>
         <Animated.View style={shakeStyle}>
+          {isRose ? (
+            // Her picture carries its own ring and crown; the silhouette covers her medallion while locked.
+            <View style={{ width: FRAME, height: FRAME }}>
+              <RoseLive size={FRAME} paused={phase !== 'done'} />
+              <Animated.View pointerEvents="none" style={[{ position: 'absolute' }, FACE_AT, shadowStyle]}>
+                <Image source={ROSE_LOCKED} style={{ width: '100%', height: '100%' }} contentFit="contain" accessible={false} />
+              </Animated.View>
+            </View>
+          ) : (
           <NazerFramed size={FRAME} blink={phase === 'done'} goldStyle={goldStyle} crownStyle={crownStyle}
             over={(
               <Animated.View style={[StyleSheet.absoluteFill, shadowStyle]}>
                 <Image source={LOCKED} style={{ width: '100%', height: '100%' }} contentFit="contain" accessible={false} />
               </Animated.View>
             )} />
+          )}
         </Animated.View>
         <View pointerEvents="none" style={[{ position: 'absolute' }, FACE_AT]}>
           {SPARKS.map((s, i) => <Spark key={i} spark={s} burst={burst} />)}
@@ -241,12 +260,12 @@ export function NazerUnlockStage({ play, onPhase }: { play: boolean; onPhase: (p
         {closed ? (
           <Pressable onPress={locked ? crack : undefined} accessibilityRole="button" hitSlop={8}
             style={({ pressed }) => ({ backgroundColor: '#C9A227', borderRadius: radius.full, paddingHorizontal: spacing.xl, paddingVertical: 10, opacity: phase === 'crack' ? 0.6 : pressed ? 0.85 : 1 })}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#1A2147' }}>{t('nazer_unlock.tap_to_open')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#1A2147' }}>{t(`${k}.tap_to_open`)}</Text>
           </Pressable>
         ) : (
           <Animated.View style={[{ alignItems: 'center' }, nameStyle]}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: '#FFFFFF' }}>{t('nazer.name')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)' }}>{t('nazer.role')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 21, color: '#FFFFFF' }}>{isRose ? rose.name : t('nazer.name')}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.72)' }}>{isRose ? t('rose_unlock.role') : t('nazer.role')}</Text>
           </Animated.View>
         )}
       </View>

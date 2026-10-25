@@ -61,11 +61,22 @@ function isPreference(v: unknown): v is ThemePreference {
 
 /**
  * The season switch's curtain: `to` is the mode being entered, `key` makes each crossing its
- * own mount. The tokens flip CURTAIN_IN_MS after it rises, under cover, and the curtain
- * component drops itself once the rebuilt tree has painted (curtainDone).
+ * own mount, `landed` the paintEpoch of the rebuilt tree once the tokens flipped under it.
+ *
+ * The rebuild (the whole app re-keyed) mounts every screen at once — a second of the main
+ * thread on a mid-range phone. It used to land CURTAIN_IN_MS after the curtain rose, right
+ * while the season's crest was assembling on it, and the crest stuttered (founder 2026-10-25:
+ * «on activating revision mode there's a frame drop for a second on the animation»). Now the
+ * entering rebuild waits for the crest to finish (LAND_IN_MS) so the stall falls on a still
+ * screen, and the curtain falls only once the new tree has laid out (`laidEpoch`, reported by
+ * the root's onLayout) — never over a half-built app.
  */
-export interface RevisionCurtain { to: boolean; key: number }
+export interface RevisionCurtain { to: boolean; key: number; landed?: number }
 export const CURTAIN_IN_MS = 240;
+/** Entering: the crest has assembled (SeasonCrest's last motion ends ~1.72 s) and the title is up. */
+export const LAND_IN_MS = 1780;
+/** When the tokens flip after an animated switch: entering waits for the crest, leaving does not. */
+export const landDelayMs = (on: boolean): number => (on ? LAND_IN_MS : CURTAIN_IN_MS);
 
 interface ThemeState {
   preference: ThemePreference;
@@ -74,6 +85,9 @@ interface ThemeState {
   /** Bumped when the backend repaints tokens (setThemeOverrides); the root re-keys on it too. */
   paintEpoch: number;
   repainted: () => void;
+  /** The paintEpoch whose tree has laid out (the root's onLayout) — the curtain waits for it. */
+  laidEpoch: number;
+  treeLaid: (epoch: number) => void;
   hydrated: boolean;
   returnTo: { href: Href; at: number } | null;
   /** «وضع المراجعة» is painted over the scheme (src/theme/revision.ts). */
@@ -120,7 +134,9 @@ export const useThemeStore = create<ThemeState>((set, get) => {
   let curtainTimer: ReturnType<typeof setTimeout> | null = null;
   const land = (on: boolean, returnTo: Href | null) => {
     setRevisionTheme(on);
-    set({ revision: on, paintEpoch: get().paintEpoch + 1, returnTo: returnTo ? { href: returnTo, at: Date.now() } : null });
+    const epoch = get().paintEpoch + 1;
+    const curtain = get().curtain;
+    set({ revision: on, paintEpoch: epoch, returnTo: returnTo ? { href: returnTo, at: Date.now() } : null, ...(curtain ? { curtain: { ...curtain, landed: epoch } } : null) });
     storage()?.setItem(REVISION_KEY, on ? '1' : '0').catch(() => {});
   };
 
@@ -128,6 +144,8 @@ export const useThemeStore = create<ThemeState>((set, get) => {
     preference: 'system',
     scheme: currentScheme(),
     paintEpoch: 0,
+    laidEpoch: 0,
+    treeLaid: (epoch) => { if (epoch > get().laidEpoch) set({ laidEpoch: epoch }); },
     hydrated: false,
     returnTo: null,
     revision: isRevisionTheme(),
@@ -147,7 +165,7 @@ export const useThemeStore = create<ThemeState>((set, get) => {
       }
       curtainSeq += 1;
       set({ curtain: { to: on, key: curtainSeq }, ...(on ? null : { welcome: false }) });
-      curtainTimer = setTimeout(() => { curtainTimer = null; land(on, returnTo); }, CURTAIN_IN_MS);
+      curtainTimer = setTimeout(() => { curtainTimer = null; land(on, returnTo); }, landDelayMs(on));
       return true;
     },
 
