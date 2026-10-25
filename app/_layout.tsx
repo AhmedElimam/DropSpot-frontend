@@ -51,6 +51,7 @@ import { installErrorReporting } from '@/lib/errorReport';
 import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { NazerUnlockModal } from '@/components/nazer/NazerUnlockModal';
+import { RoseUnlockModal } from '@/components/rose/RoseUnlockModal';
 import { ParentNumberCheckModal } from '@/components/student/ParentNumberCheckModal';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
 import { RevisionCurtain } from '@/components/RevisionCurtain';
@@ -306,6 +307,8 @@ export default function RootLayout() {
             <WhatsNewModal />
             {/* الناظر introduces himself to a parent or student, once — after «ما الجديد». */}
             <NazerUnlockModal />
+            {/* مدام روز's new painted look, unlocked once by a teacher or an assistant (founder 2026-10-25). */}
+            <RoseUnlockModal />
             {/* After him and his tour: a student proves their parent's number (soft, «بعدين»). */}
             <ParentNumberCheckModal />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}

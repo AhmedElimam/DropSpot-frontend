@@ -17,7 +17,8 @@ export function SubscriptionStrip() {
   const { t } = useTranslation();
   const sub = useAuthStore((s) => s.user?.subscription ?? null);
   const role = useAuthStore((s) => s.role);
-  if (!sub || sub.exempt_reason === 'demo') return null;
+  // Founder 2026-10-25: the strip is for teachers who pay — an exempt account (founding, distinguished, demo, admin) sees nothing.
+  if (!sub || sub.phase === 'exempt') return null;
   const concernsAssistant = !!sub.enroll_locked || sub.phase === 'pending' || sub.phase === 'late' || sub.phase === 'blocked';
   if (role === 'assistant' && !concernsAssistant) return null;
 
@@ -41,10 +42,6 @@ export function SubscriptionStrip() {
       break;
     case 'active':
       icon = 'success'; title = t('subscription.strip_active', { date: day(sub.expires_at) }); body = t('subscription.strip_active_sub');
-      break;
-    case 'exempt':
-      icon = 'star'; title = t('subscription.phase_exempt');
-      body = sub.exempt_reason === 'founding' ? t('subscription.exempt_founding') : sub.exempt_until ? t('subscription.exempt_until', { date: day(sub.exempt_until) }) : t('subscription.exempt_forever');
       break;
     case 'pending':
       icon = 'card'; tone = colors.warningDark; bg = colors.warningLight;
