@@ -31,6 +31,8 @@ export interface SubscriptionState {
   exempt_reason: string | null;
   days_left: number | null;
   subscription_id: number | null;
+  /** The soft lock: adding students is frozen until the subscription is paid; the rest of the app is open. */
+  enroll_locked?: boolean;
   /** Set when the viewer is an assistant: the state shown is their teacher's. */
   for_assistant?: boolean;
 }

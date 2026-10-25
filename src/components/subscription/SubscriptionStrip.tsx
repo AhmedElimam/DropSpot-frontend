@@ -18,7 +18,7 @@ export function SubscriptionStrip() {
   const sub = useAuthStore((s) => s.user?.subscription ?? null);
   const role = useAuthStore((s) => s.role);
   if (!sub || sub.exempt_reason === 'demo') return null;
-  const concernsAssistant = sub.phase === 'pending' || sub.phase === 'late' || sub.phase === 'blocked';
+  const concernsAssistant = !!sub.enroll_locked || sub.phase === 'pending' || sub.phase === 'late' || sub.phase === 'blocked';
   if (role === 'assistant' && !concernsAssistant) return null;
 
   const n = (v: number | null | undefined) => formatNumber(Number(v ?? 0), { maximumFractionDigits: 0 });
@@ -32,7 +32,10 @@ export function SubscriptionStrip() {
   let bg = colors.successLight;
   let title = '';
   let body = '';
-  switch (sub.phase) {
+  if (sub.enroll_locked) {
+    icon = 'lock'; tone = colors.warningDark; bg = colors.warningLight;
+    title = forAssistant + t('subscription.strip_locked'); body = t('subscription.strip_locked_sub');
+  } else switch (sub.phase) {
     case 'trial':
       icon = 'star'; title = t('subscription.strip_trial', { count: days }); body = t('subscription.strip_trial_sub', { term: n(p.term), year: n(p.year), date: day(sub.trial_ends_at) });
       break;

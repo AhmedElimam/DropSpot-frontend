@@ -254,6 +254,11 @@ client.interceptors.response.use(
     if (status === 402 && error.response?.data?.code === 'SUBSCRIPTION_BLOCKED') {
       void useAuthStore.getState().markSubscriptionBlocked(error.response.data?.data?.subscription ?? null);
     }
+    // The soft lock (EnsureEnrollmentOpen): remember it so the add-student sheet shows the
+    // paywall next time instead of the options.
+    if (status === 402 && error.response?.data?.code === 'ENROLLMENT_LOCKED') {
+      void useAuthStore.getState().markEnrollLocked(error.response.data?.data?.subscription ?? null);
+    }
     if (status && status < 500) useOfflineStore.getState().noteServerOk();
     else if (useOfflineStore.getState().online) useOfflineStore.getState().noteServerFailure();
     // No answer at all (offline, timeout, DNS): a dropout, not a verdict.

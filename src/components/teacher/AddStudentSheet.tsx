@@ -1,4 +1,6 @@
 import { SheetModal } from '@/components/ui/SheetModal';
+import { useAuthStore } from '@/stores/authStore';
+import { EnrollLockedPaywall } from '@/components/subscription/EnrollLockedPaywall';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +19,7 @@ export function AddStudentSheet({ visible, onClose, courseId }: { visible: boole
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { data: flags } = useFeatureFlags();
+  const enrollLocked = useAuthStore((s) => !!s.user?.subscription?.enroll_locked);
   const go = (href: Href) => { onClose(); setTimeout(() => router.push(href), 60); };
   const param = courseId ? `?courseId=${courseId}` : '';
 
@@ -29,6 +32,7 @@ export function AddStudentSheet({ visible, onClose, courseId }: { visible: boole
 
   return (
     <SheetModal visible={visible} onClose={onClose} style={{ backgroundColor: colors.background, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+      {enrollLocked ? <EnrollLockedPaywall onClose={onClose} /> : (<>
           <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary, marginBottom: 2 }}>{t('add_student.title')}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.lg }}>{t('add_student.subtitle')}</Text>
           {options.filter((o) => o.show).map((o) => (
@@ -44,6 +48,7 @@ export function AddStudentSheet({ visible, onClose, courseId }: { visible: boole
               <Icon name="back" size={18} color={colors.textTertiary} />
             </TouchableOpacity>
           ))}
+      </>)}
     </SheetModal>
   );
 }
