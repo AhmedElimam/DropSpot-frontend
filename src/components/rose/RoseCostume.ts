@@ -5,8 +5,9 @@ import { useSurface } from '@/ui/surfaces';
  * مدام روز's pictures. Since 2026-10-25 she is PAINTED, in the same hand as الناظر (founder:
  * «that's the new rework of madam rose — we want our art style like el nazer now»): the
  * founder's three-pose sheet, cut out and set on her navy medallion with the gold ring and
- * the Dros Spot crown (scratchpad rose2/cut.py + compose.py). Nothing is animated or painted
- * inside her face by us — the whole figure breathes, nods and reacts (RoseLive); any other
+ * the Dros Spot crown (scratchpad rose2/cut.py + compose.py). Her face moves by its OWN painted
+ * parts — brows, eyes, lips cut as layers over a base (rose2/rig.py, src/rose/manifest.ts), so
+ * she blinks, glances, talks and reacts (RoseLive) without anything drawn by us; any whole
  * expression (asleep, stern, proud…) must come from the image model with her portrait and
  * الناظر's attached (founder 2026-10-25: hand-painted closed eyes «look unnatural»).
  *
@@ -19,14 +20,14 @@ export type RosePictures = {
   portrait: number;
   /** 600 px — the large frame on her desk (the 300 px one blurs above ~100 pt on a 3× screen). */
   large: number;
-  /** 600 px — the live figure (the whole picture moves; no separate parts). */
+  /** 600 px — the rig's base: the framed medallion with skin under her brows, eyes and lips (src/rose/manifest). */
   liveBase: number;
 };
 
 const NORMAL: RosePictures = {
   portrait: require('../../../assets/images/rose/madam-rose.webp'),
   large: require('../../../assets/images/rose/madam-rose-600.webp'),
-  liveBase: require('../../../assets/images/rose/madam-rose-600.webp'),
+  liveBase: require('../../../assets/images/rose/rig/base-600.webp'),
 };
 
 // Until her season picture is painted: the same pictures (see above).
