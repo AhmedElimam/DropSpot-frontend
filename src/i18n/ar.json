@@ -4006,6 +4006,16 @@
     "banner_blocked_b": "سدّد ويرجع حسابك فورًا، وبياناتك كما هي.",
     "banner_lapsed_b": "انتهت التجربة. تصدر الفاتورة خلال اليوم، ومعك {{days}} يومًا للسداد.",
     "trial_corner": "تجربة مجانية: باقي {{n}} يوم",
-    "trial_corner_last": "تجربة مجانية: آخر يوم"
+    "trial_corner_last": "تجربة مجانية: آخر يوم",
+    "compact_pending": "{{amount}} بالسعر العادي حتى {{date}}",
+    "compact_late": "{{amount}} — يتوقف الدخول يوم {{date}}",
+    "compact_blocked": "{{amount}} — سدّد ويرجع حسابك فورًا",
+    "banner_close": "إغلاق",
+    "corner_pending": "اشتراك مستحق: باقي {{n}} يوم",
+    "corner_pending_last": "اشتراك مستحق: آخر يوم",
+    "corner_late": "اشتراك متأخّر: باقي {{n}} يوم",
+    "corner_late_last": "اشتراك متأخّر: آخر يوم",
+    "corner_lapsed": "فاتورة الاشتراك في الطريق",
+    "corner_locked": "تسجيل الطلاب متوقف"
   }
 }

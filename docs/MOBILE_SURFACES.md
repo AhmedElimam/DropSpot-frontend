@@ -1086,7 +1086,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.tickets.detail.thread` — element · app/(teacher)/tickets/[id].tsx
 - `teacher.tickets.hero` — element · app/(teacher)/tickets/index.tsx
 - `teacher.tickets.list` — element · app/(teacher)/tickets/index.tsx
-- `teacher.trial_corner` — element · src/components/subscription/TrialCornerTag.tsx
+- `teacher.trial_corner` — element · src/components/subscription/SubscriptionCornerTag.tsx
 - `teacher.tutorial.caption` — element · app/(teacher)/tutorial/[key].tsx
 - `teacher.tutorial.moments_button` — element · app/(teacher)/tutorial/[key].tsx
 - `teacher.tutorial.moments_sheet` — element · app/(teacher)/tutorial/[key].tsx

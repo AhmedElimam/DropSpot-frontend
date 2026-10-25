@@ -53,7 +53,7 @@ import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { NazerUnlockModal } from '@/components/nazer/NazerUnlockModal';
 import { RoseUnlockModal } from '@/components/rose/RoseUnlockModal';
 import { SubscriptionStatusModal } from '@/components/subscription/SubscriptionStatusModal';
-import { TrialCornerTag } from '@/components/subscription/TrialCornerTag';
+import { SubscriptionCornerTag } from '@/components/subscription/SubscriptionCornerTag';
 import { SubscriptionSync } from '@/components/subscription/SubscriptionSync';
 import { ParentNumberCheckModal } from '@/components/student/ParentNumberCheckModal';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
@@ -302,8 +302,8 @@ export default function RootLayout() {
                   the gesture (founder 2026-10-12, same cause as the role stacks on 10-08). */}
               <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />
             </View>
-            {/* The trial's quiet tag, bottom-right on every teacher screen; touches pass through (founder 2026-10-25). */}
-            <TrialCornerTag />
+            {/* The subscription's quiet tag (trial days, an open or late bill), bottom-right on every teacher screen; touches pass through. */}
+            <SubscriptionCornerTag />
             <SubscriptionSync />
             {/* Super-admin survey prompt — checked on app-open/login, once across platforms. */}
             <SurveyModal />
