@@ -37,7 +37,7 @@ const CHIP_BORDER = 'rgba(255,255,255,0.22)';
 const PORTRAIT = 148;
 
 export function RoseHero({
-  greeting, sub, sheet, activity = 'cash', live = true, hold, onBack, onSettings, onExportAll, exportingAll = false, onExportSheet, exportingSheet = false, children, lines,
+  greeting, sub, sheet, activity = 'cash', asleep = false, live = true, hold, onBack, onSettings, onExportAll, exportingAll = false, onExportSheet, exportingSheet = false, children, lines,
 }: {
   greeting: string;
   sub: string;
@@ -45,6 +45,8 @@ export function RoseHero({
   sheet: RoseSheet | null;
   /** The tab on screen — what she holds (her ledger, a sheet, the stamp). */
   activity?: RoseActivity;
+  /** Nothing on her desk: she dozes over it (founder 2026-10-25). */
+  asleep?: boolean;
   /** False while the page is still sliding in: her still portrait, nothing typed yet — the
    *  live face (a dozen vector layers) mounts once the screen has arrived. */
   live?: boolean;
@@ -92,7 +94,7 @@ export function RoseHero({
         <View style={{ alignItems: 'center', marginTop: -spacing.lg }}>
           {/* No halo behind her (founder 2026-10-07): the frame sits straight on the navy. */}
           <Surface id="teacher.rose.live" fallback={<RosePortrait size={PORTRAIT} nod={false} />}>
-          {live ? <RoseLive size={PORTRAIT} talking={talking} paused={paused} activity={activity} /> : <RosePortrait size={PORTRAIT} nod={false} />}
+          {live ? <RoseLive size={PORTRAIT} talking={talking} paused={paused} activity={activity} asleep={asleep} /> : <RosePortrait size={PORTRAIT} nod={false} />}
           </Surface>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: ON, marginTop: spacing.xs }}>{rose.name}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: ON_SOFT }}>{t('cash.screen_title')}</Text>

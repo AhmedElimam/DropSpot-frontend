@@ -782,6 +782,26 @@ function Observations({ items }: { items: Observation[] }) {
 // ───────────────────────── the screen ─────────────────────────
 
 /** The single thing that needs this person right now. */
+/**
+ * Nothing waits on her desk — the «كله تمام» card. The same tests NowCard makes; مدام روز
+ * sleeps over the week tab while it holds (founder 2026-10-25).
+ */
+function isDeskCalm(data: CashView): boolean {
+  const answered = (d: Drawer) => d.is_answered ?? (d.registry !== null || (d.teacher_count ?? null) !== null);
+  const openGap = (d: Drawer) => (d.is_open_gap ?? (d.status === 'discrepancy' && !d.resolved_at)) && !d.closed_at;
+  if (data.role === 'assistant') {
+    const gap = data.drawers.find(openGap);
+    return !data.unanswered[0] && !(gap && gap.difference !== null);
+  }
+  const mine = data.drawers.filter((d) => !d.is_teacher_drawer);
+  return data.pending_handovers.length === 0
+    && !mine.some((d) => (d.review_pending ?? 0) > 0 || (!d.closed_at && answered(d)))
+    && !mine.some((d) => !answered(d) && !d.closed_at)
+    && !data.drawers.some((d) => d.is_teacher_drawer && !answered(d) && !d.closed_at)
+    && !data.drawers.some((d) => d.is_teacher_drawer && openGap(d))
+    && data.open_gaps.every((g) => g.week_start === data.week.start);
+}
+
 function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView; onDone: (d: Drawer) => void; onOpenHandovers: () => void; onCountOwn: () => void }) {
   const { t } = useTranslation();
   if (data.role === 'assistant') {
@@ -831,7 +851,7 @@ function NowCard({ data, onDone, onOpenHandovers, onCountOwn }: { data: CashView
   const ownToCount = data.drawers.find((d) => d.is_teacher_drawer && !answered(d) && !d.closed_at);
   const ownGap = data.drawers.find((d) => d.is_teacher_drawer && (d.is_open_gap ?? (d.status === 'discrepancy' && !d.resolved_at)) && !d.closed_at);
   const olderGaps = data.open_gaps.filter((g) => g.week_start !== data.week.start);
-  if (handovers === 0 && !first && uncounted.length === 0 && !ownToCount && !ownGap && olderGaps.length === 0) {
+  if (isDeskCalm(data)) {
     const rn = data.registry_now;
     return <Calm text={t('cash.calm_teacher')} sub={rn && rn.total_known > 0 ? t('cash.calm_registry', { amount: money(rn.total_known) }) : undefined} />;
   }
@@ -1147,6 +1167,7 @@ export default function CashReconcileScreen() {
           sub={ins?.context?.season ?? (data ? t('cash.week_of', { start: formatShortDate(data.week.start), end: formatShortDate(data.week.end) }) : '')}
           sheet={isPast ? null : sheet}
           activity={segment === 'week' ? 'cash' : segment}
+          asleep={!isPast && segment === 'week' && !!data && isDeskCalm(data)}
           live={arrived}
           hold={hold}
           onBack={() => router.back()}

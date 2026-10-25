@@ -851,6 +851,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.rose.sheet_detail.session_hero` — element · src/components/rose/SheetDetail.tsx
 - `teacher.rose.sheet_detail.session_stats` — element · src/components/rose/SheetDetail.tsx
 - `teacher.rose.shield` — element · src/components/rose/RoseStamp.tsx
+- `teacher.rose.sleeping` — element · src/components/rose/RoseCalling.tsx
 - `teacher.rose.stamp` — element · src/components/rose/RoseStamp.tsx
 - `teacher.rose.stamp_burst` — element · src/components/rose/RoseStamp.tsx
 - `teacher.rose_reset.clears` — element · app/(teacher)/rose-reset.tsx
