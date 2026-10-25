@@ -15,6 +15,7 @@ import { useTourStore } from '@/tour/store';
 import { getTourStatus } from '@/api/tour';
 import { NazerUnlockStage, RiseIn, type UnlockPhase } from './NazerUnlockStage';
 import { BrandMark } from '@/components/ui/BrandMark';
+import { usePopupSlot } from '@/ui/popupSlot';
 
 const KEY = 'nazer_unlocked';
 const LOGO = 64;
@@ -67,7 +68,8 @@ export function NazerUnlockModal() {
   const [phase, setPhase] = useState<UnlockPhase>('lock');
   // A first visit: the tour comes straight after him, so the popup leads into it.
   const firstTime = !!tour && !tour.completed;
-  const visible = family && seen === false && !!tour && !touring && !showPopup && !survey && !blocked && !impersonating;
+  // One popup at a time, in order, never over another modal (src/ui/popupSlot.ts).
+  const visible = usePopupSlot('nazer_unlock', family && seen === false && !!tour && !touring && !showPopup && !survey && !blocked && !impersonating);
   if (!family) return null;
 
   const who = role === 'parent' ? 'parent' : 'student';

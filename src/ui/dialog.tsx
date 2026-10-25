@@ -10,6 +10,7 @@ import { useRose } from '@/hooks/useRose';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { RosePortrait } from '@/components/rose/RoseStamp';
 import { NazerFramed } from '@/components/nazer/NazerFramed';
+import { useModalPresence } from './popupSlot';
 
 /**
  * The app's own popup in place of the system alert (founder 2026-10-10: «I don't like the
@@ -206,6 +207,8 @@ export function DialogHost({ nested = false }: { nested?: boolean }) {
 }
 
 function ModalWindow({ onRequestClose, children }: { onRequestClose: () => void; children: ReactNode }) {
+  // Reported to the popup slot: an app-wide popup waits while an alert is up.
+  useModalPresence(true);
   return <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onRequestClose}>{children}</Modal>;
 }
 

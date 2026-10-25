@@ -12,7 +12,8 @@ import { useRose } from '@/hooks/useRose';
 import { useWhatsNew } from '@/hooks/useReleaseNotes';
 import { usePendingSurvey } from '@/hooks/useSurvey';
 import { useTourStore } from '@/tour/store';
-import { useOnboardingIntroPending, useRoseUnlockGate, useSettled } from '@/hooks/usePopupTurn';
+import { useOnboardingIntroPending, useRoseUnlockGate } from '@/hooks/usePopupTurn';
+import { usePopupSlot } from '@/ui/popupSlot';
 import { NazerUnlockStage, RiseIn, type UnlockPhase } from '@/components/nazer/NazerUnlockStage';
 import { BrandMark } from '@/components/ui/BrandMark';
 
@@ -62,10 +63,10 @@ export function RoseUnlockModal() {
 
   const [phase, setPhase] = useState<UnlockPhase>('lock');
   // A teacher who switched her name off keeps her out of the way: no popup either.
-  // After a brand-new teacher's welcome, and a breath after it closed: two iOS modals presented
-  // together leave one invisible over the screen (2026-10-25, a fresh login froze on it).
+  // After a brand-new teacher's welcome; one popup at a time, never over another modal — two iOS
+  // modals presented together leave one invisible over the screen (2026-10-25, a login froze on it).
   const introPending = useOnboardingIntroPending();
-  const visible = useSettled(staff && rose.named && seen === false && !introPending && !touring && !showPopup && !survey && !blocked && !impersonating);
+  const visible = usePopupSlot('rose_unlock', staff && rose.named && seen === false && !introPending && !touring && !showPopup && !survey && !blocked && !impersonating);
   if (!staff) return null;
 
   const points = [1, 2, 3].map((n) => t(`rose_unlock.point_${n}`));

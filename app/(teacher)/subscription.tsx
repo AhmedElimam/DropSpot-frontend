@@ -16,7 +16,7 @@ export default function SubscriptionScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <TouchableOpacity onPress={() => router.back()} accessibilityLabel={t('common.back')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="back" size={22} color={colors.textPrimary} />
+          <Icon name="forward" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('subscription.title')}</Text>
         <View style={{ width: 44 }} />

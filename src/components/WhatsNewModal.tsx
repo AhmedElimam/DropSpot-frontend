@@ -10,6 +10,7 @@ import { useWhatsNew } from '@/hooks/useReleaseNotes';
 import { usePendingSurvey } from '@/hooks/useSurvey';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import { useAuthStore } from '@/stores/authStore';
+import { usePopupSlot } from '@/ui/popupSlot';
 
 /**
  * «ما الجديد» as a popup, once per installed version, right after the update. Written at
@@ -42,7 +43,8 @@ export function WhatsNewModal() {
   // closing it would mark the note seen on the wrong device.
   const impersonating = useAuthStore((s) => !!s.impersonation?.active);
 
-  const visible = showPopup && !!note && !survey && !onboardingDue && !blocked && !impersonating;
+  // One popup at a time, in order, never over another modal (src/ui/popupSlot.ts).
+  const visible = usePopupSlot('whats_new', showPopup && !!note && !survey && !onboardingDue && !blocked && !impersonating);
   if (!note) return null;
 
   return (

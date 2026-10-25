@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 
@@ -12,20 +11,6 @@ export function useOnboardingIntroPending(): boolean {
   const { data, isLoading } = useTeacherOnboarding();
   if (isLoading) return true;
   return !!data && data.active && !data.steps.intro && !data.has_courses;
-}
-
-/**
- * True once `free` has held for `ms` — the breath a popup leaves after the one before it
- * closed, so its own presentation never lands on the other's dismissal.
- */
-export function useSettled(free: boolean, ms = 650): boolean {
-  const [settled, setSettled] = useState(false);
-  useEffect(() => {
-    if (!free) { setSettled(false); return; }
-    const t = setTimeout(() => setSettled(true), ms);
-    return () => clearTimeout(t);
-  }, [free, ms]);
-  return free && settled;
 }
 
 /**

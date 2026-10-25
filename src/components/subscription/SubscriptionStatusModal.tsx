@@ -10,7 +10,8 @@ import { useRose } from '@/hooks/useRose';
 import { useWhatsNew } from '@/hooks/useReleaseNotes';
 import { usePendingSurvey } from '@/hooks/useSurvey';
 import { useTourStore } from '@/tour/store';
-import { useOnboardingIntroPending, useRoseUnlockGate, useSettled, useStatusPopupGate } from '@/hooks/usePopupTurn';
+import { useOnboardingIntroPending, useRoseUnlockGate, useStatusPopupGate } from '@/hooks/usePopupTurn';
+import { usePopupSlot } from '@/ui/popupSlot';
 import { RosePortrait } from '@/components/rose/RoseStamp';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { Surface } from '@/ui/surfaces';
@@ -60,9 +61,8 @@ export function SubscriptionStatusModal() {
   useEffect(() => { useStatusPopupGate.setState({ pending }); }, [pending]);
   const introPending = useOnboardingIntroPending();
   const free = !!sheet && !seen && !unlockPending && !introPending && !touring && !showPopup && !survey && !blocked && !impersonating;
-  // Opening is delayed a breath after the popup before it closed (two iOS modals must never cross);
-  // closing is immediate.
-  const visible = useSettled(free);
+  // One popup at a time, a breath after the one before, never over another modal (src/ui/popupSlot.ts).
+  const visible = usePopupSlot('subscription_status', free);
   if (!sheet) return null;
   const owing = sheet.kind === 'due' || sheet.kind === 'late';
 
