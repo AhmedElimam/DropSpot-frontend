@@ -39,6 +39,8 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
   const course = id(data, 'course_id');
 
   if (ADMIN_TICKET_TYPES.has(type)) return '/(teacher)/resolution';
+  // The platform subscription: the bill, the late price, the wall — all one screen.
+  if (type.startsWith('subscription_')) return isAssistant ? null : '/(teacher)/subscription';
 
   switch (type) {
     // ── مدام روز's 11 am «ورقة النهارده»: the day's sessions ──

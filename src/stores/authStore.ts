@@ -62,6 +62,8 @@ interface AuthState {
    */
   leaveImpersonation: () => Promise<'admin' | 'login'>;
   logout: () => Promise<void>;
+  /** A 402 SUBSCRIPTION_BLOCKED answer: flag the session so the router shows the wall. */
+  markSubscriptionBlocked: (state?: import('@/api/subscription').SubscriptionState | null) => Promise<void>;
   /** An impersonation session ended by itself → return to the admin, not to the login screen. */
   endImpersonationOrLogout: () => Promise<void>;
   hydrate: () => Promise<void>;
@@ -107,6 +109,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
       // gate bouncing back on first accept). Persist to disk after.
       set({ user, role, isAuthenticated: true });
       await persist(user, role, activeTeacherId, impersonation);
+    },
+
+    markSubscriptionBlocked: async (state) => {
+      const { user, role, activeTeacherId, impersonation } = get();
+      if (!user || user.subscription_blocked) return;
+      const next = { ...user, subscription_blocked: true, subscription: state ?? (user.subscription ? { ...user.subscription, blocked: true } : user.subscription) };
+      set({ user: next });
+      if (role) await persist(next, role, activeTeacherId, impersonation);
     },
 
     setActiveTeacherId: async (id) => {

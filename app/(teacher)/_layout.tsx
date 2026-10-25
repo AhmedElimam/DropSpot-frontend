@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, type Href } from 'expo-router';
 import { transitionListeners } from '@/navigation/transitions';
 import { View, ActivityIndicator, AppState, Platform, type AppStateStatus } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
@@ -42,6 +42,7 @@ export default function TeacherLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const role = useAuthStore((s) => s.role);
+  const user = useAuthStore((s) => s.user);
 
   // Ensure the offline buffer table exists, seed the pending count, and refresh
   // it whenever the app returns to the foreground (a chance to reconcile).
@@ -145,6 +146,11 @@ export default function TeacherLayout() {
   // Not this role's app (a super-admin whose impersonation just ended, a role that changed
   // under the screen): `/` routes by role. Without this the teacher tabs kept rendering for
   // the admin until something else navigated.
+  // The subscription wall: set at login or by a 402 mid-session (src/api/client.ts).
+  if (user?.subscription_blocked) {
+    return <Redirect href={'/subscription-wall' as Href} />;
+  }
+
   if (role && role !== 'teacher' && role !== 'assistant') {
     if (__DEV__) console.log('[route] (teacher) → resolve for role', role);
     return <Redirect href={ROUTE_BY_ROLE} />;

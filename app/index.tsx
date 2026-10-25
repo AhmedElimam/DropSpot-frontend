@@ -25,6 +25,12 @@ export default function Index() {
     return <Redirect href={'/accept-terms' as Href} />;
   }
 
+  // Subscription wall (founder 2026-10-25): a teacher whose bill passed its block date
+  // — or an assistant whose every teacher did — sees only the bill until it is settled.
+  if ((role === 'teacher' || role === 'assistant') && user?.subscription_blocked) {
+    return <Redirect href={'/subscription-wall' as Href} />;
+  }
+
   // Self-registration wall: a student who signed up on their own can't use the app
   // until a subscribed teacher has enrolled them. Clears once an enrollment exists.
   if (role === 'student' && user?.needs_teacher_invitation) {

@@ -38,6 +38,10 @@ export interface User {
   is_founding_teacher?: boolean;
   /** The single flagship «عضو مميز» tier (violet-gold badge, lifetime subscription-exempt). */
   is_distinguished_member?: boolean;
+  /** The teacher's (or their assistant's teacher's) subscription state — login + refresh. */
+  subscription?: import('@/api/subscription').SubscriptionState | null;
+  /** True when the subscription bill passed its block date: the app shows the wall. */
+  subscription_blocked?: boolean;
   /** Teacher only: their uploaded brand logo — shown as their avatar when set. */
   logo_url?: string | null;
 }
