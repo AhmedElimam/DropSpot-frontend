@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Button } from '@/components/ui/Button';
-import { RosePortrait } from '@/components/rose/RoseStamp';
+import { Image } from 'expo-image';
 import { useAuthStore } from '@/stores/authStore';
 import { useAppConfigStore } from '@/stores/appConfigStore';
 import { SUPPORT_PHONE } from '@/config/support';
@@ -30,7 +30,8 @@ export function EnrollLockedPaywall({ onClose }: { onClose: () => void }) {
 
   return (
     <View style={{ alignItems: 'center' }}>
-      <RosePortrait size={96} large />
+      {/* The enforcer: مدام روز pointing at the tablet (the founder's sheet, 2026-10-25). */}
+      <Image source={require('../../../assets/images/rose/rose-enforcer.webp')} style={{ width: 150, height: 170 }} contentFit="contain" accessibilityLabel="مدام روز" />
       <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.textPrimary, textAlign: 'center', marginTop: spacing.md }}>{t('subscription.locked_title')}</Text>
       <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm }}>{t('subscription.locked_body')}</Text>
       {prices ? (

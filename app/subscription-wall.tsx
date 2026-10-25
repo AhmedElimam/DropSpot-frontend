@@ -9,7 +9,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, gradients } from '@/theme/index';
 import { useAuthStore, resolveRole } from '@/stores/authStore';
 import { refreshToken as refreshTokenApi } from '@/api/auth';
-import { Icon } from '@/components/ui/Icon';
+import { Image } from 'expo-image';
 import { Button } from '@/components/ui/Button';
 import { SubscriptionPanel } from '@/components/subscription/SubscriptionPanel';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
@@ -43,9 +43,8 @@ export default function SubscriptionWallScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <LinearGradient colors={gradients.auth} style={{ paddingTop: insets.top + spacing.lg, paddingBottom: spacing.xl, paddingHorizontal: spacing.lg, alignItems: 'center', gap: spacing.sm }}>
-        <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="lock" size={30} color={colors.onHero} />
-        </View>
+        {/* مدام روز, hand up, «trial is done» on her phone (the founder's sheet, 2026-10-25). */}
+        <Image source={require('../assets/images/rose/rose-alert.webp')} style={{ width: 150, height: 150 }} contentFit="contain" accessibilityLabel="مدام روز" />
         <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero, textAlign: 'center' }}>{t('subscription.wall_title')}</Text>
       </LinearGradient>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
