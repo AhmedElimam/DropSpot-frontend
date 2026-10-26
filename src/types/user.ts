@@ -36,6 +36,8 @@ export interface User {
   parent_phone_hint?: string | null;
   /** First-cohort teacher — the app shows a «عضو مؤسس» (Founding Member) badge. */
   is_founding_teacher?: boolean;
+  /** Teacher only: «أستاذ / أستاذة» — how the app and every message address them. Null for other roles. */
+  gender?: 'male' | 'female' | null;
   /** The single flagship «عضو مميز» tier (violet-gold badge, lifetime subscription-exempt). */
   is_distinguished_member?: boolean;
   /** The teacher's (or their assistant's teacher's) subscription state — login + refresh. */

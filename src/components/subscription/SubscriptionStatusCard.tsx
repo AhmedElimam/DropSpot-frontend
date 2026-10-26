@@ -17,7 +17,8 @@ import { SubscriptionSheetView } from './SubscriptionSheetView';
 export function SubscriptionStatusCard() {
   const { t } = useTranslation();
   const sub = useAuthStore((s) => s.user?.subscription ?? null);
-  const sheet = subscriptionSheet(sub, t);
+  const female = useAuthStore((s) => s.user?.gender === 'female');
+  const sheet = subscriptionSheet(sub, t, female);
   const open = () => router.push('/(teacher)/subscription' as Href);
   const phaseLabel = sub ? t(`subscription.phase_${sub.phase}`) : t('subscription.row_sub');
   const line = !sub ? null

@@ -22,6 +22,7 @@ import { TourTarget } from '@/tour/TourTarget';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { TeacherLogoRow } from '@/components/teacher/TeacherLogoRow';
+import { GenderRow } from '@/components/teacher/GenderRow';
 import { RevisionSettingsSwitch } from '@/components/teacher/RevisionSwitch';
 import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { REVISION_INK } from '@/theme/revision';
@@ -91,7 +92,7 @@ export default function TeacherSettings() {
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
                   <Icon name={isAssistant ? 'profile' : 'teacher'} size={13} color={colors.onHero} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }}>{isAssistant ? t('teacher.role_assistant') : t('teacher.role_teacher')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onHero }}>{isAssistant ? t('teacher.role_assistant') : t(user?.gender === 'female' ? 'teacher.role_teacher_f' : 'teacher.role_teacher')}</Text>
                 </View>
                 {user?.phone ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
@@ -112,7 +113,7 @@ export default function TeacherSettings() {
             <Surface id="teacher.settings.member_badge">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, alignSelf: 'flex-start', backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: 'rgba(255,209,102,0.9)', paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999 }}>
               <Icon name="star" size={14} color="#FFD166" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.onHero }}>{t('teacher.founding_member')}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.onHero }}>{t(user?.gender === 'female' ? 'teacher.founding_member_f' : 'teacher.founding_member')}</Text>
             </View>
             </Surface>
           ) : null}
@@ -140,6 +141,8 @@ export default function TeacherSettings() {
           <SectionLabel text={t('common.section_account')} />
           {/* The teacher's own brand logo (shown to parents) — its own card, teacher-only. */}
           <Surface id="teacher.settings.row_logo" assistantNeeds="teacher"><TeacherLogoRow /></Surface>
+          {/* «أستاذ / أستاذة» — how the app and every message address this teacher (founder 2026-10-26). */}
+          <Surface id="teacher.settings.row_gender" assistantNeeds="teacher"><GenderRow /></Surface>
           {/* The payment status and its dates, stamped like her popup (founder 2026-10-25). */}
           <Surface id="teacher.settings.row_subscription" assistantNeeds="teacher"><SubscriptionStatusCard /></Surface>
           <Group>

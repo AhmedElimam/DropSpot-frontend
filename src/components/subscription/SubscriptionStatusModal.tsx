@@ -40,7 +40,7 @@ export function SubscriptionStatusModal() {
   const role = useAuthStore((s) => s.role);
   const impersonating = useAuthStore((s) => !!s.impersonation?.active);
   const rose = useRose();
-  const sheet = role === 'teacher' && user?.subscription?.exempt_reason !== 'demo' ? subscriptionSheet(user?.subscription, t) : null;
+  const sheet = role === 'teacher' && user?.subscription?.exempt_reason !== 'demo' ? subscriptionSheet(user?.subscription, t, user?.gender === 'female') : null;
 
   const unlockPending = useRoseUnlockGate((s) => s.pending);
   const touring = useTourStore((s) => s.tour !== null);

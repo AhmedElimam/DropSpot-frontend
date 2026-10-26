@@ -163,9 +163,10 @@ export function formatDuration(minutes: number): string {
   return `${h} س ${m} د`;
 }
 
-export function getGreetingKey(): string {
+export function getGreetingKey(female = false): string {
   const h = new Date().getHours();
-  return h < 12 ? 'common.morning_greeting' : 'common.afternoon_greeting';
+  const key = h < 12 ? 'common.morning_greeting' : 'common.afternoon_greeting';
+  return female ? `${key}_f` : key;
 }
 
 export function formatPercent(value: number): string {

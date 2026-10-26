@@ -19,7 +19,7 @@ export interface SubscriptionSheet {
   rows: { label: string; value: string; strong?: boolean }[];
 }
 
-export function subscriptionSheet(sub: SubscriptionState | null | undefined, t: TFunction): SubscriptionSheet | null {
+export function subscriptionSheet(sub: SubscriptionState | null | undefined, t: TFunction, female = false): SubscriptionSheet | null {
   if (!sub) return null;
   const day = (d: string | null | undefined) => (d ? formatDate(d) : '—');
   const money = (v: number | null | undefined) => `${formatNumber(Number(v ?? 0), { maximumFractionDigits: 0 })} ${t('subscription.egp')}`;
@@ -45,7 +45,7 @@ export function subscriptionSheet(sub: SubscriptionState | null | undefined, t: 
         kind: 'exempt', ink: 'green', word: t('subscription.stamp_exempt'), title: t('subscription.status_title_exempt'),
         line: lifetime ? t('subscription.rose_exempt') : t('subscription.rose_exempt_until', { date: day(sub.exempt_until) }),
         rows: [
-          { label: t('subscription.row_exempt_for'), value: t(`subscription.exempt_kind_${kind}`) },
+          { label: t('subscription.row_exempt_for'), value: t(kind === 'founding' && female ? 'subscription.exempt_kind_founding_f' : `subscription.exempt_kind_${kind}`) },
           { label: t('subscription.row_exempt_until'), value: lifetime ? t('subscription.lifetime') : day(sub.exempt_until), strong: true },
         ],
       };

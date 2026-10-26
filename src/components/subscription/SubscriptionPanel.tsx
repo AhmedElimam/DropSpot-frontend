@@ -33,6 +33,7 @@ export function SubscriptionPanel({ walled = false }: { walled?: boolean }) {
   const { data: flags } = useFeatureFlags();
   const seed = useAuthStore((s) => s.user?.subscription ?? null);
   const role = useAuthStore((s) => s.role);
+  const female = useAuthStore((s) => s.user?.gender === 'female');
   const isAssistant = role === 'assistant';
   const q = useQuery({ queryKey: ['teacher', 'subscription'], queryFn: getSubscription, staleTime: 60_000 });
   const state: SubscriptionState | null = q.data?.state ?? seed;
@@ -68,7 +69,7 @@ export function SubscriptionPanel({ walled = false }: { walled?: boolean }) {
   const n = (v: number | null | undefined) => formatNumber(Number(v ?? 0), { maximumFractionDigits: 0 });
   const egp = (v: number | null | undefined) => `${n(v)} ${t('subscription.egp')}`;
   const day = (d: string | null | undefined) => (d ? formatDate(d) : '—');
-  const sheet = subscriptionSheet(state, t);
+  const sheet = subscriptionSheet(state, t, female);
 
   const chip = phase === 'exempt' || phase === 'active' || phase === 'trial'
     ? { fg: colors.successText, bg: colors.successLight }
@@ -130,7 +131,7 @@ export function SubscriptionPanel({ walled = false }: { walled?: boolean }) {
             {state.trial_ends_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>{t('subscription.trial_ends', { date: day(state.trial_ends_at) })}</Text> : null}
           </View>
         ) : null}
-        {phase === 'exempt' && state.exempt_reason === 'founding' ? <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: 'rgba(255,255,255,0.86)', marginTop: 4 }}>{t('subscription.exempt_founding')}</Text> : null}
+        {phase === 'exempt' && state.exempt_reason === 'founding' ? <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: 'rgba(255,255,255,0.86)', marginTop: 4 }}>{t(female ? 'subscription.exempt_founding_f' : 'subscription.exempt_founding')}</Text> : null}
         {phase === 'pending' ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.86)', marginTop: 4 }}>{t('subscription.days_to_late', { count: state.days_left ?? 0, n: n(state.days_left ?? 0) })}</Text> : null}
         {phase === 'late' ? <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: '#FFD0D6', marginTop: 4 }}>{t('subscription.days_to_block', { count: state.days_left ?? 0, n: n(state.days_left ?? 0) })}</Text> : null}
       </LinearGradient>

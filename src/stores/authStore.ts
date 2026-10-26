@@ -44,6 +44,8 @@ interface AuthState {
   isLoading: boolean;
   setTokens: (access: string, refresh: string) => Promise<void>;
   setSession: (user: User, role: UserRole) => Promise<void>;
+  /** Merge a few fields into the cached user (a self-edit the server already accepted). */
+  patchUser: (patch: Partial<User>) => Promise<void>;
   setActiveTeacherId: (id: number | null) => Promise<void>;
   setImpersonation: (imp: ImpersonationState | null) => Promise<void>;
   /**
@@ -121,6 +123,14 @@ export const useAuthStore = create<AuthState>((set, get) => {
       const blocked = !!state.blocked;
       if (JSON.stringify(user.subscription ?? null) === JSON.stringify(state) && !!user.subscription_blocked === blocked) return;
       const next = { ...user, subscription: state, subscription_blocked: blocked };
+      set({ user: next });
+      if (role) await persist(next, role, activeTeacherId, impersonation);
+    },
+
+    patchUser: async (patch) => {
+      const { user, role, activeTeacherId, impersonation } = get();
+      if (!user) return;
+      const next = { ...user, ...patch };
       set({ user: next });
       if (role) await persist(next, role, activeTeacherId, impersonation);
     },
