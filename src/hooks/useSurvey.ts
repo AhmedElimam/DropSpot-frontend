@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getPendingSurvey, markSurveyShown, respondSurvey } from '@/api/surveys';
+import { getPendingSurvey, markSurveyShown, respondSurvey, snoozeSurvey } from '@/api/surveys';
 import { useAuthStore } from '@/stores/authStore';
 
 /**
@@ -31,6 +31,12 @@ export function useOpenSurveyNotification(): () => void {
 
 export function useMarkSurveyShown() {
   return useMutation({ mutationFn: (id: string) => markSurveyShown(id) });
+}
+
+/** «لاحقًا» — it used to hide the survey only until the app reopened (founder 2026-10-26: «it
+ *  still shows every time I reopen the app»); the server now keeps it away for 24 hours. */
+export function useSnoozeSurvey() {
+  return useMutation({ mutationFn: (id: string) => snoozeSurvey(id) });
 }
 
 export function useRespondSurvey() {

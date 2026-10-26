@@ -31,6 +31,11 @@ export async function markSurveyShown(id: string): Promise<void> {
   await client.post(`/surveys/${id}/shown`);
 }
 
+/** «لاحقًا»: the server hides it for 24 hours, on every platform (SurveyService::SNOOZE_HOURS). */
+export async function snoozeSurvey(id: string): Promise<void> {
+  await client.post(`/surveys/${id}/snooze`);
+}
+
 /** Submit answers — closes the survey on every platform. */
 export async function respondSurvey(id: string, answers: Record<string, string>): Promise<void> {
   await client.post(`/surveys/${id}/respond`, { answers });

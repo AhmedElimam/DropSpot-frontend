@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
-import { usePendingSurvey, useMarkSurveyShown, useRespondSurvey } from '@/hooks/useSurvey';
+import { usePendingSurvey, useMarkSurveyShown, useRespondSurvey, useSnoozeSurvey } from '@/hooks/useSurvey';
 import { usePopupSlot } from '@/ui/popupSlot';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
@@ -26,6 +26,7 @@ export function SurveyModal() {
   const { data: survey } = usePendingSurvey();
   const markShown = useMarkSurveyShown();
   const respond = useRespondSurvey();
+  const snooze = useSnoozeSurvey();
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [dismissedId, setDismissedId] = useState<string | null>(null);
@@ -60,6 +61,12 @@ export function SurveyModal() {
 
   if (!survey) return null;
 
+  // Hidden now, and for 24 hours on the server, so the next opening does not bring it back.
+  const later = () => {
+    setDismissedId(survey.id);
+    snooze.mutate(survey.id);
+  };
+
   const setAnswer = (key: string, value: string) => setAnswers((a) => ({ ...a, [key]: value }));
 
   const missingRequired = survey.questions.some(
@@ -86,7 +93,7 @@ export function SurveyModal() {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setDismissedId(survey.id)}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={later}>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
         <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingBottom: insets.bottom + spacing.lg, maxHeight: '88%' }}>
           {/* Header */}
@@ -138,7 +145,7 @@ export function SurveyModal() {
 
           {/* Actions */}
           <View style={{ flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.xl, paddingTop: spacing.sm }}>
-            <TouchableOpacity onPress={() => setDismissedId(survey.id)} style={{ flex: 1, minHeight: 50, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+            <TouchableOpacity onPress={later} style={{ flex: 1, minHeight: 50, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary }}>{t('survey.later')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
