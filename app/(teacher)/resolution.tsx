@@ -17,6 +17,7 @@ import {
   approveExcuse, rejectExcuse, approveSwap, rejectSwap,
   getTerminationCandidates, terminateEnrollment,
   getStudentEditRequests, approveStudentEditRequest, rejectStudentEditRequest,
+  getParentNumberRequests, approveParentNumberRequest, rejectParentNumberRequest, type ParentNumberReq,
   type ExcuseItem, type SwapItem, type TerminationCandidate, type StudentEditReq,
   getAssistantReports, approveAssistantReport, rejectAssistantReport, type AssistantReportItem,
 } from '@/api/resolution';
@@ -55,6 +56,8 @@ export default function ResolutionCenter() {
   const swaps = useQuery({ queryKey: ['resolution-swaps'], queryFn: getPendingSwaps });
   const candidates = useQuery({ queryKey: ['resolution-termination'], queryFn: getTerminationCandidates });
   const editRequests = useQuery({ queryKey: ['resolution-edit-requests'], queryFn: getStudentEditRequests, enabled: canManage });
+  // A locked student asking this teacher to correct their parent's number (2026-10-26).
+  const numberRequests = useQuery({ queryKey: ['resolution-parent-number-requests'], queryFn: getParentNumberRequests, enabled: canManage });
   // What the assistants filed — waits for the teacher before the admins see it.
   const assistantReports = useQuery({ queryKey: ['resolution-assistant-reports'], queryFn: getAssistantReports, enabled: !isAssistant });
   const myTickets = useQuery({ queryKey: ['my-admin-tickets'], queryFn: getMyAdminTickets });
@@ -88,6 +91,7 @@ export default function ResolutionCenter() {
     qc.invalidateQueries({ queryKey: ['resolution-swaps'] });
     qc.invalidateQueries({ queryKey: ['resolution-termination'] });
     qc.invalidateQueries({ queryKey: ['resolution-edit-requests'] });
+    qc.invalidateQueries({ queryKey: ['resolution-parent-number-requests'] });
   };
 
   const confirmTerminate = (c: TerminationCandidate) => {
@@ -115,7 +119,7 @@ export default function ResolutionCenter() {
 
   const loading = summary.isLoading || excuses.isLoading || swaps.isLoading || candidates.isLoading;
   const { refreshing, onRefresh } = usePullRefresh(
-    summary.refetch, excuses.refetch, swaps.refetch, candidates.refetch, myTickets.refetch, editRequests.refetch,
+    summary.refetch, excuses.refetch, swaps.refetch, candidates.refetch, myTickets.refetch, editRequests.refetch, numberRequests.refetch,
   );
   const s = summary.data;
 
@@ -357,6 +361,26 @@ export default function ResolutionCenter() {
                   busy={busy === `edit-${r.id}`}
                   onApprove={() => act(`edit-${r.id}`, () => approveStudentEditRequest(r.id))}
                   onReject={() => act(`edit-${r.id}`, () => rejectStudentEditRequest(r.id))}
+                  t={t}
+                />
+              ))}
+            </>
+          ) : null}
+          </Surface>
+
+          {/* A student says the parent's number is wrong (2026-10-26) — approve applies it at once */}
+          <Surface id="teacher.resolution.parent_number_requests" assistantNeeds="manage_students">
+          {numberRequests.data && numberRequests.data.length > 0 ? (
+            <>
+              <SectionTitle>{t('resolution.parent_number_title')}</SectionTitle>
+              {numberRequests.data.map((r: ParentNumberReq) => (
+                <ReviewCard
+                  key={`pn-${r.id}`}
+                  title={r.student_name}
+                  subtitle={[t('resolution.parent_number_line', { current: r.current_number, proposed: r.proposed_number }), r.note].filter(Boolean).join(' · ')}
+                  busy={busy === `pn-${r.id}`}
+                  onApprove={() => act(`pn-${r.id}`, () => approveParentNumberRequest(r.id))}
+                  onReject={() => act(`pn-${r.id}`, () => rejectParentNumberRequest(r.id))}
                   t={t}
                 />
               ))}

@@ -118,6 +118,10 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
       const ticket = id(data, 'ticket_id');
       return ticket ? `/(teacher)/tickets/${ticket}` : '/(teacher)/tickets';
     }
+    // A locked student asks this teacher to correct their parent's number (2026-10-26).
+    case 'parent_number_request': {
+      return can('manage_students') ? '/(teacher)/resolution' : null;
+    }
     default:
       return null;
   }
@@ -217,6 +221,9 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
       return '/(student)/(tabs)';
     case 'student_edit_result':
       return '/(student)/profile';
+    // The teacher decided their «wrong parent number» request: the lock screen shows it.
+    case 'parent_number_request_result':
+      return '/(student)/(tabs)';
     // Their own ticket with a teacher (founder 2026-10-26).
     case 'ticket_new':
     case 'ticket_reply': {

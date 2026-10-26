@@ -153,6 +153,31 @@ export interface StudentEditReq {
   created_at: string;
 }
 
+/** A student's «wrong parent number» request addressed to this teacher (2026-10-26). */
+export interface ParentNumberReq {
+  id: number;
+  student_id: number;
+  student_name: string;
+  parent_name: string | null;
+  current_number: string;
+  proposed_number: string;
+  note: string | null;
+  created_at: string;
+}
+
+export async function getParentNumberRequests(): Promise<ParentNumberReq[]> {
+  const { data } = await client.get('/teacher/parent-number-requests');
+  return (data.data ?? data ?? []) as ParentNumberReq[];
+}
+
+export async function approveParentNumberRequest(id: number): Promise<void> {
+  await client.post(`/teacher/parent-number-requests/${id}/approve`);
+}
+
+export async function rejectParentNumberRequest(id: number, reason?: string): Promise<void> {
+  await client.post(`/teacher/parent-number-requests/${id}/reject`, { reason });
+}
+
 export async function getStudentEditRequests(): Promise<StudentEditReq[]> {
   const { data } = await client.get('/teacher/student-edit-requests');
   return (data.data ?? data ?? []) as StudentEditReq[];
