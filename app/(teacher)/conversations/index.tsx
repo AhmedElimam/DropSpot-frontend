@@ -5,8 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { colors, spacing, nav } from '@/theme/index';
 import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
-import { useBetaFeature } from '@/hooks/useBetaFeature';
-import { BetaLine } from '@/components/ui/Beta';
+import { BetaChip, BetaLine } from '@/components/ui/Beta';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -67,9 +66,6 @@ function ConversationsWithThreads() {
   const [composeKind, setComposeKind] = useState<'question' | 'note'>('question');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
-  // Reached this teacher as a beta (feature targeting): marked on the segment and under the hero.
-  const chatBeta = useBetaFeature(CHAT_FLAG);
-  const threadsBeta = useBetaFeature(THREADS_FLAG);
 
   const { data: channels, refetch: refetchChat } = useChatChannels(chatEnabled);
   const { data: threadsFeed, refetch: refetchThreads } = useThreadsFeed(threadsEnabled);
@@ -107,15 +103,14 @@ function ConversationsWithThreads() {
               : showChat
                 ? t('chat.members_count', { count: (channels ?? []).length })
                 : t('chat.conversations_sub')}
+            badge={<BetaChip feature={showThreads ? THREADS_FLAG : CHAT_FLAG} />}
             actions={heroActions}
             stats={showThreads && counts.all > 0 ? [
               { value: arDigits(counts.open), label: t('threads.stat_open') },
               { value: arDigits(counts.waiting), label: t('threads.stat_waiting_teacher'), warn: counts.waiting > 0 },
               { value: arDigits(counts.answered), label: t('threads.stat_answered') },
             ] : undefined}
-          >
-            <BetaLine feature={showThreads ? THREADS_FLAG : CHAT_FLAG} style={{ marginHorizontal: 0, marginTop: spacing.md }} />
-          </PageHero>
+          />
         </Surface>
 
         {threadsEnabled && chatEnabled ? (
@@ -125,8 +120,8 @@ function ConversationsWithThreads() {
               value={tab}
               onChange={setTab}
               items={[
-                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread, beta: chatBeta },
-                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: threadsBadge, beta: threadsBeta },
+                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread },
+                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: threadsBadge },
               ]}
             />
           </View>
@@ -165,6 +160,8 @@ function ConversationsWithThreads() {
             <EmptyState icon="chat" title={t('common.not_available')} />
           </View>
         )}
+        {/* The note line closes the screen — after the content, never above it. */}
+        <BetaLine feature={showThreads ? THREADS_FLAG : CHAT_FLAG} />
       </ScrollView>
     </View>
     </Surface>

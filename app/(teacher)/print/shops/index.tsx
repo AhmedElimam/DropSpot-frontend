@@ -22,7 +22,7 @@ import { LiveMap, MAP_BG, useMyLocation, type MapPoint } from '@/components/Live
 import { useArrived } from '@/hooks/useArrived';
 import { ShopLogo } from '@/components/print/ShopLogo';
 import { Surface } from '@/ui/surfaces';
-import { BetaLine } from '@/components/ui/Beta';
+import { BetaChip } from '@/components/ui/Beta';
 import { Image } from 'expo-image';
 import { getPrintShops, getPrintOptions, sampleSource, type MarketShop, type FoundPlace } from '@/api/print';
 
@@ -537,6 +537,7 @@ export default function PrintShops() {
             <View style={{ paddingHorizontal: spacing.lg }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>{t('print.shops_title')}</Text>
+                <BetaChip feature="print_market" />
                 {!shops.isLoading ? (
                   <Animated.View key={list.length} entering={ZoomIn.duration(180)}
                     style={{ minWidth: 26, height: 24, paddingHorizontal: 8, borderRadius: 12, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
@@ -553,7 +554,6 @@ export default function PrintShops() {
                 ) : null}
               </View>
               <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{sub}</Text>
-              <BetaLine feature="print_market" style={{ marginHorizontal: 0, marginTop: spacing.sm }} />
             </View>
             <Surface id="teacher.print_shops.filters">
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 10, paddingHorizontal: spacing.lg, alignItems: 'center' }}>

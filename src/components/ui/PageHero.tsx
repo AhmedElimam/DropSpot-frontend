@@ -30,8 +30,10 @@ export interface HeroStat {
  *
  * Draws through the hero tokens, so it is ink on paper by day and white on navy by night.
  */
-export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, actions, stats, children, compact = false, inset, closeIcon = false, grabber = false }: {
+export function PageHero({ title, subtitle, badge, avatar, avatarUrl, onBack, action, actions, stats, children, compact = false, inset, closeIcon = false, grabber = false }: {
   title: string;
+  /** A small mark beside the title (the gold «تجريبي» while a feature is a beta). Null draws nothing. */
+  badge?: ReactNode;
   subtitle?: string;
   /** The person's avatar seed (see `avatarSeed`) — drawn as their generated character. */
   avatar?: string;
@@ -103,7 +105,11 @@ export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, a
           </View>
         ) : null}
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 24, lineHeight: 32, color: colors.onHero }} numberOfLines={2}>{title}</Text>
+          {/* RTL: 'row' only — the badge trails the title. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 24, lineHeight: 32, color: colors.onHero, flexShrink: 1 }} numberOfLines={2}>{title}</Text>
+            {badge}
+          </View>
           {subtitle ? <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.onHeroSoft, marginTop: 2 }} numberOfLines={2}>{subtitle}</Text> : null}
         </View>
       </View>

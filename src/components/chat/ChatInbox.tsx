@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, nav } from '@/theme/index';
 import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
-import { BetaLine } from '@/components/ui/Beta';
+import { BetaChip, BetaLine } from '@/components/ui/Beta';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { PageHero } from '@/components/ui/PageHero';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -58,6 +58,7 @@ export function ChatInbox({ role, onOpen, onBack }: { role: InboxRole; onOpen: (
           onBack={onBack}
           title={title}
           subtitle={subtitle}
+          badge={<BetaChip feature={CHAT_FLAG} />}
           stats={list.length ? [
             { value: formatNumber(both ? courses : list.length), label: both ? t('chat.stat_courses') : t('chat.stat_rooms') },
             { value: formatNumber(unreadMessages), label: t('chat.stat_unread'), warn: unreadMessages > 0 },
@@ -81,7 +82,6 @@ export function ChatInbox({ role, onOpen, onBack }: { role: InboxRole; onOpen: (
               ) : null}
             </View>
           ) : null}
-          <BetaLine feature={CHAT_FLAG} style={{ paddingHorizontal: 0, marginHorizontal: 0, marginTop: spacing.md, paddingTop: 0 }} />
         </PageHero>
 
         {list.length ? (
@@ -93,6 +93,8 @@ export function ChatInbox({ role, onOpen, onBack }: { role: InboxRole; onOpen: (
         <View style={{ paddingHorizontal: spacing.lg, marginTop: list.length ? 0 : -spacing.xl }}>
           <ChatInboxList onOpen={onOpen} filter={filter} query={query} />
         </View>
+        {/* The note line closes the screen — after the rooms, never above them. */}
+        <BetaLine feature={CHAT_FLAG} />
       </ScrollView>
     </View>
   );

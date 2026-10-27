@@ -114,7 +114,9 @@ describe('BetaLine', () => {
     setBeta(['course_chat']);
     const tree = mount(createElement(BetaLine, { feature: 'course_chat' }));
     expect(byTestId(tree, 'beta-line')).toHaveLength(1);
-    expect(textsOf(tree)).toEqual(expect.arrayContaining(['t:beta.line', 't:beta.line_cta', 't:beta.chip']));
+    expect(textsOf(tree)).toEqual(expect.arrayContaining(['t:beta.line', 't:beta.line_cta']));
+    // One «تجريبي» per screen — beside the title, never repeated on the footer.
+    expect(textsOf(tree)).not.toContain('t:beta.chip');
     expect(sheet(tree).props).toMatchObject({ feature: 'course_chat', visible: false });
     act(() => { pressable(tree, 'beta-line').props.onPress(); });
     expect(sheet(tree).props.visible).toBe(true);

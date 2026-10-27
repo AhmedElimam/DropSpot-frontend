@@ -15,14 +15,13 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
-import { IS_STAGING } from '@/config/env';
 import { PrintTabJobCard } from '@/components/print/PrintTabJobCard';
 import { PrintTabShopsStrip } from '@/components/print/PrintTabShopsStrip';
 import { PrintTabPastRow } from '@/components/print/PrintTabPastRow';
 import { PrintTabHowItWorks } from '@/components/print/PrintTabHowItWorks';
 import { PrintTabCreditCard } from '@/components/print/PrintTabCreditCard';
 import { useAuthStore } from '@/stores/authStore';
-import { BetaLine } from '@/components/ui/Beta';
+import { BetaChip, BetaLine } from '@/components/ui/Beta';
 import { getPrintJobs, getPrintShops, getPrintCredit, reorderPrintJob, type PrintJob } from '@/api/print';
 import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
 
@@ -120,7 +119,7 @@ export default function PrintTab() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* hero */}
         <LinearGradient colors={heroFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ paddingTop: insets.top + (IS_STAGING ? 36 : spacing.md), paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, borderBottomStartRadius: 28, borderBottomEndRadius: 28, overflow: 'hidden' }}>
+          style={{ paddingTop: insets.top + spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, borderBottomStartRadius: 28, borderBottomEndRadius: 28, overflow: 'hidden' }}>
           {/* warm glow and a soft disc — depth without a picture */}
           <View pointerEvents="none" style={{ position: 'absolute', top: -90, start: -70, width: 240, height: 240, borderRadius: 120, backgroundColor: colors.accent, opacity: 0.16 }} />
           <View pointerEvents="none" style={{ position: 'absolute', bottom: -80, end: -60, width: 200, height: 200, borderRadius: 100, backgroundColor: ON, opacity: 0.05 }} />
@@ -130,7 +129,11 @@ export default function PrintTab() {
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 26, lineHeight: 38, color: ON }}>{t('print.title')}</Text>
+              {/* RTL: 'row' only — the «تجريبي» mark trails the title (one per screen). */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 26, lineHeight: 38, color: ON, flexShrink: 1 }}>{t('print.title')}</Text>
+                <BetaChip feature="print_market" />
+              </View>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: ON_SOFT }} numberOfLines={2}>{t('print.tab_sub')}</Text>
             </View>
             <TouchableOpacity onPress={goAll} accessibilityRole="button"
@@ -173,8 +176,6 @@ export default function PrintTab() {
             </TouchableOpacity>
           </View>
           </Surface>
-          {/* The marketplace reached this teacher as a beta (feature targeting): one line, the way to send notes. */}
-          <BetaLine feature="print_market" style={{ marginHorizontal: 0, marginTop: spacing.md }} />
         </LinearGradient>
 
         {/* «سجل الدفع» — the score, the tier, what is left on credit or what is overdue */}
@@ -225,6 +226,8 @@ export default function PrintTab() {
           </View>
           </Surface>
         ) : null}
+        {/* The marketplace reached this teacher as a beta: the note line closes the screen. */}
+        <BetaLine feature="print_market" />
       </ScrollView>
     </View>
     </Surface>

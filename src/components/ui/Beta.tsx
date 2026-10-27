@@ -45,11 +45,12 @@ export const BetaChip = memo(function BetaChip({ feature, style }: { feature?: s
 });
 
 /**
- * One calm line under a beta feature's hero: «نسخة تجريبية — رأيك يهمّنا». Tapping it opens
- * the feedback sheet right there (BetaFeedbackSheet), for every role: the note goes to the
- * platform's /ops queue and the reply comes back in «مراسلة الإدارة». It used to open the
- * teacher's tickets screen — the parents' channel, where nothing reaches the platform
- * (founder 2026-10-19: «cannot send anything … made with laziness»).
+ * «نسخة تجريبية — رأيك يهمّنا»: ONE quiet line at the END of a beta feature's screen, after the
+ * content (founder 2026-10-28: the boxed line on the hero seam, above the content, was in the
+ * way — the feature itself comes first, the note at the bottom). Tapping it opens the feedback
+ * sheet right there (BetaFeedbackSheet), for every role: the note goes to the platform's /ops
+ * queue and the reply comes back in «مراسلة الإدارة». It used to open the teacher's tickets
+ * screen — the parents' channel, where nothing reaches the platform (founder 2026-10-19).
  *
  * A super-admin wearing the account sees the chip alone: a note would go out in the
  * teacher's name.
@@ -61,24 +62,23 @@ export const BetaLine = memo(function BetaLine({ feature, style }: { feature?: s
   const [open, setOpen] = useState(false);
   if (feature && !beta) return null;
   if (!feature || impersonating) {
-    return <View testID={LINE_TEST_ID} style={[{ paddingHorizontal: spacing.lg, paddingTop: spacing.sm }, style]}><Chip /></View>;
+    return <View testID={LINE_TEST_ID} style={[{ alignItems: 'center', paddingVertical: spacing.md }, style]}><Chip /></View>;
   }
   return (
     <>
       <TouchableOpacity
         testID={LINE_TEST_ID}
         onPress={() => setOpen(true)}
-        activeOpacity={0.85}
+        activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={t('beta.line')}
         accessibilityHint={t('beta.line_hint')}
-        style={[{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: BETA_GOLD }, style]}
+        style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: spacing.xs, paddingVertical: spacing.lg, paddingHorizontal: spacing.lg }, style]}
       >
-        <Chip />
-        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.textSecondary }} numberOfLines={2}>{t('beta.line')}</Text>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('beta.line_cta')}</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 18, color: colors.textTertiary }}>{t('beta.line')}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 18, color: colors.primary }}>{t('beta.line_cta')}</Text>
         {/* RTL: a row's disclosure points LEFT (`back` → chevron-back). */}
-        <Icon name="back" size={16} color={colors.textTertiary} />
+        <Icon name="back" size={13} color={colors.primary} />
       </TouchableOpacity>
       <BetaFeedbackSheet feature={feature} visible={open} onClose={() => setOpen(false)} />
     </>

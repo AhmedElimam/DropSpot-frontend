@@ -9,8 +9,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, gradients } from '@/theme/index';
 import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { THREADS_FLAG, useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
-import { useBetaFeature } from '@/hooks/useBetaFeature';
-import { BetaLine } from '@/components/ui/Beta';
+import { BetaChip, BetaLine } from '@/components/ui/Beta';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { ChatInbox, ChatInboxList } from '@/components/chat/ChatInbox';
 import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
@@ -65,9 +64,6 @@ function StudentConversations() {
   const segment: Segment = picked ?? (chatEnabled ? 'chat' : 'threads');
   const both = chatEnabled && threadsEnabled;
   const showThreads = threadsEnabled && (segment === 'threads' || !chatEnabled);
-  // Reached this student as a beta (feature targeting): marked on the segment and under the hero.
-  const chatBeta = useBetaFeature(CHAT_FLAG);
-  const threadsBeta = useBetaFeature(THREADS_FLAG);
 
   const { data: channels, refetch: refetchChat } = useChatChannels(chatEnabled);
   const { data: unreadThreads, refetch: refetchUnread } = useThreadsUnread(threadsEnabled);
@@ -89,9 +85,13 @@ function StudentConversations() {
           end={{ x: 1, y: 1 }}
           style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: both ? spacing.xl4 + spacing.md : spacing.xl4 }}
         >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5 }}>
-            {showThreads ? t('threads.title') : t('chat.title')}
-          </Text>
+          {/* RTL: 'row' only — the «تجريبي» mark trails the title (one per screen). */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5, flexShrink: 1 }}>
+              {showThreads ? t('threads.title') : t('chat.title')}
+            </Text>
+            <BetaChip feature={showThreads ? THREADS_FLAG : CHAT_FLAG} />
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm }}>
             <Icon name={showThreads ? 'question' : 'eye'} size={15} color={colors.onHeroSoft} outline style={{ marginTop: 3 }} />
             <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.onHeroSoft }}>
@@ -105,7 +105,6 @@ function StudentConversations() {
               <HeroCount icon="success" value={counts.answered} label={t('threads.stat_answered')} />
             </View>
           ) : null}
-          <BetaLine feature={showThreads ? THREADS_FLAG : CHAT_FLAG} style={{ paddingHorizontal: 0, paddingTop: spacing.md }} />
         </LinearGradient>
 
         {both ? (
@@ -114,8 +113,8 @@ function StudentConversations() {
               value={segment}
               onChange={setSegment}
               items={[
-                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread, beta: chatBeta },
-                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: unreadThreads ?? 0, beta: threadsBeta },
+                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread },
+                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: unreadThreads ?? 0 },
               ]}
             />
           </View>
@@ -128,6 +127,8 @@ function StudentConversations() {
             <ChatInboxList onOpen={(room) => router.push(`/(student)/chat/${room}` as Href)} />
           )}
         </View>
+        {/* The note line closes the screen — after the rooms, never above them. */}
+        <BetaLine feature={showThreads ? THREADS_FLAG : CHAT_FLAG} />
       </ScrollView>
     </View>
   );

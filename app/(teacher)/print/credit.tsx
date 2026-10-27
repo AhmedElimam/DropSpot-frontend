@@ -19,7 +19,6 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber, formatShortDate } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import { useAuthStore } from '@/stores/authStore';
-import { IS_STAGING } from '@/config/env';
 import { OrderSection } from '@/components/print/OrderSection';
 import { CreditRing, creditTint, egpAmount, daysText, jobsText, graceText } from '@/components/print/CreditBits';
 import { getPrintCredit, disputePrintStrike, creditUsed, type PrintCredit } from '@/api/print';
@@ -92,7 +91,7 @@ export default function PrintCreditScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         {/* hero */}
         <LinearGradient colors={heroFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ paddingTop: insets.top + (IS_STAGING ? 36 : spacing.sm), paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, borderBottomStartRadius: 28, borderBottomEndRadius: 28, overflow: 'hidden' }}>
+          style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, borderBottomStartRadius: 28, borderBottomEndRadius: 28, overflow: 'hidden' }}>
           <View pointerEvents="none" style={{ position: 'absolute', top: -90, start: -70, width: 240, height: 240, borderRadius: 120, backgroundColor: colors.accent, opacity: 0.14 }} />
           <View pointerEvents="none" style={{ position: 'absolute', bottom: -80, end: -60, width: 200, height: 200, borderRadius: 100, backgroundColor: ON, opacity: 0.05 }} />
 

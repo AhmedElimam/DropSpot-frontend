@@ -142,8 +142,6 @@ export default function CourseCreateScreen() {
     <FormScreen title={t('teacher.create_course')} subtitle={t('teacher.create_course_sub')} loading={isLoading || !options}>
       {options ? (
         <>
-          {/* Private lessons reached this teacher as a beta: say so under the hero, with the way to send notes. */}
-          {privateOptions?.enabled ? <BetaLine feature="private_courses" style={{ marginHorizontal: 0, marginTop: 0, marginBottom: spacing.md }} /> : null}
           {showExplainer ? (
             <Surface id="teacher.course_create.explainer">
             <Banner tone="info" icon="book">
@@ -301,6 +299,8 @@ export default function CourseCreateScreen() {
           </Surface>
 
           <Surface id="teacher.course_create.submit_button"><Button title={t('teacher.create_course')} onPress={submit} loading={create.isPending} disabled={!canSubmit} variant="primary" /></Surface>
+          {/* Private lessons reached this teacher as a beta: the note line closes the form. */}
+          {privateOptions?.enabled ? <BetaLine feature="private_courses" /> : null}
         </>
       ) : null}
     </FormScreen>
