@@ -77,9 +77,10 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{ago(post.created_at)}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>·</Text>
+            {/* A thin bar, not «·»: a middle dot beside Arabic digits reads as a zero. */}
+            <View style={{ width: 1, height: 11, backgroundColor: colors.border }} />
             <Icon name="people" size={12} color={colors.textTertiary} outline />
-            {post.edited_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>· {t('community_space.edited')}</Text> : null}
+            {post.edited_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>({t('community_space.edited')})</Text> : null}
           </View>
         </View>
         <TouchableOpacity onPress={() => onMore(post)} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('community_space.more')} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>

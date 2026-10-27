@@ -114,7 +114,9 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                   <Icon name="people" size={13} color={colors.textTertiary} outline />
                   <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t(parents ? 'community_space.members_parents' : 'community_space.members_students', { n: arDigits(space.members) })}</Text>
-                  {space.posts > 0 ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}> · {t('community_space.n_posts', { n: arDigits(space.posts) })}</Text> : null}
+                  {/* A thin bar, not «·»: a middle dot beside Arabic digits reads as a zero. */}
+                  {space.posts > 0 ? <View style={{ width: 1, height: 12, marginHorizontal: 4, backgroundColor: colors.border }} /> : null}
+                  {space.posts > 0 ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>{t('community_space.n_posts', { n: arDigits(space.posts) })}</Text> : null}
                 </View>
               </View>
             </View>
