@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Tabs } from 'expo-router';
 import { colors } from '@/theme/index';
 import { type IconName } from '@/components/ui/Icon';
-import { NotchTabBar } from '@/components/ui/NotchTabBar';
+import { FloatingTabBar } from '@/components/ui/FloatingTabBar';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -83,7 +83,7 @@ export default function TeacherTabsLayout() {
     <Tabs
       // Hardware back between tabs follows the visit history, not "jump to the first tab".
       backBehavior="history"
-      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} badges={badges} beta={printBeta ? PRINT_BETA : undefined} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
+      tabBar={(props) => <FloatingTabBar {...props} tabs={tabs} labels={labels} icons={icons} badges={badges} beta={printBeta ? PRINT_BETA : undefined} />}
       screenOptions={screenOptions}
       screenLayout={sceneLayout}
     >

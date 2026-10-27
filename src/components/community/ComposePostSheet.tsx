@@ -7,29 +7,35 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
-import { Choice, Sheet, threadInputStyle } from '@/components/threads/ThreadSheets';
+import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
+import { SheetModal } from '@/components/ui/SheetModal';
+import { useAuthStore } from '@/stores/authStore';
 import { useCreateCommunityPost, useUploadCommunityMedia } from '@/hooks/useCommunity';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import type { CommunityAudience, CommunityKind, CommunityLimits, CommunityPost, CommunityRole } from '@/api/community';
+import type { CommunityAudience, CommunityKind, CommunityLimits, CommunityPost, CommunityRole, CommunitySpace } from '@/api/community';
 
 type Picked = { uri: string; name: string; mime: string; width?: number; height?: number };
 
 /**
- * Write a post: words, up to `images_per_post` pictures, and — for the teacher — the choice
- * between a post and an announcement (pinned, pushed to the whole space). Pictures are uploaded
- * first, then claimed by the post: a failed upload never leaves a half post. The server's
- * answer says what happened to the post (published / held / rejected) and the sheet tells it.
+ * «إنشاء منشور», the way a social app opens it: your face and name with where it goes, a big
+ * «بم تفكر؟», the pictures you picked as a strip, and the photo and camera chips along the
+ * bottom. The teacher chooses between a post and an announcement (pinned, pushed to the
+ * whole space). Pictures are uploaded first, then claimed by the post: a failed upload never
+ * leaves a half post. The server's answer says what happened (published / held / rejected).
  */
-export function ComposePostSheet({ visible, teacherId, audience, role, limits, onClose, onCreated }: {
+export function ComposePostSheet({ visible, teacherId, audience, role, space, limits, onClose, onCreated }: {
   visible: boolean;
   teacherId: number;
   audience: CommunityAudience;
   role: CommunityRole;
+  space: CommunitySpace;
   limits: CommunityLimits | undefined;
   onClose: () => void;
   onCreated: (post: CommunityPost) => void;
 }) {
   const { t } = useTranslation();
+  const me = useAuthStore((s) => s.user);
+  const meRole = useAuthStore((s) => s.role);
   const [body, setBody] = useState('');
   const [kind, setKind] = useState<CommunityKind>('post');
   const [pictures, setPictures] = useState<Picked[]>([]);
@@ -40,14 +46,17 @@ export function ComposePostSheet({ visible, teacherId, audience, role, limits, o
   const bodyMax = limits?.body_max_chars ?? 4000;
   const busy = create.isPending || uploading;
   const teacher = role === 'teacher';
+  const mySeed = meRole === 'student' && me?.student_id ? avatarSeed.student(me.student_id) : avatarSeed.user(me?.id);
+  const firstName = (me?.name ?? '').split(' ')[0];
 
   useEffect(() => { if (visible) { setBody(''); setKind('post'); setPictures([]); } }, [visible]);
 
-  const pick = async () => {
+  const pick = async (camera: boolean) => {
     try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const perm = camera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) return;
-      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8, allowsEditing: false, exif: false, allowsMultipleSelection: true, selectionLimit: max - pictures.length });
+      const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.8, allowsEditing: false, exif: false, allowsMultipleSelection: !camera, selectionLimit: max - pictures.length };
+      const res = camera ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
       if (res.canceled || !res.assets?.length) return;
       const maxKb = limits?.image_max_kb ?? 4096;
       const next = res.assets.slice(0, max - pictures.length).filter((a) => {
@@ -75,54 +84,90 @@ export function ComposePostSheet({ visible, teacherId, audience, role, limits, o
   };
 
   const canPublish = !busy && (body.trim().length > 0 || pictures.length > 0) && body.length <= bodyMax;
+  const where = t(audience === 'parents' ? 'community_space.space_parents_of' : 'community_space.space_students_of', { name: space.teacher_name });
 
   return (
-    <Sheet visible={visible} title={t('community_space.compose_title')} subtitle={t(audience === 'parents' ? 'community_space.compose_sub_parents' : 'community_space.compose_sub_students')} icon="people" onClose={onClose} busy={busy}>
+    <SheetModal visible={visible} onClose={() => { if (!busy) onClose(); }} avoidKeyboard>
+      {/* Top row: close · title · publish */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md }}>
+        <TouchableOpacity onPress={onClose} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.cancel')} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="close" size={18} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('community_space.compose_title')}</Text>
+        <Button title={uploading ? t('community_space.uploading') : t('community_space.publish')} onPress={publish} disabled={!canPublish} loading={busy} style={{ minWidth: 92, height: 38, paddingVertical: 0 }} />
+      </View>
+
+      {/* Me, and where this goes */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <GeneratedAvatar seed={mySeed} size={44} label={me?.name} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{me?.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: colors.surfaceSunken }}>
+              <Icon name="people" size={12} color={colors.textSecondary} outline />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textSecondary }} numberOfLines={1}>{where}</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
       {teacher ? (
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <Choice label={t('community_space.kind_post')} active={kind === 'post'} onPress={() => setKind('post')} />
-          <Choice label={t('community_space.kind_announcement')} sub={t('community_space.kind_announcement_sub')} active={kind === 'announcement'} onPress={() => setKind('announcement')} />
+        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+          {(['post', 'announcement'] as CommunityKind[]).map((k) => (
+            <TouchableOpacity key={k} onPress={() => setKind(k)} activeOpacity={0.8} accessibilityRole="radio" accessibilityState={{ checked: kind === k }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: kind === k ? colors.brandTint : colors.surfaceSunken, borderWidth: 1, borderColor: kind === k ? colors.brand : 'transparent' }}>
+              <Icon name={k === 'post' ? 'pencil' : 'pin'} size={14} color={kind === k ? colors.brand : colors.textSecondary} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: kind === k ? colors.brand : colors.textSecondary }}>{t(k === 'post' ? 'community_space.kind_post' : 'community_space.kind_announcement')}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       ) : null}
+
       <TextInput
         value={body}
         onChangeText={setBody}
-        placeholder={t('community_space.compose_placeholder')}
+        placeholder={t('community_space.whats_on_your_mind', { name: firstName })}
         placeholderTextColor={colors.textTertiary}
         maxLength={bodyMax}
         multiline
         autoFocus
-        style={[threadInputStyle(), { minHeight: 120, textAlignVertical: 'top' }]}
+        style={{ minHeight: 140, maxHeight: 280, marginTop: spacing.md, fontFamily: fonts.regular, fontSize: body.length < 60 && !pictures.length ? 22 : 17, lineHeight: body.length < 60 && !pictures.length ? 34 : 26, color: colors.textPrimary, textAlign: 'right', textAlignVertical: 'top' }}
       />
+
       {pictures.length ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
           {pictures.map((p, i) => (
-            <View key={p.uri} style={{ width: 72, height: 72 }}>
-              <Image source={{ uri: p.uri }} style={{ width: 72, height: 72, borderRadius: radius.md, backgroundColor: colors.surfaceSunken }} contentFit="cover" />
+            <View key={p.uri} style={{ width: 84, height: 84 }}>
+              <Image source={{ uri: p.uri }} style={{ width: 84, height: 84, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }} contentFit="cover" />
               <TouchableOpacity onPress={() => setPictures((x) => x.filter((_, j) => j !== i))} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('community_space.remove_photo')}
-                style={{ position: 'absolute', top: -6, end: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.textPrimary, alignItems: 'center', justifyContent: 'center' }}>
+                style={{ position: 'absolute', top: -6, end: -6, width: 24, height: 24, borderRadius: 12, backgroundColor: colors.textPrimary, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.surface }}>
                 <Icon name="close" size={12} color={colors.surface} />
               </TouchableOpacity>
             </View>
           ))}
         </View>
       ) : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-        <TouchableOpacity onPress={pick} disabled={busy || pictures.length >= max} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('community_space.add_photo')}
+
+      {/* The bottom strip: photo, camera, the counter */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+        <TouchableOpacity onPress={() => pick(false)} disabled={busy || pictures.length >= max} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('community_space.add_photo')}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: colors.surfaceSunken, opacity: pictures.length >= max ? 0.5 : 1 }}>
-          <Icon name="image" size={17} color={colors.brand} outline />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('community_space.add_photo')} {pictures.length ? `(${pictures.length}/${max})` : ''}</Text>
+          <Icon name="image" size={18} color={colors.success} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{t('community_space.add_photo')}{pictures.length ? ` ${pictures.length}/${max}` : ''}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => pick(true)} disabled={busy || pictures.length >= max} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('chat.attach_camera', { defaultValue: 'كاميرا' })}
+          style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center', opacity: pictures.length >= max ? 0.5 : 1 }}>
+          <Icon name="camera" size={18} color={colors.brand} />
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
         <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: body.length > bodyMax * 0.9 ? colors.danger : colors.textTertiary }}>{body.length}/{bodyMax}</Text>
       </View>
       {!teacher && role !== 'assistant' ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Icon name="shield" size={14} color={colors.textTertiary} outline />
-          <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textTertiary }}>{t('community_space.screen_note')}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
+          <Icon name="shield" size={13} color={colors.textTertiary} outline />
+          <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: colors.textTertiary }}>{t('community_space.screen_note')}</Text>
         </View>
       ) : null}
-      <Button title={uploading ? t('community_space.uploading') : t('community_space.publish')} onPress={publish} disabled={!canPublish} loading={busy} />
-    </Sheet>
+    </SheetModal>
   );
 }

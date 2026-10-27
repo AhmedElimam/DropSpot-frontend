@@ -92,7 +92,7 @@ function ParentConversations() {
     <>
       <PageHero
         title={showCommunity ? t('community_space.title_parents') : showThreads ? t('threads.title') : t('community.title')}
-        subtitle={showCommunity ? t('community_space.subtitle_parents') : showThreads ? t('threads.subtitle_parent') : t('community.tagline')}
+        subtitle={showCommunity ? undefined : showThreads ? t('threads.subtitle_parent') : t('community.tagline')}
         badge={<BetaChip feature={flag} />}
         actions={actions}
         stats={showThreads && counts.all > 0 ? [
@@ -102,7 +102,7 @@ function ParentConversations() {
         ] : undefined}
       />
       {many ? (
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -(spacing.xl4 - spacing.sm), marginBottom: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -(spacing.xl4 - spacing.sm), marginBottom: showCommunity ? 0 : spacing.md }}>
           <Segments
             value={segment}
             onChange={setSegment}

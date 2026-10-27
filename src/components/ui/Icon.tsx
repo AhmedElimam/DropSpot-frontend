@@ -122,6 +122,7 @@ const ICON_MAP = {
   voteUp: 'caret-up',
   voteDown: 'caret-down',
   more: 'ellipsis-horizontal',
+  like: 'thumbs-up',
   pencil: 'pencil',
   /** «اعتراض على الدرجة»: photograph the paper, pick it, draw on it, undo a line. */
   image: 'image',

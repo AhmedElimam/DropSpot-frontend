@@ -88,7 +88,7 @@ function StudentConversations() {
         colors={gradients.hero}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: many ? spacing.xl4 + spacing.md : spacing.xl4 }}
+        style={{ paddingHorizontal: spacing.lg, paddingTop: (showCommunity ? spacing.lg : spacing.xxl) + insets.top, paddingBottom: showCommunity ? (many ? spacing.xl + spacing.md : spacing.lg) : many ? spacing.xl4 + spacing.md : spacing.xl4 }}
       >
         {/* RTL: 'row' only — the «تجريبي» mark trails the title (one per screen). */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
@@ -97,12 +97,12 @@ function StudentConversations() {
           </Text>
           <BetaChip feature={flag} />
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm }}>
-          <Icon name={showCommunity ? 'people' : showThreads ? 'question' : 'eye'} size={15} color={colors.onHeroSoft} outline style={{ marginTop: 3 }} />
+        {showCommunity ? null : <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm }}>
+          <Icon name={showThreads ? 'question' : 'eye'} size={15} color={colors.onHeroSoft} outline style={{ marginTop: 3 }} />
           <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.onHeroSoft }}>
-            {showCommunity ? t('community_space.subtitle_students') : showThreads ? t('threads.subtitle_student') : t('chat.subtitle')}
+            {showThreads ? t('threads.subtitle_student') : t('chat.subtitle')}
           </Text>
-        </View>
+        </View>}
         {showThreads && counts.all > 0 ? (
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
             <HeroCount icon="timer" value={counts.open} label={t('threads.stat_open')} />
@@ -113,7 +113,7 @@ function StudentConversations() {
       </LinearGradient>
 
       {many ? (
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl - 4, marginBottom: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: showCommunity ? -spacing.xl : -spacing.xl - 4, marginBottom: showCommunity ? 0 : spacing.md }}>
           <Segments
             value={segment}
             onChange={setSegment}

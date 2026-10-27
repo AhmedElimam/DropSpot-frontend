@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { FlatList } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,9 +8,11 @@ import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { InitialsAvatar } from '@/components/threads/Avatar';
+import { CommunityAvatar } from './CommunityAvatar';
 import { ReportSheet, TextSheet } from '@/components/threads/ThreadSheets';
 import { useMediaHeaders } from '@/components/threads/mediaHeaders';
+import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
+import { useAuthStore } from '@/stores/authStore';
 import { ago } from '@/components/threads/format';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
@@ -19,7 +21,8 @@ import {
   useModerateCommunityPost, useReactToCommunityPost, useReportCommunityComment, useReportCommunityPost,
 } from '@/hooks/useCommunity';
 import type { CommunityComment, CommunityPost, CommunityReaction, CommunityRole } from '@/api/community';
-import { PostCard, roleLabel } from './PostCard';
+import { PostCard, roleLabel, CARD_SIDE } from './PostCard';
+import { arDigits } from '@/components/threads/format';
 
 /**
  * One post, one screen, every role: the post in full on top, the comments under it, and a
@@ -30,6 +33,9 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const headers = useMediaHeaders();
+  const me = useAuthStore((s) => s.user);
+  const meRole = useAuthStore((s) => s.role);
+  const mySeed = meRole === 'student' && me?.student_id ? avatarSeed.student(me.student_id) : avatarSeed.user(me?.id);
   const { data, isLoading, isError, error, refetch } = useCommunityPost(postId);
   const notFound = (error as { response?: { status?: number } } | null)?.response?.status === 404;
   const { refreshing, onRefresh } = usePullRefresh(refetch);
@@ -100,12 +106,12 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
 
   const header = (
     <View>
-      <PageHero onBack compact title={t('community_space.post')} subtitle={data ? (data.post.audience === 'parents' ? t('community_space.title_parents') : t('community_space.title_students')) : undefined} />
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
+      <PageHero onBack compact title={data?.post.author.name ?? t('community_space.post')} subtitle={data ? (data.post.audience === 'parents' ? t('community_space.title_parents') : t('community_space.title_students')) : undefined} />
+      <View style={{ paddingHorizontal: CARD_SIDE, paddingTop: spacing.md }}>
         {data ? <PostCard post={data.post} role={role} headers={headers} onReact={onReact} onMore={onMorePost} expanded /> : null}
         {data && data.post.status === 'published' ? (
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary, marginTop: spacing.xl, marginBottom: spacing.sm }}>
-            {data.comments.length ? t('community_space.comments') : t('community_space.no_comments')}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.xs, marginHorizontal: spacing.sm }}>
+            {data.comments.length ? t('community_space.n_comments', { n: arDigits(data.comments.length) }) : t('community_space.no_comments')}
           </Text>
         ) : null}
       </View>
@@ -139,6 +145,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
       />
       {commentsOpen ? (
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: insets.bottom + spacing.sm, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+          <View style={{ paddingBottom: 3 }}><GeneratedAvatar seed={mySeed} size={34} label={me?.name} /></View>
           <TextInput
             value={text}
             onChangeText={setText}
@@ -146,7 +153,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
             placeholderTextColor={colors.textTertiary}
             multiline
             maxLength={spaces.data?.limits?.comment_max_chars ?? 1000}
-            style={{ flex: 1, minHeight: 42, maxHeight: 120, paddingHorizontal: spacing.md, paddingVertical: 10, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, fontFamily: fonts.regular, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right' }}
+            style={{ flex: 1, minHeight: 40, maxHeight: 120, paddingHorizontal: spacing.md, paddingVertical: 9, borderRadius: 20, backgroundColor: colors.surfaceSunken, fontFamily: fonts.regular, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right' }}
           />
           <TouchableOpacity onPress={send} disabled={!text.trim() || comment.isPending} accessibilityRole="button" accessibilityLabel={t('community_space.send')}
             style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: text.trim() ? colors.brand : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
@@ -194,25 +201,28 @@ const CommentRow = memo(function CommentRow({ comment: c, moderator, onMore }: {
   const chip = roleLabel(c.author.role, t);
   const status = c.status !== 'published' ? c.status : null;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
-      <InitialsAvatar id={c.author.id} name={c.author.name} size={32} />
-      <View style={{ flex: 1, backgroundColor: status ? (status === 'rejected' ? colors.dangerLight : colors.warningLight) : colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderLight, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 3 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{c.author.name}</Text>
-          {chip ? <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.brand }}>{chip}</Text> : null}
-          {c.flagged && moderator ? <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.warningText }}>{t('community_space.flagged')}</Text> : null}
-          <View style={{ flex: 1 }} />
-          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{ago(c.created_at)}</Text>
-          <TouchableOpacity onPress={() => onMore(c)} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('community_space.more')}>
-            <Icon name="more" size={16} color={colors.textTertiary} />
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingHorizontal: CARD_SIDE + spacing.sm, paddingVertical: 6 }}>
+      <CommunityAvatar author={c.author} size={34} />
+      <View style={{ flex: 1 }}>
+        <Pressable onLongPress={() => onMore(c)} delayLongPress={300} style={{ alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: status ? (status === 'rejected' ? colors.dangerLight : colors.warningLight) : colors.surfaceSunken, borderRadius: radius.xl, paddingHorizontal: spacing.md, paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{c.author.name}</Text>
+            {chip ? <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.brand }}>{chip}</Text> : null}
+            {c.flagged && moderator ? <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.warningText }}>{t('community_space.flagged')}</Text> : null}
+          </View>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 22, color: colors.textPrimary }}>{c.body}</Text>
+          {status ? (
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: status === 'rejected' ? colors.dangerText : colors.warningText, marginTop: 2 }}>
+              {t(status === 'rejected' ? 'community_space.status_rejected' : c.status_reason === 'awaiting_review' ? 'community_space.status_awaiting' : 'community_space.status_held')}{c.status_note ? ` — ${c.status_note}` : ''}
+            </Text>
+          ) : null}
+        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: 3, marginHorizontal: spacing.sm }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }}>{ago(c.created_at)}</Text>
+          <TouchableOpacity onPress={() => onMore(c)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('community_space.more')}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.textSecondary }}>{t('community_space.more')}</Text>
           </TouchableOpacity>
         </View>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textPrimary }}>{c.body}</Text>
-        {status ? (
-          <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: status === 'rejected' ? colors.dangerText : colors.warningText }}>
-            {t(status === 'rejected' ? 'community_space.status_rejected' : c.status_reason === 'awaiting_review' ? 'community_space.status_awaiting' : 'community_space.status_held')}{c.status_note ? ` — ${c.status_note}` : ''}
-          </Text>
-        ) : null}
       </View>
     </View>
   );

@@ -3,7 +3,7 @@ import { Tabs } from 'expo-router';
 import { useHiddenSurfaces } from '@/ui/surfaces';
 import { colors } from '@/theme/index';
 import { type IconName } from '@/components/ui/Icon';
-import { NotchTabBar } from '@/components/ui/NotchTabBar';
+import { FloatingTabBar } from '@/components/ui/FloatingTabBar';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -64,7 +64,7 @@ export default function ParentTabsLayout() {
       // Hardware back between tabs follows the visit history.
       backBehavior="history"
       screenLayout={sceneLayout}
-      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} badges={badges} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
+      tabBar={(props) => <FloatingTabBar {...props} tabs={tabs} labels={labels} icons={icons} badges={badges} />}
       screenOptions={({ route }) => ({
         headerShown: false,
         freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),

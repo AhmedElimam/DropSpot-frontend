@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { useHiddenSurfaces } from '@/ui/surfaces';
 import { colors } from '@/theme/index';
 import { type IconName } from '@/components/ui/Icon';
-import { NotchTabBar } from '@/components/ui/NotchTabBar';
+import { FloatingTabBar } from '@/components/ui/FloatingTabBar';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
@@ -66,7 +66,7 @@ export default function StudentTabsLayout() {
       // to the Home tab.
       backBehavior="history"
       screenLayout={sceneLayout}
-      tabBar={(props) => <NotchTabBar {...props} tabs={tabs} center={center} labels={tabLabels} icons={tabIcons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
+      tabBar={(props) => <FloatingTabBar {...props} tabs={tabs} labels={tabLabels} icons={tabIcons} />}
       screenOptions={({ route }) => ({
         headerShown: false,
         freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),

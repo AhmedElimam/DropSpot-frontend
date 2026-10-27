@@ -113,20 +113,19 @@ describe('a module-level style function is always CALLED where it is spread', ()
 });
 
 describe('tab bars and auth screens use the right tokens', () => {
-  // The student bar is the stock one; the teacher and parent bars are NotchTabBar.
-  it('the notched bar is tokenised', () => {
-    const src = fs.readFileSync(path.join(ROOT, 'src/components/ui/NotchTabBar.tsx'), 'utf8');
-    expect(src).toContain('fill={colors.tabBar}');
-    expect(src).toContain('backgroundColor: colors.tabActive');
+  // All three roles use the floating pill (founder 2026-10-28: «like Facebook, floating»); the
+  // notched bar stays in the tree for its own tests but nothing mounts it.
+  it('the floating bar is tokenised', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'src/components/ui/FloatingTabBar.tsx'), 'utf8');
+    expect(src).toContain('backgroundColor: colors.tabBar');
     expect(src).toContain('colors.tabActive : colors.tabInactive');
     expect(src).not.toMatch(/backgroundColor: '#FFFFFF'/);
   });
 
-  // The student joined the notched bar on 2026-10-06 (founder: «the logo as same as teacher and parents»).
-  it.each(['app/(teacher)/(tabs)/_layout.tsx', 'app/(parent)/(tabs)/_layout.tsx', 'app/(student)/(tabs)/_layout.tsx'])('%s mounts the notched bar with a centre tab', (file) => {
+  it.each(['app/(teacher)/(tabs)/_layout.tsx', 'app/(parent)/(tabs)/_layout.tsx', 'app/(student)/(tabs)/_layout.tsx'])('%s mounts the floating bar', (file) => {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    expect(src).toContain('<NotchTabBar');
-    expect(src).toMatch(/const CENTER_TAB = '[a-z]+'/);
+    expect(src).toContain('<FloatingTabBar');
+    expect(src).not.toContain('<NotchTabBar');
     expect(src).not.toContain('<BottomTabBar');
   });
 

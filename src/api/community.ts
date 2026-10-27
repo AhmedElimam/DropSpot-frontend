@@ -17,6 +17,9 @@ export type CommunityKind = 'post' | 'announcement';
 export interface CommunitySpace {
   teacher_id: number;
   teacher_name: string;
+  teacher_logo_url: string | null;
+  /** Students in the students' space, linked parents in the parents'. */
+  members: number;
   audience: CommunityAudience;
   role: CommunityRole;
   can_post: boolean;
@@ -40,7 +43,15 @@ export interface CommunityLimits {
 
 export interface CommunityMedia { id: number; url: string; width: number | null; height: number | null }
 
-export interface CommunityAuthor { id: number; name: string; role: CommunityRole }
+export interface CommunityAuthor {
+  id: number;
+  name: string;
+  role: CommunityRole;
+  /** The same generated face as everywhere in the app (`GeneratedAvatar`). */
+  avatar_seed: string;
+  /** The teacher's logo, when they uploaded one. */
+  avatar_url: string | null;
+}
 
 export interface CommunityPost {
   id: number;
@@ -61,6 +72,8 @@ export interface CommunityPost {
   reactions_count: number;
   reaction_counts: Partial<Record<CommunityReaction, number>>;
   my_reaction: CommunityReaction | null;
+  /** The newest published comment — the feed's one-line preview. */
+  last_comment: CommunityComment | null;
   edited_at: string | null;
   created_at: string;
 }

@@ -115,7 +115,7 @@ function ConversationsHub() {
         onBack
         title={showCommunity ? t('community_space.title_students') : showThreads ? t('threads.title') : t('chat.conversations')}
         subtitle={showCommunity
-          ? t('community_space.subtitle_teacher')
+          ? undefined
           : showThreads
             ? t('threads.subtitle_teacher')
             : showChat
@@ -130,7 +130,7 @@ function ConversationsHub() {
         ] : undefined}
       />
       {many ? (
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl, marginBottom: spacing.md }}>
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl, marginBottom: showCommunity ? 0 : spacing.md }}>
           <Segments
             value={tab}
             onChange={setTab}
