@@ -39,6 +39,8 @@ export function notificationLook(type: string): { icon: IconName; tint: string }
 
 /** Icon + tint by type, so a glance tells money from attendance from مدام روز. */
 const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
+  // A chat message (the in-app toast; chat creates no feed row of its own).
+  chat_message: { icon: 'chat', tint: colors.info },
   attendance: { icon: 'attendance', tint: colors.success },
   absence: { icon: 'warning', tint: colors.danger },
   left_early: { icon: 'clock', tint: colors.warning },
