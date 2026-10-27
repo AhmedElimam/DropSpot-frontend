@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { Easing, FadeIn, LinearTransition, cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -173,13 +173,15 @@ function Toast({ notice }: { notice: InAppNotice }) {
   }));
   const frostSt = useAnimatedStyle(() => ({ opacity: ex.value }));
   const lifeSt = useAnimatedStyle(() => ({ transform: [{ scaleX: life.value }] }));
+  // The buttons come in with the pull (no layout animation: docs/PERFORMANCE.md).
+  const actionsSt = useAnimatedStyle(() => ({ opacity: ex.value }));
 
   const rose = isRoseNotification({ type: notice.type, data: notice.data });
   const look = notificationLook(notice.type);
   const ink = rose ? colors.accent : look.tint;
 
   return (
-    <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 1000, elevation: 1000 }]}>
+    <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
       {/* The frost: the screen behind dims and cools while you pull, and stays while it is open.
           Tapping it puts the toast away, still unread. (A true blur needs a native module — a
           store build, not an OTA.) */}
@@ -194,7 +196,6 @@ function Toast({ notice }: { notice: InAppNotice }) {
 
       <GestureDetector gesture={gesture}>
         <Animated.View
-          layout={LinearTransition.duration(220)}
           accessibilityRole="button"
           accessibilityLabel={`${notice.title}. ${notice.body}`}
           accessibilityHint={t('notifications.toast_hint')}
@@ -223,7 +224,7 @@ function Toast({ notice }: { notice: InAppNotice }) {
           </View>
 
           {open ? (
-            <Animated.View entering={FadeIn.duration(180)} style={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: 12, paddingBottom: 12, paddingTop: 2 }}>
+            <Animated.View style={[{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: 12, paddingBottom: 12, paddingTop: 2 }, actionsSt]}>
               <TouchableOpacity onPress={openIt} activeOpacity={0.85} accessibilityRole="button"
                 style={{ flex: 1, minHeight: 42, borderRadius: 12, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.onPrimary }}>{t('notifications.toast_open')}</Text>
