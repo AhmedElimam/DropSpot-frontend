@@ -190,7 +190,6 @@ export default function TeacherManage() {
             <Surface id="teacher.manage.row_booking_requests" assistantNeeds="manage_students"><HubRow tint={tint} icon="bell" title={t('booking_requests.title')} sub={t('booking_requests.manage_sub')} badge={pendingReqs} onPress={() => router.push('/(teacher)/booking-requests' as Href)} /></Surface>
             <Surface id="teacher.manage.row_phone_confirmations"><HubRow tint={tint} icon="phone" title={t('home.phones_title')} sub={t('manage.phones_sub')} badge={phoneCount} onPress={() => router.push('/(teacher)/phone-confirmations' as Href)} /></Surface>
             <Surface id="teacher.manage.row_cards" assistantNeeds="manage_students"><HubRow tint={tint} icon="card" title={t('manage.cards_title')} sub={t('manage.cards_sub')} onPress={() => router.push('/(teacher)/students?segment=cards' as Href)} /></Surface>
-            <Surface id="teacher.manage.row_card_order_link" assistantNeeds="manage_students"><HubRow tint={tint} icon="send" title={t('card_order_link.title')} sub={t('card_order_link.manage_sub')} onPress={() => router.push('/(teacher)/card-order-link' as Href)} /></Surface>
             <Surface id="teacher.manage.row_overrides" assistantNeeds="scan_attendance"><HubRow tint={tint} icon="lock" title={t('teacher.overrides')} sub={t('manage.overrides_sub')} onPress={() => router.push('/(teacher)/overrides' as Href)} /></Surface>
           </Surface>
         ) : null}

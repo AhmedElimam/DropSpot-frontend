@@ -13,6 +13,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/api/notifications';
 import { notificationRouteFor } from '@/utils/notification-routing';
+import { SURVEY_NOTIFICATION, useOpenSurveyNotification } from '@/hooks/useSurvey';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SwipeRow } from '@/components/ui/SwipeRow';
@@ -30,6 +31,11 @@ import { useRose } from '@/hooks/useRose';
 const ROSE_TYPES: ReadonlySet<string> = new Set(['rose_briefing', 'cash_insight', 'expense_reminder', 'cash_reconciliation']);
 export const isRoseNotification = (n: Pick<Notification, 'type' | 'data'>): boolean =>
   ROSE_TYPES.has(n.type) || (n.data != null && typeof n.data === 'object' && 'rose' in n.data && n.data.rose != null);
+
+/** The feed row's icon and tint for a type — the in-app toast wears the same. */
+export function notificationLook(type: string): { icon: IconName; tint: string } {
+  return LOOK()[type] ?? { icon: 'bell', tint: colors.brand };
+}
 
 /** Icon + tint by type, so a glance tells money from attendance from مدام روز. */
 const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
@@ -139,7 +145,7 @@ const FeedRow = memo(function FeedRow({
 }) {
   const { t } = useTranslation();
   const rose = useRose();
-  const look = LOOK()[n.type] ?? { icon: 'bell' as IconName, tint: colors.brand };
+  const look = notificationLook(n.type);
   const unread = !n.is_read;
   // Her logo only while her name is on: a teacher who switched it off reads «المساعدة الشخصية» with the plain icon.
   const hers = rose.named && isRoseNotification(n);
@@ -247,11 +253,13 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
       .map((k) => ({ key: k, title: t(`notifications.group_${k}`), data: groups[k] }));
   }, [shown, t]);
 
+  const openSurvey = useOpenSurveyNotification();
   const onOpen = useCallback((n: Notification) => {
     if (!n.is_read) markRead.mutate(n.id);
+    if (n.type === SURVEY_NOTIFICATION) { openSurvey(); return; }
     const route = notificationRouteFor({ role, type: n.type, data: n.data, can });
     if (route) router.push(route as never);
-  }, [markRead, role, can]);
+  }, [markRead, role, can, openSurvey]);
 
   const onToggleRead = useCallback((n: Notification) => {
     if (hint) closeHint();
@@ -369,7 +377,7 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
         renderItem={({ item }) => (
           <FeedRow
             n={item}
-            opens={notificationRouteFor({ role, type: item.type, data: item.data, can }) !== null}
+            opens={item.type === SURVEY_NOTIFICATION || notificationRouteFor({ role, type: item.type, data: item.data, can }) !== null}
             onOpen={onOpen}
             onToggleRead={onToggleRead}
           />

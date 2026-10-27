@@ -9,6 +9,8 @@ import { colors, spacing, radius, shadows } from '@/theme/index';
 import { useRose } from '@/hooks/useRose';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { RosePortrait } from '@/components/rose/RoseStamp';
+import { NazerFramed } from '@/components/nazer/NazerFramed';
+import { useModalPresence } from './popupSlot';
 
 /**
  * The app's own popup in place of the system alert (founder 2026-10-10: «I don't like the
@@ -20,7 +22,7 @@ import { RosePortrait } from '@/components/rose/RoseStamp';
  * pages, which say so with useDialogPersona('rose') while focused. The safe answer sits
  * first, the act in brand ink, red when it removes something; three or more answers stack.
  */
-export type DialogPersona = 'brand' | 'rose';
+export type DialogPersona = 'brand' | 'rose' | 'nazer';
 
 export interface DialogButton {
   text: string;
@@ -132,7 +134,9 @@ export function DialogHost({ nested = false }: { nested?: boolean }) {
   if (!shown) return null;
   const s = shown;
   const asRose = s.persona === 'rose' && rose.named;
-  const HEAD = asRose ? 92 : 64;
+  // الناظر speaks in his office (the parent and student pages that say so).
+  const asNazer = s.persona === 'nazer';
+  const HEAD = asRose || asNazer ? 92 : 64;
   const cancel = s.buttons.find((b) => b.style === 'cancel') ?? (s.buttons.length === 1 ? s.buttons[0] : null);
   const press = (b: DialogButton) => {
     shift();
@@ -160,6 +164,7 @@ export function DialogHost({ nested = false }: { nested?: boolean }) {
         <Animated.View style={[{ paddingTop: HEAD / 2 }, card]} accessibilityViewIsModal>
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.lg, paddingTop: HEAD / 2 + spacing.sm, ...shadows.md }}>
             {asRose ? <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accent, textAlign: 'center' }}>{rose.name}</Text> : null}
+            {asNazer ? <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.accent, textAlign: 'center' }}>الناظر صلاح الدين</Text> : null}
             <Text accessibilityRole="header" style={{ fontFamily: fonts.bold, fontSize: 18, lineHeight: 27, color: colors.textPrimary, textAlign: 'center', marginTop: 4 }}>{s.title}</Text>
             {s.message ? (
               <View style={{ marginTop: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
@@ -187,6 +192,8 @@ export function DialogHost({ nested = false }: { nested?: boolean }) {
           <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' }}>
             {asRose ? (
               <RosePortrait size={HEAD} />
+            ) : asNazer ? (
+              <NazerFramed size={HEAD} blink={false} />
             ) : (
               <View style={{ width: HEAD, height: HEAD, borderRadius: HEAD / 2, backgroundColor: colors.surface, borderWidth: 4, borderColor: colors.background, alignItems: 'center', justifyContent: 'center', ...shadows.sm }}>
                 <BrandMark size={32} />
@@ -200,6 +207,8 @@ export function DialogHost({ nested = false }: { nested?: boolean }) {
 }
 
 function ModalWindow({ onRequestClose, children }: { onRequestClose: () => void; children: ReactNode }) {
+  // Reported to the popup slot: an app-wide popup waits while an alert is up.
+  useModalPresence(true);
   return <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onRequestClose}>{children}</Modal>;
 }
 

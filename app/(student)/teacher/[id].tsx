@@ -261,7 +261,7 @@ export default function StudentTeacherPage() {
 
           <Surface id="student.teacher.past_attendance">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>
-            <SectionHead icon="attendance" color={colors.success} title={t('student_teacher.past')} />
+            <SectionHead icon="attendance" color={colors.success} title={t(d.gender === 'female' ? 'student_teacher.past_f' : 'student_teacher.past')} />
             <AttendanceRecordList
               records={past}
               complaintsBySession={complaints.bySession}

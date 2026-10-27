@@ -9,6 +9,7 @@ import { colors, gradients, radius, spacing } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Image } from 'expo-image';
 import { GeneratedAvatar } from '@/components/ui/GeneratedAvatar';
+import { CountBadge } from './CountBadge';
 
 export interface HeroAction { icon: IconName; label?: string; onPress: () => void; accessibilityLabel?: string; badge?: number }
 
@@ -83,11 +84,7 @@ export function PageHero({ title, subtitle, avatar, avatarUrl, onBack, action, a
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, minWidth: 40, paddingHorizontal: a.label ? spacing.md : 0, justifyContent: 'center', borderRadius: 12, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder }}>
                   <Icon name={a.icon} size={20} color={colors.onHero} outline />
                   {a.label ? <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{a.label}</Text> : null}
-                  {a.badge ? (
-                    <View style={{ position: 'absolute', top: -5, end: -5, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onPrimary }}>{a.badge > 9 ? '9+' : a.badge}</Text>
-                    </View>
-                  ) : null}
+                  <CountBadge count={a.badge} offset={5} size={19} />
                 </TouchableOpacity>
               ))}
             </View>

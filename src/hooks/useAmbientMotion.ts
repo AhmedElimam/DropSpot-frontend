@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
+import { inTransition, subscribeTransitions } from '@/navigation/transitions';
 import { useReducedMotion } from 'react-native-reanimated';
 
 /**
@@ -17,16 +18,32 @@ export function useAmbientMotion(extraHold = false): boolean {
 }
 
 /**
- * Is this screen actually in front of someone — focused, with the app in the foreground? For
- * clocks and polls that only matter while seen: hidden tabs stay mounted (the stacks do not
- * freeze), and Android keeps JS timers running in the background.
+ * Is this screen actually in front of someone — focused, with the app in the foreground, and
+ * no screen sliding over or off it? For clocks, polls and ambient motion that only matter
+ * while seen: hidden tabs stay mounted (the stacks do not freeze), and Android keeps JS
+ * timers running in the background.
+ *
+ * Waits out a stack transition on purpose (src/navigation/transitions.ts): the screen under
+ * a popped page used to wake up at the pop — motion, polls, a re-render — inside the back
+ * animation. Computed from the events, not from `useIsFocused`, so the component re-renders
+ * only when the ANSWER changes: once, after the page has landed.
  */
 export function useOnScreen(): boolean {
-  const focused = useIsFocused();
-  const [active, setActive] = useState(AppState.currentState === 'active');
+  const navigation = useNavigation();
+  const [on, setOn] = useState(() => isOnScreen(navigation));
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (s) => setActive(s === 'active'));
-    return () => sub.remove();
-  }, []);
-  return focused && active;
+    const recompute = () => setOn(isOnScreen(navigation));
+    const offFocus = navigation.addListener('focus' as never, recompute);
+    const offBlur = navigation.addListener('blur' as never, recompute);
+    const app = AppState.addEventListener('change', recompute);
+    const offTransition = subscribeTransitions(recompute);
+    recompute();
+    return () => { offFocus(); offBlur(); app.remove(); offTransition(); };
+  }, [navigation]);
+  return on;
+}
+
+function isOnScreen(navigation: { isFocused?: () => boolean }): boolean {
+  const focused = typeof navigation.isFocused === 'function' ? navigation.isFocused() : true;
+  return focused && AppState.currentState === 'active' && !inTransition();
 }

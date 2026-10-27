@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { View, Text, type StyleProp, type ViewStyle } from 'react-native';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Animated, { interpolate, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
@@ -42,7 +42,7 @@ const EDGE_GUARD = 28;
  * threshold ("it doesn't swipe to read, it stays the same"). The root layout mounts the
  * GestureHandlerRootView this needs.
  */
-export function SwipeRow({ action, leftAction, children, style, radius = 20 }: {
+export function SwipeRow({ action, leftAction, children, style, radius = 20, peek = false, onPeeked }: {
   /** Revealed on the RIGHT edge by a swipe from right to left. */
   action?: SwipeAction;
   /** Revealed on the LEFT edge by a swipe from left to right (founder 2026-10-04: a second
@@ -53,20 +53,39 @@ export function SwipeRow({ action, leftAction, children, style, radius = 20 }: {
   /** The row's own corner radius: the panel's OUTER corners take it, so the green or red
    *  block reads as part of the card, not a tile beside it (founder 2026-10-11). */
   radius?: number;
+  /** Slide the left action open by itself once and back — teaches that the card swipes
+   *  (founder 2026-10-25). Nothing fires during the peek. */
+  peek?: boolean;
+  onPeeked?: () => void;
 }) {
   const ref = useRef<SwipeableMethods>(null);
+  const peeking = useRef(false);
+  const hasLeft = !!leftAction;
+  useEffect(() => {
+    if (!peek || !hasLeft) return;
+    let back: ReturnType<typeof setTimeout> | undefined;
+    const go = setTimeout(() => {
+      peeking.current = true;
+      ref.current?.openLeft();
+      back = setTimeout(() => ref.current?.close(), 1100);
+    }, 900);
+    // Interrupted mid-peek (a popup, the screen left): close it rather than leave it open.
+    return () => { clearTimeout(go); if (back) clearTimeout(back); if (peeking.current) ref.current?.close(); };
+  }, [peek, hasLeft]);
   // The library reports PHYSICAL directions, never flipped for RTL: 'left' = the row moved
   // left (finger right → left, the right panel shows); 'right' = the opposite.
   // An action that restyles the row (afterSettle) is remembered at the threshold and fired
   // once the row has sprung back (onSwipeableClose); every other action fires at once.
   const pending = useRef<SwipeAction | null>(null);
   const arm = (direction: 'left' | 'right') => {
+    if (peeking.current) return;
     const a = (direction === 'left' ? action : leftAction) ?? null;
     ref.current?.close();
     if (a?.afterSettle) { pending.current = a; return; }
     a?.onTrigger();
   };
   const settled = () => {
+    if (peeking.current) { peeking.current = false; onPeeked?.(); return; }
     const a = pending.current;
     pending.current = null;
     a?.onTrigger();

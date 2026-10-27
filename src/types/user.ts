@@ -36,10 +36,20 @@ export interface User {
    * or correct it. Cleared by confirming or editing — never blocks the account.
    */
   should_confirm_name?: boolean;
+  /** Student: nobody has proved the parent's number yet — the app asks for a code from the parent (soft). */
+  needs_parent_number_check?: boolean;
+  /** The masked parent number that code goes to («010•••••789»). */
+  parent_phone_hint?: string | null;
   /** First-cohort teacher — the app shows a «عضو مؤسس» (Founding Member) badge. */
   is_founding_teacher?: boolean;
+  /** Teacher only: «أستاذ / أستاذة» — how the app and every message address them. Null for other roles. */
+  gender?: 'male' | 'female' | null;
   /** The single flagship «عضو مميز» tier (violet-gold badge, lifetime subscription-exempt). */
   is_distinguished_member?: boolean;
+  /** The teacher's (or their assistant's teacher's) subscription state — login + refresh. */
+  subscription?: import('@/api/subscription').SubscriptionState | null;
+  /** True when the subscription bill passed its block date: the app shows the wall. */
+  subscription_blocked?: boolean;
   /** Teacher only: their uploaded brand logo — shown as their avatar when set. */
   logo_url?: string | null;
 }

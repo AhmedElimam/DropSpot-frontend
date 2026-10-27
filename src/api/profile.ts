@@ -19,6 +19,14 @@ export async function confirmMyName(): Promise<{ name: string }> {
   return (data.data ?? {}) as { name: string };
 }
 
+export type TeacherGender = 'male' | 'female';
+
+/** A teacher says how to be addressed — «أستاذ» or «أستاذة». Every message and page reads it at once. */
+export async function updateMyGender(gender: TeacherGender): Promise<{ gender: TeacherGender }> {
+  const { data } = await client.put('/me/gender', { gender });
+  return (data.data ?? { gender }) as { gender: TeacherGender };
+}
+
 /** none → ordered (waiting for approval) → preparing (approved / printing) → in_hand. */
 export type CardState = 'none' | 'ordered' | 'preparing' | 'in_hand';
 

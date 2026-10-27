@@ -1,13 +1,13 @@
 import { track } from '@/lib/analytics';
 import { SheetModal } from '@/components/ui/SheetModal';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Vibration } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useOfflineStore } from '@/stores/offlineStore';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -50,6 +50,11 @@ export default function TeacherEnroll() {
 
   // Enrollment is on the COURSE (schedule master) — pick the course, not a session.
   const [course, setCourse] = useState<EnrollableClass | null>(null);
+  // Arriving from a «دعوة طالب» (the home scanner or fast register): the scanned value waits
+  // for the group, then runs as if scanned here; fast register also names the group.
+  const params = useLocalSearchParams<{ value?: string; course_id?: string }>();
+  const pendingRef = useRef<string | null>(params.value ? String(params.value) : null);
+  const [awaitingGroup, setAwaitingGroup] = useState(!!params.value);
   /**
    * «شروط التسجيل» for this course — the same sheet every door shows (position in the
    * month, دفعة, booklet). Founder 2026-10-02: it used to sit as a chip strip over the
@@ -126,6 +131,19 @@ export default function TeacherEnroll() {
     if (scanPausedRef.current) return;
     void handleScanRef.current(e);
   }, []);
+
+  useEffect(() => {
+    if (course || !params.course_id || !classes) return;
+    const c = classes.find((x) => String(x.course_id) === String(params.course_id));
+    if (c) setCourse(c);
+  }, [classes, course, params.course_id]);
+  useEffect(() => {
+    if (!course || !pendingRef.current) return;
+    const value = pendingRef.current;
+    pendingRef.current = null;
+    setAwaitingGroup(false);
+    void handleScanRef.current({ data: value });
+  }, [course]);
 
   const enroll = useMutation({
     mutationFn: (vars: { value: string; acceptGradeMismatch?: boolean }) =>
@@ -256,6 +274,14 @@ export default function TeacherEnroll() {
           <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, marginTop: spacing.md }}>
             {t('enroll_ui.enroll_intro')}
           </Text>
+          {awaitingGroup ? (
+            <Surface id="teacher.enroll.invitation_waiting">
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.md }}>
+              <Icon name="add" size={18} color={colors.brand} />
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13.5, lineHeight: 20, color: colors.brand }}>{t('invitation_modal.pick_group')}</Text>
+            </View>
+            </Surface>
+          ) : null}
         </View>
         {isLoading ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.xl }} />

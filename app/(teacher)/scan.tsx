@@ -23,6 +23,9 @@ import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { Icon } from '@/components/ui/Icon';
 import { TeacherTip } from '@/components/TeacherTip';
 import { PayDuesModal } from '@/components/teacher/PayDuesModal';
+import { StudentInvitationModal, type InvitationStudent } from '@/components/teacher/StudentInvitationModal';
+import { scanPreCard, cancelPreCard } from '@/api/preCardInvitation';
+import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { Surface } from '@/ui/surfaces';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ScanPending } from '@/api/teacher';
@@ -165,6 +168,11 @@ export default function TeacherScan() {
   // No session of the student's is running right now → HOLD on a popup (founder
   // 2026-10-03) instead of a passing red flash: who they are, whether they are ours, what
   // they owe (collect from here), and their profile when they are enrolled with this teacher.
+  // «دعوة طالب» (founder 2026-10-22): a scan of someone not on this teacher's roster — their card
+  // with nothing of ours running, or the QR a parent made for a child with no card — is a student
+  // asking to join, so it opens the invitation and leads to the enrol screen.
+  const [invite, setInvite] = useState<(InvitationStudent & { code: string; invitationId?: number }) | null>(null);
+  const { isAssistant, can } = useActiveAbilities();
   const [noSession, setNoSession] = useState<{ name: string; message: string; code: string; enrolledHere: boolean | null; profileId: number | null; pending: ScanPending | null } | null>(null);
   // Merged pay-on-scan popup: after an attendance scan surfaces dues, open ONE popup
   // listing every kind (bill / booklets / booking) with the paid/remaining + pay-full UI.
@@ -196,7 +204,7 @@ export default function TeacherScan() {
   }, []);
 
   // `locked` pauses scanning too — while the scanner is locked no card is read.
-  const paused = locked || idle || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup || !!noSession;
+  const paused = locked || idle || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup || !!noSession || !!invite;
   // The sensor itself runs only when there is something to read for. Locked or idle,
   // the preview goes dark and the phone stops heating; the screen stays mounted so the
   // teacher's session context is untouched.
@@ -349,6 +357,27 @@ export default function TeacherScan() {
         }
         // Nothing of theirs is running now (and no same-grade group of ours either) → hold
         // on the no-session popup; dues and the profile ride along for our own students.
+        // Not ours and nothing of ours running: an invitation, when this account may enrol.
+        if (!res.success && res.code === 'NO_ACTIVE_SESSION' && res.enrolled_here === false && can('manage_students')) {
+          setBusy(false);
+          Vibration.vibrate(50);
+          setInvite({ name: res.student_name ?? null, via: 'card', code: data });
+          return;
+        }
+        // Not a card at all: perhaps the QR a parent made for a child with no card yet. Asking
+        // reserves it for this teacher (the enrol screen re-reads its own reservation); closing
+        // the invitation releases it. Teacher-only on the server.
+        if (!res.success && (res.code === 'UNKNOWN_CARD' || res.code === 'CARD_INVALID') && !isAssistant) {
+          try {
+            const pre = await scanPreCard(data);
+            setBusy(false);
+            Vibration.vibrate(50);
+            setInvite({ name: pre.student.name, grade: pre.student.grade, via: 'invite', code: data, invitationId: pre.invitation_id });
+            return;
+          } catch {
+            // Not an invitation either — the plain «unknown card» flash below.
+          }
+        }
         if (!res.success && res.code === 'NO_ACTIVE_SESSION') {
           setBusy(false);
           setNoSession({ name: res.student_name ?? '', message: res.message, code: data, enrolledHere: res.enrolled_here ?? null, profileId, pending: res.pending ?? null });
@@ -383,7 +412,7 @@ export default function TeacherScan() {
         clearFeedbackLater();
       }
     },
-    [paused, payMode, payKind, revisionMode, revisionId, revisionInstanceId, flash, t, online],
+    [paused, payMode, payKind, revisionMode, revisionId, revisionInstanceId, flash, t, online, can, isAssistant],
   );
 
   const confirmPay = useCallback(async () => {
@@ -1124,6 +1153,23 @@ export default function TeacherScan() {
 
       {/* Merged pay-on-scan popup — collect all of the student's dues in one place. */}
       <Surface id="teacher.scan.pay_dues_modal">
+      <Surface id="teacher.scan.student_invitation">
+      <StudentInvitationModal
+        student={invite}
+        onEnroll={() => {
+          const v = invite;
+          setInvite(null);
+          setBusy(false);
+          if (v) router.push({ pathname: '/(teacher)/enroll', params: { value: v.code } });
+        }}
+        onClose={() => {
+          if (invite?.invitationId) cancelPreCard(invite.invitationId).catch(() => undefined);
+          setInvite(null);
+          setBusy(false);
+        }}
+      />
+      </Surface>
+
       <PayDuesModal
         visible={!!duesFor}
         card={duesFor?.code ?? ''}

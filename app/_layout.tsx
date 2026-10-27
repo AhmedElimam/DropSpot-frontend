@@ -7,6 +7,7 @@ import * as SystemUI from 'expo-system-ui';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
+import { installTransitionScheduler, noteTouchCancel, transitionListeners } from '@/navigation/transitions';
 import { enableFreeze } from 'react-native-screens';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -41,6 +42,8 @@ import { startChatOutbox } from '@/chat/outbox';
 import { AnalyticsTracker } from '@/components/AnalyticsTracker';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { InAppNoticeHost } from '@/notifications/InAppNoticeHost';
+import { ChatNoticeBridge } from '@/notifications/ChatNoticeBridge';
 import { useAuthStore } from '@/stores/authStore';
 import { useDriverStore } from '@/stores/driverStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -52,6 +55,12 @@ import { AppConfigGate } from '@/components/AppConfigGate';
 import { installErrorReporting } from '@/lib/errorReport';
 import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
+import { NazerUnlockModal } from '@/components/nazer/NazerUnlockModal';
+import { RoseUnlockModal } from '@/components/rose/RoseUnlockModal';
+import { SubscriptionStatusModal } from '@/components/subscription/SubscriptionStatusModal';
+import { SubscriptionCornerTag } from '@/components/subscription/SubscriptionCornerTag';
+import { SubscriptionSync } from '@/components/subscription/SubscriptionSync';
+import { ParentNumberCheckModal } from '@/components/student/ParentNumberCheckModal';
 import { FeatureTermsPrompt } from '@/components/FeatureTermsPrompt';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
 import { RevisionCurtain } from '@/components/RevisionCurtain';
@@ -137,6 +146,8 @@ const queryClient = new QueryClient({
   },
 });
 setQueryClient(queryClient);
+// While a screen slides, query results wait for it to land (src/navigation/transitions.ts).
+installTransitionScheduler();
 // JS errors go to /admin/app-errors with version, update, screen and stack (src/lib/errorReport.ts).
 installErrorReporting();
 
@@ -288,7 +299,9 @@ export default function RootLayout() {
 
   return (
     // gesture-handler components (the notifications swipe) need this at the very root.
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+    // onTouchCancel: a swipe back takes the finger's touch as it begins — the transition hold
+    // keeps for as long as that swipe is held (src/navigation/transitions.ts).
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }} onTouchCancel={noteTouchCancel}>
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <SafeAreaProvider>
         {/* Status bar icons follow the scheme: dark on the day mist, light on the night navy.
@@ -296,7 +309,8 @@ export default function RootLayout() {
         <StatusBar style={scheme === 'dark' || revision ? 'light' : 'dark'} />
         <HydrationGate>
           <AppConfigGate>
-          <View key={`${scheme}-${paintEpoch}`} style={{ flex: 1, backgroundColor: colors.background }}>
+          {/* onLayout: the rebuilt tree has laid out — the season's curtain falls only then. */}
+          <View key={`${scheme}-${paintEpoch}`} style={{ flex: 1, backgroundColor: colors.background }} onLayout={() => useThemeStore.getState().treeLaid(paintEpoch)}>
             {/* Persistent impersonation banner sits above every screen. */}
             <ImpersonationBanner />
             <View style={{ flex: 1 }}>
@@ -305,8 +319,11 @@ export default function RootLayout() {
                   root stack pushes pages OVER a whole role (notification preferences, change
                   password, «ما الجديد»…), and a frozen role thawed mid-swipe-back stuttered
                   the gesture (founder 2026-10-12, same cause as the role stacks on 10-08). */}
-              <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />
+              <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />
             </View>
+            {/* The subscription's quiet tag (trial days, an open or late bill), bottom-right on every teacher screen; touches pass through. */}
+            <SubscriptionCornerTag />
+            <SubscriptionSync />
             {/* Super-admin survey prompt — checked on app-open/login, once across platforms. */}
             <SurveyModal />
             {/* Teacher onboarding — Step 1 intro popup for a brand-new teacher. */}
@@ -317,10 +334,22 @@ export default function RootLayout() {
             <TermsUpdateModal />
             {/* «ما الجديد» — once per installed version, after the two above. */}
             <WhatsNewModal />
+            {/* الناظر introduces himself to a parent or student, once — after «ما الجديد». */}
+            <NazerUnlockModal />
+            {/* مدام روز's new painted look, unlocked once by a teacher or an assistant (founder 2026-10-25). */}
+            <RoseUnlockModal />
+            {/* Then she shows where the subscription stands: receipt, exemption or bill, stamped (founder 2026-10-25). */}
+            <SubscriptionStatusModal />
+            {/* After him and his tour: a student proves their parent's number (soft, «بعدين»). */}
+            <ParentNumberCheckModal />
             {/* A feature that just reached this person brings its add-on agreement (feature targeting). */}
             <FeatureTermsPrompt />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}
             <SpotlightOverlay />
+            {/* A notification that arrives while the app is open: the toast, and the bell shakes (founder 2026-10-27). */}
+            <InAppNoticeHost />
+            {/* A chat message or a new حكاية reaches the same toast and bell (staging, flags on). */}
+            <ChatNoticeBridge />
             {/* «بدون إنترنت» — a few seconds when the connection drops, then out of the way. */}
             <OfflinePill />
             {/* The app's own popup in place of the system alert — one host for every screen. */}

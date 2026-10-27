@@ -7,6 +7,8 @@ import { Icon } from '@/components/ui/Icon';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { TourTarget } from '@/tour/TourTarget';
 import { Surface } from '@/ui/surfaces';
+import { CountBadge } from './CountBadge';
+import { ShakingBell } from '@/notifications/ShakingBell';
 
 interface HeaderBrandBarProps {
   /** Tapping the notifications bell. */
@@ -37,13 +39,8 @@ interface HeaderBrandBarProps {
 // dark: white on navy) and a module-level object would keep the values of first import.
 const iconButton = () => ({ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, justifyContent: 'center', alignItems: 'center' } as const);
 
-function Badge({ count }: { count: number }) {
-  return (
-    <View style={{ position: 'absolute', top: 6, insetInlineEnd: 6, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: colors.danger, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3 }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{count > 9 ? '9+' : count}</Text>
-    </View>
-  );
-}
+// Centred on the button's rounded corner (radius 14), off the glyph — it used to sit inside, on the bell.
+const Badge = ({ count }: { count: number }) => <CountBadge count={count} offset={5} size={19} />;
 
 /**
  * The shared top bar for every role's home hero: the brand logo on the visual
@@ -62,7 +59,7 @@ export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scan
       {/* First child → visual RIGHT in RTL: the notifications bell, then (optionally) the scanner. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         {surface('bell', <TourTarget id="header:bell"><TouchableOpacity onPress={onBell} accessibilityRole="button" accessibilityLabel={t('misc_ui.notifications')} style={iconButton()}>
-          <Icon name="bell" size={22} color={colors.onHero} outline />
+          <ShakingBell size={22} color={colors.onHero} />
           {unread ? <Badge count={unread} /> : null}
         </TouchableOpacity></TourTarget>)}
         {onScan ? surface('scan', (

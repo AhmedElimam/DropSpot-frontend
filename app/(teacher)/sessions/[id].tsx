@@ -17,6 +17,7 @@ import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { MarkRow, MarksHeader, type SessionKind } from '@/components/session/SessionMarks';
+import { SessionNotesCard } from '@/components/session/SessionNotesCard';
 import { sessionPhase } from '@/utils/sessionPhase';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
@@ -29,6 +30,11 @@ import { Surface } from '@/ui/surfaces';
 import type { TeacherSession } from '@/api/teacher';
 
 type RosterTab = 'roster' | 'swap';
+// The roster list's two leading items (see its FlatList): the controls that pin under the bar,
+// then the rest of what sits above the students. Compared by identity.
+const PINNED = { kind: 'pinned' } as const;
+const EXTRAS = { kind: 'extras' } as const;
+type Row = SessionAttendee | SwapInAttendee | typeof PINNED | typeof EXTRAS;
 type Bucket = 'awaiting' | 'present' | 'absent' | 'excused';
 type Status = 'present' | 'late' | 'absent' | 'excused';
 
@@ -64,7 +70,8 @@ const ORDER: Record<Bucket, number> = { awaiting: 0, present: 1, absent: 2, excu
 export default function SessionDetailScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `notes=1`: arrived by the home card's swipe — open «ملاحظات الحصة» at once.
+  const { id, notes: notesParam } = useLocalSearchParams<{ id: string; notes?: string }>();
   const { data: s, isLoading, refetch, error } = useSessionDetail(id);
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const controls = useSessionControls(id!);
@@ -149,6 +156,8 @@ export default function SessionDetailScreen() {
   const started = s?.scheduled_at ? now >= new Date(s.scheduled_at).getTime() : false;
   const live = phase === 'live';
   const awaitingRows = baseList.filter((a) => bucketOf(a.status) === 'awaiting');
+  // A child's note follows the session's notes window; an older server sends none (always open).
+  const notesShut = !!s?.notes_window && s.notes_window.state !== 'open';
 
   const markRestAbsent = () => {
     if (!awaitingRows.length) return;
@@ -245,18 +254,118 @@ export default function SessionDetailScreen() {
   ];
   const total = baseList.length;
 
+  // Pinned under the bar while the roster scrolls (founder 2026-10-23): the attendance / marks
+  // tabs, the roster / swaps tabs and the search. Opaque, so rows slide under it.
+  const pinned = s ? (
+    <View style={{ backgroundColor: colors.background, paddingVertical: spacing.xs, marginHorizontal: -spacing.lg, paddingHorizontal: spacing.lg, gap: spacing.sm }}>
+      {/* Two tabs on one session: who came, and their marks. A private lesson has only marks. */}
+      {noDoor ? null : (
+      <Surface id="teacher.session_detail.mode_tabs" ctx={{ session: s }}>
+      <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4, borderWidth: 1, borderColor: colors.border }}>
+        {([['attendance', 'attendance', t('marks_ui.tab_attendance'), null], ['marks', 'grades', t('marks_ui.tab_marks'), attendedCount > 0 ? `${formatNumber(markedCount)}/${formatNumber(attendedCount)}` : null]] as const).map(([k, icon, label, badge]) => {
+          const on = mode === k;
+          return (
+            <TouchableOpacity key={k} onPress={() => setMode(k)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
+              style={{ flex: 1, minHeight: 40, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.brand : 'transparent' }}>
+              <Icon name={icon} size={16} color={on ? '#fff' : colors.textSecondary} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: on ? '#fff' : colors.textSecondary }}>{label}</Text>
+              {badge ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? 'rgba(255,255,255,0.8)' : colors.textTertiary }}>{badge}</Text> : null}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      </Surface>
+      )}
+      {hasSwaps ? (
+        <Surface id="teacher.session_detail.swap_tabs">
+        <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4 }}>
+          {([['roster', t('teacher.tab_roster'), s.attendees.length], ['swap', t('teacher.tab_swaps'), swapIns.length]] as const).map(([k, label, n]) => {
+            const on = activeTab === k;
+            return (
+              <TouchableOpacity key={k} onPress={() => { setTab(k); setFilter(null); }} activeOpacity={0.85}
+                style={{ flex: 1, minHeight: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.surface : 'transparent' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary }}>{`${label} · ${formatNumber(n)}`}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        </Surface>
+      ) : null}
+      {total > 8 ? (
+        <Surface id="teacher.session_detail.search">
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md }}>
+          <Icon name="search" size={18} color={colors.textTertiary} />
+          <TextInput value={search} onChangeText={setSearch} placeholder={t('teacher.search_student_ph')} placeholderTextColor={colors.textTertiary}
+            style={{ flex: 1, height: 44, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary }} />
+          {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color={colors.textTertiary} /></TouchableOpacity> : null}
+        </View>
+        </Surface>
+      ) : null}
+    </View>
+  ) : null;
+  const rows = mode === 'marks' ? marksList : list;
+  const extrasNode = s ? (
+    <View style={{ gap: spacing.sm, marginTop: spacing.xs, marginBottom: spacing.sm }}>
+      {mode === 'marks' ? (
+        <Surface id="teacher.session_detail.marks_header">
+        <MarksHeader kind={(s.type ?? 'normal_sheet') as SessionKind} kindBusy={controls.setType.isPending} onKind={setKind}
+          max={s.sheet_max_mark} onMax={(v) => controls.sheetMax.mutate(v)} done={markedCount} of={attendedCount} />
+        </Surface>
+      ) : null}
+      {s.offline ? (
+        <Surface id="teacher.session_detail.offline_hint">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.warningLight, borderRadius: radius.lg, padding: spacing.md }}>
+          <Icon name="offline" size={18} color={colors.warningText} />
+          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.warningText }}>{t('teacher.roster_offline_hint')}</Text>
+        </View>
+        </Surface>
+      ) : null}
+
+
+
+      {!noDoor && mode === 'attendance' && started && !s.is_cancelled && awaitingRows.length > 0 ? (
+        <Surface id="teacher.session_detail.rest_absent_button" ctx={{ session: s }} assistantNeeds="mark_attendance_manual">
+        <TouchableOpacity onPress={markRestAbsent} disabled={bulkBusy} activeOpacity={0.85}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md }}>
+          {bulkBusy ? <ActivityIndicator color={colors.danger} /> : <Icon name="absent" size={20} color={colors.danger} />}
+          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>{t('session_ui.rest_absent', { n: formatNumber(awaitingRows.length) })}</Text>
+        </TouchableOpacity>
+        </Surface>
+      ) : null}
+
+      {filter && mode === 'attendance' ? (
+        <Surface id="teacher.session_detail.clear_filter">
+        <TouchableOpacity onPress={() => setFilter(null)} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 }}>
+          <Icon name="close" size={14} color={colors.brand} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('session_ui.clear_filter')}</Text>
+        </TouchableOpacity>
+        </Surface>
+      ) : null}
+      {rows.length === 0 ? <EmptyState icon="children" title={baseList.length ? t('teacher.no_students_in_filter') : t('teacher.no_students')} /> : null}
+    </View>
+  ) : null;
+
   return (
     <Surface id="screen.teacher.sessions.detail" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Header — the session at a glance; the counts are the filter. */}
+      {/* Header bar. */}
       <Surface id="teacher.session_detail.header">
-      <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
+      {/* Only the bar stays (back, settings): the session card below scrolls away with the roster,
+          and the tabs and the search pin under this bar (founder 2026-10-23). */}
+      <LinearGradient colors={[gradients.hero[0], gradients.hero[0]]}
+        style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
             <Icon name="forward" size={22} color={colors.onHero} />
           </TouchableOpacity>
-          <View style={{ flex: 1 }} />
+          {/* The session's state rides in the bar, so the card below is one row shorter. */}
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {s ? (phase === 'cancelled' ? <Chip label={t('session.cancelled')} bg={colors.danger} />
+              : phase === 'done' ? <Chip label={t('session.completed')} bg={colors.onHeroChip} />
+              : phase === 'live' ? <Chip label={t('teacher.live_now')} bg={colors.success} />
+              : <Chip label={t('session_ui.upcoming')} bg={colors.onHeroChip} />) : null}
+            {s?.is_exam ? <Chip label={t('teacher.type_quiz_exam')} bg={colors.accent} dark /> : null}
+          </View>
           {s ? (
             <Surface id="teacher.session_detail.header.settings_button">
             <TouchableOpacity onPress={() => setSettingsOpen(true)} accessibilityRole="button" accessibilityLabel={t('session_ui.settings')} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, justifyContent: 'center', alignItems: 'center' }}>
@@ -266,55 +375,6 @@ export default function SessionDetailScreen() {
           ) : null}
         </View>
 
-        {s ? (
-          <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md }}>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  {phase === 'cancelled' ? <Chip label={t('session.cancelled')} bg={colors.danger} />
-                    : phase === 'done' ? <Chip label={t('session.completed')} bg={colors.onHeroChip} />
-                    : phase === 'live' ? <Chip label={t('teacher.live_now')} bg={colors.success} />
-                    : <Chip label={t('session_ui.upcoming')} bg={colors.onHeroChip} />}
-                  {s.is_exam ? <Chip label={t('teacher.type_quiz_exam')} bg={colors.accent} dark /> : null}
-                </View>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.onHero, marginTop: 6 }} numberOfLines={2}>{s.course_name ?? t('session.session_details')}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.onHeroSoft, marginTop: 2 }}>
-                  {dayLabel(s.scheduled_at)}{s.time ? ` · ${s.time}` : ''}{s.location ? ` · ${s.location}` : ''}
-                </Text>
-              </View>
-              {noDoor ? null : <Surface id="teacher.session_detail.header.ring" ctx={{ session: s }}><AttendanceRing present={counts.present} total={total} onHero size={84} /></Surface>}
-            </View>
-
-            {noDoor ? (
-              // No attendance to count: the server's words say what this session is.
-              <Surface id="teacher.session_detail.header.private_label" ctx={{ session: s }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
-                <Icon name="grades" size={18} color={colors.onHero} />
-                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, lineHeight: 19, color: colors.onHero }}>{s.attendance_label ?? t('course_ui.private_marks_only')}</Text>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHeroSoft }}>{`${formatNumber(markedCount)}/${formatNumber(total)}`}</Text>
-              </View>
-              </Surface>
-            ) : (
-            <Surface id="teacher.session_detail.header.stats" ctx={{ session: s }}>
-            <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
-              {stats.map((x) => {
-                const on = filter === x.key;
-                return (
-                  <TouchableOpacity key={x.key} onPress={() => setFilter(on ? null : x.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
-                    style={{ flex: 1, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: on ? colors.heroChipActive : colors.onHeroChip, borderWidth: 1, borderColor: on ? colors.heroChipActive : colors.onHeroChipBorder }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: x.color }} />
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 19, lineHeight: 25, color: on ? colors.onHeroChipActive : colors.onHero }}>{formatNumber(counts[x.key])}</Text>
-                    </View>
-                    <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.onHeroChipActive : colors.onHeroSoft }}>{x.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            </Surface>
-            )}
-          </>
-        ) : null}
       </LinearGradient>
       </Surface>
 
@@ -328,99 +388,73 @@ export default function SessionDetailScreen() {
       ) : (
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <FlatList showsVerticalScrollIndicator={false}
-          data={mode === 'marks' ? marksList : list}
-          keyExtractor={(a) => String(a.student_id)}
-          renderItem={mode === 'marks'
-            ? ({ item }) => <MarkRow a={item} max={s.sheet_max_mark} onSave={saveMark} noDoor={noDoor} />
-            : renderAttendee}
-          // Clipping detaches off-screen rows, which drops a focused mark field's keyboard on Android.
-          removeClippedSubviews={mode !== 'marks'} initialNumToRender={10} maxToRenderPerBatch={10} windowSize={7}
+          // Two leading items before the students: the controls that pin under the bar (tabs,
+          // search) and the rest of what used to sit above the roster. The first one is sticky.
+          data={[PINNED, EXTRAS, ...(mode === 'marks' ? marksList : list)] as Row[]}
+          keyExtractor={(a) => (a === PINNED ? 'pinned' : a === EXTRAS ? 'extras' : String((a as SessionAttendee | SwapInAttendee).student_id))}
+          stickyHeaderIndices={[1]}
+          renderItem={({ item }) => item === PINNED ? pinned
+            : item === EXTRAS ? extrasNode
+            : mode === 'marks' ? <MarkRow a={item as SessionAttendee | SwapInAttendee} max={s.sheet_max_mark} onSave={saveMark} noDoor={noDoor} />
+            : renderAttendee({ item: item as SessionAttendee | SwapInAttendee })}
+          // No clipping: it hides a pinned header on Android, and it drops a focused mark
+          // field's keyboard there too; the window below keeps the rows bounded.
+          removeClippedSubviews={false} initialNumToRender={12} maxToRenderPerBatch={10} windowSize={7}
           contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + 72 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <View style={{ marginBottom: spacing.sm, gap: spacing.sm }}>
-              {/* Two tabs on one session: who came, and their marks. A private lesson has only marks. */}
-              {noDoor ? null : (
-              <Surface id="teacher.session_detail.mode_tabs" ctx={{ session: s }}>
-              <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4, borderWidth: 1, borderColor: colors.border }}>
-                {([['attendance', 'attendance', t('marks_ui.tab_attendance'), null], ['marks', 'grades', t('marks_ui.tab_marks'), attendedCount > 0 ? `${formatNumber(markedCount)}/${formatNumber(attendedCount)}` : null]] as const).map(([k, icon, label, badge]) => {
-                  const on = mode === k;
-                  return (
-                    <TouchableOpacity key={k} onPress={() => setMode(k)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                      style={{ flex: 1, minHeight: 40, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.brand : 'transparent' }}>
-                      <Icon name={icon} size={16} color={on ? '#fff' : colors.textSecondary} />
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: on ? '#fff' : colors.textSecondary }}>{label}</Text>
-                      {badge ? <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? 'rgba(255,255,255,0.8)' : colors.textTertiary }}>{badge}</Text> : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              </Surface>
-              )}
-              {mode === 'marks' ? (
-                <Surface id="teacher.session_detail.marks_header">
-                <MarksHeader kind={(s.type ?? 'normal_sheet') as SessionKind} kindBusy={controls.setType.isPending} onKind={setKind}
-                  max={s.sheet_max_mark} onMax={(v) => controls.sheetMax.mutate(v)} done={markedCount} of={attendedCount} />
-                </Surface>
-              ) : null}
-              {s.offline ? (
-                <Surface id="teacher.session_detail.offline_hint">
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.warningLight, borderRadius: radius.lg, padding: spacing.md }}>
-                  <Icon name="offline" size={18} color={colors.warningText} />
-                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.warningText }}>{t('teacher.roster_offline_hint')}</Text>
+              {/* The session at a glance — the counts are the filter. It scrolls away with the roster. */}
+              <Surface id="teacher.session_detail.header.card">
+              {/* Top to bottom, from the bar's own colour: the bar and the card read as one band. */}
+              <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+                style={{ marginHorizontal: -spacing.lg, marginTop: -spacing.lg, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, borderBottomLeftRadius: radius.xxl, borderBottomRightRadius: radius.xxl }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xs }}>
+                  <View style={{ flex: 1 }}>
+                    {/* Compact (founder 2026-10-23: «the top section swallows a huge chunk of the screen»). */}
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 18, lineHeight: 27, color: colors.onHero }} numberOfLines={1}>{s.course_name ?? t('session.session_details')}</Text>
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.onHeroSoft }} numberOfLines={1}>
+                      {dayLabel(s.scheduled_at)}{s.time ? ` · ${s.time}` : ''}{s.location ? ` · ${s.location}` : ''}
+                    </Text>
+                  </View>
+                  {noDoor ? null : <Surface id="teacher.session_detail.header.ring" ctx={{ session: s }}><AttendanceRing present={counts.present} total={total} onHero size={58} stroke={6} /></Surface>}
                 </View>
-                </Surface>
-              ) : null}
 
-              {hasSwaps ? (
-                <Surface id="teacher.session_detail.swap_tabs">
-                <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: 4 }}>
-                  {([['roster', t('teacher.tab_roster'), s.attendees.length], ['swap', t('teacher.tab_swaps'), swapIns.length]] as const).map(([k, label, n]) => {
-                    const on = activeTab === k;
+                {noDoor ? (
+                  // No attendance to count: the server's words say what this session is.
+                  <Surface id="teacher.session_detail.header.private_label" ctx={{ session: s }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+                    <Icon name="grades" size={18} color={colors.onHero} />
+                    <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, lineHeight: 19, color: colors.onHero }}>{s.attendance_label ?? t('course_ui.private_marks_only')}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHeroSoft }}>{`${formatNumber(markedCount)}/${formatNumber(total)}`}</Text>
+                  </View>
+                  </Surface>
+                ) : (
+                <Surface id="teacher.session_detail.header.stats" ctx={{ session: s }}>
+                <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+                  {stats.map((x) => {
+                    const on = filter === x.key;
                     return (
-                      <TouchableOpacity key={k} onPress={() => { setTab(k); setFilter(null); }} activeOpacity={0.85}
-                        style={{ flex: 1, minHeight: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.surface : 'transparent' }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.brand : colors.textSecondary }}>{`${label} · ${formatNumber(n)}`}</Text>
+                      <TouchableOpacity key={x.key} onPress={() => setFilter(on ? null : x.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: radius.md, paddingVertical: 7, paddingHorizontal: spacing.sm, backgroundColor: on ? colors.heroChipActive : colors.onHeroChip, borderWidth: 1, borderColor: on ? colors.heroChipActive : colors.onHeroChipBorder }}>
+                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: x.color }} />
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 15, lineHeight: 20, color: on ? colors.onHeroChipActive : colors.onHero }}>{formatNumber(counts[x.key])}</Text>
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? colors.onHeroChipActive : colors.onHeroSoft }} numberOfLines={1}>{x.label}</Text>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
                 </Surface>
-              ) : null}
-
-              {total > 8 ? (
-                <Surface id="teacher.session_detail.search">
-                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md }}>
-                  <Icon name="search" size={18} color={colors.textTertiary} />
-                  <TextInput value={search} onChangeText={setSearch} placeholder={t('teacher.search_student_ph')} placeholderTextColor={colors.textTertiary}
-                    style={{ flex: 1, height: 44, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 15, color: colors.textPrimary }} />
-                  {search ? <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}><Icon name="close" size={16} color={colors.textTertiary} /></TouchableOpacity> : null}
-                </View>
-                </Surface>
-              ) : null}
-
-              {!noDoor && mode === 'attendance' && started && !s.is_cancelled && awaitingRows.length > 0 ? (
-                <Surface id="teacher.session_detail.rest_absent_button" ctx={{ session: s }} assistantNeeds="mark_attendance_manual">
-                <TouchableOpacity onPress={markRestAbsent} disabled={bulkBusy} activeOpacity={0.85}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.dangerLight, borderRadius: radius.lg, padding: spacing.md }}>
-                  {bulkBusy ? <ActivityIndicator color={colors.danger} /> : <Icon name="absent" size={20} color={colors.danger} />}
-                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>{t('session_ui.rest_absent', { n: formatNumber(awaitingRows.length) })}</Text>
-                </TouchableOpacity>
-                </Surface>
-              ) : null}
-
-              {filter && mode === 'attendance' ? (
-                <Surface id="teacher.session_detail.clear_filter">
-                <TouchableOpacity onPress={() => setFilter(null)} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 }}>
-                  <Icon name="close" size={14} color={colors.brand} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('session_ui.clear_filter')}</Text>
-                </TouchableOpacity>
-                </Surface>
-              ) : null}
+                )}
+              </LinearGradient>
+              </Surface>
+              {/* «ملاحظات الحصة» — to the whole session; open 48 h after the end, then reopenable. */}
+              <Surface id="teacher.session_detail.notes_card" ctx={{ session: s }}>
+              <SessionNotesCard s={s} save={controls.summary} reopen={controls.reopen} autoOpen={notesParam === '1'} />
+              </Surface>
             </View>
           }
-          ListEmptyComponent={<EmptyState icon="children" title={baseList.length ? t('teacher.no_students_in_filter') : t('teacher.no_students')} />}
           keyboardDismissMode="on-drag"
         />
         </KeyboardAvoidingView>
@@ -561,12 +595,22 @@ export default function SessionDetailScreen() {
 
                 <Surface id="teacher.session_detail.student_sheet.note">
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.parent_note')}</Text>
-                <TextInput value={noteDraft} onChangeText={setNoteDraft} placeholder={t('teacher.parent_note_placeholder')} placeholderTextColor={colors.textTertiary} multiline
-                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, minHeight: 80, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlignVertical: 'top' }} />
-                <View style={{ marginTop: spacing.md }}>
-                  <Button title={t('teacher.save_note')} variant="secondary" loading={controls.note.isPending}
-                    onPress={() => controls.note.mutate({ studentId: current.student_id, note: noteDraft.trim() })} />
-                </View>
+                {notesShut ? (
+                  // The notes window (48 h after the end) closed: reopening is on the session card.
+                  <View style={{ backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
+                    {current.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textPrimary, marginBottom: 4 }}>{current.note}</Text> : null}
+                    <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>{t(s?.notes_window?.state === 'upcoming' ? 'session_notes.child_upcoming' : 'session_notes.child_closed')}</Text>
+                  </View>
+                ) : (
+                  <>
+                    <TextInput value={noteDraft} onChangeText={setNoteDraft} placeholder={t('teacher.parent_note_placeholder')} placeholderTextColor={colors.textTertiary} multiline
+                      style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, minHeight: 80, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, textAlignVertical: 'top' }} />
+                    <View style={{ marginTop: spacing.md }}>
+                      <Button title={t('teacher.save_note')} variant="secondary" loading={controls.note.isPending}
+                        onPress={() => controls.note.mutate({ studentId: current.student_id, note: noteDraft.trim() }, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) })} />
+                    </View>
+                  </>
+                )}
                 </Surface>
               </ScrollView>
             ) : null}

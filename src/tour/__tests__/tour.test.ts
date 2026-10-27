@@ -154,12 +154,14 @@ describe('a scrolled home on replay (founder 2026-10-07)', () => {
     expect(scrollNeeded({ x: 16, y: 200, width: 358, height: 90 }, area, top, bottom)).toBe(0);
   });
 
-  // Founder 2026-10-07: مدام روز presents the teacher side's tour, in her own voice; the
-  // parent and student tours stay as they were.
-  it('is presented by مدام روز on the teacher side only', () => {
+  // Founder 2026-10-07: مدام روز presents the teacher side's tour, in her own voice.
+  // Founder 2026-10-22: الناظر صلاح الدين presents the family side's, with a stop at his hub.
+  it('is presented by مدام روز for teachers and by الناظر for families', () => {
     expect(TEACHER_TOUR.narrator).toBe('rose');
-    expect(PARENT_TOUR.narrator).toBeUndefined();
-    expect(STUDENT_TOUR.narrator).toBeUndefined();
+    expect(PARENT_TOUR.narrator).toBe('nazer');
+    expect(STUDENT_TOUR.narrator).toBe('nazer');
+    expect(PARENT_TOUR.steps.some((s) => s.target === 'home:nazer')).toBe(true);
+    expect(STUDENT_TOUR.steps.some((s) => s.target === 'home:nazer')).toBe(true);
   });
 });
 
@@ -191,5 +193,20 @@ describe('the page a step belongs on', () => {
     expect(routeFor(s, bell)).toBe('/(teacher)/(tabs)');
     expect(routeFor(s, sessions)).toBe('/(teacher)/(tabs)/sessions');
     expect(routeFor(s, 0)).toBeUndefined();
+  });
+});
+
+describe('الناظر before the first tour', () => {
+  it('holds the first tour while his popup is to come, and lets it go after', () => {
+    const { setIntroHeld } = useTourStore.getState();
+    setIntroHeld(true);
+    expect(useTourStore.getState().introHeld).toBe(true);
+    setIntroHeld(false);
+    expect(useTourStore.getState().introHeld).toBe(false);
+  });
+
+  it('has the popup button that hands over to the tour', () => {
+    expect(has('nazer_unlock.start_tour')).toBe(true);
+    expect(has('nazer_unlock.tap_to_open')).toBe(true);
   });
 });

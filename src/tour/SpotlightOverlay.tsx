@@ -13,7 +13,6 @@ import { BrandMark } from '@/components/ui/BrandMark';
 import { Image } from 'expo-image';
 import { useRose } from '@/hooks/useRose';
 import { useAuthStore } from '@/stores/authStore';
-import { usePendingSurvey } from '@/hooks/useSurvey';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import { useWhatsNew } from '@/hooks/useReleaseNotes';
 import { getTourStatus, completeTour } from '@/api/tour';
@@ -21,6 +20,9 @@ import { useTourStore, nextShowable, routeFor } from './store';
 import { tourSeen, markTourSeen } from './seen';
 import { tourForRole } from './tours';
 import { useRosePictures } from '@/components/rose/RoseCostume';
+import { NazerFramed } from '@/components/nazer/NazerFramed';
+import { useRoseUnlockGate, useStatusPopupGate } from '@/hooks/usePopupTurn';
+import { usePopupQueueBusy } from '@/ui/popupSlot';
 import { holeFor, placeCard, onScreen, toFrame, holePath, stackDim, scrollNeeded, HOLE_RADIUS, type Hole, type Frame } from './geometry';
 
 const ARect = Animated.createAnimatedComponent(Rect);
@@ -71,16 +73,24 @@ function useAutoStart() {
   const impersonating = useAuthStore((s) => !!s.impersonation?.active);
   const homeReady = useTourStore((s) => !!s.targets['home:stats']);
   const running = useTourStore((s) => s.tour !== null);
+  const introHeld = useTourStore((s) => s.introHeld);
   const start = useTourStore((s) => s.start);
+  const qc = useQueryClient();
   const pathname = usePathname() ?? '';
-  const { data: survey } = usePendingSurvey();
   const { data: onboarding } = useTeacherOnboarding();
   const { showPopup } = useWhatsNew();
   const eligible = !!user && !!role && !impersonating && !!tourForRole(role);
   const { data: status } = useQuery({ queryKey: ['tour-status', user?.id], queryFn: getTourStatus, enabled: eligible, staleTime: 5 * 60_000 });
   const onboardingDue = role === 'teacher' && !!onboarding && onboarding.active && !onboarding.steps.intro && !onboarding.has_courses;
   const blocked = BLOCKING_PREFIXES.some((p) => pathname.startsWith(p));
-  const quiet = !survey && !onboardingDue && !showPopup && !blocked;
+  // A parent or student meets الناظر first (his «شخصية جديدة» popup), then he gives the tour.
+  // مدام روز's unlock and her subscription sheet come first at app open (founder 2026-10-25).
+  const unlockToCome = useRoseUnlockGate((s) => s.pending);
+  const sheetToCome = useStatusPopupGate((s) => s.pending);
+  // …and every app-wide popup still showing or waiting its turn (src/ui/popupSlot.ts).
+  const popupsBusy = usePopupQueueBusy();
+  const roseFirst = unlockToCome || sheetToCome || popupsBusy;
+  const quiet = !onboardingDue && !showPopup && !blocked && !introHeld && !roseFirst;
   const tried = useRef<string | null>(null);
 
   useEffect(() => {
@@ -89,16 +99,22 @@ function useAutoStart() {
     const stamp = `${role}:${user!.id}`;
     if (tried.current === stamp) return;
     tried.current = stamp;
-    let cancelled = false;
+    let cancelled = false, settled = false;
     // The phone remembers a finish the server never heard (offline at the time): no second run.
     tourSeen(role!, user!.id).then((seen) => {
       if (cancelled) return;
-      if (seen) { void completeTour().catch(() => {}); return; }
+      if (seen) { settled = true; void completeTour().then(() => qc.setQueryData(['tour-status', user!.id], { completed: true, completed_at: new Date().toISOString() })).catch(() => {}); return; }
       // A breath after the home screen settles, so the dim does not land on a loading spinner.
-      setTimeout(() => { if (!cancelled && !useTourStore.getState().tour) start(def, { mandatory: true }); }, 900);
+      setTimeout(() => {
+        const s = useTourStore.getState();
+        if (cancelled || s.tour || s.introHeld) return;
+        settled = true;
+        start(def, { mandatory: true });
+      }, 900);
     });
-    return () => { cancelled = true; };
-  }, [eligible, running, homeReady, quiet, status, role, user, start]);
+    // Interrupted before it started (a popup came up first): try again once it is quiet.
+    return () => { cancelled = true; if (!settled) tried.current = null; };
+  }, [eligible, running, homeReady, quiet, status, role, user, start, qc]);
 }
 
 function Runner() {
@@ -119,8 +135,12 @@ function Runner() {
   const steps = tour!.steps;
   const current = steps[step];
   // The teacher side's tour is presented by مدام روز (her name as this person's screens show it).
-  const narrated = tour!.narrator === 'rose';
+  const narrated = tour!.narrator === 'rose' || tour!.narrator === 'nazer';
+  // The family side's tour is presented by الناظر صلاح الدين (founder 2026-10-22).
+  const byNazer = tour!.narrator === 'nazer';
   const rose = useRose();
+  const narratorName = byNazer ? 'الناظر صلاح الدين' : rose.name;
+  const narratorRole = byNazer ? 'tour.narrator_role_nazer' : 'tour.narrator_role';
   // Her portrait — her season picture while «وضع المراجعة» is on (founder 2026-10-17).
   const rosePortrait = useRosePictures().portrait;
   const nod = useSharedValue(1);
@@ -279,13 +299,13 @@ function Runner() {
               centred ? (
                 // Her name under her portrait — she is the one speaking.
                 <View style={{ alignItems: 'center', marginTop: ROSE_BIG / 2 - spacing.sm, marginBottom: spacing.md }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{rose.name}</Text>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textTertiary }}>{t('tour.narrator_role')}</Text>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{narratorName}</Text>
+                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textTertiary }}>{t(narratorRole)}</Text>
                 </View>
               ) : (
                 <View style={{ marginBottom: spacing.sm }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: ROSE_SMALL / 2, paddingStart: ROSE_SMALL + spacing.sm, marginTop: -spacing.xs }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{rose.name}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{narratorName}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm }}>
                     {Array.from({ length: spotSteps }).map((_, i) => (
@@ -336,7 +356,7 @@ function Runner() {
             // A full-width row does the placing (centre / start = the right in RTL); the portrait nods inside it.
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: centred ? 'center' : 'flex-start', paddingHorizontal: spacing.lg }}>
               <Animated.View style={[{ width: centred ? ROSE_BIG : ROSE_SMALL, height: centred ? ROSE_BIG : ROSE_SMALL }, nodStyle]}>
-                <Image source={rosePortrait} style={{ width: '100%', height: '100%' }} contentFit="contain" accessibilityLabel={rose.name} />
+                {byNazer ? <NazerFramed size={centred ? ROSE_BIG : ROSE_SMALL} blink={false} /> : <Image source={rosePortrait} style={{ width: '100%', height: '100%' }} contentFit="contain" accessibilityLabel={rose.name} />}
               </Animated.View>
             </View>
           ) : null}

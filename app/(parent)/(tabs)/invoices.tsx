@@ -179,7 +179,8 @@ function InvoiceCard({ invoice }: { invoice: Invoice }) {
           <Text style={[textPresets.bodySmall]}>
             {t('invoices.due_date')}: {invoice.due_date ? formatDate(new Date(invoice.due_date), { day: 'numeric', month: 'short' }) : '-'}
           </Text>
-          {invoice.status !== 'paid' && invoice.due_date ? (() => {
+          {/* Only a bill still owed counts days to or past its due date — never a cancelled or waived one. */}
+          {(invoice.status === 'pending' || invoice.status === 'overdue') && invoice.due_date ? (() => {
             const days = daysUntil(invoice.due_date);
             const overdue = invoice.status === 'overdue' || days < 0;
             const label = overdue

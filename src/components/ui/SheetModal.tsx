@@ -1,3 +1,4 @@
+import { useModalPresence } from '@/ui/popupSlot';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NestedDialogHost } from '@/ui/NestedDialogHost';
 import { Modal, Pressable, Keyboard, Platform, ScrollView, StyleSheet, TextInput, View, useWindowDimensions, type KeyboardEvent, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
@@ -228,6 +229,8 @@ export function SheetModal({ visible, onClose, children, avoidKeyboard = false, 
 
 /** A real Modal normally; an overlay over the current screen inside an InlineSheetHost. Either way it hosts popups raised while it is open. */
 function Host({ inline, onRequestClose, children }: { inline: boolean; onRequestClose: () => void; children: ReactNode }) {
+  // A real Modal is up: the app-wide popups wait for it (src/ui/popupSlot.ts).
+  useModalPresence(!inline);
   if (inline) return <View style={[StyleSheet.absoluteFill, { zIndex: 1000, elevation: 1000 }]}>{children}<NestedDialogHost /></View>;
   // A Modal is its own native window on Android: gestures inside it need their own root, or
   // the swipe down never fires there (founder 2026-10-07: «swipe dismiss doesn't work on

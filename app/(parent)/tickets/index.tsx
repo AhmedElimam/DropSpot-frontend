@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, useSegments, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients } from '@/theme/index';
@@ -34,9 +34,12 @@ export default function TicketsList() {
   const insets = useSafeAreaInsets();
   const { data: tickets, isLoading, isError, refetch } = useTickets();
   const { refreshing, onRefresh } = usePullRefresh(refetch);
+  // The same list serves the student (founder 2026-10-26): its links stay in the section it is in.
+  const student = (useSegments() as string[])[0] === '(student)';
+  const base = student ? '/(student)/tickets' : '/(parent)/tickets';
 
   return (
-    <Surface id="screen.parent.tickets" screen>
+    <Surface id={student ? 'screen.student.tickets' : 'screen.parent.tickets'} screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
@@ -44,7 +47,7 @@ export default function TicketsList() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <Surface id="parent.tickets.hero">
-        <PageHero onBack title={t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} action={{ icon: 'add', label: t('tickets.new'), onPress: () => router.push('/(parent)/tickets/create') }} />
+        <PageHero onBack title={student ? t('tickets.student_title') : t('tickets.title')} subtitle={t('tickets.count', { count: tickets?.length ?? 0 })} action={{ icon: 'add', label: t('tickets.new'), onPress: () => router.push(`${base}/create` as Href) }} />
         </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
@@ -58,7 +61,7 @@ export default function TicketsList() {
               icon="tickets"
               title={t('tickets.empty')}
               actionLabel={t('tickets.create_first')}
-              onAction={() => router.push('/(parent)/tickets/create')}
+              onAction={() => router.push(`${base}/create` as Href)}
             />
           ) : (
             tickets.map((ticket) => {
@@ -66,7 +69,7 @@ export default function TicketsList() {
               return (
                 <TouchableOpacity
                   key={ticket.id}
-                  onPress={() => router.push(`/(parent)/tickets/${ticket.id}`)}
+                  onPress={() => router.push(`${base}/${ticket.id}` as Href)}
                   activeOpacity={0.75}
                   style={{
                     backgroundColor: colors.surface,
@@ -95,8 +98,13 @@ export default function TicketsList() {
                           marginTop: 4,
                         }}
                       >
-                        {ticket.student_name} - {ticket.teacher_name}
+                        {student ? ticket.teacher_name : `${ticket.student_name} - ${ticket.teacher_name}`}
                       </Text>
+                      {!student && ticket.opened_by_student ? (
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand, marginTop: 2 }}>
+                          {t('tickets.opened_by_student', { name: ticket.student_name })}
+                        </Text>
+                      ) : null}
                     </View>
                     <StatusBadge status={ticket.status} />
                   </View>

@@ -6,6 +6,8 @@ export interface FeedSession extends AttendanceModeFields {
   course_name?: string;
   status?: string | null;
   note?: string | null;
+  /** «ملاحظات الحصة» — the teacher's note to the whole session, once written. */
+  summary?: string | null;
   scheduled_at?: string;
 }
 

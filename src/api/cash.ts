@@ -249,6 +249,8 @@ export interface Drawer {
   opening_balance: number | null; // null = unknown — never guessed
   /** Automatic: last week's counted closing ('carried'), its expected when it was never counted ('carried_expected'), zero on the first week ('assumed_zero'); 'teacher' = overwritten by hand. */
   opening_source: 'carried' | 'carried_expected' | 'assumed_zero' | 'teacher' | null;
+  /** Beside a custom opening ('teacher'): the figure the automatic rule would give. */
+  opening_auto?: number | null;
   opening_reason: 'first_week' | 'previous_unreconciled' | null;
   collected: number;
   expenses: number;
@@ -345,12 +347,26 @@ export interface RunningTotal {
   surplus_weeks: number;
 }
 
+/** One drawer on the week's «الرصيد الافتتاحي» card; `id` null = no row yet this week (setOpeningFor opens it). */
+export interface OpeningBoardEntry {
+  id: number | null;
+  holder_id: number;
+  name: string;
+  venue: VenueRef | null;
+  opening_balance: number | null;
+  opening_source: Drawer['opening_source'];
+  opening_auto: number | null;
+  closed: boolean;
+}
+
 export interface TeacherCashView {
   role: 'teacher';
   week: { start: string; end: string };
   settings: CashSettings;
   venues: VenueRef[];
   assistants: { user_id: number; name: string }[];
+  /** Every drawer's opening this week, even before anything happened in it. */
+  opening_board?: OpeningBoardEntry[];
   collected: number;
   /** The base of the equation, from the collection ledger: where this week's money sits. */
   collected_breakdown?: {
@@ -405,6 +421,18 @@ export async function respondReconciliation(
 
 export async function setOpeningBalance(id: number, amount: number): Promise<Drawer> {
   const { data } = await client.post(`/teacher/cash/reconciliation/${id}/opening-balance`, { amount });
+  return data.data as Drawer;
+}
+
+/** A custom opening for a drawer with no row yet this week (the teacher's own hand, or an assistant's). */
+export async function setOpeningFor(holderId: number, amount: number): Promise<Drawer> {
+  const { data } = await client.post('/teacher/cash/opening-balance', { holder_id: holderId, amount });
+  return data.data as Drawer;
+}
+
+/** Back to the automatic opening: the teacher's custom figure for the week is dropped. */
+export async function clearOpeningBalance(id: number): Promise<Drawer> {
+  const { data } = await client.delete(`/teacher/cash/reconciliation/${id}/opening-balance`);
   return data.data as Drawer;
 }
 

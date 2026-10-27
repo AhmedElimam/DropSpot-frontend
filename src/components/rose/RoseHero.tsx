@@ -16,6 +16,7 @@ import type { RoseSheet } from '@/api/cash';
 import { ExportPill } from './RoseExport';
 import { SheetDetail, type SheetDetailTarget } from './SheetDetail';
 import { Surface } from '@/ui/surfaces';
+import { useNavigation } from 'expo-router';
 
 /**
  * The top of مدام روز's desk, as in her story videos (founder 2026-10-07: «her frame
@@ -36,7 +37,7 @@ const CHIP_BORDER = 'rgba(255,255,255,0.22)';
 const PORTRAIT = 148;
 
 export function RoseHero({
-  greeting, sub, sheet, activity = 'cash', live = true, hold, onBack, onSettings, onExportAll, exportingAll = false, onExportSheet, exportingSheet = false, children, lines,
+  greeting, sub, sheet, activity = 'cash', asleep = false, live = true, hold, onBack, onSettings, onExportAll, exportingAll = false, onExportSheet, exportingSheet = false, children, lines,
 }: {
   greeting: string;
   sub: string;
@@ -44,6 +45,8 @@ export function RoseHero({
   sheet: RoseSheet | null;
   /** The tab on screen — what she holds (her ledger, a sheet, the stamp). */
   activity?: RoseActivity;
+  /** Nothing on her desk: she dozes over it (founder 2026-10-25). */
+  asleep?: boolean;
   /** False while the page is still sliding in: her still portrait, nothing typed yet — the
    *  live face (a dozen vector layers) mounts once the screen has arrived. */
   live?: boolean;
@@ -91,7 +94,7 @@ export function RoseHero({
         <View style={{ alignItems: 'center', marginTop: -spacing.lg }}>
           {/* No halo behind her (founder 2026-10-07): the frame sits straight on the navy. */}
           <Surface id="teacher.rose.live" fallback={<RosePortrait size={PORTRAIT} nod={false} />}>
-          {live ? <RoseLive size={PORTRAIT} talking={talking} paused={paused} activity={activity} /> : <RosePortrait size={PORTRAIT} nod={false} />}
+          {live ? <RoseLive size={PORTRAIT} talking={talking} paused={paused} activity={activity} asleep={asleep} /> : <RosePortrait size={PORTRAIT} nod={false} />}
           </Surface>
           <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: ON, marginTop: spacing.xs }}>{rose.name}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: ON_SOFT }}>{t('cash.screen_title')}</Text>
@@ -214,18 +217,47 @@ export function RoseHeroCard({ icon, title, sub, onPress, chevron = false }: { i
  * Its own component, so each letter re-renders this one line — not her face and the sheet.
  * The untyped rest is drawn transparent: the centred line keeps its width and never shifts.
  */
-function TypedGreeting({ text, start, onTalking }: { text: string; start: boolean; onTalking: (talking: boolean) => void }) {
+export function TypedGreeting({ text, start, onTalking }: { text: string; start: boolean; onTalking: (talking: boolean) => void }) {
   const [n, setN] = useState(0);
+  // A swipe back that starts while she is still typing (founder 2026-10-20: «swipe back
+  // mid-animation stuttering») stops the typing on the spot with no render at all — the page
+  // is leaving — and a cancelled swipe lets her finish where she stopped. 35 renders a second
+  // under a sliding page were the stutter on her screen.
+  const navigation = useNavigation();
+  const leaving = useRef(false);
+  const tick = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [resume, setResume] = useState(0);
   useEffect(() => {
-    setN(0);
-    if (!text || !start) return;
+    const offStart = navigation.addListener('transitionStart' as never, (e: { data?: { closing?: boolean } }) => {
+      if (!e?.data?.closing) return;
+      leaving.current = true;
+      if (tick.current) clearInterval(tick.current);
+    });
+    const offCancel = navigation.addListener('gestureCancel' as never, () => {
+      if (!leaving.current) return;
+      leaving.current = false;
+      setResume((r) => r + 1);
+    });
+    return () => { offStart(); offCancel(); };
+  }, [navigation]);
+
+  // A new text types from its first letter; resuming after a cancelled swipe continues.
+  const typed = useRef(text);
+  if (typed.current !== text) { typed.current = text; if (n !== 0) setN(0); }
+
+  useEffect(() => {
+    if (!text || !start || leaving.current) return;
     onTalking(true);
-    const id = setInterval(() => setN((k) => {
-      if (k >= text.length) { clearInterval(id); onTalking(false); return k; }
-      return k + 1;
-    }), 28);
-    return () => { clearInterval(id); onTalking(false); };
-  }, [text, start, onTalking]);
+    const id = setInterval(() => {
+      if (leaving.current) { clearInterval(id); return; }
+      setN((k) => {
+        if (k >= text.length) { clearInterval(id); onTalking(false); return k; }
+        return k + 1;
+      });
+    }, 28);
+    tick.current = id;
+    return () => { clearInterval(id); if (!leaving.current) onTalking(false); };
+  }, [text, start, onTalking, resume]);
   return (
     <Text style={{ fontFamily: fonts.bold, fontSize: 19, color: colors.brand, minHeight: 28, textAlign: 'center' }}>
       {text.slice(0, n)}<Text style={{ color: 'transparent' }}>{text.slice(n)}</Text>

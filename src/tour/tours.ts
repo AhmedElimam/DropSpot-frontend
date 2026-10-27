@@ -42,35 +42,44 @@ export const TEACHER_TOUR: TourDef = {
 };
 
 const P = '/(parent)/(tabs)' as Href;
+// The family side is presented by الناظر صلاح الدين (founder 2026-10-22: «tour guide by the headmaster»).
 export const PARENT_TOUR: TourDef = {
   id: 'parent',
+  narrator: 'nazer',
   steps: [
     card('tour.parent.welcome_title', 'tour.parent.welcome_body', 'tour.start'),
     spot('home:stats', 'tour.parent.stats_title', 'tour.parent.stats_body', P),
+    spot('home:nazer', 'tour.parent.nazer_title', 'tour.parent.nazer_body'),
     spot('home:spotlight', 'tour.parent.verdict_title', 'tour.parent.verdict_body'),
     spot('header:bell', 'tour.parent.bell_title', 'tour.parent.bell_body'),
     spot('tab:teachers', 'tour.parent.teachers_title', 'tour.parent.teachers_body', '/(parent)/(tabs)/teachers' as Href),
     spot('tab:community', 'tour.parent.community_title', 'tour.parent.community_body', '/(parent)/(tabs)/community' as Href),
     spot('tab:invoices', 'tour.parent.invoices_title', 'tour.parent.invoices_body', '/(parent)/(tabs)/invoices' as Href),
     spot('tab:profile', 'tour.parent.profile_title', 'tour.parent.profile_body', '/(parent)/(tabs)/profile' as Href),
-    spot('tab:index', 'tour.parent.done_title', 'tour.parent.done_body', P),
+    // Last, the card (founder 2026-10-24: «make the card step the last one»): its row on the
+    // profile tab, whose button opens the page that explains it; «لاحقًا» just ends the tour.
+    spot('profile:card', 'tour.parent.card_title', 'tour.parent.card_body', '/(parent)/(tabs)/profile' as Href, { cta: 'tour.card_cta', href: '/card-info' as Href }),
   ],
 };
 
 const S = '/(student)/(tabs)' as Href;
 export const STUDENT_TOUR: TourDef = {
   id: 'student',
+  narrator: 'nazer',
   steps: [
     card('tour.student.welcome_title', 'tour.student.welcome_body', 'tour.start'),
     spot('home:stats', 'tour.student.stats_title', 'tour.student.stats_body', S),
     spot('home:spotlight', 'tour.student.spotlight_title', 'tour.student.spotlight_body'),
     spot('home:shortcuts', 'tour.student.shortcuts_title', 'tour.student.shortcuts_body'),
+    spot('home:nazer', 'tour.student.nazer_title', 'tour.student.nazer_body'),
     spot('header:bell', 'tour.student.bell_title', 'tour.student.bell_body'),
     spot('tab:check-in', 'tour.student.checkin_title', 'tour.student.checkin_body', '/(student)/(tabs)/check-in' as Href),
     spot('tab:chat', 'tour.student.chat_title', 'tour.student.chat_body', '/(student)/(tabs)/chat' as Href),
     spot('tab:invoices', 'tour.student.invoices_title', 'tour.student.invoices_body', '/(student)/(tabs)/invoices' as Href),
     spot('tab:profile', 'tour.student.profile_title', 'tour.student.profile_body', '/(student)/(tabs)/profile' as Href),
-    spot('tab:index', 'tour.student.done_title', 'tour.student.done_body', S),
+    // Last, the card (founder 2026-10-24: «make the card step the last one»): its row on the
+    // profile tab, whose button opens the page that explains it; «لاحقًا» just ends the tour.
+    spot('profile:card', 'tour.student.card_title', 'tour.student.card_body', '/(student)/(tabs)/profile' as Href, { cta: 'tour.card_cta', href: '/card-info' as Href }),
   ],
 };
 

@@ -1,4 +1,5 @@
 import { Redirect, Stack } from 'expo-router';
+import { transitionListeners } from '@/navigation/transitions';
 import { useAuthStore } from '@/stores/authStore';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
 import { colors } from '@/theme/index';
@@ -20,5 +21,5 @@ export default function AdminLayout() {
     return <Redirect href={ROUTE_BY_ROLE} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />;
+  return <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />;
 }

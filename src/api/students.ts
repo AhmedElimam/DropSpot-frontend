@@ -487,23 +487,6 @@ export interface OrderCardPayload {
   imageUri?: string | null; // pay-now proof screenshot
 }
 
-export interface MintedCardOrderLink {
-  id: number;
-  token: string;
-  url: string;
-  expires_at: string;
-}
-
-/**
- * Mint a single-use card-order PORTAL link to hand a not-yet-enrolled family
- * (mobile parity for the web card-orders.generate). The family fills the order
- * with no OTP; it lands in the super-admin review queue. Takes no input.
- */
-export async function mintCardOrderLink(): Promise<MintedCardOrderLink> {
-  const { data } = await client.post('/teacher/card-orders/generate-link');
-  return (data.data ?? data) as MintedCardOrderLink;
-}
-
 export async function orderCardForEnrollment(payload: OrderCardPayload): Promise<{ id: number; status: string }> {
   const form = new FormData();
   form.append('enrollment_id', String(payload.enrollment_id));

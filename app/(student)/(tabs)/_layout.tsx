@@ -41,13 +41,15 @@ export default function StudentTabsLayout() {
   // A tab the backend code switched off (server config/mobile_ui.php → `tab.student.<name>`)
   // leaves the bar; the raised centre falls back to the middle of what is left.
   const hiddenSurfaces = useHiddenSurfaces();
-  const tabs = TAB_ORDER.filter((n) => !hiddenSurfaces.has(`tab.student.${n}`));
+  // The centre tab is named after whichever conversation surface is on (both → «المحادثات»).
+  // Neither on → no tab at all (founder 2026-10-27: «if threads isn't active, don't show the
+  // tab»); the raised centre falls back to the middle of what is left.
+  const chatEnabled = useChatEnabled();
+  const threadsEnabled = useThreadsEnabled();
+  const tabs = TAB_ORDER.filter((n) => !hiddenSurfaces.has(`tab.student.${n}`) && (n !== 'chat' || chatEnabled || threadsEnabled));
   const center = tabs.includes(CENTER_TAB) ? CENTER_TAB : (tabs[Math.floor(tabs.length / 2)] ?? CENTER_TAB);
   // Freezing the hidden tabs is a super-admin FLAG, off by default (react-native-screens #2971).
   const freezeTabs = useFeatureFlags().data?.freeze_hidden_tabs === true;
-  // The centre tab is named after whichever conversation surface is on (both → «المحادثات»).
-  const chatEnabled = useChatEnabled();
-  const threadsEnabled = useThreadsEnabled();
   const tabLabels = chatEnabled || threadsEnabled
     ? { ...labels, chat: chatEnabled && threadsEnabled ? 'chat.conversations' : threadsEnabled ? 'threads.tab' : 'nav.chat' }
     : labels;

@@ -27,11 +27,13 @@ import { ConnectionLine } from '@/components/ui/ConnectionStatus';
 import { TourTarget } from '@/tour/TourTarget';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { SectionHead } from '@/components/ui/SectionHead';
-import { ActionTile } from '@/components/ui/ShortcutTile';
+import { ShortcutTile } from '@/components/ui/ShortcutTile';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { timeAgo, formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
+import { NazerHub } from '@/components/nazer/NazerHub';
+import { parentSay } from '@/nazer/mood';
 
 /**
  * Parent Home — "Sanad" simple mode, built for an older parent (founder 2026-10-03: «some
@@ -66,16 +68,24 @@ export default function ParentHome() {
   const user = useAuthStore((s) => s.user);
   const { data: children, isLoading: childrenLoading, refetch: refetchChildren } = useChildren();
   const { data: notifications, refetch: refetchNotifications } = useNotifications();
-  const { data: unread } = useUnreadCount();
+  // The bell's count comes back with a pull too — a new one rings the bell and shows its toast.
+  const { data: unread, refetch: refetchUnread } = useUnreadCount();
   const { data: risks, refetch: refetchRisks } = useParentAttendanceRisk();
   const { data: billingAlerts, refetch: refetchBilling } = useParentBillingStatus();
-  const { refreshing, onRefresh } = usePullRefresh(refetchChildren, refetchNotifications, refetchRisks, refetchBilling);
+  const { refreshing, onRefresh } = usePullRefresh(refetchChildren, refetchNotifications, refetchRisks, refetchBilling, refetchUnread);
 
   const kids = children ?? [];
   const latest = (notifications ?? [])[0];
   const well = kids.filter((c) => (c.attendance_rate ?? 0) >= 75).length;
   const allWell = kids.length > 0 && well === kids.length;
   const attention = (billingAlerts?.length ?? 0) + (risks?.length ?? 0);
+  // الناظر's one line about today, from what this screen already knows.
+  const say = parentSay({
+    children: kids.map((c) => ({ name: c.name, student_id: c.student_id, attendance_rate: c.attendance_rate ?? 0, present_count: c.present_count ?? 0, absent_count: c.absent_count ?? 0 })),
+    billing: billingAlerts ?? [],
+    risks: risks ?? [],
+    latestNotification: latest ?? null,
+  }, (key, opts) => String(t(key, opts)));
 
   const tourScroll = useTourScroll();
   return (
@@ -159,6 +169,21 @@ export default function ParentHome() {
             <Surface id="parent.home.pending_invites"><PendingInvites t={t} /></Surface>
           </View>
 
+          {/* One row of shortcuts with الناظر in the middle, the way the teacher home seats مدام روز (founder 2026-10-22) — above the children (founder 2026-10-23). */}
+          <Surface id="parent.home.actions">
+          <TourTarget id="home:shortcuts" style={{ marginTop: spacing.xl }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Surface id="parent.home.action_today"><ShortcutTile width="19.5%" icon="calendar" label={t('home.shortcut_today')} color={colors.brand} tint={colors.brandTint} onPress={() => router.push('/(parent)/today')} /></Surface>
+            <Surface id="parent.home.action_report_cards"><ShortcutTile width="19.5%" icon="reports" label={t('home.shortcut_reports')} color={colors.info} tint={colors.infoLight} onPress={() => router.push('/(parent)/report-cards')} /></Surface>
+            <Surface id="parent.home.nazer">
+              <TourTarget id="home:nazer" style={{ width: '19.5%', alignItems: 'center' }}>
+                <NazerHub say={say} onPress={() => router.push('/(parent)/nazer' as Href)} />
+              </TourTarget>
+            </Surface>
+            <Surface id="parent.home.action_invoices"><ShortcutTile width="19.5%" icon="invoices" label={t('home.shortcut_invoices')} color={colors.success} tint={colors.successLight} onPress={() => router.push('/(parent)/(tabs)/invoices')} /></Surface>
+            <Surface id="parent.home.action_tickets"><ShortcutTile width="19.5%" icon="ticket" label={t('home.shortcut_tickets')} color={colors.accentWarm} tint={colors.accentWarmTint} onPress={() => router.push('/(parent)/tickets')} /></Surface>
+          </View></TourTarget>
+          </Surface>
+
           {/* Children */}
           <Surface id="parent.home.children">
           <View style={{ marginTop: spacing.xl }}>
@@ -170,19 +195,6 @@ export default function ParentHome() {
                 {kids.map((child) => <ChildCard key={child.id} child={child} t={t} />)}
               </View>
             )}
-          </View>
-          </Surface>
-
-          {/* Actions — big, coloured, two per row. */}
-          <Surface id="parent.home.actions">
-          <View style={{ marginTop: spacing.xl }}>
-            <SectionHead icon="star" color={colors.accent} title={t('home.actions_section')} />
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.sm }}>
-              <Surface id="parent.home.action_today"><ActionTile icon="calendar" color={colors.brand} tint={colors.brandTint} title={t('today.title')} subtitle={t('today.subtitle')} onPress={() => router.push('/(parent)/today')} /></Surface>
-              <Surface id="parent.home.action_invoices"><ActionTile icon="invoices" color={colors.success} tint={colors.successLight} title={t('home.invoices_title')} onPress={() => router.push('/(parent)/(tabs)/invoices')} /></Surface>
-              <Surface id="parent.home.action_report_cards"><ActionTile icon="reports" color={colors.info} tint={colors.infoLight} title={t('reports.report_cards')} subtitle={t('reports.report_cards_sub')} onPress={() => router.push('/(parent)/report-cards')} /></Surface>
-              <Surface id="parent.home.action_tickets"><ActionTile icon="ticket" color={colors.accentWarm} tint={colors.accentWarmTint} title={t('parent.teacher_tickets_title')} subtitle={t('parent.teacher_tickets_sub')} onPress={() => router.push('/(parent)/tickets')} /></Surface>
-            </View>
           </View>
           </Surface>
 

@@ -7,6 +7,8 @@ import { router, type Href } from 'expo-router';
 import { SupportContact } from '@/components/SupportContact';
 import { ThemeRow } from '@/components/ThemeRow';
 import { TourRow } from '@/tour/TourRow';
+import { useTourScroll } from '@/tour/useTourScroll';
+import { CardInfoRow } from '@/components/cardOrder/CardInfoRow';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, nav, gradients, control } from '@/theme/index';
@@ -37,6 +39,8 @@ export default function ParentSettings() {
   const { data: children, refetch: refetchChildren } = useChildren();
   // Pull to refresh like every other tab (founder 2026-10-18).
   const { refreshing, onRefresh } = usePullRefresh(refetchChildren);
+  // The tour's last step aims at «كارت دروس سبوت» here; it may scroll the page to reach it.
+  const tourScroll = useTourScroll();
 
   // Every row does something real — no dead settings (elderly-usability rule)
   const settings: SettingItem[] = [
@@ -87,7 +91,7 @@ export default function ParentSettings() {
   return (
     <Surface id="screen.parent.profile" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}
+      <ScrollView {...tourScroll} contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom }} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
         <Surface id="parent.profile.hero">
         <PageHero title={user?.name ?? ''} subtitle={user?.phone ?? undefined} avatar={avatarSeed.user(user?.id, user?.name ?? '?')}>
@@ -98,6 +102,8 @@ export default function ParentSettings() {
         </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4, gap: spacing.md }}>
+          <Surface id="parent.profile.card_info"><CardInfoRow /></Surface>
+
           <Surface id="parent.profile.account">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.xl, ...shadows.sm }}>
             <Text style={[textPresets.label, { marginBottom: spacing.md, color: colors.textTertiary }]}>

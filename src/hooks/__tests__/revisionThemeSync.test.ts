@@ -19,7 +19,7 @@ const mockAuth = { isAuthenticated: true, role: 'teacher' as string | null };
 jest.mock('@/stores/authStore', () => ({ useAuthStore: (sel: (s: typeof mockAuth) => unknown) => sel(mockAuth) }));
 
 import { RevisionThemeGuard, RevisionThemeSync, resetRevisionSync } from '../useRevisionTheme';
-import { CURTAIN_IN_MS, useThemeStore } from '@/stores/themeStore';
+import { LAND_IN_MS, useThemeStore } from '@/stores/themeStore';
 import { useAppConfigStore } from '@/stores/appConfigStore';
 import { applyScheme } from '@/theme/index';
 
@@ -59,7 +59,7 @@ describe('RevisionThemeSync', () => {
     mockReviseOn = true; mockPathname = '/settings';
     act(() => { tree.update(createElement(RevisionThemeSync)); });
     expect(useThemeStore.getState().curtain).toMatchObject({ to: true });
-    act(() => { jest.advanceTimersByTime(CURTAIN_IN_MS); });
+    act(() => { jest.advanceTimersByTime(LAND_IN_MS); });
     expect(useThemeStore.getState().revision).toBe(true);
     expect(useThemeStore.getState().peekReturnTo()).toBe('/settings');
     act(() => { tree.unmount(); });

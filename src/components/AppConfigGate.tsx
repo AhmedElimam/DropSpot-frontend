@@ -3,7 +3,7 @@ import { View, Text, AppState, TouchableOpacity, Linking, Platform, type AppStat
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, setThemeOverrides } from '@/theme/index';
+import { colors, spacing, radius, setThemeOverrides, setIosFlatShadows } from '@/theme/index';
 import { useThemeStore } from '@/stores/themeStore';
 import { Icon } from '@/components/ui/Icon';
 import { useAppConfigStore } from '@/stores/appConfigStore';
@@ -49,6 +49,12 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (setThemeOverrides(theme)) useThemeStore.getState().repainted();
   }, [theme]);
+
+  // iPhone flat cards, a performance comparison the backend switches (feature flag
+  // ios_flat_shadows, off by default). Read from the cached config, so it holds from the
+  // next launch on.
+  const flatShadows = useAppConfigStore((s) => s.config.feature_flags?.ios_flat_shadows === true);
+  useEffect(() => { setIosFlatShadows(flatShadows); }, [flatShadows]);
 
   useEffect(() => {
     useAppConfigStore.getState().hydrate().finally(() => { void syncAppConfig(); void reportCapabilities(); });

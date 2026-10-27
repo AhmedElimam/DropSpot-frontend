@@ -6,7 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
-import { usePendingSurvey, useMarkSurveyShown, useRespondSurvey } from '@/hooks/useSurvey';
+import { usePendingSurvey, useMarkSurveyShown, useRespondSurvey, useSnoozeSurvey } from '@/hooks/useSurvey';
+import { usePopupSlot } from '@/ui/popupSlot';
+import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/authStore';
+import { useTourStore } from '@/tour/store';
+import { tourForRole } from '@/tour/tours';
+import { getTourStatus } from '@/api/tour';
 
 /**
  * App-open/login survey prompt. Interrupts with a modal (unlike the passive
@@ -20,12 +26,24 @@ export function SurveyModal() {
   const { data: survey } = usePendingSurvey();
   const markShown = useMarkSurveyShown();
   const respond = useRespondSurvey();
+  const snooze = useSnoozeSurvey();
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const beaconedId = useRef<string | null>(null);
 
-  const visible = !!survey && dismissedId !== survey.id;
+  // After the app's own intro, never before it (founder 2026-10-26): الناظر met on this phone
+  // (introHeld), no tour running, and the first tour finished — a survey used to hold all three.
+  const user = useAuthStore((s) => s.user);
+  const role = useAuthStore((s) => s.role);
+  const introHeld = useTourStore((s) => s.introHeld);
+  const touring = useTourStore((s) => s.tour !== null);
+  const hasTour = !!user && !!role && !!tourForRole(role);
+  const { data: tourStatus } = useQuery({ queryKey: ['tour-status', user?.id], queryFn: getTourStatus, enabled: hasTour && !!survey, staleTime: 5 * 60_000 });
+  const introDone = !introHeld && !touring && (!hasTour || !!tourStatus?.completed);
+
+  // One popup at a time, in order, never over another modal (src/ui/popupSlot.ts).
+  const visible = usePopupSlot('survey', !!survey && dismissedId !== survey.id && introDone);
 
   // Reset per-survey answer state when a different survey surfaces.
   useEffect(() => {
@@ -42,6 +60,12 @@ export function SurveyModal() {
   }, [visible, survey?.id]);
 
   if (!survey) return null;
+
+  // Hidden now, and for 24 hours on the server, so the next opening does not bring it back.
+  const later = () => {
+    setDismissedId(survey.id);
+    snooze.mutate(survey.id);
+  };
 
   const setAnswer = (key: string, value: string) => setAnswers((a) => ({ ...a, [key]: value }));
 
@@ -69,7 +93,7 @@ export function SurveyModal() {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setDismissedId(survey.id)}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={later}>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
         <View style={{ backgroundColor: colors.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingBottom: insets.bottom + spacing.lg, maxHeight: '88%' }}>
           {/* Header */}
@@ -121,7 +145,7 @@ export function SurveyModal() {
 
           {/* Actions */}
           <View style={{ flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.xl, paddingTop: spacing.sm }}>
-            <TouchableOpacity onPress={() => setDismissedId(survey.id)} style={{ flex: 1, minHeight: 50, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+            <TouchableOpacity onPress={later} style={{ flex: 1, minHeight: 50, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary }}>{t('survey.later')}</Text>
             </TouchableOpacity>
             <TouchableOpacity

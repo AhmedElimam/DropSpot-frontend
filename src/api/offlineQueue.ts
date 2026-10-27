@@ -33,7 +33,7 @@ const N = '\\d+';
 export const QUEUE_RULES: QueueRule[] = [
   { method: 'post', path: new RegExp(`^/teacher/(pending-collections/collect|students/${N}/collect)$`), label: 'collect' },
   { method: 'post', path: /^\/teacher\/pending-collections\/cancel-due$/, label: 'cancel_due' },
-  { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/(note|sheet-grade|sheet-toggle|sheet-excluded|sheet-max-mark|type)$`), label: 'session_sheet' },
+  { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/(note|summary|sheet-grade|sheet-toggle|sheet-excluded|sheet-max-mark|type)$`), label: 'session_sheet' },
   { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/cancel$`), label: 'session_cancel' },
   { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/restore$`), label: 'session_restore' },
   { method: 'post', path: /^\/teacher\/sessions$/, label: 'session_create' },

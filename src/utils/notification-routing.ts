@@ -26,7 +26,8 @@ export type NotificationRouteInput = {
  * The chat room a push is about, as the client's room id (src/chat/room.ts): the course for
  * the students' room, minus it for the parents' room (`data.room === 'parents'`).
  */
-function chatRoom(data: Record<string, unknown> | null | undefined): string | null {
+/** The room a chat push names: the course id, minus-prefixed for the parents' room (the route param). */
+export function chatRoom(data: Record<string, unknown> | null | undefined): string | null {
   const course = id(data, 'course_id');
   if (!course) return null;
   return data?.room === 'parents' ? `-${course}` : course;
@@ -58,6 +59,8 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
     const room = chatRoom(data);
     return room ? `/(teacher)/conversations/chat/${room}` : '/(teacher)/conversations';
   }
+  // The platform subscription: the bill, the late price, the wall — all one screen.
+  if (type.startsWith('subscription_')) return isAssistant ? null : '/(teacher)/subscription';
 
   switch (type) {
     // ── مدام روز's 11 am «ورقة النهارده»: the day's sessions ──
@@ -158,6 +161,10 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
       const ticket = id(data, 'ticket_id');
       return ticket ? `/(teacher)/tickets/${ticket}` : '/(teacher)/tickets';
     }
+    // A locked student asks this teacher to correct their parent's number (2026-10-26).
+    case 'parent_number_request': {
+      return can('manage_students') ? '/(teacher)/resolution' : null;
+    }
     default:
       // The print market names its screen by a short key (`route: 'print_job' | 'print_credit'`),
       // so a new print type lands right with no app change. Money: never for an assistant.
@@ -207,6 +214,12 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
       return '/(parent)/report-cards';
     case 'daily_digest':
       return '/(parent)/today';
+    // الناظر's 11 am sheet: today's sessions, absences and bills — his office.
+    case 'nazer_morning':
+      return '/(parent)/nazer';
+    // الناظر reports a session note written after that day's digest (founder 2026-10-22).
+    case 'session_notes':
+      return student ? `/(parent)/session-notes?student_id=${student}` : '/(parent)/session-notes';
     case 'attendance':
     case 'absence':
     case 'attendance_risk':
@@ -232,6 +245,8 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
       return '/(parent)/children';
     case 'parent_number_approved':
       return '/(parent)/profile';
+    // The teacher opened a ticket with the parent (founder 2026-10-21), or replied on one.
+    case 'ticket_new':
     case 'ticket_reply': {
       const ticket = id(data, 'ticket_id');
       return ticket ? `/(parent)/tickets/${ticket}` : '/(parent)/tickets';
@@ -265,6 +280,12 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
       return '/(student)/(tabs)/invoices';
     case 'grade':
       return '/(student)/marks';
+    case 'nazer_morning':
+      return '/(student)/nazer';
+    // الناظر's day summary and a late session note: the student's notes history.
+    case 'daily_digest':
+    case 'session_notes':
+      return '/(student)/session-notes';
     case 'card_preparing':
     case 'card_released':
       return '/(student)/order-card';
@@ -274,8 +295,15 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
       return '/(student)/(tabs)';
     case 'student_edit_result':
       return '/(student)/profile';
-    case 'ticket_reply':
-      return '/(student)/support';
+    // The teacher decided their «wrong parent number» request: the lock screen shows it.
+    case 'parent_number_request_result':
+      return '/(student)/(tabs)';
+    // Their own ticket with a teacher (founder 2026-10-26).
+    case 'ticket_new':
+    case 'ticket_reply': {
+      const ticket = id(data, 'ticket_id');
+      return ticket ? `/(student)/tickets/${ticket}` : '/(student)/tickets';
+    }
     default:
       return null;
   }

@@ -15,6 +15,9 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `family.invoices.cash_note` — element · src/components/parent/PaymentSection.tsx
 - `family.invoices.due_payment_methods` — element · src/components/parent/PendingDueCard.tsx
 - `family.invoices.upload_proof` — element · src/components/parent/PaymentSection.tsx
+- `family.nazer.hero.bubble` — element · src/components/nazer/NazerHero.tsx
+- `family.nazer.hero.portrait` — element · src/components/nazer/NazerHero.tsx
+- `family.session_notes.card` — element · src/components/nazer/SessionNotesScreen.tsx
 - `family.support.admin_reply` — element · src/components/support/SupportCenter.tsx
 - `family.support.compose_card` — element · src/components/support/SupportCenter.tsx
 - `family.support.hero` — element · src/components/support/SupportCenter.tsx
@@ -73,6 +76,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `parent.home.header_bar` — element · app/(parent)/(tabs)/index.tsx
 - `parent.home.hero` — element · app/(parent)/(tabs)/index.tsx
 - `parent.home.latest_update` — element · app/(parent)/(tabs)/index.tsx
+- `parent.home.nazer` — element · app/(parent)/(tabs)/index.tsx
 - `parent.home.pending_invites` — element · app/(parent)/(tabs)/index.tsx
 - `parent.home.risk_alerts` — element · app/(parent)/(tabs)/index.tsx
 - `parent.home.sibling_claims` — element · app/(parent)/(tabs)/index.tsx
@@ -92,8 +96,12 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `parent.invoices.list` — element · app/(parent)/(tabs)/invoices.tsx
 - `parent.invoices.payment_section` — element · app/(parent)/(tabs)/invoices.tsx
 - `parent.invoices.pending_dues` — element · app/(parent)/(tabs)/invoices.tsx
+- `parent.nazer.footer` — element · app/(parent)/nazer.tsx
+- `parent.nazer.hero` — element · app/(parent)/nazer.tsx
+- `parent.nazer.reports` — element · app/(parent)/nazer.tsx
 - `parent.profile.account` — element · app/(parent)/(tabs)/profile.tsx
 - `parent.profile.account_info` — element · app/(parent)/(tabs)/profile.tsx
+- `parent.profile.card_info` — element · app/(parent)/(tabs)/profile.tsx
 - `parent.profile.delete_account` — element · app/(parent)/(tabs)/profile.tsx
 - `parent.profile.hero` — element · app/(parent)/(tabs)/profile.tsx
 - `parent.profile.logout` — element · app/(parent)/(tabs)/profile.tsx
@@ -115,6 +123,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `parent.reports.hero` — element · app/(parent)/reports.tsx
 - `parent.reports.tabs` — element · app/(parent)/reports.tsx
 - `parent.reports.top_teachers` — element · app/(parent)/reports.tsx
+- `parent.session_notes.children` — element · src/components/nazer/SessionNotesScreen.tsx
 - `parent.teachers.contact_teacher` — element · app/(parent)/(tabs)/teachers.tsx
 - `parent.teachers.course_private_chip` — element · app/(parent)/(tabs)/teachers.tsx
 - `parent.teachers.hero` — element · app/(parent)/(tabs)/teachers.tsx
@@ -137,9 +146,11 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `parent.today.hero` — element · app/(parent)/today.tsx
 - `parent.today.session_note` — element · app/(parent)/today.tsx
 - `parent.today.session_private_label` — element · app/(parent)/today.tsx
+- `parent.today.session_summary` — element · app/(parent)/today.tsx
 
 ## screen
 
+- `screen.card-info` — screen · app/card-info.tsx
 - `screen.family.support` — screen · src/components/support/SupportCenter.tsx
 - `screen.parent.change-name` — screen · app/(parent)/change-name.tsx
 - `screen.parent.change-phone` — screen · app/(parent)/change-phone.tsx
@@ -150,6 +161,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `screen.parent.community` — screen · app/(parent)/(tabs)/community.tsx
 - `screen.parent.index` — screen · app/(parent)/(tabs)/index.tsx
 - `screen.parent.invoices` — screen · app/(parent)/(tabs)/invoices.tsx
+- `screen.parent.nazer` — screen · app/(parent)/nazer.tsx
 - `screen.parent.notifications` — screen · app/(parent)/notifications.tsx
 - `screen.parent.order-card` — screen · app/(parent)/order-card.tsx
 - `screen.parent.profile` — screen · app/(parent)/(tabs)/profile.tsx
@@ -168,6 +180,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `screen.student.index` — screen · app/(student)/(tabs)/index.tsx
 - `screen.student.invoices` — screen · app/(student)/(tabs)/invoices.tsx
 - `screen.student.marks` — screen · app/(student)/marks.tsx
+- `screen.student.nazer` — screen · app/(student)/nazer.tsx
 - `screen.student.notifications` — screen · app/(student)/notifications.tsx
 - `screen.student.order-card` — screen · app/(student)/order-card.tsx
 - `screen.student.profile` — screen · app/(student)/(tabs)/profile.tsx
@@ -258,6 +271,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `student.home.card_order_banner` — element · app/(student)/(tabs)/index.tsx
 - `student.home.header_bar` — element · app/(student)/(tabs)/index.tsx
 - `student.home.hero` — element · app/(student)/(tabs)/index.tsx
+- `student.home.nazer` — element · app/(student)/(tabs)/index.tsx
 - `student.home.risk_alerts` — element · app/(student)/(tabs)/index.tsx
 - `student.home.session_row.private_label` — element · app/(student)/(tabs)/index.tsx
 - `student.home.shortcuts` — element · app/(student)/(tabs)/index.tsx
@@ -278,9 +292,13 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `student.marks.grades` — element · app/(student)/marks.tsx
 - `student.marks.hero` — element · app/(student)/marks.tsx
 - `student.marks.tabs` — element · app/(student)/marks.tsx
+- `student.nazer.footer` — element · app/(student)/nazer.tsx
+- `student.nazer.hero` — element · app/(student)/nazer.tsx
+- `student.nazer.reports` — element · app/(student)/nazer.tsx
 - `student.profile.account` — element · app/(student)/(tabs)/profile.tsx
 - `student.profile.account_info` — element · app/(student)/(tabs)/profile.tsx
 - `student.profile.card_block` — element · app/(student)/(tabs)/profile.tsx
+- `student.profile.card_info` — element · app/(student)/(tabs)/profile.tsx
 - `student.profile.card_qr` — element · app/(student)/(tabs)/profile.tsx
 - `student.profile.change_password` — element · app/(student)/(tabs)/profile.tsx
 - `student.profile.delete_account` — element · app/(student)/(tabs)/profile.tsx
@@ -443,7 +461,8 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.cash_reconcile.observations` — element · app/(teacher)/cash-reconcile.tsx
 - `teacher.cash_reconcile.open_gaps` — element · app/(teacher)/cash-reconcile.tsx
 - `teacher.cash_reconcile.open_review_button` — element · app/(teacher)/cash-reconcile.tsx
-- `teacher.cash_reconcile.opening_entry` — element · app/(teacher)/cash-reconcile.tsx
+- `teacher.cash_reconcile.opening_board` — element · app/(teacher)/cash-reconcile.tsx
+- `teacher.cash_reconcile.opening_row` — element · app/(teacher)/cash-reconcile.tsx
 - `teacher.cash_reconcile.period_bar` — element · app/(teacher)/cash-reconcile.tsx
 - `teacher.cash_reconcile.prompt_card` — element · app/(teacher)/cash-reconcile.tsx
 - `teacher.cash_reconcile.prompt_no_diff_button` — element · app/(teacher)/cash-reconcile.tsx
@@ -542,6 +561,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.enroll.course_picker` — element · app/(teacher)/enroll.tsx
 - `teacher.enroll.frame` — element · app/(teacher)/enroll.tsx
 - `teacher.enroll.header` — element · app/(teacher)/enroll.tsx
+- `teacher.enroll.invitation_waiting` — element · app/(teacher)/enroll.tsx
 - `teacher.enroll.invite_by_phone` — element · app/(teacher)/enroll.tsx
 - `teacher.enroll.miss_card` — element · app/(teacher)/enroll.tsx
 - `teacher.enroll.review_sheet` — element · app/(teacher)/enroll.tsx
@@ -611,6 +631,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.home.stat_present` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.stat_sessions` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.stats` — element · app/(teacher)/(tabs)/index.tsx
+- `teacher.home.subscription` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.teacher_switcher` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.usual_day_head` — element · src/components/teacher/RevisionDesk.tsx
 - `teacher.home.whats_new` — element · app/(teacher)/(tabs)/index.tsx
@@ -671,7 +692,6 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.manage.row_assistants` — element · assistant: teacher · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_billing_settings` — element · assistant: teacher · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_booking_requests` — element · assistant: manage_students · app/(teacher)/(tabs)/manage.tsx
-- `teacher.manage.row_card_order_link` — element · assistant: manage_students · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_cards` — element · assistant: manage_students · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_cash_reconcile` — element · assistant: scan_attendance · app/(teacher)/(tabs)/manage.tsx
 - `teacher.manage.row_complaints` — element · app/(teacher)/(tabs)/manage.tsx
@@ -708,11 +728,13 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.pay_dues_modal.refuse_button` — element · src/components/teacher/PayDuesModal.tsx
 - `teacher.pay_dues_modal.sheet` — element · src/components/teacher/PayDuesModal.tsx
 - `teacher.payment_proofs.approve_button` — element · app/(teacher)/payment-proofs.tsx
+- `teacher.payment_proofs.header` — element · app/(teacher)/payment-proofs.tsx
 - `teacher.payment_proofs.lightbox` — element · app/(teacher)/payment-proofs.tsx
-- `teacher.payment_proofs.pending_section` — element · app/(teacher)/payment-proofs.tsx
+- `teacher.payment_proofs.pending_card` — element · app/(teacher)/payment-proofs.tsx
 - `teacher.payment_proofs.reject_button` — element · app/(teacher)/payment-proofs.tsx
 - `teacher.payment_proofs.reject_sheet` — element · app/(teacher)/payment-proofs.tsx
-- `teacher.payment_proofs.reviewed_section` — element · app/(teacher)/payment-proofs.tsx
+- `teacher.payment_proofs.reviewed_card` — element · app/(teacher)/payment-proofs.tsx
+- `teacher.payment_proofs.tabs` — element · app/(teacher)/payment-proofs.tsx
 - `teacher.pending_collections.bill_corrections` — element · app/(teacher)/pending-collections.tsx
 - `teacher.pending_collections.cancel_due_button` — element · assistant: teacher · app/(teacher)/pending-collections.tsx
 - `teacher.pending_collections.collect_button` — element · app/(teacher)/pending-collections.tsx
@@ -770,14 +792,16 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.reconcile.rejected_scans` — element · app/(teacher)/reconcile.tsx
 - `teacher.reconcile.rejected_scans.dismiss` — element · app/(teacher)/reconcile.tsx
 - `teacher.reconcile.rejected_scans.requeue` — element · app/(teacher)/reconcile.tsx
-- `teacher.record_student.count_badge` — element · app/(teacher)/record-student.tsx
+- `teacher.record_student.added_names` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.course_picker` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.dedupe_modal` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.dedupe_modal.create_new` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.existing_modal` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.existing_modal.enroll_here` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.flash` — element · app/(teacher)/record-student.tsx
+- `teacher.record_student.form_sheet` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.header` — element · app/(teacher)/record-student.tsx
+- `teacher.record_student.invitation_modal` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.order_cards` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.parent_name` — element · app/(teacher)/record-student.tsx
 - `teacher.record_student.parent_phone` — element · app/(teacher)/record-student.tsx
@@ -841,7 +865,6 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.rose.hero.settings_button` — element · src/components/rose/RoseHero.tsx
 - `teacher.rose.hero.today_sheet` — element · src/components/rose/RoseHero.tsx
 - `teacher.rose.live` — element · src/components/rose/RoseHero.tsx
-- `teacher.rose.live.props` — element · src/components/rose/RoseLive.tsx
 - `teacher.rose.portrait` — element · src/components/rose/RoseStamp.tsx
 - `teacher.rose.sheet.detail` — element · src/components/rose/RoseHero.tsx
 - `teacher.rose.sheet.export_button` — element · src/components/rose/RoseHero.tsx
@@ -855,7 +878,6 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.rose.sheet_detail.session_stats` — element · src/components/rose/SheetDetail.tsx
 - `teacher.rose.shield` — element · src/components/rose/RoseStamp.tsx
 - `teacher.rose.sleeping` — element · src/components/rose/RoseCalling.tsx
-- `teacher.rose.sleeping.zees` — element · src/components/rose/RoseSleeping.tsx
 - `teacher.rose.stamp` — element · src/components/rose/RoseStamp.tsx
 - `teacher.rose.stamp_burst` — element · src/components/rose/RoseStamp.tsx
 - `teacher.rose_reset.clears` — element · app/(teacher)/rose-reset.tsx
@@ -911,6 +933,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.scan.pay_confirm.confirm_button` — element · app/(teacher)/scan.tsx
 - `teacher.scan.pay_confirm.pay_full` — element · app/(teacher)/scan.tsx
 - `teacher.scan.pay_dues_modal` — element · app/(teacher)/scan.tsx
+- `teacher.scan.student_invitation` — element · app/(teacher)/scan.tsx
 - `teacher.scan.tip` — element · app/(teacher)/scan.tsx
 - `teacher.schedule_merge.destination` — element · app/(teacher)/schedule-merge.tsx
 - `teacher.schedule_merge.intro_banner` — element · app/(teacher)/schedule-merge.tsx
@@ -947,6 +970,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.session_card.actions.sheet` — element · src/components/session/TeacherSessionCard.tsx
 - `teacher.session_card.attendance_bar` — element · src/components/session/TeacherSessionCard.tsx
 - `teacher.session_card.meta` — element · src/components/session/TeacherSessionCard.tsx
+- `teacher.session_card.notes_chip` — element · src/components/session/TeacherSessionCard.tsx
 - `teacher.session_card.open_details_button` — element · src/components/session/TeacherSessionCard.tsx
 - `teacher.session_card.phase_chip` — element · src/components/session/TeacherSessionCard.tsx
 - `teacher.session_card.private_chip` — element · src/components/session/TeacherSessionCard.tsx
@@ -955,12 +979,14 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.session_detail.cancel_button` — element · assistant: cancel_sessions · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.clear_filter` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.header` — element · app/(teacher)/sessions/[id].tsx
+- `teacher.session_detail.header.card` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.header.private_label` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.header.ring` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.header.settings_button` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.header.stats` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.marks_header` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.mode_tabs` — element · app/(teacher)/sessions/[id].tsx
+- `teacher.session_detail.notes_card` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.offline_hint` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.rest_absent_button` — element · assistant: mark_attendance_manual · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.row_quick_marks` — element · assistant: mark_attendance_manual · app/(teacher)/sessions/[id].tsx
@@ -1002,6 +1028,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.settings.row_logo` — element · assistant: teacher · app/(teacher)/(tabs)/settings.tsx
 - `teacher.settings.row_notifications` — element · app/(teacher)/(tabs)/settings.tsx
 - `teacher.settings.row_revise_switch` — element · assistant: teacher · app/(teacher)/(tabs)/settings.tsx
+- `teacher.settings.row_subscription` — element · assistant: teacher · app/(teacher)/(tabs)/settings.tsx
 - `teacher.settings.row_theme` — element · app/(teacher)/(tabs)/settings.tsx
 - `teacher.settings.row_tour` — element · app/(teacher)/(tabs)/settings.tsx
 - `teacher.settings.row_tutorials` — element · assistant: teacher · app/(teacher)/(tabs)/settings.tsx
@@ -1041,6 +1068,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.student_profile.flag_number_sheet` — element · src/components/teacher/StudentProfile.tsx
 - `teacher.student_profile.flag_parent_number` — element · assistant: report_incidents · src/components/teacher/StudentProfile.tsx
 - `teacher.student_profile.hero` — element · src/components/teacher/StudentProfile.tsx
+- `teacher.student_profile.open_ticket_button` — element · assistant: reply_tickets · src/components/teacher/StudentProfile.tsx
 - `teacher.student_profile.parent_number_notice` — element · src/components/teacher/StudentProfile.tsx
 - `teacher.student_profile.position_sheet` — element · src/components/teacher/StudentProfile.tsx
 - `teacher.student_profile.prior_month_button` — element · assistant: manage_students · src/components/teacher/StudentProfile.tsx
@@ -1072,6 +1100,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.students.roster` — element · app/(teacher)/(tabs)/students.tsx
 - `teacher.students.search` — element · app/(teacher)/(tabs)/students.tsx
 - `teacher.students.segment_toggle` — element · assistant: manage_students · app/(teacher)/(tabs)/students.tsx
+- `teacher.subscription.status_popup` — element · src/components/subscription/SubscriptionStatusModal.tsx
 - `teacher.tickets.detail.attach_button` — element · app/(teacher)/tickets/[id].tsx
 - `teacher.tickets.detail.close` — element · assistant: reply_tickets · app/(teacher)/tickets/[id].tsx
 - `teacher.tickets.detail.hero` — element · app/(teacher)/tickets/[id].tsx
@@ -1084,6 +1113,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.tickets.detail.thread` — element · app/(teacher)/tickets/[id].tsx
 - `teacher.tickets.hero` — element · app/(teacher)/tickets/index.tsx
 - `teacher.tickets.list` — element · app/(teacher)/tickets/index.tsx
+- `teacher.trial_corner` — element · src/components/subscription/SubscriptionCornerTag.tsx
 - `teacher.tutorial.caption` — element · app/(teacher)/tutorial/[key].tsx
 - `teacher.tutorial.moments_button` — element · app/(teacher)/tutorial/[key].tsx
 - `teacher.tutorial.moments_sheet` — element · app/(teacher)/tutorial/[key].tsx

@@ -59,8 +59,6 @@ export const FEATURES: FeatureEntry[] = [
     keywords: ['تأكيد رقم', 'ارقام', 'رقم ولي الامر', 'كود', 'تحقق', 'otp', 'رقم غلط', 'تأكيد ولي الامر'] },
   { id: 'cards', titleKey: 'manage.cards_title', subKey: 'manage.cards_sub', area: 'students', icon: 'card', href: '/(teacher)/students?segment=cards', assistantNeeds: 'manage_students',
     keywords: ['كروت', 'بطاقات', 'طباعة', 'طلب كارت', 'cards'] },
-  { id: 'card_order_link', titleKey: 'card_order_link.title', subKey: 'card_order_link.manage_sub', area: 'students', icon: 'send', href: '/(teacher)/card-order-link', assistantNeeds: 'manage_students',
-    keywords: ['رابط كارت', 'طلب بطاقة', 'الاهل يطلبوا', 'card link'] },
 
   // ── Money ──
   { id: 'collect', titleKey: 'manage.pending_collections', subKey: 'manage.pending_collections_sub', area: 'money', icon: 'money', href: '/(teacher)/pending-collections', assistantNeeds: 'scan_attendance',

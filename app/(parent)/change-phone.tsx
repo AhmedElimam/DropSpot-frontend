@@ -13,6 +13,7 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { startPhoneChange, verifyOldPhone, requestNewPhone, confirmPhoneChange } from '@/api/phoneChange';
 import { PageHero } from '@/components/ui/PageHero';
 import { Surface } from '@/ui/surfaces';
+import { OtpInput } from '@/components/auth/OtpInput';
 
 type Step = 'intro' | 'verify_old' | 'enter_new' | 'verify_new';
 
@@ -111,7 +112,7 @@ export default function ChangePhoneScreen() {
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.md }}>
               {t('auth.change_phone_old_sent', { phone: maskedOld })}
             </Text>
-            <TextInput value={oldCode} onChangeText={(v) => setOldCode(onlyDigits(v, 6))} keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="sms-otp" placeholder="------" placeholderTextColor={colors.textTertiary} style={field()} />
+            <OtpInput value={oldCode} onChange={setOldCode} />
             <Primary label={t('auth.change_phone_verify')} onPress={() => verifyOld.mutate()} disabled={oldCode.length !== 6} />
           </Surface>
         ) : null}
@@ -131,7 +132,7 @@ export default function ChangePhoneScreen() {
             <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.md }}>
               {t('auth.change_phone_new_sent', { phone: maskedNew })}
             </Text>
-            <TextInput value={newCode} onChangeText={(v) => setNewCode(onlyDigits(v, 6))} keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="sms-otp" placeholder="------" placeholderTextColor={colors.textTertiary} style={field()} />
+            <OtpInput value={newCode} onChange={setNewCode} />
             <Primary label={t('auth.change_phone_confirm')} onPress={() => confirm.mutate()} disabled={newCode.length !== 6} />
           </Surface>
         ) : null}

@@ -14,6 +14,7 @@ import { getCachedAccessToken, setCachedAccessToken } from '@/api/tokenCache';
 import { resolveAppId } from '@/utils/appIdentity';
 import { binaryVersion } from '@/utils/binaryVersion';
 import { noteFlagsStamp } from './flagsStamp';
+import { otaIdentity } from '@/utils/otaIdentity';
 
 /**
  * Resolve the API base URL.
@@ -126,6 +127,10 @@ client.interceptors.request.use(async (config) => {
   const appId = resolveAppId();
   if (appId) config.headers['X-App-Id'] = appId;
   config.headers['X-App-Platform'] = Platform.OS;
+  // Which OTA it runs (the DevOps page's OTA tracker): the update id and the commit it came from.
+  const ota = otaIdentity();
+  config.headers['X-App-Update'] = ota.update;
+  config.headers['X-App-Bundle'] = ota.bundle;
   // The staging door (src/config/env.ts): a staging build carries the key on every request.
   if (STAGING_KEY) config.headers[STAGING_HEADER] = STAGING_KEY;
 
@@ -277,6 +282,16 @@ client.interceptors.response.use(
     // The server answered (even a refusal): it is up. A 5xx or no answer at all counts
     // against it — the indicator raises «الخادم لا يرد» after a few in a row.
     const status = error.response?.status;
+    // The subscription wall (EnsureSubscriptionActive): flag the session; the teacher
+    // layout sends the app to /subscription-wall on its next render.
+    if (status === 402 && error.response?.data?.code === 'SUBSCRIPTION_BLOCKED') {
+      void useAuthStore.getState().markSubscriptionBlocked(error.response.data?.data?.subscription ?? null);
+    }
+    // The soft lock (EnsureEnrollmentOpen): remember it so the add-student sheet shows the
+    // paywall next time instead of the options.
+    if (status === 402 && error.response?.data?.code === 'ENROLLMENT_LOCKED') {
+      void useAuthStore.getState().markEnrollLocked(error.response.data?.data?.subscription ?? null);
+    }
     if (status && status < 500) useOfflineStore.getState().noteServerOk();
     else if (useOfflineStore.getState().online) useOfflineStore.getState().noteServerFailure();
     // No answer at all (offline, timeout, DNS): a dropout, not a verdict.

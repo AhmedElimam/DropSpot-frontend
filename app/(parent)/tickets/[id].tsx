@@ -85,7 +85,8 @@ export default function TicketDetail() {
   }
 
   const sc = statusColors()[ticket.status] || statusColors().open;
-  const isParent = user?.user_type_id === 4;
+  // The family — a parent, or the student who opened it — answers; only staff set the status.
+  const isParent = ticket.can_change_status === undefined ? user?.user_type_id === 4 || user?.user_type_id === 5 : !ticket.can_change_status;
 
   return (
     <Surface id="screen.parent.tickets.detail" screen>
@@ -121,6 +122,12 @@ export default function TicketDetail() {
               </Text>
             </View>
 
+            {ticket.opened_by_teacher ? (
+              <View style={{ backgroundColor: colors.onHeroChip, borderRadius: radius.full, paddingVertical: 5, paddingHorizontal: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onHero }}>{t('tickets.from_teacher')}</Text>
+              </View>
+            ) : null}
+
             {!isParent && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
               <Surface id="parent.ticket.mark_resolved">
               <TouchableOpacity
@@ -142,7 +149,8 @@ export default function TicketDetail() {
               </Surface>
             )}
 
-            {ticket.status === 'resolved' && (
+            {/* The status is the teacher's to set (founder 2026-10-21); the parent answers. */}
+            {!isParent && ticket.status === 'resolved' && (
               <Surface id="parent.ticket.close">
               <TouchableOpacity
                 onPress={() => handleStatusChange('closed')}

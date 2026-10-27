@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { configRule } from '@/stores/appConfigStore';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { sendOwnNumberOtp, verifyOwnNumber, changeOwnNumber } from '@/api/ownNumber';
+import { OtpInput } from '@/components/auth/OtpInput';
 
 /** The countdown is a backend rule (/admin/config → otp_resend_seconds), read when the screen opens. */
 const RESEND_COOLDOWN = () => configRule('otp_resend_seconds');
@@ -61,7 +62,6 @@ export default function VerifyOwnNumberScreen() {
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN());
   const [editing, setEditing] = useState(false);
   const [newPhone, setNewPhone] = useState('');
-  const codeRef = useRef<TextInput>(null);
 
   // Send the first code as the wall opens.
   const send = useMutation({
@@ -170,17 +170,8 @@ export default function VerifyOwnNumberScreen() {
             ) : (
               <>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('own_number.code_label')}</Text>
-                <TextInput
-                  ref={codeRef}
-                  value={code}
-                  onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
-                  keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="sms-otp"
-                  maxLength={6}
-                  placeholder="------"
-                  placeholderTextColor={colors.textTertiary}
-                  style={{ ...field(), textAlign: 'center', letterSpacing: 8, fontFamily: fonts.bold, fontSize: 22 }}
-                  editable={!verify.isPending}
-                />
+                {/* The same fitted code cells as the other OTP screens (OtpInput). */}
+                <OtpInput value={code} onChange={setCode} onComplete={() => { if (!verify.isPending) verify.mutate(); }} autoFocus={false} />
 
                 <TouchableOpacity
                   onPress={() => canVerify && verify.mutate()}

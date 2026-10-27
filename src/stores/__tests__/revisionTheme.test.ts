@@ -3,7 +3,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   default: { getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined) },
 }));
 
-import { CURTAIN_IN_MS, useThemeStore } from '../themeStore';
+import { CURTAIN_IN_MS, LAND_IN_MS, useThemeStore } from '../themeStore';
 import { applyScheme, colors, isRevisionTheme } from '@/theme/index';
 import { light } from '@/theme/palettes';
 import { REVISION_INK } from '@/theme/revision';
@@ -37,8 +37,12 @@ describe('themeStore.setRevision', () => {
     expect(useThemeStore.getState().curtain).toMatchObject({ to: true });
     expect(useThemeStore.getState().revision).toBe(false);
     expect(colors.primary).toBe(light.primary);
+    // Entering waits for the crest to assemble before the heavy rebuild (no stutter on it).
     jest.advanceTimersByTime(CURTAIN_IN_MS);
+    expect(useThemeStore.getState().revision).toBe(false);
+    jest.advanceTimersByTime(LAND_IN_MS - CURTAIN_IN_MS);
     expect(useThemeStore.getState()).toMatchObject({ revision: true, paintEpoch: before + 1 });
+    expect(useThemeStore.getState().curtain).toMatchObject({ landed: before + 1 });
     expect(colors.primary).toBe(REVISION_INK.indigo);
     expect(useThemeStore.getState().peekReturnTo()).toBe('/settings');
     // The curtain stays up until the component says the new tree has painted.
@@ -52,7 +56,7 @@ describe('themeStore.setRevision', () => {
     expect(useThemeStore.getState().welcome).toBe(false); // launch / restore: silent
     useThemeStore.getState().setRevision(false);
     useThemeStore.getState().setRevision(true, { animate: true });
-    jest.advanceTimersByTime(CURTAIN_IN_MS);
+    jest.advanceTimersByTime(LAND_IN_MS);
     expect(useThemeStore.getState().welcome).toBe(false); // not while the curtain is up
     useThemeStore.getState().curtainDone();
     expect(useThemeStore.getState().welcome).toBe(true);
@@ -70,7 +74,7 @@ describe('themeStore.setRevision', () => {
   it('uses the remembered screen when the flip arrives without one, once', () => {
     useThemeStore.getState().rememberReturn('/(teacher)/settings' as never);
     useThemeStore.getState().setRevision(true, { animate: true });
-    jest.advanceTimersByTime(CURTAIN_IN_MS);
+    jest.advanceTimersByTime(LAND_IN_MS);
     expect(useThemeStore.getState().peekReturnTo()).toBe('/(teacher)/settings');
     useThemeStore.getState().setRevision(false, { animate: true });
     jest.advanceTimersByTime(CURTAIN_IN_MS);

@@ -23,6 +23,22 @@ export interface SessionRow {
   tracks_attendance?: boolean;
   /** The server's words for a private lesson («درس خصوصي · بدون تسجيل حضور»); null on a course with a door. */
   attendance_label?: string | null;
+  /** «ملاحظات الحصة»: whether notes can be written now, and whether the session note was. Older servers omit both. */
+  notes_state?: NotesWindowState;
+  notes_written?: boolean;
+}
+
+/**
+ * When a session's notes can be written (founder 2026-10-22): from its start until 48 hours
+ * after its end; then they close by themselves and the teacher can reopen them (48 h more).
+ */
+export type NotesWindowState = 'upcoming' | 'open' | 'closed' | 'cancelled';
+
+export interface NotesWindow {
+  state: NotesWindowState;
+  closes_at: string | null;
+  reopened: boolean;
+  hours: number;
 }
 
 export interface SessionsPage {
@@ -88,6 +104,9 @@ export interface SessionDetail {
   attendees: SessionAttendee[];
   /** Students swapped INTO this session — shown in a separate, non-default tab. */
   swap_ins?: SwapInAttendee[];
+  /** «ملاحظات الحصة» — the note to the whole session, read by its students and their parents. */
+  summary?: { body: string | null; published_at: string | null };
+  notes_window?: NotesWindow;
   /** Served from the phone's last-known copy because the server could not be reached. */
   offline?: boolean;
   cached_at?: string;
@@ -198,6 +217,18 @@ export async function restoreSession(sessionId: string | number): Promise<Sessio
 
 export async function recordNote(sessionId: string | number, studentId: number, note: string): Promise<SessionDetail> {
   const { data } = await client.post(`/teacher/sessions/${sessionId}/note`, { student_id: studentId, note });
+  return detail(data);
+}
+
+/** «ملاحظات الحصة» — the note to the whole session (empty clears). Refused once the notes window closed. */
+export async function recordSummary(sessionId: string | number, body: string): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/summary`, { body });
+  return detail(data);
+}
+
+/** Reopen a session's notes for another 48 hours. */
+export async function reopenNotes(sessionId: string | number): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/notes-reopen`);
   return detail(data);
 }
 

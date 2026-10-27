@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, textPresets, shadows, gradients, nav } from '@/theme/index';
@@ -35,6 +35,8 @@ import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { getStudentTeachers, type StudentTeacher } from '@/api/studentOverview';
 import { Surface } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
+import { NazerHub } from '@/components/nazer/NazerHub';
+import { studentSay } from '@/nazer/mood';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
 import { tracksAttendance, attendanceLabel } from '@/utils/privateLesson';
 
@@ -63,7 +65,8 @@ export default function StudentDashboard() {
   const { data: stats, refetch: refetchStats } = useCoverageStats();
   const { data: risks, refetch: refetchRisks } = useStudentAttendanceRisk();
   const { data: billingAlerts, refetch: refetchBilling } = useStudentBillingStatus();
-  const { data: unread } = useUnreadCount();
+  // The bell's count comes back with a pull too — a new one rings the bell and shows its toast.
+  const { data: unread, refetch: refetchUnread } = useUnreadCount();
   // Course chat is feature-flagged; the hook is inert (no request) while it is off.
   const chatEnabled = useChatEnabled();
   const { data: chatChannels, refetch: refetchChat } = useChatChannels();
@@ -71,7 +74,7 @@ export default function StudentDashboard() {
 
   const studentId = user?.student_id ?? null;
   const teachersQ = useQuery({ queryKey: ['student-teachers', studentId], queryFn: () => getStudentTeachers(studentId as number), enabled: !!studentId, staleTime: 60_000 });
-  const { refreshing, onRefresh } = usePullRefresh(refetchSessions, refetchStats, refetchRisks, refetchBilling, teachersQ.refetch, ...(chatEnabled ? [refetchChat] : []));
+  const { refreshing, onRefresh } = usePullRefresh(refetchSessions, refetchStats, refetchRisks, refetchBilling, teachersQ.refetch, refetchUnread, ...(chatEnabled ? [refetchChat] : []));
 
   const total = stats?.total ?? 0;
   const pct = total > 0 ? Math.round(((stats?.present ?? 0) + (stats?.late ?? 0)) / total * 100) : 0;
@@ -82,6 +85,16 @@ export default function StudentDashboard() {
   const spotlight = list.find((s) => s.status === 'live')
     ?? list.find((s) => s.status === 'scheduled' && !s.attendance_status && new Date(s.scheduled_at).getTime() >= now);
   const firstName = (user?.name ?? '').split(' ')[0];
+  // الناظر's one line about today, from what this screen already knows.
+  const live = list.find((s) => s.status === 'live');
+  const upcoming = list.find((s) => s.status === 'scheduled' && new Date(s.scheduled_at).getTime() >= now);
+  const say = studentSay({
+    billing: billingAlerts ?? [],
+    risks: risks ?? [],
+    coverage: { present: stats?.present ?? 0, late: stats?.late ?? 0, absent: stats?.absent ?? 0, total },
+    live: live ? { course_name: live.course_name, checked_in: !!live.checked_in || !!live.attendance_status } : null,
+    next: upcoming ? { course_name: upcoming.course_name, scheduled_at: upcoming.scheduled_at } : null,
+  }, (key, opts) => String(t(key, opts)));
 
   const shortcuts = [
     { key: 'checkin', icon: 'card' as const, label: t('attendance.check_in'), color: colors.brand, tint: colors.brandTint, onPress: () => router.navigate('/(student)/(tabs)/check-in') },
@@ -182,8 +195,15 @@ export default function StudentDashboard() {
 
           {/* Shortcuts — four coloured, labelled buttons. */}
           <Surface id="student.home.shortcuts">
+          {/* الناظر in the middle of the four shortcuts (founder 2026-10-22): two each side, his face between. */}
           <TourTarget id="home:shortcuts" style={{ marginTop: spacing.lg }}><View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            {shortcuts.map((x) => <ShortcutTile key={x.key} icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
+            {shortcuts.slice(0, 2).map((x) => <ShortcutTile key={x.key} width="19.5%" icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
+            <Surface id="student.home.nazer">
+              <TourTarget id="home:nazer" style={{ width: '19.5%', alignItems: 'center' }}>
+                <NazerHub say={say} size={64} onPress={() => router.push('/(student)/nazer' as Href)} />
+              </TourTarget>
+            </Surface>
+            {shortcuts.slice(2).map((x) => <ShortcutTile key={x.key} width="19.5%" icon={x.icon} label={x.label} color={x.color} tint={x.tint} onPress={x.onPress} />)}
           </View></TourTarget>
           </Surface>
 
