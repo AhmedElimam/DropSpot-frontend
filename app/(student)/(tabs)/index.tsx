@@ -64,11 +64,12 @@ export default function StudentDashboard() {
   const { data: stats, refetch: refetchStats } = useCoverageStats();
   const { data: risks, refetch: refetchRisks } = useStudentAttendanceRisk();
   const { data: billingAlerts, refetch: refetchBilling } = useStudentBillingStatus();
-  const { data: unread } = useUnreadCount();
+  // The bell's count comes back with a pull too — a new one rings the bell and shows its toast.
+  const { data: unread, refetch: refetchUnread } = useUnreadCount();
 
   const studentId = user?.student_id ?? null;
   const teachersQ = useQuery({ queryKey: ['student-teachers', studentId], queryFn: () => getStudentTeachers(studentId as number), enabled: !!studentId, staleTime: 60_000 });
-  const { refreshing, onRefresh } = usePullRefresh(refetchSessions, refetchStats, refetchRisks, refetchBilling, teachersQ.refetch);
+  const { refreshing, onRefresh } = usePullRefresh(refetchSessions, refetchStats, refetchRisks, refetchBilling, teachersQ.refetch, refetchUnread);
 
   const total = stats?.total ?? 0;
   const pct = total > 0 ? Math.round(((stats?.present ?? 0) + (stats?.late ?? 0)) / total * 100) : 0;

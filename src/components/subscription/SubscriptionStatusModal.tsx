@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { router, usePathname, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +30,7 @@ const shownThisLaunch = new Set<number>();
 
 /**
  * مدام روز shows the teacher where the subscription stands each time the app is opened
- * (founder 2026-10-25): the paid term's receipt or the exemption with her GREEN stamp, an
+ * (founder 2026-10-25): the paid term's receipt, or — ONCE per exemption — the exemption with her GREEN stamp, an
  * open bill with her navy one, a late bill with her red one. Teachers only; a demo account,
  * a trial and a walled account (the wall says it) see nothing. It waits for the new teacher's
  * welcome, her unlock, «ما الجديد», the survey and a running tour.
@@ -51,16 +52,35 @@ export function SubscriptionStatusModal() {
 
   const [seen, setSeen] = useState(() => (user ? shownThisLaunch.has(user.id) : true));
   useEffect(() => { setSeen(user ? shownThisLaunch.has(user.id) : true); }, [user?.id]);
+
+  // An exemption is told ONCE (founder 2026-10-27: «we send the exempted teachers the exemption
+  // every day — just one, when they get exempted»). Remembered per account and per exemption
+  // (its end date and reason), so a new or changed exemption is told again, never a standing one.
+  const exemptKey = sheet?.kind === 'exempt' && user
+    ? `rose.exempt_told.${user.id}.${user.subscription?.exempt_until ?? 'life'}.${user.subscription?.exempt_reason ?? ''}`
+    : null;
+  const [exemptTold, setExemptTold] = useState<boolean | null>(exemptKey ? null : false);
+  useEffect(() => {
+    if (!exemptKey) { setExemptTold(false); return; }
+    let live = true;
+    setExemptTold(null);
+    AsyncStorage.getItem(exemptKey).then((v) => { if (live) setExemptTold(v === '1'); }).catch(() => { if (live) setExemptTold(false); });
+    return () => { live = false; };
+  }, [exemptKey]);
+
   const close = () => {
     if (user) shownThisLaunch.add(user.id);
+    if (exemptKey) { AsyncStorage.setItem(exemptKey, '1').catch(() => {}); setExemptTold(true); }
     setSeen(true);
   };
 
   // The tour waits for this sheet (to come or up); published for it.
-  const pending = !!sheet && !seen && !blocked && !impersonating;
+  // Not until the exemption's «told» flag is read (null), and never again once it was.
+  const quietExempt = exemptKey !== null && exemptTold !== false;
+  const pending = !!sheet && !seen && !quietExempt && !blocked && !impersonating;
   useEffect(() => { useStatusPopupGate.setState({ pending }); }, [pending]);
   const introPending = useOnboardingIntroPending();
-  const free = !!sheet && !seen && !unlockPending && !introPending && !touring && !showPopup && !survey && !blocked && !impersonating;
+  const free = !!sheet && !seen && !quietExempt && !unlockPending && !introPending && !touring && !showPopup && !survey && !blocked && !impersonating;
   // One popup at a time, a breath after the one before, never over another modal (src/ui/popupSlot.ts).
   const visible = usePopupSlot('subscription_status', free);
   if (!sheet) return null;

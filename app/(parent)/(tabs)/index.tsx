@@ -68,10 +68,11 @@ export default function ParentHome() {
   const user = useAuthStore((s) => s.user);
   const { data: children, isLoading: childrenLoading, refetch: refetchChildren } = useChildren();
   const { data: notifications, refetch: refetchNotifications } = useNotifications();
-  const { data: unread } = useUnreadCount();
+  // The bell's count comes back with a pull too — a new one rings the bell and shows its toast.
+  const { data: unread, refetch: refetchUnread } = useUnreadCount();
   const { data: risks, refetch: refetchRisks } = useParentAttendanceRisk();
   const { data: billingAlerts, refetch: refetchBilling } = useParentBillingStatus();
-  const { refreshing, onRefresh } = usePullRefresh(refetchChildren, refetchNotifications, refetchRisks, refetchBilling);
+  const { refreshing, onRefresh } = usePullRefresh(refetchChildren, refetchNotifications, refetchRisks, refetchBilling, refetchUnread);
 
   const kids = children ?? [];
   const latest = (notifications ?? [])[0];

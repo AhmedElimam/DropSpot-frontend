@@ -8,6 +8,7 @@ import { BrandMark } from '@/components/ui/BrandMark';
 import { TourTarget } from '@/tour/TourTarget';
 import { Surface } from '@/ui/surfaces';
 import { CountBadge } from './CountBadge';
+import { ShakingBell } from '@/notifications/ShakingBell';
 
 interface HeaderBrandBarProps {
   /** Tapping the notifications bell. */
@@ -58,7 +59,7 @@ export function HeaderBrandBar({ onBell, unread = 0, logoSize = 56, onScan, scan
       {/* First child → visual RIGHT in RTL: the notifications bell, then (optionally) the scanner. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         {surface('bell', <TourTarget id="header:bell"><TouchableOpacity onPress={onBell} accessibilityRole="button" accessibilityLabel={t('misc_ui.notifications')} style={iconButton()}>
-          <Icon name="bell" size={22} color={colors.onHero} outline />
+          <ShakingBell size={22} color={colors.onHero} />
           {unread ? <Badge count={unread} /> : null}
         </TouchableOpacity></TourTarget>)}
         {onScan ? surface('scan', (

@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { notificationRouteFor } from '@/utils/notification-routing';
 import { getInitialNotificationResponse, setupNotificationResponseHandler } from '@/utils/push-notifications';
 import { SURVEY_NOTIFICATION, useOpenSurveyNotification } from '@/hooks/useSurvey';
+import { useInAppNotice } from '@/notifications/inAppNotice';
 
 // A launch-tap is asked for once per process: the OS keeps answering with the same
 // response, and every tab-layout mount (a role switch, a re-login) would re-open it.
@@ -29,11 +30,13 @@ export function useNotificationTaps(can?: (ability: string) => boolean): void {
     };
 
     const sub = setupNotificationResponseHandler(open);
+    // The in-app toast opens through the same table (it knows no role or abilities of its own).
+    useInAppNotice.setState({ open: (data, type) => open({ ...data, type: data?.type ?? type }) });
     if (!launchTapHandled) {
       launchTapHandled = true;
       void getInitialNotificationResponse().then((data) => { if (data) open(data); });
     }
-    return () => sub.remove();
+    return () => { sub.remove(); useInAppNotice.setState({ open: null }); };
     // `can` changes identity as abilities load; the listener only reads it on a tap.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, role]);

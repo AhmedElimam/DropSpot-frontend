@@ -41,6 +41,7 @@ import { StagingRibbon } from '@/components/StagingRibbon';
 import { AnalyticsTracker } from '@/components/AnalyticsTracker';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { InAppNoticeHost } from '@/notifications/InAppNoticeHost';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { ImpersonationBanner } from '@/components/ImpersonationBanner';
@@ -322,6 +323,8 @@ export default function RootLayout() {
             <ParentNumberCheckModal />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}
             <SpotlightOverlay />
+            {/* A notification that arrives while the app is open: the toast, and the bell shakes (founder 2026-10-27). */}
+            <InAppNoticeHost />
             {/* «بدون إنترنت» — a few seconds when the connection drops, then out of the way. */}
             <OfflinePill />
             {/* The app's own popup in place of the system alert — one host for every screen. */}

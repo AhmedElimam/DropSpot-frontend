@@ -84,7 +84,8 @@ export default function TeacherHome() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const { data: unread } = useUnreadCount();
+  // The bell's count comes back with a pull too — a new one rings the bell and shows its toast.
+  const { data: unread, refetch: refetchUnread } = useUnreadCount();
   const { can, isAssistant } = useActiveAbilities();
   const canCash = can(ABILITY.SCAN);
   const canStudents = can(ABILITY.MANAGE_STUDENTS);
@@ -134,7 +135,7 @@ export default function TeacherHome() {
   // «مركز المتابعة» (founder 2026-10-13: it belongs on Home too, with what needs you).
   const resolutionQ = useQuery({ queryKey: ['resolution-summary'], queryFn: getResolutionSummary });
   const terminationCount = resolutionQ.data?.termination_candidates ?? 0;
-  const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch, resolutionQ.refetch);
+  const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch, resolutionQ.refetch, refetchUnread);
   const [addOpen, setAddOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   // Swipe on a session card (founder 2026-10-04): right → left cancels it (after a

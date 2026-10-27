@@ -923,6 +923,8 @@
   },
   "notifications": {
     "title": "الإشعارات",
+    "toast_now": "الآن",
+    "toast_hint": "اضغط للفتح، أو اسحب للإخفاء دون قراءة",
     "no_notifications": "لا توجد إشعارات",
     "mark_read": "تحديد كمقروء",
     "mark_all_read": "تحديد الكل كمقروء",

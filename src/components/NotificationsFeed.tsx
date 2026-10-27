@@ -32,6 +32,11 @@ const ROSE_TYPES: ReadonlySet<string> = new Set(['rose_briefing', 'cash_insight'
 export const isRoseNotification = (n: Pick<Notification, 'type' | 'data'>): boolean =>
   ROSE_TYPES.has(n.type) || (n.data != null && typeof n.data === 'object' && 'rose' in n.data && n.data.rose != null);
 
+/** The feed row's icon and tint for a type — the in-app toast wears the same. */
+export function notificationLook(type: string): { icon: IconName; tint: string } {
+  return LOOK()[type] ?? { icon: 'bell', tint: colors.brand };
+}
+
 /** Icon + tint by type, so a glance tells money from attendance from مدام روز. */
 const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
   attendance: { icon: 'attendance', tint: colors.success },
@@ -140,7 +145,7 @@ const FeedRow = memo(function FeedRow({
 }) {
   const { t } = useTranslation();
   const rose = useRose();
-  const look = LOOK()[n.type] ?? { icon: 'bell' as IconName, tint: colors.brand };
+  const look = notificationLook(n.type);
   const unread = !n.is_read;
   // Her logo only while her name is on: a teacher who switched it off reads «المساعدة الشخصية» with the plain icon.
   const hers = rose.named && isRoseNotification(n);

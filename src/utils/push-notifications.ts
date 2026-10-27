@@ -117,16 +117,31 @@ function notifications(): NotificationsModule | null {
   return notificationsModule;
 }
 
-// Foreground presentation, installed once at load in every build that has the module.
+// Foreground presentation, installed once at load in every build that has the module. While
+// the app is open the system banner stays down: the app's own toast shows it (founder
+// 2026-10-27, src/notifications/InAppNoticeHost.tsx). The sound still plays and the push still
+// lands in the notification centre, so nothing is lost if the toast is swiped away.
 notifications()?.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowAlert: false,
     shouldPlaySound: true,
     shouldSetBadge: true,
-    shouldShowBanner: true,
+    shouldShowBanner: false,
     shouldShowList: true,
   }),
 });
+
+/** A push that arrived while the app is open (the toast's source). A no-op where push cannot arrive. */
+export function setupNotificationReceivedHandler(
+  onReceived: (content: { title: string; body: string; data: Record<string, unknown> }) => void
+): NotificationsTypes.EventSubscription {
+  const N = notifications();
+  if (!N) return { remove: () => {} };
+  return N.addNotificationReceivedListener((n) => {
+    const c = n.request.content;
+    onReceived({ title: String(c.title ?? ''), body: String(c.body ?? ''), data: (c.data ?? {}) as Record<string, unknown> });
+  });
+}
 
 // Android 8+ binds a notification's sound to its CHANNEL (not the payload), and a
 // channel's sound is fixed at creation — so the custom tone lives on a fresh channel
