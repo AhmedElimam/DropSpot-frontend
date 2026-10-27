@@ -1,5 +1,7 @@
-import type { ComponentProps, ReactNode } from 'react';
+import { useEffect, type ComponentProps, type ReactNode } from 'react';
 import { View, Text, Pressable, useWindowDimensions } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { showTabBar, useTabBarScroll } from '@/navigation/tabBarScroll';
 import Svg, { Path } from 'react-native-svg';
 import type { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -97,15 +99,27 @@ export function FloatingTabBar({ state, descriptors, navigation, tabs, center, l
   // Build the other tabs in the background once launch settles: no blank first frame on a tab's first tap.
   usePreloadTabs(navigation as unknown as Parameters<typeof usePreloadTabs>[0], state, tabs);
 
+  // Slides out of view on a scroll down, back on a scroll up (one short timing, nothing endless);
+  // a tab change always brings it back.
+  const hidden = useTabBarScroll((s) => s.hidden);
+  const bottomPad = Math.max(insets.bottom, 8) + GAP;
+  const slide = useSharedValue(0);
+  useEffect(() => { slide.value = withTiming(hidden ? PILL_HEIGHT + RAISE + bottomPad + 6 : 0, { duration: 220 }); }, [hidden, bottomPad, slide]);
+  useEffect(() => { showTabBar(); }, [state.index]);
+  const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateY: slide.value }] }));
+
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: SIDE, paddingBottom: Math.max(insets.bottom, 8) + GAP }}>
+    <Animated.View pointerEvents="box-none" style={[{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: SIDE, paddingBottom: bottomPad }, slideStyle]}>
       <View style={{ height: PILL_HEIGHT + RAISE }}>
-        {/* The pill, with its shadow on a plain rounded box underneath (an SVG path casts none). */}
-        <View pointerEvents="none" style={{ position: 'absolute', top: RAISE, left: 0, right: 0, height: PILL_HEIGHT, borderRadius: PILL_HEIGHT / 2, backgroundColor: colors.tabBar, ...shadows.lg }} />
-        <Svg width={pillWidth} height={PILL_HEIGHT + RAISE} style={{ position: 'absolute', top: 0, left: 0 }} pointerEvents="none">
-          <Path d={floatingNotchPath(pillWidth, PILL_HEIGHT)} fill={colors.tabBar} />
-          <Path d={floatingNotchPath(pillWidth, PILL_HEIGHT)} fill="none" stroke={dark ? 'rgba(255,255,255,0.10)' : colors.border} strokeWidth={1} />
-        </Svg>
+        {/* The pill is see-through: the page shows faintly behind it (no blur — expo-blur is off
+            the dependency list and a blurred bar is continuous compositing work on mid-range
+            Android). The shadow is cast from the path's own shape. */}
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, ...shadows.lg }}>
+          <Svg width={pillWidth} height={PILL_HEIGHT + RAISE}>
+            <Path d={floatingNotchPath(pillWidth, PILL_HEIGHT)} fill={colors.tabBar} fillOpacity={0.88} />
+            <Path d={floatingNotchPath(pillWidth, PILL_HEIGHT)} fill="none" stroke={dark ? 'rgba(255,255,255,0.12)' : colors.border} strokeWidth={1} />
+          </Svg>
+        </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingTop: RAISE, height: PILL_HEIGHT + RAISE, paddingHorizontal: 4 }}>
           {tabs.map((name) => {
@@ -150,7 +164,7 @@ export function FloatingTabBar({ state, descriptors, navigation, tabs, center, l
                     {centerGlyph ? centerGlyph(onButton, focused) : <Icon name={icons[name] || 'home'} size={28} color={onButton} outline={!focused} />}
                     {badges?.[name] ? <TabBadge n={badges[name]} /> : null}
                   </View>
-                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.bold, fontSize: 10.5, lineHeight: 14, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 3, paddingHorizontal: 2 }}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.bold, fontSize: 10.5, lineHeight: 14, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 7, paddingHorizontal: 2 }}>
                     {label}
                   </Text>
                   </TourTarget>
@@ -185,6 +199,6 @@ export function FloatingTabBar({ state, descriptors, navigation, tabs, center, l
           })}
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }

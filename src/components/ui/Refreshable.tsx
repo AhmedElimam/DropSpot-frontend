@@ -12,6 +12,7 @@ import {
   type RefreshControlProps,
 } from 'react-native';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { reportScroll } from '@/navigation/tabBarScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, shadows } from '@/theme/index';
 
@@ -129,7 +130,10 @@ function FloatingRefresh({ Base, forwardedRef, refreshControl, onScroll, scrollE
   const handleTouchCancel = useCallback((e: GestureResponderEvent) => { onTouchCancel?.(e); release(); }, [onTouchCancel, release]);
 
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    atTopRef.current = e.nativeEvent.contentOffset.y <= 0.5;
+    const y = e.nativeEvent.contentOffset.y;
+    atTopRef.current = y <= 0.5;
+    // The floating tab bar follows the scroll's direction (a horizontal list reports y = 0: shown).
+    if (e.nativeEvent.layoutMeasurement.height > 0 && e.nativeEvent.contentSize.height > e.nativeEvent.layoutMeasurement.height + 120) reportScroll(y);
     onScroll?.(e);
   }, [onScroll]);
 
