@@ -19,12 +19,19 @@ export function useCommunityEnabled(): boolean {
 
 const KEY = ['community'] as const;
 
+/** A refused call (404 off, 403 not mine, 423 agreement due) is an answer, not a hiccup: no retry. */
+const retry = (count: number, err: unknown) => {
+  const status = (err as { response?: { status?: number } } | null)?.response?.status;
+  return !(status && status >= 400 && status < 500) && count < 2;
+};
+
 /** The spaces this person reads (one per teacher per audience) with unread / held counts. */
 export function useCommunitySpaces(enabled = true) {
   const on = useCommunityEnabled();
   return useQuery({
     queryKey: [...KEY, 'spaces'],
     queryFn: getCommunitySpaces,
+    retry,
     enabled: on && enabled,
     staleTime: 20_000,
   });
@@ -36,6 +43,7 @@ export function useCommunityUnread(enabled = true, onScreen = false) {
   return useQuery({
     queryKey: [...KEY, 'unread'],
     queryFn: getCommunityUnread,
+    retry,
     enabled: on && enabled,
     staleTime: 30_000,
     refetchInterval: onScreen ? 60_000 : false,
@@ -50,6 +58,7 @@ export function useCommunityFeed(teacherId: number | null, audience: CommunityAu
     queryKey: [...KEY, 'feed', teacherId, audience, filter],
     queryFn: ({ pageParam }) => getCommunityFeed(teacherId as number, audience, pageParam ?? null, filter),
     initialPageParam: null as number | null,
+    retry,
     getNextPageParam: (last) => last.next_before,
     enabled: on && enabled && !!teacherId,
     staleTime: 15_000,
@@ -61,6 +70,7 @@ export function useCommunityPost(postId: number, enabled = true) {
   return useQuery({
     queryKey: [...KEY, 'post', postId],
     queryFn: () => getCommunityPost(postId),
+    retry,
     enabled: on && enabled && postId > 0,
     staleTime: 10_000,
   });
@@ -71,6 +81,7 @@ export function useCommunityQueue(teacherId: number | null, enabled = true) {
   return useQuery({
     queryKey: [...KEY, 'queue', teacherId],
     queryFn: () => getCommunityQueue(teacherId as number),
+    retry,
     enabled: on && enabled && !!teacherId,
     staleTime: 15_000,
   });
@@ -81,6 +92,7 @@ export function useCommunitySettings(teacherId: number | null, enabled = true) {
   return useQuery({
     queryKey: [...KEY, 'settings', teacherId],
     queryFn: () => getCommunitySettings(teacherId as number),
+    retry,
     enabled: on && enabled && !!teacherId,
     staleTime: 60_000,
   });
