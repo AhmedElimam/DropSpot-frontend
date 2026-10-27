@@ -124,13 +124,14 @@ export function CommunityFeed({ audience, header, footer, onOpen, onSpaceChange,
             <View pointerEvents="none" style={{ position: 'absolute', bottom: -70, start: 40, width: 160, height: 160, borderRadius: 80, backgroundColor: '#FFFFFF', opacity: 0.06 }} />
           </LinearGradient>
           <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md, marginTop: -30 }}>
-              <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.surface, ...shadows.md }}>
+            {/* Only the face overlaps the cover; the name sits below the edge. */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
+              <View style={{ width: 68, height: 68, borderRadius: 34, marginTop: -30, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.surface, ...shadows.md }}>
                 {space.teacher_logo_url
                   ? <Image source={{ uri: space.teacher_logo_url }} style={{ width: 62, height: 62, borderRadius: 31, backgroundColor: colors.surfaceSunken }} contentFit="cover" />
                   : <GeneratedAvatar seed={avatarSeed.user(space.teacher_id)} size={62} label={space.teacher_name} />}
               </View>
-              <View style={{ flex: 1, paddingBottom: 6 }}>
+              <View style={{ flex: 1, paddingTop: 8 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }} numberOfLines={1}>{t(audience === 'parents' ? 'community_space.space_parents_of' : 'community_space.space_students_of', { name: space.teacher_name })}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                   <Icon name={audience === 'parents' ? 'people' : 'teacher'} size={13} color={colors.textTertiary} outline />
