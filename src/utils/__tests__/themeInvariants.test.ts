@@ -117,14 +117,17 @@ describe('tab bars and auth screens use the right tokens', () => {
   // notched bar stays in the tree for its own tests but nothing mounts it.
   it('the floating bar is tokenised', () => {
     const src = fs.readFileSync(path.join(ROOT, 'src/components/ui/FloatingTabBar.tsx'), 'utf8');
-    expect(src).toContain('backgroundColor: colors.tabBar');
+    expect(src).toContain('fill={colors.tabBar}');
+    expect(src).toContain('backgroundColor: colors.tabActive');
     expect(src).toContain('colors.tabActive : colors.tabInactive');
     expect(src).not.toMatch(/backgroundColor: '#FFFFFF'/);
   });
 
-  it.each(['app/(teacher)/(tabs)/_layout.tsx', 'app/(parent)/(tabs)/_layout.tsx', 'app/(student)/(tabs)/_layout.tsx'])('%s mounts the floating bar', (file) => {
+  it.each(['app/(teacher)/(tabs)/_layout.tsx', 'app/(parent)/(tabs)/_layout.tsx', 'app/(student)/(tabs)/_layout.tsx'])('%s mounts the floating bar with the raised centre tab', (file) => {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
     expect(src).toContain('<FloatingTabBar');
+    expect(src).toMatch(/const CENTER_TAB = '[a-z]+'/);
+    expect(src).toContain('center={center}');
     expect(src).not.toContain('<NotchTabBar');
     expect(src).not.toContain('<BottomTabBar');
   });

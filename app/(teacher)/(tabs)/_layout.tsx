@@ -83,7 +83,7 @@ export default function TeacherTabsLayout() {
     <Tabs
       // Hardware back between tabs follows the visit history, not "jump to the first tab".
       backBehavior="history"
-      tabBar={(props) => <FloatingTabBar {...props} tabs={tabs} labels={labels} icons={icons} badges={badges} beta={printBeta ? PRINT_BETA : undefined} />}
+      tabBar={(props) => <FloatingTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} badges={badges} beta={printBeta ? PRINT_BETA : undefined} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
       screenOptions={screenOptions}
       screenLayout={sceneLayout}
     >

@@ -64,7 +64,7 @@ export default function ParentTabsLayout() {
       // Hardware back between tabs follows the visit history.
       backBehavior="history"
       screenLayout={sceneLayout}
-      tabBar={(props) => <FloatingTabBar {...props} tabs={tabs} labels={labels} icons={icons} badges={badges} />}
+      tabBar={(props) => <FloatingTabBar {...props} tabs={tabs} center={center} labels={labels} icons={icons} badges={badges} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
       screenOptions={({ route }) => ({
         headerShown: false,
         freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),

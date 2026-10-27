@@ -66,7 +66,7 @@ export default function StudentTabsLayout() {
       // to the Home tab.
       backBehavior="history"
       screenLayout={sceneLayout}
-      tabBar={(props) => <FloatingTabBar {...props} tabs={tabs} labels={tabLabels} icons={tabIcons} />}
+      tabBar={(props) => <FloatingTabBar {...props} tabs={tabs} center={center} labels={tabLabels} icons={tabIcons} centerGlyph={(color) => <BrandMark size={28} tint={color} />} />}
       screenOptions={({ route }) => ({
         headerShown: false,
         freezeOnBlur: freezeTabs && VISIBLE_TABS.has(route.name),
