@@ -44,11 +44,9 @@ const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
   // «مجتمعنا»
   community_post: { icon: 'people', tint: colors.brand },
   community_comment: { icon: 'chat', tint: colors.brand },
-  community_review: { icon: 'hourglass', tint: colors.warning },
   community_approved: { icon: 'success', tint: colors.success },
   community_rejected: { icon: 'warning', tint: colors.danger },
   community_hidden: { icon: 'warning', tint: colors.danger },
-  community_report: { icon: 'flag', tint: colors.danger },
   community_report_resolved: { icon: 'flag', tint: colors.success },
   community_warning: { icon: 'warning', tint: colors.warning },
   attendance: { icon: 'attendance', tint: colors.success },

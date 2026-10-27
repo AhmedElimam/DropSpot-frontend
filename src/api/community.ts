@@ -1,34 +1,31 @@
 import client from './client';
 
 /**
- * «مجتمعنا» — the teacher's community (docs/COMMUNITY.md on the backend). One space per
- * (teacher, audience): a students' space and a parents' space. Every endpoint is absent (404)
- * while the `community` flag is off; callers gate on the flag first. Who may post, comment,
- * moderate is decided server-side: the client shows what it is told and repeats the
- * server's sentence when something is refused.
+ * «مجتمعنا» — the platform's two open communities (docs/COMMUNITY.md on the backend): every
+ * student in one, every parent in the other, no teacher owns one (founder 2026-10-28). Every
+ * endpoint is absent (404) while the `community` flag is off; callers gate on the flag first.
+ * Who may post or comment is decided server-side: the client shows what it is told and repeats
+ * the server's sentence when something is refused. Moderation never happens in the app (ops
+ * moderate from the ops room), so there is no moderation call here.
  */
 
 export type CommunityAudience = 'students' | 'parents';
-export type CommunityRole = 'teacher' | 'assistant' | 'student' | 'parent';
+/** `teacher` reads both communities and writes in neither; `staff` is the platform's own team. */
+export type CommunityRole = 'student' | 'parent' | 'teacher' | 'staff';
 export type CommunityStatus = 'published' | 'held' | 'rejected' | 'hidden';
 export type CommunityReaction = 'like' | 'love' | 'clap' | 'idea';
 export type CommunityKind = 'post' | 'announcement';
 
 export interface CommunitySpace {
-  teacher_id: number;
-  teacher_name: string;
-  teacher_logo_url: string | null;
-  /** Students in the students' space, linked parents in the parents'. */
-  members: number;
   audience: CommunityAudience;
   role: CommunityRole;
+  /** Students on the platform, or linked parents. */
+  members: number;
   can_post: boolean;
   comments_on: boolean;
   welcome: string | null;
   posts: number;
   unread: number;
-  /** Moderators: posts waiting for a look. */
-  held: number;
 }
 
 export interface CommunityLimits {
@@ -47,22 +44,20 @@ export interface CommunityAuthor {
   id: number;
   name: string;
   role: CommunityRole;
-  /** The same generated face as everywhere in the app (`GeneratedAvatar`). */
+  /** The same generated face as everywhere in the app (`GeneratedAvatar`); `staff` draws the brand mark. */
   avatar_seed: string;
-  /** The teacher's logo, when they uploaded one. */
   avatar_url: string | null;
 }
 
 export interface CommunityPost {
   id: number;
-  teacher_id: number;
   audience: CommunityAudience;
   kind: CommunityKind;
   body: string;
   author: CommunityAuthor;
   mine: boolean;
   status: CommunityStatus;
-  /** The author's and the moderators' business only: null for everyone else. */
+  /** The author's business only: null for everyone else. */
   status_reason: string | null;
   status_note: string | null;
   flagged: boolean;
@@ -92,42 +87,12 @@ export interface CommunityComment {
 }
 
 export interface CommunityFeedPage { role: CommunityRole; posts: CommunityPost[]; next_before: number | null }
-export type CommunityFilter = 'all' | 'mine' | 'held' | 'flagged';
+export type CommunityFilter = 'all' | 'mine';
 
-export interface CommunitySettings {
-  students_can_post: boolean;
-  parents_can_post: boolean;
-  comments_on: boolean;
-  review_students: 'screen' | 'approve';
-  review_parents: 'screen' | 'approve';
-  flag_words: string[];
-  welcome: string | null;
+/** A member writes; a teacher reads. */
+export function canWrite(role: CommunityRole | null | undefined): boolean {
+  return role === 'student' || role === 'parent' || role === 'staff';
 }
-
-export interface CommunityReport {
-  id: number;
-  post_id: number | null;
-  comment_id: number | null;
-  audience: CommunityAudience;
-  reason: string;
-  reason_label: string;
-  note: string | null;
-  captured_body: string | null;
-  reported_user: { id: number; name: string } | null;
-  created_at: string;
-}
-
-export interface CommunityQueue {
-  held_posts: CommunityPost[];
-  held_comments: CommunityComment[];
-  flagged_posts: CommunityPost[];
-  reports: CommunityReport[];
-  actions: string[];
-}
-
-export type PostModeration = 'approve' | 'reject' | 'hide' | 'restore' | 'pin' | 'unpin';
-export type CommentModeration = 'approve' | 'reject' | 'hide';
-export type ReportResolution = 'dismiss' | 'warn' | 'remove' | 'escalate';
 
 export async function getCommunitySpaces(): Promise<{ spaces: CommunitySpace[]; limits: CommunityLimits }> {
   const { data } = await client.get('/community');
@@ -139,19 +104,19 @@ export async function getCommunityUnread(): Promise<number> {
   return Number(data?.unread ?? 0);
 }
 
-export async function getCommunityFeed(teacherId: number, audience: CommunityAudience, before?: number | null, filter: CommunityFilter = 'all'): Promise<CommunityFeedPage> {
-  const { data } = await client.get(`/community/${teacherId}/${audience}/posts`, { params: { ...(before ? { before } : {}), ...(filter !== 'all' ? { filter } : {}) } });
+export async function getCommunityFeed(audience: CommunityAudience, before?: number | null, filter: CommunityFilter = 'all'): Promise<CommunityFeedPage> {
+  const { data } = await client.get(`/community/${audience}/posts`, { params: { ...(before ? { before } : {}), ...(filter !== 'all' ? { filter } : {}) } });
   return { role: data.role, posts: (data?.posts ?? []) as CommunityPost[], next_before: data?.next_before ?? null };
 }
 
-export async function markCommunitySeen(teacherId: number, audience: CommunityAudience, postId?: number): Promise<void> {
-  await client.post(`/community/${teacherId}/${audience}/seen`, postId ? { post_id: postId } : {});
+export async function markCommunitySeen(audience: CommunityAudience, postId?: number): Promise<void> {
+  await client.post(`/community/${audience}/seen`, postId ? { post_id: postId } : {});
 }
 
-export interface CreatePostInput { body: string; kind?: CommunityKind; media?: number[] }
+export interface CreatePostInput { body: string; media?: number[] }
 
-export async function createCommunityPost(teacherId: number, audience: CommunityAudience, input: CreatePostInput): Promise<CommunityPost> {
-  const { data } = await client.post(`/community/${teacherId}/${audience}/posts`, input);
+export async function createCommunityPost(audience: CommunityAudience, input: CreatePostInput): Promise<CommunityPost> {
+  const { data } = await client.post(`/community/${audience}/posts`, input);
   return data.post as CommunityPost;
 }
 
@@ -165,14 +130,9 @@ export async function editCommunityPost(postId: number, body: string): Promise<C
   return data.post as CommunityPost;
 }
 
-/** The author withdraws; a moderator hides (with a note the author reads). */
-export async function deleteCommunityPost(postId: number, note?: string): Promise<void> {
-  await client.delete(`/community/posts/${postId}`, { data: note ? { note } : {} });
-}
-
-export async function moderateCommunityPost(postId: number, action: PostModeration, note?: string): Promise<CommunityPost> {
-  const { data } = await client.post(`/community/posts/${postId}/moderate`, { action, ...(note ? { note } : {}) });
-  return data.post as CommunityPost;
+/** The author withdraws their own post. */
+export async function deleteCommunityPost(postId: number): Promise<void> {
+  await client.delete(`/community/posts/${postId}`);
 }
 
 export async function commentOnCommunityPost(postId: number, body: string): Promise<{ comment: CommunityComment; comments_count: number }> {
@@ -180,13 +140,8 @@ export async function commentOnCommunityPost(postId: number, body: string): Prom
   return { comment: data.comment as CommunityComment, comments_count: Number(data?.comments_count ?? 0) };
 }
 
-export async function deleteCommunityComment(commentId: number, note?: string): Promise<void> {
-  await client.delete(`/community/comments/${commentId}`, { data: note ? { note } : {} });
-}
-
-export async function moderateCommunityComment(commentId: number, action: CommentModeration, note?: string): Promise<CommunityComment> {
-  const { data } = await client.post(`/community/comments/${commentId}/moderate`, { action, ...(note ? { note } : {}) });
-  return data.comment as CommunityComment;
+export async function deleteCommunityComment(commentId: number): Promise<void> {
+  await client.delete(`/community/comments/${commentId}`);
 }
 
 export interface ReactResult { reaction_counts: Partial<Record<CommunityReaction, number>>; reactions_count: number; my_reaction: CommunityReaction | null }
@@ -206,30 +161,10 @@ export async function reportCommunityComment(commentId: number, reason: string, 
   return Number(data?.report_id ?? 0);
 }
 
-export async function getCommunityQueue(teacherId: number): Promise<CommunityQueue> {
-  const { data } = await client.get(`/community/${teacherId}/queue`);
-  return data as CommunityQueue;
-}
-
-export async function resolveCommunityReport(reportId: number, action: ReportResolution, note?: string): Promise<void> {
-  await client.post(`/community/reports/${reportId}/resolve`, { action, ...(note ? { note } : {}) });
-}
-
-export async function getCommunitySettings(teacherId: number): Promise<CommunitySettings> {
-  const { data } = await client.get(`/community/${teacherId}/settings`);
-  return data.settings as CommunitySettings;
-}
-
-export async function updateCommunitySettings(teacherId: number, patch: Partial<CommunitySettings>): Promise<CommunitySettings> {
-  const { data } = await client.post(`/community/${teacherId}/settings`, patch);
-  return data.settings as CommunitySettings;
-}
-
 export interface UploadMediaInput { uri: string; name: string; mime: string }
 
-export async function uploadCommunityMedia(teacherId: number, audience: CommunityAudience, input: UploadMediaInput): Promise<CommunityMedia> {
+export async function uploadCommunityMedia(audience: CommunityAudience, input: UploadMediaInput): Promise<CommunityMedia> {
   const form = new FormData();
-  form.append('teacher_id', String(teacherId));
   form.append('audience', audience);
   form.append('file', { uri: input.uri, name: input.name, type: input.mime } as unknown as Blob);
   const { data } = await client.post('/community/media', form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 3 * 60 * 1000 });

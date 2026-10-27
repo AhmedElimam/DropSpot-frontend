@@ -15,9 +15,9 @@ const REACTIONS: CommunityReaction[] = ['like', 'love', 'clap', 'idea'];
 export const CARD_SIDE = 10;
 const PAD = 14;
 
-/** The role chip beside a name: the teacher and their assistant stand out; a member is just a name. */
+/** The role chip beside a name: the platform's own team stands out; a member is just a name. */
 export function roleLabel(role: CommunityRole, t: (k: string) => string): string | null {
-  return role === 'teacher' ? t('community_space.role_teacher') : role === 'assistant' ? t('community_space.role_assistant') : null;
+  return role === 'staff' ? t('community_space.role_staff') : null;
 }
 
 /**
@@ -26,13 +26,13 @@ export function roleLabel(role: CommunityRole, t: (k: string) => string): string
  * line (who reacted how, how many comments); then two equal actions — a reaction and a comment —
  * with the long-press picker; and the newest comment as a preview under it all.
  *
- * The author's own held or rejected post carries a status strip saying why; a moderator sees a
- * gold «للمراجعة» on a flagged one. memo + stable callbacks: a poll that returns the same rows
+ * The author's own held or rejected post carries a status strip saying why. memo + stable callbacks: a poll that returns the same rows
  * re-renders nothing. No entering animation (performance guardrails: list rows stay still).
  */
-export const PostCard = memo(function PostCard({ post, role, headers, onOpen, onReact, onMore, onOpenImage, expanded = false }: {
+export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact, onMore, onOpenImage, expanded = false }: {
   post: CommunityPost;
-  role: CommunityRole;
+  /** Kept for the callers; nothing on a card depends on the reader now that nobody moderates from the app. */
+  role?: CommunityRole;
   headers: Record<string, string> | null;
   onOpen?: (id: number) => void;
   onReact: (id: number, kind: CommunityReaction) => void;
@@ -46,7 +46,6 @@ export const PostCard = memo(function PostCard({ post, role, headers, onOpen, on
   const [showAll, setShowAll] = useState(expanded);
   const [picker, setPicker] = useState(false);
   const announcement = post.kind === 'announcement';
-  const moderator = role === 'teacher' || role === 'assistant';
   const chip = roleLabel(post.author.role, t);
   const status = post.status !== 'published' ? post.status : null;
   const cardWidth = width - CARD_SIDE * 2;
@@ -83,11 +82,6 @@ export const PostCard = memo(function PostCard({ post, role, headers, onOpen, on
             {post.edited_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>· {t('community_space.edited')}</Text> : null}
           </View>
         </View>
-        {post.flagged && moderator ? (
-          <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.full, backgroundColor: colors.warningLight, borderWidth: 1, borderColor: colors.warning }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.warningText }}>{t('community_space.flagged')}</Text>
-          </View>
-        ) : null}
         <TouchableOpacity onPress={() => onMore(post)} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('community_space.more')} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="more" size={20} color={colors.textSecondary} />
         </TouchableOpacity>

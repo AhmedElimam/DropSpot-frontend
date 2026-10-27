@@ -2,11 +2,9 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import {
   commentOnCommunityPost, createCommunityPost, deleteCommunityComment, deleteCommunityPost, editCommunityPost, getCommunityFeed,
-  getCommunityPost, getCommunityQueue, getCommunitySettings, getCommunitySpaces, getCommunityUnread, moderateCommunityComment,
-  moderateCommunityPost, reactToCommunityPost, reportCommunityComment, reportCommunityPost, resolveCommunityReport, updateCommunitySettings,
+  getCommunityPost, getCommunitySpaces, getCommunityUnread, reactToCommunityPost, reportCommunityComment, reportCommunityPost,
   uploadCommunityMedia,
-  type CommentModeration, type CommunityAudience, type CommunityFilter, type CommunityPost, type CommunityReaction, type CommunitySettings,
-  type CreatePostInput, type PostModeration, type ReportResolution, type UploadMediaInput,
+  type CommunityAudience, type CommunityFilter, type CommunityPost, type CommunityReaction, type CreatePostInput, type UploadMediaInput,
 } from '@/api/community';
 
 export const COMMUNITY_FLAG = 'community';
@@ -25,7 +23,7 @@ const retry = (count: number, err: unknown) => {
   return !(status && status >= 400 && status < 500) && count < 2;
 };
 
-/** The spaces this person reads (one per teacher per audience) with unread / held counts. */
+/** The communities this person reads (one, or both for a teacher) with unread counts. */
 export function useCommunitySpaces(enabled = true) {
   const on = useCommunityEnabled();
   return useQuery({
@@ -37,7 +35,7 @@ export function useCommunitySpaces(enabled = true) {
   });
 }
 
-/** The tab badge: unread published posts across every space. Polls only while its screen is in front. */
+/** The tab badge: unread published posts across what this person reads. Polls only while its screen is in front. */
 export function useCommunityUnread(enabled = true, onScreen = false) {
   const on = useCommunityEnabled();
   return useQuery({
@@ -51,16 +49,16 @@ export function useCommunityUnread(enabled = true, onScreen = false) {
   });
 }
 
-/** One space's feed, newest first, a page at a time. */
-export function useCommunityFeed(teacherId: number | null, audience: CommunityAudience, filter: CommunityFilter = 'all', enabled = true) {
+/** One community's feed, newest first, a page at a time. */
+export function useCommunityFeed(audience: CommunityAudience, filter: CommunityFilter = 'all', enabled = true) {
   const on = useCommunityEnabled();
   return useInfiniteQuery({
-    queryKey: [...KEY, 'feed', teacherId, audience, filter],
-    queryFn: ({ pageParam }) => getCommunityFeed(teacherId as number, audience, pageParam ?? null, filter),
+    queryKey: [...KEY, 'feed', audience, filter],
+    queryFn: ({ pageParam }) => getCommunityFeed(audience, pageParam ?? null, filter),
     initialPageParam: null as number | null,
     retry,
     getNextPageParam: (last) => last.next_before,
-    enabled: on && enabled && !!teacherId,
+    enabled: on && enabled,
     staleTime: 15_000,
   });
 }
@@ -76,36 +74,14 @@ export function useCommunityPost(postId: number, enabled = true) {
   });
 }
 
-export function useCommunityQueue(teacherId: number | null, enabled = true) {
-  const on = useCommunityEnabled();
-  return useQuery({
-    queryKey: [...KEY, 'queue', teacherId],
-    queryFn: () => getCommunityQueue(teacherId as number),
-    retry,
-    enabled: on && enabled && !!teacherId,
-    staleTime: 15_000,
-  });
-}
-
-export function useCommunitySettings(teacherId: number | null, enabled = true) {
-  const on = useCommunityEnabled();
-  return useQuery({
-    queryKey: [...KEY, 'settings', teacherId],
-    queryFn: () => getCommunitySettings(teacherId as number),
-    retry,
-    enabled: on && enabled && !!teacherId,
-    staleTime: 60_000,
-  });
-}
-
 function useInvalidate() {
   const qc = useQueryClient();
   return () => qc.invalidateQueries({ queryKey: KEY });
 }
 
-export function useCreateCommunityPost(teacherId: number, audience: CommunityAudience) {
+export function useCreateCommunityPost(audience: CommunityAudience) {
   const invalidate = useInvalidate();
-  return useMutation({ mutationFn: (input: CreatePostInput) => createCommunityPost(teacherId, audience, input), onSuccess: invalidate });
+  return useMutation({ mutationFn: (input: CreatePostInput) => createCommunityPost(audience, input), onSuccess: invalidate });
 }
 
 export function useEditCommunityPost() {
@@ -115,12 +91,7 @@ export function useEditCommunityPost() {
 
 export function useDeleteCommunityPost() {
   const invalidate = useInvalidate();
-  return useMutation({ mutationFn: ({ postId, note }: { postId: number; note?: string }) => deleteCommunityPost(postId, note), onSuccess: invalidate });
-}
-
-export function useModerateCommunityPost() {
-  const invalidate = useInvalidate();
-  return useMutation({ mutationFn: ({ postId, action, note }: { postId: number; action: PostModeration; note?: string }) => moderateCommunityPost(postId, action, note), onSuccess: invalidate });
+  return useMutation({ mutationFn: ({ postId }: { postId: number }) => deleteCommunityPost(postId), onSuccess: invalidate });
 }
 
 export function useCommentOnCommunityPost(postId: number) {
@@ -130,12 +101,7 @@ export function useCommentOnCommunityPost(postId: number) {
 
 export function useDeleteCommunityComment() {
   const invalidate = useInvalidate();
-  return useMutation({ mutationFn: ({ commentId, note }: { commentId: number; note?: string }) => deleteCommunityComment(commentId, note), onSuccess: invalidate });
-}
-
-export function useModerateCommunityComment() {
-  const invalidate = useInvalidate();
-  return useMutation({ mutationFn: ({ commentId, action, note }: { commentId: number; action: CommentModeration; note?: string }) => moderateCommunityComment(commentId, action, note), onSuccess: invalidate });
+  return useMutation({ mutationFn: ({ commentId }: { commentId: number }) => deleteCommunityComment(commentId), onSuccess: invalidate });
 }
 
 /**
@@ -168,16 +134,6 @@ export function useReportCommunityComment() {
   return useMutation({ mutationFn: ({ commentId, reason, note }: { commentId: number; reason: string; note?: string }) => reportCommunityComment(commentId, reason, note) });
 }
 
-export function useResolveCommunityReport() {
-  const invalidate = useInvalidate();
-  return useMutation({ mutationFn: ({ reportId, action, note }: { reportId: number; action: ReportResolution; note?: string }) => resolveCommunityReport(reportId, action, note), onSuccess: invalidate });
-}
-
-export function useUpdateCommunitySettings(teacherId: number) {
-  const invalidate = useInvalidate();
-  return useMutation({ mutationFn: (patch: Partial<CommunitySettings>) => updateCommunitySettings(teacherId, patch), onSuccess: invalidate });
-}
-
-export function useUploadCommunityMedia(teacherId: number, audience: CommunityAudience) {
-  return useMutation({ mutationFn: (input: UploadMediaInput) => uploadCommunityMedia(teacherId, audience, input) });
+export function useUploadCommunityMedia(audience: CommunityAudience) {
+  return useMutation({ mutationFn: (input: UploadMediaInput) => uploadCommunityMedia(audience, input) });
 }

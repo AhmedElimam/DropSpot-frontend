@@ -12,23 +12,19 @@ import { SheetModal } from '@/components/ui/SheetModal';
 import { useAuthStore } from '@/stores/authStore';
 import { useCreateCommunityPost, useUploadCommunityMedia } from '@/hooks/useCommunity';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import type { CommunityAudience, CommunityKind, CommunityLimits, CommunityPost, CommunityRole, CommunitySpace } from '@/api/community';
+import type { CommunityAudience, CommunityLimits, CommunityPost } from '@/api/community';
 
 type Picked = { uri: string; name: string; mime: string; width?: number; height?: number };
 
 /**
  * «إنشاء منشور», the way a social app opens it: your face and name with where it goes, a big
  * «بم تفكر؟», the pictures you picked as a strip, and the photo and camera chips along the
- * bottom. The teacher chooses between a post and an announcement (pinned, pushed to the
- * whole space). Pictures are uploaded first, then claimed by the post: a failed upload never
- * leaves a half post. The server's answer says what happened (published / held / rejected).
+ * bottom. Pictures are uploaded first, then claimed by the post: a failed upload never leaves
+ * a half post. The server's answer says what happened (published / held / rejected).
  */
-export function ComposePostSheet({ visible, teacherId, audience, role, space, limits, onClose, onCreated }: {
+export function ComposePostSheet({ visible, audience, limits, onClose, onCreated }: {
   visible: boolean;
-  teacherId: number;
   audience: CommunityAudience;
-  role: CommunityRole;
-  space: CommunitySpace;
   limits: CommunityLimits | undefined;
   onClose: () => void;
   onCreated: (post: CommunityPost) => void;
@@ -37,19 +33,17 @@ export function ComposePostSheet({ visible, teacherId, audience, role, space, li
   const me = useAuthStore((s) => s.user);
   const meRole = useAuthStore((s) => s.role);
   const [body, setBody] = useState('');
-  const [kind, setKind] = useState<CommunityKind>('post');
   const [pictures, setPictures] = useState<Picked[]>([]);
   const [uploading, setUploading] = useState(false);
-  const create = useCreateCommunityPost(teacherId, audience);
-  const upload = useUploadCommunityMedia(teacherId, audience);
+  const create = useCreateCommunityPost(audience);
+  const upload = useUploadCommunityMedia(audience);
   const max = limits?.images_per_post ?? 4;
   const bodyMax = limits?.body_max_chars ?? 4000;
   const busy = create.isPending || uploading;
-  const teacher = role === 'teacher';
   const mySeed = meRole === 'student' && me?.student_id ? avatarSeed.student(me.student_id) : avatarSeed.user(me?.id);
   const firstName = (me?.name ?? '').split(' ')[0];
 
-  useEffect(() => { if (visible) { setBody(''); setKind('post'); setPictures([]); } }, [visible]);
+  useEffect(() => { if (visible) { setBody(''); setPictures([]); } }, [visible]);
 
   const pick = async (camera: boolean) => {
     try {
@@ -75,7 +69,7 @@ export function ComposePostSheet({ visible, teacherId, audience, role, space, li
       const ids: number[] = [];
       for (const p of pictures) ids.push((await upload.mutateAsync(p)).id);
       setUploading(false);
-      const post = await create.mutateAsync({ body: body.trim(), kind: teacher ? kind : 'post', media: ids });
+      const post = await create.mutateAsync({ body: body.trim(), media: ids });
       onCreated(post);
     } catch (e) {
       setUploading(false);
@@ -84,7 +78,7 @@ export function ComposePostSheet({ visible, teacherId, audience, role, space, li
   };
 
   const canPublish = !busy && (body.trim().length > 0 || pictures.length > 0) && body.length <= bodyMax;
-  const where = t(audience === 'parents' ? 'community_space.space_parents_of' : 'community_space.space_students_of', { name: space.teacher_name });
+  const where = t(audience === 'parents' ? 'community_space.title_parents' : 'community_space.title_students');
 
   return (
     <SheetModal visible={visible} onClose={() => { if (!busy) onClose(); }} avoidKeyboard>
@@ -110,18 +104,6 @@ export function ComposePostSheet({ visible, teacherId, audience, role, space, li
           </View>
         </View>
       </View>
-
-      {teacher ? (
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
-          {(['post', 'announcement'] as CommunityKind[]).map((k) => (
-            <TouchableOpacity key={k} onPress={() => setKind(k)} activeOpacity={0.8} accessibilityRole="radio" accessibilityState={{ checked: kind === k }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: kind === k ? colors.brandTint : colors.surfaceSunken, borderWidth: 1, borderColor: kind === k ? colors.brand : 'transparent' }}>
-              <Icon name={k === 'post' ? 'pencil' : 'pin'} size={14} color={kind === k ? colors.brand : colors.textSecondary} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: kind === k ? colors.brand : colors.textSecondary }}>{t(k === 'post' ? 'community_space.kind_post' : 'community_space.kind_announcement')}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      ) : null}
 
       <TextInput
         value={body}
@@ -162,12 +144,10 @@ export function ComposePostSheet({ visible, teacherId, audience, role, space, li
         <View style={{ flex: 1 }} />
         <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: body.length > bodyMax * 0.9 ? colors.danger : colors.textTertiary }}>{body.length}/{bodyMax}</Text>
       </View>
-      {!teacher && role !== 'assistant' ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
-          <Icon name="shield" size={13} color={colors.textTertiary} outline />
-          <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: colors.textTertiary }}>{t('community_space.screen_note')}</Text>
-        </View>
-      ) : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
+        <Icon name="shield" size={13} color={colors.textTertiary} outline />
+        <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 17, color: colors.textTertiary }}>{t('community_space.screen_note')}</Text>
+      </View>
     </SheetModal>
   );
 }

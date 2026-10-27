@@ -50,11 +50,9 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
   const course = id(data, 'course_id');
 
   if (ADMIN_TICKET_TYPES.has(type)) return '/(teacher)/resolution';
-  // «مجتمعنا»: something held or reported opens the queue; anything else opens the post.
+  // «مجتمعنا»: the post, else the conversations hub (the teacher reads; ops moderate elsewhere).
   if (type.startsWith('community_')) {
     const post = id(data, 'post_id');
-    const teacher = id(data, 'teacher_id');
-    if (type === 'community_review' || type === 'community_report') return teacher ? `/(teacher)/conversations/community/queue?teacher=${teacher}` : '/(teacher)/conversations';
     return post ? `/(teacher)/conversations/community/${post}` : '/(teacher)/conversations';
   }
   // Threads (a timer ran out, a report, a new answer) open the thread; chat opens the room.

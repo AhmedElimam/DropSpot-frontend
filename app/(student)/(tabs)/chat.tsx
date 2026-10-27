@@ -31,8 +31,8 @@ const SEGMENTS = HUB_SEGMENTS;
 /**
  * The student's centre tab. Up to three surfaces, one tab (the bar has no sixth slot):
  *
- *  - **مجتمعنا** — the teacher's community: posts, pictures, reactions, comments, every member
- *    post through the moderation screen (founder 2026-10-28);
+ *  - **مجتمعنا** — the open community of every student on the platform: posts, pictures,
+ *    reactions, comments, every post through the moderation screen (founder 2026-10-28);
  *  - **الدردشة** — one room per enrolled course;
  *  - **حكاوي** — the teacher's grade-wide questions.
  *
@@ -117,6 +117,7 @@ function StudentConversations() {
           <Segments
             value={segment}
             onChange={setSegment}
+            scroll
             items={hubSegmentItems(enabled, { community: t('community_space.tab'), chat: t('chat.tab_chat'), threads: t('threads.tab') }, { community: communityUnread ?? 0, chat: chatUnread, threads: unreadThreads ?? 0 })}
           />
         </View>

@@ -9,7 +9,7 @@ import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { CommunityAvatar } from './CommunityAvatar';
-import { ReportSheet, TextSheet } from '@/components/threads/ThreadSheets';
+import { ReportSheet } from '@/components/threads/ThreadSheets';
 import { useMediaHeaders } from '@/components/threads/mediaHeaders';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { useAuthStore } from '@/stores/authStore';
@@ -17,17 +17,18 @@ import { ago } from '@/components/threads/format';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
-  useCommentOnCommunityPost, useCommunityPost, useCommunitySpaces, useDeleteCommunityComment, useDeleteCommunityPost, useModerateCommunityComment,
-  useModerateCommunityPost, useReactToCommunityPost, useReportCommunityComment, useReportCommunityPost,
+  useCommentOnCommunityPost, useCommunityPost, useCommunitySpaces, useDeleteCommunityComment, useDeleteCommunityPost,
+  useReactToCommunityPost, useReportCommunityComment, useReportCommunityPost,
 } from '@/hooks/useCommunity';
-import type { CommunityComment, CommunityPost, CommunityReaction, CommunityRole } from '@/api/community';
+import { canWrite, type CommunityComment, type CommunityPost, type CommunityReaction, type CommunityRole } from '@/api/community';
 import { PostCard, roleLabel, CARD_SIDE } from './PostCard';
 import { arDigits } from '@/components/threads/format';
 
 /**
  * One post, one screen, every role: the post in full on top, the comments under it, and a
- * composer pinned to the bottom while comments are open. What a row can do hangs off the
- * role the server returned — the client never guesses.
+ * composer pinned to the bottom while comments are open and the reader is a member (a
+ * teacher reads, reacts and reports). What a row can do hangs off the role the server
+ * returned — the client never guesses.
  */
 export function CommunityPostScreen({ postId }: { postId: number }) {
   const { t } = useTranslation();
@@ -41,13 +42,11 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const spaces = useCommunitySpaces();
   const role: CommunityRole = data?.role ?? 'student';
-  const moderator = role === 'teacher' || role === 'assistant';
-  const space = useMemo(() => (spaces.data?.spaces ?? []).find((s) => s.teacher_id === data?.post.teacher_id && s.audience === data?.post.audience), [spaces.data?.spaces, data?.post.teacher_id, data?.post.audience]);
-  const commentsOpen = !!data && data.post.status === 'published' && (moderator || (space?.comments_on ?? true));
+  const writer = canWrite(role);
+  const space = useMemo(() => (spaces.data?.spaces ?? []).find((s) => s.audience === data?.post.audience), [spaces.data?.spaces, data?.post.audience]);
+  const commentsOpen = !!data && data.post.status === 'published' && writer && (space?.comments_on ?? true);
 
   const react = useReactToCommunityPost();
-  const moderatePost = useModerateCommunityPost();
-  const moderateComment = useModerateCommunityComment();
   const removePost = useDeleteCommunityPost();
   const removeComment = useDeleteCommunityComment();
   const reportPost = useReportCommunityPost();
@@ -55,41 +54,27 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
   const comment = useCommentOnCommunityPost(postId);
   const [text, setText] = useState('');
   const [reportFor, setReportFor] = useState<{ kind: 'post' | 'comment'; id: number } | null>(null);
-  const [noteFor, setNoteFor] = useState<{ kind: 'post' | 'comment'; id: number; action: 'reject' | 'hide' } | null>(null);
   const run = (fn: () => Promise<unknown>) => fn().catch((e) => Alert.alert('', getFriendlyErrorMessage(e)));
 
   const onReact = useCallback((id: number, kind: CommunityReaction) => { react.mutate({ postId: id, kind }, { onError: (e) => Alert.alert('', getFriendlyErrorMessage(e)) }); }, [react]);
 
   const onMorePost = useCallback((post: CommunityPost) => {
     const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
-    if (moderator && post.status === 'held') {
-      buttons.push({ text: t('community_space.approve'), onPress: () => run(() => moderatePost.mutateAsync({ postId: post.id, action: 'approve' })) });
-      buttons.push({ text: t('community_space.reject'), style: 'destructive', onPress: () => setNoteFor({ kind: 'post', id: post.id, action: 'reject' }) });
-    }
-    if (moderator && post.status === 'published') {
-      if (role === 'teacher') buttons.push({ text: t(post.pinned ? 'community_space.unpin' : 'community_space.pin'), onPress: () => run(() => moderatePost.mutateAsync({ postId: post.id, action: post.pinned ? 'unpin' : 'pin' })) });
-      if (!post.mine) buttons.push({ text: t('community_space.hide'), style: 'destructive', onPress: () => setNoteFor({ kind: 'post', id: post.id, action: 'hide' }) });
-    }
     if (post.mine && post.status !== 'hidden') buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => Alert.alert(t('community_space.withdraw'), t('community_space.withdraw_confirm'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => removePost.mutateAsync({ postId: post.id })) }]) });
-    if (!post.mine && !moderator && post.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => setReportFor({ kind: 'post', id: post.id }) });
+    if (!post.mine && post.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => setReportFor({ kind: 'post', id: post.id }) });
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });
     Alert.alert(post.author.name, undefined, buttons);
-  }, [moderator, role, t, moderatePost, removePost]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [t, removePost]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onMoreComment = useCallback((c: CommunityComment) => {
     const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
-    if (moderator && c.status === 'held') {
-      buttons.push({ text: t('community_space.approve'), onPress: () => run(() => moderateComment.mutateAsync({ commentId: c.id, action: 'approve' })) });
-      buttons.push({ text: t('community_space.reject'), style: 'destructive', onPress: () => setNoteFor({ kind: 'comment', id: c.id, action: 'reject' }) });
-    }
-    if (moderator && c.status === 'published' && !c.mine) buttons.push({ text: t('community_space.hide'), style: 'destructive', onPress: () => setNoteFor({ kind: 'comment', id: c.id, action: 'hide' }) });
     if (c.mine && c.status !== 'hidden') buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => removeComment.mutateAsync({ commentId: c.id })) });
-    if (!c.mine && !moderator && c.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => setReportFor({ kind: 'comment', id: c.id }) });
+    if (!c.mine && c.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => setReportFor({ kind: 'comment', id: c.id }) });
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });
     Alert.alert(c.author.name, undefined, buttons);
-  }, [moderator, t, moderateComment, removeComment]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [t, removeComment]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = () => {
     const body = text.trim();
@@ -132,7 +117,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
       <FlatList
         data={data?.comments ?? []}
         keyExtractor={(c) => String(c.id)}
-        renderItem={({ item }) => <CommentRow comment={item} moderator={moderator} onMore={onMoreComment} />}
+        renderItem={({ item }) => <CommentRow comment={item} onMore={onMoreComment} />}
         ListHeaderComponent={header}
         ListEmptyComponent={isLoading ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.xl4 }} /> : null}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
@@ -162,7 +147,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
         </View>
       ) : data && data.post.status === 'published' ? (
         <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md, paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, textAlign: 'center' }}>{t('community_space.comments_off')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, textAlign: 'center' }}>{t(writer ? 'community_space.comments_off' : 'community_space.reader_note')}</Text>
         </View>
       ) : null}
       <ReportSheet
@@ -177,26 +162,11 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
           else reportComment.mutate({ commentId: reportFor.id, reason, note: note || undefined }, done);
         }}
       />
-      <TextSheet
-        visible={noteFor !== null}
-        title={t(noteFor?.action === 'reject' ? 'community_space.reject' : 'community_space.hide')}
-        subtitle={t('community_space.note_sub')}
-        placeholder={t('community_space.note_placeholder')}
-        confirm={t(noteFor?.action === 'reject' ? 'community_space.reject' : 'community_space.hide')}
-        pending={moderatePost.isPending || moderateComment.isPending}
-        onClose={() => setNoteFor(null)}
-        onSubmit={(note) => {
-          if (!noteFor) return;
-          const done = { onSuccess: () => setNoteFor(null), onError: (e: unknown) => Alert.alert('', getFriendlyErrorMessage(e)) };
-          if (noteFor.kind === 'post') moderatePost.mutate({ postId: noteFor.id, action: noteFor.action, note: note || undefined }, done);
-          else moderateComment.mutate({ commentId: noteFor.id, action: noteFor.action, note: note || undefined }, done);
-        }}
-      />
     </KeyboardAvoidingView>
   );
 }
 
-const CommentRow = memo(function CommentRow({ comment: c, moderator, onMore }: { comment: CommunityComment; moderator: boolean; onMore: (c: CommunityComment) => void }) {
+const CommentRow = memo(function CommentRow({ comment: c, onMore }: { comment: CommunityComment; onMore: (c: CommunityComment) => void }) {
   const { t } = useTranslation();
   const chip = roleLabel(c.author.role, t);
   const status = c.status !== 'published' ? c.status : null;
@@ -208,7 +178,6 @@ const CommentRow = memo(function CommentRow({ comment: c, moderator, onMore }: {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{c.author.name}</Text>
             {chip ? <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.brand }}>{chip}</Text> : null}
-            {c.flagged && moderator ? <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.warningText }}>{t('community_space.flagged')}</Text> : null}
           </View>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 22, color: colors.textPrimary }}>{c.body}</Text>
           {status ? (

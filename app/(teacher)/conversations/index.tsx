@@ -20,7 +20,6 @@ import { Segments } from '@/components/threads/Segments';
 import { enabledSegments, hubSegmentItems, type HubSegment } from '@/components/community/hubSegments';
 import { arDigits, filterCounts } from '@/components/threads/format';
 import { CommunityFeed } from '@/components/community/CommunityFeed';
-import { CommunitySettingsSheet } from '@/components/community/CommunitySettingsSheet';
 import { PageHero, type HeroAction } from '@/components/ui/PageHero';
 import { Surface } from '@/ui/surfaces';
 import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
@@ -33,8 +32,8 @@ type Segment = HubSegment;
 /**
  * The teacher's conversations with their STUDENTS and their families — up to three segments:
  *
- *  - **مجتمعنا** — the two spaces the teacher governs (students, parents): posts, the queue of
- *    what the screen held, the settings (founder 2026-10-28);
+ *  - **مجتمعنا** — the platform's two open communities (students, parents), which the teacher
+ *    reads, reacts to and reports in, and never posts in (founder 2026-10-28);
  *  - **الدردشة** — the course group rooms they moderate;
  *  - **حكاوي** — the threads (a question to a grade, answers, votes, a timer).
  *
@@ -75,9 +74,7 @@ function ConversationsHub() {
   const [composeKind, setComposeKind] = useState<'question' | 'note'>('question');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
-  const [communitySettingsOpen, setCommunitySettingsOpen] = useState(false);
   const [audience, setAudience] = useState<CommunityAudience>('students');
-  const [space, setSpace] = useState<CommunitySpace | undefined>(undefined);
 
   const { data: channels, refetch: refetchChat } = useChatChannels(chatEnabled);
   const { data: threadsFeed, refetch: refetchThreads } = useThreadsFeed(threadsEnabled);
@@ -90,32 +87,27 @@ function ConversationsHub() {
   const showCommunity = tab === 'community';
   const showChat = tab === 'chat';
   const threadsBadge = (threadsUnread ?? 0) + (threadsFeed?.open_reports ?? 0);
-  const communityHeld = (spacesQ.data?.spaces ?? []).reduce((n, s) => n + (s.held || 0), 0);
   const communityUnread = (spacesQ.data?.spaces ?? []).reduce((n, s) => n + (s.unread || 0), 0);
   const openThread = (id: number) => router.push(`/(teacher)/conversations/threads/${id}` as Href);
   const counts = useMemo(() => filterCounts(threadsFeed?.threads ?? []), [threadsFeed?.threads]);
   const isThreadsTeacher = !!threadsFeed?.settings;
   const isThreadsStaff = isThreadsTeacher || threadsFeed?.open_reports !== undefined;
   const flag = showCommunity ? COMMUNITY_FLAG : showThreads ? THREADS_FLAG : CHAT_FLAG;
-  const teacherId = space?.teacher_id ?? null;
   const spaceOf = (a: CommunityAudience) => (spacesQ.data?.spaces ?? []).find((s) => s.audience === a);
 
-  // The hero carries each segment's tools: حكاوي's reports queue and settings; the community's queue and settings.
+  // The hero carries حكاوي's tools (reports queue, settings). The community has none here: ops moderate it.
   const heroActions: HeroAction[] = showThreads ? [
     ...(isThreadsStaff ? [{ icon: 'flag' as const, onPress: () => setReportsOpen(true), accessibilityLabel: t('threads.reports'), badge: threadsFeed?.open_reports ?? 0 }] : []),
     ...(isThreadsTeacher ? [{ icon: 'settings' as const, onPress: () => setSettingsOpen(true), accessibilityLabel: t('threads.settings') }] : []),
-  ] : showCommunity && teacherId ? [
-    { icon: 'flag' as const, onPress: () => router.push(`/(teacher)/conversations/community/queue?teacher=${teacherId}` as Href), accessibilityLabel: t('community_space.queue'), badge: communityHeld },
-    ...(space?.role === 'teacher' ? [{ icon: 'settings' as const, onPress: () => setCommunitySettingsOpen(true), accessibilityLabel: t('community_space.settings') }] : []),
   ] : [];
 
   const head = (
     <>
       <PageHero
         onBack
-        title={showCommunity ? t('community_space.title_students') : showThreads ? t('threads.title') : t('chat.conversations')}
+        title={showCommunity ? t('community_space.tab') : showThreads ? t('threads.title') : t('chat.conversations')}
         subtitle={showCommunity
-          ? undefined
+          ? t('community_space.subtitle_teacher')
           : showThreads
             ? t('threads.subtitle_teacher')
             : showChat
@@ -134,12 +126,13 @@ function ConversationsHub() {
           <Segments
             value={tab}
             onChange={setTab}
-            items={hubSegmentItems(enabled, { community: t('community_space.tab'), chat: t('chat.tab_chat'), threads: t('threads.tab') }, { community: communityHeld + communityUnread, chat: chatUnread, threads: threadsBadge })}
+            scroll
+            items={hubSegmentItems(enabled, { community: t('community_space.tab'), chat: t('chat.tab_chat'), threads: t('threads.tab') }, { community: communityUnread, chat: chatUnread, threads: threadsBadge })}
           />
         </View>
       ) : null}
       {showCommunity ? (
-        // The teacher governs TWO spaces: which one is in front.
+        // The teacher reads TWO communities: which one is in front.
         <View style={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: many ? 0 : -spacing.xl, marginBottom: spacing.md }}>
           <AudienceChip audience="students" on={audience === 'students'} space={spaceOf('students')} onPress={() => setAudience('students')} />
           <AudienceChip audience="parents" on={audience === 'parents'} space={spaceOf('parents')} onPress={() => setAudience('parents')} />
@@ -157,11 +150,9 @@ function ConversationsHub() {
           header={head}
           footer={<BetaLine feature={COMMUNITY_FLAG} />}
           onOpen={(id) => router.push(`/(teacher)/conversations/community/${id}` as Href)}
-          onSpaceChange={setSpace}
           extraRefetch={spacesQ.refetch}
           contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
         />
-        {teacherId ? <CommunitySettingsSheet visible={communitySettingsOpen} teacherId={teacherId} onClose={() => setCommunitySettingsOpen(false)} /> : null}
       </View>
       </Surface>
     );
@@ -217,10 +208,10 @@ function ConversationsHub() {
   );
 }
 
-/** The teacher governs TWO spaces: which one is in front. */
+/** The teacher reads TWO communities: which one is in front, with the other's unread. */
 function AudienceChip({ audience, on, space, onPress }: { audience: CommunityAudience; on: boolean; space: CommunitySpace | undefined; onPress: () => void }) {
   const { t } = useTranslation();
-  const n = space ? space.held + space.unread : 0;
+  const n = space ? space.unread : 0;
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8} accessibilityRole="tab" accessibilityState={{ selected: on }}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border }}>
