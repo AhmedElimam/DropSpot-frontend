@@ -41,6 +41,16 @@ export function notificationLook(type: string): { icon: IconName; tint: string }
 const LOOK = (): Record<string, { icon: IconName; tint: string }> => ({
   // A chat message (the in-app toast; chat creates no feed row of its own).
   chat_message: { icon: 'chat', tint: colors.info },
+  // «مجتمعنا»
+  community_post: { icon: 'people', tint: colors.brand },
+  community_comment: { icon: 'chat', tint: colors.brand },
+  community_review: { icon: 'hourglass', tint: colors.warning },
+  community_approved: { icon: 'success', tint: colors.success },
+  community_rejected: { icon: 'warning', tint: colors.danger },
+  community_hidden: { icon: 'warning', tint: colors.danger },
+  community_report: { icon: 'flag', tint: colors.danger },
+  community_report_resolved: { icon: 'flag', tint: colors.success },
+  community_warning: { icon: 'warning', tint: colors.warning },
   attendance: { icon: 'attendance', tint: colors.success },
   absence: { icon: 'warning', tint: colors.danger },
   left_early: { icon: 'clock', tint: colors.warning },

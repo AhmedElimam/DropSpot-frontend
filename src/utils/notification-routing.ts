@@ -50,6 +50,13 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
   const course = id(data, 'course_id');
 
   if (ADMIN_TICKET_TYPES.has(type)) return '/(teacher)/resolution';
+  // «مجتمعنا»: something held or reported opens the queue; anything else opens the post.
+  if (type.startsWith('community_')) {
+    const post = id(data, 'post_id');
+    const teacher = id(data, 'teacher_id');
+    if (type === 'community_review' || type === 'community_report') return teacher ? `/(teacher)/conversations/community/queue?teacher=${teacher}` : '/(teacher)/conversations';
+    return post ? `/(teacher)/conversations/community/${post}` : '/(teacher)/conversations';
+  }
   // Threads (a timer ran out, a report, a new answer) open the thread; chat opens the room.
   if (type.startsWith('thread_')) {
     const thread = id(data, 'thread_id');
@@ -189,6 +196,11 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
     const room = chatRoom(data);
     return room ? `/(parent)/chat/${room}` : '/(parent)/(tabs)/community';
   }
+  // «مجتمعنا»: the post, else the community tab's مجتمعنا side.
+  if (type.startsWith('community_')) {
+    const post = id(data, 'post_id');
+    return post ? `/(parent)/community/${post}` : '/(parent)/(tabs)/community?segment=community';
+  }
   // حكاوي (founder 2026-10-15): a child's answer picked (`thread_child_picked`) or hidden by a
   // moderator (`thread_child_hidden`) opens that thread; without one, the community tab's حكاوي.
   if (type.startsWith('thread_')) {
@@ -263,6 +275,11 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
   if (type.startsWith('chat_')) {
     const course = id(data, 'course_id');
     return course ? `/(student)/chat/${course}` : '/(student)/(tabs)/chat';
+  }
+  // «مجتمعنا»: the post, else the tab's مجتمعنا side.
+  if (type.startsWith('community_')) {
+    const post = id(data, 'post_id');
+    return post ? `/(student)/community/${post}` : '/(student)/(tabs)/chat?segment=community';
   }
   // `thread_participation` (a parent changed the student's part) names no thread: the حكاوي side.
   if (type.startsWith('thread_')) {

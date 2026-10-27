@@ -1,0 +1,219 @@
+import { memo, useCallback, useMemo, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
+import { FlatList } from '@/components/ui/Refreshable';
+import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { fonts } from '@/theme/typography';
+import { colors, spacing, radius, nav } from '@/theme/index';
+import { Icon } from '@/components/ui/Icon';
+import { PageHero } from '@/components/ui/PageHero';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { InitialsAvatar } from '@/components/threads/Avatar';
+import { ReportSheet, TextSheet } from '@/components/threads/ThreadSheets';
+import { useMediaHeaders } from '@/components/threads/mediaHeaders';
+import { ago } from '@/components/threads/format';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { getFriendlyErrorMessage } from '@/utils/errors';
+import {
+  useCommentOnCommunityPost, useCommunityPost, useCommunitySpaces, useDeleteCommunityComment, useDeleteCommunityPost, useModerateCommunityComment,
+  useModerateCommunityPost, useReactToCommunityPost, useReportCommunityComment, useReportCommunityPost,
+} from '@/hooks/useCommunity';
+import type { CommunityComment, CommunityPost, CommunityReaction, CommunityRole } from '@/api/community';
+import { PostCard, roleLabel } from './PostCard';
+
+/**
+ * One post, one screen, every role: the post in full on top, the comments under it, and a
+ * composer pinned to the bottom while comments are open. What a row can do hangs off the
+ * role the server returned — the client never guesses.
+ */
+export function CommunityPostScreen({ postId }: { postId: number }) {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const headers = useMediaHeaders();
+  const { data, isLoading, isError, error, refetch } = useCommunityPost(postId);
+  const notFound = (error as { response?: { status?: number } } | null)?.response?.status === 404;
+  const { refreshing, onRefresh } = usePullRefresh(refetch);
+  const spaces = useCommunitySpaces();
+  const role: CommunityRole = data?.role ?? 'student';
+  const moderator = role === 'teacher' || role === 'assistant';
+  const space = useMemo(() => (spaces.data?.spaces ?? []).find((s) => s.teacher_id === data?.post.teacher_id && s.audience === data?.post.audience), [spaces.data?.spaces, data?.post.teacher_id, data?.post.audience]);
+  const commentsOpen = !!data && data.post.status === 'published' && (moderator || (space?.comments_on ?? true));
+
+  const react = useReactToCommunityPost();
+  const moderatePost = useModerateCommunityPost();
+  const moderateComment = useModerateCommunityComment();
+  const removePost = useDeleteCommunityPost();
+  const removeComment = useDeleteCommunityComment();
+  const reportPost = useReportCommunityPost();
+  const reportComment = useReportCommunityComment();
+  const comment = useCommentOnCommunityPost(postId);
+  const [text, setText] = useState('');
+  const [reportFor, setReportFor] = useState<{ kind: 'post' | 'comment'; id: number } | null>(null);
+  const [noteFor, setNoteFor] = useState<{ kind: 'post' | 'comment'; id: number; action: 'reject' | 'hide' } | null>(null);
+  const run = (fn: () => Promise<unknown>) => fn().catch((e) => Alert.alert('', getFriendlyErrorMessage(e)));
+
+  const onReact = useCallback((id: number, kind: CommunityReaction) => { react.mutate({ postId: id, kind }, { onError: (e) => Alert.alert('', getFriendlyErrorMessage(e)) }); }, [react]);
+
+  const onMorePost = useCallback((post: CommunityPost) => {
+    const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
+    if (moderator && post.status === 'held') {
+      buttons.push({ text: t('community_space.approve'), onPress: () => run(() => moderatePost.mutateAsync({ postId: post.id, action: 'approve' })) });
+      buttons.push({ text: t('community_space.reject'), style: 'destructive', onPress: () => setNoteFor({ kind: 'post', id: post.id, action: 'reject' }) });
+    }
+    if (moderator && post.status === 'published') {
+      if (role === 'teacher') buttons.push({ text: t(post.pinned ? 'community_space.unpin' : 'community_space.pin'), onPress: () => run(() => moderatePost.mutateAsync({ postId: post.id, action: post.pinned ? 'unpin' : 'pin' })) });
+      if (!post.mine) buttons.push({ text: t('community_space.hide'), style: 'destructive', onPress: () => setNoteFor({ kind: 'post', id: post.id, action: 'hide' }) });
+    }
+    if (post.mine && post.status !== 'hidden') buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => Alert.alert(t('community_space.withdraw'), t('community_space.withdraw_confirm'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => removePost.mutateAsync({ postId: post.id })) }]) });
+    if (!post.mine && !moderator && post.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => setReportFor({ kind: 'post', id: post.id }) });
+    if (!buttons.length) return;
+    buttons.push({ text: t('common.cancel'), style: 'cancel' });
+    Alert.alert(post.author.name, undefined, buttons);
+  }, [moderator, role, t, moderatePost, removePost]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onMoreComment = useCallback((c: CommunityComment) => {
+    const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
+    if (moderator && c.status === 'held') {
+      buttons.push({ text: t('community_space.approve'), onPress: () => run(() => moderateComment.mutateAsync({ commentId: c.id, action: 'approve' })) });
+      buttons.push({ text: t('community_space.reject'), style: 'destructive', onPress: () => setNoteFor({ kind: 'comment', id: c.id, action: 'reject' }) });
+    }
+    if (moderator && c.status === 'published' && !c.mine) buttons.push({ text: t('community_space.hide'), style: 'destructive', onPress: () => setNoteFor({ kind: 'comment', id: c.id, action: 'hide' }) });
+    if (c.mine && c.status !== 'hidden') buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => removeComment.mutateAsync({ commentId: c.id })) });
+    if (!c.mine && !moderator && c.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => setReportFor({ kind: 'comment', id: c.id }) });
+    if (!buttons.length) return;
+    buttons.push({ text: t('common.cancel'), style: 'cancel' });
+    Alert.alert(c.author.name, undefined, buttons);
+  }, [moderator, t, moderateComment, removeComment]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const send = () => {
+    const body = text.trim();
+    if (!body) return;
+    comment.mutate(body, {
+      onSuccess: (res) => {
+        setText('');
+        if (res.comment.status === 'held') Alert.alert(t('community_space.held_title'), res.comment.status_reason === 'awaiting_review' ? t('community_space.held_awaiting') : t('community_space.held_body', { why: res.comment.status_note ?? '' }));
+        else if (res.comment.status === 'rejected') Alert.alert(t('community_space.rejected_title'), t('community_space.rejected_body', { why: res.comment.status_note ?? '' }));
+      },
+      onError: (e) => Alert.alert('', getFriendlyErrorMessage(e)),
+    });
+  };
+
+  const header = (
+    <View>
+      <PageHero onBack compact title={t('community_space.post')} subtitle={data ? (data.post.audience === 'parents' ? t('community_space.title_parents') : t('community_space.title_students')) : undefined} />
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
+        {data ? <PostCard post={data.post} role={role} headers={headers} onReact={onReact} onMore={onMorePost} expanded /> : null}
+        {data && data.post.status === 'published' ? (
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary, marginTop: spacing.xl, marginBottom: spacing.sm }}>
+            {data.comments.length ? t('community_space.comments') : t('community_space.no_comments')}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+
+  if (isError && !data) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <PageHero onBack compact title={t('community_space.post')} />
+        {notFound ? <View style={{ padding: spacing.xl, alignItems: 'center' }}><Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>{t('community_space.post_gone')}</Text></View> : <ErrorState onRetry={() => refetch()} />}
+      </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <FlatList
+        data={data?.comments ?? []}
+        keyExtractor={(c) => String(c.id)}
+        renderItem={({ item }) => <CommentRow comment={item} moderator={moderator} onMore={onMoreComment} />}
+        ListHeaderComponent={header}
+        ListEmptyComponent={isLoading ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.xl4 }} /> : null}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        windowSize={7}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+      />
+      {commentsOpen ? (
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: insets.bottom + spacing.sm, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder={t('community_space.comment_placeholder')}
+            placeholderTextColor={colors.textTertiary}
+            multiline
+            maxLength={spaces.data?.limits?.comment_max_chars ?? 1000}
+            style={{ flex: 1, minHeight: 42, maxHeight: 120, paddingHorizontal: spacing.md, paddingVertical: 10, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, fontFamily: fonts.regular, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right' }}
+          />
+          <TouchableOpacity onPress={send} disabled={!text.trim() || comment.isPending} accessibilityRole="button" accessibilityLabel={t('community_space.send')}
+            style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: text.trim() ? colors.brand : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+            {comment.isPending ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="send" size={19} color={text.trim() ? colors.onPrimary : colors.textTertiary} />}
+          </TouchableOpacity>
+        </View>
+      ) : data && data.post.status === 'published' ? (
+        <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md, paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, textAlign: 'center' }}>{t('community_space.comments_off')}</Text>
+        </View>
+      ) : null}
+      <ReportSheet
+        visible={reportFor !== null}
+        reasons={spaces.data?.limits?.report_reasons ?? {}}
+        pending={reportPost.isPending || reportComment.isPending}
+        onClose={() => setReportFor(null)}
+        onSubmit={(reason, note) => {
+          if (!reportFor) return;
+          const done = { onSuccess: () => { setReportFor(null); Alert.alert(t('community_space.reported_title'), t('community_space.reported_body')); }, onError: (e: unknown) => Alert.alert('', getFriendlyErrorMessage(e)) };
+          if (reportFor.kind === 'post') reportPost.mutate({ postId: reportFor.id, reason, note: note || undefined }, done);
+          else reportComment.mutate({ commentId: reportFor.id, reason, note: note || undefined }, done);
+        }}
+      />
+      <TextSheet
+        visible={noteFor !== null}
+        title={t(noteFor?.action === 'reject' ? 'community_space.reject' : 'community_space.hide')}
+        subtitle={t('community_space.note_sub')}
+        placeholder={t('community_space.note_placeholder')}
+        confirm={t(noteFor?.action === 'reject' ? 'community_space.reject' : 'community_space.hide')}
+        pending={moderatePost.isPending || moderateComment.isPending}
+        onClose={() => setNoteFor(null)}
+        onSubmit={(note) => {
+          if (!noteFor) return;
+          const done = { onSuccess: () => setNoteFor(null), onError: (e: unknown) => Alert.alert('', getFriendlyErrorMessage(e)) };
+          if (noteFor.kind === 'post') moderatePost.mutate({ postId: noteFor.id, action: noteFor.action, note: note || undefined }, done);
+          else moderateComment.mutate({ commentId: noteFor.id, action: noteFor.action, note: note || undefined }, done);
+        }}
+      />
+    </KeyboardAvoidingView>
+  );
+}
+
+const CommentRow = memo(function CommentRow({ comment: c, moderator, onMore }: { comment: CommunityComment; moderator: boolean; onMore: (c: CommunityComment) => void }) {
+  const { t } = useTranslation();
+  const chip = roleLabel(c.author.role, t);
+  const status = c.status !== 'published' ? c.status : null;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm }}>
+      <InitialsAvatar id={c.author.id} name={c.author.name} size={32} />
+      <View style={{ flex: 1, backgroundColor: status ? (status === 'rejected' ? colors.dangerLight : colors.warningLight) : colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderLight, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 3 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{c.author.name}</Text>
+          {chip ? <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.brand }}>{chip}</Text> : null}
+          {c.flagged && moderator ? <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.warningText }}>{t('community_space.flagged')}</Text> : null}
+          <View style={{ flex: 1 }} />
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11, color: colors.textTertiary }}>{ago(c.created_at)}</Text>
+          <TouchableOpacity onPress={() => onMore(c)} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('community_space.more')}>
+            <Icon name="more" size={16} color={colors.textTertiary} />
+          </TouchableOpacity>
+        </View>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.textPrimary }}>{c.body}</Text>
+        {status ? (
+          <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: status === 'rejected' ? colors.dangerText : colors.warningText }}>
+            {t(status === 'rejected' ? 'community_space.status_rejected' : c.status_reason === 'awaiting_review' ? 'community_space.status_awaiting' : 'community_space.status_held')}{c.status_note ? ` — ${c.status_note}` : ''}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+});

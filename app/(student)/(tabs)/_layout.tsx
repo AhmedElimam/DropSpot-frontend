@@ -7,6 +7,7 @@ import { BrandMark } from '@/components/ui/BrandMark';
 import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useChatEnabled } from '@/hooks/useChat';
+import { useCommunityEnabled } from '@/hooks/useCommunity';
 import { useThreadsEnabled } from '@/hooks/useThreads';
 
 // The five tabs. Every other student screen lives in the stack around this navigator
@@ -46,14 +47,18 @@ export default function StudentTabsLayout() {
   // tab»); the raised centre falls back to the middle of what is left.
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
-  const tabs = TAB_ORDER.filter((n) => !hiddenSurfaces.has(`tab.student.${n}`) && (n !== 'chat' || chatEnabled || threadsEnabled));
+  // «مجتمعنا» (founder 2026-10-28) rides the same centre tab and names it when it is on.
+  const communityEnabled = useCommunityEnabled();
+  const tabs = TAB_ORDER.filter((n) => !hiddenSurfaces.has(`tab.student.${n}`) && (n !== 'chat' || chatEnabled || threadsEnabled || communityEnabled));
   const center = tabs.includes(CENTER_TAB) ? CENTER_TAB : (tabs[Math.floor(tabs.length / 2)] ?? CENTER_TAB);
   // Freezing the hidden tabs is a super-admin FLAG, off by default (react-native-screens #2971).
   const freezeTabs = useFeatureFlags().data?.freeze_hidden_tabs === true;
-  const tabLabels = chatEnabled || threadsEnabled
-    ? { ...labels, chat: chatEnabled && threadsEnabled ? 'chat.conversations' : threadsEnabled ? 'threads.tab' : 'nav.chat' }
-    : labels;
-  const tabIcons = !chatEnabled && threadsEnabled ? { ...icons, chat: 'threads' as IconName } : icons;
+  const tabLabels = communityEnabled
+    ? { ...labels, chat: 'community_space.tab' }
+    : chatEnabled || threadsEnabled
+      ? { ...labels, chat: chatEnabled && threadsEnabled ? 'chat.conversations' : threadsEnabled ? 'threads.tab' : 'nav.chat' }
+      : labels;
+  const tabIcons = communityEnabled ? { ...icons, chat: 'people' as IconName } : !chatEnabled && threadsEnabled ? { ...icons, chat: 'threads' as IconName } : icons;
   return (
     <Tabs
       // Hardware back follows visit history, so pushed detail screens (marks, swap,

@@ -9,6 +9,7 @@ import { boundedSceneLayout } from '@/navigation/boundedScenes';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useThreadsEnabled, useThreadsUnread } from '@/hooks/useThreads';
 import { useChatEnabled } from '@/hooks/useChat';
+import { useCommunityEnabled, useCommunityUnread } from '@/hooks/useCommunity';
 
 // The five tabs. Every other parent screen (a child, reports, tickets, notifications…) lives
 // in the stack around this navigator (app/(parent)/_layout.tsx), so it is pushed on top of
@@ -48,14 +49,16 @@ export default function ParentTabsLayout() {
   // «if threads isn't active, don't show the tab»); the raised centre falls back to the middle.
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
-  const tabs = TAB_ORDER.filter((n) => !hiddenSurfaces.has(`tab.parent.${n}`) && (n !== 'community' || chatEnabled || threadsEnabled));
+  const communityEnabled = useCommunityEnabled();
+  const tabs = TAB_ORDER.filter((n) => !hiddenSurfaces.has(`tab.parent.${n}`) && (n !== 'community' || chatEnabled || threadsEnabled || communityEnabled));
   const center = tabs.includes(CENTER_TAB) ? CENTER_TAB : (tabs[Math.floor(tabs.length / 2)] ?? CENTER_TAB);
   // Freezing the hidden tabs is a super-admin FLAG, off by default (react-native-screens #2971).
   const freezeTabs = useFeatureFlags().data?.freeze_hidden_tabs === true;
   // New حكاوي since the parent last looked ride on «مجتمعنا» (founder 2026-10-15) — parents get
   // no push per post, so the badge is how they hear about one. Off with the flag.
   const { data: threadsUnread } = useThreadsUnread(threadsEnabled);
-  const badges = useMemo(() => ({ community: threadsEnabled ? threadsUnread ?? 0 : 0 }), [threadsEnabled, threadsUnread]);
+  const { data: communityUnread } = useCommunityUnread(communityEnabled);
+  const badges = useMemo(() => ({ community: (threadsEnabled ? threadsUnread ?? 0 : 0) + (communityEnabled ? communityUnread ?? 0 : 0) }), [threadsEnabled, threadsUnread, communityEnabled, communityUnread]);
   return (
     <Tabs
       // Hardware back between tabs follows the visit history.

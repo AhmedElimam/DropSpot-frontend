@@ -53,6 +53,7 @@ import { useComplaints } from '@/hooks/useComplaints';
 import { PrintArrivingCard } from '@/components/print/PrintArrivingCard';
 import { useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { useThreadsEnabled, useThreadsUnread } from '@/hooks/useThreads';
+import { useCommunityEnabled, useCommunityUnread } from '@/hooks/useCommunity';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { SeasonSwitchChip } from '@/components/teacher/RevisionSwitch';
@@ -137,15 +138,17 @@ export default function TeacherHome() {
   // The conversations tile: unread chat + unread threads. The queries are gated on the flags.
   const chatOn = useChatEnabled();
   const threadsOn = useThreadsEnabled();
-  const conversationsOn = chatOn || threadsOn;
+  const communityOn = useCommunityEnabled();
+  const conversationsOn = chatOn || threadsOn || communityOn;
   const channelsQ = useChatChannels(chatOn);
   const threadsUnreadQ = useThreadsUnread(threadsOn);
-  const conversationsUnread = (channelsQ.data ?? []).reduce((n, c) => n + (c.unread || 0), 0) + (threadsUnreadQ.data ?? 0);
+  const communityUnreadQ = useCommunityUnread(communityOn);
+  const conversationsUnread = (channelsQ.data ?? []).reduce((n, c) => n + (c.unread || 0), 0) + (threadsUnreadQ.data ?? 0) + (communityUnreadQ.data ?? 0);
   // Students with consecutive unexcused absences, waiting for the teacher's decision in
   // «مركز المتابعة» (founder 2026-10-13: it belongs on Home too, with what needs you).
   const resolutionQ = useQuery({ queryKey: ['resolution-summary'], queryFn: getResolutionSummary });
   const terminationCount = resolutionQ.data?.termination_candidates ?? 0;
-  const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch, resolutionQ.refetch, refetchUnread, ...(chatOn ? [channelsQ.refetch] : []), ...(threadsOn ? [threadsUnreadQ.refetch] : []));
+  const { refreshing, onRefresh } = usePullRefresh(sessionsQ.refetch, phonesQ.refetch, cashQ.refetch, bookingQ.refetch, actionsQ.refetch, ticketsQ.refetch, complaintsQ.refetch, resolutionQ.refetch, refetchUnread, ...(chatOn ? [channelsQ.refetch] : []), ...(threadsOn ? [threadsUnreadQ.refetch] : []), ...(communityOn ? [communityUnreadQ.refetch] : []));
   const [addOpen, setAddOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   // Swipe on a session card (founder 2026-10-04): right → left cancels it (after a

@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import { View, RefreshControl } from 'react-native';
+import { View, RefreshControl, TouchableOpacity, Text } from 'react-native';
 import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
-import { colors, spacing, nav } from '@/theme/index';
+import { fonts } from '@/theme/typography';
+import { colors, spacing, radius, nav } from '@/theme/index';
 import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
+import { COMMUNITY_FLAG, useCommunityEnabled, useCommunitySpaces } from '@/hooks/useCommunity';
 import { BetaChip, BetaLine } from '@/components/ui/Beta';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,76 +17,155 @@ import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
 import { ComposeThreadSheet } from '@/components/threads/ComposeThreadSheet';
 import { ReportsSheet, SettingsSheet } from '@/components/threads/ThreadSheets';
 import { Segments } from '@/components/threads/Segments';
+import { enabledSegments, hubSegmentItems, type HubSegment } from '@/components/community/hubSegments';
 import { arDigits, filterCounts } from '@/components/threads/format';
+import { CommunityFeed } from '@/components/community/CommunityFeed';
+import { CommunitySettingsSheet } from '@/components/community/CommunitySettingsSheet';
 import { PageHero, type HeroAction } from '@/components/ui/PageHero';
 import { Surface } from '@/ui/surfaces';
 import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
+import type { CommunityAudience, CommunitySpace } from '@/api/community';
 
-const FEATURE_KEYS = ['course_chat', 'threads'] as const;
+const FEATURE_KEYS = ['community', 'course_chat', 'threads'] as const;
+
+type Segment = HubSegment;
 
 /**
- * The teacher's conversations with their STUDENTS — two segments:
+ * The teacher's conversations with their STUDENTS and their families — up to three segments:
  *
- *  - **حكاوي** — the threads (a question to a grade, answers, votes, a timer; founder
- *    2026-10-15: «call it حكاوي»);
- *  - **الدردشة** — the course group rooms they moderate.
+ *  - **مجتمعنا** — the two spaces the teacher governs (students, parents): posts, the queue of
+ *    what the screen held, the settings (founder 2026-10-28);
+ *  - **الدردشة** — the course group rooms they moderate;
+ *  - **حكاوي** — the threads (a question to a grade, answers, votes, a timer).
  *
  * They used to sit as segments inside the tickets screen (parents' messages). The founder
- * moved them out (2026-10-12): talking to a class is one of the first things a teacher
- * does, not a tab behind the parents' tickets — so this is its own screen, reached from a
- * home shortcut (with the unread count) and the top of the follow-up hub. Tickets stay
- * what they were: the parents' channel.
- *
+ * moved them out (2026-10-12): talking to a class is one of the first things a teacher does.
  * A pushed screen over the tabs, so it carries its own back.
  */
 export default function TeacherConversations() {
-  // Chat / حكاوي reached this person but an agreement is still due: bring it back here.
+  // A feature reached this person but an agreement is still due: bring it back here.
   useFeatureTermsOnFocus(FEATURE_KEYS);
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
-  // Chat alone (threads hidden, founder 2026-10-12): the shared conversations screen.
-  if (chatEnabled && !threadsEnabled) {
+  const communityEnabled = useCommunityEnabled();
+  // Chat alone (founder 2026-10-12): the shared conversations screen.
+  if (chatEnabled && !threadsEnabled && !communityEnabled) {
     return (
       <Surface id="screen.teacher.conversations" screen>
         <ChatInbox role="teacher" onBack onOpen={(room) => router.push(`/(teacher)/conversations/chat/${room}` as Href)} />
       </Surface>
     );
   }
-  return <ConversationsWithThreads />;
+  return <ConversationsHub />;
 }
 
-/** Threads and chat as two segments, while threads are on. */
-function ConversationsWithThreads() {
+/** The segments, while more than chat is on. */
+function ConversationsHub() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
-  // Chat first (founder 2026-10-15); until the teacher picks a side the default follows the flags.
-  const [picked, setTab] = useState<'threads' | 'chat' | null>(null);
-  const tab = picked ?? (chatEnabled ? 'chat' : 'threads');
+  const communityEnabled = useCommunityEnabled();
+  const enabled = useMemo(() => enabledSegments({ community: communityEnabled, chat: chatEnabled, threads: threadsEnabled }), [communityEnabled, chatEnabled, threadsEnabled]);
+  // Until the teacher picks a side the default follows the flags: the community leads, then chat.
+  const [picked, setTab] = useState<Segment | null>(null);
+  const tab: Segment = picked && enabled.includes(picked) ? picked : (enabled[0] ?? 'chat');
+  const many = enabled.length > 1;
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeKind, setComposeKind] = useState<'question' | 'note'>('question');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  const [communitySettingsOpen, setCommunitySettingsOpen] = useState(false);
+  const [audience, setAudience] = useState<CommunityAudience>('students');
+  const [space, setSpace] = useState<CommunitySpace | undefined>(undefined);
 
   const { data: channels, refetch: refetchChat } = useChatChannels(chatEnabled);
   const { data: threadsFeed, refetch: refetchThreads } = useThreadsFeed(threadsEnabled);
   const { data: threadsUnread, refetch: refetchThreadsUnread } = useThreadsUnread(threadsEnabled);
-  const { refreshing, onRefresh } = usePullRefresh(...(chatEnabled ? [refetchChat] : []), ...(threadsEnabled ? [refetchThreads, refetchThreadsUnread] : []));
+  const spacesQ = useCommunitySpaces(communityEnabled);
+  const { refreshing, onRefresh } = usePullRefresh(...(chatEnabled ? [refetchChat] : []), ...(threadsEnabled ? [refetchThreads, refetchThreadsUnread] : []), ...(communityEnabled ? [spacesQ.refetch] : []));
 
   const chatUnread = (channels ?? []).reduce((n, c) => n + (c.unread || 0), 0);
-  const showThreads = threadsEnabled && tab === 'threads';
-  const showChat = chatEnabled && !showThreads;
+  const showThreads = tab === 'threads';
+  const showCommunity = tab === 'community';
+  const showChat = tab === 'chat';
   const threadsBadge = (threadsUnread ?? 0) + (threadsFeed?.open_reports ?? 0);
+  const communityHeld = (spacesQ.data?.spaces ?? []).reduce((n, s) => n + (s.held || 0), 0);
+  const communityUnread = (spacesQ.data?.spaces ?? []).reduce((n, s) => n + (s.unread || 0), 0);
   const openThread = (id: number) => router.push(`/(teacher)/conversations/threads/${id}` as Href);
   const counts = useMemo(() => filterCounts(threadsFeed?.threads ?? []), [threadsFeed?.threads]);
   const isThreadsTeacher = !!threadsFeed?.settings;
   const isThreadsStaff = isThreadsTeacher || threadsFeed?.open_reports !== undefined;
-  // The hero carries حكاوي's two tools: the reports queue (teacher + assistant) and the settings (teacher).
+  const flag = showCommunity ? COMMUNITY_FLAG : showThreads ? THREADS_FLAG : CHAT_FLAG;
+  const teacherId = space?.teacher_id ?? null;
+  const spaceOf = (a: CommunityAudience) => (spacesQ.data?.spaces ?? []).find((s) => s.audience === a);
+
+  // The hero carries each segment's tools: حكاوي's reports queue and settings; the community's queue and settings.
   const heroActions: HeroAction[] = showThreads ? [
     ...(isThreadsStaff ? [{ icon: 'flag' as const, onPress: () => setReportsOpen(true), accessibilityLabel: t('threads.reports'), badge: threadsFeed?.open_reports ?? 0 }] : []),
     ...(isThreadsTeacher ? [{ icon: 'settings' as const, onPress: () => setSettingsOpen(true), accessibilityLabel: t('threads.settings') }] : []),
+  ] : showCommunity && teacherId ? [
+    { icon: 'flag' as const, onPress: () => router.push(`/(teacher)/conversations/community/queue?teacher=${teacherId}` as Href), accessibilityLabel: t('community_space.queue'), badge: communityHeld },
+    ...(space?.role === 'teacher' ? [{ icon: 'settings' as const, onPress: () => setCommunitySettingsOpen(true), accessibilityLabel: t('community_space.settings') }] : []),
   ] : [];
+
+  const head = (
+    <>
+      <PageHero
+        onBack
+        title={showCommunity ? t('community_space.title_students') : showThreads ? t('threads.title') : t('chat.conversations')}
+        subtitle={showCommunity
+          ? t('community_space.subtitle_teacher')
+          : showThreads
+            ? t('threads.subtitle_teacher')
+            : showChat
+              ? t('chat.members_count', { count: (channels ?? []).length })
+              : t('chat.conversations_sub')}
+        badge={<BetaChip feature={flag} />}
+        actions={heroActions}
+        stats={showThreads && counts.all > 0 ? [
+          { value: arDigits(counts.open), label: t('threads.stat_open') },
+          { value: arDigits(counts.waiting), label: t('threads.stat_waiting_teacher'), warn: counts.waiting > 0 },
+          { value: arDigits(counts.answered), label: t('threads.stat_answered') },
+        ] : undefined}
+      />
+      {many ? (
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl, marginBottom: spacing.md }}>
+          <Segments
+            value={tab}
+            onChange={setTab}
+            items={hubSegmentItems(enabled, { community: t('community_space.tab'), chat: t('chat.tab_chat'), threads: t('threads.tab') }, { community: communityHeld + communityUnread, chat: chatUnread, threads: threadsBadge })}
+          />
+        </View>
+      ) : null}
+      {showCommunity ? (
+        // The teacher governs TWO spaces: which one is in front.
+        <View style={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: many ? 0 : -spacing.xl, marginBottom: spacing.md }}>
+          <AudienceChip audience="students" on={audience === 'students'} space={spaceOf('students')} onPress={() => setAudience('students')} />
+          <AudienceChip audience="parents" on={audience === 'parents'} space={spaceOf('parents')} onPress={() => setAudience('parents')} />
+        </View>
+      ) : null}
+    </>
+  );
+
+  if (showCommunity) {
+    return (
+      <Surface id="screen.teacher.conversations" screen>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <CommunityFeed
+          audience={audience}
+          header={head}
+          footer={<BetaLine feature={COMMUNITY_FLAG} />}
+          onOpen={(id) => router.push(`/(teacher)/conversations/community/${id}` as Href)}
+          onSpaceChange={setSpace}
+          extraRefetch={spacesQ.refetch}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
+        />
+        {teacherId ? <CommunitySettingsSheet visible={communitySettingsOpen} teacherId={teacherId} onClose={() => setCommunitySettingsOpen(false)} /> : null}
+      </View>
+      </Surface>
+    );
+  }
 
   return (
     <Surface id="screen.teacher.conversations" screen>
@@ -94,43 +175,11 @@ function ConversationsWithThreads() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        <Surface id="teacher.conversations.hero">
-          <PageHero
-            onBack
-            title={showThreads ? t('threads.title') : t('chat.conversations')}
-            subtitle={showThreads
-              ? t('threads.subtitle_teacher')
-              : showChat
-                ? t('chat.members_count', { count: (channels ?? []).length })
-                : t('chat.conversations_sub')}
-            badge={<BetaChip feature={showThreads ? THREADS_FLAG : CHAT_FLAG} />}
-            actions={heroActions}
-            stats={showThreads && counts.all > 0 ? [
-              { value: arDigits(counts.open), label: t('threads.stat_open') },
-              { value: arDigits(counts.waiting), label: t('threads.stat_waiting_teacher'), warn: counts.waiting > 0 },
-              { value: arDigits(counts.answered), label: t('threads.stat_answered') },
-            ] : undefined}
-          />
-        </Surface>
-
-        {threadsEnabled && chatEnabled ? (
-          <Surface id="teacher.conversations.segments">
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl, marginBottom: spacing.md }}>
-            <Segments
-              value={tab}
-              onChange={setTab}
-              items={[
-                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread },
-                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: threadsBadge },
-              ]}
-            />
-          </View>
-          </Surface>
-        ) : null}
+        <Surface id="teacher.conversations.hero">{head}</Surface>
 
         {showThreads ? (
           <Surface id="teacher.conversations.threads">
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: chatEnabled ? 0 : -spacing.lg }}>
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: many ? 0 : -spacing.lg }}>
             <ThreadsFeed
               onOpen={openThread}
               onCompose={(kind) => { setComposeKind(kind); setComposeOpen(true); }}
@@ -151,7 +200,7 @@ function ConversationsWithThreads() {
           </Surface>
         ) : showChat ? (
           <Surface id="teacher.conversations.chat">
-          <View style={{ marginHorizontal: spacing.lg, marginTop: threadsEnabled ? 0 : -spacing.lg }}>
+          <View style={{ marginHorizontal: spacing.lg, marginTop: many ? 0 : -spacing.lg }}>
             <ChatInboxList onOpen={(room) => router.push(`/(teacher)/conversations/chat/${room}` as Href)} />
           </View>
           </Surface>
@@ -161,9 +210,22 @@ function ConversationsWithThreads() {
           </View>
         )}
         {/* The note line closes the screen — after the content, never above it. */}
-        <BetaLine feature={showThreads ? THREADS_FLAG : CHAT_FLAG} />
+        <BetaLine feature={flag} />
       </ScrollView>
     </View>
     </Surface>
+  );
+}
+
+/** The teacher governs TWO spaces: which one is in front. */
+function AudienceChip({ audience, on, space, onPress }: { audience: CommunityAudience; on: boolean; space: CommunitySpace | undefined; onPress: () => void }) {
+  const { t } = useTranslation();
+  const n = space ? space.held + space.unread : 0;
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8} accessibilityRole="tab" accessibilityState={{ selected: on }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.onPrimary : colors.textSecondary }}>{t(audience === 'parents' ? 'community_space.audience_parents' : 'community_space.audience_students')}</Text>
+      {n > 0 && !on ? <View style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.onPrimary }}>{arDigits(n)}</Text></View> : null}
+    </TouchableOpacity>
   );
 }

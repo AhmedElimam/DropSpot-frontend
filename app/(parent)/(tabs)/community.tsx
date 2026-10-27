@@ -8,10 +8,13 @@ import { CommunityComingSoon } from '@/components/parent/CommunityComingSoon';
 import { ChatInbox, ChatInboxList, InboxChips } from '@/components/chat/ChatInbox';
 import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { THREADS_FLAG, useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
+import { COMMUNITY_FLAG, useCommunityEnabled, useCommunityUnread } from '@/hooks/useCommunity';
 import { BetaChip, BetaLine } from '@/components/ui/Beta';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
+import { CommunityFeed } from '@/components/community/CommunityFeed';
 import { Segments } from '@/components/threads/Segments';
+import { HUB_SEGMENTS, enabledSegments, hubSegmentItems, type HubSegment } from '@/components/community/hubSegments';
 import { ChildrenConsentSheet } from '@/components/threads/ChildrenConsentSheet';
 import { arDigits, filterCounts } from '@/components/threads/format';
 import { PageHero, type HeroAction } from '@/components/ui/PageHero';
@@ -20,29 +23,31 @@ import { colors, spacing, nav } from '@/theme/index';
 import { Surface } from '@/ui/surfaces';
 import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
 
-const FEATURE_KEYS = ['course_chat', 'threads'] as const;
+const FEATURE_KEYS = ['community', 'course_chat', 'threads'] as const;
 
-type Segment = 'chat' | 'threads';
+type Segment = HubSegment;
+const SEGMENTS = HUB_SEGMENTS;
 
 /**
- * «مجتمعنا» — the parent's centre tab (founder 2026-10-06): the child's course chat and a parents'
- * chat per course. The rooms themselves once the chat is on (2026-10-12) — one card per course
- * with its parents' room and the child's room the parent follows; until then the coming-soon
- * preview. «أبنائي» moved to a stack screen opened from Home's children section.
+ * «مجتمعنا» — the parent's centre tab (founder 2026-10-06). Up to three surfaces:
  *
- * With حكاوي on (founder 2026-10-15: «parents, like chat, can see teacher posts and the comments
- * of their children and the other children on that post»), the same two segments as the
- * student's tab — الدردشة first, حكاوي second — or حكاوي alone while the chat is off. The hero's
- * shield opens «حكاوي لأولادي», each child's participation.
+ *  - **مجتمعنا** — the parents' space of each teacher: posts, pictures, reactions, comments,
+ *    every member post through the moderation screen (founder 2026-10-28);
+ *  - **الدردشة** — the child's course room (read) and a parents' room per course;
+ *  - **حكاوي** — the teacher's grade-wide questions, their children's answers.
+ *
+ * Each appears only while its flag is on; none on → the coming-soon preview. The hero's
+ * shield (حكاوي) opens «حكاوي لأولادي», each child's participation.
  */
 export default function ParentCommunity() {
-  // Chat / حكاوي reached this person but an agreement is still due: bring it back here.
+  // A feature reached this person but an agreement is still due: bring it back here.
   useFeatureTermsOnFocus(FEATURE_KEYS);
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
+  const communityEnabled = useCommunityEnabled();
   return (
     <Surface id="screen.parent.community" screen>
-      {threadsEnabled
+      {threadsEnabled || communityEnabled
         ? <ParentConversations />
         : chatEnabled
           ? <ChatInbox role="parent" onOpen={(room) => router.push(`/(parent)/chat/${room}` as Href)} />
@@ -56,27 +61,72 @@ function ParentConversations() {
   const insets = useSafeAreaInsets();
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
-  // A push about حكاوي lands here with `?segment=threads`.
+  const communityEnabled = useCommunityEnabled();
+  const enabled = useMemo(() => enabledSegments({ community: communityEnabled, chat: chatEnabled, threads: threadsEnabled }), [communityEnabled, chatEnabled, threadsEnabled]);
+  // A push lands here with `?segment=…`.
   const params = useLocalSearchParams<{ segment?: string }>();
   const [picked, setSegment] = useState<Segment | null>(null);
-  useEffect(() => { if (params.segment === 'threads' || params.segment === 'chat') setSegment(params.segment); }, [params.segment]);
-  const segment: Segment = picked ?? (chatEnabled ? 'chat' : 'threads');
-  const both = chatEnabled && threadsEnabled;
-  const showThreads = threadsEnabled && (segment === 'threads' || !chatEnabled);
+  useEffect(() => { if (SEGMENTS.includes(params.segment as Segment)) setSegment(params.segment as Segment); }, [params.segment]);
+  const segment: Segment = picked && enabled.includes(picked) ? picked : (enabled[0] ?? 'chat');
+  const many = enabled.length > 1;
+  const showThreads = segment === 'threads';
+  const showCommunity = segment === 'community';
+  const flag = showCommunity ? COMMUNITY_FLAG : showThreads ? THREADS_FLAG : CHAT_FLAG;
   const [consentOpen, setConsentOpen] = useState(false);
   const [filter, setFilter] = useState<InboxFilter>('all');
 
   const { data: channels, refetch: refetchChat } = useChatChannels(chatEnabled);
   const { data: unreadThreads, refetch: refetchUnread } = useThreadsUnread(threadsEnabled);
   const { data: feed, refetch: refetchFeed } = useThreadsFeed(threadsEnabled);
+  const { data: communityUnread, refetch: refetchCommunity } = useCommunityUnread(communityEnabled, showCommunity);
   const counts = useMemo(() => filterCounts(feed?.threads ?? []), [feed?.threads]);
-  const { refreshing, onRefresh } = usePullRefresh(...(chatEnabled ? [refetchChat] : []), ...(threadsEnabled ? [refetchFeed, refetchUnread] : []));
+  const { refreshing, onRefresh } = usePullRefresh(...(chatEnabled ? [refetchChat] : []), ...(threadsEnabled ? [refetchFeed, refetchUnread] : []), ...(communityEnabled ? [refetchCommunity] : []));
   const rooms = useMemo(() => channels ?? [], [channels]);
   const chatUnread = rooms.reduce((n, c) => n + (c.unread || 0), 0);
 
   const actions: HeroAction[] = showThreads
     ? [{ icon: 'shield', onPress: () => setConsentOpen(true), accessibilityLabel: t('threads.consent_title') }]
     : [];
+
+  const head = (
+    <>
+      <PageHero
+        title={showCommunity ? t('community_space.title_parents') : showThreads ? t('threads.title') : t('community.title')}
+        subtitle={showCommunity ? t('community_space.subtitle_parents') : showThreads ? t('threads.subtitle_parent') : t('community.tagline')}
+        badge={<BetaChip feature={flag} />}
+        actions={actions}
+        stats={showThreads && counts.all > 0 ? [
+          { value: arDigits(counts.open), label: t('threads.stat_open') },
+          { value: arDigits(unreadThreads ?? 0), label: t('threads.stat_new'), warn: (unreadThreads ?? 0) > 0 },
+          { value: arDigits(counts.answered), label: t('threads.stat_answered') },
+        ] : undefined}
+      />
+      {many ? (
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -(spacing.xl4 - spacing.sm), marginBottom: spacing.md }}>
+          <Segments
+            value={segment}
+            onChange={setSegment}
+            items={hubSegmentItems(enabled, { community: t('community_space.tab'), chat: t('chat.tab_chat'), threads: t('threads.tab') }, { community: communityUnread ?? 0, chat: chatUnread, threads: unreadThreads ?? 0 })}
+          />
+        </View>
+      ) : null}
+    </>
+  );
+
+  if (showCommunity) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <CommunityFeed
+          audience="parents"
+          header={head}
+          footer={<BetaLine feature={COMMUNITY_FLAG} />}
+          onOpen={(id) => router.push(`/(parent)/community/${id}` as Href)}
+          extraRefetch={refetchCommunity}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -85,33 +135,9 @@ function ParentConversations() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        <PageHero
-          title={showThreads ? t('threads.title') : t('community.title')}
-          subtitle={showThreads ? t('threads.subtitle_parent') : t('community.tagline')}
-          badge={<BetaChip feature={showThreads ? THREADS_FLAG : CHAT_FLAG} />}
-          actions={actions}
-          stats={showThreads && counts.all > 0 ? [
-            { value: arDigits(counts.open), label: t('threads.stat_open') },
-            { value: arDigits(unreadThreads ?? 0), label: t('threads.stat_new'), warn: (unreadThreads ?? 0) > 0 },
-            { value: arDigits(counts.answered), label: t('threads.stat_answered') },
-          ] : undefined}
-        />
-
-        {both ? (
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: -(spacing.xl4 - spacing.sm), marginBottom: spacing.md }}>
-            <Segments
-              value={segment}
-              onChange={setSegment}
-              items={[
-                { key: 'chat', label: t('chat.tab_chat'), icon: 'chat', badge: chatUnread },
-                { key: 'threads', label: t('threads.tab'), icon: 'threads', badge: unreadThreads ?? 0 },
-              ]}
-            />
-          </View>
-        ) : null}
-
+        {head}
         {showThreads ? (
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: both ? 0 : -(spacing.xl4 - spacing.sm) }}>
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: many ? 0 : -(spacing.xl4 - spacing.sm) }}>
             <ThreadsFeed reader="parent" onOpen={(id) => router.push(`/(parent)/chat/thread/${id}` as Href)} />
           </View>
         ) : (
@@ -127,7 +153,7 @@ function ParentConversations() {
           </>
         )}
         {/* The note line closes the screen — after the content, never above it. */}
-        <BetaLine feature={showThreads ? THREADS_FLAG : CHAT_FLAG} />
+        <BetaLine feature={flag} />
       </ScrollView>
       <ChildrenConsentSheet visible={consentOpen} onClose={() => setConsentOpen(false)} />
     </View>
