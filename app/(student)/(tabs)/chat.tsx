@@ -82,27 +82,35 @@ function StudentConversations() {
   const { refreshing, onRefresh } = usePullRefresh(...(chatEnabled ? [refetchChat] : []), ...(threadsEnabled ? [refetchFeed, refetchUnread] : []), ...(communityEnabled ? [refetchCommunity] : []));
   const chatUnread = (channels ?? []).reduce((n, c) => n + (c.unread || 0), 0);
 
+  const segments = (
+    <Segments
+      value={segment}
+      onChange={setSegment}
+      items={hubSegmentItems(enabled, { community: t('community_space.tab'), chat: t('chat.tab_chat'), threads: t('threads.tab') }, { community: communityUnread ?? 0, chat: chatUnread, threads: unreadThreads ?? 0 })}
+    />
+  );
+
   const head = (
     <>
       <LinearGradient
         colors={gradients.hero}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={{ paddingHorizontal: spacing.lg, paddingTop: (showCommunity ? spacing.lg : spacing.xxl) + insets.top, paddingBottom: showCommunity ? (many ? spacing.xl + spacing.md : spacing.lg) : many ? spacing.xl4 + spacing.md : spacing.xl4 }}
+        style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: many ? spacing.xl4 + spacing.md : spacing.xl4 }}
       >
         {/* RTL: 'row' only — the «تجريبي» mark trails the title (one per screen). */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5, flexShrink: 1 }}>
-            {showCommunity ? t('community_space.title_students') : showThreads ? t('threads.title') : t('chat.title')}
+            {showThreads ? t('threads.title') : t('chat.title')}
           </Text>
           <BetaChip feature={flag} />
         </View>
-        {showCommunity ? null : <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm }}>
           <Icon name={showThreads ? 'question' : 'eye'} size={15} color={colors.onHeroSoft} outline style={{ marginTop: 3 }} />
           <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.onHeroSoft }}>
             {showThreads ? t('threads.subtitle_student') : t('chat.subtitle')}
           </Text>
-        </View>}
+        </View>
         {showThreads && counts.all > 0 ? (
           <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
             <HeroCount icon="timer" value={counts.open} label={t('threads.stat_open')} />
@@ -113,28 +121,27 @@ function StudentConversations() {
       </LinearGradient>
 
       {many ? (
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: showCommunity ? -spacing.xl : -spacing.xl - 4, marginBottom: showCommunity ? 0 : spacing.md }}>
-          <Segments
-            value={segment}
-            onChange={setSegment}
-            scroll
-            items={hubSegmentItems(enabled, { community: t('community_space.tab'), chat: t('chat.tab_chat'), threads: t('threads.tab') }, { community: communityUnread ?? 0, chat: chatUnread, threads: unreadThreads ?? 0 })}
-          />
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl - 4, marginBottom: spacing.md }}>
+          {segments}
         </View>
       ) : null}
     </>
   );
 
   if (showCommunity) {
+    // No title over the community (founder 2026-10-28: «remove مجتمع الطلاب from the top»): the
+    // segments sit in a fixed bar and the feed scrolls under them; the cover names the community.
     return (
-      <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: many ? spacing.md : 0, zIndex: 1 }}>
+          {many ? segments : null}
+        </LinearGradient>
         <CommunityFeed
           audience="students"
-          header={head}
           footer={<BetaLine feature={COMMUNITY_FLAG} />}
           onOpen={(id) => router.push(`/(student)/community/${id}` as Href)}
           extraRefetch={refetchCommunity}
-          contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+          contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, flexGrow: 1 }}
         />
       </View>
     );

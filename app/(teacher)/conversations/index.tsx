@@ -4,7 +4,9 @@ import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, nav } from '@/theme/index';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, radius, nav, gradients } from '@/theme/index';
+import { Icon } from '@/components/ui/Icon';
 import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { COMMUNITY_FLAG, useCommunityEnabled, useCommunitySpaces } from '@/hooks/useCommunity';
 import { BetaChip, BetaLine } from '@/components/ui/Beta';
@@ -101,14 +103,20 @@ function ConversationsHub() {
     ...(isThreadsTeacher ? [{ icon: 'settings' as const, onPress: () => setSettingsOpen(true), accessibilityLabel: t('threads.settings') }] : []),
   ] : [];
 
+  const segments = (
+    <Segments
+      value={tab}
+      onChange={setTab}
+      items={hubSegmentItems(enabled, { community: t('community_space.tab'), chat: t('chat.tab_chat'), threads: t('threads.tab') }, { community: communityUnread, chat: chatUnread, threads: threadsBadge })}
+    />
+  );
+
   const head = (
     <>
       <PageHero
         onBack
-        title={showCommunity ? t('community_space.tab') : showThreads ? t('threads.title') : t('chat.conversations')}
-        subtitle={showCommunity
-          ? t('community_space.subtitle_teacher')
-          : showThreads
+        title={showThreads ? t('threads.title') : t('chat.conversations')}
+        subtitle={showThreads
             ? t('threads.subtitle_teacher')
             : showChat
               ? t('chat.members_count', { count: (channels ?? []).length })
@@ -122,32 +130,35 @@ function ConversationsHub() {
         ] : undefined}
       />
       {many ? (
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl, marginBottom: showCommunity ? 0 : spacing.md }}>
-          <Segments
-            value={tab}
-            onChange={setTab}
-            scroll
-            items={hubSegmentItems(enabled, { community: t('community_space.tab'), chat: t('chat.tab_chat'), threads: t('threads.tab') }, { community: communityUnread, chat: chatUnread, threads: threadsBadge })}
-          />
-        </View>
-      ) : null}
-      {showCommunity ? (
-        // The teacher reads TWO communities: which one is in front.
-        <View style={{ flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, marginTop: many ? 0 : -spacing.xl, marginBottom: spacing.md }}>
-          <AudienceChip audience="students" on={audience === 'students'} space={spaceOf('students')} onPress={() => setAudience('students')} />
-          <AudienceChip audience="parents" on={audience === 'parents'} space={spaceOf('parents')} onPress={() => setAudience('parents')} />
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl, marginBottom: spacing.md }}>
+          {segments}
         </View>
       ) : null}
     </>
   );
 
   if (showCommunity) {
+    // No title over the community: back, the segments and the two communities sit in a fixed
+    // bar and the feed scrolls under them (founder 2026-10-28).
     return (
       <Surface id="screen.teacher.conversations" screen>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.md, zIndex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/resolve' as never))} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.back')}
+              style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, alignItems: 'center', justifyContent: 'center' }}>
+              {/* RTL: "back" points to the right. */}
+              <Icon name="forward" size={22} color={colors.onHero} />
+            </TouchableOpacity>
+            {many ? <View style={{ flex: 1 }}>{segments}</View> : null}
+          </View>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <AudienceChip audience="students" on={audience === 'students'} space={spaceOf('students')} onPress={() => setAudience('students')} />
+            <AudienceChip audience="parents" on={audience === 'parents'} space={spaceOf('parents')} onPress={() => setAudience('parents')} />
+          </View>
+        </LinearGradient>
         <CommunityFeed
           audience={audience}
-          header={head}
           footer={<BetaLine feature={COMMUNITY_FLAG} />}
           onOpen={(id) => router.push(`/(teacher)/conversations/community/${id}` as Href)}
           extraRefetch={spacesQ.refetch}

@@ -19,7 +19,8 @@ import { ChildrenConsentSheet } from '@/components/threads/ChildrenConsentSheet'
 import { arDigits, filterCounts } from '@/components/threads/format';
 import { PageHero, type HeroAction } from '@/components/ui/PageHero';
 import type { InboxFilter } from '@/chat/inbox';
-import { colors, spacing, nav } from '@/theme/index';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, nav, gradients } from '@/theme/index';
 import { Surface } from '@/ui/surfaces';
 import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
 
@@ -88,11 +89,19 @@ function ParentConversations() {
     ? [{ icon: 'shield', onPress: () => setConsentOpen(true), accessibilityLabel: t('threads.consent_title') }]
     : [];
 
+  const segments = (
+    <Segments
+      value={segment}
+      onChange={setSegment}
+      items={hubSegmentItems(enabled, { community: t('community_space.tab'), chat: t('chat.tab_chat'), threads: t('threads.tab') }, { community: communityUnread ?? 0, chat: chatUnread, threads: unreadThreads ?? 0 })}
+    />
+  );
+
   const head = (
     <>
       <PageHero
-        title={showCommunity ? t('community_space.title_parents') : showThreads ? t('threads.title') : t('community.title')}
-        subtitle={showCommunity ? undefined : showThreads ? t('threads.subtitle_parent') : t('community.tagline')}
+        title={showThreads ? t('threads.title') : t('community.title')}
+        subtitle={showThreads ? t('threads.subtitle_parent') : t('community.tagline')}
         badge={<BetaChip feature={flag} />}
         actions={actions}
         stats={showThreads && counts.all > 0 ? [
@@ -102,24 +111,23 @@ function ParentConversations() {
         ] : undefined}
       />
       {many ? (
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -(spacing.xl4 - spacing.sm), marginBottom: showCommunity ? 0 : spacing.md }}>
-          <Segments
-            value={segment}
-            onChange={setSegment}
-            scroll
-            items={hubSegmentItems(enabled, { community: t('community_space.tab'), chat: t('chat.tab_chat'), threads: t('threads.tab') }, { community: communityUnread ?? 0, chat: chatUnread, threads: unreadThreads ?? 0 })}
-          />
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: -(spacing.xl4 - spacing.sm), marginBottom: spacing.md }}>
+          {segments}
         </View>
       ) : null}
     </>
   );
 
   if (showCommunity) {
+    // No title over the community: the segments sit in a fixed bar and the feed scrolls under
+    // them; the cover names the community (founder 2026-10-28).
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: many ? spacing.md : 0, zIndex: 1 }}>
+          {many ? segments : null}
+        </LinearGradient>
         <CommunityFeed
           audience="parents"
-          header={head}
           footer={<BetaLine feature={COMMUNITY_FLAG} />}
           onOpen={(id) => router.push(`/(parent)/community/${id}` as Href)}
           extraRefetch={refetchCommunity}

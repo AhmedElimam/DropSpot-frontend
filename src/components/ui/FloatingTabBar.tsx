@@ -80,7 +80,7 @@ function TabBadge({ n }: { n: number }) {
 /**
  * The floating tab bar every role uses (founder 2026-10-28: «like Facebook, floating» — and
  * «we want the logo and the cut back, floating style»): one pill lifted off the bottom edge
- * with the brand button raised out of a notch in its top and no word under it, every other
+ * with the brand button raised out of a notch in its top, its word under it, every other
  * tab the same weight, the open one in the brand colour on a soft pill.
  *
  * Opaque on purpose (no blur: a translucent floating bar is continuous compositing work on
@@ -164,8 +164,9 @@ export function FloatingTabBar({ state, descriptors, navigation, tabs, center, l
                     {centerGlyph ? centerGlyph(onButton, focused) : <Icon name={icons[name] || 'home'} size={28} color={onButton} outline={!focused} />}
                     {badges?.[name] ? <TabBadge n={badges[name]} /> : null}
                   </View>
-                  {/* No word under the brand button (founder 2026-10-28: «remove the text»); the
-                      label stays on the tab for the screen reader. */}
+                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.bold, fontSize: 10.5, lineHeight: 14, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 7, paddingHorizontal: 2 }}>
+                    {label}
+                  </Text>
                   </TourTarget>
                 </Pressable>
               );

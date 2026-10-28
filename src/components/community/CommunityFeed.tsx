@@ -7,6 +7,8 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { BrandMark } from '@/components/ui/BrandMark';
+import { BetaChip } from '@/components/ui/Beta';
+import { COMMUNITY_FLAG } from '@/hooks/useCommunity';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { ReportSheet } from '@/components/threads/ThreadSheets';
 import { useMediaHeaders } from '@/components/threads/mediaHeaders';
@@ -110,7 +112,11 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
                 <BrandMark size={36} tint="#FFFFFF" />
               </View>
               <View style={{ flex: 1, paddingTop: 8 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }} numberOfLines={1}>{t(parents ? 'community_space.title_parents' : 'community_space.title_students')}</Text>
+                {/* RTL: 'row' only — the «تجريبي» mark trails the name (the screen's one chip: no title above). */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{t(parents ? 'community_space.title_parents' : 'community_space.title_students')}</Text>
+                  <BetaChip feature={COMMUNITY_FLAG} />
+                </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                   <Icon name="people" size={13} color={colors.textTertiary} outline />
                   <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t(parents ? 'community_space.members_parents' : 'community_space.members_students', { n: arDigits(space.members) })}</Text>
