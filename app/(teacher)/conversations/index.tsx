@@ -117,14 +117,17 @@ function ConversationsHub() {
   const back = () => (router.canGoBack() ? router.back() : router.replace('/resolve' as never));
   const bar = pinned ? (
     <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.md, backgroundColor: gradients.hero[0], zIndex: 1 }}>
+      {/* Back on its own slim row with the screen's name; the segments get the whole width under
+          it (founder 2026-10-28: the arrow crowded the segments once a count showed beside one). */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <TouchableOpacity onPress={back} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.back')}
-          style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, alignItems: 'center', justifyContent: 'center' }}>
+          style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, alignItems: 'center', justifyContent: 'center' }}>
           {/* RTL: "back" points to the right. */}
-          <Icon name="forward" size={22} color={colors.onHero} />
+          <Icon name="forward" size={20} color={colors.onHero} />
         </TouchableOpacity>
-        {many ? <View style={{ flex: 1 }}>{segments}</View> : null}
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.onHero }} numberOfLines={1}>{t('chat.conversations')}</Text>
       </View>
+      {many ? segments : null}
       {showCommunity ? (
         // The teacher reads TWO communities: which one is in front.
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -139,7 +142,7 @@ function ConversationsHub() {
     <PageHero
       onBack={!pinned}
       inset={pinned ? 0 : undefined}
-      title={showThreads ? t('threads.title') : t('chat.conversations')}
+      title={showThreads ? t('threads.title') : pinned ? t('chat.tab_chat') : t('chat.conversations')}
       subtitle={showThreads
           ? t('threads.subtitle_teacher')
           : showChat

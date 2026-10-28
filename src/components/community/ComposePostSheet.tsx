@@ -13,6 +13,9 @@ import { useCreateCommunityPost, useUploadCommunityMedia } from '@/hooks/useComm
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import type { CommunityAudience, CommunityLimits, CommunityPost } from '@/api/community';
 
+/** The send arrow points the way Arabic reads, like chat's (founder 2026-10-28). */
+const SEND_FLIP = { transform: [{ scaleX: -1 }] } as const;
+
 type Picked = { uri: string; name: string; mime: string; width?: number; height?: number };
 
 /**
@@ -91,7 +94,7 @@ export function ComposePostSheet({ visible, audience, limits, onClose, onCreated
         <TouchableOpacity onPress={publish} disabled={!canPublish} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ disabled: !canPublish, busy }}
           accessibilityLabel={uploading ? t('community_space.uploading') : t('community_space.publish')}
           style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: canPublish || busy ? colors.brand : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-          {busy ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="send" size={20} color={canPublish ? colors.onPrimary : colors.textTertiary} />}
+          {busy ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="send" size={20} color={canPublish ? colors.onPrimary : colors.textTertiary} style={SEND_FLIP} />}
         </TouchableOpacity>
       </View>
 

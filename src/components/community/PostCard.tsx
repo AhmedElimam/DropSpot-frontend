@@ -142,6 +142,9 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
 
           {/* The actions */}
           <View style={{ marginHorizontal: PAD, borderTopWidth: 1, borderTopColor: colors.borderLight }} />
+          {/* The actions sit on their own layer: the picker opens from here, above the comment
+              preview drawn after it (it used to sit under that preview and swallow no taps). */}
+          <View style={{ zIndex: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2 }}>
             <TouchableOpacity
               onPress={() => { if (picker) setPicker(false); else onReact(post.id, mine ?? 'like'); }}
@@ -163,16 +166,17 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
             </TouchableOpacity>
           </View>
 
-          {/* The picker: our four, above the actions, on a long press */}
+          {/* The picker: our four, just above the actions, on a long press */}
           {picker ? (
             <ReactionPicker
               kinds={REACTIONS}
               mine={mine}
               label={(k) => t(`community_space.react_${k}`)}
               onPick={(k) => { setPicker(false); onReact(post.id, k as CommunityReaction); }}
-              style={{ position: 'absolute', bottom: 46, start: PAD }}
+              style={{ position: 'absolute', bottom: 44, start: PAD, zIndex: 20 }}
             />
           ) : null}
+          </View>
 
           {/* The newest comment, as a preview */}
           {!expanded && post.last_comment ? (

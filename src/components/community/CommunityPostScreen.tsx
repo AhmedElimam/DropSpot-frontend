@@ -24,6 +24,9 @@ import { canWrite, type CommunityComment, type CommunityPost, type CommunityReac
 import { PostCard, roleLabel, CARD_SIDE } from './PostCard';
 import { arDigits } from '@/components/threads/format';
 
+/** The send arrow points the way Arabic reads, like chat's (founder 2026-10-28). */
+const SEND_FLIP = { transform: [{ scaleX: -1 }] } as const;
+
 /**
  * One post, one screen, every role: the post in full on top, the comments under it, and a
  * composer pinned to the bottom while comments are open and the reader is a member (a
@@ -142,7 +145,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
           />
           <TouchableOpacity onPress={send} disabled={!text.trim() || comment.isPending} accessibilityRole="button" accessibilityLabel={t('community_space.send')}
             style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: text.trim() ? colors.brand : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-            {comment.isPending ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="send" size={19} color={text.trim() ? colors.onPrimary : colors.textTertiary} />}
+            {comment.isPending ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="send" size={19} color={text.trim() ? colors.onPrimary : colors.textTertiary} style={SEND_FLIP} />}
           </TouchableOpacity>
         </View>
       ) : data && data.post.status === 'published' ? (
