@@ -17,6 +17,8 @@ export const POPUP_ORDER = [
   // (2026-10-28: it opened beside مدام روز's unlock after the rebuild and the app froze).
   'revision_welcome',
   'onboarding_intro',
+  // A feature's add-on agreement (chat, حكاوي, مجتمعنا…): one at a time, the next after a gap.
+  'feature_terms',
   'whats_new',
   'nazer_unlock',
   // The student's lock until the parent's number is proved (2026-10-26): straight after الناظر.

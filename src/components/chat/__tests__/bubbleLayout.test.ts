@@ -2,6 +2,8 @@
  * Mine on the right, theirs on the left — on screen, whatever the layout direction; the hold
  * overlay fits on screen; the voice-note playhead never steps back (founder 2026-10-12).
  */
+// The bubble draws its reactions with the app's own glyphs (react-native-svg).
+jest.mock('react-native-svg', () => ({ __esModule: true, default: 'Svg', Defs: 'Defs', LinearGradient: 'LinearGradient', Stop: 'Stop', Circle: 'Circle', Ellipse: 'Ellipse', G: 'G', Path: 'Path', Rect: 'Rect' }));
 jest.mock('react-native', () => ({ View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', Pressable: 'Pressable', I18nManager: { isRTL: true }, Platform: { OS: 'ios' }, Vibration: { vibrate: jest.fn() }, useWindowDimensions: () => ({ width: 390, height: 844 }), ActivityIndicator: 'ActivityIndicator' }));
 jest.mock('react-native-gesture-handler', () => ({ Gesture: {}, GestureDetector: 'GestureDetector' }));
 jest.mock('react-native-reanimated', () => ({ __esModule: true, default: { View: 'Animated.View' }, FadeInDown: {}, FadeIn: {}, FadeOut: {}, ZoomIn: {} }));

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname } from 'expo-router';
@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppModal as Modal } from '@/ui/AppModal';
+import { usePopupSlot } from '@/ui/popupSlot';
 import { fonts } from '@/theme/typography';
 import { colors, gradients, radius, spacing } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -35,7 +36,7 @@ const BLOCKING_PREFIXES = [
   '/reset-password', '/welcome', '/scan', '/enroll', '/check-in',
 ];
 
-const ICONS: Record<string, IconName> = { course_chat: 'chat', threads: 'threads', print_market: 'note' };
+const ICONS: Record<string, IconName> = { course_chat: 'chat', threads: 'threads', print_market: 'note', community: 'people' };
 
 export function FeatureTermsPrompt() {
   const due = useAppConfigStore((s) => s.config.feature_terms ?? NONE);
@@ -51,15 +52,36 @@ function DuePrompt({ due }: { due: FeatureTermsDoc[] }) {
   const impersonating = useAuthStore((s) => !!s.impersonation?.active);
   const later = useFeatureTermsStore((s) => s.later);
   const asked = useFeatureTermsStore((s) => s.asked);
+  const current = useFeatureTermsStore((s) => s.current);
   const pathname = usePathname() ?? '';
 
   const signedIn = !!user && (role === 'teacher' || role === 'assistant' || role === 'student' || role === 'parent');
   const gated = !!user?.must_accept_terms || !!user?.must_set_password;
   const blocked = BLOCKING_PREFIXES.some((p) => pathname.startsWith(p));
-  const doc = signedIn && !gated && !blocked && !impersonating ? pickFeatureTerms(due, later, asked) : null;
-  if (!doc) return null;
+  const doc = signedIn && !gated && !blocked && !impersonating ? pickFeatureTerms(due, later, asked, current) : null;
+  const id = doc ? `${doc.key}:${doc.version}` : null;
+
+  // One window at a time, through the app's popup slot. Between two agreements the slot is let go
+  // and asked for again, so the next presents only after the last one has fully dismissed — two
+  // iOS modals swapped in the same moment leave one invisible and the app frozen (2026-10-28).
+  const [between, setBetween] = useState<string | null>(null);
+  const last = useRef<string | null>(null);
+  useEffect(() => {
+    if (last.current && id && last.current !== id) {
+      setBetween(id);
+      const t = setTimeout(() => setBetween(null), 60);
+      last.current = id;
+      return () => clearTimeout(t);
+    }
+    last.current = id;
+    return undefined;
+  }, [id]);
+  const visible = usePopupSlot('feature_terms', !!doc && between !== id);
+  useEffect(() => { if (visible && doc) useFeatureTermsStore.getState().showing(doc.key); }, [visible, doc]);
+
+  if (!doc || !visible) return null;
   // Keyed by the document: ticking the box for chat never carries over to حكاوي.
-  return <Agreement key={`${doc.key}:${doc.version}`} doc={doc} />;
+  return <Agreement key={id!} doc={doc} />;
 }
 const NONE: FeatureTermsDoc[] = [];
 

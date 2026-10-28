@@ -12,7 +12,7 @@ import {
   type RefreshControlProps,
 } from 'react-native';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
-import { reportScroll } from '@/navigation/tabBarScroll';
+import { reportScroll, showTabBar } from '@/navigation/tabBarScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, shadows } from '@/theme/index';
 
@@ -54,6 +54,21 @@ function withFloatingRefresh<C extends ComponentType<any>>(Base: C): C {
     // No scroll bars: a native app, not a web page (founder 2026-10-04). A screen can still
     // ask for one explicitly.
     const props: ScrollLikeProps = { showsVerticalScrollIndicator: false, showsHorizontalScrollIndicator: false, ...given };
+    // Every vertical list drives the floating tab bar — on Android and without a refresh control
+    // too (it used to report only from the iOS pull-to-refresh path, so elsewhere the bar never
+    // followed the scroll). A list that just appeared starts with the bar in view.
+    const vertical = !props.horizontal;
+    const { onScroll } = props;
+    const scroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const m = e.nativeEvent;
+      if (m.layoutMeasurement.height > 0 && m.contentSize.height > m.layoutMeasurement.height + 120) reportScroll(m.contentOffset.y);
+      (onScroll as ((ev: NativeSyntheticEvent<NativeScrollEvent>) => void) | undefined)?.(e);
+    }, [onScroll]);
+    useEffect(() => { if (vertical) showTabBar(); }, [vertical]);
+    if (vertical) {
+      props.onScroll = scroll;
+      props.scrollEventThrottle = props.scrollEventThrottle ?? 32;
+    }
     if (Platform.OS !== 'ios' || !props.refreshControl) {
       const B = Base as ComponentType<any>;
       return <B ref={ref} {...props} />;
@@ -132,8 +147,7 @@ function FloatingRefresh({ Base, forwardedRef, refreshControl, onScroll, scrollE
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
     atTopRef.current = y <= 0.5;
-    // The floating tab bar follows the scroll's direction (a horizontal list reports y = 0: shown).
-    if (e.nativeEvent.layoutMeasurement.height > 0 && e.nativeEvent.contentSize.height > e.nativeEvent.layoutMeasurement.height + 120) reportScroll(y);
+    // (The floating tab bar is fed by the wrapper's onScroll, which arrives here as `onScroll`.)
     onScroll?.(e);
   }, [onScroll]);
 

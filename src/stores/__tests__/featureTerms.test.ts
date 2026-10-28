@@ -70,4 +70,18 @@ describe('which agreement is on screen', () => {
     useFeatureTermsStore.getState().done('course_chat');
     expect(useFeatureTermsStore.getState().later).toEqual([]);
   });
+
+  it('the one on screen keeps its place: a second feature asking (a 423) only waits its turn', () => {
+    const s = useFeatureTermsStore.getState();
+    s.showing('community');
+    s.open('course_chat');
+    s.open('threads');
+    const st = useFeatureTermsStore.getState();
+    expect(pickFeatureTerms(due.concat(doc('community')), st.later, st.asked, st.current)?.key).toBe('community');
+    // Accepted: the last one asked comes next.
+    useFeatureTermsStore.getState().done('community');
+    const after = useFeatureTermsStore.getState();
+    expect(after.current).toBeNull();
+    expect(pickFeatureTerms(due, after.later, after.asked, after.current)?.key).toBe('threads');
+  });
 });

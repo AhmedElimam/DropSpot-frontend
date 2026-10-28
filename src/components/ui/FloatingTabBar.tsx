@@ -23,6 +23,8 @@ export const RAISE = 20;
 /** Centre button diameter, and the notch cut around it (a 4pt breath on each side — founder 2026-10-28: «reduce the cut a little»). */
 export const BUTTON = 56;
 export const NOTCH_R = BUTTON / 2 + 4;
+/** How tall the touch strip above the home indicator is while the bar is away. */
+export const RECALL_STRIP = 30;
 
 /**
  * The floating pill's outline: a stadium (fully rounded ends) with a circular cut in the
@@ -114,6 +116,18 @@ export function FloatingTabBar({ state, descriptors, navigation, tabs, center, l
   const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateY: slide.value }] }));
 
   return (
+    <>
+    {/* While the bar is away, a touch or a swipe where it lives brings it back (founder 2026-10-28:
+        «sometimes it can't be pulled back — if the swipe happens on the navbar's place, pull it
+        back»): a list already at its end, or too short to scroll, never reports a scroll up. */}
+    {hidden ? (
+      <View
+        testID="tabbar-recall"
+        onStartShouldSetResponder={() => { showTabBar(); return false; }}
+        onMoveShouldSetResponder={() => { showTabBar(); return false; }}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: bottomPad + RECALL_STRIP }}
+      />
+    ) : null}
     <Animated.View pointerEvents="box-none" style={[{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: SIDE, paddingBottom: bottomPad }, slideStyle]}>
       <View style={{ height: PILL_HEIGHT + RAISE }}>
         {/* The pill is see-through: the page shows faintly behind it (no blur — expo-blur is off
@@ -205,5 +219,6 @@ export function FloatingTabBar({ state, descriptors, navigation, tabs, center, l
         </View>
       </View>
     </Animated.View>
+    </>
   );
 }

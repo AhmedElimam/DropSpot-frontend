@@ -8,8 +8,10 @@ import { Icon } from '@/components/ui/Icon';
 import { ago, arDigits } from '@/components/threads/format';
 import type { CommunityMedia, CommunityPost, CommunityReaction, CommunityRole } from '@/api/community';
 import { CommunityAvatar } from './CommunityAvatar';
+import { ReactionGlyph, REACTION_TONE } from '@/components/reactions/ReactionGlyph';
+import { ReactionPicker } from '@/components/reactions/ReactionPicker';
 
-export const REACTION_GLYPH: Record<CommunityReaction, string> = { like: '👍', love: '❤️', clap: '👏', idea: '💡' };
+/** The community's four, drawn in the app's own reaction family (src/components/reactions). */
 const REACTIONS: CommunityReaction[] = ['like', 'love', 'clap', 'idea'];
 /** The card's side margin and inner padding — the pictures bleed to the card's edge. */
 export const CARD_SIDE = 10;
@@ -121,8 +123,8 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <View style={{ flexDirection: 'row' }}>
                     {present.slice(0, 3).map((k, i) => (
-                      <View key={k} style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', marginStart: i ? -6 : 0, borderWidth: 1, borderColor: colors.surface }}>
-                        <Text style={{ fontSize: 12 }}>{REACTION_GLYPH[k]}</Text>
+                      <View key={k} style={{ marginStart: i ? -5 : 0, zIndex: 3 - i }}>
+                        <ReactionGlyph kind={k} size={20} ring={colors.surface} />
                       </View>
                     ))}
                   </View>
@@ -151,8 +153,8 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
               accessibilityLabel={t('community_space.react_like')}
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: radius.md }}
             >
-              {mine ? <Text style={{ fontSize: 17 }}>{REACTION_GLYPH[mine]}</Text> : <Icon name="like" size={19} color={colors.textSecondary} outline />}
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: mine ? colors.brand : colors.textSecondary }}>{t(mine ? `community_space.react_${mine}` : 'community_space.like')}</Text>
+              {mine ? <ReactionGlyph kind={mine} size={20} /> : <Icon name="like" size={19} color={colors.textSecondary} outline />}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: mine ? REACTION_TONE[mine].ink : colors.textSecondary }}>{t(mine ? `community_space.react_${mine}` : 'community_space.like')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => onOpen?.(post.id)} disabled={!onOpen} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('community_space.comment')}
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: radius.md }}>
@@ -161,16 +163,15 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
             </TouchableOpacity>
           </View>
 
-          {/* The picker: four faces above the actions, on a long press */}
+          {/* The picker: our four, above the actions, on a long press */}
           {picker ? (
-            <View style={{ position: 'absolute', bottom: 46, start: PAD, flexDirection: 'row', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, ...shadows.md }}>
-              {REACTIONS.map((k) => (
-                <TouchableOpacity key={k} onPress={() => { setPicker(false); onReact(post.id, k); }} hitSlop={6} accessibilityRole="button" accessibilityLabel={t(`community_space.react_${k}`)}
-                  style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: mine === k ? colors.brandTint : 'transparent' }}>
-                  <Text style={{ fontSize: 26 }}>{REACTION_GLYPH[k]}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <ReactionPicker
+              kinds={REACTIONS}
+              mine={mine}
+              label={(k) => t(`community_space.react_${k}`)}
+              onPick={(k) => { setPicker(false); onReact(post.id, k as CommunityReaction); }}
+              style={{ position: 'absolute', bottom: 46, start: PAD }}
+            />
           ) : null}
 
           {/* The newest comment, as a preview */}

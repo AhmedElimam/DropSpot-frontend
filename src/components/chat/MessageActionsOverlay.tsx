@@ -10,6 +10,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { ChatBubble, bubbleSide, type BubbleRect } from '@/components/chat/ChatBubble';
 import { CHAT_REACTIONS, type ChatMessage } from '@/api/chat';
 import { haptic } from '@/utils/haptics';
+import { ReactionGlyph, kindOfEmoji } from '@/components/reactions/ReactionGlyph';
 
 export interface MessageAction {
   key: string;
@@ -97,7 +98,7 @@ export function MessageActionsOverlay({ target, mine, myId, myReaction, canReact
                       accessibilityState={{ selected: on }}
                       style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.brandTint : 'transparent' }}
                     >
-                      <Text style={{ fontSize: 26 }}>{e}</Text>
+                      {kindOfEmoji(e) ? <ReactionGlyph kind={kindOfEmoji(e)!} size={32} /> : <Text style={{ fontSize: 26 }}>{e}</Text>}
                     </TouchableOpacity>
                   </Animated.View>
                 );

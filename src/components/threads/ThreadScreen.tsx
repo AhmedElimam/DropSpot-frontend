@@ -28,6 +28,7 @@ import { ThreadVideoPlayer } from './ThreadVideoPlayer';
 import { AnswerSheet, AudienceSheet, ExtendSheet, ReportSheet, Sheet, TextSheet } from './ThreadSheets';
 import { CalmNote } from './ThreadsFeed';
 import { audienceLine, childLabel, hiddenByParent, readOnlyNote } from './parents';
+import { ReactionGlyph } from '@/components/reactions/ReactionGlyph';
 
 type MenuItem = { key: string; icon: IconName; label: string; danger?: boolean; onPress: () => void };
 
@@ -755,7 +756,8 @@ function VotePill({ comment: c, canVote, downvotes, onVote }: { comment: ThreadC
     <View style={{ flexDirection: 'row', alignItems: 'center', height: 32, borderRadius: 16, backgroundColor: up ? colors.successLight : down ? colors.dangerLight : colors.surfaceSunken, borderWidth: 1, borderColor: up ? colors.success : down ? colors.danger : colors.borderLight, opacity: canVote || c.score !== 0 ? 1 : 0.7 }}>
       <TouchableOpacity onPress={() => onVote(c, up ? 0 : 1)} disabled={!canVote} hitSlop={6} accessibilityRole="button" accessibilityLabel={t('threads.vote_up')} accessibilityState={{ selected: up, disabled: !canVote }}
         style={{ width: 34, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="voteUp" size={18} color={up ? colors.success : idle} outline={!up} />
+        {/* The up-vote wears the app's own «like» (founder 2026-10-28: our own reactions everywhere). */}
+        <ReactionGlyph kind="like" size={20} muted={!up} />
       </TouchableOpacity>
       <Animated.Text key={c.score} entering={ZoomIn.duration(160)} style={{ minWidth: 22, textAlign: 'center', fontFamily: fonts.bold, fontSize: 14, color: scoreInk, fontVariant: ['tabular-nums'] }}>
         {c.score > 0 ? `+${arDigits(c.score)}` : c.score < 0 ? `-${arDigits(-c.score)}` : arDigits(0)}

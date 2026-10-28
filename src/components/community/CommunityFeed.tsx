@@ -95,74 +95,59 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
   const firstName = (me?.name ?? '').split(' ')[0];
   const parents = audience === 'parents';
 
+  const canCompose = !!space && writer && space.can_post;
   const listHeader = (
     <View>
       {header}
+      {/* One compact card (founder 2026-10-28: «the banner swallows a huge chunk of space»): the
+          community's name and size on top, the «بم تفكر؟» line under it for a member. */}
       {space ? (
         <View style={{ marginHorizontal: CARD_SIDE, marginTop: spacing.sm, borderRadius: radius.xl, overflow: 'hidden', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight, ...shadows.sm }}>
-          {/* The cover: the brand ink, the platform's mark overlapping its bottom edge */}
-          <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ height: 84 }}>
-            <View pointerEvents="none" style={{ position: 'absolute', top: -40, end: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: colors.accent, opacity: 0.18 }} />
-            <View pointerEvents="none" style={{ position: 'absolute', bottom: -70, start: 40, width: 160, height: 160, borderRadius: 80, backgroundColor: '#FFFFFF', opacity: 0.06 }} />
+          <LinearGradient colors={[colors.brandTint, colors.surface]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}>
+            <View style={{ width: 46, height: 46, borderRadius: 15, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', ...shadows.sm }}>
+              <BrandMark size={26} tint="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              {/* RTL: 'row' only — the «تجريبي» mark trails the name (the screen's one chip). */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{t(parents ? 'community_space.title_parents' : 'community_space.title_students')}</Text>
+                <BetaChip feature={COMMUNITY_FLAG} />
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 }}>
+                <Icon name="people" size={12} color={colors.textTertiary} outline />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{t(parents ? 'community_space.members_parents' : 'community_space.members_students', { n: arDigits(space.members) })}</Text>
+                {/* A thin bar, not «·»: a middle dot beside Arabic digits reads as a zero. */}
+                {space.posts > 0 ? <View style={{ width: 1, height: 11, marginHorizontal: 4, backgroundColor: colors.border }} /> : null}
+                {space.posts > 0 ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('community_space.n_posts', { n: arDigits(space.posts) })}</Text> : null}
+              </View>
+            </View>
           </LinearGradient>
-          <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.lg }}>
-            {/* Only the mark overlaps the cover; the name sits below the edge. */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md }}>
-              <View style={{ width: 68, height: 68, borderRadius: 34, marginTop: -30, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.surface, ...shadows.md }}>
-                <BrandMark size={36} tint="#FFFFFF" />
-              </View>
-              <View style={{ flex: 1, paddingTop: 8 }}>
-                {/* RTL: 'row' only — the «تجريبي» mark trails the name (the screen's one chip: no title above). */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{t(parents ? 'community_space.title_parents' : 'community_space.title_students')}</Text>
-                  <BetaChip feature={COMMUNITY_FLAG} />
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                  <Icon name="people" size={13} color={colors.textTertiary} outline />
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{t(parents ? 'community_space.members_parents' : 'community_space.members_students', { n: arDigits(space.members) })}</Text>
-                  {/* A thin bar, not «·»: a middle dot beside Arabic digits reads as a zero. */}
-                  {space.posts > 0 ? <View style={{ width: 1, height: 12, marginHorizontal: 4, backgroundColor: colors.border }} /> : null}
-                  {space.posts > 0 ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>{t('community_space.n_posts', { n: arDigits(space.posts) })}</Text> : null}
-                </View>
-              </View>
-            </View>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, marginTop: spacing.sm }}>{t(parents ? 'community_space.about_parents' : 'community_space.about_students')}</Text>
-            {space.welcome ? (
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brandTint }}>
-                <Icon name="pin" size={14} color={colors.brand} />
-                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 20, color: colors.textPrimary }}>{space.welcome}</Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-      ) : null}
 
-      {/* «What's on your mind» — members only */}
-      {space && writer && space.can_post ? (
-        <View style={{ marginHorizontal: CARD_SIDE, marginTop: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.md, gap: spacing.md, ...shadows.sm }}>
-          <TouchableOpacity onPress={() => setComposeOpen(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('community_space.compose_title')} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            <GeneratedAvatar seed={mySeed} size={40} label={me?.name} />
-            <View style={{ flex: 1, height: 40, borderRadius: 20, backgroundColor: colors.surfaceSunken, justifyContent: 'center', paddingHorizontal: spacing.lg }}>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textTertiary }} numberOfLines={1}>{t('community_space.whats_on_your_mind', { name: firstName })}</Text>
+          {space.welcome ? (
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginHorizontal: spacing.md, marginBottom: spacing.sm, padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.brandTint }}>
+              <Icon name="pin" size={13} color={colors.brand} />
+              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.textPrimary }} numberOfLines={3}>{space.welcome}</Text>
             </View>
-          </TouchableOpacity>
-          <View style={{ height: 1, backgroundColor: colors.borderLight }} />
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => setComposeOpen(true)} activeOpacity={0.8} accessibilityRole="button" style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 34 }}>
-              <Icon name="image" size={19} color={colors.success} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('community_space.add_photo')}</Text>
-            </TouchableOpacity>
-            <View style={{ width: 1, height: 22, backgroundColor: colors.borderLight }} />
-            <TouchableOpacity onPress={() => setComposeOpen(true)} activeOpacity={0.8} accessibilityRole="button" style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 34 }}>
-              <Icon name="pencil" size={18} color={colors.brand} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('community_space.write_post')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : space ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: CARD_SIDE + spacing.sm, marginTop: spacing.md }}>
-          <Icon name={writer ? 'lock' : 'eye'} size={14} color={colors.textTertiary} outline />
-          <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>{t(writer ? 'community_space.read_only' : 'community_space.reader_note')}</Text>
+          ) : null}
+
+          {canCompose ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+              <GeneratedAvatar seed={mySeed} size={36} label={me?.name} />
+              <TouchableOpacity onPress={() => setComposeOpen(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('community_space.compose_title')}
+                style={{ flex: 1, height: 38, borderRadius: 19, backgroundColor: colors.surfaceSunken, justifyContent: 'center', paddingHorizontal: spacing.md }}>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.textTertiary }} numberOfLines={1}>{t('community_space.whats_on_your_mind', { name: firstName })}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setComposeOpen(true)} hitSlop={6} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('community_space.add_photo')}
+                style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="image" size={18} color={colors.success} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+              <Icon name={writer ? 'lock' : 'eye'} size={14} color={colors.textTertiary} outline />
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textTertiary }}>{t(writer ? 'community_space.read_only' : 'community_space.reader_note')}</Text>
+            </View>
+          )}
         </View>
       ) : null}
     </View>
@@ -185,7 +170,7 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
           <View style={{ alignItems: 'center', paddingVertical: spacing.xl4, paddingHorizontal: spacing.xl, gap: spacing.sm }}>
             <Icon name="people" size={36} color={colors.textTertiary} outline />
             <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{t('community_space.empty_title')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 20, color: colors.textSecondary, textAlign: 'center' }}>{t(writer && space.can_post ? 'community_space.empty_body' : 'community_space.empty_body_readonly')}</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 20, color: colors.textSecondary, textAlign: 'center' }}>{t(canCompose ? 'community_space.empty_body' : 'community_space.empty_body_readonly')}</Text>
           </View>
         )}
         ListFooterComponent={<View>{feed.isFetchingNextPage ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.lg }} /> : empty ? null : <View style={{ height: spacing.lg }} />}{footer}</View>}

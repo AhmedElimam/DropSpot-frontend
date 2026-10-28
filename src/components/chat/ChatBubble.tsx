@@ -14,6 +14,7 @@ import { formatTime } from '@/utils/format';
 import { linkify, openLink } from '@/components/chat/linkify';
 import { haptic } from '@/utils/haptics';
 import type { ChatMessage } from '@/api/chat';
+import { ReactionGlyph, kindOfEmoji } from '@/components/reactions/ReactionGlyph';
 
 /** How far a message is dragged before letting go replies to it. */
 export const REPLY_DX = 64;
@@ -301,7 +302,8 @@ export const ChatBubble = memo(function ChatBubble({
                 borderWidth: 1.5, borderColor: own ? colors.brand : colors.border, ...shadows.sm,
               }}
             >
-              <Text style={{ fontSize: 14 }}>{r.emoji}</Text>
+              {/* Our own glyph for the emoji the server stored (an unknown one stays itself). */}
+              {kindOfEmoji(r.emoji) ? <ReactionGlyph kind={kindOfEmoji(r.emoji)!} size={17} /> : <Text style={{ fontSize: 14 }}>{r.emoji}</Text>}
               {r.count > 1 ? <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: own ? colors.brand : colors.textSecondary }}>{r.count}</Text> : null}
             </TouchableOpacity>
           </Animated.View>
