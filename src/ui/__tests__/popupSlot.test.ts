@@ -58,4 +58,21 @@ describe('one app-wide popup at a time', () => {
     jest.advanceTimersByTime(GAP_MS + 20);
     expect(holder()).toBe('nazer_unlock');
   });
+
+  it('the season switch: nothing presents under the curtain, then its welcome goes before مدام روز', () => {
+    // The person confirms the switch; the curtain rises and the app rebuilds under it.
+    modalOpened(); // the curtain
+    setWant('rose_unlock', true); // her popup remounted with the rebuilt tree
+    jest.advanceTimersByTime(5_000);
+    expect(holder()).toBeNull();
+    // The curtain falls and asks for the welcome in the same moment.
+    modalClosed();
+    setWant('revision_welcome', true);
+    expect(holder()).toBeNull();
+    jest.advanceTimersByTime(GAP_MS + 20);
+    expect(holder()).toBe('revision_welcome');
+    setWant('revision_welcome', false);
+    jest.advanceTimersByTime(GAP_MS + 20);
+    expect(holder()).toBe('rose_unlock');
+  });
 });

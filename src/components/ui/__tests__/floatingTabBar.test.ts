@@ -3,11 +3,15 @@ import { floatingNotchPath, RAISE, NOTCH_R, PILL_HEIGHT } from '../FloatingTabBa
 describe('floatingNotchPath', () => {
   it('is a stadium with a circular cut around the middle of its top edge, symmetric about the centre', () => {
     const d = floatingNotchPath(374, PILL_HEIGHT);
-    const arc = /L ([\d.]+) 20 A 34 34 0 1 0 ([\d.]+) 20/.exec(d);
+    const arc = new RegExp(`L ([\\d.]+) ${RAISE} A ${NOTCH_R} ${NOTCH_R} 0 1 0 ([\\d.]+) ${RAISE}`).exec(d);
     expect(arc).not.toBeNull();
     const [, a, b] = arc!;
     expect((Number(a) + Number(b)) / 2).toBeCloseTo(187, 1);
     expect(Number(b) - Number(a)).toBeLessThan(NOTCH_R * 2);
+  });
+
+  it('cuts a 4pt breath around the 56pt button', () => {
+    expect(NOTCH_R).toBe(32);
   });
 
   it('starts at the raised top edge and closes', () => {

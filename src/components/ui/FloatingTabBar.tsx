@@ -19,9 +19,9 @@ export const GAP = 10;
 export const SIDE = 14;
 /** How far the centre button rises above the pill's top edge. */
 export const RAISE = 20;
-/** Centre button diameter, and the notch cut around it (a 6pt breath on each side). */
+/** Centre button diameter, and the notch cut around it (a 4pt breath on each side — founder 2026-10-28: «reduce the cut a little»). */
 export const BUTTON = 56;
-export const NOTCH_R = BUTTON / 2 + 6;
+export const NOTCH_R = BUTTON / 2 + 4;
 
 /**
  * The floating pill's outline: a stadium (fully rounded ends) with a circular cut in the

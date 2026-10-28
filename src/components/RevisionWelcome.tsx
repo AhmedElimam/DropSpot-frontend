@@ -11,6 +11,7 @@ import { SeasonCrest } from '@/components/SeasonCrest';
 import { RosePortrait } from '@/components/rose/RoseStamp';
 import { useRose } from '@/hooks/useRose';
 import { useThemeStore } from '@/stores/themeStore';
+import { usePopupSlot } from '@/ui/popupSlot';
 
 /**
  * «وضع المراجعة مفعّل الآن» (founder 2026-10-17: «when we activate revision mode, show a popup
@@ -23,7 +24,10 @@ import { useThemeStore } from '@/stores/themeStore';
  */
 export function RevisionWelcome() {
   const open = useThemeStore((s) => s.welcome);
-  if (!open) return null;
+  // One popup at a time: the rebuilt app may have its own (مدام روز's unlock) waiting; two iOS
+  // modals presented together leave one invisible over the screen and the app freezes.
+  const show = usePopupSlot('revision_welcome', open);
+  if (!show) return null;
   return <Welcome />;
 }
 

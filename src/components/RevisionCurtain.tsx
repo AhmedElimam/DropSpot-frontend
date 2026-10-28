@@ -7,6 +7,7 @@ import { fonts } from '@/theme/typography';
 import { REVISION_INK } from '@/theme/revision';
 import { gradientSets } from '@/theme/palettes';
 import { CURTAIN_IN_MS, useThemeStore } from '@/stores/themeStore';
+import { useModalPresence } from '@/ui/popupSlot';
 import { Icon } from '@/components/ui/Icon';
 import { SeasonCrest } from '@/components/SeasonCrest';
 import Svg, { Defs, Line, Pattern, RadialGradient, Rect, Stop } from 'react-native-svg';
@@ -30,6 +31,9 @@ const OUT_MS = 460;
 
 export function RevisionCurtain() {
   const curtain = useThemeStore((s) => s.curtain);
+  // While the curtain is up the whole app rebuilds under it and its popups remount: none may
+  // present until it has fallen (and the slot's gap has passed).
+  useModalPresence(curtain !== null);
   if (!curtain) return null;
   return <Curtain key={curtain.key} to={curtain.to} />;
 }

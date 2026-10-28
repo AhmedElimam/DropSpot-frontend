@@ -13,6 +13,9 @@ import { create } from 'zustand';
  * already has up (AppModal and SheetModal report themselves through `useModalPresence`).
  */
 export const POPUP_ORDER = [
+  // «وضع المراجعة مفعّل الآن»: the person just flipped the season, so its sheet goes first
+  // (2026-10-28: it opened beside مدام روز's unlock after the rebuild and the app froze).
+  'revision_welcome',
   'onboarding_intro',
   'whats_new',
   'nazer_unlock',
@@ -95,7 +98,9 @@ export function usePopupQueueBusy(): boolean {
 
 /**
  * Called by every modal shell (AppModal, SheetModal) with its visibility. The holder's own
- * modal counts too, harmlessly: the count is read only while nobody holds the slot.
+ * modal counts too, harmlessly: the count is read only while nobody holds the slot. Anything
+ * else that covers the app and rebuilds under it (the season's curtain) reports itself the
+ * same way, so no popup presents while it is up.
  */
 export function useModalPresence(visible: boolean): void {
   useEffect(() => {
