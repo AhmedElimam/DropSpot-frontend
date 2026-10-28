@@ -116,8 +116,14 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
       {/* The pictures bleed to the card's edge */}
       {post.media.length ? <Pictures media={post.media} width={cardWidth} headers={headers} onOpen={(i) => onOpenImage?.(post, i)} /> : null}
 
-      {/* The author's own held / rejected post says why */}
-      {status ? (
+      {/* Words that read as someone hurting: held from the community and answered gently —
+          the supportive line only, never «under review», never red (the spec §5.1). */}
+      {status === 'held' && post.status_reason === 'support' ? (
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginHorizontal: PAD, marginTop: spacing.sm, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brandTint }}>
+          <Icon name="chat" size={16} color={colors.brand} outline />
+          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.textPrimary }}>{post.status_note ?? ''}</Text>
+        </View>
+      ) : /* The author's own held / rejected post says why */ status ? (
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginHorizontal: PAD, marginTop: spacing.sm, padding: spacing.md, borderRadius: radius.lg, backgroundColor: status === 'rejected' ? colors.dangerLight : colors.warningLight }}>
           <Icon name={status === 'rejected' ? 'warning' : 'hourglass'} size={16} color={status === 'rejected' ? colors.dangerText : colors.warningText} />
           <View style={{ flex: 1 }}>

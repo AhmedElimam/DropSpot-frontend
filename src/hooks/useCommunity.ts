@@ -3,7 +3,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import {
   commentOnCommunityPost, createCommunityPost, deleteCommunityComment, deleteCommunityPost, editCommunityPost, getCommunityComments, getCommunityFeed,
   getCommunityPost, getCommunitySpaces, getCommunityUnread, reactToCommunityMedia, reactToCommunityPost, reportCommunityComment, reportCommunityPost,
-  uploadCommunityMedia,
+  uploadCommunityMedia, getCommunityBlocks, blockCommunityMember, unblockCommunityMember, getCommunityStanding, appealCommunityStrike,
   type CommentInput, type CommunityAudience, type CommunityBackground, type CommunityFilter, type CommunityPost, type CommunityReaction, type CreatePostInput,
   type ReactResult, type UploadMediaInput,
 } from '@/api/community';
@@ -175,4 +175,27 @@ export function useReportCommunityComment() {
 
 export function useUploadCommunityMedia(audience: CommunityAudience) {
   return useMutation({ mutationFn: (input: UploadMediaInput) => uploadCommunityMedia(audience, input) });
+}
+
+/** The members this person blocked (their posts and comments hidden for this person only). */
+export function useCommunityBlocks(enabled = true) {
+  const on = useCommunityEnabled();
+  return useQuery({ queryKey: [...KEY, 'blocks'], queryFn: getCommunityBlocks, retry, enabled: on && enabled, staleTime: 60_000 });
+}
+
+/** Block or unblock: every feed and thread is refetched, so their rows go (or come back) at once. */
+export function useBlockCommunityMember() {
+  const invalidate = useInvalidate();
+  return useMutation({ mutationFn: ({ userId, block }: { userId: number; block: boolean }) => (block ? blockCommunityMember(userId) : unblockCommunityMember(userId)), onSuccess: invalidate });
+}
+
+/** The viewer's own warnings and suspensions (and a parent's children's). Private. */
+export function useCommunityStanding(enabled = true) {
+  const on = useCommunityEnabled();
+  return useQuery({ queryKey: [...KEY, 'standing'], queryFn: getCommunityStanding, retry, enabled: on && enabled, staleTime: 30_000 });
+}
+
+export function useAppealCommunityStrike() {
+  const invalidate = useInvalidate();
+  return useMutation({ mutationFn: ({ strikeId, body }: { strikeId: number; body: string }) => appealCommunityStrike(strikeId, body), onSuccess: invalidate });
 }

@@ -16,13 +16,14 @@ import { arDigits } from '@/components/threads/format';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
   useCommunityComments, useCommunityPost, useCommunitySpaces, useDeleteCommunityComment, useDeleteCommunityPost,
-  useReactToCommunityPost, useReportCommunityComment, useReportCommunityPost,
+  useReactToCommunityPost, useReportCommunityComment, useReportCommunityPost, useBlockCommunityMember,
 } from '@/hooks/useCommunity';
 import { canWrite, type CommunityComment, type CommunityMedia, type CommunityPost, type CommunityReaction, type CommunityRole } from '@/api/community';
 import { PostCard, CARD_SIDE } from './PostCard';
 import { CommentRow } from './CommentRow';
 import { CommentComposer } from './CommentComposer';
 import { PostMediaViewer } from './PostMediaViewer';
+import { canBlock, confirmBlock, pausedLine } from './guard';
 
 /**
  * A menu choice that opens a sheet waits until the menu's own window has closed: the popup runs
@@ -49,7 +50,11 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
   const role: CommunityRole = data?.role ?? 'student';
   const writer = canWrite(role);
   const space = useMemo(() => (spaces.data?.spaces ?? []).find((s) => s.audience === data?.post.audience), [spaces.data?.spaces, data?.post.audience]);
-  const commentsOpen = !!data && data.post.status === 'published' && writer && (space?.comments_on ?? true);
+  const member = writer && role !== 'staff';
+  const paused = member ? pausedLine(spaces.data?.standing, t) : null;
+  const commentsOpen = !!data && data.post.status === 'published' && writer && (space?.comments_on ?? true) && !paused;
+  const block = useBlockCommunityMember();
+  const blockAuthor = (author: CommunityPost['author']) => afterPopup(() => confirmBlock(author, t, (userId) => block.mutateAsync({ userId, block: true })));
 
   const react = useReactToCommunityPost();
   const removePost = useDeleteCommunityPost();
@@ -72,20 +77,22 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
   const onMorePost = useCallback((post: CommunityPost) => {
     const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
     if (post.mine && post.status !== 'hidden') buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => Alert.alert(t('community_space.withdraw'), t('community_space.withdraw_confirm'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => removePost.mutateAsync({ postId: post.id })) }]) });
-    if (!post.mine && post.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => afterPopup(() => setReportFor({ kind: 'post', id: post.id })) });
+    if (!post.mine && post.status === 'published') buttons.push({ text: t('community_space.report_menu'), style: 'destructive', onPress: () => afterPopup(() => setReportFor({ kind: 'post', id: post.id })) });
+    if (canBlock(post.author, post.mine, member)) buttons.push({ text: t('community_space.block_menu', { name: post.author.name.split(' ')[0] }), onPress: () => blockAuthor(post.author) });
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });
     Alert.alert(post.author.name, undefined, buttons);
-  }, [t, removePost]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [t, removePost, member]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onMoreComment = useCallback((c: CommunityComment) => {
     const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
     if (c.mine && c.status !== 'hidden') buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => removeComment.mutateAsync({ commentId: c.id })) });
-    if (!c.mine && c.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => afterPopup(() => setReportFor({ kind: 'comment', id: c.id })) });
+    if (!c.mine && c.status === 'published') buttons.push({ text: t('community_space.report_menu'), style: 'destructive', onPress: () => afterPopup(() => setReportFor({ kind: 'comment', id: c.id })) });
+    if (canBlock(c.author, c.mine, member)) buttons.push({ text: t('community_space.block_menu', { name: c.author.name.split(' ')[0] }), onPress: () => blockAuthor(c.author) });
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });
     Alert.alert(c.author.name, undefined, buttons);
-  }, [t, removeComment]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [t, removeComment, member]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const total = data?.post.comments_count ?? 0;
   const header = (
@@ -145,7 +152,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
         </View>
       ) : data && data.post.status === 'published' ? (
         <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md, paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, textAlign: 'center' }}>{t(writer ? 'community_space.comments_off' : 'community_space.reader_note')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, textAlign: 'center' }}>{paused ?? t(writer ? 'community_space.comments_off' : 'community_space.reader_note')}</Text>
         </View>
       ) : null}
       {viewer !== null && data ? <PostMediaViewer post={data.post} start={viewer} role={role} headers={headers} onClose={() => setViewer(null)} /> : null}

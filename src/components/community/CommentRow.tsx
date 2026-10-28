@@ -25,14 +25,16 @@ export const CommentRow = memo(function CommentRow({ comment: c, headers, onMore
 }) {
   const { t } = useTranslation();
   const chip = roleLabel(c.author.role, t);
-  const status = c.status !== 'published' ? c.status : null;
+  // A held comment that read as someone hurting is answered gently, not as a hold (the spec §5.1).
+  const support = c.status === 'held' && c.status_reason === 'support';
+  const status = c.status !== 'published' && !support ? c.status : null;
   const pic = c.attachment;
   const picW = pic?.width && pic?.height ? Math.min(200, Math.round(160 * (pic.width / pic.height))) : 180;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingHorizontal: side, paddingVertical: 6 }}>
       <CommunityAvatar author={c.author} size={34} />
       <View style={{ flex: 1 }}>
-        {c.body || status ? (
+        {c.body || status || support ? (
           <Pressable onLongPress={() => onMore(c)} delayLongPress={300} style={{ alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: status ? (status === 'rejected' ? colors.dangerLight : colors.warningLight) : colors.surfaceSunken, borderRadius: radius.xl, paddingHorizontal: spacing.md, paddingVertical: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{c.author.name}</Text>
@@ -44,6 +46,7 @@ export const CommentRow = memo(function CommentRow({ comment: c, headers, onMore
                 {t(status === 'rejected' ? 'community_space.status_rejected' : c.status_reason === 'awaiting_review' ? 'community_space.status_awaiting' : 'community_space.status_held')}{c.status_note ? ` — ${c.status_note}` : ''}
               </Text>
             ) : null}
+            {support && c.status_note ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, lineHeight: 18, color: colors.brand, marginTop: 2 }}>{c.status_note}</Text> : null}
           </Pressable>
         ) : (
           <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginBottom: 4, marginHorizontal: spacing.sm }} numberOfLines={1}>{c.author.name}</Text>

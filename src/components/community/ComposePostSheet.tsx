@@ -12,10 +12,11 @@ import { SheetModal } from '@/components/ui/SheetModal';
 import { useAuthStore } from '@/stores/authStore';
 import { useCreateCommunityPost, useEditCommunityPost, useUploadCommunityMedia } from '@/hooks/useCommunity';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import type { CommunityAudience, CommunityBackground, CommunityLimits, CommunityPost } from '@/api/community';
+import type { CommunityAudience, CommunityBackground, CommunityLimits, CommunityPost, CreatedPost } from '@/api/community';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BACKGROUNDS, BACKGROUND_KEYS, fitsBackground } from './backgrounds';
 import { Surface } from '@/ui/surfaces';
+import { explainWriteError } from './guard';
 
 /** The send arrow points the way Arabic reads, like chat's (founder 2026-10-28). */
 const SEND_FLIP = { transform: [{ scaleX: -1 }] } as const;
@@ -35,7 +36,7 @@ export function ComposePostSheet({ visible, audience, editing = null, limits, on
   editing?: CommunityPost | null;
   limits: CommunityLimits | undefined;
   onClose: () => void;
-  onCreated: (post: CommunityPost) => void;
+  onCreated: (post: CreatedPost) => void;
 }) {
   const { t } = useTranslation();
   const me = useAuthStore((s) => s.user);
@@ -48,7 +49,9 @@ export function ComposePostSheet({ visible, audience, editing = null, limits, on
   const [uploading, setUploading] = useState(false);
   const create = useCreateCommunityPost(audience);
   const upload = useUploadCommunityMedia(audience);
-  const max = limits?.images_per_post ?? 4;
+  // Pictures off on the server (the spec §6: none until each is screened first) = no photo buttons.
+  const mediaOn = limits?.media !== false;
+  const max = mediaOn ? limits?.images_per_post ?? 4 : 0;
   const bodyMax = limits?.body_max_chars ?? 4000;
   const busy = create.isPending || edit.isPending || uploading;
   const fits = fitsBackground(body, pictures.length + (editing?.media.length ?? 0));
@@ -95,8 +98,9 @@ export function ComposePostSheet({ visible, audience, editing = null, limits, on
         : await create.mutateAsync({ body: body.trim(), media: ids, background });
       onCreated(post);
     } catch (e) {
+      // The words stay in the box: a nudge («write it in Arabic», «no numbers here») is a rewrite.
       setUploading(false);
-      Alert.alert(t('common.error'), getFriendlyErrorMessage(e));
+      explainWriteError(e, t);
     }
   };
 
@@ -192,7 +196,7 @@ export function ComposePostSheet({ visible, audience, editing = null, limits, on
 
       {/* The bottom strip: photo, camera, the counter */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
-        {editing ? null : <Surface id="community.compose.photos"><View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        {editing || !mediaOn ? null : <Surface id="community.compose.photos"><View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <TouchableOpacity onPress={() => pick(false)} disabled={busy || pictures.length >= max} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('community_space.add_photo')}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: colors.surfaceSunken, opacity: pictures.length >= max ? 0.5 : 1 }}>
           <Icon name="image" size={18} color={colors.success} />

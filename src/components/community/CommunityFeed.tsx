@@ -17,13 +17,16 @@ import { useMediaHeaders } from '@/components/threads/mediaHeaders';
 import { arDigits } from '@/components/threads/format';
 import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { useCommunityFeed, useCommunitySpaces, useDeleteCommunityPost, useReactToCommunityPost, useReportCommunityPost } from '@/hooks/useCommunity';
-import { canWrite, type CommunityAudience, type CommunityPost, type CommunityReaction, type CommunitySpace } from '@/api/community';
+import { useBlockCommunityMember, useCommunityFeed, useCommunitySpaces, useDeleteCommunityPost, useReactToCommunityPost, useReportCommunityPost } from '@/hooks/useCommunity';
+import { canWrite, type CommunityAudience, type CommunityPost, type CommunityReaction, type CommunitySpace, type CreatedPost } from '@/api/community';
 import { PostCard, CARD_SIDE } from './PostCard';
 import { ComposePostSheet } from './ComposePostSheet';
 import { CommentsSheet } from './CommentsSheet';
 import { PostMediaViewer } from './PostMediaViewer';
-import { Surface } from '@/ui/surfaces';
+import { Surface, isSurfaceOn } from '@/ui/surfaces';
+import { BlockedSheet } from './BlockedSheet';
+import { StandingSheet } from './StandingSheet';
+import { canBlock, confirmBlock, pausedLine, showSupport } from './guard';
 
 /**
  * A menu choice that opens a sheet waits until the menu's own window has closed: the popup runs
@@ -75,6 +78,13 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
   const [viewer, setViewer] = useState<{ postId: number; index: number } | null>(null);
   const [sheetFor, setSheetFor] = useState<CommunityPost | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // The guard rails (founder spec 2026-10-28): blocking is the member's own, the standing is private.
+  const block = useBlockCommunityMember();
+  const [blockedOpen, setBlockedOpen] = useState(false);
+  const [standingOpen, setStandingOpen] = useState(false);
+  const standing = spacesQ.data?.standing ?? null;
+  const member = writer && role !== 'staff';
+  const paused = member ? pausedLine(standing, t) : null;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -97,18 +107,26 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
       buttons.push({ text: t('community_space.edit'), onPress: () => afterPopup(() => setEditing(post)) });
       buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => Alert.alert(t('community_space.withdraw'), t('community_space.withdraw_confirm'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => remove.mutateAsync({ postId: post.id })) }]) });
     }
+    // Two different things, said differently: reporting tells the platform's team; blocking
+    // only hides this person for you (the confirm spells it out).
     if (!post.mine && post.status === 'published') {
-      buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => afterPopup(() => setReportFor(post.id)) });
+      buttons.push({ text: t('community_space.report_menu'), style: 'destructive', onPress: () => afterPopup(() => setReportFor(post.id)) });
+    }
+    if (canBlock(post.author, post.mine, member)) {
+      buttons.push({ text: t('community_space.block_menu', { name: post.author.name.split(' ')[0] }), onPress: () => afterPopup(() => confirmBlock(post.author, t, (userId) => block.mutateAsync({ userId, block: true }))) });
     }
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });
     Alert.alert(post.author.name, undefined, buttons);
-  }, [t, remove]);
+  }, [t, remove, block, member]);
 
-  const onCreated = useCallback((post: CommunityPost) => {
+  const onCreated = useCallback((post: CreatedPost) => {
     setComposeOpen(false);
     setEditing(null);
-    if (post.status === 'held') Alert.alert(t('community_space.held_title'), post.status_reason === 'awaiting_review' ? t('community_space.held_awaiting') : t('community_space.held_body', { why: post.status_note ?? '' }));
+    // Words that read as someone hurting are held and answered gently, never as a violation.
+    const support = post.support ?? (post.status_reason === 'support' ? post.status_note : null);
+    if (support) afterPopup(() => showSupport(support, t));
+    else if (post.status === 'held') Alert.alert(t('community_space.held_title'), post.status_reason === 'awaiting_review' ? t('community_space.held_awaiting') : t('community_space.held_body', { why: post.status_note ?? '' }));
     else if (post.status === 'rejected') Alert.alert(t('community_space.rejected_title'), t('community_space.rejected_body', { why: post.status_note ?? '' }));
   }, [t]);
 
@@ -117,6 +135,15 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
   const parents = audience === 'parents';
 
   const canCompose = !!space && writer && space.can_post;
+  // Pictures stay off until each one is screened before anyone sees it (the spec §6).
+  const mediaOn = spacesQ.data?.limits?.media !== false;
+  const onMenu = () => {
+    Alert.alert(t('community_space.menu'), undefined, [
+      { text: t(meRole === 'parent' ? 'community_space.standing_children' : 'community_space.standing_mine'), onPress: () => afterPopup(() => setStandingOpen(true)) },
+      ...(isSurfaceOn('community.block') ? [{ text: t('community_space.blocked_title'), onPress: () => afterPopup(() => setBlockedOpen(true)) }] : []),
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
   const listHeader = (
     <View>
       {header}
@@ -142,6 +169,13 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
                 {space.posts > 0 ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{t('community_space.n_posts', { n: arDigits(space.posts) })}</Text> : null}
               </View>
             </View>
+            {member ? (
+              <TouchableOpacity onPress={onMenu} hitSlop={8} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('community_space.menu')}
+                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderLight }}>
+                <Icon name="more" size={18} color={colors.textSecondary} />
+                {standing && standing.open_strikes > 0 ? <View style={{ position: 'absolute', top: 2, end: 2, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.warning, borderWidth: 1.5, borderColor: colors.surface }} /> : null}
+              </TouchableOpacity>
+            ) : null}
           </LinearGradient>
 
           {space.welcome ? (
@@ -151,7 +185,16 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
             </View>
           ) : null}
 
-          {canCompose ? (
+          {paused ? (
+            <Surface id="community.standing">
+            <TouchableOpacity onPress={() => setStandingOpen(true)} activeOpacity={0.85} accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderTopWidth: 1, borderTopColor: colors.borderLight, backgroundColor: colors.surfaceSunken }}>
+              <Icon name="lock" size={14} color={colors.textSecondary} outline />
+              <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 18, color: colors.textSecondary }}>{paused}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('community_space.paused_open')}</Text>
+            </TouchableOpacity>
+            </Surface>
+          ) : canCompose ? (
             <Surface id="community.feed.composer">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
               <GeneratedAvatar seed={mySeed} size={36} label={me?.name} />
@@ -159,10 +202,12 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
                 style={{ flex: 1, height: 38, borderRadius: 19, backgroundColor: colors.surfaceSunken, justifyContent: 'center', paddingHorizontal: spacing.md }}>
                 <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.textTertiary }} numberOfLines={1}>{t('community_space.whats_on_your_mind', { name: firstName })}</Text>
               </TouchableOpacity>
+              {mediaOn ? (
               <TouchableOpacity onPress={() => setComposeOpen(true)} hitSlop={6} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('community_space.add_photo')}
                 style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.successLight, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="image" size={18} color={colors.success} />
               </TouchableOpacity>
+              ) : null}
             </View>
             </Surface>
           ) : (
@@ -215,6 +260,8 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
           onViewAll={() => { const id = sheetFor.id; setSheetFor(null); openRef.current(id); }} />
       ) : null}
       {viewerPost && viewer ? <PostMediaViewer post={viewerPost} start={viewer.index} role={role} headers={headers} onClose={() => setViewer(null)} /> : null}
+      {member ? <Surface id="community.block"><BlockedSheet visible={blockedOpen} onClose={() => setBlockedOpen(false)} /></Surface> : null}
+      {member ? <StandingSheet visible={standingOpen} parent={meRole === 'parent'} onClose={() => setStandingOpen(false)} /> : null}
       <ReportSheet
         visible={reportFor !== null}
         reasons={spacesQ.data?.limits?.report_reasons ?? {}}

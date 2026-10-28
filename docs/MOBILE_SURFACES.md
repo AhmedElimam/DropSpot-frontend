@@ -12,11 +12,13 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 
 ## community
 
+- `community.block` — element · src/components/community/CommunityFeed.tsx
 - `community.comment.photo` — element · src/components/community/CommentComposer.tsx
 - `community.compose.backgrounds` — element · src/components/community/ComposePostSheet.tsx
 - `community.compose.photos` — element · src/components/community/ComposePostSheet.tsx
 - `community.feed.composer` — element · src/components/community/CommunityFeed.tsx
 - `community.picture.social` — element · src/components/community/PostMediaViewer.tsx
+- `community.standing` — element · src/components/community/CommunityFeed.tsx
 
 ## family
 

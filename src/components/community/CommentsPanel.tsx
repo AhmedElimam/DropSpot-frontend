@@ -9,10 +9,13 @@ import { Alert } from '@/ui/dialog';
 import { arDigits } from '@/components/threads/format';
 import { useMediaHeaders } from '@/components/threads/mediaHeaders';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { useCommunityComments, useCommunitySpaces, useDeleteCommunityComment, useReportCommunityComment } from '@/hooks/useCommunity';
+import { useBlockCommunityMember, useCommunityComments, useCommunitySpaces, useDeleteCommunityComment, useReportCommunityComment } from '@/hooks/useCommunity';
 import { canWrite, type CommunityAudience, type CommunityComment, type CommunityRole } from '@/api/community';
 import { CommentRow } from './CommentRow';
 import { CommentComposer } from './CommentComposer';
+import { canBlock, confirmBlock, pausedLine } from './guard';
+
+const afterPopup = (fn: () => void) => { setTimeout(fn, 320); };
 
 /**
  * A thread in a panel (founder 2026-10-28: «instead of a page for comments, show a modal first,
@@ -42,7 +45,11 @@ export function CommentsPanel({ postId, audience, mediaId = null, role, total, h
   const thread = useCommunityComments(postId, mediaId);
   const comments = useMemo(() => thread.data?.pages.flatMap((p) => p.comments) ?? [], [thread.data?.pages]);
   const writer = canWrite(role);
-  const open = writer && (space?.comments_on ?? true);
+  // A paused member reads and reacts; the composer gives way to the calm line (the spec §10).
+  const member = writer && role !== 'staff';
+  const paused = member ? pausedLine(spaces.data?.standing, t) : null;
+  const open = writer && (space?.comments_on ?? true) && !paused;
+  const block = useBlockCommunityMember();
   const remove = useDeleteCommunityComment();
   const report = useReportCommunityComment();
   const reasons = spaces.data?.limits?.report_reasons ?? {};
@@ -63,16 +70,20 @@ export function CommentsPanel({ postId, audience, mediaId = null, role, total, h
     if (!c.mine && c.status === 'published') {
       // The reasons as the choices: no second sheet over this one.
       for (const [key, label] of Object.entries(reasons)) {
-        buttons.push({ text: `${t('community_space.report')}: ${label}`, onPress: () => report.mutate({ commentId: c.id, reason: key }, {
+        buttons.push({ text: `${t('community_space.report_menu')}: ${label}`, style: 'destructive', onPress: () => report.mutate({ commentId: c.id, reason: key }, {
           onSuccess: () => Alert.alert(t('community_space.reported_title'), t('community_space.reported_body')),
           onError: (e) => Alert.alert('', getFriendlyErrorMessage(e)),
         }) });
       }
     }
+    // Blocking is the member's own and quiet; the confirm says how it differs from a report.
+    if (canBlock(c.author, c.mine, member)) {
+      buttons.push({ text: t('community_space.block_menu', { name: c.author.name.split(' ')[0] }), onPress: () => afterPopup(() => confirmBlock(c.author, t, (userId) => block.mutateAsync({ userId, block: true }))) });
+    }
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });
     Alert.alert(c.author.name, undefined, buttons);
-  }, [t, remove, report, reasons]);
+  }, [t, remove, report, reasons, block, member]);
 
   const more = thread.hasNextPage;
   const footer = thread.isFetchingNextPage ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.md }} /> : more ? (
@@ -115,7 +126,7 @@ export function CommentsPanel({ postId, audience, mediaId = null, role, total, h
         </View>
       ) : (
         <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, textAlign: 'center', paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
-          {t(writer ? 'community_space.comments_off' : 'community_space.reader_note')}
+          {paused ?? t(writer ? 'community_space.comments_off' : 'community_space.reader_note')}
         </Text>
       )}
     </View>

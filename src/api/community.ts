@@ -38,7 +38,54 @@ export interface CommunityLimits {
   report_reasons: Record<string, string>;
   /** The colours the server offers short posts (absent from an older server: all of the app's). */
   backgrounds?: CommunityBackground[];
+  /**
+   * May members add pictures at all? Off until every picture is screened before anyone sees it
+   * (the guard-rails spec §6); absent from an older server = on. Existing pictures still show.
+   */
+  media?: boolean;
 }
+
+/**
+ * Where the viewer stands in the community (the guard-rails spec, Part C). Private: it is only
+ * ever about the viewer, never shown to anyone else. A suspension stops writing, never reading.
+ */
+export interface CommunityStanding {
+  can_participate: boolean;
+  suspended_until: string | null;
+  removed: boolean;
+  /** The server's own sentence for why writing is stopped. */
+  message: string | null;
+  open_strikes: number;
+}
+
+export type StrikeLevel = 'warning_1' | 'warning_2' | 'suspension_short' | 'suspension_long' | 'severe' | 'removal';
+
+export interface CommunityStrike {
+  id: number;
+  level: StrikeLevel;
+  reason_label: string;
+  created_at: string;
+  ends_at: string | null;
+  /** Still moves the ladder (not faded, not reversed on appeal). */
+  counting: boolean;
+  appeal: { status: 'pending' | 'accepted' | 'rejected'; at: string; note: string | null } | null;
+  can_appeal: boolean;
+}
+
+export interface CommunityStandingDetail {
+  me: { strikes: CommunityStrike[] };
+  /** A parent: each child's own record. */
+  children: { student_id: number; name: string; strikes: CommunityStrike[] }[];
+}
+
+export interface CommunityBlock { user_id: number; name: string; avatar_seed: string; blocked_at: string }
+
+/**
+ * Why a write was refused, from the server's `code` (the guard-rails spec §4, §10):
+ * `nudge` = rewrite it (a number, a link, a word, Franco or English — nothing is recorded),
+ * `suspended` = writing is stopped for now, `rate_limited` = slow down. null = an ordinary error.
+ */
+export type WriteRefusal = { code: 'nudge'; kind: string | null; message: string } | { code: 'suspended' | 'rate_limited'; message: string };
 
 export interface CommunityMedia {
   id: number; url: string; width: number | null; height: number | null;
@@ -112,9 +159,20 @@ export function canWrite(role: CommunityRole | null | undefined): boolean {
   return role === 'student' || role === 'parent' || role === 'staff';
 }
 
-export async function getCommunitySpaces(): Promise<{ spaces: CommunitySpace[]; limits: CommunityLimits }> {
+export async function getCommunitySpaces(): Promise<{ spaces: CommunitySpace[]; limits: CommunityLimits; standing: CommunityStanding | null }> {
   const { data } = await client.get('/community');
-  return { spaces: (data?.spaces ?? []) as CommunitySpace[], limits: data?.limits as CommunityLimits };
+  return { spaces: (data?.spaces ?? []) as CommunitySpace[], limits: data?.limits as CommunityLimits, standing: (data?.standing ?? null) as CommunityStanding | null };
+}
+
+/** The server's refusal code on a failed write, or null when it is an ordinary error. */
+export function writeRefusal(err: unknown): WriteRefusal | null {
+  const res = (err as { response?: { status?: number; data?: { code?: string; kind?: string; message?: string } } } | null)?.response;
+  const code = res?.data?.code;
+  const message = typeof res?.data?.message === 'string' ? res.data.message : '';
+  if (!message) return null;
+  if (code === 'nudge') return { code, kind: res?.data?.kind ?? null, message };
+  if (code === 'suspended' || code === 'rate_limited') return { code, message };
+  return null;
 }
 
 export async function getCommunityUnread(): Promise<number> {
@@ -133,9 +191,15 @@ export async function markCommunitySeen(audience: CommunityAudience, postId?: nu
 
 export interface CreatePostInput { body: string; media?: number[]; background?: CommunityBackground | null }
 
-export async function createCommunityPost(audience: CommunityAudience, input: CreatePostInput): Promise<CommunityPost> {
+/**
+ * `support` is set when the words read as someone hurting (the spec §5.1): the post is held
+ * from the community and the author is answered gently with this text, never as a violation.
+ */
+export type CreatedPost = CommunityPost & { support?: string | null };
+
+export async function createCommunityPost(audience: CommunityAudience, input: CreatePostInput): Promise<CreatedPost> {
   const { data } = await client.post(`/community/${audience}/posts`, input);
-  return data.post as CommunityPost;
+  return { ...(data.post as CommunityPost), support: data?.support ?? null };
 }
 
 export async function getCommunityPost(postId: number): Promise<{ role: CommunityRole; post: CommunityPost; comments: CommunityComment[]; next_after: number | null }> {
@@ -163,9 +227,9 @@ export async function deleteCommunityPost(postId: number): Promise<void> {
 
 export interface CommentInput { body: string; media_id?: number | null; attachment_id?: number | null }
 
-export async function commentOnCommunityPost(postId: number, input: CommentInput): Promise<{ comment: CommunityComment; comments_count: number }> {
+export async function commentOnCommunityPost(postId: number, input: CommentInput): Promise<{ comment: CommunityComment; comments_count: number; support: string | null }> {
   const { data } = await client.post(`/community/posts/${postId}/comments`, input);
-  return { comment: data.comment as CommunityComment, comments_count: Number(data?.comments_count ?? 0) };
+  return { comment: data.comment as CommunityComment, comments_count: Number(data?.comments_count ?? 0), support: data?.support ?? null };
 }
 
 export async function deleteCommunityComment(commentId: number): Promise<void> {
@@ -203,4 +267,31 @@ export async function uploadCommunityMedia(audience: CommunityAudience, input: U
   form.append('file', { uri: input.uri, name: input.name, type: input.mime } as unknown as Blob);
   const { data } = await client.post('/community/media', form, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 3 * 60 * 1000 });
   return data.media as CommunityMedia;
+}
+
+// ── Blocking (personal, private: the blocked member is never told) ──────────
+
+export async function getCommunityBlocks(): Promise<CommunityBlock[]> {
+  const { data } = await client.get('/community/blocks');
+  return (data?.blocks ?? []) as CommunityBlock[];
+}
+
+export async function blockCommunityMember(userId: number): Promise<void> {
+  await client.post(`/community/blocks/${userId}`);
+}
+
+export async function unblockCommunityMember(userId: number): Promise<void> {
+  await client.delete(`/community/blocks/${userId}`);
+}
+
+// ── Standing: warnings, suspensions, appeals (private to the member and their parent) ──
+
+export async function getCommunityStanding(): Promise<CommunityStandingDetail> {
+  const { data } = await client.get('/community/standing');
+  return { me: { strikes: (data?.me?.strikes ?? []) as CommunityStrike[] }, children: (data?.children ?? []) as CommunityStandingDetail['children'] };
+}
+
+export async function appealCommunityStrike(strikeId: number, body: string): Promise<CommunityStrike> {
+  const { data } = await client.post(`/community/strikes/${strikeId}/appeal`, { body });
+  return data.strike as CommunityStrike;
 }

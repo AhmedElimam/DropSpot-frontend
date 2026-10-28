@@ -10,9 +10,10 @@ import { Icon } from '@/components/ui/Icon';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { useAuthStore } from '@/stores/authStore';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { useCommentOnCommunityPost, useUploadCommunityMedia } from '@/hooks/useCommunity';
+import { useCommentOnCommunityPost, useCommunitySpaces, useUploadCommunityMedia } from '@/hooks/useCommunity';
 import type { CommunityAudience, CommunityComment } from '@/api/community';
 import { Surface } from '@/ui/surfaces';
+import { explainWriteError, showSupport } from './guard';
 
 /** The send arrow points the way Arabic reads, like chat's (founder 2026-10-28). */
 const SEND_FLIP = { transform: [{ scaleX: -1 }] } as const;
@@ -40,6 +41,8 @@ export function CommentComposer({ postId, audience, mediaId = null, maxChars = 1
   const [uploading, setUploading] = useState(false);
   const comment = useCommentOnCommunityPost(postId);
   const upload = useUploadCommunityMedia(audience);
+  // Pictures off on the server (the spec §6) = no photo button; existing pictures still show.
+  const mediaOn = useCommunitySpaces().data?.limits?.media !== false;
   const busy = uploading || comment.isPending;
   const ready = (text.trim().length > 0 || !!pic) && !busy;
 
@@ -68,12 +71,15 @@ export function CommentComposer({ postId, audience, mediaId = null, maxChars = 1
       const res = await comment.mutateAsync({ body: text.trim(), media_id: mediaId, attachment_id: attachment });
       setText('');
       setPic(null);
-      if (res.comment.status === 'held') Alert.alert(t('community_space.held_title'), res.comment.status_reason === 'awaiting_review' ? t('community_space.held_awaiting') : t('community_space.held_body', { why: res.comment.status_note ?? '' }));
+      const support = res.support ?? (res.comment.status_reason === 'support' ? res.comment.status_note : null);
+      if (support) showSupport(support, t);
+      else if (res.comment.status === 'held') Alert.alert(t('community_space.held_title'), res.comment.status_reason === 'awaiting_review' ? t('community_space.held_awaiting') : t('community_space.held_body', { why: res.comment.status_note ?? '' }));
       else if (res.comment.status === 'rejected') Alert.alert(t('community_space.rejected_title'), t('community_space.rejected_body', { why: res.comment.status_note ?? '' }));
       onSent?.(res.comment);
     } catch (e) {
+      // The text stays in the field, so a nudge is a quick rewrite.
       setUploading(false);
-      Alert.alert('', getFriendlyErrorMessage(e));
+      explainWriteError(e, t);
     }
   };
 
@@ -104,12 +110,12 @@ export function CommentComposer({ postId, audience, mediaId = null, maxChars = 1
             maxLength={maxChars}
             style={{ flex: 1, maxHeight: 110, paddingVertical: 9, fontFamily: fonts.regular, fontSize: 14.5, color: ink, textAlign: 'right' }}
           />
-          <Surface id="community.comment.photo">
+          {mediaOn ? <Surface id="community.comment.photo">
           <TouchableOpacity onPress={pick} disabled={busy} hitSlop={6} accessibilityRole="button" accessibilityLabel={t('community_space.add_photo')}
             style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginBottom: 3 }}>
             <Icon name="image" size={19} color={dark ? '#FFFFFF' : colors.success} />
           </TouchableOpacity>
-          </Surface>
+          </Surface> : null}
         </View>
         <TouchableOpacity onPress={send} disabled={!ready} accessibilityRole="button" accessibilityLabel={t('community_space.send')}
           style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: ready || busy ? colors.brand : field, alignItems: 'center', justifyContent: 'center' }}>
