@@ -1,10 +1,11 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import {
-  commentOnCommunityPost, createCommunityPost, deleteCommunityComment, deleteCommunityPost, editCommunityPost, getCommunityFeed,
-  getCommunityPost, getCommunitySpaces, getCommunityUnread, reactToCommunityPost, reportCommunityComment, reportCommunityPost,
+  commentOnCommunityPost, createCommunityPost, deleteCommunityComment, deleteCommunityPost, editCommunityPost, getCommunityComments, getCommunityFeed,
+  getCommunityPost, getCommunitySpaces, getCommunityUnread, reactToCommunityMedia, reactToCommunityPost, reportCommunityComment, reportCommunityPost,
   uploadCommunityMedia,
-  type CommunityAudience, type CommunityFilter, type CommunityPost, type CommunityReaction, type CreatePostInput, type UploadMediaInput,
+  type CommentInput, type CommunityAudience, type CommunityBackground, type CommunityFilter, type CommunityPost, type CommunityReaction, type CreatePostInput,
+  type ReactResult, type UploadMediaInput,
 } from '@/api/community';
 
 export const COMMUNITY_FLAG = 'community';
@@ -74,6 +75,20 @@ export function useCommunityPost(postId: number, enabled = true) {
   });
 }
 
+/** A thread a page at a time: the post's own comments, or one picture's. Oldest first; `fetchNextPage` loads more. */
+export function useCommunityComments(postId: number, mediaId: number | null = null, enabled = true) {
+  const on = useCommunityEnabled();
+  return useInfiniteQuery({
+    queryKey: [...KEY, 'comments', postId, mediaId ?? 0],
+    queryFn: ({ pageParam }) => getCommunityComments(postId, mediaId, pageParam ?? null),
+    initialPageParam: null as number | null,
+    retry,
+    getNextPageParam: (last) => last.next_after,
+    enabled: on && enabled && postId > 0,
+    staleTime: 10_000,
+  });
+}
+
 function useInvalidate() {
   const qc = useQueryClient();
   return () => qc.invalidateQueries({ queryKey: KEY });
@@ -86,7 +101,7 @@ export function useCreateCommunityPost(audience: CommunityAudience) {
 
 export function useEditCommunityPost() {
   const invalidate = useInvalidate();
-  return useMutation({ mutationFn: ({ postId, body }: { postId: number; body: string }) => editCommunityPost(postId, body), onSuccess: invalidate });
+  return useMutation({ mutationFn: ({ postId, body, background }: { postId: number; body: string; background?: CommunityBackground | null }) => editCommunityPost(postId, body, background), onSuccess: invalidate });
 }
 
 export function useDeleteCommunityPost() {
@@ -96,7 +111,7 @@ export function useDeleteCommunityPost() {
 
 export function useCommentOnCommunityPost(postId: number) {
   const invalidate = useInvalidate();
-  return useMutation({ mutationFn: (body: string) => commentOnCommunityPost(postId, body), onSuccess: invalidate });
+  return useMutation({ mutationFn: (input: CommentInput) => commentOnCommunityPost(postId, input), onSuccess: invalidate });
 }
 
 export function useDeleteCommunityComment() {
@@ -119,6 +134,30 @@ export function useReactToCommunityPost() {
         return data?.pages ? { ...data, pages: data.pages.map((pg) => ({ ...pg, posts: pg.posts.map(patch) })) } : old;
       });
       qc.setQueriesData({ queryKey: [...KEY, 'post', postId] }, (old: unknown) => {
+        const data = old as { post: CommunityPost } | undefined;
+        return data?.post ? { ...data, post: patch(data.post) } : old;
+      });
+    },
+  });
+}
+
+/**
+ * React on one picture: the feed's and the post's copy of that picture are patched in place so
+ * the viewer answers at once; the next refetch confirms it.
+ */
+export function useReactToCommunityMedia() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ mediaId, kind }: { mediaId: number; kind: CommunityReaction }) => reactToCommunityMedia(mediaId, kind),
+    onSuccess: (res: ReactResult, { mediaId }) => {
+      const patch = (p: CommunityPost) => (p.media.some((m) => m.id === mediaId)
+        ? { ...p, media: p.media.map((m) => (m.id === mediaId ? { ...m, reaction_counts: res.reaction_counts, reactions_count: res.reactions_count, my_reaction: res.my_reaction } : m)) }
+        : p);
+      qc.setQueriesData({ queryKey: [...KEY, 'feed'] }, (old: unknown) => {
+        const data = old as { pages?: { posts: CommunityPost[] }[] } | undefined;
+        return data?.pages ? { ...data, pages: data.pages.map((pg) => ({ ...pg, posts: pg.posts.map(patch) })) } : old;
+      });
+      qc.setQueriesData({ queryKey: [...KEY, 'post'] }, (old: unknown) => {
         const data = old as { post: CommunityPost } | undefined;
         return data?.post ? { ...data, post: patch(data.post) } : old;
       });

@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type ReactElement } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, type StyleProp, type ViewStyle } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, type StyleProp, type ViewStyle } from 'react-native';
+// The app's own popup (its style, its host over any sheet), never the system alert (founder 2026-10-28).
+import { Alert } from '@/ui/dialog';
 import { FlatList } from '@/components/ui/Refreshable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +21,16 @@ import { useCommunityFeed, useCommunitySpaces, useDeleteCommunityPost, useReactT
 import { canWrite, type CommunityAudience, type CommunityPost, type CommunityReaction, type CommunitySpace } from '@/api/community';
 import { PostCard, CARD_SIDE } from './PostCard';
 import { ComposePostSheet } from './ComposePostSheet';
+import { CommentsSheet } from './CommentsSheet';
+import { PostMediaViewer } from './PostMediaViewer';
+import { Surface } from '@/ui/surfaces';
+
+/**
+ * A menu choice that opens a sheet waits until the menu's own window has closed: the popup runs
+ * the choice at once and leaves 150 ms later, and a sheet presented in that moment may never
+ * appear (founder 2026-10-28: the report popup did not show).
+ */
+const afterPopup = (fn: () => void) => { setTimeout(fn, 320); };
 
 /**
  * One community's feed — the whole screen's list, so the rows are windowed (a FlatList, never a
@@ -57,7 +69,11 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
   const remove = useDeleteCommunityPost();
   const report = useReportCommunityPost();
   const [composeOpen, setComposeOpen] = useState(false);
+  const [editing, setEditing] = useState<CommunityPost | null>(null);
   const [reportFor, setReportFor] = useState<number | null>(null);
+  // In-app pictures (each with its own reactions and thread) and the comments sheet (founder 2026-10-28).
+  const [viewer, setViewer] = useState<{ postId: number; index: number } | null>(null);
+  const [sheetFor, setSheetFor] = useState<CommunityPost | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -69,16 +85,20 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
   const openRef = useRef(onOpen);
   openRef.current = onOpen;
   const open = useCallback((id: number) => openRef.current(id), []);
-  const openImage = useCallback((post: CommunityPost) => openRef.current(post.id), []);
+  const openImage = useCallback((post: CommunityPost, index: number) => setViewer({ postId: post.id, index }), []);
+  const openComments = useCallback((post: CommunityPost) => setSheetFor(post), []);
+  // The viewer follows the feed's copy, so a reaction there shows at once.
+  const viewerPost = viewer ? posts.find((p) => p.id === viewer.postId) ?? null : null;
 
   const onMore = useCallback((post: CommunityPost) => {
     const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
     const run = (fn: () => Promise<unknown>) => fn().catch((e) => Alert.alert('', getFriendlyErrorMessage(e)));
     if (post.mine && post.status !== 'hidden') {
+      buttons.push({ text: t('community_space.edit'), onPress: () => afterPopup(() => setEditing(post)) });
       buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => Alert.alert(t('community_space.withdraw'), t('community_space.withdraw_confirm'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => remove.mutateAsync({ postId: post.id })) }]) });
     }
     if (!post.mine && post.status === 'published') {
-      buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => setReportFor(post.id) });
+      buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => afterPopup(() => setReportFor(post.id)) });
     }
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });
@@ -87,6 +107,7 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
 
   const onCreated = useCallback((post: CommunityPost) => {
     setComposeOpen(false);
+    setEditing(null);
     if (post.status === 'held') Alert.alert(t('community_space.held_title'), post.status_reason === 'awaiting_review' ? t('community_space.held_awaiting') : t('community_space.held_body', { why: post.status_note ?? '' }));
     else if (post.status === 'rejected') Alert.alert(t('community_space.rejected_title'), t('community_space.rejected_body', { why: post.status_note ?? '' }));
   }, [t]);
@@ -131,6 +152,7 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
           ) : null}
 
           {canCompose ? (
+            <Surface id="community.feed.composer">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
               <GeneratedAvatar seed={mySeed} size={36} label={me?.name} />
               <TouchableOpacity onPress={() => setComposeOpen(true)} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('community_space.compose_title')}
@@ -142,6 +164,7 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
                 <Icon name="image" size={18} color={colors.success} />
               </TouchableOpacity>
             </View>
+            </Surface>
           ) : (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
               <Icon name={writer ? 'lock' : 'eye'} size={14} color={colors.textTertiary} outline />
@@ -162,7 +185,7 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
         keyExtractor={(p) => String(p.id)}
         renderItem={({ item }) => (
           <View style={{ paddingHorizontal: CARD_SIDE, paddingTop: spacing.sm }}>
-            <PostCard post={item} role={role} headers={headers} onOpen={open} onReact={onReact} onMore={onMore} onOpenImage={openImage} />
+            <PostCard post={item} role={role} headers={headers} onOpen={open} onReact={onReact} onMore={onMore} onOpenImage={openImage} onComments={openComments} reactions={spacesQ.data?.limits?.reactions} />
           </View>
         )}
         ListHeaderComponent={listHeader}
@@ -185,8 +208,13 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
         removeClippedSubviews
       />
       {space && writer ? (
-        <ComposePostSheet visible={composeOpen} audience={audience} limits={spacesQ.data?.limits} onClose={() => setComposeOpen(false)} onCreated={onCreated} />
+        <ComposePostSheet visible={composeOpen || editing !== null} audience={audience} editing={editing} limits={spacesQ.data?.limits} onClose={() => { setComposeOpen(false); setEditing(null); }} onCreated={onCreated} />
       ) : null}
+      {sheetFor ? (
+        <CommentsSheet visible postId={sheetFor.id} audience={sheetFor.audience} role={role} total={sheetFor.comments_count} onClose={() => setSheetFor(null)}
+          onViewAll={() => { const id = sheetFor.id; setSheetFor(null); openRef.current(id); }} />
+      ) : null}
+      {viewerPost && viewer ? <PostMediaViewer post={viewerPost} start={viewer.index} role={role} headers={headers} onClose={() => setViewer(null)} /> : null}
       <ReportSheet
         visible={reportFor !== null}
         reasons={spacesQ.data?.limits?.report_reasons ?? {}}

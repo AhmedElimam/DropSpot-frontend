@@ -69,6 +69,9 @@ import { RevisionThemeGuard } from '@/hooks/useRevisionTheme';
 import { colors } from '@/theme/index';
 import { shouldRefetchOnFocus } from '@/api/queryFocus';
 
+/** The roles' own stacks: the root never lets an edge swipe pop one of them away. */
+const ROLE_GROUPS = ['(student)', '(parent)', '(teacher)', '(driver)', '(admin)'] as const;
+
 // RTL is now set natively at build time by the expo-localization plugin (see
 // app.config.ts), so the first launch on a clean install is already right-to-left.
 // These calls stay for older installs that were built before that plugin existed —
@@ -319,7 +322,14 @@ export default function RootLayout() {
                   root stack pushes pages OVER a whole role (notification preferences, change
                   password, «ما الجديد»…), and a frozen role thawed mid-swipe-back stuttered
                   the gesture (founder 2026-10-12, same cause as the role stacks on 10-08). */}
-              <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }} />
+              <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
+                {/* A role's tabs are where the app lives: no swipe back off them (founder
+                    2026-10-28: «on the navbar's pages a swipe back goes to Home across the whole
+                    app — make it feel like Facebook»). The edge swipe used to pop the WHOLE role
+                    off this stack, back to the resolve route, which sent the person to Home.
+                    Pages pushed inside a role (its own stack) keep their swipe back. */}
+                {ROLE_GROUPS.map((name) => <Stack.Screen key={name} name={name} options={{ gestureEnabled: false }} />)}
+              </Stack>
             </View>
             {/* The subscription's quiet tag (trial days, an open or late bill), bottom-right on every teacher screen; touches pass through. */}
             <SubscriptionCornerTag />

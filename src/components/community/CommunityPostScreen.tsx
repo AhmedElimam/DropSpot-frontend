@@ -1,5 +1,5 @@
-import { memo, useCallback, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Pressable, ActivityIndicator, Alert, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { FlatList } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,41 +8,43 @@ import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { PageHero } from '@/components/ui/PageHero';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { CommunityAvatar } from './CommunityAvatar';
 import { ReportSheet } from '@/components/threads/ThreadSheets';
 import { useMediaHeaders } from '@/components/threads/mediaHeaders';
-import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
-import { useAuthStore } from '@/stores/authStore';
-import { ago } from '@/components/threads/format';
-import { usePullRefresh } from '@/hooks/usePullRefresh';
+import { ImageViewer } from '@/components/chat/ImageViewer';
+import { Alert } from '@/ui/dialog';
+import { arDigits } from '@/components/threads/format';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
-  useCommentOnCommunityPost, useCommunityPost, useCommunitySpaces, useDeleteCommunityComment, useDeleteCommunityPost,
+  useCommunityComments, useCommunityPost, useCommunitySpaces, useDeleteCommunityComment, useDeleteCommunityPost,
   useReactToCommunityPost, useReportCommunityComment, useReportCommunityPost,
 } from '@/hooks/useCommunity';
-import { canWrite, type CommunityComment, type CommunityPost, type CommunityReaction, type CommunityRole } from '@/api/community';
-import { PostCard, roleLabel, CARD_SIDE } from './PostCard';
-import { arDigits } from '@/components/threads/format';
-
-/** The send arrow points the way Arabic reads, like chat's (founder 2026-10-28). */
-const SEND_FLIP = { transform: [{ scaleX: -1 }] } as const;
+import { canWrite, type CommunityComment, type CommunityMedia, type CommunityPost, type CommunityReaction, type CommunityRole } from '@/api/community';
+import { PostCard, CARD_SIDE } from './PostCard';
+import { CommentRow } from './CommentRow';
+import { CommentComposer } from './CommentComposer';
+import { PostMediaViewer } from './PostMediaViewer';
 
 /**
- * One post, one screen, every role: the post in full on top, the comments under it, and a
- * composer pinned to the bottom while comments are open and the reader is a member (a
- * teacher reads, reacts and reports). What a row can do hangs off the role the server
- * returned — the client never guesses.
+ * A menu choice that opens a sheet waits until the menu's own window has closed: the popup runs
+ * the choice at once and leaves 150 ms later, and a sheet presented in that moment may never
+ * appear (founder 2026-10-28: the report popup did not show).
+ */
+const afterPopup = (fn: () => void) => { setTimeout(fn, 320); };
+
+/**
+ * «عرض كل التعليقات» — one post, every comment (founder 2026-10-28: the sheet comes first; this
+ * page shows them all, a page at a time — «load more» at the end). The post in full on top, its
+ * pictures open in the in-app viewer (each with its own reactions and thread), the composer pinned
+ * to the bottom for a member. What a row can do hangs off the role the server returned.
  */
 export function CommunityPostScreen({ postId }: { postId: number }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const headers = useMediaHeaders();
-  const me = useAuthStore((s) => s.user);
-  const meRole = useAuthStore((s) => s.role);
-  const mySeed = meRole === 'student' && me?.student_id ? avatarSeed.student(me.student_id) : avatarSeed.user(me?.id);
-  const { data, isLoading, isError, error, refetch } = useCommunityPost(postId);
+  const { data, isError, error, refetch } = useCommunityPost(postId);
+  const thread = useCommunityComments(postId);
+  const comments = useMemo(() => thread.data?.pages.flatMap((p) => p.comments) ?? [], [thread.data?.pages]);
   const notFound = (error as { response?: { status?: number } } | null)?.response?.status === 404;
-  const { refreshing, onRefresh } = usePullRefresh(refetch);
   const spaces = useCommunitySpaces();
   const role: CommunityRole = data?.role ?? 'student';
   const writer = canWrite(role);
@@ -54,17 +56,23 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
   const removeComment = useDeleteCommunityComment();
   const reportPost = useReportCommunityPost();
   const reportComment = useReportCommunityComment();
-  const comment = useCommentOnCommunityPost(postId);
-  const [text, setText] = useState('');
   const [reportFor, setReportFor] = useState<{ kind: 'post' | 'comment'; id: number } | null>(null);
+  const [viewer, setViewer] = useState<number | null>(null);
+  const [picture, setPicture] = useState<CommunityMedia | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([refetch(), thread.refetch()]); } finally { setRefreshing(false); }
+  }, [refetch, thread]);
   const run = (fn: () => Promise<unknown>) => fn().catch((e) => Alert.alert('', getFriendlyErrorMessage(e)));
 
   const onReact = useCallback((id: number, kind: CommunityReaction) => { react.mutate({ postId: id, kind }, { onError: (e) => Alert.alert('', getFriendlyErrorMessage(e)) }); }, [react]);
+  const onOpenImage = useCallback((_p: CommunityPost, index: number) => setViewer(index), []);
 
   const onMorePost = useCallback((post: CommunityPost) => {
     const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
     if (post.mine && post.status !== 'hidden') buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => Alert.alert(t('community_space.withdraw'), t('community_space.withdraw_confirm'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => removePost.mutateAsync({ postId: post.id })) }]) });
-    if (!post.mine && post.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => setReportFor({ kind: 'post', id: post.id }) });
+    if (!post.mine && post.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => afterPopup(() => setReportFor({ kind: 'post', id: post.id })) });
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });
     Alert.alert(post.author.name, undefined, buttons);
@@ -73,33 +81,21 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
   const onMoreComment = useCallback((c: CommunityComment) => {
     const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
     if (c.mine && c.status !== 'hidden') buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => removeComment.mutateAsync({ commentId: c.id })) });
-    if (!c.mine && c.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => setReportFor({ kind: 'comment', id: c.id }) });
+    if (!c.mine && c.status === 'published') buttons.push({ text: t('community_space.report'), style: 'destructive', onPress: () => afterPopup(() => setReportFor({ kind: 'comment', id: c.id })) });
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });
     Alert.alert(c.author.name, undefined, buttons);
   }, [t, removeComment]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const send = () => {
-    const body = text.trim();
-    if (!body) return;
-    comment.mutate(body, {
-      onSuccess: (res) => {
-        setText('');
-        if (res.comment.status === 'held') Alert.alert(t('community_space.held_title'), res.comment.status_reason === 'awaiting_review' ? t('community_space.held_awaiting') : t('community_space.held_body', { why: res.comment.status_note ?? '' }));
-        else if (res.comment.status === 'rejected') Alert.alert(t('community_space.rejected_title'), t('community_space.rejected_body', { why: res.comment.status_note ?? '' }));
-      },
-      onError: (e) => Alert.alert('', getFriendlyErrorMessage(e)),
-    });
-  };
-
+  const total = data?.post.comments_count ?? 0;
   const header = (
     <View>
       <PageHero onBack compact title={data?.post.author.name ?? t('community_space.post')} subtitle={data ? (data.post.audience === 'parents' ? t('community_space.title_parents') : t('community_space.title_students')) : undefined} />
       <View style={{ paddingHorizontal: CARD_SIDE, paddingTop: spacing.md }}>
-        {data ? <PostCard post={data.post} role={role} headers={headers} onReact={onReact} onMore={onMorePost} expanded /> : null}
+        {data ? <PostCard post={data.post} role={role} headers={headers} onReact={onReact} onMore={onMorePost} onOpenImage={onOpenImage} expanded /> : null}
         {data && data.post.status === 'published' ? (
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.xs, marginHorizontal: spacing.sm }}>
-            {data.comments.length ? t('community_space.n_comments', { n: arDigits(data.comments.length) }) : t('community_space.no_comments')}
+            {total ? t('community_space.n_comments', { n: arDigits(total) }) : t('community_space.no_comments')}
           </Text>
         ) : null}
       </View>
@@ -115,15 +111,27 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
     );
   }
 
+  // «تحميل المزيد» at the end; scrolling there loads the next page by itself too.
+  const footer = thread.isFetchingNextPage ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.lg }} /> : thread.hasNextPage ? (
+    <TouchableOpacity onPress={() => void thread.fetchNextPage()} activeOpacity={0.8} accessibilityRole="button"
+      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'center', marginVertical: spacing.lg, paddingHorizontal: spacing.lg, height: 38, borderRadius: radius.full, backgroundColor: colors.brandTint }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('community_space.load_more')}</Text>
+      <Icon name="down" size={14} color={colors.brand} />
+    </TouchableOpacity>
+  ) : null;
+
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <FlatList
-        data={data?.comments ?? []}
+        data={data?.post.status === 'published' ? comments : []}
         keyExtractor={(c) => String(c.id)}
-        renderItem={({ item }) => <CommentRow comment={item} onMore={onMoreComment} />}
+        renderItem={({ item }) => <CommentRow comment={item} headers={headers} onMore={onMoreComment} onOpenPicture={setPicture} side={CARD_SIDE + spacing.sm} />}
         ListHeaderComponent={header}
-        ListEmptyComponent={isLoading ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.xl4 }} /> : null}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
+        ListEmptyComponent={thread.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.xl4 }} /> : null}
+        ListFooterComponent={footer}
+        onEndReached={() => { if (thread.hasNextPage && !thread.isFetchingNextPage) void thread.fetchNextPage(); }}
+        onEndReachedThreshold={0.5}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + spacing.lg }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -131,28 +139,17 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
         initialNumToRender={10}
         maxToRenderPerBatch={10}
       />
-      {commentsOpen ? (
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: insets.bottom + spacing.sm, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
-          <View style={{ paddingBottom: 3 }}><GeneratedAvatar seed={mySeed} size={34} label={me?.name} /></View>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder={t('community_space.comment_placeholder')}
-            placeholderTextColor={colors.textTertiary}
-            multiline
-            maxLength={spaces.data?.limits?.comment_max_chars ?? 1000}
-            style={{ flex: 1, minHeight: 40, maxHeight: 120, paddingHorizontal: spacing.md, paddingVertical: 9, borderRadius: 20, backgroundColor: colors.surfaceSunken, fontFamily: fonts.regular, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right' }}
-          />
-          <TouchableOpacity onPress={send} disabled={!text.trim() || comment.isPending} accessibilityRole="button" accessibilityLabel={t('community_space.send')}
-            style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: text.trim() ? colors.brand : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-            {comment.isPending ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="send" size={19} color={text.trim() ? colors.onPrimary : colors.textTertiary} style={SEND_FLIP} />}
-          </TouchableOpacity>
+      {commentsOpen && data ? (
+        <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: insets.bottom + spacing.sm, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
+          <CommentComposer postId={postId} audience={data.post.audience} maxChars={spaces.data?.limits?.comment_max_chars ?? 1000} />
         </View>
       ) : data && data.post.status === 'published' ? (
         <View style={{ paddingHorizontal: spacing.lg, paddingVertical: spacing.md, paddingBottom: insets.bottom + spacing.md, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.borderLight }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, textAlign: 'center' }}>{t(writer ? 'community_space.comments_off' : 'community_space.reader_note')}</Text>
         </View>
       ) : null}
+      {viewer !== null && data ? <PostMediaViewer post={data.post} start={viewer} role={role} headers={headers} onClose={() => setViewer(null)} /> : null}
+      {picture ? <ImageViewer visible url={picture.url} headers={headers ?? {}} name={null} onClose={() => setPicture(null)} /> : null}
       <ReportSheet
         visible={reportFor !== null}
         reasons={spaces.data?.limits?.report_reasons ?? {}}
@@ -168,34 +165,3 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
     </KeyboardAvoidingView>
   );
 }
-
-const CommentRow = memo(function CommentRow({ comment: c, onMore }: { comment: CommunityComment; onMore: (c: CommunityComment) => void }) {
-  const { t } = useTranslation();
-  const chip = roleLabel(c.author.role, t);
-  const status = c.status !== 'published' ? c.status : null;
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingHorizontal: CARD_SIDE + spacing.sm, paddingVertical: 6 }}>
-      <CommunityAvatar author={c.author} size={34} />
-      <View style={{ flex: 1 }}>
-        <Pressable onLongPress={() => onMore(c)} delayLongPress={300} style={{ alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: status ? (status === 'rejected' ? colors.dangerLight : colors.warningLight) : colors.surfaceSunken, borderRadius: radius.xl, paddingHorizontal: spacing.md, paddingVertical: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, flexShrink: 1 }} numberOfLines={1}>{c.author.name}</Text>
-            {chip ? <Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.brand }}>{chip}</Text> : null}
-          </View>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 22, color: colors.textPrimary }}>{c.body}</Text>
-          {status ? (
-            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: status === 'rejected' ? colors.dangerText : colors.warningText, marginTop: 2 }}>
-              {t(status === 'rejected' ? 'community_space.status_rejected' : c.status_reason === 'awaiting_review' ? 'community_space.status_awaiting' : 'community_space.status_held')}{c.status_note ? ` — ${c.status_note}` : ''}
-            </Text>
-          ) : null}
-        </Pressable>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: 3, marginHorizontal: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }}>{ago(c.created_at)}</Text>
-          <TouchableOpacity onPress={() => onMore(c)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('community_space.more')}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.textSecondary }}>{t('community_space.more')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-});

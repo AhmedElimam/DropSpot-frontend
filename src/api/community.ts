@@ -36,9 +36,21 @@ export interface CommunityLimits {
   poll_ms: number;
   reactions: CommunityReaction[];
   report_reasons: Record<string, string>;
+  /** The colours the server offers short posts (absent from an older server: all of the app's). */
+  backgrounds?: CommunityBackground[];
 }
 
-export interface CommunityMedia { id: number; url: string; width: number | null; height: number | null }
+export interface CommunityMedia {
+  id: number; url: string; width: number | null; height: number | null;
+  /** A post's picture has its own reactions and comment thread (absent on a comment's picture). */
+  reactions_count?: number;
+  reaction_counts?: Partial<Record<CommunityReaction, number>>;
+  my_reaction?: CommunityReaction | null;
+  comments_count?: number;
+}
+
+/** The coloured backgrounds a short text-only post may sit on (drawn by the app; see backgrounds.ts). */
+export type CommunityBackground = 'indigo' | 'sunset' | 'mint' | 'rose' | 'night' | 'sky';
 
 export interface CommunityAuthor {
   id: number;
@@ -54,6 +66,8 @@ export interface CommunityPost {
   audience: CommunityAudience;
   kind: CommunityKind;
   body: string;
+  /** A short text-only post drawn on a colour; null = plain. */
+  background: CommunityBackground | null;
   author: CommunityAuthor;
   mine: boolean;
   status: CommunityStatus;
@@ -76,7 +90,11 @@ export interface CommunityPost {
 export interface CommunityComment {
   id: number;
   post_id: number;
+  /** The picture whose thread this is; null = the post's own. */
+  media_id: number | null;
   body: string;
+  /** A picture carried by the comment. */
+  attachment: CommunityMedia | null;
   author: CommunityAuthor;
   mine: boolean;
   status: CommunityStatus;
@@ -113,20 +131,28 @@ export async function markCommunitySeen(audience: CommunityAudience, postId?: nu
   await client.post(`/community/${audience}/seen`, postId ? { post_id: postId } : {});
 }
 
-export interface CreatePostInput { body: string; media?: number[] }
+export interface CreatePostInput { body: string; media?: number[]; background?: CommunityBackground | null }
 
 export async function createCommunityPost(audience: CommunityAudience, input: CreatePostInput): Promise<CommunityPost> {
   const { data } = await client.post(`/community/${audience}/posts`, input);
   return data.post as CommunityPost;
 }
 
-export async function getCommunityPost(postId: number): Promise<{ role: CommunityRole; post: CommunityPost; comments: CommunityComment[] }> {
+export async function getCommunityPost(postId: number): Promise<{ role: CommunityRole; post: CommunityPost; comments: CommunityComment[]; next_after: number | null }> {
   const { data } = await client.get(`/community/posts/${postId}`);
-  return { role: data.role, post: data.post as CommunityPost, comments: (data?.comments ?? []) as CommunityComment[] };
+  return { role: data.role, post: data.post as CommunityPost, comments: (data?.comments ?? []) as CommunityComment[], next_after: data?.next_after ?? null };
 }
 
-export async function editCommunityPost(postId: number, body: string): Promise<CommunityPost> {
-  const { data } = await client.patch(`/community/posts/${postId}`, { body });
+export interface CommentsPage { comments: CommunityComment[]; next_after: number | null }
+
+/** A page of a thread: the post's own comments, or one picture's (`mediaId`), oldest first. */
+export async function getCommunityComments(postId: number, mediaId: number | null, after?: number | null): Promise<CommentsPage> {
+  const { data } = await client.get(`/community/posts/${postId}/comments`, { params: { ...(mediaId ? { media: mediaId } : {}), ...(after ? { after } : {}) } });
+  return { comments: (data?.comments ?? []) as CommunityComment[], next_after: data?.next_after ?? null };
+}
+
+export async function editCommunityPost(postId: number, body: string, background?: CommunityBackground | null): Promise<CommunityPost> {
+  const { data } = await client.patch(`/community/posts/${postId}`, { body, ...(background !== undefined ? { background } : {}) });
   return data.post as CommunityPost;
 }
 
@@ -135,8 +161,10 @@ export async function deleteCommunityPost(postId: number): Promise<void> {
   await client.delete(`/community/posts/${postId}`);
 }
 
-export async function commentOnCommunityPost(postId: number, body: string): Promise<{ comment: CommunityComment; comments_count: number }> {
-  const { data } = await client.post(`/community/posts/${postId}/comments`, { body });
+export interface CommentInput { body: string; media_id?: number | null; attachment_id?: number | null }
+
+export async function commentOnCommunityPost(postId: number, input: CommentInput): Promise<{ comment: CommunityComment; comments_count: number }> {
+  const { data } = await client.post(`/community/posts/${postId}/comments`, input);
   return { comment: data.comment as CommunityComment, comments_count: Number(data?.comments_count ?? 0) };
 }
 
@@ -148,6 +176,12 @@ export interface ReactResult { reaction_counts: Partial<Record<CommunityReaction
 
 export async function reactToCommunityPost(postId: number, kind: CommunityReaction): Promise<ReactResult> {
   const { data } = await client.post(`/community/posts/${postId}/react`, { kind });
+  return data as ReactResult;
+}
+
+/** A reaction on one picture of a post (toggle). */
+export async function reactToCommunityMedia(mediaId: number, kind: CommunityReaction): Promise<ReactResult> {
+  const { data } = await client.post(`/community/media/${mediaId}/react`, { kind });
   return data as ReactResult;
 }
 

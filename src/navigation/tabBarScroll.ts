@@ -23,6 +23,24 @@ export function reportScroll(y: number): void {
   else if (dy < -THRESHOLD) { lastY = y; if (hidden) set(false); }
 }
 
+/**
+ * May this page hide the bar at all? Only when it has a real amount to scroll (founder
+ * 2026-10-28: «auto-detect: a page with content to scroll but not enough height must not make
+ * the floating navbar dismissable») — at least MIN_EXTENT points, and at least 40% of its own
+ * height. A short page keeps the bar in place: hiding it would show nothing new.
+ */
+export const MIN_EXTENT = 320;
+export function canHide(contentHeight: number, viewportHeight: number): boolean {
+  if (viewportHeight <= 0) return false;
+  return contentHeight - viewportHeight >= Math.max(MIN_EXTENT, viewportHeight * 0.4);
+}
+
+/** A list's scroll: drive the bar when the page is long enough, keep it in view when it is not. */
+export function reportListScroll(y: number, contentHeight: number, viewportHeight: number): void {
+  if (canHide(contentHeight, viewportHeight)) reportScroll(y);
+  else if (useTabBarScroll.getState().hidden) showTabBar();
+}
+
 /** A new screen or tab starts with the bar in view. */
 export function showTabBar(): void {
   lastY = 0;

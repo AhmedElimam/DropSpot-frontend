@@ -12,7 +12,7 @@ import {
   type RefreshControlProps,
 } from 'react-native';
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
-import { reportScroll, showTabBar } from '@/navigation/tabBarScroll';
+import { reportListScroll, showTabBar } from '@/navigation/tabBarScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, shadows } from '@/theme/index';
 
@@ -61,7 +61,7 @@ function withFloatingRefresh<C extends ComponentType<any>>(Base: C): C {
     const { onScroll } = props;
     const scroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const m = e.nativeEvent;
-      if (m.layoutMeasurement.height > 0 && m.contentSize.height > m.layoutMeasurement.height + 120) reportScroll(m.contentOffset.y);
+      reportListScroll(m.contentOffset.y, m.contentSize.height, m.layoutMeasurement.height);
       (onScroll as ((ev: NativeSyntheticEvent<NativeScrollEvent>) => void) | undefined)?.(e);
     }, [onScroll]);
     useEffect(() => { if (vertical) showTabBar(); }, [vertical]);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, PanResponder, Text, TouchableOpacity, View, StatusBar, ActivityIndicator, I18nManager, type GestureResponderEvent } from 'react-native';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { Image } from 'expo-image';
@@ -22,7 +22,7 @@ import { Icon } from '@/components/ui/Icon';
  * this ships over the air, and a JS bundle must never import a native module the installed
  * binary may not carry. Everything here is in React Native itself.
  */
-export function ImageViewer({ visible, url, headers, name, onClose, onShare, onPrev, onNext, position, caption, onShowInChat }: {
+export function ImageViewer({ visible, url, headers, name, onClose, onShare, onPrev, onNext, position, caption, onShowInChat, footer, overlay }: {
   visible: boolean;
   url: string;
   headers: Record<string, string>;
@@ -38,6 +38,10 @@ export function ImageViewer({ visible, url, headers, name, onClose, onShare, onP
   caption?: string;
   /** Close the viewer and open the room at this photo. */
   onShowInChat?: () => void;
+  /** A bar under the photo in place of the hint line (the community: this picture's reactions and comments). */
+  footer?: ReactNode;
+  /** Drawn over everything, inside the viewer's own window (a sheet opened from the footer). */
+  overlay?: ReactNode;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -178,7 +182,7 @@ export function ImageViewer({ visible, url, headers, name, onClose, onShare, onP
           ) : null}
           {caption ? <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 13, color: '#fff' }}>{caption}</Text> : null}
           {name ? <Text numberOfLines={1} ellipsizeMode="middle" style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>{name}</Text> : null}
-          {onShowInChat ? (
+          {footer ? <View style={{ alignSelf: 'stretch', marginTop: 10 }}>{footer}</View> : onShowInChat ? (
             <TouchableOpacity onPress={onShowInChat} accessibilityRole="button" hitSlop={8}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, paddingHorizontal: 16, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.16)' }}>
               <Icon name="chat" size={16} color="#fff" outline />
@@ -188,6 +192,7 @@ export function ImageViewer({ visible, url, headers, name, onClose, onShare, onP
             <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>{t('chat.zoom_hint')}</Text>
           )}
         </View>
+        {overlay}
       </View>
     </Modal>
   );

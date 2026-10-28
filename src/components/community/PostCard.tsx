@@ -1,6 +1,8 @@
 import { memo, useState } from 'react';
 import { View, Text, TouchableOpacity, Pressable, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BACKGROUNDS } from './backgrounds';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
@@ -31,7 +33,7 @@ export function roleLabel(role: CommunityRole, t: (k: string) => string): string
  * The author's own held or rejected post carries a status strip saying why. memo + stable callbacks: a poll that returns the same rows
  * re-renders nothing. No entering animation (performance guardrails: list rows stay still).
  */
-export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact, onMore, onOpenImage, expanded = false }: {
+export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact, onMore, onOpenImage, onComments, reactions, expanded = false }: {
   post: CommunityPost;
   /** Kept for the callers; nothing on a card depends on the reader now that nobody moderates from the app. */
   role?: CommunityRole;
@@ -40,6 +42,10 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
   onReact: (id: number, kind: CommunityReaction) => void;
   onMore: (post: CommunityPost) => void;
   onOpenImage?: (post: CommunityPost, index: number) => void;
+  /** The reactions the server offers (limits.reactions); the app's four when absent. */
+  reactions?: readonly CommunityReaction[];
+  /** Open the comments sheet (the feed); without it the comment actions open the post. */
+  onComments?: (post: CommunityPost) => void;
   /** The post screen: the whole body, no «more» clamp, no comment preview. */
   expanded?: boolean;
 }) {
@@ -53,7 +59,10 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
   const cardWidth = width - CARD_SIDE * 2;
   const total = post.reactions_count;
   const present = REACTIONS.filter((k) => (post.reaction_counts?.[k] ?? 0) > 0);
+  const offered = reactions ? REACTIONS.filter((k) => reactions.includes(k)) : REACTIONS;
   const mine = post.my_reaction;
+  const bg = post.background ? BACKGROUNDS[post.background] : null;
+  const comments = () => (onComments ? onComments(post) : onOpen?.(post.id));
 
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: announcement ? colors.accentLight : colors.borderLight, overflow: 'hidden', ...shadows.sm }}>
@@ -90,8 +99,14 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
         </TouchableOpacity>
       </View>
 
-      {/* The words */}
-      {post.body ? (
+      {/* The words — on a colour when the author chose one (a short text-only post) */}
+      {post.body && bg ? (
+        <Pressable onPress={onOpen ? () => onOpen(post.id) : undefined} disabled={!onOpen}>
+          <LinearGradient colors={bg.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ minHeight: Math.round(cardWidth * 0.62), alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.xl, marginTop: 4 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: post.body.length < 60 ? 24 : 20, lineHeight: post.body.length < 60 ? 38 : 32, color: bg.text, textAlign: 'center' }}>{post.body}</Text>
+          </LinearGradient>
+        </Pressable>
+      ) : post.body ? (
         <Pressable onPress={() => (onOpen ? onOpen(post.id) : setShowAll(true))} disabled={!onOpen && showAll} style={{ paddingHorizontal: PAD, paddingBottom: spacing.sm }}>
           <Text style={{ fontFamily: fonts.regular, fontSize: post.body.length < 60 && !post.media.length ? 20 : 15.5, lineHeight: post.body.length < 60 && !post.media.length ? 32 : 24, color: colors.textPrimary }} numberOfLines={showAll ? undefined : 6}>{post.body}</Text>
           {!showAll && post.body.length > 240 ? <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary, marginTop: 2 }}>{t('community_space.see_more')}</Text> : null}
@@ -133,7 +148,7 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
               ) : null}
               <View style={{ flex: 1 }} />
               {post.comments_count > 0 ? (
-                <TouchableOpacity onPress={() => onOpen?.(post.id)} disabled={!onOpen}>
+                <TouchableOpacity onPress={comments} disabled={!onOpen && !onComments}>
                   <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary }}>{t('community_space.n_comments', { n: arDigits(post.comments_count) })}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -159,7 +174,7 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
               {mine ? <ReactionGlyph kind={mine} size={20} /> : <Icon name="like" size={19} color={colors.textSecondary} outline />}
               <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: mine ? REACTION_TONE[mine].ink : colors.textSecondary }}>{t(mine ? `community_space.react_${mine}` : 'community_space.like')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => onOpen?.(post.id)} disabled={!onOpen} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('community_space.comment')}
+            <TouchableOpacity onPress={comments} disabled={!onOpen && !onComments} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('community_space.comment')}
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: radius.md }}>
               <Icon name="chat" size={19} color={colors.textSecondary} outline />
               <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary }}>{t('community_space.comment')}</Text>
@@ -169,7 +184,7 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
           {/* The picker: our four, just above the actions, on a long press */}
           {picker ? (
             <ReactionPicker
-              kinds={REACTIONS}
+              kinds={offered}
               mine={mine}
               label={(k) => t(`community_space.react_${k}`)}
               onPick={(k) => { setPicker(false); onReact(post.id, k as CommunityReaction); }}
@@ -180,12 +195,18 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
 
           {/* The newest comment, as a preview */}
           {!expanded && post.last_comment ? (
-            <TouchableOpacity onPress={() => onOpen?.(post.id)} disabled={!onOpen} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingHorizontal: PAD, paddingBottom: PAD, paddingTop: 4 }}>
+            <TouchableOpacity onPress={comments} disabled={!onOpen && !onComments} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingHorizontal: PAD, paddingBottom: PAD, paddingTop: 4 }}>
               <CommunityAvatar author={post.last_comment.author} size={28} />
               <View style={{ flex: 1 }}>
                 <View style={{ alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingVertical: 7 }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }} numberOfLines={1}>{post.last_comment.author.name}</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 20, color: colors.textPrimary }} numberOfLines={2}>{post.last_comment.body}</Text>
+                  {post.last_comment.body ? <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 20, color: colors.textPrimary }} numberOfLines={2}>{post.last_comment.body}</Text> : null}
+                  {post.last_comment.attachment ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                      <Icon name="image" size={13} color={colors.textSecondary} />
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{t('community_space.photo')}</Text>
+                    </View>
+                  ) : null}
                 </View>
                 {post.comments_count > 1 ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, marginTop: 4 }}>{t('community_space.view_all_comments', { n: arDigits(post.comments_count) })}</Text> : null}
               </View>
@@ -197,31 +218,56 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
   );
 });
 
-/** One wide; two side by side; three or four as one wide over a row, «+N» on the last when more. */
+/**
+ * The pictures, stacked the way Facebook stacks them (founder 2026-10-28): one at its own shape;
+ * two side by side; three as one tall beside two stacked; four as one wide over three; five or
+ * more as two over three, «+N» on the last. Each opens the viewer at itself.
+ */
 function Pictures({ media, width, headers, onOpen }: { media: CommunityMedia[]; width: number; headers: Record<string, string> | null; onOpen: (index: number) => void }) {
   const gap = 2;
   const src = (m: CommunityMedia) => ({ uri: m.url, headers: headers ?? undefined });
   const img = (m: CommunityMedia, i: number, w: number, h: number, extra?: number) => (
-    <Pressable key={m.id} onPress={() => onOpen(i)} style={{ width: w, height: h }}>
-      <Image source={src(m)} style={{ width: w, height: h, backgroundColor: colors.surfaceSunken }} contentFit="cover" transition={120} />
-      {extra ? <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontFamily: fonts.bold, fontSize: 24, color: '#FFFFFF' }}>+{arDigits(extra)}</Text></View> : null}
+    <Pressable key={m.id} onPress={() => onOpen(i)} style={{ width: w, height: h }} accessibilityRole="imagebutton">
+      <Image source={src(m)} style={{ width: w, height: h, backgroundColor: colors.surfaceSunken }} contentFit="cover" transition={120} recyclingKey={String(m.id)} />
+      {extra ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontFamily: fonts.bold, fontSize: 26, color: '#FFFFFF' }}>+{arDigits(extra)}</Text></View> : null}
     </Pressable>
   );
-  if (media.length === 1) {
+  const n = media.length;
+  if (n === 1) {
     const m = media[0];
-    const h = Math.min(440, Math.max(180, Math.round(width * ((m.height ?? 3) / (m.width ?? 4)))));
+    const h = Math.min(Math.round(width * 1.25), Math.max(180, Math.round(width * ((m.height ?? 3) / (m.width ?? 4)))));
     return <View style={{ marginTop: 4 }}>{img(m, 0, width, h)}</View>;
   }
-  if (media.length === 2) {
+  if (n === 2) {
     const w = (width - gap) / 2;
-    return <View style={{ flexDirection: 'row', gap, marginTop: 4 }}>{media.map((m, i) => img(m, i, w, w))}</View>;
+    return <View style={{ flexDirection: 'row', gap, marginTop: 4 }}>{media.map((m, i) => img(m, i, w, Math.round(w * 1.2)))}</View>;
   }
-  const rest = media.slice(1, 4);
-  const w = (width - gap * (rest.length - 1)) / rest.length;
+  if (n === 3) {
+    const big = Math.round((width - gap) * 0.62);
+    const side = width - gap - big;
+    const h = Math.round(width * 0.8);
+    return (
+      <View style={{ flexDirection: 'row', gap, marginTop: 4 }}>
+        {img(media[0], 0, big, h)}
+        <View style={{ gap }}>{img(media[1], 1, side, (h - gap) / 2)}{img(media[2], 2, side, (h - gap) / 2)}</View>
+      </View>
+    );
+  }
+  if (n === 4) {
+    const w = (width - gap * 2) / 3;
+    return (
+      <View style={{ gap, marginTop: 4 }}>
+        {img(media[0], 0, width, Math.round(width * 0.62))}
+        <View style={{ flexDirection: 'row', gap }}>{media.slice(1, 4).map((m, i) => img(m, i + 1, w, w))}</View>
+      </View>
+    );
+  }
+  const top = (width - gap) / 2;
+  const bottom = (width - gap * 2) / 3;
   return (
     <View style={{ gap, marginTop: 4 }}>
-      {img(media[0], 0, width, Math.round(width * 0.6))}
-      <View style={{ flexDirection: 'row', gap }}>{rest.map((m, i) => img(m, i + 1, w, w, i === rest.length - 1 && media.length > 4 ? media.length - 4 : 0))}</View>
+      <View style={{ flexDirection: 'row', gap }}>{media.slice(0, 2).map((m, i) => img(m, i, top, top))}</View>
+      <View style={{ flexDirection: 'row', gap }}>{media.slice(2, 5).map((m, i) => img(m, i + 2, bottom, bottom, i === 2 && n > 5 ? n - 5 : 0))}</View>
     </View>
   );
 }
