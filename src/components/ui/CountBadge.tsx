@@ -14,8 +14,10 @@ import { formatNumber } from '@/utils/format';
  * ignore) follows the right-to-left layout. A ring in the page colour keeps it apart from what it
  * overlaps. Past `max` it reads «٩+» in that order: the pieces are laid out left to right.
  */
-export function CountBadge({ count, max = 9, offset = 4, at, size = 20 }: {
+export function CountBadge({ count, max = 9, offset = 4, at, size = 20, ring }: {
   count?: number | null; max?: number; offset?: number; size?: number;
+  /** The ring's colour: what the badge sits on (the page by default; the tab bar's own colour there). */
+  ring?: string;
   /** An exact place instead of the corner (a round picture: a point on its ring). */
   at?: { top: number; end: number };
 }) {
@@ -31,7 +33,7 @@ export function CountBadge({ count, max = 9, offset = 4, at, size = 20 }: {
   return (
     <View pointerEvents="none"
       style={{ position: 'absolute', top: at ? at.top : -offset, end: at ? at.end : -offset, zIndex: 2, minWidth: size, width: single ? size : undefined, height: size, borderRadius: size / 2, paddingHorizontal: single ? 0 : 4,
-        backgroundColor: colors.danger, borderWidth: 2, borderColor: colors.background, flexDirection: 'row', direction: 'ltr', alignItems: 'center', justifyContent: 'center' }}>
+        backgroundColor: colors.danger, borderWidth: 2, borderColor: ring ?? colors.background, flexDirection: 'row', direction: 'ltr', alignItems: 'center', justifyContent: 'center' }}>
       <Text style={text}>{formatNumber(over ? max : count)}</Text>
       {over ? <Text style={text}>+</Text> : null}
     </View>

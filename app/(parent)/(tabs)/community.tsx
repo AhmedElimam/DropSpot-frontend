@@ -19,7 +19,6 @@ import { ChildrenConsentSheet } from '@/components/threads/ChildrenConsentSheet'
 import { arDigits, filterCounts } from '@/components/threads/format';
 import { PageHero, type HeroAction } from '@/components/ui/PageHero';
 import type { InboxFilter } from '@/chat/inbox';
-import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, nav, gradients } from '@/theme/index';
 import { Surface } from '@/ui/surfaces';
 import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
@@ -97,35 +96,35 @@ function ParentConversations() {
     />
   );
 
+  // ONE segment control, pinned at the top for every side (founder 2026-10-28): the same element
+  // in the same place whichever side is open, so its pill slides into مجتمعنا too. The community
+  // has no title under it; the other sides keep their hero.
+  const pinned = many || showCommunity;
+  const bar = pinned ? (
+    <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: many ? spacing.md : 0, backgroundColor: gradients.hero[0], zIndex: 1 }}>
+      {many ? segments : null}
+    </View>
+  ) : null;
+
   const head = (
-    <>
-      <PageHero
-        title={showThreads ? t('threads.title') : t('community.title')}
-        subtitle={showThreads ? t('threads.subtitle_parent') : t('community.tagline')}
-        badge={<BetaChip feature={flag} />}
-        actions={actions}
-        stats={showThreads && counts.all > 0 ? [
-          { value: arDigits(counts.open), label: t('threads.stat_open') },
-          { value: arDigits(unreadThreads ?? 0), label: t('threads.stat_new'), warn: (unreadThreads ?? 0) > 0 },
-          { value: arDigits(counts.answered), label: t('threads.stat_answered') },
-        ] : undefined}
-      />
-      {many ? (
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -(spacing.xl4 - spacing.sm), marginBottom: spacing.md }}>
-          {segments}
-        </View>
-      ) : null}
-    </>
+    <PageHero
+      title={showThreads ? t('threads.title') : t('community.title')}
+      subtitle={showThreads ? t('threads.subtitle_parent') : t('community.tagline')}
+      badge={<BetaChip feature={flag} />}
+      actions={actions}
+      inset={pinned ? 0 : undefined}
+      stats={showThreads && counts.all > 0 ? [
+        { value: arDigits(counts.open), label: t('threads.stat_open') },
+        { value: arDigits(unreadThreads ?? 0), label: t('threads.stat_new'), warn: (unreadThreads ?? 0) > 0 },
+        { value: arDigits(counts.answered), label: t('threads.stat_answered') },
+      ] : undefined}
+    />
   );
 
-  if (showCommunity) {
-    // No title over the community: the segments sit in a fixed bar and the feed scrolls under
-    // them; the cover names the community (founder 2026-10-28).
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: many ? spacing.md : 0, zIndex: 1 }}>
-          {many ? segments : null}
-        </LinearGradient>
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {bar}
+      {showCommunity ? (
         <CommunityFeed
           audience="parents"
           footer={<BetaLine feature={COMMUNITY_FLAG} />}
@@ -133,37 +132,33 @@ function ParentConversations() {
           extraRefetch={refetchCommunity}
           contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
         />
-      </View>
-    );
-  }
-
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-      >
-        {head}
-        {showThreads ? (
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: many ? 0 : -(spacing.xl4 - spacing.sm) }}>
-            <ThreadsFeed reader="parent" onOpen={(id) => router.push(`/(parent)/chat/thread/${id}` as Href)} />
-          </View>
-        ) : (
-          <>
-            {rooms.length ? (
-              <View style={{ paddingBottom: spacing.md }}>
-                <InboxChips list={rooms} value={filter} onChange={setFilter} />
-              </View>
-            ) : null}
-            <View style={{ paddingHorizontal: spacing.lg }}>
-              <ChatInboxList filter={filter} onOpen={(room) => router.push(`/(parent)/chat/${room}` as Href)} />
+      ) : (
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        >
+          {head}
+          {showThreads ? (
+            <View style={{ paddingHorizontal: spacing.lg, marginTop: -(spacing.xl4 - spacing.sm) }}>
+              <ThreadsFeed reader="parent" onOpen={(id) => router.push(`/(parent)/chat/thread/${id}` as Href)} />
             </View>
-          </>
-        )}
-        {/* The note line closes the screen — after the content, never above it. */}
-        <BetaLine feature={flag} />
-      </ScrollView>
+          ) : (
+            <>
+              {rooms.length ? (
+                <View style={{ paddingBottom: spacing.md }}>
+                  <InboxChips list={rooms} value={filter} onChange={setFilter} />
+                </View>
+              ) : null}
+              <View style={{ paddingHorizontal: spacing.lg }}>
+                <ChatInboxList filter={filter} onOpen={(room) => router.push(`/(parent)/chat/${room}` as Href)} />
+              </View>
+            </>
+          )}
+          {/* The note line closes the screen — after the content, never above it. */}
+          <BetaLine feature={flag} />
+        </ScrollView>
+      )}
       <ChildrenConsentSheet visible={consentOpen} onClose={() => setConsentOpen(false)} />
     </View>
   );

@@ -4,7 +4,6 @@ import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { fonts } from '@/theme/typography';
-import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, radius, nav, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
@@ -111,52 +110,56 @@ function ConversationsHub() {
     />
   );
 
-  const head = (
-    <>
-      <PageHero
-        onBack
-        title={showThreads ? t('threads.title') : t('chat.conversations')}
-        subtitle={showThreads
-            ? t('threads.subtitle_teacher')
-            : showChat
-              ? t('chat.members_count', { count: (channels ?? []).length })
-              : t('chat.conversations_sub')}
-        badge={<BetaChip feature={flag} />}
-        actions={heroActions}
-        stats={showThreads && counts.all > 0 ? [
-          { value: arDigits(counts.open), label: t('threads.stat_open') },
-          { value: arDigits(counts.waiting), label: t('threads.stat_waiting_teacher'), warn: counts.waiting > 0 },
-          { value: arDigits(counts.answered), label: t('threads.stat_answered') },
-        ] : undefined}
-      />
-      {many ? (
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl, marginBottom: spacing.md }}>
-          {segments}
+  // ONE segment control, pinned at the top for every side (founder 2026-10-28): the same element
+  // in the same place whichever side is open, so its pill slides into مجتمعنا too. The bar
+  // carries back; on the community side it also carries the students / parents switch.
+  const pinned = many || showCommunity;
+  const back = () => (router.canGoBack() ? router.back() : router.replace('/resolve' as never));
+  const bar = pinned ? (
+    <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.md, backgroundColor: gradients.hero[0], zIndex: 1 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <TouchableOpacity onPress={back} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.back')}
+          style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, alignItems: 'center', justifyContent: 'center' }}>
+          {/* RTL: "back" points to the right. */}
+          <Icon name="forward" size={22} color={colors.onHero} />
+        </TouchableOpacity>
+        {many ? <View style={{ flex: 1 }}>{segments}</View> : null}
+      </View>
+      {showCommunity ? (
+        // The teacher reads TWO communities: which one is in front.
+        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+          <AudienceChip audience="students" on={audience === 'students'} space={spaceOf('students')} onPress={() => setAudience('students')} />
+          <AudienceChip audience="parents" on={audience === 'parents'} space={spaceOf('parents')} onPress={() => setAudience('parents')} />
         </View>
       ) : null}
-    </>
+    </View>
+  ) : null;
+
+  const head = (
+    <PageHero
+      onBack={!pinned}
+      inset={pinned ? 0 : undefined}
+      title={showThreads ? t('threads.title') : t('chat.conversations')}
+      subtitle={showThreads
+          ? t('threads.subtitle_teacher')
+          : showChat
+            ? t('chat.members_count', { count: (channels ?? []).length })
+            : t('chat.conversations_sub')}
+      badge={<BetaChip feature={flag} />}
+      actions={heroActions}
+      stats={showThreads && counts.all > 0 ? [
+        { value: arDigits(counts.open), label: t('threads.stat_open') },
+        { value: arDigits(counts.waiting), label: t('threads.stat_waiting_teacher'), warn: counts.waiting > 0 },
+        { value: arDigits(counts.answered), label: t('threads.stat_answered') },
+      ] : undefined}
+    />
   );
 
-  if (showCommunity) {
-    // No title over the community: back, the segments and the two communities sit in a fixed
-    // bar and the feed scrolls under them (founder 2026-10-28).
-    return (
-      <Surface id="screen.teacher.conversations" screen>
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.md, zIndex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/resolve' as never))} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('common.back')}
-              style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, alignItems: 'center', justifyContent: 'center' }}>
-              {/* RTL: "back" points to the right. */}
-              <Icon name="forward" size={22} color={colors.onHero} />
-            </TouchableOpacity>
-            {many ? <View style={{ flex: 1 }}>{segments}</View> : null}
-          </View>
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <AudienceChip audience="students" on={audience === 'students'} space={spaceOf('students')} onPress={() => setAudience('students')} />
-            <AudienceChip audience="parents" on={audience === 'parents'} space={spaceOf('parents')} onPress={() => setAudience('parents')} />
-          </View>
-        </LinearGradient>
+  return (
+    <Surface id="screen.teacher.conversations" screen>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {bar}
+      {showCommunity ? (
         <CommunityFeed
           audience={audience}
           footer={<BetaLine feature={COMMUNITY_FLAG} />}
@@ -164,14 +167,7 @@ function ConversationsHub() {
           extraRefetch={spacesQ.refetch}
           contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
         />
-      </View>
-      </Surface>
-    );
-  }
-
-  return (
-    <Surface id="screen.teacher.conversations" screen>
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      ) : (
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
         showsVerticalScrollIndicator={false}
@@ -181,7 +177,7 @@ function ConversationsHub() {
 
         {showThreads ? (
           <Surface id="teacher.conversations.threads">
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: many ? 0 : -spacing.lg }}>
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg }}>
             <ThreadsFeed
               onOpen={openThread}
               onCompose={(kind) => { setComposeKind(kind); setComposeOpen(true); }}
@@ -202,7 +198,7 @@ function ConversationsHub() {
           </Surface>
         ) : showChat ? (
           <Surface id="teacher.conversations.chat">
-          <View style={{ marginHorizontal: spacing.lg, marginTop: many ? 0 : -spacing.lg }}>
+          <View style={{ marginHorizontal: spacing.lg, marginTop: -spacing.lg }}>
             <ChatInboxList onOpen={(room) => router.push(`/(teacher)/conversations/chat/${room}` as Href)} />
           </View>
           </Surface>
@@ -214,6 +210,7 @@ function ConversationsHub() {
         {/* The note line closes the screen — after the content, never above it. */}
         <BetaLine feature={flag} />
       </ScrollView>
+      )}
     </View>
     </Surface>
   );

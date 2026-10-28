@@ -90,52 +90,51 @@ function StudentConversations() {
     />
   );
 
-  const head = (
-    <>
-      <LinearGradient
-        colors={gradients.hero}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + insets.top, paddingBottom: many ? spacing.xl4 + spacing.md : spacing.xl4 }}
-      >
-        {/* RTL: 'row' only — the «تجريبي» mark trails the title (one per screen). */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5, flexShrink: 1 }}>
-            {showThreads ? t('threads.title') : t('chat.title')}
-          </Text>
-          <BetaChip feature={flag} />
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm }}>
-          <Icon name={showThreads ? 'question' : 'eye'} size={15} color={colors.onHeroSoft} outline style={{ marginTop: 3 }} />
-          <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.onHeroSoft }}>
-            {showThreads ? t('threads.subtitle_student') : t('chat.subtitle')}
-          </Text>
-        </View>
-        {showThreads && counts.all > 0 ? (
-          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
-            <HeroCount icon="timer" value={counts.open} label={t('threads.stat_open')} />
-            <HeroCount icon="sparkles" value={unreadThreads ?? 0} label={t('threads.stat_new')} accent />
-            <HeroCount icon="success" value={counts.answered} label={t('threads.stat_answered')} />
-          </View>
-        ) : null}
-      </LinearGradient>
+  // ONE segment control, pinned at the top for every side (founder 2026-10-28: «segments fixed on
+  // scroll», and the pill must slide into مجتمعنا like it does between الدردشة and حكاوي): the
+  // same element in the same place whichever side is open, so switching keeps the control and
+  // its pill animates. The community has no title under it; the other sides keep their hero.
+  const pinned = many || showCommunity;
+  const bar = pinned ? (
+    <View style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: many ? spacing.md : 0, backgroundColor: gradients.hero[0], zIndex: 1 }}>
+      {many ? segments : null}
+    </View>
+  ) : null;
 
-      {many ? (
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl - 4, marginBottom: spacing.md }}>
-          {segments}
+  const head = (
+    <LinearGradient
+      colors={gradients.hero}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ paddingHorizontal: spacing.lg, paddingTop: pinned ? spacing.md : spacing.xxl + insets.top, paddingBottom: spacing.xl4 }}
+    >
+      {/* RTL: 'row' only — the «تجريبي» mark trails the title (one per screen). */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onHero, letterSpacing: -0.5, flexShrink: 1 }}>
+          {showThreads ? t('threads.title') : t('chat.title')}
+        </Text>
+        <BetaChip feature={flag} />
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.sm }}>
+        <Icon name={showThreads ? 'question' : 'eye'} size={15} color={colors.onHeroSoft} outline style={{ marginTop: 3 }} />
+        <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.onHeroSoft }}>
+          {showThreads ? t('threads.subtitle_student') : t('chat.subtitle')}
+        </Text>
+      </View>
+      {showThreads && counts.all > 0 ? (
+        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+          <HeroCount icon="timer" value={counts.open} label={t('threads.stat_open')} />
+          <HeroCount icon="sparkles" value={unreadThreads ?? 0} label={t('threads.stat_new')} accent />
+          <HeroCount icon="success" value={counts.answered} label={t('threads.stat_answered')} />
         </View>
       ) : null}
-    </>
+    </LinearGradient>
   );
 
-  if (showCommunity) {
-    // No title over the community (founder 2026-10-28: «remove مجتمع الطلاب from the top»): the
-    // segments sit in a fixed bar and the feed scrolls under them; the cover names the community.
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: many ? spacing.md : 0, zIndex: 1 }}>
-          {many ? segments : null}
-        </LinearGradient>
+  return (
+    <View style={{ flex: 1, backgroundColor: showCommunity ? colors.background : gradients.hero[0] }}>
+      {bar}
+      {showCommunity ? (
         <CommunityFeed
           audience="students"
           footer={<BetaLine feature={COMMUNITY_FLAG} />}
@@ -143,28 +142,24 @@ function StudentConversations() {
           extraRefetch={refetchCommunity}
           contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, flexGrow: 1 }}
         />
-      </View>
-    );
-  }
-
-  return (
-    <View style={{ flex: 1, backgroundColor: gradients.hero[0] }}>
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-      >
-        {head}
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: many ? 0 : -spacing.xl }}>
-          {showThreads ? (
-            <ThreadsFeed onOpen={(id) => router.push(`/(student)/chat/thread/${id}` as Href)} />
-          ) : (
-            <ChatInboxList onOpen={(room) => router.push(`/(student)/chat/${room}` as Href)} />
-          )}
-        </View>
-        {/* The note line closes the screen — after the content, never above it. */}
-        <BetaLine feature={flag} />
-      </ScrollView>
+      ) : (
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        >
+          {head}
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl }}>
+            {showThreads ? (
+              <ThreadsFeed onOpen={(id) => router.push(`/(student)/chat/thread/${id}` as Href)} />
+            ) : (
+              <ChatInboxList onOpen={(room) => router.push(`/(student)/chat/${room}` as Href)} />
+            )}
+          </View>
+          {/* The note line closes the screen — after the content, never above it. */}
+          <BetaLine feature={flag} />
+        </ScrollView>
+      )}
     </View>
   );
 }

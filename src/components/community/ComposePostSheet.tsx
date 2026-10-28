@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
-import { Button } from '@/components/ui/Button';
 import { GeneratedAvatar, avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { useAuthStore } from '@/stores/authStore';
@@ -88,7 +87,12 @@ export function ComposePostSheet({ visible, audience, limits, onClose, onCreated
           <Icon name="close" size={18} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('community_space.compose_title')}</Text>
-        <Button title={uploading ? t('community_space.uploading') : t('community_space.publish')} onPress={publish} disabled={!canPublish} loading={busy} style={{ minWidth: 92, height: 38, paddingVertical: 0 }} />
+        {/* Just the icon (founder 2026-10-28: the word spilled out of the button). */}
+        <TouchableOpacity onPress={publish} disabled={!canPublish} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ disabled: !canPublish, busy }}
+          accessibilityLabel={uploading ? t('community_space.uploading') : t('community_space.publish')}
+          style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: canPublish || busy ? colors.brand : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
+          {busy ? <ActivityIndicator color={colors.onPrimary} /> : <Icon name="send" size={20} color={canPublish ? colors.onPrimary : colors.textTertiary} />}
+        </TouchableOpacity>
       </View>
 
       {/* Me, and where this goes */}

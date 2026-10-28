@@ -12,6 +12,7 @@ import { colors, shadows, isDark, isRevisionTheme } from '@/theme/index';
 import { usePreloadTabs } from '@/navigation/usePreloadTabs';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { TourTarget } from '@/tour/TourTarget';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 /** The pill's own height; it floats `GAP` above the home indicator. Screens pad with `nav.bottomHeight`. */
 export const PILL_HEIGHT = 62;
@@ -68,13 +69,17 @@ interface FloatingTabBarProps extends BottomTabBarProps {
   beta?: readonly string[];
 }
 
-/** A small count on a tab's corner. Static — nothing animates in the bar. */
-function TabBadge({ n }: { n: number }) {
-  return (
-    <View pointerEvents="none" style={{ position: 'absolute', top: -5, end: -9, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, borderWidth: 2, borderColor: colors.tabBar, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 10, lineHeight: 12, color: '#FFFFFF' }}>{n > 99 ? '+٩٩' : String(n).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)])}</Text>
-    </View>
-  );
+/**
+ * A tab's count: the same badge as مدام روز's and the bell's (CountBadge: the phone's own digits,
+ * truly centred, its centre on a fixed point of the shape — founder 2026-10-28: «the numbers on
+ * the printer aren't positioned right, like what we did with مدام روز and notifications»). On a
+ * side tab the point is the glyph's top-end corner inside the 46×28 pill; on the round centre
+ * button, a point of its ring at 45°. The ring is the bar's own colour.
+ */
+const SIDE_BADGE = { top: -6, end: 3 } as const;
+const CENTER_BADGE = { top: -1, end: -1 } as const;
+function TabBadge({ n, center = false }: { n: number; center?: boolean }) {
+  return <CountBadge count={n} size={18} at={center ? CENTER_BADGE : SIDE_BADGE} ring={colors.tabBar} />;
 }
 
 /**
@@ -162,7 +167,7 @@ export function FloatingTabBar({ state, descriptors, navigation, tabs, center, l
                     }}
                   >
                     {centerGlyph ? centerGlyph(onButton, focused) : <Icon name={icons[name] || 'home'} size={28} color={onButton} outline={!focused} />}
-                    {badges?.[name] ? <TabBadge n={badges[name]} /> : null}
+                    {badges?.[name] ? <TabBadge n={badges[name]} center /> : null}
                   </View>
                   <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontFamily: fonts.bold, fontSize: 10.5, lineHeight: 14, color: focused ? colors.tabActive : colors.tabInactive, marginTop: 7, paddingHorizontal: 2 }}>
                     {label}
