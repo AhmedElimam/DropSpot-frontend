@@ -295,3 +295,18 @@ export async function appealCommunityStrike(strikeId: number, body: string): Pro
   const { data } = await client.post(`/community/strikes/${strikeId}/appeal`, { body });
   return data.strike as CommunityStrike;
 }
+
+// ── Sharing (the server decides what the public page shows; a students'-community post stays locked) ──
+
+export interface CommunityShareLink {
+  url: string;
+  title: string;
+  text: string;
+}
+
+/** The post's public link (made on the first share, the same after) and the message to share it with. */
+export async function shareCommunityPost(postId: number): Promise<CommunityShareLink> {
+  const { data } = await client.post(`/community/posts/${postId}/share`);
+  return { url: String(data?.url ?? ''), title: String(data?.title ?? ''), text: String(data?.text ?? data?.url ?? '') };
+}
+

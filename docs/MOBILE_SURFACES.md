@@ -18,6 +18,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `community.compose.photos` — element · src/components/community/ComposePostSheet.tsx
 - `community.feed.composer` — element · src/components/community/CommunityFeed.tsx
 - `community.picture.social` — element · src/components/community/PostMediaViewer.tsx
+- `community.post.share` — element · src/components/community/CommunityFeed.tsx, src/components/community/CommunityPostScreen.tsx
 - `community.standing` — element · src/components/community/CommunityFeed.tsx
 
 ## family

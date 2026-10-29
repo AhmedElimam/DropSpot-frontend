@@ -12,6 +12,7 @@ import type { CommunityMedia, CommunityPost, CommunityReaction, CommunityRole } 
 import { CommunityAvatar } from './CommunityAvatar';
 import { ReactionGlyph, REACTION_TONE } from '@/components/reactions/ReactionGlyph';
 import { ReactionPicker } from '@/components/reactions/ReactionPicker';
+import { useSurface } from '@/ui/surfaces';
 
 /** The community's four, drawn in the app's own reaction family (src/components/reactions). */
 const REACTIONS: CommunityReaction[] = ['like', 'love', 'clap', 'idea'];
@@ -27,13 +28,14 @@ export function roleLabel(role: CommunityRole, t: (k: string) => string): string
 /**
  * One post, drawn the way a social feed draws one (founder 2026-10-28: «like Facebook»): the
  * face, the name and when; the words; the pictures bleeding to the card's edge; a quiet summary
- * line (who reacted how, how many comments); then two equal actions — a reaction and a comment —
+ * line (who reacted how, how many comments); then equal actions — a reaction, a comment and, on a
+ * published post, «مشاركة» —
  * with the long-press picker; and the newest comment as a preview under it all.
  *
  * The author's own held or rejected post carries a status strip saying why. memo + stable callbacks: a poll that returns the same rows
  * re-renders nothing. No entering animation (performance guardrails: list rows stay still).
  */
-export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact, onMore, onOpenImage, onComments, reactions, expanded = false }: {
+export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact, onMore, onOpenImage, onComments, onShare, reactions, expanded = false }: {
   post: CommunityPost;
   /** Kept for the callers; nothing on a card depends on the reader now that nobody moderates from the app. */
   role?: CommunityRole;
@@ -46,6 +48,8 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
   reactions?: readonly CommunityReaction[];
   /** Open the comments sheet (the feed); without it the comment actions open the post. */
   onComments?: (post: CommunityPost) => void;
+  /** «مشاركة»: the post's public link (ShareSheet). Only a published post, and only while `community.post.share` is on. */
+  onShare?: (post: CommunityPost) => void;
   /** The post screen: the whole body, no «more» clamp, no comment preview. */
   expanded?: boolean;
 }) {
@@ -63,6 +67,8 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
   const mine = post.my_reaction;
   const bg = post.background ? BACKGROUNDS[post.background] : null;
   const comments = () => (onComments ? onComments(post) : onOpen?.(post.id));
+  const shareOn = useSurface('community.post.share');
+  const canShare = !!onShare && shareOn && post.status === 'published';
 
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: announcement ? colors.accentLight : colors.borderLight, overflow: 'hidden', ...shadows.sm }}>
@@ -185,6 +191,13 @@ export const PostCard = memo(function PostCard({ post, headers, onOpen, onReact,
               <Icon name="chat" size={19} color={colors.textSecondary} outline />
               <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary }}>{t('community_space.comment')}</Text>
             </TouchableOpacity>
+            {canShare ? (
+              <TouchableOpacity onPress={() => onShare?.(post)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('community_space.share')}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 42, borderRadius: radius.md }}>
+                <Icon name="share" size={19} color={colors.textSecondary} outline />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textSecondary }}>{t('community_space.share')}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* The picker: our four, just above the actions, on a long press */}

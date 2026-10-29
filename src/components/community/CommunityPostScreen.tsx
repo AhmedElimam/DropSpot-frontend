@@ -24,6 +24,8 @@ import { CommentRow } from './CommentRow';
 import { CommentComposer } from './CommentComposer';
 import { PostMediaViewer } from './PostMediaViewer';
 import { canBlock, confirmBlock, pausedLine } from './guard';
+import { ShareSheet } from './ShareSheet';
+import { Surface } from '@/ui/surfaces';
 
 /**
  * A menu choice that opens a sheet waits until the menu's own window has closed: the popup runs
@@ -65,6 +67,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
   const [viewer, setViewer] = useState<number | null>(null);
   const [picture, setPicture] = useState<CommunityMedia | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [shareFor, setShareFor] = useState<CommunityPost | null>(null);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try { await Promise.all([refetch(), thread.refetch()]); } finally { setRefreshing(false); }
@@ -99,7 +102,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
     <View>
       <PageHero onBack compact title={data?.post.author.name ?? t('community_space.post')} subtitle={data ? (data.post.audience === 'parents' ? t('community_space.title_parents') : t('community_space.title_students')) : undefined} />
       <View style={{ paddingHorizontal: CARD_SIDE, paddingTop: spacing.md }}>
-        {data ? <PostCard post={data.post} role={role} headers={headers} onReact={onReact} onMore={onMorePost} onOpenImage={onOpenImage} expanded /> : null}
+        {data ? <PostCard post={data.post} role={role} headers={headers} onReact={onReact} onMore={onMorePost} onOpenImage={onOpenImage} onShare={setShareFor} expanded /> : null}
         {data && data.post.status === 'published' ? (
           <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.xs, marginHorizontal: spacing.sm }}>
             {total ? t('community_space.n_comments', { n: arDigits(total) }) : t('community_space.no_comments')}
@@ -157,6 +160,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
       ) : null}
       {viewer !== null && data ? <PostMediaViewer post={data.post} start={viewer} role={role} headers={headers} onClose={() => setViewer(null)} /> : null}
       {picture ? <ImageViewer visible url={picture.url} headers={headers ?? {}} name={null} onClose={() => setPicture(null)} /> : null}
+      <Surface id="community.post.share"><ShareSheet post={shareFor} onClose={() => setShareFor(null)} /></Surface>
       <ReportSheet
         visible={reportFor !== null}
         reasons={spaces.data?.limits?.report_reasons ?? {}}

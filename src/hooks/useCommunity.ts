@@ -3,7 +3,7 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import {
   commentOnCommunityPost, createCommunityPost, deleteCommunityComment, deleteCommunityPost, editCommunityPost, getCommunityComments, getCommunityFeed,
   getCommunityPost, getCommunitySpaces, getCommunityUnread, reactToCommunityMedia, reactToCommunityPost, reportCommunityComment, reportCommunityPost,
-  uploadCommunityMedia, getCommunityBlocks, blockCommunityMember, unblockCommunityMember, getCommunityStanding, appealCommunityStrike,
+  uploadCommunityMedia, getCommunityBlocks, blockCommunityMember, unblockCommunityMember, getCommunityStanding, appealCommunityStrike, shareCommunityPost,
   type CommentInput, type CommunityAudience, type CommunityBackground, type CommunityFilter, type CommunityPost, type CommunityReaction, type CreatePostInput,
   type ReactResult, type UploadMediaInput,
 } from '@/api/community';
@@ -199,3 +199,10 @@ export function useAppealCommunityStrike() {
   const invalidate = useInvalidate();
   return useMutation({ mutationFn: ({ strikeId, body }: { strikeId: number; body: string }) => appealCommunityStrike(strikeId, body), onSuccess: invalidate });
 }
+
+/** A post's share link. One per post on the server, so asking again for the same post is cheap and cached here. */
+export function useCommunityShareLink(postId: number | null) {
+  const on = useCommunityEnabled();
+  return useQuery({ queryKey: [...KEY, 'share', postId], queryFn: () => shareCommunityPost(postId as number), retry, enabled: on && postId !== null, staleTime: Infinity, gcTime: 30 * 60_000 });
+}
+

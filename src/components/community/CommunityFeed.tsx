@@ -25,6 +25,7 @@ import { CommentsSheet } from './CommentsSheet';
 import { PostMediaViewer } from './PostMediaViewer';
 import { Surface, isSurfaceOn } from '@/ui/surfaces';
 import { BlockedSheet } from './BlockedSheet';
+import { ShareSheet } from './ShareSheet';
 import { StandingSheet } from './StandingSheet';
 import { canBlock, confirmBlock, pausedLine, showSupport } from './guard';
 
@@ -81,6 +82,8 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
   // The guard rails (founder spec 2026-10-28): blocking is the member's own, the standing is private.
   const block = useBlockCommunityMember();
   const [blockedOpen, setBlockedOpen] = useState(false);
+  const [shareFor, setShareFor] = useState<CommunityPost | null>(null);
+  const openShare = useCallback((p: CommunityPost) => setShareFor(p), []);
   const [standingOpen, setStandingOpen] = useState(false);
   const standing = spacesQ.data?.standing ?? null;
   const member = writer && role !== 'staff';
@@ -230,7 +233,7 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
         keyExtractor={(p) => String(p.id)}
         renderItem={({ item }) => (
           <View style={{ paddingHorizontal: CARD_SIDE, paddingTop: spacing.sm }}>
-            <PostCard post={item} role={role} headers={headers} onOpen={open} onReact={onReact} onMore={onMore} onOpenImage={openImage} onComments={openComments} reactions={spacesQ.data?.limits?.reactions} />
+            <PostCard post={item} role={role} headers={headers} onOpen={open} onReact={onReact} onMore={onMore} onOpenImage={openImage} onComments={openComments} onShare={openShare} reactions={spacesQ.data?.limits?.reactions} />
           </View>
         )}
         ListHeaderComponent={listHeader}
@@ -261,6 +264,7 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
       ) : null}
       {viewerPost && viewer ? <PostMediaViewer post={viewerPost} start={viewer.index} role={role} headers={headers} onClose={() => setViewer(null)} /> : null}
       {member ? <Surface id="community.block"><BlockedSheet visible={blockedOpen} onClose={() => setBlockedOpen(false)} /></Surface> : null}
+      <Surface id="community.post.share"><ShareSheet post={shareFor} onClose={() => setShareFor(null)} /></Surface>
       {member ? <StandingSheet visible={standingOpen} parent={meRole === 'parent'} onClose={() => setStandingOpen(false)} /> : null}
       <ReportSheet
         visible={reportFor !== null}

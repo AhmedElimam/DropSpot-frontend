@@ -151,6 +151,8 @@ const ICON_MAP = {
   locate: 'locate',
   filter: 'options',
   collapse: 'chevron-forward-circle',
+  /** «مشاركة» on a community post. */
+  share: 'share-social',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;
