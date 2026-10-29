@@ -5,6 +5,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn
 jest.mock('../StandingSheet', () => ({ StandingSheet: () => null }));
 jest.mock('@/components/ui/SheetModal', () => ({ SheetModal: () => null }));
 jest.mock('@/components/ui/Icon', () => ({ Icon: () => null }));
+jest.mock('@/ui/surfaces', () => ({ useSurface: () => true }));
 
 const NOW = Date.parse('2026-10-29T12:00:00Z');
 const strike = (o: Partial<CommunityStrike>): CommunityStrike => ({

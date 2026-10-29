@@ -9,6 +9,7 @@ import { colors, radius, spacing } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { usePopupSlot } from '@/ui/popupSlot';
+import { useSurface } from '@/ui/surfaces';
 import { useAuthStore } from '@/stores/authStore';
 import { useInAppNotice } from '@/notifications/inAppNotice';
 import { useCommunityStanding } from '@/hooks/useCommunity';
@@ -24,6 +25,8 @@ export function activePause(detail: CommunityStandingDetail | undefined, now = D
   const standing = detail?.me?.standing;
   if (!standing || standing.can_participate) return null;
   const strikes = detail?.me?.strikes ?? [];
+  // The server names the strike; the search below is only for an older server that does not.
+  if (standing.active_strike_id) return strikes.find((s) => s.id === standing.active_strike_id) ?? null;
   if (standing.removed) return strikes.find((s) => s.level === 'removal' && s.appeal?.status !== 'accepted') ?? null;
   return strikes.find((s) => SUSPENSIONS.includes(s.level) && s.ends_at !== null && Date.parse(s.ends_at) > now && s.appeal?.status !== 'accepted') ?? null;
 }
@@ -59,7 +62,9 @@ export function CommunityPauseNotice() {
   }, [member, noticeType, noticeKey, qc]);
 
   const pause = useMemo(() => activePause(standing.data), [standing.data]);
-  const wants = member && seen !== null && pause !== null && !seen.includes(pause.id);
+  // Backend code can switch the popup off (`community.pause_popup`); the banner on the feed stays.
+  const on = useSurface('community.pause_popup');
+  const wants = on && member && seen !== null && pause !== null && !seen.includes(pause.id);
   const show = usePopupSlot('community_pause', wants);
 
   const close = () => {

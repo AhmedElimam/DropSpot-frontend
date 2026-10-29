@@ -61,6 +61,8 @@ export type UiTheme = Partial<Record<'light' | 'dark', Record<string, string>>>;
 export interface UiCondition { when: string; else?: 'hide' | 'disable'; reason?: string }
 export interface UiManifest {
   hidden: string[];
+  /** Rewordings of the app's own strings, by i18n key (server `mobile_ui.texts`). */
+  texts?: Record<string, string>;
   /** Surface id → the reason shown when it is tapped; the element shows but does nothing. */
   disabled?: Record<string, string>;
   /** Surface id → a condition evaluated on the phone (src/ui/conditions.ts) against the screen's context. */

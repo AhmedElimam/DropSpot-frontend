@@ -4,8 +4,8 @@ so whoever edits the server's config/mobile_ui.php knows what can be switched of
 import os, re, glob
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ids = {}
-for f in glob.glob(os.path.join(ROOT, 'app/**/*.tsx'), recursive=True) + glob.glob(os.path.join(ROOT, 'src/**/*.tsx'), recursive=True):
-    if '__tests__' in f: continue
+for f in glob.glob(os.path.join(ROOT, 'app/**/*.tsx'), recursive=True) + glob.glob(os.path.join(ROOT, 'src/**/*.tsx'), recursive=True) + glob.glob(os.path.join(ROOT, 'src/**/*.ts'), recursive=True):
+    if '__tests__' in f or f.endswith('.d.ts'): continue
     src = open(f, encoding='utf-8').read()
     for m in re.finditer(r'<Surface\s+id="([a-z0-9_.:-]+)"([^>]*)>', src):
         gate = re.search(r'assistantNeeds="([a-z_]+)"', m.group(2))
@@ -14,8 +14,8 @@ for f in glob.glob(os.path.join(ROOT, 'app/**/*.tsx'), recursive=True) + glob.gl
     # Rows built as data (ScheduleToolsSheet): `surface: 'id', assistantNeeds: 'key'` on one line.
     for m in re.finditer(r"surface:\s*'([a-z0-9_.:-]+)'(?:[^\n]*?assistantNeeds:\s*'([a-z_]+)')?", src):
         ids.setdefault(m.group(1), []).append((os.path.relpath(f, ROOT), 'element' + (f' · assistant: {m.group(2)}' if m.group(2) else '')))
-    for m in re.finditer(r"surfaceId\(['\"]([a-z0-9_.:-]+)['\"]\)|TAB_SURFACE\s*=\s*['\"]([a-z0-9_.:-]+)['\"]", src):
-        ids.setdefault(m.group(1) or m.group(2), []).append((os.path.relpath(f, ROOT), 'tab'))
+    for m in re.finditer(r"surfaceId\(['\"]([a-z0-9_.:-]+)['\"]\)|useSurface\(['\"]([a-z0-9_.:-]+)['\"]\)|TAB_SURFACE\s*=\s*['\"]([a-z0-9_.:-]+)['\"]", src):
+        ids.setdefault(m.group(1) or m.group(2) or m.group(3), []).append((os.path.relpath(f, ROOT), 'element' if m.group(2) else 'tab'))
     for m in re.finditer(r"const TAB_ORDER = \[([^\]]+)\]", src):
         role = re.search(r'app/\((\w+)\)/', f)
         if role:

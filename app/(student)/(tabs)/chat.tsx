@@ -20,7 +20,7 @@ import { Segments } from '@/components/threads/Segments';
 import { HUB_SEGMENTS, enabledSegments, hubSegmentItems, type HubSegment } from '@/components/community/hubSegments';
 import { arDigits, filterCounts } from '@/components/threads/format';
 import { TogetherComingSoon } from '@/components/student/TogetherComingSoon';
-import { Surface } from '@/ui/surfaces';
+import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
 import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
 
 const FEATURE_KEYS = ['community', 'course_chat', 'threads'] as const;
@@ -62,7 +62,8 @@ function StudentConversations() {
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
   const communityEnabled = useCommunityEnabled();
-  const enabled = useMemo(() => enabledSegments({ community: communityEnabled, chat: chatEnabled, threads: threadsEnabled }), [communityEnabled, chatEnabled, threadsEnabled]);
+  const hiddenSurfaces = useHiddenSurfaces();
+  const enabled = useMemo(() => enabledSegments({ community: communityEnabled, chat: chatEnabled, threads: threadsEnabled }, hiddenSurfaces), [communityEnabled, chatEnabled, threadsEnabled, hiddenSurfaces]);
   // Until the reader picks a side, the default follows the flags (they may load after mount).
   const [picked, setSegment] = useState<Segment | null>(null);
   // A push lands with `?segment=…`.

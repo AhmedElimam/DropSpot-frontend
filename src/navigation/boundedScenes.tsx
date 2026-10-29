@@ -1,6 +1,7 @@
 import { useCallback, type ReactNode } from 'react';
 import { useNavigationState } from '@react-navigation/native';
 import { TabSwipeHome } from '@/navigation/TabSwipeHome';
+import { useSurface } from '@/ui/surfaces';
 
 /**
  * Bounded screens for the role tab navigators (older-device heat and slowdown, 2026-09-27).
@@ -92,9 +93,11 @@ export const HOME_TAB = 'index';
 export function boundedSceneLayout(alwaysMounted: ReadonlySet<string>) {
   return function BoundedSceneLayout({ route, navigation, children }: { route: { key: string; name: string }; navigation: { navigate: (name: string) => void }; children: ReactNode }) {
     const goHome = useCallback(() => navigation.navigate(HOME_TAB), [navigation]);
+    // Backend code can switch the gesture off (`nav.tab_swipe_home`) without a release.
+    const swipe = useSurface('nav.tab_swipe_home');
     return (
       <BoundedScene routeKey={route.key} alwaysMounted={alwaysMounted}>
-        <TabSwipeHome home={route.name === HOME_TAB} goHome={goHome}>
+        <TabSwipeHome home={route.name === HOME_TAB || !swipe} goHome={goHome}>
           {children}
         </TabSwipeHome>
       </BoundedScene>

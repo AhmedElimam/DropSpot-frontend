@@ -8,6 +8,10 @@ import fs from 'fs';
 import path from 'path';
 import { shouldKeepMounted, KEEP_RECENT_HIDDEN } from '../boundedScenes';
 
+// The scene layout now reads a surface (`nav.tab_swipe_home`); the surfaces module drags the dialog host and native storage in.
+jest.mock('@/ui/surfaces', () => ({ useSurface: () => true }));
+jest.mock('@/navigation/TabSwipeHome', () => ({ TabSwipeHome: ({ children }: { children: unknown }) => children }));
+
 const VISIBLE = new Set(['index', 'students', 'manage']);
 const route = (name: string) => ({ key: `${name}-key`, name });
 const routes = ['index', 'students', 'manage', 'insights', 'cash-reconcile', 'venues', 'scan', 'courses'].map(route);

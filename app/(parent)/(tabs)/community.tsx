@@ -20,7 +20,7 @@ import { arDigits, filterCounts } from '@/components/threads/format';
 import { PageHero, type HeroAction } from '@/components/ui/PageHero';
 import type { InboxFilter } from '@/chat/inbox';
 import { colors, spacing, nav, gradients } from '@/theme/index';
-import { Surface } from '@/ui/surfaces';
+import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
 import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
 
 const FEATURE_KEYS = ['community', 'course_chat', 'threads'] as const;
@@ -62,7 +62,8 @@ function ParentConversations() {
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
   const communityEnabled = useCommunityEnabled();
-  const enabled = useMemo(() => enabledSegments({ community: communityEnabled, chat: chatEnabled, threads: threadsEnabled }), [communityEnabled, chatEnabled, threadsEnabled]);
+  const hiddenSurfaces = useHiddenSurfaces();
+  const enabled = useMemo(() => enabledSegments({ community: communityEnabled, chat: chatEnabled, threads: threadsEnabled }, hiddenSurfaces), [communityEnabled, chatEnabled, threadsEnabled, hiddenSurfaces]);
   // A push lands here with `?segment=…`.
   const params = useLocalSearchParams<{ segment?: string }>();
   const [picked, setSegment] = useState<Segment | null>(null);

@@ -140,6 +140,10 @@ export const useAppConfigStore = create<State>((set, get) => ({
     lastServerRaw = raw;
     lastApplied = replaceEqualDeep(get().config, mergeConfig(server));
     set({ config: lastApplied, hydrated: true });
+    // Rewordings from backend code (ui.texts) land in i18n now — lazily, so a headless task
+    // that reads the config never loads react-i18next.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    (require('@/ui/serverTexts') as typeof import('@/ui/serverTexts')).applyServerTexts(lastApplied.ui?.texts);
     storage()?.setItem(CACHE_KEY, raw).catch(() => {});
   },
   dropFeatureTerms: (key) => {

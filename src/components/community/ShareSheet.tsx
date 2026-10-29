@@ -7,6 +7,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { SheetModal } from '@/components/ui/SheetModal';
+import { Surface } from '@/ui/surfaces';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { useCommunityShareLink } from '@/hooks/useCommunity';
 import { attachmentHeaders } from '@/api/chat';
@@ -98,7 +99,7 @@ export function ShareSheet({ post, onClose }: { post: CommunityPost | null; onCl
           <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 6, marginBottom: spacing.md }}>{t('community_space.share_copy_hint')}</Text>
 
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Action icon="whatsapp" tint={colors.whatsapp} label={t('community_space.share_whatsapp')} onPress={whatsapp} />
+            <Surface id="community.share.whatsapp"><Action icon="whatsapp" tint={colors.whatsapp} label={t('community_space.share_whatsapp')} onPress={whatsapp} /></Surface>
             <Action icon="share" tint={colors.brand} label={t('community_space.share_more')} onPress={shareAll} primary busy={preparing} />
           </View>
         </>

@@ -12,13 +12,16 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 
 ## community
 
+- `community.audience_switch` — element · app/(teacher)/conversations/index.tsx
 - `community.block` — element · src/components/community/CommunityFeed.tsx
 - `community.comment.photo` — element · src/components/community/CommentComposer.tsx
 - `community.compose.backgrounds` — element · src/components/community/ComposePostSheet.tsx
 - `community.compose.photos` — element · src/components/community/ComposePostSheet.tsx
 - `community.feed.composer` — element · src/components/community/CommunityFeed.tsx
+- `community.pause_popup` — element · src/components/community/CommunityPauseNotice.tsx
 - `community.picture.social` — element · src/components/community/PostMediaViewer.tsx
-- `community.post.share` — element · src/components/community/CommunityFeed.tsx, src/components/community/CommunityPostScreen.tsx
+- `community.post.share` — element · src/components/community/CommunityFeed.tsx, src/components/community/CommunityPostScreen.tsx, src/components/community/PostCard.tsx
+- `community.share.whatsapp` — element · src/components/community/ShareSheet.tsx
 - `community.standing` — element · src/components/community/CommunityFeed.tsx
 
 ## family
@@ -35,6 +38,16 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `family.support.my_messages` — element · src/components/support/SupportCenter.tsx
 - `family.support.reason_select` — element · src/components/support/SupportCenter.tsx
 - `family.support.send_button` — element · src/components/support/SupportCenter.tsx
+
+## hub
+
+- `hub.segment.chat` — element · src/components/community/hubSegments.ts
+- `hub.segment.community` — element · src/components/community/hubSegments.ts
+- `hub.segment.threads` — element · src/components/community/hubSegments.ts
+
+## nav
+
+- `nav.tab_swipe_home` — element · src/navigation/boundedScenes.tsx
 
 ## parent
 
@@ -635,6 +648,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.home.spotlight_private_label` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.spotlight_ring` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.spotlight_scan` — element · app/(teacher)/(tabs)/index.tsx
+- `teacher.home.spotlight_sheet` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.stat_attention` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.stat_present` — element · app/(teacher)/(tabs)/index.tsx
 - `teacher.home.stat_sessions` — element · app/(teacher)/(tabs)/index.tsx
@@ -892,6 +906,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.revisions.list` — element · app/(teacher)/revisions.tsx
 - `teacher.rose.calling.ring` — element · src/components/rose/RoseCalling.tsx
 - `teacher.rose.calling.wave` — element · src/components/rose/RoseCalling.tsx
+- `teacher.rose.costume` — element · src/components/rose/RoseCostume.ts
 - `teacher.rose.dialog.message` — element · src/components/rose/RoseDialog.tsx
 - `teacher.rose.dialog.portrait` — element · src/components/rose/RoseDialog.tsx
 - `teacher.rose.export_pill` — element · src/components/rose/RoseExport.tsx

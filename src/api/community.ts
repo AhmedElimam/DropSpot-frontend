@@ -55,6 +55,8 @@ export interface CommunityStanding {
   removed: boolean;
   /** The server's own sentence for why writing is stopped. */
   message: string | null;
+  /** The strike that stops them now (the pause popup keys on it); null while they can write. */
+  active_strike_id?: number | null;
   open_strikes: number;
 }
 

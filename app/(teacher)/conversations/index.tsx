@@ -23,7 +23,7 @@ import { arDigits, filterCounts } from '@/components/threads/format';
 import { CommunityFeed } from '@/components/community/CommunityFeed';
 import { AudienceSwitch } from '@/components/community/AudienceSwitch';
 import { PageHero, type HeroAction } from '@/components/ui/PageHero';
-import { Surface } from '@/ui/surfaces';
+import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
 import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
 import type { CommunityAudience } from '@/api/community';
 
@@ -67,7 +67,8 @@ function ConversationsHub() {
   const chatEnabled = useChatEnabled();
   const threadsEnabled = useThreadsEnabled();
   const communityEnabled = useCommunityEnabled();
-  const enabled = useMemo(() => enabledSegments({ community: communityEnabled, chat: chatEnabled, threads: threadsEnabled }), [communityEnabled, chatEnabled, threadsEnabled]);
+  const hiddenSurfaces = useHiddenSurfaces();
+  const enabled = useMemo(() => enabledSegments({ community: communityEnabled, chat: chatEnabled, threads: threadsEnabled }, hiddenSurfaces), [communityEnabled, chatEnabled, threadsEnabled, hiddenSurfaces]);
   // Until the teacher picks a side the default follows the flags: the community leads, then chat.
   const [picked, setTab] = useState<Segment | null>(null);
   const tab: Segment = picked && enabled.includes(picked) ? picked : (enabled[0] ?? 'chat');
@@ -130,7 +131,7 @@ function ConversationsHub() {
       {many ? segments : null}
       {showCommunity ? (
         // The teacher reads TWO communities: which one is in front.
-        <AudienceSwitch value={audience} onChange={setAudience} spaces={spacesQ.data?.spaces ?? []} />
+        <Surface id="community.audience_switch"><AudienceSwitch value={audience} onChange={setAudience} spaces={spacesQ.data?.spaces ?? []} /></Surface>
       ) : null}
     </View>
   ) : null;
