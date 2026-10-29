@@ -16,6 +16,8 @@ export const POPUP_ORDER = [
   // «وضع المراجعة مفعّل الآن»: the person just flipped the season, so its sheet goes first
   // (2026-10-28: it opened beside مدام روز's unlock after the rebuild and the app froze).
   'revision_welcome',
+  // «اتوقفت مشاركتك في المجتمع» — the member's own pause, once per suspension (2026-10-29).
+  'community_pause',
   'onboarding_intro',
   // A feature's add-on agreement (chat, حكاوي, مجتمعنا…): one at a time, the next after a gap.
   'feature_terms',

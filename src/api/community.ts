@@ -58,7 +58,7 @@ export interface CommunityStanding {
   open_strikes: number;
 }
 
-export type StrikeLevel = 'warning_1' | 'warning_2' | 'suspension_short' | 'suspension_long' | 'severe' | 'removal';
+export type StrikeLevel = 'warning_1' | 'warning_2' | 'suspension_short' | 'suspension_long' | 'severe' | 'suspension_manual' | 'removal';
 
 export interface CommunityStrike {
   id: number;
@@ -73,7 +73,8 @@ export interface CommunityStrike {
 }
 
 export interface CommunityStandingDetail {
-  me: { strikes: CommunityStrike[] };
+  /** `standing`: whether the member can write now (the same object `GET /community` carries). */
+  me: { standing?: CommunityStanding; strikes: CommunityStrike[] };
   /** A parent: each child's own record. */
   children: { student_id: number; name: string; strikes: CommunityStrike[] }[];
 }

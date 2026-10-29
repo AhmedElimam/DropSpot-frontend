@@ -62,6 +62,7 @@ import { SubscriptionCornerTag } from '@/components/subscription/SubscriptionCor
 import { SubscriptionSync } from '@/components/subscription/SubscriptionSync';
 import { ParentNumberCheckModal } from '@/components/student/ParentNumberCheckModal';
 import { FeatureTermsPrompt } from '@/components/FeatureTermsPrompt';
+import { CommunityPauseNotice } from '@/components/community/CommunityPauseNotice';
 import { SpotlightOverlay } from '@/tour/SpotlightOverlay';
 import { RevisionCurtain } from '@/components/RevisionCurtain';
 import { RevisionWelcome } from '@/components/RevisionWelcome';
@@ -354,6 +355,8 @@ export default function RootLayout() {
             <ParentNumberCheckModal />
             {/* A feature that just reached this person brings its add-on agreement (feature targeting). */}
             <FeatureTermsPrompt />
+            {/* A community member who was paused hears it wherever they are in the app, once (founder 2026-10-29). */}
+            <CommunityPauseNotice />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}
             <SpotlightOverlay />
             {/* A notification that arrives while the app is open: the toast, and the bell shakes (founder 2026-10-27). */}
