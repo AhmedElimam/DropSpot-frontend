@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { useNavigationState } from '@react-navigation/native';
+import { TabSwipeHome } from '@/navigation/TabSwipeHome';
 
 /**
  * Bounded screens for the role tab navigators (older-device heat and slowdown, 2026-09-27).
@@ -76,17 +77,26 @@ function BoundedScene({ routeKey, alwaysMounted, children }: { routeKey: string;
   return keep ? <>{children}</> : null;
 }
 
+/** The role's Home tab: back from any other tab lands here. */
+export const HOME_TAB = 'index';
+
 /**
  * The `screenLayout` for a role's `<Tabs>`. `alwaysMounted` = the visible tab route names.
  * Pair it with `freezeOnBlur: alwaysMounted.has(route.name)` in `screenOptions`: a frozen
  * screen defers every update — including this one's switch to `null` — so a detail screen
  * must not be frozen or it would never actually be released.
+ *
+ * Every tab but Home also gets its way back Home (`TabSwipeHome`): the iOS edge swipe and the
+ * Android back.
  */
 export function boundedSceneLayout(alwaysMounted: ReadonlySet<string>) {
-  return function BoundedSceneLayout({ route, children }: { route: { key: string }; children: ReactNode }) {
+  return function BoundedSceneLayout({ route, navigation, children }: { route: { key: string; name: string }; navigation: { navigate: (name: string) => void }; children: ReactNode }) {
+    const goHome = useCallback(() => navigation.navigate(HOME_TAB), [navigation]);
     return (
       <BoundedScene routeKey={route.key} alwaysMounted={alwaysMounted}>
-        {children}
+        <TabSwipeHome home={route.name === HOME_TAB} goHome={goHome}>
+          {children}
+        </TabSwipeHome>
       </BoundedScene>
     );
   };

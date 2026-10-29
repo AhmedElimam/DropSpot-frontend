@@ -9,8 +9,8 @@ export function enabledSegments(on: { community: boolean; chat: boolean; threads
   return HUB_SEGMENTS.filter((s) => on[s]);
 }
 
-/** The segment control's items for the hub screens (student, parent, teacher). */
+/** The segment control's items for the hub screens (student, parent, teacher). مجتمعنا wears the brand mark. */
 export function hubSegmentItems(enabled: HubSegment[], labels: Record<HubSegment, string>, badges: Record<HubSegment, number>): SegmentItem<HubSegment>[] {
   const icon: Record<HubSegment, IconName> = { community: 'people', chat: 'chat', threads: 'threads' };
-  return enabled.map((s) => ({ key: s, label: labels[s], icon: icon[s], badge: badges[s] }));
+  return enabled.map((s) => ({ key: s, label: labels[s], icon: icon[s], badge: badges[s], logo: s === 'community' }));
 }
