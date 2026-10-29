@@ -615,6 +615,11 @@
     "open_app_store": "التحديث من App Store",
     "current_version": "الإصدار الحالي على جهازك: {{version}}"
   },
+  "reload_lock": {
+    "title": "نسخة جديدة جاهزة",
+    "button": "إعادة التشغيل",
+    "manual": "لو ما اشتغلش، اقفل التطبيق خالص من الشاشة وافتحه تاني."
+  },
   "complaints": {
     "title": "الاعتراضات",
     "student_title": "اعتراض",

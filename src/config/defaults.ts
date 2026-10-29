@@ -146,6 +146,21 @@ export interface AppConfigPayload {
    * then falls back to the bundled link below.
    */
   store: AppConfigStore;
+  /**
+   * «اطلب من الكل إعادة فتح التطبيق» (backend App\Support\AppReload, 2026-10-29): ops ask phones
+   * to restart into the latest OTA bundle. null = nothing asked. Never sent by older servers.
+   */
+  reload_request?: ReloadRequest | null;
+}
+
+export interface ReloadRequest {
+  id: string;
+  message: string;
+  /** Only phones running this runtime version (null = every runtime). */
+  runtime: string | null;
+  /** Lock even when this phone finds no newer bundle. */
+  force: boolean;
+  issued_at: string;
 }
 
 export interface AppConfigStore {
@@ -203,4 +218,5 @@ export const CONFIG_DEFAULTS: AppConfigPayload = {
     ios_url: 'https://apps.apple.com/eg/app/dros-spot/id6806775859',
     android_url: 'https://play.google.com/store/apps/details?id=com.drosspot.app',
   },
+  reload_request: null,
 };

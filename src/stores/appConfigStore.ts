@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { replaceEqualDeep } from '@tanstack/react-query';
-import { CONFIG_DEFAULTS, type AppConfigPayload, type AppConfigRules, type FeatureTermsDoc } from '@/config/defaults';
+import { CONFIG_DEFAULTS, type AppConfigPayload, type AppConfigRules, type FeatureTermsDoc, type ReloadRequest } from '@/config/defaults';
 
 const CACHE_KEY = 'app_config.last_good';
 
@@ -83,6 +83,21 @@ export function mergeConfig(server: Partial<AppConfigPayload>): AppConfigPayload
       ios_url: server.store?.ios_url || CONFIG_DEFAULTS.store.ios_url,
       android_url: server.store?.android_url || CONFIG_DEFAULTS.store.android_url,
     },
+    reload_request: cleanReloadRequest(server.reload_request),
+  };
+}
+
+/** A well-formed reload request, or null — a malformed one must never lock anybody. */
+export function cleanReloadRequest(v: unknown): ReloadRequest | null {
+  if (!v || typeof v !== 'object') return null;
+  const r = v as Partial<ReloadRequest>;
+  if (typeof r.id !== 'string' || r.id === '' || typeof r.message !== 'string') return null;
+  return {
+    id: r.id,
+    message: r.message,
+    runtime: typeof r.runtime === 'string' && r.runtime !== '' ? r.runtime : null,
+    force: r.force === true,
+    issued_at: typeof r.issued_at === 'string' ? r.issued_at : '',
   };
 }
 

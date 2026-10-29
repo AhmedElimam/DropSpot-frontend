@@ -66,6 +66,40 @@ export async function reloadIfReady(backgroundedForMs: number): Promise<boolean>
   }
 }
 
+/**
+ * For a reload request from ops (src/updates/reloadRequest.ts): make sure the newest bundle is
+ * on the phone, now. Returns 'pending' when one is downloaded and waiting for a restart, 'none'
+ * when this phone is already up to date, 'off' when updates don't run here (dev, Expo Go,
+ * Jest), 'error' when the check could not finish (no network) — the caller asks again later.
+ */
+export async function prepareReload(): Promise<'pending' | 'none' | 'off' | 'error'> {
+  const Updates = load();
+  if (!Updates?.isEnabled) return 'off';
+  if (downloaded) return 'pending';
+  try {
+    const res = await Updates.checkForUpdateAsync();
+    if (!res?.isAvailable) return 'none';
+    await Updates.fetchUpdateAsync();
+    // isNew false = it was already downloaded earlier; either way it waits for a restart.
+    downloaded = true;
+    return 'pending';
+  } catch {
+    return 'error';
+  }
+}
+
+/** Restart the JS now, into the newest bundle on the phone. False when it cannot. */
+export async function restartNow(): Promise<boolean> {
+  const Updates = load();
+  if (!Updates?.isEnabled) return false;
+  try {
+    await Updates.reloadAsync();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** What runs right now, for an error report: the embedded bundle or an update's id. */
 export function runningUpdate(): { update_id: string | null; runtime: string | null; embedded: boolean } {
   const Updates = load();

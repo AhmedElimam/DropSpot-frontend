@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, AppState, TouchableOpacity, Linking, Platform, type AppStateStatus } from 'react-native';
 import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +11,8 @@ import { syncAppConfig, syncAppConfigOnForeground, watchSessionForConfig } from 
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { isVersionBelow } from '@/utils/semver';
 import { binaryVersion } from '@/utils/binaryVersion';
-import { checkForOtaUpdate, reloadIfReady } from '@/updates/otaUpdates';
+import { checkForOtaUpdate, reloadIfReady, restartNow } from '@/updates/otaUpdates';
+import { answerReloadRequest, markRequestDone } from '@/updates/reloadRequest';
 import { reportCapabilities } from '@/capabilities';
 import { storeLinksFor } from '@/utils/storeLinks';
 
@@ -42,6 +43,27 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
   const cfg = useAppConfig();
   const min = cfg.min_supported_app_version;
   const migration = cfg.migration;
+  const reloadRequest = cfg.reload_request ?? null;
+  const reloadId = reloadRequest?.id ?? null;
+
+  // «اطلب من الكل إعادة فتح التطبيق» (src/updates/reloadRequest.ts): answered once per request —
+  // on arrival and, if the check could not finish, again on each return to the foreground.
+  const [lock, setLock] = useState<{ id: string; message: string } | null>(null);
+  const [restartFailed, setRestartFailed] = useState(false);
+  const answering = useRef(false);
+  useEffect(() => {
+    if (!reloadId) { setLock(null); return undefined; }
+    const answer = () => {
+      if (answering.current) return;
+      answering.current = true;
+      void answerReloadRequest(useAppConfigStore.getState().config.reload_request)
+        .then((r) => { if (r === 'lock' && reloadRequest) setLock({ id: reloadRequest.id, message: reloadRequest.message }); })
+        .finally(() => { answering.current = false; });
+    };
+    answer();
+    const sub = AppState.addEventListener('change', (st: AppStateStatus) => { if (st === 'active') answer(); });
+    return () => sub.remove();
+  }, [reloadId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Colours the backend repaints (config/mobile_ui.php → theme): applied to the live tokens,
   // then the root rebuilds its tree on the new palette — only when something really changed.
@@ -85,6 +107,35 @@ export function AppConfigGate({ children }: { children: React.ReactNode }) {
     });
     return () => { sub.remove(); unwatchSession(); };
   }, []);
+
+  // Ops asked every phone to restart into the newest bundle, and this one has it waiting:
+  // a calm, non-dismissable screen in place of the app (no Modal — nothing can stack on it).
+  if (lock) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+        <View style={{ width: 88, height: 88, borderRadius: 28, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.xl }}>
+          <Icon name="sparkles" size={44} color={colors.brand} />
+        </View>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary, textAlign: 'center' }}>{t('reload_lock.title')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 24, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.md }}>{lock.message}</Text>
+        <TouchableOpacity
+          onPress={() => {
+            setRestartFailed(false);
+            void markRequestDone(lock.id).then(() => restartNow()).then((ok) => { if (!ok) setRestartFailed(true); });
+          }}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          style={{ marginTop: spacing.xl, minHeight: 50, alignSelf: 'stretch', flexDirection: 'row', gap: spacing.sm, borderRadius: radius.lg, backgroundColor: colors.brand, justifyContent: 'center', alignItems: 'center' }}
+        >
+          <Icon name="refresh" size={18} color="#fff" />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('reload_lock.button')}</Text>
+        </TouchableOpacity>
+        {restartFailed ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.md }}>{t('reload_lock.manual')}</Text>
+        ) : null}
+      </View>
+    );
+  }
 
   // This app identity has been retired: its store listing is no longer one we can
   // publish to. Show where the app actually lives now, with a button — the plain
