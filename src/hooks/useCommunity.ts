@@ -186,7 +186,10 @@ export function useCommunityBlocks(enabled = true) {
 /** Block or unblock: every feed and thread is refetched, so their rows go (or come back) at once. */
 export function useBlockCommunityMember() {
   const invalidate = useInvalidate();
-  return useMutation({ mutationFn: ({ userId, block }: { userId: number; block: boolean }) => (block ? blockCommunityMember(userId) : unblockCommunityMember(userId)), onSuccess: invalidate });
+  return useMutation({
+    mutationFn: ({ userId, block, from }: { userId: number; block: boolean; from?: { post_id?: number; comment_id?: number } }) => (block ? blockCommunityMember(userId, from) : unblockCommunityMember(userId)),
+    onSuccess: invalidate,
+  });
 }
 
 /** The viewer's own warnings and suspensions (and a parent's children's). Private. */

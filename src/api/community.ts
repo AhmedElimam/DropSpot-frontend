@@ -276,8 +276,12 @@ export async function getCommunityBlocks(): Promise<CommunityBlock[]> {
   return (data?.blocks ?? []) as CommunityBlock[];
 }
 
-export async function blockCommunityMember(userId: number): Promise<void> {
-  await client.post(`/community/blocks/${userId}`);
+/**
+ * `from`: the post or comment the block was made from — the team hears about it as a «حظر»
+ * report (App Store 1.2: a block must also notify the developer). The member is never told.
+ */
+export async function blockCommunityMember(userId: number, from?: { post_id?: number; comment_id?: number }): Promise<void> {
+  await client.post(`/community/blocks/${userId}`, from ?? {});
 }
 
 export async function unblockCommunityMember(userId: number): Promise<void> {

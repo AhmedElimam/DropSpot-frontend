@@ -78,7 +78,7 @@ export function CommentsPanel({ postId, audience, mediaId = null, role, total, h
     }
     // Blocking is the member's own and quiet; the confirm says how it differs from a report.
     if (canBlock(c.author, c.mine, member)) {
-      buttons.push({ text: t('community_space.block_menu', { name: c.author.name.split(' ')[0] }), onPress: () => afterPopup(() => confirmBlock(c.author, t, (userId) => block.mutateAsync({ userId, block: true }))) });
+      buttons.push({ text: t('community_space.block_menu', { name: c.author.name.split(' ')[0] }), onPress: () => afterPopup(() => confirmBlock(c.author, t, (userId) => block.mutateAsync({ userId, block: true, from: { comment_id: c.id } }))) });
     }
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });

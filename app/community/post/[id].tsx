@@ -20,9 +20,12 @@ export default function CommunityPostDeepLink() {
   if (!Number.isInteger(postId) || postId <= 0) {
     return <Redirect href={ROUTE_BY_ROLE} />;
   }
-  if (role === 'student') return <Redirect href={`/(student)/community/${postId}` as Href} />;
-  if (role === 'parent') return <Redirect href={`/(parent)/community/${postId}` as Href} />;
-  if (role === 'teacher') return <Redirect href={`/(teacher)/conversations/community/${postId}` as Href} />;
+  // `withAnchor`: the role's tabs go in under the post (its `initialRouteName`), so the swipe back
+  // and the back button land on the app — not on nothing (founder 2026-10-29: «back swipe after
+  // opening a post via a share link doesn't work»).
+  if (role === 'student') return <Redirect withAnchor href={`/(student)/community/${postId}` as Href} />;
+  if (role === 'parent') return <Redirect withAnchor href={`/(parent)/community/${postId}` as Href} />;
+  if (role === 'teacher') return <Redirect withAnchor href={`/(teacher)/conversations/community/${postId}` as Href} />;
 
   // An assistant has no community; anyone else goes home through the role router (every gate re-applied).
   return <Redirect href={ROUTE_BY_ROLE} />;

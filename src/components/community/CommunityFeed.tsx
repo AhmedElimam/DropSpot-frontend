@@ -116,7 +116,7 @@ export function CommunityFeed({ audience, header, footer, onOpen, contentContain
       buttons.push({ text: t('community_space.report_menu'), style: 'destructive', onPress: () => afterPopup(() => setReportFor(post.id)) });
     }
     if (canBlock(post.author, post.mine, member)) {
-      buttons.push({ text: t('community_space.block_menu', { name: post.author.name.split(' ')[0] }), onPress: () => afterPopup(() => confirmBlock(post.author, t, (userId) => block.mutateAsync({ userId, block: true }))) });
+      buttons.push({ text: t('community_space.block_menu', { name: post.author.name.split(' ')[0] }), onPress: () => afterPopup(() => confirmBlock(post.author, t, (userId) => block.mutateAsync({ userId, block: true, from: { post_id: post.id } }))) });
     }
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });

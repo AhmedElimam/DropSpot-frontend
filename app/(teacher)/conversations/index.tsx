@@ -4,7 +4,7 @@ import { ScrollView } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { fonts } from '@/theme/typography';
-import { colors, spacing, radius, nav, gradients } from '@/theme/index';
+import { colors, spacing, nav, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { CHAT_FLAG, useChatChannels, useChatEnabled } from '@/hooks/useChat';
 import { COMMUNITY_FLAG, useCommunityEnabled, useCommunitySpaces } from '@/hooks/useCommunity';
@@ -21,10 +21,11 @@ import { Segments } from '@/components/threads/Segments';
 import { enabledSegments, hubSegmentItems, type HubSegment } from '@/components/community/hubSegments';
 import { arDigits, filterCounts } from '@/components/threads/format';
 import { CommunityFeed } from '@/components/community/CommunityFeed';
+import { AudienceSwitch } from '@/components/community/AudienceSwitch';
 import { PageHero, type HeroAction } from '@/components/ui/PageHero';
 import { Surface } from '@/ui/surfaces';
 import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
-import type { CommunityAudience, CommunitySpace } from '@/api/community';
+import type { CommunityAudience } from '@/api/community';
 
 const FEATURE_KEYS = ['community', 'course_chat', 'threads'] as const;
 
@@ -94,7 +95,6 @@ function ConversationsHub() {
   const isThreadsTeacher = !!threadsFeed?.settings;
   const isThreadsStaff = isThreadsTeacher || threadsFeed?.open_reports !== undefined;
   const flag = showCommunity ? COMMUNITY_FLAG : showThreads ? THREADS_FLAG : CHAT_FLAG;
-  const spaceOf = (a: CommunityAudience) => (spacesQ.data?.spaces ?? []).find((s) => s.audience === a);
 
   // The hero carries حكاوي's tools (reports queue, settings). The community has none here: ops moderate it.
   const heroActions: HeroAction[] = showThreads ? [
@@ -130,10 +130,7 @@ function ConversationsHub() {
       {many ? segments : null}
       {showCommunity ? (
         // The teacher reads TWO communities: which one is in front.
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <AudienceChip audience="students" on={audience === 'students'} space={spaceOf('students')} onPress={() => setAudience('students')} />
-          <AudienceChip audience="parents" on={audience === 'parents'} space={spaceOf('parents')} onPress={() => setAudience('parents')} />
-        </View>
+        <AudienceSwitch value={audience} onChange={setAudience} spaces={spacesQ.data?.spaces ?? []} />
       ) : null}
     </View>
   ) : null;
@@ -216,18 +213,5 @@ function ConversationsHub() {
       )}
     </View>
     </Surface>
-  );
-}
-
-/** The teacher reads TWO communities: which one is in front, with the other's unread. */
-function AudienceChip({ audience, on, space, onPress }: { audience: CommunityAudience; on: boolean; space: CommunitySpace | undefined; onPress: () => void }) {
-  const { t } = useTranslation();
-  const n = space ? space.unread : 0;
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} accessibilityRole="tab" accessibilityState={{ selected: on }}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.onPrimary : colors.textSecondary }}>{t(audience === 'parents' ? 'community_space.audience_parents' : 'community_space.audience_students')}</Text>
-      {n > 0 && !on ? <View style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontFamily: fonts.bold, fontSize: 10.5, color: colors.onPrimary }}>{arDigits(n)}</Text></View> : null}
-    </TouchableOpacity>
   );
 }

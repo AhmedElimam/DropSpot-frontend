@@ -56,7 +56,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
   const paused = member ? pausedLine(spaces.data?.standing, t) : null;
   const commentsOpen = !!data && data.post.status === 'published' && writer && (space?.comments_on ?? true) && !paused;
   const block = useBlockCommunityMember();
-  const blockAuthor = (author: CommunityPost['author']) => afterPopup(() => confirmBlock(author, t, (userId) => block.mutateAsync({ userId, block: true })));
+  const blockAuthor = (author: CommunityPost['author'], from: { post_id?: number; comment_id?: number }) => afterPopup(() => confirmBlock(author, t, (userId) => block.mutateAsync({ userId, block: true, from })));
 
   const react = useReactToCommunityPost();
   const removePost = useDeleteCommunityPost();
@@ -81,7 +81,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
     const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
     if (post.mine && post.status !== 'hidden') buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => Alert.alert(t('community_space.withdraw'), t('community_space.withdraw_confirm'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => removePost.mutateAsync({ postId: post.id })) }]) });
     if (!post.mine && post.status === 'published') buttons.push({ text: t('community_space.report_menu'), style: 'destructive', onPress: () => afterPopup(() => setReportFor({ kind: 'post', id: post.id })) });
-    if (canBlock(post.author, post.mine, member)) buttons.push({ text: t('community_space.block_menu', { name: post.author.name.split(' ')[0] }), onPress: () => blockAuthor(post.author) });
+    if (canBlock(post.author, post.mine, member)) buttons.push({ text: t('community_space.block_menu', { name: post.author.name.split(' ')[0] }), onPress: () => blockAuthor(post.author, { post_id: post.id }) });
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });
     Alert.alert(post.author.name, undefined, buttons);
@@ -91,7 +91,7 @@ export function CommunityPostScreen({ postId }: { postId: number }) {
     const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
     if (c.mine && c.status !== 'hidden') buttons.push({ text: t('community_space.withdraw'), style: 'destructive', onPress: () => run(() => removeComment.mutateAsync({ commentId: c.id })) });
     if (!c.mine && c.status === 'published') buttons.push({ text: t('community_space.report_menu'), style: 'destructive', onPress: () => afterPopup(() => setReportFor({ kind: 'comment', id: c.id })) });
-    if (canBlock(c.author, c.mine, member)) buttons.push({ text: t('community_space.block_menu', { name: c.author.name.split(' ')[0] }), onPress: () => blockAuthor(c.author) });
+    if (canBlock(c.author, c.mine, member)) buttons.push({ text: t('community_space.block_menu', { name: c.author.name.split(' ')[0] }), onPress: () => blockAuthor(c.author, { comment_id: c.id }) });
     if (!buttons.length) return;
     buttons.push({ text: t('common.cancel'), style: 'cancel' });
     Alert.alert(c.author.name, undefined, buttons);
