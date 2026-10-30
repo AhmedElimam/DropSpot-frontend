@@ -7,10 +7,24 @@ export async function getStudentEnrollments(studentId: number): Promise<Enrollme
   return Array.isArray(items) ? items.map(extract) : [];
 }
 
+/** The removal SMS as the server would send it — shown on the follow-up popup. */
+export interface RemovalSms {
+  message: string;
+  phones: string[];
+}
+
 // Soft-terminate (drop) an enrollment — mobile parity for the web action. History
 // and past billing are untouched; only future delivery/roster/capacity stop counting.
-export async function terminateEnrollment(enrollmentId: number): Promise<void> {
-  await client.post(`/teacher/enrollments/${enrollmentId}/terminate`);
+// defer_sms: the parents' SMS waits for the teacher's «أرسل» on the follow-up popup
+// (founder 2026-10-30); the server returns the text and numbers it would use.
+export async function terminateEnrollment(enrollmentId: number): Promise<RemovalSms | null> {
+  const { data } = await client.post(`/teacher/enrollments/${enrollmentId}/terminate`, { defer_sms: true });
+  return (data?.data ?? data)?.sms ?? null;
+}
+
+/** Send the removal SMS the teacher chose to send (once per removal). */
+export async function sendRemovalSms(enrollmentId: number): Promise<void> {
+  await client.post(`/teacher/enrollments/${enrollmentId}/termination-sms`);
 }
 
 // Move one student to another of the teacher's OWN courses (drops this enrollment,

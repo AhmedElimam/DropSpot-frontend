@@ -1,9 +1,11 @@
 import { SheetModal } from '@/components/ui/SheetModal';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { Alert } from '@/ui/dialog';
-import { ScrollView } from '@/components/ui/Refreshable';
+import { FlatList } from '@/components/ui/Refreshable';
+import { SelectField } from '@/components/ui/SelectField';
+import { foldForSearch, relationshipLabel, formatNumber } from '@/utils/format';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -60,17 +62,41 @@ export default function PhoneConfirmationsScreen() {
 
   const items = data?.items ?? [];
 
-  // Grouped by student so a family with two unverified numbers reads as one problem,
-  // not two rows the teacher has to connect themselves.
-  const groups = useMemo(() => {
-    const by = new Map<number, { name: string | null; code: string | null; rows: PhoneConfirmation[] }>();
+  // Filters (founder 2026-10-30: teachers got lost in one long list) — which number needs
+  // confirming, which group, and a search over name / code / either number.
+  const [kind, setKind] = useState<'all' | 'parent' | 'student'>('all');
+  const [groupId, setGroupId] = useState('');
+  const [query, setQuery] = useState('');
+
+  // One card per student: a family with two unverified numbers reads as one problem, and the
+  // card carries BOTH numbers (founder: «one column should carry both student and his parent
+  // phone number») with the student's group(s).
+  const families = useMemo(() => {
+    const by = new Map<number, Family>();
     for (const it of items) {
-      const g = by.get(it.student_id) ?? { name: it.student_name, code: it.student_code, rows: [] };
-      g.rows.push(it);
-      by.set(it.student_id, g);
+      const f = by.get(it.student_id) ?? { id: it.student_id, first: it, rows: [] };
+      f.rows.push(it);
+      by.set(it.student_id, f);
     }
-    return Array.from(by.entries());
+    return Array.from(by.values());
   }, [items]);
+
+  const groupOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const f of families) for (const g of f.first.groups ?? []) if (g.schedule_id != null) seen.set(String(g.schedule_id), g.label);
+    return [{ key: '', label: t('staff_ui.phone_filter_all_groups') }, ...Array.from(seen, ([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label, 'ar'))];
+  }, [families, t]);
+
+  const shown = useMemo(() => {
+    const q = foldForSearch(query);
+    return families.filter((f) => {
+      if (kind !== 'all' && !f.rows.some((r) => r.scope === kind)) return false;
+      if (groupId && !(f.first.groups ?? []).some((g) => String(g.schedule_id) === groupId)) return false;
+      if (!q) return true;
+      return [f.first.student_name, f.first.student_code, f.first.student_phone, f.first.parent_phone, f.first.parent_name]
+        .some((v) => foldForSearch(v).includes(q));
+    });
+  }, [families, kind, groupId, query]);
 
   const closeSheet = () => { setSheet(null); setNote(''); setNewNumber(''); setOtpCode(''); setOtpSent(false); };
 
@@ -161,30 +187,10 @@ export default function PhoneConfirmationsScreen() {
     );
   };
 
-  const Row = ({ it }: { it: PhoneConfirmation }) => {
-    const isParent = it.scope === 'parent';
+  /** What can be done about ONE number that needs confirming. */
+  const Actions = ({ it }: { it: PhoneConfirmation }) => {
     return (
-      <View style={{ borderTopWidth: 1, borderTopColor: colors.borderLight, paddingTop: spacing.md, marginTop: spacing.md }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <View style={{
-            width: 32, height: 32, borderRadius: 10,
-            backgroundColor: isParent ? colors.warningLight : colors.brandTint,
-            justifyContent: 'center', alignItems: 'center',
-          }}>
-            <Icon name="phone" size={16} color={isParent ? colors.warningText : colors.brand} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>
-              {isParent ? (it.subject_name ? t('staff_ui.phone_parent_number_named', { name: it.subject_name }) : t('staff_ui.phone_parent_number')) : t('teacher.student_number')}
-            </Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>
-              {it.reason}
-            </Text>
-          </View>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, writingDirection: 'ltr' }}>
-            {it.phone ?? '—'}
-          </Text>
-        </View>
+      <View>
 
         {/* Proof first. A code the family reads back is stronger than anyone's word (§7),
             so it leads the row; vouching stays for the families who cannot receive SMS. */}
@@ -197,8 +203,8 @@ export default function PhoneConfirmationsScreen() {
             backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: 12, marginTop: spacing.md,
           }}
         >
-          <Icon name="call" size={16} color="#fff" />
-          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('staff_ui.phone_confirm_by_code')}</Text>
+          <Icon name="call" size={16} color={colors.white} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.white }}>{t('staff_ui.phone_confirm_by_code')}</Text>
         </TouchableOpacity>
         </Surface>
 
@@ -283,47 +289,54 @@ export default function PhoneConfirmationsScreen() {
       {isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
-        <ScrollView
+        <FlatList
+          data={shown}
+          keyExtractor={(f) => String(f.id)}
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={7}
+          removeClippedSubviews
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
           showsVerticalScrollIndicator={false}
-        >
-          {groups.length === 0 ? (
-            <EmptyState
-              icon="success"
-              title={t('staff_ui.phone_all_confirmed')}
-              message={t('staff_ui.phone_none_pending')}
-            />
-          ) : (
-            <>
-              <Surface id="teacher.phone_confirmations.intro">
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md, lineHeight: 20 }}>
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={families.length === 0 ? null : (
+            <Surface id="teacher.phone_confirmations.filters">
+            <View style={{ marginBottom: spacing.md, gap: spacing.sm }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, lineHeight: 20 }}>
                 {t('staff_ui.phone_intro')}
               </Text>
-              </Surface>
-              {groups.map(([studentId, g]) => (
-                <View
-                  key={studentId}
-                  style={{
-                    backgroundColor: colors.surface, borderRadius: radius.xl,
-                    borderWidth: 1, borderColor: colors.border,
-                    padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm,
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>
-                      {g.name ?? '—'}
-                    </Text>
-                    {g.code ? (
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{g.code}</Text>
-                    ) : null}
-                  </View>
-                  {g.rows.map((it) => <Row key={it.id} it={it} />)}
-                </View>
-              ))}
-            </>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, minHeight: 46 }}>
+                <Icon name="search" size={16} color={colors.textTertiary} />
+                <TextInput value={query} onChangeText={setQuery} placeholder={t('staff_ui.phone_search_ph')} placeholderTextColor={colors.textTertiary}
+                  style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, paddingVertical: 8 }} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+                {(['all', 'parent', 'student'] as const).map((k) => (
+                  <TouchableOpacity key={k} onPress={() => setKind(k)} accessibilityRole="button" accessibilityState={{ selected: kind === k }} activeOpacity={0.85}
+                    style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: radius.full, borderWidth: 1, borderColor: kind === k ? colors.brand : colors.border, backgroundColor: kind === k ? colors.brand : colors.surface }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: kind === k ? colors.white : colors.textSecondary }}>{t(`staff_ui.phone_filter_${k}`)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {groupOptions.length > 2 ? (
+                <SelectField value={groupId} options={groupOptions} placeholder={t('staff_ui.phone_filter_all_groups')} onChange={setGroupId} />
+              ) : null}
+              {shown.length !== families.length ? (
+                <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>
+                  {t('staff_ui.phone_filter_shown', { n: formatNumber(shown.length), total: formatNumber(families.length) })}
+                </Text>
+              ) : null}
+            </View>
+            </Surface>
           )}
-        </ScrollView>
+          ListEmptyComponent={families.length === 0 ? (
+            <EmptyState icon="success" title={t('staff_ui.phone_all_confirmed')} message={t('staff_ui.phone_none_pending')} />
+          ) : (
+            <EmptyState icon="search" title={t('staff_ui.phone_filter_none')} message={t('staff_ui.phone_filter_none_hint')} />
+          )}
+          renderItem={({ item: f }) => <FamilyCard f={f} Actions={Actions} />}
+        />
       )}
       </Surface>
 
@@ -444,5 +457,78 @@ export default function PhoneConfirmationsScreen() {
       </Surface>
     </View>
     </Surface>
+  );
+}
+
+type Family = { id: number; first: PhoneConfirmation; rows: PhoneConfirmation[] };
+
+/**
+ * One student: name, code, group(s), and BOTH numbers — each marked confirmed or not, with the
+ * actions under the one that needs it. The number in question is never on its own, so a parent
+ * number typed into the student's field (or the same number twice) shows at a glance.
+ */
+function FamilyCard({ f, Actions }: { f: Family; Actions: (p: { it: PhoneConfirmation }) => ReactElement }) {
+  const { t } = useTranslation();
+  const it = f.first;
+  const parentRow = f.rows.find((r) => r.scope === 'parent');
+  const studentRow = f.rows.find((r) => r.scope === 'student');
+  const sameNumber = !!it.student_phone && it.student_phone === it.parent_phone;
+  const rel = relationshipLabel(it.parent_relationship);
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: colors.warning, padding: spacing.lg, marginBottom: spacing.md, ...shadows.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.brand }}>{(it.student_name ?? '؟').trim().charAt(0)}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{it.student_name ?? '—'}</Text>
+          {it.student_code ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{it.student_code}</Text> : null}
+        </View>
+      </View>
+
+      {/* Which group — «which schedule master is that». */}
+      {(it.groups ?? []).length > 0 ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm }}>
+          {(it.groups ?? []).map((g) => (
+            <View key={`${g.course_id}-${g.schedule_id ?? 0}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.surfaceSunken, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 3 }}>
+              <Icon name="calendar" size={12} color={colors.textSecondary} />
+              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{g.label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {sameNumber ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.dangerLight, borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.sm }}>
+          <Icon name="warning" size={14} color={colors.danger} />
+          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 12, color: colors.danger }}>{t('staff_ui.phone_same_number')}</Text>
+        </View>
+      ) : null}
+
+      <NumberLine label={t('teacher.student_number')} phone={it.student_phone ?? (studentRow?.phone ?? null)} ok={studentRow ? false : !!it.student_phone_confirmed} />
+      {studentRow ? <Actions it={studentRow} /> : null}
+      <NumberLine label={rel ? t('staff_ui.phone_parent_number_rel', { rel }) : t('staff_ui.phone_parent_number')} sub={it.parent_name ?? parentRow?.subject_name ?? null}
+        phone={it.parent_phone ?? (parentRow?.phone ?? null)} ok={parentRow ? false : !!it.parent_phone_confirmed} />
+      {parentRow ? <Actions it={parentRow} /> : null}
+    </View>
+  );
+}
+
+function NumberLine({ label, sub, phone, ok }: { label: string; sub?: string | null; phone: string | null; ok: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderLight, paddingTop: spacing.md, marginTop: spacing.md }}>
+      <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: ok ? colors.successLight : colors.warningLight, justifyContent: 'center', alignItems: 'center' }}>
+        <Icon name="phone" size={16} color={ok ? colors.success : colors.warningText} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }} numberOfLines={1}>{label}{sub ? ` — ${sub}` : ''}</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, writingDirection: 'ltr', textAlign: 'left', marginTop: 1 }}>{phone ?? '—'}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: ok ? colors.successLight : colors.warningLight }}>
+        <Icon name={ok ? 'success' : 'warning'} size={12} color={ok ? colors.success : colors.warningText} />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: ok ? colors.success : colors.warningText }}>{t(ok ? 'staff_ui.phone_status_ok' : 'staff_ui.phone_status_needs')}</Text>
+      </View>
+    </View>
   );
 }

@@ -138,9 +138,7 @@ export async function getTerminationCandidates(): Promise<TerminationCandidate[]
 }
 
 /** Confirm termination of a flagged enrollment (soft-drop + parent notice — same as manual). */
-export async function terminateEnrollment(enrollmentId: number): Promise<void> {
-  await client.post(`/teacher/enrollments/${enrollmentId}/terminate`);
-}
+export { terminateEnrollment } from '@/api/enrollments';
 
 // Tier B — family name-correction requests the teacher reviews.
 export interface StudentEditReq {

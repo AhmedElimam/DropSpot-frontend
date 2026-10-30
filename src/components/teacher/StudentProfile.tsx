@@ -27,6 +27,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useAuthStore } from '@/stores/authStore';
 import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory, type CorrectableBill } from '@/api/students';
+import { askRemovalSms } from '@/components/teacher/askRemovalSms';
 import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining } from '@/api/enrollments';
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBill, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -486,12 +487,16 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
           text: t('teacher.terminate_confirm'),
           style: 'destructive',
           onPress: async () => {
+            let sms;
             try {
-              await terminateEnrollment(enrollmentId);
+              sms = await terminateEnrollment(enrollmentId);
               refetch();
             } catch {
               Alert.alert(t('common.error'), t('teacher.terminate_failed'));
+              return;
             }
+            // Then ask whether to text the family (nothing is sent unless the teacher says so).
+            askRemovalSms(t, enrollmentId, sms);
           },
         },
       ],

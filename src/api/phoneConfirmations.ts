@@ -32,6 +32,16 @@ export interface PhoneConfirmation {
   reason: string;
   recorded_at: string | null;
   can_escalate: boolean;
+  /** The student's live groups (course · weekday time) — «which schedule master is that». */
+  groups?: { course_id: number; course_name: string | null; schedule_id: number | null; label: string }[];
+  /** Both numbers on every row, each with whether it still needs confirming. */
+  student_phone?: string | null;
+  student_phone_confirmed?: boolean;
+  parent_id?: number | null;
+  parent_name?: string | null;
+  parent_phone?: string | null;
+  parent_relationship?: string | null;
+  parent_phone_confirmed?: boolean;
 }
 
 export async function getPhoneConfirmations(): Promise<{ items: PhoneConfirmation[]; count: number }> {

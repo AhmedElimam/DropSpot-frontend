@@ -21,6 +21,7 @@ import {
   type ExcuseItem, type SwapItem, type TerminationCandidate, type StudentEditReq,
   getAssistantReports, approveAssistantReport, rejectAssistantReport, type AssistantReportItem,
 } from '@/api/resolution';
+import { askRemovalSms } from '@/components/teacher/askRemovalSms';
 import { createAdminTicket, getMyAdminTickets, getSupportCategories, type AdminTicket } from '@/api/adminTickets';
 import { SelectField } from '@/components/ui/SelectField';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -100,7 +101,11 @@ export default function ResolutionCenter() {
       t('resolution.terminate_confirm', { name: c.student_name ?? '', course: c.course_name ?? '', n: c.absences }),
       [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: t('resolution.terminate_action'), style: 'destructive', onPress: () => act(`term-${c.id}`, () => terminateEnrollment(c.enrollment_id)) },
+        { text: t('resolution.terminate_action'), style: 'destructive', onPress: () => act(`term-${c.id}`, async () => {
+          const sms = await terminateEnrollment(c.enrollment_id);
+          // Then ask whether to text the family (nothing is sent unless the teacher says so).
+          askRemovalSms(t, c.enrollment_id, sms);
+        }) },
       ],
     );
   };
