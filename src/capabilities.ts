@@ -33,6 +33,7 @@ export const CAPABILITIES: ReadonlyArray<{ key: string; where: string }> = [
   { key: 'billing_settings', where: 'app/(teacher)/billing-settings.tsx' },
   { key: 'complaints', where: 'app/(teacher)/complaints.tsx' },
   { key: 'resolution', where: 'app/(teacher)/resolution.tsx' },
+  { key: 'enrollment_ends', where: 'app/(teacher)/enrollment-ends.tsx' },
   { key: 'schedule_overrides', where: 'app/(teacher)/schedule-overrides.tsx' },
   { key: 'schedule_merge', where: 'app/(teacher)/schedule-merge.tsx' },
   { key: 'booking_requests', where: 'app/(teacher)/booking-requests.tsx' },

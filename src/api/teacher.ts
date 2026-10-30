@@ -98,6 +98,17 @@ export interface ScanResult {
   // may open their profile. Never true for a stranger's card. `null` when the server did
   // not say (an older backend): the popup then claims nothing either way.
   enrolled_here?: boolean | null;
+  // A number nobody confirmed, asked about ONCE at the door (the family is right there).
+  confirm_number?: DoorNumberAsk | null;
+}
+
+export interface DoorNumberAsk {
+  scope: 'parent' | 'student';
+  subject_id: number;
+  student_id: number;
+  phone: string;
+  /** «رقم الأب» / «رقم الأم» / «رقم وليّ الأمر» / «رقم الطالب» — the server's words. */
+  label: string;
 }
 
 /**
@@ -120,6 +131,7 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
       pending: data.pending ?? null,
       offer: data.offer ?? null,
       enrolled_here: typeof data.enrolled_here === 'boolean' ? data.enrolled_here : null,
+      confirm_number: data.confirm_number ?? null,
     };
   } catch (e: any) {
     // Non-2xx failures (expired card, not enrolled, overdue block, etc.) carry the same shape.

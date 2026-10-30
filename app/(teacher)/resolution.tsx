@@ -15,18 +15,16 @@ import { TeacherTip } from '@/components/TeacherTip';
 import {
   getResolutionSummary, getPendingExcuses, getPendingSwaps,
   approveExcuse, rejectExcuse, approveSwap, rejectSwap,
-  getTerminationCandidates, terminateEnrollment,
+  getTerminationCandidates,
   getStudentEditRequests, approveStudentEditRequest, rejectStudentEditRequest,
   getParentNumberRequests, approveParentNumberRequest, rejectParentNumberRequest, type ParentNumberReq,
-  type ExcuseItem, type SwapItem, type TerminationCandidate, type StudentEditReq,
+  type ExcuseItem, type SwapItem, type StudentEditReq,
   getAssistantReports, approveAssistantReport, rejectAssistantReport, type AssistantReportItem,
 } from '@/api/resolution';
-import { askRemovalSms } from '@/components/teacher/askRemovalSms';
 import { createAdminTicket, getMyAdminTickets, getSupportCategories, type AdminTicket } from '@/api/adminTickets';
 import { SelectField } from '@/components/ui/SelectField';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { Surface } from '@/ui/surfaces';
-import { formatShortDate } from '@/utils/format';
 
 /**
  * Resolution Center — the teacher's consolidated review hub. Aggregates the review
@@ -93,21 +91,6 @@ export default function ResolutionCenter() {
     qc.invalidateQueries({ queryKey: ['resolution-termination'] });
     qc.invalidateQueries({ queryKey: ['resolution-edit-requests'] });
     qc.invalidateQueries({ queryKey: ['resolution-parent-number-requests'] });
-  };
-
-  const confirmTerminate = (c: TerminationCandidate) => {
-    Alert.alert(
-      t('resolution.terminate_title'),
-      t('resolution.terminate_confirm', { name: c.student_name ?? '', course: c.course_name ?? '', n: c.absences }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('resolution.terminate_action'), style: 'destructive', onPress: () => act(`term-${c.id}`, async () => {
-          const sms = await terminateEnrollment(c.enrollment_id);
-          // Then ask whether to text the family (nothing is sent unless the teacher says so).
-          askRemovalSms(t, c.enrollment_id, sms);
-        }) },
-      ],
-    );
   };
 
   const act = async (key: string, fn: () => Promise<void>) => {
@@ -225,58 +208,18 @@ export default function ResolutionCenter() {
           ) : null}
           </Surface>
 
-          {/* Auto-termination candidates — 3 consecutive unexcused absences. Confirm only. */}
+          {/* Absences and ended enrolments have their own page now (founder 2026-10-30). */}
           <Surface id="teacher.resolution.termination">
           {candidates.data && candidates.data.length > 0 ? (
-            <>
-              <SectionTitle>{t('resolution.termination')}</SectionTitle>
-              {candidates.data.map((c: TerminationCandidate) => (
-                <View key={`term-${c.id}`} style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.danger + '55', padding: spacing.lg, marginBottom: spacing.sm }}>
-                  {/* Who, and a tap opens them — the decision is made looking at the student. */}
-                  <TouchableOpacity onPress={() => router.push(`/(teacher)/students/${c.student_id}` as Href)} activeOpacity={0.8} accessibilityRole="button"
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <Icon name="warning" size={18} color={colors.danger} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{c.student_name ?? '—'}</Text>
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 1 }} numberOfLines={1}>
-                        {[c.student_code, c.course_name].filter(Boolean).join(' · ')}
-                      </Text>
-                    </View>
-                    <View style={{ minWidth: 34, height: 34, borderRadius: 17, backgroundColor: colors.dangerLight, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.dangerText }}>{c.absences}</Text>
-                    </View>
-                  </TouchableOpacity>
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary, marginTop: spacing.sm }}>{t('resolution.absences_n', { n: c.absences })}</Text>
-                  {/* The run itself: which sessions, oldest to newest, and when they last came. */}
-                  {c.absent_dates && c.absent_dates.length ? (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm }}>
-                      {[...c.absent_dates].reverse().map((d, i) => (
-                        <View key={`${d}-${i}`} style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.sm, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border }}>
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{formatShortDate(d)}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: spacing.sm }}>
-                    {c.last_present_at ? t('resolution.last_present', { date: formatShortDate(c.last_present_at) }) : t('resolution.never_present')}
-                  </Text>
-                  <Surface id="teacher.resolution.termination.terminate_button">
-                  <TouchableOpacity
-                    disabled={busy === `term-${c.id}`}
-                    onPress={() => confirmTerminate(c)}
-                    activeOpacity={0.85}
-                    style={{ marginTop: spacing.md, minHeight: 44, borderRadius: radius.md, backgroundColor: colors.dangerLight, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm }}
-                  >
-                    {busy === `term-${c.id}` ? (
-                      <ActivityIndicator color={colors.dangerText} />
-                    ) : (
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.dangerText }}>{t('resolution.terminate_action')}</Text>
-                    )}
-                  </TouchableOpacity>
-                  </Surface>
-                </View>
-              ))}
-            </>
+            <TouchableOpacity onPress={() => router.push('/(teacher)/enrollment-ends' as Href)} activeOpacity={0.85} accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.danger + '55', padding: spacing.lg, marginBottom: spacing.sm }}>
+              <Icon name="warning" size={20} color={colors.danger} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('resolution.termination')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }}>{t('ends.resolution_link', { n: candidates.data.length })}</Text>
+              </View>
+              <Icon name="back" size={16} color={colors.textTertiary} />
+            </TouchableOpacity>
           ) : null}
           </Surface>
 

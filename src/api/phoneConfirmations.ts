@@ -42,6 +42,9 @@ export interface PhoneConfirmation {
   parent_phone?: string | null;
   parent_relationship?: string | null;
   parent_phone_confirmed?: boolean;
+  /** The SMS provider refused this number the last time (invalid / not in service). */
+  student_phone_refused?: boolean;
+  parent_phone_refused?: boolean;
 }
 
 export async function getPhoneConfirmations(): Promise<{ items: PhoneConfirmation[]; count: number }> {

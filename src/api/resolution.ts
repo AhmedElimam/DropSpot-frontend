@@ -70,6 +70,9 @@ export interface TerminationCandidate {
   absent_dates?: string[];
   /** The last session they actually came to, if any since joining. */
   last_present_at?: string | null;
+  /** The group, for the page's filter (servers since 2026-10-30). */
+  schedule_id?: number | null;
+  group_label?: string | null;
 }
 
 export interface ExcuseItem {
@@ -98,6 +101,33 @@ export interface SwapItem {
  */
 function reviewItem(a: any) {
   return { ...a, ...extractAttrs(a), id: Number(a.id) };
+}
+
+/** «انتهى تسجيلهم» — an enrolment this teacher ended in the last 30 days. */
+export interface EndedEnrollment {
+  id: number;
+  enrollment_id: number;
+  student_id: number;
+  student_name: string | null;
+  student_code: string | null;
+  course_name: string | null;
+  schedule_id: number | null;
+  group_label: string | null;
+  ended_at: string | null;
+  /** False when the student is already back in that course. */
+  can_reactivate: boolean;
+  /** Nobody in the family ever claimed the account: days before it is deleted. Null = not at risk. */
+  deletes_in_days: number | null;
+}
+
+export async function getEndedEnrollments(): Promise<EndedEnrollment[]> {
+  const { data } = await client.get('/teacher/ended-enrollments');
+  return extractList(data, 'ended-enrollment').map(reviewItem) as EndedEnrollment[];
+}
+
+/** «إعادة التسجيل» — undo a termination: the same enrolment comes back. */
+export async function reactivateEnrollment(enrollmentId: number): Promise<void> {
+  await client.post(`/teacher/enrollments/${enrollmentId}/reactivate`);
 }
 
 export async function getResolutionSummary(): Promise<ResolutionSummary> {

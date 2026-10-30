@@ -28,7 +28,8 @@ import { scanPreCard, cancelPreCard } from '@/api/preCardInvitation';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { Surface } from '@/ui/surfaces';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { ScanPending } from '@/api/teacher';
+import type { ScanPending, DoorNumberAsk } from '@/api/teacher';
+import { acknowledgePhone } from '@/api/phoneConfirmations';
 
 /** True when a scanned student owes anything (bill / booklet(s) / booking). */
 function hasDues(p?: ScanPending | null): boolean {
@@ -161,6 +162,11 @@ export default function TeacherScan() {
   const [payConfirm, setPayConfirm] = useState<{ name: string; owed: number; paid: number; code: string } | null>(null);
   const [payInput, setPayInput] = useState('');
   // Overdue-bill block: held until the operator grants a 15-day exemption or cancels.
+  // «رقم الأب 010… صحيح؟» — one tap at the door for a number nobody confirmed (founder 2026-10-30).
+  const [numberAsk, setNumberAsk] = useState<{ name: string; ask: DoorNumberAsk } | null>(null);
+  const [numberBusy, setNumberBusy] = useState(false);
+  // Asked while the dues popup was up: shown the moment that popup closes (the server asks once).
+  const numberAskAfterDues = useRef<{ name: string; ask: DoorNumberAsk } | null>(null);
   const [overdueBlock, setOverdueBlock] = useState<{ name: string; message: string; code: string; pending?: ScanPending | null } | null>(null);
   // Same-grade "wrong group" scan → admit once / transfer here.
   const [otherGroup, setOtherGroup] = useState<{ name: string; message: string; cardCode: string; offer: ScanOffer; profileId: number | null } | null>(null);
@@ -204,7 +210,7 @@ export default function TeacherScan() {
   }, []);
 
   // `locked` pauses scanning too — while the scanner is locked no card is read.
-  const paused = locked || idle || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup || !!noSession || !!invite;
+  const paused = locked || idle || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup || !!noSession || !!invite || !!numberAsk;
   // The sensor itself runs only when there is something to read for. Locked or idle,
   // the preview goes dark and the phone stops heating; the screen stays mounted so the
   // teacher's session context is untouched.
@@ -395,7 +401,11 @@ export default function TeacherScan() {
         // Merged pay-on-scan: if the checked-in student owes anything, open ONE popup
         // to collect (bill / booklets / booking) — reversing the old passive-only chips.
         if (res.success && hasDues(res.pending)) {
+          numberAskAfterDues.current = res.confirm_number ? { name: res.student_name ?? '', ask: res.confirm_number } : null;
           setDuesFor({ code: data, name: res.student_name ?? '', pending: res.pending! });
+        } else if (res.success && res.confirm_number) {
+          // Nothing to collect → ask about the number while the family is here (once per number).
+          setNumberAsk({ name: res.student_name ?? '', ask: res.confirm_number });
         }
       } catch {
         // Live scan failed (offline). If the buffer write succeeded the scan is
@@ -471,6 +481,13 @@ export default function TeacherScan() {
   // be `paused ? undefined : handleScan`) flips the native barcode switch, and on Android that
   // tears the whole camera down and builds it again — twice per scanned card, ~120 times a door
   // session: a stall, a CPU spike, heat (founder 2026-10-09: «light on all devices»).
+  useEffect(() => {
+    if (!duesFor && numberAskAfterDues.current) {
+      setNumberAsk(numberAskAfterDues.current);
+      numberAskAfterDues.current = null;
+    }
+  }, [duesFor]);
+
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   const handleScanRef = useRef(handleScan);
@@ -857,6 +874,45 @@ export default function TeacherScan() {
           </TouchableOpacity>
           </Surface>
         </KeyboardAvoidingView>
+        </Surface>
+      ) : null}
+
+      {/* One tap to confirm a number nobody confirmed — the family is standing at the door. */}
+      {numberAsk ? (
+        <Surface id="teacher.scan.confirm_number">
+        <View style={{ position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: insets.bottom + spacing.xl, backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{numberAsk.name}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, marginTop: 2 }}>
+            {t('teacher.door_number_question', { label: numberAsk.ask.label })}
+          </Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary, writingDirection: 'ltr', textAlign: 'center', marginVertical: spacing.md, letterSpacing: 1 }}>
+            {numberAsk.ask.phone}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <TouchableOpacity onPress={() => setNumberAsk(null)} disabled={numberBusy} activeOpacity={0.85}
+              style={{ flex: 1, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>{t('teacher.door_number_later')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={async () => {
+                const a = numberAsk.ask;
+                setNumberBusy(true);
+                try {
+                  await acknowledgePhone(a.student_id, a.scope, a.subject_id, t('teacher.door_number_note'));
+                } catch {
+                  // A vouch that did not land is asked again on a later visit; never block the door.
+                } finally {
+                  setNumberBusy(false);
+                  setNumberAsk(null);
+                }
+              }}
+              disabled={numberBusy} activeOpacity={0.85}
+              style={{ flex: 2, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.success, flexDirection: 'row', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
+              {numberBusy ? <ActivityIndicator color={colors.white} /> : <Icon name="success" size={18} color={colors.white} />}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white }}>{t('teacher.door_number_yes')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
         </Surface>
       ) : null}
 

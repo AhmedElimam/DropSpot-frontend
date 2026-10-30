@@ -505,30 +505,35 @@ function FamilyCard({ f, Actions }: { f: Family; Actions: (p: { it: PhoneConfirm
         </View>
       ) : null}
 
-      <NumberLine label={t('teacher.student_number')} phone={it.student_phone ?? (studentRow?.phone ?? null)} ok={studentRow ? false : !!it.student_phone_confirmed} />
+      <NumberLine label={t('teacher.student_number')} phone={it.student_phone ?? (studentRow?.phone ?? null)} ok={studentRow ? false : !!it.student_phone_confirmed} refused={!!it.student_phone_refused} />
       {studentRow ? <Actions it={studentRow} /> : null}
       <NumberLine label={rel ? t('staff_ui.phone_parent_number_rel', { rel }) : t('staff_ui.phone_parent_number')} sub={it.parent_name ?? parentRow?.subject_name ?? null}
-        phone={it.parent_phone ?? (parentRow?.phone ?? null)} ok={parentRow ? false : !!it.parent_phone_confirmed} />
+        phone={it.parent_phone ?? (parentRow?.phone ?? null)} ok={parentRow ? false : !!it.parent_phone_confirmed} refused={!!it.parent_phone_refused} />
       {parentRow ? <Actions it={parentRow} /> : null}
     </View>
   );
 }
 
-function NumberLine({ label, sub, phone, ok }: { label: string; sub?: string | null; phone: string | null; ok: boolean }) {
+function NumberLine({ label, sub, phone, ok, refused }: { label: string; sub?: string | null; phone: string | null; ok: boolean; refused?: boolean }) {
   const { t } = useTranslation();
+  if (refused) ok = false;
+  const tone = refused ? { bg: colors.dangerLight, fg: colors.danger } : ok ? { bg: colors.successLight, fg: colors.success } : { bg: colors.warningLight, fg: colors.warningText };
   return (
+    <View>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.borderLight, paddingTop: spacing.md, marginTop: spacing.md }}>
-      <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: ok ? colors.successLight : colors.warningLight, justifyContent: 'center', alignItems: 'center' }}>
-        <Icon name="phone" size={16} color={ok ? colors.success : colors.warningText} />
+      <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: tone.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <Icon name="phone" size={16} color={tone.fg} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }} numberOfLines={1}>{label}{sub ? ` — ${sub}` : ''}</Text>
         <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary, writingDirection: 'ltr', textAlign: 'left', marginTop: 1 }}>{phone ?? '—'}</Text>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: ok ? colors.successLight : colors.warningLight }}>
-        <Icon name={ok ? 'success' : 'warning'} size={12} color={ok ? colors.success : colors.warningText} />
-        <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: ok ? colors.success : colors.warningText }}>{t(ok ? 'staff_ui.phone_status_ok' : 'staff_ui.phone_status_needs')}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radius.full, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: tone.bg }}>
+        <Icon name={ok ? 'success' : 'warning'} size={12} color={tone.fg} />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: tone.fg }}>{t(refused ? 'staff_ui.phone_status_refused' : ok ? 'staff_ui.phone_status_ok' : 'staff_ui.phone_status_needs')}</Text>
       </View>
+    </View>
+    {refused ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.danger, marginTop: 4, lineHeight: 18 }}>{t('staff_ui.phone_refused_hint')}</Text> : null}
     </View>
   );
 }
