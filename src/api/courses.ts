@@ -24,6 +24,10 @@ export interface CourseSummary {
   upcoming_count: number;
   /** Weekly schedule label — weekday + start time, e.g. «الأحد 9:00 AM، الثلاثاء 5:00 PM». */
   schedule_label?: string;
+  /** Kept from assistants by the teacher (an assistant never receives a hidden course). Absent on older servers. */
+  hidden_from_assistants?: boolean;
+  /** How many of its groups the teacher keeps from assistants. */
+  hidden_groups_count?: number;
 }
 
 export interface CourseSchedule {
@@ -35,6 +39,8 @@ export interface CourseSchedule {
   capacity: number | null;
   upcoming_count: number;
   headcount: number;
+  /** This group is kept from assistants (teacher-only switch). */
+  hidden_from_assistants?: boolean;
 }
 
 export interface CourseDetail {
@@ -45,6 +51,8 @@ export interface CourseDetail {
   // Settings
   radius_horizontal_meters: number;
   allow_session_swap: boolean;
+  /** Kept from assistants: the course, its groups, sessions and the students only there. */
+  hidden_from_assistants?: boolean;
   attendance_mode?: 'door' | 'none';
   tracks_attendance?: boolean;
   attendance_label?: string | null;
@@ -180,6 +188,18 @@ export async function updateCourseSettings(id: string | number, payload: CourseS
 
 export async function updateCourseLocation(id: string | number, payload: LocationPayload): Promise<CourseDetail> {
   const { data } = await client.post(`/teacher/courses/${id}/location`, payload);
+  return (data.data ?? data) as CourseDetail;
+}
+
+/** Keep the course from assistants, or give it back — teacher only (the server refuses an assistant). */
+export async function setCourseHidden(id: string | number, hidden: boolean): Promise<CourseDetail> {
+  const { data } = await client.post(`/teacher/courses/${id}/visibility`, { hidden_from_assistants: hidden });
+  return (data.data ?? data) as CourseDetail;
+}
+
+/** The same for one group of the course. */
+export async function setScheduleHidden(courseId: string | number, scheduleId: string | number, hidden: boolean): Promise<CourseDetail> {
+  const { data } = await client.post(`/teacher/courses/${courseId}/schedules/${scheduleId}/visibility`, { hidden_from_assistants: hidden });
   return (data.data ?? data) as CourseDetail;
 }
 

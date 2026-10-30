@@ -56,6 +56,12 @@ const CourseRow = memo(function CourseRow({ c, onPress }: { c: CourseSummary; on
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm, flexWrap: 'wrap' }}>
         <Meta icon="children" label={t('form_ui.students_n', { n: formatNumber(c.students_count) })} />
         <Meta icon="calendar" label={t('form_ui.slots_n', { n: formatNumber(c.slot_count) })} />
+        {/* Kept from assistants: the whole course, or some of its groups. */}
+        {c.hidden_from_assistants
+          ? <Meta icon="eyeOff" label={t('course_ui.hidden_chip')} color={colors.brand} />
+          : (c.hidden_groups_count ?? 0) > 0
+            ? <Meta icon="eyeOff" label={c.hidden_groups_count === 1 ? t('course_ui.hidden_group_chip') : t('course_ui.hidden_groups_chip', { n: formatNumber(c.hidden_groups_count ?? 0) })} color={colors.brand} />
+            : null}
         {noDoor
           ? <Meta icon="attendance" label={c.attendance_label ?? t('course_ui.private_label')} color={colors.brand} />
           : <Meta icon="location" label={t(located ? 'teacher.location_set' : 'teacher.location_missing')} color={located ? colors.success : colors.warning} />}

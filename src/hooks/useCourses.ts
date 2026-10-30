@@ -13,8 +13,7 @@ import {
   type CourseDetail,
   type CourseSettingsPayload,
   type CreateCoursePayload,
-  type LocationPayload,
-} from '@/api/courses';
+  type LocationPayload, setCourseHidden, setScheduleHidden } from '@/api/courses';
 
 export function useCourses() {
   return useQuery({ queryKey: ['teacher-courses'], queryFn: getCourses, staleTime: 30_000 });
@@ -61,6 +60,24 @@ export function useUpdateCourseLocation(id: string) {
   const sync = useSyncCourse(id);
   return useMutation({
     mutationFn: (payload: LocationPayload) => updateCourseLocation(id, payload),
+    onSuccess: sync,
+  });
+}
+
+/** Keep the course from assistants, or give it back (teacher only). */
+export function useSetCourseHidden(id: string) {
+  const sync = useSyncCourse(id);
+  return useMutation({
+    mutationFn: (hidden: boolean) => setCourseHidden(id, hidden),
+    onSuccess: sync,
+  });
+}
+
+/** The same for one group. */
+export function useSetScheduleHidden(courseId: string) {
+  const sync = useSyncCourse(courseId);
+  return useMutation({
+    mutationFn: ({ scheduleId, hidden }: { scheduleId: string; hidden: boolean }) => setScheduleHidden(courseId, scheduleId, hidden),
     onSuccess: sync,
   });
 }

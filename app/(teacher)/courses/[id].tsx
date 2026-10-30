@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { SelectField } from '@/components/ui/SelectField';
 import { FormScreen, FormCard, Field, Input, NumberInput, Stepper, SwitchRow, Banner, DayPicker, TimeRangeRow } from '@/components/ui/Form';
-import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule, useUpdateSchedule, useDeleteCourse } from '@/hooks/useCourses';
+import { useCourseDetail, useUpdateCourseSettings, useUpdateCourseLocation, useRemoveSchedule, useUpdateSchedule, useDeleteCourse, useSetCourseHidden, useSetScheduleHidden } from '@/hooks/useCourses';
 import { getCourseFormOptions } from '@/api/courses';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
@@ -40,6 +40,9 @@ export default function CourseDetailScreen() {
   const removeSlot = useRemoveSchedule(id);
   const [editing, setEditing] = useState<CourseSchedule | null>(null);
   const deleteCourse = useDeleteCourse(id);
+  // Kept from assistants (founder 2026-10-30) — the teacher's alone, saved the moment it flips.
+  const setHidden = useSetCourseHidden(id);
+  const setSlotHidden = useSetScheduleHidden(id);
 
   // Editable settings mirror the web edit form; seeded once the detail loads.
   const [name, setName] = useState('');
@@ -145,6 +148,18 @@ export default function CourseDetailScreen() {
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('enroll_ui.delete_forever'), style: 'destructive', onPress: () => deleteCourse.mutate(undefined, { onSuccess: () => router.back(), onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('enroll_ui.delete_course_failed')) }) },
     ]);
+  };
+
+  const toggleHidden = (hidden: boolean) => setHidden.mutate(hidden, {
+    onSuccess: () => Alert.alert('', t(hidden ? 'course_ui.hidden_course_on' : 'course_ui.hidden_course_off')),
+    onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('course_ui.hidden_failed')),
+  });
+  const toggleSlotHidden = (slot: CourseSchedule) => {
+    const hidden = !slot.hidden_from_assistants;
+    setSlotHidden.mutate({ scheduleId: slot.id, hidden }, {
+      onSuccess: () => Alert.alert('', t(hidden ? 'course_ui.hidden_group_on' : 'course_ui.hidden_group_off')),
+      onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('course_ui.hidden_failed')),
+    });
   };
 
   const retireSlot = (slot: CourseSchedule) => {
@@ -264,6 +279,15 @@ export default function CourseDetailScreen() {
           </View>
           </Surface>
 
+      {/* Kept from assistants — the teacher's alone; a hidden course never reaches an assistant. */}
+      <Surface id="teacher.course_detail.hidden_from_assistants" assistantNeeds="teacher">
+      <FormCard icon="eyeOff" title={t('course_ui.hidden_section')} tint={course.hidden_from_assistants ? colors.brand : colors.borderStrong}>
+        <SwitchRow first title={t('course_ui.hidden_label')}
+          hint={t(course.hidden_from_assistants ? 'course_ui.hidden_on_hint' : 'course_ui.hidden_off_hint')}
+          value={!!course.hidden_from_assistants} disabled={setHidden.isPending} onChange={toggleHidden} />
+      </FormCard>
+      </Surface>
+
       {/* Weekly slots */}
       <Surface id="teacher.course_detail.slots">
       <FormCard icon="calendar" title={t('teacher.slots_section')} tint={colors.accent}
@@ -284,11 +308,28 @@ export default function CourseDetailScreen() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={1} adjustsFontSizeToFit>{slot.day_label}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{formatTime12(slot.start_time)} – {formatTime12(slot.end_time)}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{formatTime12(slot.start_time)} – {formatTime12(slot.end_time)}</Text>
+                  {slot.hidden_from_assistants ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.brandTint, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
+                      <Icon name="eyeOff" size={11} color={colors.brand} />
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{t('course_ui.hidden_chip')}</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
                   {t('form_ui.students_n', { n: formatNumber(slot.headcount) })}{slot.capacity != null ? ` / ${formatNumber(slot.capacity)}` : ''} · {t('teacher.upcoming_count', { count: slot.upcoming_count })}
                 </Text>
               </View>
+                <Surface id="teacher.course_detail.slots.hidden_button" assistantNeeds="teacher">
+                <TouchableOpacity onPress={() => toggleSlotHidden(slot)} disabled={setSlotHidden.isPending} accessibilityRole="button"
+                  accessibilityLabel={t(slot.hidden_from_assistants ? 'course_ui.hidden_group_show' : 'course_ui.hidden_group_hide')}
+                  style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: slot.hidden_from_assistants ? colors.brand : colors.surface, borderWidth: 1, borderColor: slot.hidden_from_assistants ? colors.brand : colors.border, justifyContent: 'center', alignItems: 'center' }}>
+                  {setSlotHidden.isPending && setSlotHidden.variables?.scheduleId === slot.id
+                    ? <ActivityIndicator size="small" color={slot.hidden_from_assistants ? colors.white : colors.brand} />
+                    : <Icon name={slot.hidden_from_assistants ? 'eyeOff' : 'eye'} size={18} color={slot.hidden_from_assistants ? colors.white : colors.textSecondary} />}
+                </TouchableOpacity>
+                </Surface>
                 <Surface id="teacher.course_detail.slots.edit_button" assistantNeeds="manage_courses">
                 <TouchableOpacity onPress={() => setEditing(slot)} accessibilityRole="button" accessibilityLabel={t('teacher.edit_slot_title')}
                   style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
