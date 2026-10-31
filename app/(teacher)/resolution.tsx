@@ -10,7 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
+import { formatNumber } from '@/utils/format';
 import { TeacherTip } from '@/components/TeacherTip';
 import {
   getResolutionSummary, getPendingExcuses, getPendingSwaps,
@@ -140,96 +141,17 @@ export default function ResolutionCenter() {
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
-          {/* Summary tiles — 2×2 grid so the Arabic labels never crowd/overflow. */}
+          {/* What is waiting, in one slim strip (founder 2026-10-30: the four big tiles took half
+              the page). Each pill is a queue with something in it; a tap goes where it is handled. */}
           <Surface id="teacher.resolution.summary">
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
-            <Surface id="teacher.resolution.summary.excuses"><SummaryTile label={t('resolution.excuses')} value={s?.excuses ?? 0} /></Surface>
-            <Surface id="teacher.resolution.summary.swaps"><SummaryTile label={t('resolution.swaps')} value={s?.swaps ?? 0} /></Surface>
-            <Surface id="teacher.resolution.summary.tickets"><SummaryTile label={t('resolution.tickets')} value={s?.tickets ?? 0} /></Surface>
-            <Surface id="teacher.resolution.summary.candidates"><SummaryTile label={t('resolution.candidates')} value={s?.termination_candidates ?? 0} /></Surface>
-          </View>
-          </Surface>
-
-          {/* «أرقام تحتاج تأكيد» (§5) — the queue's permanent home. The home screen only
-              surfaces it while it is non-empty; here it stays put so a teacher who wants
-              to go looking always knows where it lives. */}
-          <Surface id="teacher.resolution.phone_confirmations_link">
-          {(s?.phone_confirmations ?? 0) > 0 ? (
-            <TouchableOpacity onPress={() => router.push('/(teacher)/phone-confirmations' as Href)} activeOpacity={0.85}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.warning + '55', padding: spacing.lg, marginTop: spacing.md }}>
-              <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.warningLight, justifyContent: 'center', alignItems: 'center' }}>
-                <Icon name="phone" size={22} color={colors.warningText} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('home.phones_title')}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
-                  {t('desk_ui.phones_unconfirmed_count', { count: s?.phone_confirmations })}
-                </Text>
-              </View>
-              <Icon name="back" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ) : null}
-          </Surface>
-
-          {/* Contact the admin — a general teacher→super-admin message channel. */}
-          <Surface id="teacher.resolution.contact_admin">
-          <TouchableOpacity onPress={() => setComposeOpen(true)} activeOpacity={0.85}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginTop: spacing.md }}>
-            <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.brand + '18', justifyContent: 'center', alignItems: 'center' }}>
-              <Icon name="tickets" size={22} color={colors.brand} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('resolution.contact_admin')}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('resolution.contact_admin_sub')}</Text>
-            </View>
-            <Icon name="add" size={20} color={colors.brand} />
-          </TouchableOpacity>
-          </Surface>
-
-          {/* My messages to admin — status tracking. */}
-          <Surface id="teacher.resolution.my_admin_tickets">
-          {myTickets.data && myTickets.data.length > 0 ? (
-            <>
-              <SectionTitle>{t('resolution.my_admin_tickets')}</SectionTitle>
-              {myTickets.data.map((tk: AdminTicket) => (
-                <View key={`at-${tk.id}`} style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>{tk.subject}</Text>
-                    <View style={{ backgroundColor: (tk.status === 'resolved' ? colors.success : colors.warning) + '22', borderRadius: radius.full, paddingVertical: 3, paddingHorizontal: 10 }}>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: tk.status === 'resolved' ? colors.success : colors.warning }}>
-                        {t(tk.status === 'resolved' ? 'resolution.status_resolved' : 'resolution.status_open')}
-                      </Text>
-                    </View>
-                  </View>
-                  {tk.admin_note ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>{tk.admin_note}</Text> : null}
-                </View>
-              ))}
-            </>
-          ) : null}
-          </Surface>
-
-          {/* Absences and ended enrolments have their own page now (founder 2026-10-30). */}
-          <Surface id="teacher.resolution.termination">
-          {candidates.data && candidates.data.length > 0 ? (
-            <TouchableOpacity onPress={() => router.push('/(teacher)/enrollment-ends' as Href)} activeOpacity={0.85} accessibilityRole="button"
-              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.danger + '55', padding: spacing.lg, marginBottom: spacing.sm }}>
-              <Icon name="warning" size={20} color={colors.danger} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('resolution.termination')}</Text>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }}>{t('ends.resolution_link', { n: candidates.data.length })}</Text>
-              </View>
-              <Icon name="back" size={16} color={colors.textTertiary} />
-            </TouchableOpacity>
-          ) : null}
-          </Surface>
-
-          <Surface id="teacher.resolution.all_clear">
-          {(s?.total ?? 0) === 0 ? (
-            <View style={{ alignItems: 'center', marginTop: spacing.xxl }}>
-              <Icon name="bell" size={40} color={colors.textTertiary} />
-              <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: colors.textSecondary, marginTop: spacing.md }}>{t('resolution.all_clear')}</Text>
-            </View>
-          ) : null}
+          <QueueStrip total={s?.total ?? 0} t={t} pills={[
+            { key: 'excuses', icon: 'note', label: t('resolution.excuses'), n: s?.excuses ?? 0 },
+            { key: 'swaps', icon: 'calendar', label: t('resolution.swaps'), n: s?.swaps ?? 0 },
+            { key: 'reports', icon: 'eye', label: t('desk_ui.assistant_reports_title'), n: s?.assistant_reports ?? 0 },
+            { key: 'absences', icon: 'warning', label: t('resolution.candidates'), n: s?.termination_candidates ?? 0, onPress: () => router.push('/(teacher)/enrollment-ends' as Href) },
+            { key: 'phones', icon: 'phone', label: t('home.phones_title'), n: s?.phone_confirmations ?? 0, onPress: () => router.push('/(teacher)/phone-confirmations' as Href) },
+            { key: 'tickets', icon: 'tickets', label: t('resolution.tickets'), n: s?.tickets ?? 0, onPress: () => router.push('/(teacher)/tickets' as Href) },
+          ]} />
           </Surface>
 
           {/* Excuses */}
@@ -336,6 +258,43 @@ export default function ResolutionCenter() {
           ) : null}
           </Surface>
 
+          {/* Elsewhere — each opens the page where it is handled. */}
+          {/* Absences and ended enrolments have their own page now (founder 2026-10-30). */}
+          <Surface id="teacher.resolution.termination">
+          {candidates.data && candidates.data.length > 0 ? (
+            <TouchableOpacity onPress={() => router.push('/(teacher)/enrollment-ends' as Href)} activeOpacity={0.85} accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.danger + '55', padding: spacing.lg, marginTop: spacing.md }}>
+              <Icon name="warning" size={20} color={colors.danger} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('resolution.termination')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }}>{t('ends.resolution_link', { n: candidates.data.length })}</Text>
+              </View>
+              <Icon name="back" size={16} color={colors.textTertiary} />
+            </TouchableOpacity>
+          ) : null}
+          </Surface>
+
+          {/* «أرقام تحتاج تأكيد» (§5) — the queue's permanent home. The home screen only
+              surfaces it while it is non-empty; here it stays put so a teacher who wants
+              to go looking always knows where it lives. */}
+          <Surface id="teacher.resolution.phone_confirmations_link">
+          {(s?.phone_confirmations ?? 0) > 0 ? (
+            <TouchableOpacity onPress={() => router.push('/(teacher)/phone-confirmations' as Href)} activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.warning + '55', padding: spacing.lg, marginTop: spacing.md }}>
+              <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.warningLight, justifyContent: 'center', alignItems: 'center' }}>
+                <Icon name="phone" size={22} color={colors.warningText} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('home.phones_title')}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+                  {t('desk_ui.phones_unconfirmed_count', { count: s?.phone_confirmations })}
+                </Text>
+              </View>
+              <Icon name="back" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
+          </Surface>
+
           {/* Tickets — link out to the existing tickets surface */}
           <Surface id="teacher.resolution.tickets_link">
           {(s?.tickets ?? 0) > 0 ? (
@@ -352,6 +311,44 @@ export default function ResolutionCenter() {
             </>
           ) : null}
           </Surface>
+
+          {/* Contact the admin — a general teacher→super-admin message channel. */}
+          <Surface id="teacher.resolution.contact_admin">
+          <TouchableOpacity onPress={() => setComposeOpen(true)} activeOpacity={0.85}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginTop: spacing.md }}>
+            <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: colors.brand + '18', justifyContent: 'center', alignItems: 'center' }}>
+              <Icon name="tickets" size={22} color={colors.brand} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{t('resolution.contact_admin')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{t('resolution.contact_admin_sub')}</Text>
+            </View>
+            <Icon name="add" size={20} color={colors.brand} />
+          </TouchableOpacity>
+          </Surface>
+
+          {/* My messages to admin — status tracking. */}
+          <Surface id="teacher.resolution.my_admin_tickets">
+          {myTickets.data && myTickets.data.length > 0 ? (
+            <>
+              <SectionTitle>{t('resolution.my_admin_tickets')}</SectionTitle>
+              {myTickets.data.map((tk: AdminTicket) => (
+                <View key={`at-${tk.id}`} style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, flex: 1 }} numberOfLines={1}>{tk.subject}</Text>
+                    <View style={{ backgroundColor: (tk.status === 'resolved' ? colors.success : colors.warning) + '22', borderRadius: radius.full, paddingVertical: 3, paddingHorizontal: 10 }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: tk.status === 'resolved' ? colors.success : colors.warning }}>
+                        {t(tk.status === 'resolved' ? 'resolution.status_resolved' : 'resolution.status_open')}
+                      </Text>
+                    </View>
+                  </View>
+                  {tk.admin_note ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>{tk.admin_note}</Text> : null}
+                </View>
+              ))}
+            </>
+          ) : null}
+          </Surface>
+
         </ScrollView>
       )}
 
@@ -395,12 +392,35 @@ export default function ResolutionCenter() {
   );
 }
 
-function SummaryTile({ label, value }: { label: string; value: number }) {
-  // width:'48%' + parent flexWrap → a 2×2 grid, so long Arabic labels never crowd.
+type Pill = { key: string; icon: IconName; label: string; n: number; onPress?: () => void };
+
+/** One slim card: how many things wait, and a pill per queue that has any — never a wall of zeros. */
+function QueueStrip({ total, pills, t }: { total: number; pills: Pill[]; t: (k: string, o?: Record<string, unknown>) => string }) {
+  const open = pills.filter((p) => p.n > 0);
+  if (total === 0 && open.length === 0) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.successLight, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginTop: spacing.sm }}>
+        <Icon name="success" size={18} color={colors.success} />
+        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.success }}>{t('resolution.all_clear')}</Text>
+      </View>
+    );
+  }
   return (
-    <View style={{ width: '48%', flexGrow: 1, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.sm, alignItems: 'center' }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: value > 0 ? colors.brand : colors.textTertiary }}>{value}</Text>
-      <Text numberOfLines={1} style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{label}</Text>
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginTop: spacing.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.brand }}>{formatNumber(total)}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('resolution.waiting')}</Text>
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm }}>
+        {open.map((p) => (
+          <TouchableOpacity key={p.key} onPress={p.onPress} disabled={!p.onPress} activeOpacity={0.8} accessibilityRole={p.onPress ? 'button' : undefined}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 30, paddingHorizontal: 10, borderRadius: radius.full, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border }}>
+            <Icon name={p.icon} size={13} color={colors.textSecondary} />
+            <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary }}>{p.label}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{formatNumber(p.n)}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 }
