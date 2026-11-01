@@ -24,6 +24,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 import { COMPOSER_PADS_ITSELF, useComposerBottomInset } from '@/hooks/useComposerBottomInset';
+import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { Surface } from '@/ui/surfaces';
 
 const statusColors = (): Record<string, [string, string]> => ({
@@ -49,6 +50,7 @@ export default function TeacherTicketDetail() {
   const [files, setFiles] = useState<PendingFile[]>([]);
   const sendReport = useSendStudentReport(id ?? '');
   const scrollRef = useRef<ScrollView>(null);
+  const stickToBottom = useStickToBottom(scrollRef);
 
   useEffect(() => {
     if (ticket?.messages?.length) {
@@ -168,6 +170,7 @@ export default function TeacherTicketDetail() {
         <Surface id="teacher.tickets.detail.thread">
         <ScrollView
           ref={scrollRef}
+          {...stickToBottom}
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
           showsVerticalScrollIndicator={false}

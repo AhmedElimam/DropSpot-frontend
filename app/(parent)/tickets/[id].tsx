@@ -23,6 +23,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 import { COMPOSER_PADS_ITSELF, useComposerBottomInset } from '@/hooks/useComposerBottomInset';
+import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { PageHero } from '@/components/ui/PageHero';
 import { Surface } from '@/ui/surfaces';
 
@@ -46,6 +47,7 @@ export default function TicketDetail() {
   const [newMessage, setNewMessage] = useState('');
   const [files, setFiles] = useState<PendingFile[]>([]);
   const scrollRef = useRef<ScrollView>(null);
+  const stickToBottom = useStickToBottom(scrollRef);
 
   useEffect(() => {
     if (ticket?.messages?.length) {
@@ -179,6 +181,7 @@ export default function TicketDetail() {
         {/* Messages */}
         <ScrollView
           ref={scrollRef}
+          {...stickToBottom}
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
           showsVerticalScrollIndicator={false}
