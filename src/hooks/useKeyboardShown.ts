@@ -10,6 +10,10 @@ export function useKeyboardShown(): boolean {
   const [shown, setShown] = useState(false);
 
   useEffect(() => {
+    // Android (edge-to-edge, SDK 54): the reported keyboard height leaves out the navigation bar,
+    // so dropping the inset there put the reply box behind the keys (founder 2026-11-01: «on
+    // tickets the keyboard overlays the input»). Only iOS drops it.
+    if (Platform.OS !== 'ios') return;
     // iOS announces the keyboard before it moves, so the padding changes with it.
     const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setShown(true));
     const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setShown(false));

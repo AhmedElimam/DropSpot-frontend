@@ -361,6 +361,8 @@ export interface PendingBill {
   id: number;
   course: string | null;
   month: string | null;
+  /** Set when the bill covers a later month than it was issued in (issued early: the month's sessions ran out). */
+  issued_month?: string | null;
   amount: string;
   paid: string;
   remaining: string;

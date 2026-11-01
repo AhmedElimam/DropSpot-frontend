@@ -3474,6 +3474,7 @@
     "collected_what_receipt": "تم تحصيل {{what}} ({{collected}} ج.م). سيصل الإيصال لولي الأمر.",
     "amount_between": "أدخل مبلغًا بين 1 و {{max}} ج.م.",
     "bill_month": "فاتورة {{month}}",
+    "bill_issued_early": "صدرت في {{issued}} بعد اكتمال حصص الشهر",
     "cycle_bill": "فاتورة الدورة",
     "paid_of": "مدفوع {{paid}} من {{total}}",
     "booklet_of": "ملزمة {{course}}",

@@ -35,7 +35,7 @@ export const NazerFace = memo(function NazerFace({ mood = 'neutral', size = 72, 
   );
 });
 
-function Part({ name, move, k: frameK }: { name: NazerLayer; move: NazerMove; k: number }) {
+function Part({ name, move, k: frameK, hidden = false }: { name: NazerLayer; move: NazerMove; k: number; hidden?: boolean }) {
   const l = NAZER_LAYERS[name];
   const pivot = NAZER_PIVOTS[name] ?? [l.x + l.w / 2, l.y + l.h / 2];
   // The base is his figure grown ×NAZER_RIG_SCALE about the centre: every part grows with it.
@@ -56,13 +56,18 @@ function Part({ name, move, k: frameK }: { name: NazerLayer; move: NazerMove; k:
   return (
     <Image
       source={l.source}
-      style={{ position: 'absolute', left: shift + l.x * k, top: shift + l.y * k, width: l.w * k, height: l.h * k, transform }}
+      style={{ position: 'absolute', left: shift + l.x * k, top: shift + l.y * k, width: l.w * k, height: l.h * k, transform, opacity: hidden ? 0 : 1 }}
       contentFit="fill"
     />
   );
 }
 
-/** Two blinks after the face appears, then stillness. Mounted only when the eyes are open. */
+/**
+ * Two blinks after the face appears, then stillness. Mounted only when the eyes are open.
+ * Both lids are ALWAYS mounted, invisible until the blink: mounted only for the 130 ms of a
+ * blink, each lid was loaded and decoded on the spot, and on a slow phone one of them missed the
+ * moment — one eye closed while the other stayed open (founder 2026-11-01).
+ */
 function Blinker({ k }: { k: number }) {
   const alive = useAmbientMotion();
   const [closed, setClosed] = useState(false);
@@ -82,11 +87,10 @@ function Blinker({ k }: { k: number }) {
       setClosed(false);
     };
   }, [alive]);
-  if (!closed) return null;
   return (
     <>
-      <Part name="lid_blink_l" move={{}} k={k} />
-      <Part name="lid_blink_r" move={{}} k={k} />
+      <Part name="lid_blink_l" move={{}} k={k} hidden={!closed} />
+      <Part name="lid_blink_r" move={{}} k={k} hidden={!closed} />
     </>
   );
 }
