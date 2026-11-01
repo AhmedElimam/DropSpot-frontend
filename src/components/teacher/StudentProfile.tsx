@@ -3,7 +3,7 @@ import { SheetModal } from '@/components/ui/SheetModal';
 import { View, Text, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, TextInput } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { openRemotePdf } from '@/utils/openPdf';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -115,6 +115,15 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   const go = (href: Href) => { onClose?.(); router.push(href); };
   const { data: s, isLoading, refetch } = useStudentDetail(id);
   const { refreshing, onRefresh } = usePullRefresh(refetch);
+  // The roster behind the profile shows what changes here (founder 2026-11-01: a student
+  // removed, a mark's percentage edited, and the list kept the old row until it was pulled).
+  // Whatever the profile refetches after a change arrives as a new object (react-query keeps
+  // the same one when nothing changed), so the roster refreshes then, and only then.
+  const shown = useRef(s);
+  useEffect(() => {
+    if (shown.current && s && s !== shown.current) void qc.invalidateQueries({ queryKey: ['teacher-students'] });
+    shown.current = s;
+  }, [s, qc]);
   const allowanceBlock = useSetStudentAllowanceBlock(Number(id));
   const [exporting, setExporting] = useState(false);
   const [sendReportOpen, setSendReportOpen] = useState(false);
@@ -466,6 +475,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
           onPress: async () => {
             try {
               await removeStudentFromRoster(id);
+              void qc.invalidateQueries({ queryKey: ['teacher-students'] });
               if (onClose) onClose(); else router.back();
             } catch {
               Alert.alert(t('common.error'), t('student_profile_ui.remove_from_roster_failed'));

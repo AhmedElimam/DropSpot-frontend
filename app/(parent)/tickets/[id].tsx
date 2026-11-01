@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
-import { useKeyboardShown } from '@/hooks/useKeyboardShown';
+import { COMPOSER_PADS_ITSELF, useComposerBottomInset } from '@/hooks/useComposerBottomInset';
 import { PageHero } from '@/components/ui/PageHero';
 import { Surface } from '@/ui/surfaces';
 
@@ -38,7 +38,7 @@ export default function TicketDetail() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const keyboardShown = useKeyboardShown();
+  const composerBottom = useComposerBottomInset();
   const user = useAuthStore((s) => s.user);
   const { data: ticket, isLoading, refetch } = useTicket(id ?? '');
   const addMessage = useAddMessage(id ?? '');
@@ -94,6 +94,7 @@ export default function TicketDetail() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior="padding"
+        enabled={!COMPOSER_PADS_ITSELF}
         // No navigation header sits above this screen — its own hero is inside — so there is
         // nothing to offset. The old 90 was a header that no longer exists: empty space.
         keyboardVerticalOffset={0}
@@ -261,7 +262,7 @@ export default function TicketDetail() {
               flexDirection: 'row',
               alignItems: 'flex-end',
               padding: spacing.md,
-              paddingBottom: spacing.md + (keyboardShown ? 0 : insets.bottom),
+              paddingBottom: spacing.md + composerBottom,
               gap: spacing.sm,
             }}
           >

@@ -106,6 +106,13 @@ const ICON_MAP = {
 
 export type IconName = keyof typeof ICON_MAP;
 
+/**
+ * Glyphs drawn for left-to-right reading that must face the other way in Arabic. The paper
+ * plane pointed right, back into the reply box it sits beside (founder 2026-11-01, tickets).
+ */
+const MIRRORED: ReadonlySet<IconName> = new Set<IconName>(['send']);
+const MIRROR = { transform: [{ scaleX: -1 }] };
+
 interface IconProps {
   name: IconName;
   size?: number;
@@ -122,5 +129,6 @@ interface IconProps {
 export const Icon = memo(function Icon({ name, size = 22, color, outline = false, style }: IconProps) {
   const base = ICON_MAP[name];
   const glyph = (outline ? `${base}-outline` : base) as IoniconName;
-  return <Ionicons name={glyph} size={size} color={color ?? colors.textPrimary} style={style} />;
+  const drawn = MIRRORED.has(name) ? (style ? [MIRROR, style] : MIRROR) : style;
+  return <Ionicons name={glyph} size={size} color={color ?? colors.textPrimary} style={drawn} />;
 });
