@@ -24,6 +24,7 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
 import { COMPOSER_PADS_ITSELF, useComposerBottomInset } from '@/hooks/useComposerBottomInset';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
+import { useScreenTopInset } from '@/hooks/useScreenTopInset';
 import { PageHero } from '@/components/ui/PageHero';
 import { Surface } from '@/ui/surfaces';
 
@@ -40,6 +41,9 @@ export default function TicketDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const composerBottom = useComposerBottomInset();
+  const topInset = useScreenTopInset();
+  // While the reply is being typed the header keeps only the title (founder 2026-11-02).
+  const typing = COMPOSER_PADS_ITSELF && composerBottom > insets.bottom;
   const user = useAuthStore((s) => s.user);
   const { data: ticket, isLoading, refetch } = useTicket(id ?? '');
   const addMessage = useAddMessage(id ?? '');
@@ -103,8 +107,9 @@ export default function TicketDetail() {
       >
         {/* Header */}
         <Surface id="parent.ticket.hero">
-        <PageHero title={ticket.subject} subtitle={`${ticket.student_name} - ${ticket.teacher_name}`} onBack compact>
-          <View style={{ marginTop: spacing.md }}>
+        <PageHero title={ticket.subject} subtitle={`${ticket.student_name} - ${ticket.teacher_name}`} onBack compact inset={topInset}>
+          {typing ? null : (
+          <View style={{ marginTop: spacing.sm }}>
 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View
               style={{
@@ -175,6 +180,7 @@ export default function TicketDetail() {
             )}
           </View>
           </View>
+          )}
         </PageHero>
         </Surface>
 
