@@ -3,36 +3,40 @@ import { Keyboard, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
- * Android 11+ draws edge-to-edge (SDK 54): the window never shrinks for the keyboard, and the
- * KeyboardAvoidingView's own sums left the ticket reply box behind the keys (founder 2026-11-01,
- * twice). There the composer pads itself by the keyboard's height instead; it comes from the
- * window insets, so it is exact. Older Androids and iOS keep the KeyboardAvoidingView.
+ * The ticket reply box pads itself by the keyboard's height instead of trusting the
+ * KeyboardAvoidingView (founder 2026-11-01/02, three times, iPhone and Android alike: on a long
+ * ticket the keys covered the box and «I cannot see what I'm typing»). The view measured itself
+ * and animated the change; the keyboard's own height needs neither, so it cannot come out short.
+ * Android 11+ is edge-to-edge (SDK 54: the window never shrinks for the keys). Older Androids
+ * still shrink the window, so they keep the KeyboardAvoidingView.
  */
-export const COMPOSER_PADS_ITSELF = Platform.OS === 'android' && Number(Platform.Version) >= 30;
+export const COMPOSER_PADS_ITSELF = Platform.OS === 'ios' || (Platform.OS === 'android' && Number(Platform.Version) >= 30);
 
 /**
- * The space under a composer pinned to the bottom of a screen. With the keyboard down: the
- * home-indicator / navigation-bar inset. With it up: nothing on iOS (the keyboard covers that
- * strip, and keeping it left a tall empty "chin", tickets 2026-10-04); on Android 11+ the
- * keyboard's height plus the navigation bar it sits on (RN reports the height without it).
+ * The space under a composer pinned to the bottom of a full-height screen. With the keyboard
+ * down: the home-indicator / navigation-bar inset. With it up: the keyboard's height, which on
+ * iOS already runs to the bottom of the screen; on Android RN reports it without the navigation
+ * bar the keys sit on, so that is added back.
  */
 export function useComposerBottomInset(): number {
   const insets = useSafeAreaInsets();
   const [keyboard, setKeyboard] = useState<number | null>(null);
 
   useEffect(() => {
-    if (Platform.OS !== 'ios' && !COMPOSER_PADS_ITSELF) return;
-    // iOS announces the keyboard before it moves, so the padding changes with it.
-    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) =>
-      setKeyboard(e.endCoordinates.height),
-    );
-    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboard(null));
+    if (!COMPOSER_PADS_ITSELF) return;
+    // iOS announces the keyboard before it moves, so the box rises with it.
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKeyboard(e.endCoordinates.height));
+    // A different keyboard (Arabic ↔ English, emoji, suggestions bar) changes the height.
+    const change = ios ? Keyboard.addListener('keyboardWillChangeFrame', (e) => setKeyboard((k) => (k === null ? k : e.endCoordinates.height))) : null;
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboard(null));
     return () => {
       show.remove();
+      change?.remove();
       hide.remove();
     };
   }, []);
 
   if (keyboard === null) return insets.bottom;
-  return COMPOSER_PADS_ITSELF ? keyboard + insets.bottom : 0;
+  return Platform.OS === 'ios' ? keyboard : keyboard + insets.bottom;
 }
