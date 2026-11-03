@@ -5,7 +5,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextIn
 import { Alert } from '@/ui/dialog';
 import { FlatList } from '@/components/ui/Refreshable';
 import { SelectField } from '@/components/ui/SelectField';
-import { foldForSearch, relationshipLabel, formatNumber } from '@/utils/format';
+import { foldForSearch, relationshipLabel, formatNumber, formatDayDate } from '@/utils/format';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -16,7 +16,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { usePhoneConfirmations, PHONE_CONFIRMATIONS_KEY } from '@/hooks/usePhoneConfirmations';
-import { acknowledgePhone, sendPhoneConfirmationCode, confirmPhoneCode, type PhoneConfirmation } from '@/api/phoneConfirmations';
+import { acknowledgePhone, sendPhoneConfirmationCode, confirmPhoneCode, addParentNumber, resendParentInvite, type PhoneConfirmation } from '@/api/phoneConfirmations';
+import { isEgyptPhone } from '@/utils/validators';
 import { requestStudentEdit, flagParentNumber } from '@/api/students';
 import { Surface } from '@/ui/surfaces';
 
@@ -43,6 +44,7 @@ type Sheet =
   | { kind: 'otp'; item: PhoneConfirmation }
   | { kind: 'edit'; item: PhoneConfirmation }
   | { kind: 'escalate'; item: PhoneConfirmation }
+  | { kind: 'add_parent'; item: PhoneConfirmation }
   | null;
 
 export default function PhoneConfirmationsScreen() {
@@ -64,7 +66,10 @@ export default function PhoneConfirmationsScreen() {
 
   // Filters (founder 2026-10-30: teachers got lost in one long list) — which number needs
   // confirming, which group, and a search over name / code / either number.
-  const [kind, setKind] = useState<'all' | 'parent' | 'student'>('all');
+  const [kind, setKind] = useState<'all' | 'parent' | 'student' | 'missing_parent'>('all');
+  // «أضف رقم وليّ الأمر» (2026-11-03): the number, an optional name and relation.
+  const [parentName, setParentName] = useState('');
+  const [relation, setRelation] = useState<'father' | 'mother' | 'guardian' | null>(null);
   const [groupId, setGroupId] = useState('');
   const [query, setQuery] = useState('');
 
@@ -98,7 +103,25 @@ export default function PhoneConfirmationsScreen() {
     });
   }, [families, kind, groupId, query]);
 
-  const closeSheet = () => { setSheet(null); setNote(''); setNewNumber(''); setOtpCode(''); setOtpSent(false); };
+  const closeSheet = () => { setSheet(null); setNote(''); setNewNumber(''); setOtpCode(''); setOtpSent(false); setParentName(''); setRelation(null); };
+
+  const submitAddParent = (it: PhoneConfirmation) => {
+    const phone = newNumber.trim();
+    if (!isEgyptPhone(phone)) {
+      Alert.alert(t('staff_ui.error'), t('enroll_ui.phone_invalid'));
+      return;
+    }
+    void run(() => addParentNumber(it.student_id, phone, parentName.trim() || undefined, relation ?? undefined), t('staff_ui.phone_parent_added'));
+  };
+
+  // Resending keeps no sheet: one tap, the server says whether it went (once an hour).
+  const resendInvite = (it: PhoneConfirmation) => {
+    setBusy(true);
+    resendParentInvite(it.student_id)
+      .then(() => { invalidate(); Alert.alert('', t('staff_ui.phone_invite_resent')); })
+      .catch((e) => Alert.alert(t('staff_ui.error'), getFriendlyErrorMessage(e)))
+      .finally(() => setBusy(false));
+  };
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: PHONE_CONFIRMATIONS_KEY });
@@ -264,7 +287,8 @@ export default function PhoneConfirmationsScreen() {
   const sheetTitle = sheet?.kind === 'ack' ? t('staff_ui.phone_ack_title')
     : sheet?.kind === 'otp' ? t('staff_ui.phone_confirm_by_code')
       : sheet?.kind === 'edit' ? t('staff_ui.edit_number')
-        : t('staff_ui.phone_escalate_title');
+        : sheet?.kind === 'add_parent' ? t('staff_ui.phone_add_parent')
+          : t('staff_ui.phone_escalate_title');
 
   return (
     <Surface id="screen.teacher.phone-confirmations" screen>
@@ -312,7 +336,7 @@ export default function PhoneConfirmationsScreen() {
                   style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary, paddingVertical: 8 }} />
               </View>
               <View style={{ flexDirection: 'row', gap: spacing.xs }}>
-                {(['all', 'parent', 'student'] as const).map((k) => (
+                {(['all', 'missing_parent', 'parent', 'student'] as const).map((k) => (
                   <TouchableOpacity key={k} onPress={() => setKind(k)} accessibilityRole="button" accessibilityState={{ selected: kind === k }} activeOpacity={0.85}
                     style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: radius.full, borderWidth: 1, borderColor: kind === k ? colors.brand : colors.border, backgroundColor: kind === k ? colors.brand : colors.surface }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: kind === k ? colors.white : colors.textSecondary }}>{t(`staff_ui.phone_filter_${k}`)}</Text>
@@ -335,7 +359,11 @@ export default function PhoneConfirmationsScreen() {
           ) : (
             <EmptyState icon="search" title={t('staff_ui.phone_filter_none')} message={t('staff_ui.phone_filter_none_hint')} />
           )}
-          renderItem={({ item: f }) => <FamilyCard f={f} Actions={Actions} />}
+          renderItem={({ item: f }) => (
+            <FamilyCard f={f} Actions={Actions} busy={busy}
+              onAddParent={(it) => { setNewNumber(''); setParentName(''); setRelation(null); setSheet({ kind: 'add_parent', item: it }); }}
+              onResendInvite={resendInvite} />
+          )}
         />
       )}
       </Surface>
@@ -385,6 +413,48 @@ export default function PhoneConfirmationsScreen() {
                 {t('staff_ui.phone_escalate_body')}
               </Text>
             ) : null}
+            {sheet?.kind === 'add_parent' ? (
+              <>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs, lineHeight: 20 }}>
+                  {t('staff_ui.phone_add_parent_hint')}
+                </Text>
+                <TextInput
+                  value={newNumber}
+                  onChangeText={setNewNumber}
+                  keyboardType="phone-pad"
+                  placeholder={t('staff_ui.phone_add_parent_ph')}
+                  placeholderTextColor={colors.textTertiary}
+                  style={{
+                    marginTop: spacing.lg, backgroundColor: colors.surfaceSunken,
+                    borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg,
+                    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
+                    fontFamily: fonts.medium, fontSize: 15, color: colors.textPrimary,
+                    textAlign: 'left', writingDirection: 'ltr',
+                  }}
+                />
+                <TextInput
+                  value={parentName}
+                  onChangeText={setParentName}
+                  placeholder={t('staff_ui.phone_parent_name_ph')}
+                  placeholderTextColor={colors.textTertiary}
+                  style={{
+                    marginTop: spacing.sm, backgroundColor: colors.surfaceSunken,
+                    borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg,
+                    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
+                    fontFamily: fonts.regular, fontSize: 14, color: colors.textPrimary,
+                  }}
+                />
+                <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm }}>
+                  {(['father', 'mother', 'guardian'] as const).map((r) => (
+                    <TouchableOpacity key={r} onPress={() => setRelation(relation === r ? null : r)} activeOpacity={0.85}
+                      accessibilityRole="button" accessibilityState={{ selected: relation === r }}
+                      style={{ flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: radius.full, borderWidth: 1, borderColor: relation === r ? colors.brand : colors.border, backgroundColor: relation === r ? colors.brand : colors.surface }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: relation === r ? colors.white : colors.textSecondary }}>{relationshipLabel(r)}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            ) : null}
 
             {sheet?.kind === 'edit' ? (
               <TextInput
@@ -403,6 +473,7 @@ export default function PhoneConfirmationsScreen() {
               />
             ) : null}
 
+            {sheet?.kind !== 'add_parent' ? (
             <TextInput
               value={note}
               onChangeText={setNote}
@@ -417,6 +488,7 @@ export default function PhoneConfirmationsScreen() {
                 textAlignVertical: 'top',
               }}
             />
+            ) : null}
 
             <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg }}>
               <TouchableOpacity
@@ -433,6 +505,7 @@ export default function PhoneConfirmationsScreen() {
                   if (sheet.kind === 'ack') submitAck(sheet.item);
                   else if (sheet.kind === 'otp') { if (otpSent) submitCode(sheet.item); else void sendCode(sheet.item); }
                   else if (sheet.kind === 'edit') submitEdit(sheet.item);
+                  else if (sheet.kind === 'add_parent') submitAddParent(sheet.item);
                   else submitEscalate(sheet.item);
                 }}
                 disabled={busy}
@@ -447,7 +520,8 @@ export default function PhoneConfirmationsScreen() {
                   <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>
                     {sheet?.kind === 'ack' ? t('common.confirm')
                       : sheet?.kind === 'otp' ? (otpSent ? t('staff_ui.phone_confirm_code_btn') : t('staff_ui.send_code'))
-                        : sheet?.kind === 'edit' ? t('staff_ui.send') : t('staff_ui.report_btn')}
+                        : sheet?.kind === 'edit' ? t('staff_ui.send')
+                          : sheet?.kind === 'add_parent' ? t('staff_ui.phone_add_parent') : t('staff_ui.report_btn')}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -467,10 +541,18 @@ type Family = { id: number; first: PhoneConfirmation; rows: PhoneConfirmation[] 
  * actions under the one that needs it. The number in question is never on its own, so a parent
  * number typed into the student's field (or the same number twice) shows at a glance.
  */
-function FamilyCard({ f, Actions }: { f: Family; Actions: (p: { it: PhoneConfirmation }) => ReactElement }) {
+function FamilyCard({ f, Actions, busy, onAddParent, onResendInvite }: {
+  f: Family;
+  Actions: (p: { it: PhoneConfirmation }) => ReactElement;
+  busy: boolean;
+  onAddParent: (it: PhoneConfirmation) => void;
+  onResendInvite: (it: PhoneConfirmation) => void;
+}) {
   const { t } = useTranslation();
   const it = f.first;
   const parentRow = f.rows.find((r) => r.scope === 'parent');
+  // No parent at all (2026-11-03): instead of a parent number to confirm, a number to get.
+  const missingRow = f.rows.find((r) => r.scope === 'missing_parent');
   const studentRow = f.rows.find((r) => r.scope === 'student');
   const sameNumber = !!it.student_phone && it.student_phone === it.parent_phone;
   const rel = relationshipLabel(it.parent_relationship);
@@ -507,9 +589,51 @@ function FamilyCard({ f, Actions }: { f: Family; Actions: (p: { it: PhoneConfirm
 
       <NumberLine label={t('teacher.student_number')} phone={it.student_phone ?? (studentRow?.phone ?? null)} ok={studentRow ? false : !!it.student_phone_confirmed} refused={!!it.student_phone_refused} />
       {studentRow ? <Actions it={studentRow} /> : null}
-      <NumberLine label={rel ? t('staff_ui.phone_parent_number_rel', { rel }) : t('staff_ui.phone_parent_number')} sub={it.parent_name ?? parentRow?.subject_name ?? null}
-        phone={it.parent_phone ?? (parentRow?.phone ?? null)} ok={parentRow ? false : !!it.parent_phone_confirmed} refused={!!it.parent_phone_refused} />
-      {parentRow ? <Actions it={parentRow} /> : null}
+      {missingRow ? (
+        <MissingParent it={missingRow} busy={busy} onAdd={() => onAddParent(missingRow)} onResend={() => onResendInvite(missingRow)} />
+      ) : (
+        <>
+          <NumberLine label={rel ? t('staff_ui.phone_parent_number_rel', { rel }) : t('staff_ui.phone_parent_number')} sub={it.parent_name ?? parentRow?.subject_name ?? null}
+            phone={it.parent_phone ?? (parentRow?.phone ?? null)} ok={parentRow ? false : !!it.parent_phone_confirmed} refused={!!it.parent_phone_refused} />
+          {parentRow ? <Actions it={parentRow} /> : null}
+        </>
+      )}
+    </View>
+  );
+}
+
+/** The parent line of a student with no parent: what was done, and the two ways forward. */
+function MissingParent({ it, busy, onAdd, onResend }: { it: PhoneConfirmation; busy: boolean; onAdd: () => void; onResend: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <View style={{ borderTopWidth: 1, borderTopColor: colors.borderLight, paddingTop: spacing.md, marginTop: spacing.md }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: colors.dangerLight, justifyContent: 'center', alignItems: 'center' }}>
+          <Icon name="warning" size={16} color={colors.danger} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.danger }}>{t('staff_ui.phone_no_parent')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 1, lineHeight: 18 }}>
+            {it.invite_sent_at ? t('staff_ui.phone_no_parent_invited', { when: formatDayDate(it.invite_sent_at) }) : t('staff_ui.phone_no_parent_not_invited')}
+          </Text>
+        </View>
+      </View>
+      <Surface id="teacher.phone_confirmations.add_parent" assistantNeeds="manage_students">
+      <TouchableOpacity onPress={onAdd} disabled={busy} activeOpacity={0.85} accessibilityRole="button"
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: 12, marginTop: spacing.md }}>
+        <Icon name="add" size={16} color={colors.white} />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.white }}>{t('staff_ui.phone_add_parent')}</Text>
+      </TouchableOpacity>
+      </Surface>
+      {it.can_resend_invite ? (
+        <Surface id="teacher.phone_confirmations.resend_invite">
+        <TouchableOpacity onPress={onResend} disabled={busy} activeOpacity={0.85} accessibilityRole="button"
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: 10, marginTop: spacing.sm }}>
+          <Icon name="send" size={15} color={colors.textPrimary} />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }}>{t('staff_ui.phone_resend_invite')}</Text>
+        </TouchableOpacity>
+        </Surface>
+      ) : null}
     </View>
   );
 }

@@ -1,6 +1,9 @@
 import client from './client';
 
-/** Fast door-side recording — name + parent phone → dormant student (activates later). */
+/**
+ * Fast door-side recording — name + a phone → dormant student (activates later). The parent's
+ * number is optional since 2026-11-03: without it the student is texted a link to add it.
+ */
 export type ParentRelationship = 'father' | 'mother' | 'guardian';
 
 import type { EnrollmentTermsInput } from './enrollmentTerms';
@@ -8,7 +11,8 @@ import type { EnrollmentTermsInput } from './enrollmentTerms';
 /** The shared enrolment terms (position, دفعة, booklet) ride along — see src/api/enrollmentTerms.ts. */
 export interface RecordStudentPayload extends EnrollmentTermsInput {
   student_name: string;
-  parent_phone: string;
+  /** Optional when the student's own phone is given (one of the two is required). */
+  parent_phone?: string;
   student_phone?: string | null;
   /** Optional — the parent can set/modify these at setup before first login. */
   parent_name?: string;
@@ -24,6 +28,8 @@ export interface RecordStudentResult {
   parent_user_id?: number;
   is_new_parent?: boolean;
   linked?: boolean;
+  /** Recorded without a parent: the student was texted the «ضيف رقم ولي أمرك» link. */
+  parent_invited?: boolean;
 }
 
 /** A duplicate-parent-phone match — id + name ONLY (never the other teacher's data). */

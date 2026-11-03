@@ -81,16 +81,20 @@ export default function RecordStudent() {
 
   const nameError = name.trim() !== '' && !isArabicName(name);
   const phoneError = parentPhone.trim() !== '' && !isEgyptPhone(parentPhone);
-  // The student's own phone — OPTIONAL for now (founder 2026-10-04): empty is fine, a typed
+  // The student's own phone — optional (founder 2026-10-04) when the parent's is given; a typed
   // number must be valid. When given, the student signs in with it.
   const studentPhoneError = studentPhone.trim() !== '' && !isEgyptPhone(studentPhone);
+  // The parent's number — optional since 2026-11-03 (founder): without it the server texts the
+  // student a link to add it, proved by a code sent to the parent. One of the two is required.
+  const noPhone = studentPhone.trim() === '' && parentPhone.trim() === '';
   const sameAsParentError =
     studentPhone.trim() !== '' && parentPhone.trim() !== '' && studentPhone.trim() === parentPhone.trim();
   const canSubmit =
     courseId != null &&
     isArabicName(name.trim()) &&
     (studentPhone.trim() === '' || isEgyptPhone(studentPhone.trim())) &&
-    isEgyptPhone(parentPhone.trim()) &&
+    (parentPhone.trim() === '' || isEgyptPhone(parentPhone.trim())) &&
+    !noPhone &&
     !sameAsParentError &&
     !terms.overpaid &&
     !saving;
@@ -117,7 +121,7 @@ export default function RecordStudent() {
     const payload: RecordStudentPayload = {
       student_name: name.trim(),
       ...(studentPhone.trim() ? { student_phone: studentPhone.trim() } : {}),
-      parent_phone: parentPhone.trim(),
+      ...(parentPhone.trim() ? { parent_phone: parentPhone.trim() } : {}),
       ...(parentName.trim() ? { parent_name: parentName.trim() } : {}),
       ...(relationship ? { relationship } : {}),
       ...terms.payload(),
@@ -136,7 +140,7 @@ export default function RecordStudent() {
         afterCreated(null, t('offline.record_queued'));
         return;
       }
-      afterCreated(res.enrollment_id);
+      afterCreated(res.enrollment_id, res.parent_invited ? t('enroll_ui.parent_invited_note') : undefined);
     } catch (e) {
       if (isAxiosError(e) && e.response?.status === 409 && e.response.data?.code === 'EXISTING_STUDENT') {
         // The student phone already exists → show the QR-style profile popup;
@@ -347,7 +351,7 @@ export default function RecordStudent() {
 
             {/* Student's own phone — their login handle when the app launches */}
             <Surface id="teacher.record_student.student_phone">
-            <Text style={label()}>{t('invite_phone.student_phone')} <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}>{t('enroll_ui.optional_paren')}</Text></Text>
+            <Text style={label()}>{t('invite_phone.student_phone')}{parentPhone.trim() !== '' ? <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}> {t('enroll_ui.optional_paren')}</Text> : null}</Text>
             <TextInput
               value={studentPhone}
               onChangeText={setStudentPhone}
@@ -369,7 +373,7 @@ export default function RecordStudent() {
           <View style={sectionCard}>
             <StepHead n={2} icon="phone" title={t('fast_register.step_parent')} />
             <Surface id="teacher.record_student.parent_phone">
-            <Text style={label()}>{t('enroll_ui.parent_phone')}</Text>
+            <Text style={label()}>{t('enroll_ui.parent_phone')} <Text style={{ fontFamily: fonts.regular, color: colors.textTertiary }}>{t('enroll_ui.optional_paren')}</Text></Text>
             <TextInput
               value={parentPhone}
               onChangeText={setParentPhone}
@@ -379,7 +383,13 @@ export default function RecordStudent() {
               style={{ ...field(), marginBottom: spacing.xs, borderColor: phoneError ? colors.danger : (parentPhone ? colors.brand : colors.borderStrong) }}
               onSubmitEditing={() => canSubmit && submit()}
             />
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>{t('enroll_ui.parent_phone_hint')}</Text>
+            {phoneError
+              ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.lg }}>{t('enroll_ui.phone_invalid')}</Text>
+              : noPhone && name.trim() !== ''
+                ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.danger, marginBottom: spacing.lg }}>{t('enroll_ui.need_one_phone')}</Text>
+                : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>
+                    {parentPhone.trim() === '' ? t('enroll_ui.parent_phone_optional_hint') : t('enroll_ui.parent_phone_hint')}
+                  </Text>}
             </Surface>
 
             {/* Parent name — OPTIONAL (the parent can set/modify it at setup). */}

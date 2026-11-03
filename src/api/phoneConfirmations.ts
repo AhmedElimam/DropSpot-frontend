@@ -14,7 +14,8 @@ import { homePart } from '@/api/homeBatch';
  * the same act.
  */
 
-export type PhoneConfirmationScope = 'parent' | 'student';
+/** `missing_parent` (2026-11-03): the student has no parent at all — add the number, or resend the student's link. */
+export type PhoneConfirmationScope = 'parent' | 'student' | 'missing_parent';
 
 export interface PhoneConfirmation {
   /** Stable per (scope, subject) — safe as a list key. */
@@ -45,6 +46,10 @@ export interface PhoneConfirmation {
   /** The SMS provider refused this number the last time (invalid / not in service). */
   student_phone_refused?: boolean;
   parent_phone_refused?: boolean;
+  /** missing_parent rows: when the student was last texted the «ضيف رقم ولي أمرك» link. */
+  invite_sent_at?: string | null;
+  /** missing_parent rows: the student has a phone to text the link to. */
+  can_resend_invite?: boolean;
 }
 
 export async function getPhoneConfirmations(): Promise<{ items: PhoneConfirmation[]; count: number }> {
@@ -101,4 +106,27 @@ export async function revokePhoneAcknowledgement(
   subjectId: number,
 ): Promise<void> {
   await client.post(`/teacher/phone-confirmations/${studentId}/revoke`, { scope, subject_id: subjectId });
+}
+
+/**
+ * A student with no parent (2026-11-03): the teacher types the parent's number. The server finds
+ * or creates the parent, attaches them and texts them the activation link; the row then becomes
+ * an ordinary «confirm this number» row.
+ */
+export async function addParentNumber(
+  studentId: number,
+  phone: string,
+  name?: string,
+  relationship?: 'father' | 'mother' | 'guardian',
+): Promise<void> {
+  await client.post(`/teacher/phone-confirmations/${studentId}/add-parent`, {
+    phone,
+    ...(name ? { name } : {}),
+    ...(relationship ? { relationship } : {}),
+  });
+}
+
+/** Text the student the «ضيف رقم ولي أمرك» link again (the server allows once an hour). */
+export async function resendParentInvite(studentId: number): Promise<void> {
+  await client.post(`/teacher/phone-confirmations/${studentId}/resend-invite`);
 }
