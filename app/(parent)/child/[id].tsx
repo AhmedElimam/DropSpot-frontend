@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 
 import { AppModal as Modal } from '@/ui/AppModal';
 import { ScrollView, FlatList } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
@@ -350,6 +350,16 @@ export default function ChildDetailScreen() {
                 title={t('reports.view_reports')}
                 onPress={() => router.push(`/(parent)/report-cards?studentId=${child.student_id}`)}
               />
+              </Surface>
+              {/* «الواجبات»: every homework this child was given, and how it was done. */}
+              <Surface id="parent.child.view_homework">
+              <View style={{ marginTop: spacing.md }}>
+                <Button
+                  variant="secondary"
+                  title={t('homework.view_child')}
+                  onPress={() => router.push(`/(parent)/homework?student_id=${child.student_id}` as Href)}
+                />
+              </View>
               </Surface>
             </Surface>
           )}

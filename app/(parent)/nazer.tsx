@@ -19,6 +19,8 @@ import { useParentBillingStatus } from '@/hooks/useInvoices';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useTickets } from '@/hooks/useTickets';
 import { useSessionNotes } from '@/hooks/useSessionNotes';
+import { useHomework } from '@/hooks/useHomework';
+import { homeworkNote } from '@/nazer/homework';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { latestNotes } from '@/nazer/notes';
 import { NazerReportsCard } from '@/components/nazer/NazerReportsCard';
@@ -52,8 +54,9 @@ export default function ParentNazerOffice() {
   const { data: notifications, refetch: refetchNotifications } = useNotifications();
   const { data: tickets, refetch: refetchTickets } = useTickets();
   const { data: notesPages, refetch: refetchNotes } = useSessionNotes('parent');
+  const { data: homeworkPages, refetch: refetchHomework } = useHomework('parent');
   // Pull to refresh (founder 2026-10-22): the office re-reads everything it shows; the page itself stays put.
-  const { refreshing, onRefresh } = usePullRefresh(refetchChildren, refetchRisks, refetchBilling, refetchNotifications, refetchTickets, refetchNotes);
+  const { refreshing, onRefresh } = usePullRefresh(refetchChildren, refetchRisks, refetchBilling, refetchNotifications, refetchTickets, refetchNotes, refetchHomework);
   const recentNotes = latestNotes(notesPages?.pages[0]?.items ?? []);
 
   const kids = children ?? [];
@@ -90,6 +93,9 @@ export default function ParentNazerOffice() {
   for (const e of recentNotes.top) {
     notes.push({ id: `notes-${e.id}`, icon: 'book', tone: 'info', title: t('nazer.note_latest_title', { course: e.course_name ?? '', teacher: e.teacher_name ?? '' }), sub: e.summary ?? e.note ?? undefined, route: `/(parent)/session-notes?student_id=${e.student_id}` as Href });
   }
+  // «الواجبات»: the rate over every homework given, then the list.
+  const hw = homeworkNote(homeworkPages?.pages[0]?.summary, homeworkPages?.pages[0]?.meta.total ?? 0, (key, opts) => String(t(key, opts)));
+  if (hw) notes.push({ id: 'homework', icon: 'list', ...hw, route: '/(parent)/homework' as Href });
   if (open) notes.push({ id: 'tickets', icon: 'tickets', tone: 'info', title: t('nazer.note_tickets', { count: open }), route: '/(parent)/tickets' as Href });
   if (notes.length === 0) notes.push({ id: 'empty', icon: 'success', tone: 'success', title: t('nazer.note_empty') });
 

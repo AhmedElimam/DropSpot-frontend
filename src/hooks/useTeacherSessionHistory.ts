@@ -23,8 +23,12 @@ import {
   updateSheetMaxMark,
   setSessionType,
   pauseSessions,
+  recordHomework,
+  rateHomework,
+  rateHomeworkAll,
   type SessionDetail,
 } from '@/api/teacherSessions';
+import type { HomeworkRating } from '@/api/homework';
 
 export function useTeacherSessionHistory(status?: string) {
   return useQuery({
@@ -152,8 +156,25 @@ export function useSessionControls(id: string) {
   const sheetExcluded = useMutation({ mutationFn: () => toggleSheetExcluded(id), onSuccess: sync });
   const sheetMax = useMutation({ mutationFn: (max: number | null) => updateSheetMaxMark(id, max), onSuccess: sync });
   const setType = useMutation({ mutationFn: (type: 'normal_sheet' | 'quiz_exam') => setSessionType(id, type), onSuccess: sync });
+  // «الواجب»: what is given at this session, and the grades on the previous one's.
+  const homework = useMutation({ mutationFn: (body: string) => recordHomework(id, body), onSuccess: sync });
+  const rateKey = ['homework-rate', id];
+  const homeworkRate = useMutation({
+    mutationKey: rateKey,
+    mutationFn: (v: { studentId: number; rating: HomeworkRating | null }) => rateHomework(id, v.studentId, v.rating),
+    // The chip turns at the tap; the answer confirms it.
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: ['teacher-session-detail', id] });
+      qc.setQueryData<SessionDetail>(['teacher-session-detail', id], (d) => (d ? withHomeworkRating(d, v.studentId, v.rating) : d));
+    },
+    // A teacher grading down the roster taps fast: only the last answer holds every grade, an
+    // earlier one would turn the later chips back for a moment.
+    onSuccess: (fresh) => { if (qc.isMutating({ mutationKey: rateKey }) <= 1) sync(fresh); },
+    onError: () => qc.invalidateQueries({ queryKey: ['teacher-session-detail', id] }),
+  });
+  const homeworkRateAll = useMutation({ mutationFn: (rating: HomeworkRating) => rateHomeworkAll(id, rating), onSuccess: sync });
 
-  return { mark, cancel, restore, note, summary, reopen, grade, sheet, sheetExcluded, sheetMax, setType };
+  return { mark, cancel, restore, note, summary, reopen, grade, sheet, sheetExcluded, sheetMax, setType, homework, homeworkRate, homeworkRateAll };
 }
 
 export function usePauseSessions() {
@@ -162,6 +183,21 @@ export function usePauseSessions() {
     mutationFn: (v: { from: string; to: string }) => pauseSessions(v.from, v.to),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teacher-session-history'] }),
   });
+}
+
+/** One student's homework grade laid over the sheet, the due card's counts moved with it. */
+function withHomeworkRating(d: SessionDetail, studentId: number, rating: HomeworkRating | null): SessionDetail {
+  const row = d.attendees.find((a) => a.student_id === studentId);
+  if (!row || !d.homework_due) return d;
+  const was = row.homework_rating ?? null;
+  const counts = { ...d.homework_due.counts };
+  counts[was ?? 'ungraded'] = Math.max(0, (counts[was ?? 'ungraded'] ?? 0) - 1);
+  counts[rating ?? 'ungraded'] = (counts[rating ?? 'ungraded'] ?? 0) + 1;
+  return {
+    ...d,
+    attendees: d.attendees.map((a) => (a.student_id === studentId ? { ...a, homework_rating: rating } : a)),
+    homework_due: { ...d.homework_due, counts },
+  };
 }
 
 /** The server's «owes money» answer to a manual mark (402 BILLING_OVERDUE). */

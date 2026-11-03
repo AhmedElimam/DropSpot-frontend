@@ -157,6 +157,9 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
     // الناظر reports a session note written after that day's digest (founder 2026-10-22).
     case 'session_notes':
       return student ? `/(parent)/session-notes?student_id=${student}` : '/(parent)/session-notes';
+    // «واجب جديد» given after that day's digest went (founder 2026-11-03).
+    case 'homework':
+      return student ? `/(parent)/homework?student_id=${student}` : '/(parent)/homework';
     case 'attendance':
     case 'absence':
     case 'attendance_risk':
@@ -212,6 +215,9 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
     case 'daily_digest':
     case 'session_notes':
       return '/(student)/session-notes';
+    // «واجب جديد»: the teacher gave homework at a session.
+    case 'homework':
+      return '/(student)/homework';
     case 'card_preparing':
     case 'card_released':
       return '/(student)/order-card';

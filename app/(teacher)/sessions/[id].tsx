@@ -18,6 +18,9 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { MarkRow, MarksHeader, type SessionKind } from '@/components/session/SessionMarks';
 import { SessionNotesCard } from '@/components/session/SessionNotesCard';
+import { SessionHomeworkCard } from '@/components/session/SessionHomeworkCard';
+import { HomeworkRateChips } from '@/components/homework/HomeworkChips';
+import type { HomeworkRating } from '@/api/homework';
 import { sessionPhase } from '@/utils/sessionPhase';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
@@ -135,6 +138,12 @@ export default function SessionDetailScreen() {
       throw e;
     }
   }, [controls.grade, t]);
+  // «الواجب»: the previous session's homework is graded on each roster row (never a swap-in's:
+  // theirs is another group's homework).
+  const gradesHomework = !!s?.homework_due && s.can_edit_homework !== false && activeTab === 'roster';
+  const rateHomework = useCallback((studentId: number, rating: HomeworkRating | null) => {
+    controls.homeworkRate.mutate({ studentId, rating }, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) });
+  }, [controls.homeworkRate, t]);
   const setKind = (k: SessionKind) => controls.setType.mutate(k, { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.session_type_failed')) });
 
   const current = selected
@@ -208,7 +217,8 @@ export default function SessionDetailScreen() {
     const awaiting = bucketOf(item.status) === 'awaiting';
     return (
       <TouchableOpacity onPress={() => openAttendee(item)} activeOpacity={0.85}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: color, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 64 }}>
+        style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: color, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 64, justifyContent: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <Avatar name={item.name ?? '—'} seed={avatarSeed.student(item.student_id, item.name ?? '—')} size={40} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{item.name ?? '—'}</Text>
@@ -243,6 +253,15 @@ export default function SessionDetailScreen() {
         </View>
         </Surface>
         )}
+        </View>
+        {gradesHomework ? (
+          <Surface id="teacher.session_detail.row_homework" ctx={{ session: s }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textTertiary }}>{t('homework.row_label')}</Text>
+            <HomeworkRateChips value={item.homework_rating ?? null} onChange={(r) => rateHomework(item.student_id, r)} />
+          </View>
+          </Surface>
+        ) : null}
       </TouchableOpacity>
     );
   };
@@ -395,7 +414,7 @@ export default function SessionDetailScreen() {
           stickyHeaderIndices={[1]}
           renderItem={({ item }) => item === PINNED ? pinned
             : item === EXTRAS ? extrasNode
-            : mode === 'marks' ? <MarkRow a={item as SessionAttendee | SwapInAttendee} max={s.sheet_max_mark} onSave={saveMark} noDoor={noDoor} />
+            : mode === 'marks' ? <MarkRow a={item as SessionAttendee | SwapInAttendee} max={s.sheet_max_mark} onSave={saveMark} noDoor={noDoor} onHomework={gradesHomework ? rateHomework : undefined} />
             : renderAttendee({ item: item as SessionAttendee | SwapInAttendee })}
           // No clipping: it hides a pinned header on Android, and it drops a focused mark
           // field's keyboard there too; the window below keeps the rows bounded.
@@ -452,6 +471,10 @@ export default function SessionDetailScreen() {
               {/* «ملاحظات الحصة» — to the whole session; open 48 h after the end, then reopenable. */}
               <Surface id="teacher.session_detail.notes_card" ctx={{ session: s }}>
               <SessionNotesCard s={s} save={controls.summary} reopen={controls.reopen} autoOpen={notesParam === '1'} />
+              </Surface>
+              {/* «الواجب» — given at this session, and the previous one's graded here. */}
+              <Surface id="teacher.session_detail.homework_card" ctx={{ session: s }}>
+              <SessionHomeworkCard s={s} save={controls.homework} rateAll={controls.homeworkRateAll} />
               </Surface>
             </View>
           }

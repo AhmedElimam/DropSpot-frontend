@@ -1,5 +1,6 @@
 import client from './client';
 import { extractList, extractAttrs } from './utils';
+import type { HomeworkRating, HomeworkSummary } from './homework';
 
 export interface EnrollableSlot {
   id: number;
@@ -290,6 +291,11 @@ export interface StudentDetail {
   can_remove_from_roster?: boolean;
   attendance_stats: { total: number; attended: number; absent: number; excused: number; prior_attended?: number; prior_held?: number };
   attendance: StudentAttendanceRow[];
+  /** «الواجب» in this teacher's own courses: the rate and the newest five. Older servers omit it. */
+  homework?: {
+    summary: HomeworkSummary;
+    recent: { id: number; course_name: string | null; assigned_on: string | null; body: string; rating: HomeworkRating | null }[];
+  };
   billing: {
     has_overdue: boolean;
     overdue_amount: string;

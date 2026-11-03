@@ -35,6 +35,7 @@ import { dayLabel, formatDayDate, formatNumber, relationshipLabel } from '@/util
 import { Surface } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
 import { SendReportSheet } from '@/components/tickets/SendReportSheet';
+import { StudentHomeworkCard } from '@/components/homework/StudentHomeworkCard';
 import { OpenTicketSheet } from '@/components/tickets/OpenTicketSheet';
 
 /** One person to call: who, the number with who has proved it, call (and report, for a parent). */
@@ -1031,6 +1032,15 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                   );
                 })}
               </View>
+            </Section>
+            </Surface>
+          ) : null}
+
+          {/* «الواجبات» — only once something was graded or given in this teacher's courses. */}
+          {s.homework && (s.homework.summary.graded > 0 || s.homework.recent.length > 0) ? (
+            <Surface id="teacher.student_profile.homework_section" ctx={{ student: s }}>
+            <Section title={t('homework.title')}>
+              <StudentHomeworkCard homework={s.homework} />
             </Section>
             </Surface>
           ) : null}
