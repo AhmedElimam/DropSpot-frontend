@@ -295,6 +295,8 @@ export interface StudentDetail {
   homework?: {
     summary: HomeworkSummary;
     recent: { id: number; course_name: string | null; assigned_on: string | null; body: string; rating: HomeworkRating | null }[];
+    /** The current run of «لم يُحلّ» in a row. */
+    missed_streak?: number;
   };
   billing: {
     has_overdue: boolean;

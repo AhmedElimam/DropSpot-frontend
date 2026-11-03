@@ -1,6 +1,7 @@
 import client from './client';
 import type { GradeComplaintState } from './complaints';
 import { extractList, extractAttrs } from './utils';
+import type { HomeworkSummary } from './homework';
 
 export interface ExamResult {
   date?: string | null;
@@ -36,6 +37,8 @@ export interface ReportCard {
   letter_grade?: string | null;
   /** §1/§2 — big-exam results, separate from the academic average. */
   exam_results?: ExamResult[];
+  /** «الواجبات» over the report's period; null when no homework was given. */
+  homework_summary?: HomeworkSummary | null;
   generated_at?: string;
 }
 

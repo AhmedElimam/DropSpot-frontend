@@ -54,6 +54,8 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
     case 'invitation_accepted':
     case 'guardian_disputed':
     case 'student_report_safety':
+    // «لم يحلّ مرتين متتاليتين»: the student's profile, where the homework section says so.
+    case 'homework_streak':
       return student ? `/(teacher)/students/${student}` : '/(teacher)/students';
     case 'left_early':
     case 'assistant_checkin_review':
@@ -159,6 +161,7 @@ function parentRoute(type: string, data: Record<string, unknown> | null | undefi
       return student ? `/(parent)/session-notes?student_id=${student}` : '/(parent)/session-notes';
     // «واجب جديد» given after that day's digest went (founder 2026-11-03).
     case 'homework':
+    case 'homework_streak':
       return student ? `/(parent)/homework?student_id=${student}` : '/(parent)/homework';
     case 'attendance':
     case 'absence':
@@ -217,6 +220,7 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
       return '/(student)/session-notes';
     // «واجب جديد»: the teacher gave homework at a session.
     case 'homework':
+    case 'homework_streak':
       return '/(student)/homework';
     case 'card_preparing':
     case 'card_released':

@@ -2877,7 +2877,10 @@
       "auto": "تلقائي",
       "quiz": "اختبار",
       "exam": "امتحان",
-      "regular": "عادية"
+      "regular": "عادية",
+      "done": "كامل",
+      "partial": "ناقص",
+      "missing": "لم يُحلّ"
     },
     "fields": {
       "amount": "المبلغ",
@@ -2922,7 +2925,8 @@
       "duration_minutes": "المدة (دقيقة)",
       "scheduled_at": "الموعد",
       "card_code": "الكارت",
-      "is_active": "مفعّل"
+      "is_active": "مفعّل",
+    "rating": "التصحيح"
     },
     "actions": {
       "collect": "تحصيل",
@@ -2944,6 +2948,7 @@
       "course": "تعديل مجموعة",
       "venue": "مكان تدريس",
       "revision_mark": "علامة مراجعة",
+    "homework_rate": "تصحيح واجب",
       "family_request": "طلب"
     }
   },
@@ -3885,7 +3890,8 @@
     "all_done_title": "الكل حلّ؟",
     "all_done_body": "يُسجَّل «كامل» لكل طالب حاضر لم يُصحَّح واجبه بعد. تقدر تغيّر أي طالب بعدها من صفّه.",
     "all_done_confirm": "نعم، الكل كامل",
-    "row_label": "الواجب:"
+    "row_label": "الواجب:",
+    "missed_streak": "لم يحلّ {{n}} مرات متتالية"
   },
   "nazer": {
     "name": "الناظر صلاح الدين",

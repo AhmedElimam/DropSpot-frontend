@@ -66,6 +66,8 @@ export interface SessionAttendee {
   pending_sync?: boolean;
   /** The grade on the session's `homework_due`; null when ungraded or none. Always null on a swap-in. */
   homework_rating?: HomeworkRating | null;
+  /** The current run of «لم يُحلّ» in this group (0+). Always 0 on a swap-in. */
+  homework_missed_streak?: number;
 }
 
 /** A student swapped INTO this session (one-time makeup) — roster attendee + origin. */

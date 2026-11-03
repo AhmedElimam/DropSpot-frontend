@@ -115,6 +115,7 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `parent.report_cards.download_pdf` — element · app/(parent)/report-cards.tsx
 - `parent.report_cards.exam_results` — element · app/(parent)/report-cards.tsx
 - `parent.report_cards.hero` — element · app/(parent)/report-cards.tsx
+- `parent.report_cards.homework` — element · app/(parent)/report-cards.tsx
 - `parent.report_cards.list` — element · app/(parent)/report-cards.tsx
 - `parent.report_cards.scores` — element · app/(parent)/report-cards.tsx
 - `parent.reports.attendance_children` — element · app/(parent)/reports.tsx

@@ -74,3 +74,15 @@ export function HomeworkSummaryRow({ summary }: { summary: HomeworkSummary }) {
     </View>
   );
 }
+
+/** «لم يحلّ N مرات متتالية» — shown from the second miss in a row; nothing below that. */
+export function HomeworkStreakBadge({ n, big = false }: { n: number | null | undefined; big?: boolean }) {
+  const { t } = useTranslation();
+  if (!n || n < 2) return null;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: big ? spacing.sm : 3, alignSelf: big ? 'stretch' : 'flex-start', backgroundColor: colors.dangerLight, borderRadius: big ? radius.lg : radius.full, paddingVertical: big ? spacing.sm : 2, paddingHorizontal: big ? spacing.md : 8 }}>
+      <Icon name="warning" size={big ? 18 : 11} color={colors.dangerText} />
+      <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: big ? 14 : 11, color: colors.dangerText }}>{t('homework.missed_streak', { n: formatNumber(n) })}</Text>
+    </View>
+  );
+}

@@ -19,7 +19,7 @@ import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { MarkRow, MarksHeader, type SessionKind } from '@/components/session/SessionMarks';
 import { SessionNotesCard } from '@/components/session/SessionNotesCard';
 import { SessionHomeworkCard } from '@/components/session/SessionHomeworkCard';
-import { HomeworkRateChips } from '@/components/homework/HomeworkChips';
+import { HomeworkRateChips, HomeworkStreakBadge } from '@/components/homework/HomeworkChips';
 import type { HomeworkRating } from '@/api/homework';
 import { sessionPhase } from '@/utils/sessionPhase';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
@@ -234,6 +234,7 @@ export default function SessionDetailScreen() {
             {item.sheet_awaited ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.warning }}>{`· ${t('teacher.sheet_awaited')}`}</Text> : null}
             {item.note ? <Icon name="note" size={12} color={colors.textTertiary} /> : null}
             {item.number_flagged ? <Icon name="warning" size={12} color={colors.danger} /> : null}
+            {activeTab === 'roster' ? <HomeworkStreakBadge n={item.homework_missed_streak} /> : null}
           </View>
           {fromLabel ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand, marginTop: 2 }} numberOfLines={1}>{t('teacher.swapped_from', { from: fromLabel })}</Text> : null}
         </View>

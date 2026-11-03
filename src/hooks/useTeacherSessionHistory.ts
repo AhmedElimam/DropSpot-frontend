@@ -7,6 +7,9 @@ import { queueMark, getPendingMarksForSession } from '@/db/offlineMarks';
 import { applyPendingMarks, isNetworkFailure } from '@/db/marksSync';
 import { cacheSessionDetail, readCachedSessionDetail } from '@/db/sessionDetailCache';
 import { triggerAutoSync } from '@/db/autoSync';
+import { getPendingActionsFor } from '@/db/outbox';
+import { isQueued } from '@/api/offlineQueue';
+import { applyPendingHomework, homeworkGradeUrls, withHomeworkRating, withHomeworkRatingAll } from '@/utils/homeworkGrades';
 import { uuid } from '@/utils/uuid';
 import {
   getTeacherSessions,
@@ -72,7 +75,9 @@ export function useSessionDetail(id?: string) {
         detail = { ...cached.detail, offline: true, cached_at: new Date(cached.at).toISOString() };
       }
       const pending = await getPendingMarksForSession(Number(id)).catch(() => []);
-      return applyPendingMarks(detail, pending);
+      // Homework grades still parked in the outbox (offline) stay on the sheet until replayed.
+      const grades = await getPendingActionsFor(homeworkGradeUrls(id!)).catch(() => []);
+      return applyPendingHomework(applyPendingMarks(detail, pending), grades);
     },
     enabled: !!id,
     // A cached answer is a real answer here; no point hammering a dead radio.
@@ -84,6 +89,8 @@ export function useSessionDetail(id?: string) {
 function useSyncSession(id?: string) {
   const qc = useQueryClient();
   return (fresh: SessionDetail) => {
+    // Parked offline (src/api/offlineQueue.ts): no sheet came back — keep what is shown.
+    if (isQueued(fresh)) return;
     qc.setQueryData(['teacher-session-detail', id], fresh);
     qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
     // The home's today card shows this session's counts too (founder 2026-10-11: it did not
@@ -172,7 +179,17 @@ export function useSessionControls(id: string) {
     onSuccess: (fresh) => { if (qc.isMutating({ mutationKey: rateKey }) <= 1) sync(fresh); },
     onError: () => qc.invalidateQueries({ queryKey: ['teacher-session-detail', id] }),
   });
-  const homeworkRateAll = useMutation({ mutationFn: (rating: HomeworkRating) => rateHomeworkAll(id, rating), onSuccess: sync });
+  // With no connection both are parked in the outbox (idempotent: they set the grade) and the
+  // tapped grades stay on the sheet — useSessionDetail lays the parked ones over every read.
+  const homeworkRateAll = useMutation({
+    mutationFn: (rating: HomeworkRating) => rateHomeworkAll(id, rating),
+    onMutate: async (rating) => {
+      await qc.cancelQueries({ queryKey: ['teacher-session-detail', id] });
+      qc.setQueryData<SessionDetail>(['teacher-session-detail', id], (d) => (d ? withHomeworkRatingAll(d, rating) : d));
+    },
+    onSuccess: sync,
+    onError: () => qc.invalidateQueries({ queryKey: ['teacher-session-detail', id] }),
+  });
 
   return { mark, cancel, restore, note, summary, reopen, grade, sheet, sheetExcluded, sheetMax, setType, homework, homeworkRate, homeworkRateAll };
 }
@@ -183,21 +200,6 @@ export function usePauseSessions() {
     mutationFn: (v: { from: string; to: string }) => pauseSessions(v.from, v.to),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teacher-session-history'] }),
   });
-}
-
-/** One student's homework grade laid over the sheet, the due card's counts moved with it. */
-function withHomeworkRating(d: SessionDetail, studentId: number, rating: HomeworkRating | null): SessionDetail {
-  const row = d.attendees.find((a) => a.student_id === studentId);
-  if (!row || !d.homework_due) return d;
-  const was = row.homework_rating ?? null;
-  const counts = { ...d.homework_due.counts };
-  counts[was ?? 'ungraded'] = Math.max(0, (counts[was ?? 'ungraded'] ?? 0) - 1);
-  counts[rating ?? 'ungraded'] = (counts[rating ?? 'ungraded'] ?? 0) + 1;
-  return {
-    ...d,
-    attendees: d.attendees.map((a) => (a.student_id === studentId ? { ...a, homework_rating: rating } : a)),
-    homework_due: { ...d.homework_due, counts },
-  };
 }
 
 /** The server's «owes money» answer to a manual mark (402 BILLING_OVERDUE). */

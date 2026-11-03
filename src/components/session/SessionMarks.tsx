@@ -8,7 +8,7 @@ import { Avatar } from '@/components/layout/Avatar';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
-import { HomeworkRateChips } from '@/components/homework/HomeworkChips';
+import { HomeworkRateChips, HomeworkStreakBadge } from '@/components/homework/HomeworkChips';
 import type { HomeworkRating } from '@/api/homework';
 
 export type SessionKind = 'normal_sheet' | 'quiz_exam';
@@ -50,7 +50,7 @@ export function toLatinNumber(raw: string): string {
   return raw.trim().replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace('٫', '.').replace(',', '.');
 }
 
-type RowStudent = { student_id: number; name: string | null; status: string; mark: number | null; homework_rating?: HomeworkRating | null };
+type RowStudent = { student_id: number; name: string | null; status: string; mark: number | null; homework_rating?: HomeworkRating | null; homework_missed_streak?: number };
 
 /**
  * One row of the «الدرجات» tab: the student and a number field. Saves on «تم» / leaving the
@@ -124,6 +124,7 @@ export const MarkRow = memo(function MarkRow({ a, max, onSave, noDoor = false, o
       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
         <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textTertiary }}>{t('homework.row_label')}</Text>
         <HomeworkRateChips value={a.homework_rating ?? null} onChange={(r) => onHomework(a.student_id, r)} />
+        <HomeworkStreakBadge n={a.homework_missed_streak} />
       </View>
     ) : null}
     </View>

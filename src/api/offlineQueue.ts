@@ -26,6 +26,11 @@ export interface QueueRule {
    * will be there to answer when the request finally arrives.
    */
   park?: (body: Record<string, unknown>) => Record<string, unknown>;
+  /**
+   * What the action is about («the grade of student 5»): a newer parked action with the same
+   * url and the same answer replaces the older one — the last write wins.
+   */
+  supersede?: (body: Record<string, unknown>) => string | null;
 }
 
 const N = '\\d+';
@@ -34,6 +39,9 @@ export const QUEUE_RULES: QueueRule[] = [
   { method: 'post', path: new RegExp(`^/teacher/(pending-collections/collect|students/${N}/collect)$`), label: 'collect' },
   { method: 'post', path: /^\/teacher\/pending-collections\/cancel-due$/, label: 'cancel_due' },
   { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/(note|summary|sheet-grade|sheet-toggle|sheet-excluded|sheet-max-mark|type)$`), label: 'session_sheet' },
+  // «الواجب» grades: idempotent (they set the grade); a student tapped again offline keeps only the last.
+  { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/homework-rate$`), label: 'homework_rate', supersede: (b) => (b.student_id != null ? String(b.student_id) : null) },
+  { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/homework-rate-all$`), label: 'homework_rate' },
   { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/cancel$`), label: 'session_cancel' },
   { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/restore$`), label: 'session_restore' },
   { method: 'post', path: /^\/teacher\/sessions$/, label: 'session_create' },
@@ -90,6 +98,17 @@ export function parkedBody(rule: QueueRule, data: unknown): string | null {
   }
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return bodyString(data);
   return JSON.stringify(rule.park(obj as Record<string, unknown>));
+}
+
+/** The rule's «same thing» answer for a stored body, or null when it supersedes nothing. */
+export function supersedeKey(rule: QueueRule, body: string | null): string | null {
+  if (!rule.supersede || !body) return null;
+  try {
+    const obj = JSON.parse(body) as unknown;
+    return obj && typeof obj === 'object' && !Array.isArray(obj) ? rule.supersede(obj as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** «تحصيل · 300 ج.م» — the line on the sync screen. */
