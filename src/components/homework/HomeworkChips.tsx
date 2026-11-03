@@ -82,7 +82,7 @@ export function HomeworkStreakBadge({ n, big = false }: { n: number | null | und
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: big ? spacing.sm : 3, alignSelf: big ? 'stretch' : 'flex-start', backgroundColor: colors.dangerLight, borderRadius: big ? radius.lg : radius.full, paddingVertical: big ? spacing.sm : 2, paddingHorizontal: big ? spacing.md : 8 }}>
       <Icon name="warning" size={big ? 18 : 11} color={colors.dangerText} />
-      <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: big ? 14 : 11, color: colors.dangerText }}>{t('homework.missed_streak', { n: formatNumber(n) })}</Text>
+      <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: big ? 14 : 11, color: colors.dangerText }}>{n === 2 ? t('homework.missed_streak_two') : t('homework.missed_streak', { n: formatNumber(n) })}</Text>
     </View>
   );
 }
