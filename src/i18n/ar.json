@@ -3865,6 +3865,9 @@
     "cancelled": "هذه الحصة ملغاة — لا ملاحظات لها."
   },
   "homework": {
+    "given_empty_short": "لم يُكتب بعد",
+    "previous_short": "لم يُسجَّل واجب حصة {{date}}",
+    "due_title_short": "تصحيح السابق:",
     "due_title_same": "تصحيح واجب هذه الحصة",
     "sheet_title_same": "واجب هذه الحصة",
     "previous_title": "واجب الحصة السابقة",
