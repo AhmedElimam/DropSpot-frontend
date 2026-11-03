@@ -39,7 +39,7 @@ export const QUEUE_RULES: QueueRule[] = [
   { method: 'post', path: /^\/teacher\/sessions$/, label: 'session_create' },
   { method: 'post', path: new RegExp(`^/teacher/(excuses|session-swaps|student-edit-requests)/${N}/(approve|reject)$`), label: 'decision' },
   { method: 'post', path: new RegExp(`^/teacher/assistant-reports/[a-z_-]+/${N}/(approve|reject)$`), label: 'decision' },
-  { method: 'post', path: new RegExp(`^/teacher/assistant-actions/${N}/reject$`), label: 'decision' },
+  { method: 'post', path: new RegExp(`^/teacher/assistant-actions/${N}/(accept|reject)$`), label: 'decision' },
   { method: 'post', path: new RegExp(`^/teacher/booking-requests/${N}/(accept|reject)$`), label: 'decision' },
   { method: 'post', path: new RegExp(`^/teacher/payment-proofs/${N}/(approve|reject)$`), label: 'decision' },
   { method: 'post', path: new RegExp(`^/teacher/complaints/${N}/(approve|reject|review)$`), label: 'decision' },

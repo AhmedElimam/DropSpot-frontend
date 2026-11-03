@@ -13,7 +13,7 @@ import { FormScreen, HeaderCount } from '@/components/ui/Form';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatNumber, formatDayDate, formatTime } from '@/utils/format';
-import { getAssistantActions, rejectAssistantAction, type AssistantAction } from '@/api/assistantActions';
+import { acceptAssistantAction, getAssistantActions, rejectAssistantAction, type AssistantAction } from '@/api/assistantActions';
 import { Surface } from '@/ui/surfaces';
 
 type Kind = AssistantAction['kind'];
@@ -55,8 +55,8 @@ function Chip({ label, count, on, tint, onPress, initial }: { label: string; cou
   );
 }
 
-/** One assistant action: what, how much, who, when — and the one button, «رفض». */
-const ActionRow = memo(function ActionRow({ a, busy, onReject }: { a: AssistantAction; busy: boolean; onReject: (a: AssistantAction) => void }) {
+/** One assistant action: what, how much, who, when — and its two answers, «قبول» and «رفض». */
+const ActionRow = memo(function ActionRow({ a, busy, onAccept, onReject }: { a: AssistantAction; busy: 'accept' | 'reject' | null; onAccept: (a: AssistantAction) => void; onReject: (a: AssistantAction) => void }) {
   const { t } = useTranslation();
   const k = KIND(t)[a.kind] ?? KIND(t).bill;
   const money = a.kind !== 'attendance';
@@ -83,11 +83,21 @@ const ActionRow = memo(function ActionRow({ a, busy, onReject }: { a: AssistantA
             {a.created_at ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{formatTime(a.created_at)}</Text> : null}
           </View>
         </View>
+      </View>
+      {/* Founder 2026-11-03: accept beside reject — an accepted action stands and leaves the bucket. */}
+      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
+        <Surface id="teacher.assistant_actions.accept_button">
+        <TouchableOpacity onPress={() => onAccept(a)} disabled={busy !== null} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('assistant_actions.accept')}
+          style={{ flex: 1, height: 42, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.success }}>
+          {busy === 'accept' ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="success" size={16} color="#fff" />}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('assistant_actions.accept_short')}</Text>
+        </TouchableOpacity>
+        </Surface>
         <Surface id="teacher.assistant_actions.reject_button">
-        <TouchableOpacity onPress={() => onReject(a)} disabled={busy} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('assistant_actions.reject')}
-          style={{ height: 40, paddingHorizontal: spacing.md, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.danger + '14', borderWidth: 1, borderColor: colors.danger + '55' }}>
-          {busy ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="close" size={16} color={colors.danger} />}
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.danger }}>{t('assistant_actions.reject_short')}</Text>
+        <TouchableOpacity onPress={() => onReject(a)} disabled={busy !== null} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('assistant_actions.reject')}
+          style={{ flex: 1, height: 42, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.danger + '14', borderWidth: 1, borderColor: colors.danger + '55' }}>
+          {busy === 'reject' ? <ActivityIndicator size="small" color={colors.danger} /> : <Icon name="close" size={16} color={colors.danger} />}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.danger }}>{t('assistant_actions.reject_short')}</Text>
         </TouchableOpacity>
         </Surface>
       </View>
@@ -96,8 +106,9 @@ const ActionRow = memo(function ActionRow({ a, busy, onReject }: { a: AssistantA
 });
 
 /**
- * «مراجعة إجراءات المساعد» — the teacher's reject-only bucket: an assistant's payment-proof
- * approvals, collections and attendance changes, each undoable within 30 days.
+ * «مراجعة إجراءات المساعد» — the teacher's review bucket: an assistant's payment-proof
+ * approvals, collections and attendance changes, each accepted (it stands) or rejected (it is
+ * undone) within 10 days — 30 until 2026-11-03.
  *
  * Founder 2026-10-10: filter by the assistant and by the kind of action, not only money.
  * Two chip rows (each assistant with a count; each kind present with a count), a strip with
@@ -123,6 +134,13 @@ export default function AssistantActionsScreen() {
       qc.invalidateQueries({ queryKey: ['teacher-session-detail'] });
       qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
     },
+    onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+  });
+
+  // Accepting changes nothing, so it needs no confirmation: the row just leaves the bucket.
+  const accept = useMutation({
+    mutationFn: (id: number) => acceptAssistantAction(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['assistant-actions'] }),
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
 
@@ -174,7 +192,14 @@ export default function AssistantActionsScreen() {
           sections={sections}
           keyExtractor={(a) => String(a.id)}
           stickySectionHeadersEnabled={false}
-          renderItem={({ item }) => <ActionRow a={item} busy={reject.isPending && reject.variables === item.id} onReject={confirmReject} />}
+          renderItem={({ item }) => (
+            <ActionRow
+              a={item}
+              busy={accept.isPending && accept.variables === item.id ? 'accept' : reject.isPending && reject.variables === item.id ? 'reject' : null}
+              onAccept={(a) => accept.mutate(a.id)}
+              onReject={confirmReject}
+            />
+          )}
           renderSectionHeader={({ section }) => (
             <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.sm }}>{section.title}</Text>
           )}

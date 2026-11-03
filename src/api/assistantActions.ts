@@ -3,8 +3,8 @@ import { homePart } from '@/api/homeBatch';
 
 /**
  * Teacher oversight of an assistant's money actions (payment-proof approvals + pending
- * collections) and attendance changes. Reject-only — the teacher can reverse an assistant's action within the
- * 30-day window; entries auto-clear after.
+ * collections) and attendance changes. The teacher accepts one (it stands) or rejects it (it is
+ * reversed) within 10 days (30 until 2026-11-03); entries auto-clear after and the action stands.
  */
 export interface AssistantAction {
   id: number;
@@ -24,6 +24,11 @@ export async function getAssistantActions(): Promise<AssistantAction[]> {
   // JSON:API: the id sits beside `attributes`, not inside it — reading attributes alone
   // left every row without an id (no React key, and «رفض» posted to /undefined).
   return rows.map((r) => ({ ...(r.attributes ?? r), id: Number(r.id ?? r.attributes?.id) }) as AssistantAction);
+}
+
+/** «قبول» — the action stands as the assistant left it and leaves the bucket. */
+export async function acceptAssistantAction(id: number): Promise<void> {
+  await client.post(`/teacher/assistant-actions/${id}/accept`);
 }
 
 export async function rejectAssistantAction(id: number): Promise<void> {
