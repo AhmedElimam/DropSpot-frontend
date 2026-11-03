@@ -1796,7 +1796,7 @@
     "seg_sessions": "الحصص",
     "all_grades": "كل الصفوف",
     "all_courses": "الكل",
-    "search_student_ph": "ابحث بالاسم أو الكود",
+    "search_student_ph": "ابحث بالاسم أو الكود أو الرقم أو المجموعة",
     "no_students": "لا يوجد طلاب",
     "no_students_hint": "لم يُسجَّل أي طالب في صفك بعد.",
     "no_sessions_history": "لا توجد حصص",

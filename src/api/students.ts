@@ -125,6 +125,10 @@ export interface RosterStudent {
   attendance_total: number;
   attendance_attended: number;
   attendance_rate: number | null;
+  /** For the search: the student's and the parents' numbers, and this teacher's courses they are in. */
+  phone?: string | null;
+  parent_phones?: string[];
+  course_names?: string[];
   /** An overdue bill under this teacher. Only sent to someone who may collect. */
   overdue?: boolean;
   /** An active 15-day billing exemption under this teacher (same audience as `overdue`). */

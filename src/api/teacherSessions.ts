@@ -1,6 +1,6 @@
 import client from './client';
 import { extractList, extractAttrs } from './utils';
-import type { HomeworkRating } from './homework';
+import type { HomeworkRating, HomeworkSummary } from './homework';
 
 // Teacher sessions HISTORY (beyond today) + per-session attendance detail. The
 // existing /teacher/sessions/today is today-only and carries no attendee roster.
@@ -68,6 +68,8 @@ export interface SessionAttendee {
   homework_rating?: HomeworkRating | null;
   /** The current run of «لم يُحلّ» in this group (0+). Always 0 on a swap-in. */
   homework_missed_streak?: number;
+  /** This course's homework so far — the four counts and the rate. null when none was graded, and on a swap-in. */
+  homework_summary?: HomeworkSummary | null;
 }
 
 /** A student swapped INTO this session (one-time makeup) — roster attendee + origin. */

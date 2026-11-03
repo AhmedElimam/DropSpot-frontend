@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { FlatList, SectionList, ScrollView } from '@/components/ui/Refreshable';
 import { router, type Href, useLocalSearchParams } from 'expo-router';
+import { searchScore } from '@/utils/smartSearch';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -174,11 +175,18 @@ export default function TeacherStudents() {
   useEffect(() => { if ((quick === 'overdue' || quick === 'exempt') && !seesMoney) setQuick('all'); }, [quick, seesMoney]);
 
   // Search + quick filter run client-side over the loaded roster (course is server-side).
+  // The search folds Arabic spelling and matches names, codes, numbers and groups (smartSearch);
+  // the best matches lead inside each grade.
   const sections = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = search.trim();
+    const gradeOrder = new Map<string, number>();
+    roster.forEach((s) => { const g = String(s.grade_id ?? 'x'); if (!gradeOrder.has(g)) gradeOrder.set(g, gradeOrder.size); });
     const rows = roster
       .filter((s) => (quick === 'low' ? s.attendance_rate != null && s.attendance_rate < LOW_RATE : quick === 'overdue' ? !!s.overdue : quick === 'exempt' ? !!s.exempted : true))
-      .filter((s) => !q || (s.name ?? '').toLowerCase().includes(q) || (s.student_code ?? '').toLowerCase().includes(q));
+      .map((s) => ({ s, score: q ? searchScore({ name: s.name, code: s.student_code, phones: [s.phone, ...(s.parent_phones ?? [])], tags: s.course_names }, q) : 1 }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => (q ? (gradeOrder.get(String(a.s.grade_id ?? 'x'))! - gradeOrder.get(String(b.s.grade_id ?? 'x'))!) || b.score - a.score : 0))
+      .map((x) => x.s);
     const out: { key: string; title: string; data: RosterStudent[] }[] = [];
     for (const s of rows) {
       const title = s.grade_name ?? t('students_ui.no_grade');

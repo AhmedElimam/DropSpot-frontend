@@ -976,8 +976,10 @@ else the ability key an assistant must hold); `gates` in `config/mobile_ui.php` 
 - `teacher.session_detail.settings_sheet.type` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.student_sheet` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.student_sheet.grade` — element · app/(teacher)/sessions/[id].tsx
+- `teacher.session_detail.student_sheet.homework` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.student_sheet.mark_attendance` — element · assistant: mark_attendance_manual · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.student_sheet.note` — element · app/(teacher)/sessions/[id].tsx
+- `teacher.session_detail.student_sheet.profile` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.student_sheet.sheet_marked` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_detail.swap_tabs` — element · app/(teacher)/sessions/[id].tsx
 - `teacher.session_marks.kind_toggle` — element · src/components/session/SessionMarks.tsx

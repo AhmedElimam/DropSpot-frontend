@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Switch, KeyboardAvoidingView } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { FlatList, ScrollView } from '@/components/ui/Refreshable';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,7 +19,7 @@ import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { MarkRow, MarksHeader, type SessionKind } from '@/components/session/SessionMarks';
 import { SessionNotesCard } from '@/components/session/SessionNotesCard';
 import { SessionHomeworkCard } from '@/components/session/SessionHomeworkCard';
-import { HomeworkRateChips, HomeworkStreakBadge } from '@/components/homework/HomeworkChips';
+import { HomeworkRateChips, HomeworkStreakBadge, HomeworkSummaryRow } from '@/components/homework/HomeworkChips';
 import type { HomeworkRating } from '@/api/homework';
 import { sessionPhase } from '@/utils/sessionPhase';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
@@ -574,6 +574,29 @@ export default function SessionDetailScreen() {
                     <Icon name="close" size={18} color={colors.textPrimary} />
                   </TouchableOpacity>
                 </View>
+
+                {/* The whole record is one tap away (founder 2026-11-03). */}
+                <Surface id="teacher.session_detail.student_sheet.profile">
+                <TouchableOpacity
+                  onPress={() => { const id = current.student_id; setSelected(null); router.push(`/(teacher)/students/${id}` as Href); }}
+                  activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('teacher.open_student_profile')}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, marginBottom: spacing.lg }}>
+                  <Icon name="child" size={18} color={colors.brand} />
+                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('teacher.open_student_profile')}</Text>
+                  <Icon name="back" size={16} color={colors.brand} />
+                </TouchableOpacity>
+                </Surface>
+
+                {/* «الواجبات» in this course — the rate and the four counts, once something was graded. */}
+                {current.homework_summary && current.homework_summary.graded > 0 ? (
+                  <Surface id="teacher.session_detail.student_sheet.homework">
+                  <View style={{ gap: spacing.sm, marginBottom: spacing.lg }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('homework.title')}</Text>
+                    <HomeworkStreakBadge n={current.homework_missed_streak} big />
+                    <HomeworkSummaryRow summary={current.homework_summary} />
+                  </View>
+                  </Surface>
+                ) : null}
 
                 {noDoor ? null : (
                 <Surface id="teacher.session_detail.student_sheet.mark_attendance" ctx={{ session: s }} assistantNeeds="mark_attendance_manual">
