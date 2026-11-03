@@ -109,8 +109,8 @@ export function SessionHomeworkCard({ s, save, saveDue, rateAll }: {
                 <Icon name="success" size={20} color={colors.successText} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }}>{t('homework.due_title')}</Text>
-                {due.session_date ? (
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }}>{t(due.same_session ? 'homework.due_title_same' : 'homework.due_title')}</Text>
+                {due.session_date && !due.same_session ? (
                   <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>{t('homework.given_on', { date: formatDayDate(homeworkDay(due.session_date)) })}</Text>
                 ) : null}
               </View>

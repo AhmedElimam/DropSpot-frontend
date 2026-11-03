@@ -639,12 +639,12 @@ export default function SessionDetailScreen() {
                 </TouchableOpacity>
                 </Surface>
 
-                {/* «الواجب»: grade the previous session's homework right here, then this course's record
+                {/* «الواجب»: grade the homework due here (the previous session's, else this one's own), then this course's record
                     (rate + four counts). Not on a swap-in — theirs is another group's homework. */}
                 {!('from_label' in current) && s?.can_edit_homework !== undefined ? (
                   <Surface id="teacher.session_detail.student_sheet.homework">
                   <View style={{ gap: spacing.sm, marginBottom: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('homework.sheet_title')}</Text>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t(s.homework_due?.same_session ? 'homework.sheet_title_same' : 'homework.sheet_title')}</Text>
                     {s.homework_due ? (
                       <>
                         <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 21, color: colors.textPrimary }} numberOfLines={3}>{s.homework_due.body}</Text>

@@ -116,12 +116,14 @@ export interface SessionDetail {
   notes_window?: NotesWindow;
   /** «الواجب» given at this session (null = none yet). Older servers omit the three fields. */
   homework?: { id: number; body: string; updated_at: string | null } | null;
-  /** The group's previous homework, graded at THIS session. */
+  /** The homework graded at THIS session: the group's previous one, else this session's own. */
   homework_due?: {
     id: number;
     body: string;
     session_id: string;
     session_date: string | null;
+    /** True when this is the session's OWN homework (nothing earlier in the group to grade). */
+    same_session?: boolean;
     counts: Record<HomeworkRating | 'ungraded', number>;
   } | null;
   /** Nothing recorded at the group's previous session: that session, so its homework can be written now. */
