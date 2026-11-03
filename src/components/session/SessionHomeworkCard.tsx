@@ -20,8 +20,8 @@ const MAX = 500;
 /**
  * «الواجب» on the teacher's session sheet (founder 2026-11-03), two parts: the homework given
  * at THIS session (its students read it in their app), and the previous session's homework,
- * graded here — each student from their row's chips, or the attending ones at once with
- * «الكل حلّ». Nothing on an older server; nothing to write on a cancelled session.
+ * graded here like a quiz (جيد / مقبول / ضعيف / لم يحلّ) — each student from their row's chips,
+ * or the attending ones at once with «الكل جيد». Nothing on an older server; nothing to write on a cancelled session.
  */
 export function SessionHomeworkCard({ s, save, rateAll }: {
   s: SessionDetail;
@@ -43,9 +43,9 @@ export function SessionHomeworkCard({ s, save, rateAll }: {
     onSuccess: () => setEditing(false),
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
-  const allDone = () => Alert.alert(t('homework.all_done_title'), t('homework.all_done_body'), [
+  const allGood = () => Alert.alert(t('homework.all_done_title'), t('homework.all_done_body'), [
     { text: t('common.cancel'), style: 'cancel' },
-    { text: t('homework.all_done_confirm'), onPress: () => rateAll.mutate('done', { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) }) },
+    { text: t('homework.all_done_confirm'), onPress: () => rateAll.mutate('good', { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) }) },
   ]);
 
   return (
@@ -100,7 +100,7 @@ export function SessionHomeworkCard({ s, save, rateAll }: {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md }}>
                 <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textTertiary }}>{t('homework.grade_hint')}</Text>
                 {(due.counts.ungraded ?? 0) > 0 ? (
-                  <TouchableOpacity onPress={allDone} disabled={rateAll.isPending} activeOpacity={0.85} accessibilityRole="button"
+                  <TouchableOpacity onPress={allGood} disabled={rateAll.isPending} activeOpacity={0.85} accessibilityRole="button"
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, backgroundColor: colors.successLight, borderRadius: radius.full, paddingHorizontal: spacing.md, opacity: rateAll.isPending ? 0.6 : 1 }}>
                     {rateAll.isPending ? <ActivityIndicator size="small" color={colors.successText} /> : <Icon name="success" size={16} color={colors.successText} />}
                     <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.successText }}>{t('homework.all_done')}</Text>

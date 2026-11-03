@@ -1,13 +1,11 @@
 import type { SessionDetail } from '@/api/teacherSessions';
-import type { HomeworkRating } from '@/api/homework';
+import { normalizeRating, type HomeworkRating } from '@/api/homework';
 
 /**
  * Homework grades laid over a session sheet before the server confirms them: at the tap,
  * and — while they wait in the outbox with no connection — every time the sheet is read,
  * so what the teacher graded is what the teacher sees until the replay lands.
  */
-
-const RATINGS = new Set<string>(['done', 'partial', 'missing']);
 
 /** One student's grade, the due card's counts moved with it. */
 export function withHomeworkRating(d: SessionDetail, studentId: number, rating: HomeworkRating | null): SessionDetail {
@@ -25,7 +23,7 @@ export function withHomeworkRating(d: SessionDetail, studentId: number, rating: 
   };
 }
 
-/** «الكل حلّ»: every still-ungraded roster student who came (everyone, when the course takes no attendance). */
+/** «الكل جيد»: every still-ungraded roster student who came (everyone, when the course takes no attendance). */
 export function withHomeworkRatingAll(d: SessionDetail, rating: HomeworkRating): SessionDetail {
   if (!d.homework_due) return d;
   const noDoor = d.tracks_attendance === false;
@@ -37,13 +35,17 @@ export function withHomeworkRatingAll(d: SessionDetail, rating: HomeworkRating):
   return out;
 }
 
-/** The session's grades still waiting in the outbox, oldest first — replayed in that order, so the last one wins. */
+/**
+ * The session's grades still waiting in the outbox, oldest first — replayed in that order, so
+ * the last one wins. One parked before the quality grades says done / partial: read as
+ * good / acceptable, as the server stores it.
+ */
 export function applyPendingHomework(d: SessionDetail, pending: { url: string; body: string | null }[]): SessionDetail {
   let out = d;
   for (const p of pending) {
     let body: { student_id?: unknown; rating?: unknown } = {};
     try { body = p.body ? JSON.parse(p.body) : {}; } catch { continue; }
-    const rating = typeof body.rating === 'string' && RATINGS.has(body.rating) ? (body.rating as HomeworkRating) : null;
+    const rating = normalizeRating(body.rating);
     if (/\/homework-rate-all$/.test(p.url)) {
       if (rating) out = withHomeworkRatingAll(out, rating);
     } else if (/\/homework-rate$/.test(p.url) && body.student_id != null) {

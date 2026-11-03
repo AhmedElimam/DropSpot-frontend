@@ -17,8 +17,8 @@ import { dayLabel } from '@/utils/format';
 import { homeworkDay, type HomeworkEntry } from '@/api/homework';
 
 /**
- * «الواجبات» (founder 2026-11-03): every homework a teacher gave, and how it was done — كامل،
- * ناقص، لم يُحلّ — graded at the next session. On top the completion rate over all of it.
+ * «الواجبات» (founder 2026-11-03): every homework a teacher gave, and how it was done — جيد،
+ * مقبول، ضعيف، لم يحلّ — graded at the next session. On top the completion rate over all of it.
  * Newest first, a page at a time; a parent can narrow to one child (`family`). The same
  * screen for a parent and a student, built like «ملاحظات الحصص».
  */

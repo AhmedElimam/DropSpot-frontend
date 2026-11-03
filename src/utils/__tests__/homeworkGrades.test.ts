@@ -13,8 +13,9 @@ const sheet = (attendees: SessionAttendee[], extra: Partial<SessionDetail> = {})
   homework_due: {
     id: 9, body: 'ص ٤٠', session_id: '6', session_date: '2026-10-27',
     counts: {
-      done: attendees.filter((a) => a.homework_rating === 'done').length,
-      partial: attendees.filter((a) => a.homework_rating === 'partial').length,
+      good: attendees.filter((a) => a.homework_rating === 'good').length,
+      acceptable: attendees.filter((a) => a.homework_rating === 'acceptable').length,
+      weak: attendees.filter((a) => a.homework_rating === 'weak').length,
       missing: attendees.filter((a) => a.homework_rating === 'missing').length,
       ungraded: attendees.filter((a) => !a.homework_rating).length,
     },
@@ -25,29 +26,40 @@ const sheet = (attendees: SessionAttendee[], extra: Partial<SessionDetail> = {})
 
 describe('homework grades over a sheet', () => {
   it('moves one student and the counts with them, and clears back to ungraded', () => {
-    const d = withHomeworkRating(sheet([row(1, 'present'), row(2, 'present', 'done')]), 1, 'missing');
-    expect(d.attendees[0].homework_rating).toBe('missing');
-    expect(d.homework_due!.counts).toEqual({ done: 1, partial: 0, missing: 1, ungraded: 0 });
+    const d = withHomeworkRating(sheet([row(1, 'present'), row(2, 'present', 'good')]), 1, 'weak');
+    expect(d.attendees[0].homework_rating).toBe('weak');
+    expect(d.homework_due!.counts).toEqual({ good: 1, acceptable: 0, weak: 1, missing: 0, ungraded: 0 });
     const cleared = withHomeworkRating(d, 2, null);
-    expect(cleared.homework_due!.counts).toEqual({ done: 0, partial: 0, missing: 1, ungraded: 1 });
+    expect(cleared.homework_due!.counts).toEqual({ good: 0, acceptable: 0, weak: 1, missing: 0, ungraded: 1 });
   });
 
-  it('«الكل حلّ» fills only the ungraded who came (everyone in a lesson with no attendance)', () => {
-    const d = withHomeworkRatingAll(sheet([row(1, 'present'), row(2, 'absent'), row(3, 'late', 'partial')]), 'done');
-    expect(d.attendees.map((a) => a.homework_rating)).toEqual(['done', null, 'partial']);
-    const noDoor = withHomeworkRatingAll(sheet([row(1, 'not_recorded'), row(2, 'not_recorded')], { tracks_attendance: false }), 'done');
-    expect(noDoor.attendees.every((a) => a.homework_rating === 'done')).toBe(true);
+  it('«الكل جيد» fills only the ungraded who came (everyone in a lesson with no attendance)', () => {
+    const d = withHomeworkRatingAll(sheet([row(1, 'present'), row(2, 'absent'), row(3, 'late', 'acceptable')]), 'good');
+    expect(d.attendees.map((a) => a.homework_rating)).toEqual(['good', null, 'acceptable']);
+    const noDoor = withHomeworkRatingAll(sheet([row(1, 'not_recorded'), row(2, 'not_recorded')], { tracks_attendance: false }), 'good');
+    expect(noDoor.attendees.every((a) => a.homework_rating === 'good')).toBe(true);
   });
 
   it('lays the parked grades over the sheet in order — the last tap wins', () => {
     const [one, all] = homeworkGradeUrls(7);
-    const d = applyPendingHomework(sheet([row(1, 'present'), row(2, 'present')]), [
+    const d = applyPendingHomework(sheet([row(1, 'present'), row(2, 'present'), row(3, 'present')]), [
       { url: one, body: JSON.stringify({ student_id: 1, rating: 'missing' }) },
-      { url: all, body: JSON.stringify({ rating: 'done' }) },
+      { url: all, body: JSON.stringify({ rating: 'good' }) },
       { url: one, body: JSON.stringify({ student_id: 1, rating: null }) },
+      { url: one, body: JSON.stringify({ student_id: 3, rating: 'weak' }) },
       { url: one, body: 'not json' },
     ]);
-    expect(d.attendees.map((a) => a.homework_rating)).toEqual([null, 'done']);
-    expect(d.homework_due!.counts).toEqual({ done: 1, partial: 0, missing: 0, ungraded: 1 });
+    expect(d.attendees.map((a) => a.homework_rating)).toEqual([null, 'good', 'weak']);
+    expect(d.homework_due!.counts).toEqual({ good: 1, acceptable: 0, weak: 1, missing: 0, ungraded: 1 });
+  });
+
+  it('reads a grade parked before the update (done / partial) as good / acceptable', () => {
+    const [one, all] = homeworkGradeUrls(7);
+    const d = applyPendingHomework(sheet([row(1, 'present'), row(2, 'present'), row(3, 'present')]), [
+      { url: one, body: JSON.stringify({ student_id: 1, rating: 'partial' }) },
+      { url: one, body: JSON.stringify({ student_id: 2, rating: 'bogus' }) },
+      { url: all, body: JSON.stringify({ rating: 'done' }) },
+    ]);
+    expect(d.attendees.map((a) => a.homework_rating)).toEqual(['acceptable', 'good', 'good']);
   });
 });

@@ -144,7 +144,7 @@ function ReportRow({ report, opening, onOpen, t }: {
       ) : null}
       </Surface>
 
-      {/* «الواجبات» over the report's period: the rate and the three counts. */}
+      {/* «الواجبات» over the report's period: the rate and the four counts. */}
       {report.homework_summary ? (
         <Surface id="parent.report_cards.homework">
         <View style={{ marginTop: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md }}>

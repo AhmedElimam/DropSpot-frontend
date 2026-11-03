@@ -36,9 +36,9 @@ describe('matchQueueRule', () => {
     expect(one.label).toBe('homework_rate');
     expect(matchQueueRule('post', '/teacher/sessions/7/homework-rate-all')?.label).toBe('homework_rate');
     expect(matchQueueRule('post', '/teacher/sessions/7/homework')).toBeNull();
-    expect(supersedeKey(one, '{"student_id":5,"rating":"done"}')).toBe('5');
+    expect(supersedeKey(one, '{"student_id":5,"rating":"good"}')).toBe('5');
     expect(supersedeKey(one, '{"student_id":5,"rating":null}')).toBe('5');
-    expect(supersedeKey(matchQueueRule('post', '/teacher/sessions/7/homework-rate-all')!, '{"rating":"done"}')).toBeNull();
+    expect(supersedeKey(matchQueueRule('post', '/teacher/sessions/7/homework-rate-all')!, '{"rating":"good"}')).toBeNull();
     expect(supersedeKey(one, 'not json')).toBeNull();
   });
 
