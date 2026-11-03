@@ -1,5 +1,5 @@
 import { SheetModal } from '@/components/ui/SheetModal';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Switch, KeyboardAvoidingView } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { FlatList, ScrollView } from '@/components/ui/Refreshable';
@@ -19,7 +19,7 @@ import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { MarkRow, MarksHeader, type SessionKind } from '@/components/session/SessionMarks';
 import { SessionNotesCard } from '@/components/session/SessionNotesCard';
 import { SessionHomeworkCard } from '@/components/session/SessionHomeworkCard';
-import { HomeworkRateChips, HomeworkStreakBadge, HomeworkSummaryRow } from '@/components/homework/HomeworkChips';
+import { HomeworkRateChips, HomeworkRatingBadge, HomeworkStreakBadge, HomeworkSummaryRow } from '@/components/homework/HomeworkChips';
 import type { HomeworkRating } from '@/api/homework';
 import { sessionPhase } from '@/utils/sessionPhase';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
@@ -155,6 +155,42 @@ export default function SessionDetailScreen() {
     setNoteDraft(a.note ?? '');
     setGradeDraft(a.mark != null ? String(a.mark) : '');
   };
+  // Closing the student's sheet saves what was typed and left unsaved (founder 2026-11-03), and
+  // the row lights up for a moment so the teacher sees it was kept.
+  const [saved, setSaved] = useState<{ id: number; text: string } | null>(null);
+  useEffect(() => {
+    if (!saved) return;
+    const timer = setTimeout(() => setSaved(null), 3500);
+    return () => clearTimeout(timer);
+  }, [saved]);
+  const closeSheet = () => {
+    const a = current;
+    setSelected(null);
+    if (!a) return;
+    const jobs: Promise<unknown>[] = [];
+    const what: ('mark' | 'note')[] = [];
+    const typed = gradeDraft.trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace('٫', '.');
+    if (typed !== (a.mark != null ? String(a.mark) : '')) {
+      const value = typed ? Number(typed) : null;
+      if (value !== null && !Number.isFinite(value)) {
+        Alert.alert(t('common.error'), t('session_ui.autosave_bad_mark'));
+      } else {
+        jobs.push(controls.grade.mutateAsync({ studentId: a.student_id, mark: value }));
+        what.push('mark');
+      }
+    }
+    if (!notesShut && noteDraft.trim() !== (a.note ?? '').trim()) {
+      jobs.push(controls.note.mutateAsync({ studentId: a.student_id, note: noteDraft.trim() }));
+      what.push('note');
+    }
+    if (!jobs.length) return;
+    Promise.all(jobs)
+      .then(() => setSaved({
+        id: a.student_id,
+        text: t('session_ui.autosaved', { what: t(what.length === 2 ? 'session_ui.autosaved_both' : `session_ui.autosaved_${what[0]}`), name: a.name ?? '' }),
+      }))
+      .catch((e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)));
+  };
   const mark = (studentId: number, status: Status) =>
     controls.mark.mutate({ studentId, status }, { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('common.error')) });
 
@@ -215,9 +251,10 @@ export default function SessionDetailScreen() {
     const color = noDoor ? STATUS_COLOR().not_recorded : STATUS_COLOR()[item.status] ?? STATUS_COLOR().not_recorded;
     const fromLabel = 'from_label' in item ? item.from_label : null;
     const awaiting = bucketOf(item.status) === 'awaiting';
+    const justSaved = saved?.id === item.student_id;
     return (
       <TouchableOpacity onPress={() => openAttendee(item)} activeOpacity={0.85}
-        style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: color, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 64, justifyContent: 'center' }}>
+        style={{ backgroundColor: justSaved ? colors.successLight : colors.surface, borderRadius: radius.lg, borderWidth: justSaved ? 2 : 1, borderColor: justSaved ? colors.success : colors.border, borderStartWidth: 4, borderStartColor: color, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 64, justifyContent: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <Avatar name={item.name ?? '—'} seed={avatarSeed.student(item.student_id, item.name ?? '—')} size={40} />
         <View style={{ flex: 1 }}>
@@ -235,6 +272,12 @@ export default function SessionDetailScreen() {
             {item.note ? <Icon name="note" size={12} color={colors.textTertiary} /> : null}
             {item.number_flagged ? <Icon name="warning" size={12} color={colors.danger} /> : null}
             {activeTab === 'roster' ? <HomeworkStreakBadge n={item.homework_missed_streak} /> : null}
+            {justSaved ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 1, paddingHorizontal: 8 }}>
+                <Icon name="success" size={11} color={colors.onPrimary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onPrimary }}>{t('session_ui.autosaved_pill')}</Text>
+              </View>
+            ) : null}
           </View>
           {fromLabel ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand, marginTop: 2 }} numberOfLines={1}>{t('teacher.swapped_from', { from: fromLabel })}</Text> : null}
         </View>
@@ -413,6 +456,7 @@ export default function SessionDetailScreen() {
           data={[PINNED, EXTRAS, ...(mode === 'marks' ? marksList : list)] as Row[]}
           keyExtractor={(a) => (a === PINNED ? 'pinned' : a === EXTRAS ? 'extras' : String((a as SessionAttendee | SwapInAttendee).student_id))}
           stickyHeaderIndices={[1]}
+          extraData={saved}
           renderItem={({ item }) => item === PINNED ? pinned
             : item === EXTRAS ? extrasNode
             : mode === 'marks' ? <MarkRow a={item as SessionAttendee | SwapInAttendee} max={s.sheet_max_mark} onSave={saveMark} noDoor={noDoor} onHomework={gradesHomework ? rateHomework : undefined} />
@@ -475,7 +519,7 @@ export default function SessionDetailScreen() {
               </Surface>
               {/* «الواجب» — given at this session, and the previous one's graded here. */}
               <Surface id="teacher.session_detail.homework_card" ctx={{ session: s }}>
-              <SessionHomeworkCard s={s} save={controls.homework} rateAll={controls.homeworkRateAll} />
+              <SessionHomeworkCard s={s} save={controls.homework} saveDue={controls.homeworkDue} rateAll={controls.homeworkRateAll} />
               </Surface>
             </View>
           }
@@ -559,9 +603,17 @@ export default function SessionDetailScreen() {
       </SheetModal>
       </Surface>
 
+      {/* What closing a student's sheet just saved — a moment, then gone. */}
+      {saved ? (
+        <View pointerEvents="none" style={{ position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: nav.pageEnd + insets.bottom + 70, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.successText, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, ...shadows.md }}>
+          <Icon name="success" size={18} color={colors.onPrimary} />
+          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.onPrimary }} numberOfLines={2}>{saved.text}</Text>
+        </View>
+      ) : null}
+
       {/* One student — mark, sheet grade, note. */}
       <Surface id="teacher.session_detail.student_sheet">
-      <SheetModal visible={!!current} onClose={() => setSelected(null)} avoidKeyboard style={{ backgroundColor: colors.background, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
+      <SheetModal visible={!!current} onClose={closeSheet} avoidKeyboard style={{ backgroundColor: colors.background, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             {current ? (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
@@ -570,7 +622,7 @@ export default function SessionDetailScreen() {
                     <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{current.name ?? '—'}</Text>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{current.student_code ?? (current.card_less ? t('teacher.card_less') : '')}</Text>
                   </View>
-                  <TouchableOpacity onPress={() => setSelected(null)} accessibilityLabel={t('common.close')} style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
+                  <TouchableOpacity onPress={closeSheet} accessibilityLabel={t('common.close')} style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
                     <Icon name="close" size={18} color={colors.textPrimary} />
                   </TouchableOpacity>
                 </View>
@@ -578,7 +630,7 @@ export default function SessionDetailScreen() {
                 {/* The whole record is one tap away (founder 2026-11-03). */}
                 <Surface id="teacher.session_detail.student_sheet.profile">
                 <TouchableOpacity
-                  onPress={() => { const id = current.student_id; setSelected(null); router.push(`/(teacher)/students/${id}` as Href); }}
+                  onPress={() => { const id = current.student_id; closeSheet(); router.push(`/(teacher)/students/${id}` as Href); }}
                   activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('teacher.open_student_profile')}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, marginBottom: spacing.lg }}>
                   <Icon name="child" size={18} color={colors.brand} />
@@ -587,16 +639,40 @@ export default function SessionDetailScreen() {
                 </TouchableOpacity>
                 </Surface>
 
-                {/* «الواجبات» in this course — the rate and the four counts, once something was graded. */}
-                {current.homework_summary && current.homework_summary.graded > 0 ? (
+                {/* «الواجب»: grade the previous session's homework right here, then this course's record
+                    (rate + four counts). Not on a swap-in — theirs is another group's homework. */}
+                {!('from_label' in current) && s?.can_edit_homework !== undefined ? (
                   <Surface id="teacher.session_detail.student_sheet.homework">
-                  <View style={{ gap: spacing.sm, marginBottom: spacing.lg }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('homework.title')}</Text>
+                  <View style={{ gap: spacing.sm, marginBottom: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('homework.sheet_title')}</Text>
+                    {s.homework_due ? (
+                      <>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 21, color: colors.textPrimary }} numberOfLines={3}>{s.homework_due.body}</Text>
+                        {s.can_edit_homework
+                          ? <HomeworkRateChips value={current.homework_rating ?? null} onChange={(r) => rateHomework(current.student_id, r)} />
+                          : <HomeworkRatingBadge rating={current.homework_rating ?? null} />}
+                      </>
+                    ) : (
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textTertiary }}>
+                        {t(s.homework_previous ? 'homework.sheet_none_previous' : 'homework.sheet_first_session')}
+                      </Text>
+                    )}
                     <HomeworkStreakBadge n={current.homework_missed_streak} big />
-                    <HomeworkSummaryRow summary={current.homework_summary} />
+                    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm, gap: spacing.sm }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('homework.title')}</Text>
+                      {current.homework_summary && current.homework_summary.graded > 0
+                        ? <HomeworkSummaryRow summary={current.homework_summary} />
+                        : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>{t('homework.sheet_no_rate')}</Text>}
+                    </View>
                   </View>
                   </Surface>
                 ) : null}
+
+                {/* Typed and left unsaved: kept when the sheet closes — said up front. */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.lg }}>
+                  <Icon name="success" size={16} color={colors.brand} />
+                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.brand }}>{t('session_ui.autosave_hint')}</Text>
+                </View>
 
                 {noDoor ? null : (
                 <Surface id="teacher.session_detail.student_sheet.mark_attendance" ctx={{ session: s }} assistantNeeds="mark_attendance_manual">

@@ -21,26 +21,34 @@ const MAX = 500;
  * «الواجب» on the teacher's session sheet (founder 2026-11-03), two parts: the homework given
  * at THIS session (its students read it in their app), and the previous session's homework,
  * graded here like a quiz (جيد / مقبول / ضعيف / لم يحلّ) — each student from their row's chips,
- * or the attending ones at once with «الكل جيد». Nothing on an older server; nothing to write on a cancelled session.
+ * or the attending ones at once with «الكل جيد». When nothing was recorded last time (the first
+ * week) the previous session's homework can be written from here and graded at once.
+ * Nothing on an older server; nothing to write on a cancelled session.
  */
-export function SessionHomeworkCard({ s, save, rateAll }: {
+export function SessionHomeworkCard({ s, save, saveDue, rateAll }: {
   s: SessionDetail;
   save: UseMutationResult<SessionDetail, Error, string>;
+  /** Writes the previous session's homework from here when nothing was recorded then. */
+  saveDue: UseMutationResult<SessionDetail, Error, string>;
   rateAll: UseMutationResult<SessionDetail, Error, HomeworkRating>;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [editing, setEditing] = useState(false);
+  // Which homework the editor writes: this session's, or the previous one's (to grade it now).
+  const [editing, setEditing] = useState<'given' | 'previous' | null>(null);
   const [draft, setDraft] = useState('');
   if (s.can_edit_homework === undefined) return null;
   const canEdit = s.can_edit_homework;
   const due = s.homework_due ?? null;
+  const previous = !due && canEdit ? s.homework_previous ?? null : null;
   if (!canEdit && !due) return null;
 
   const body = s.homework?.body ?? '';
-  const edit = () => { setDraft(body); setEditing(true); };
-  const submit = () => save.mutate(draft.trim(), {
-    onSuccess: () => setEditing(false),
+  const edit = () => { setDraft(body); setEditing('given'); };
+  const writePrevious = () => { setDraft(''); setEditing('previous'); };
+  const mutation = editing === 'previous' ? saveDue : save;
+  const submit = () => mutation.mutate(draft.trim(), {
+    onSuccess: () => setEditing(null),
     onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
   });
   const allGood = () => Alert.alert(t('homework.all_done_title'), t('homework.all_done_body'), [
@@ -72,6 +80,25 @@ export function SessionHomeworkCard({ s, save, rateAll }: {
             ) : (
               <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textTertiary, marginTop: spacing.sm }}>{t('homework.given_empty')}</Text>
             )}
+          </View>
+        ) : null}
+
+        {/* Nothing was recorded last time (the first week): write it now, then grade it here. */}
+        {previous ? (
+          <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.warningLight, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="note" size={20} color={colors.warningText} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }}>{t('homework.previous_title')}</Text>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>
+                {t('homework.previous_sub', { date: previous.session_date ? formatDayDate(homeworkDay(previous.session_date)) : '' })}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={writePrevious} activeOpacity={0.85} accessibilityRole="button"
+              style={{ backgroundColor: colors.brand, borderRadius: radius.full, paddingVertical: 7, paddingHorizontal: spacing.md }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onPrimary }}>{t('homework.previous_write')}</Text>
+            </TouchableOpacity>
           </View>
         ) : null}
 
@@ -112,16 +139,20 @@ export function SessionHomeworkCard({ s, save, rateAll }: {
         ) : null}
       </View>
 
-      <SheetModal visible={editing} onClose={() => setEditing(false)} avoidKeyboard style={{ backgroundColor: colors.background, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('homework.given_title')}</Text>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md }}>{t('homework.editor_hint')}</Text>
+      <SheetModal visible={editing !== null} onClose={() => setEditing(null)} avoidKeyboard style={{ backgroundColor: colors.background, padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t(editing === 'previous' ? 'homework.previous_title' : 'homework.given_title')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md }}>{t(editing === 'previous' ? 'homework.previous_hint' : 'homework.editor_hint')}</Text>
         <TextInput value={draft} onChangeText={setDraft} multiline maxLength={MAX} autoFocus
           placeholder={t('homework.placeholder')} placeholderTextColor={colors.textTertiary}
           style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: spacing.md, minHeight: 110, maxHeight: 220, fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: colors.textPrimary, textAlignVertical: 'top' }} />
         <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 4, alignSelf: 'flex-end' }}>{`${formatNumber(draft.length)}/${formatNumber(MAX)}`}</Text>
         <View style={{ marginTop: spacing.md }}>
           {/* Saving an emptied field takes the homework back. */}
-          <Button title={t(!draft.trim() && body ? 'homework.clear' : 'homework.save')} onPress={submit} loading={save.isPending} disabled={!draft.trim() && !body} variant={!draft.trim() && body ? 'destructive' : 'primary'} />
+          {editing === 'previous' ? (
+            <Button title={t('homework.previous_write')} onPress={submit} loading={saveDue.isPending} disabled={!draft.trim()} variant="primary" />
+          ) : (
+            <Button title={t(!draft.trim() && body ? 'homework.clear' : 'homework.save')} onPress={submit} loading={save.isPending} disabled={!draft.trim() && !body} variant={!draft.trim() && body ? 'destructive' : 'primary'} />
+          )}
         </View>
       </SheetModal>
     </>

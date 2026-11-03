@@ -124,6 +124,8 @@ export interface SessionDetail {
     session_date: string | null;
     counts: Record<HomeworkRating | 'ungraded', number>;
   } | null;
+  /** Nothing recorded at the group's previous session: that session, so its homework can be written now. */
+  homework_previous?: { session_id: string; session_date: string | null } | null;
   /** False on a cancelled session. */
   can_edit_homework?: boolean;
   /** Served from the phone's last-known copy because the server could not be reached. */
@@ -254,6 +256,15 @@ export async function reopenNotes(sessionId: string | number): Promise<SessionDe
 /** «الواجب» given at this session; empty clears. 422 HOMEWORK_CANCELLED on a cancelled session. */
 export async function recordHomework(sessionId: string | number, body: string): Promise<SessionDetail> {
   const { data } = await client.post(`/teacher/sessions/${sessionId}/homework`, { body: body || null });
+  return detail(data);
+}
+
+/**
+ * Write the group's previous session's homework from this one (nothing was recorded then), so
+ * it can be graded now — quietly, no «واجب جديد». 422 HOMEWORK_NO_PREVIOUS on a group's first session.
+ */
+export async function recordDueHomework(sessionId: string | number, body: string): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/homework-due`, { body });
   return detail(data);
 }
 

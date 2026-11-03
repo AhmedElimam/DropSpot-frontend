@@ -27,6 +27,7 @@ import {
   setSessionType,
   pauseSessions,
   recordHomework,
+  recordDueHomework,
   rateHomework,
   rateHomeworkAll,
   type SessionDetail,
@@ -165,6 +166,7 @@ export function useSessionControls(id: string) {
   const setType = useMutation({ mutationFn: (type: 'normal_sheet' | 'quiz_exam') => setSessionType(id, type), onSuccess: sync });
   // «الواجب»: what is given at this session, and the grades on the previous one's.
   const homework = useMutation({ mutationFn: (body: string) => recordHomework(id, body), onSuccess: sync });
+  const homeworkDue = useMutation({ mutationFn: (body: string) => recordDueHomework(id, body), onSuccess: sync });
   const rateKey = ['homework-rate', id];
   const homeworkRate = useMutation({
     mutationKey: rateKey,
@@ -191,7 +193,7 @@ export function useSessionControls(id: string) {
     onError: () => qc.invalidateQueries({ queryKey: ['teacher-session-detail', id] }),
   });
 
-  return { mark, cancel, restore, note, summary, reopen, grade, sheet, sheetExcluded, sheetMax, setType, homework, homeworkRate, homeworkRateAll };
+  return { mark, cancel, restore, note, summary, reopen, grade, sheet, sheetExcluded, sheetMax, setType, homework, homeworkDue, homeworkRate, homeworkRateAll };
 }
 
 export function usePauseSessions() {
