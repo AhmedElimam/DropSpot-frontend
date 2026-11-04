@@ -116,16 +116,17 @@ export default function RecordStudent() {
     nameRef.current?.focus();
   }
 
-  async function submit(decision?: 'new' | 'link', linkStudentId?: number, opts: { withoutStudentPhone?: boolean; acceptGrade?: boolean } = {}) {
+  async function submit(decision?: 'new' | 'link', linkStudentId?: number, opts: { withoutStudentPhone?: boolean; acceptGrade?: boolean; parentPhone?: string } = {}) {
     if (courseId == null) return;
     // «سجّله بدون رقم هاتف»: the typed number is a sibling's own login, so this child is
     // recorded on the parent's number alone.
     if (opts.withoutStudentPhone) setStudentPhone('');
     const ownPhone = opts.withoutStudentPhone ? '' : studentPhone.trim();
+    const parent = (opts.parentPhone ?? parentPhone).trim();
     const payload: RecordStudentPayload = {
       student_name: name.trim(),
       ...(ownPhone ? { student_phone: ownPhone } : {}),
-      ...(parentPhone.trim() ? { parent_phone: parentPhone.trim() } : {}),
+      ...(parent ? { parent_phone: parent } : {}),
       ...(parentName.trim() ? { parent_name: parentName.trim() } : {}),
       ...(relationship ? { relationship } : {}),
       ...terms.payload(),
@@ -159,6 +160,17 @@ export default function RecordStudent() {
           { text: t('common.cancel'), style: 'cancel' },
           { text: t('enroll_ui.grade_mismatch_confirm'), onPress: () => { void submit(decision, linkStudentId, { ...opts, acceptGrade: true }); } },
         ]);
+      } else if (isAxiosError(e) && e.response?.status === 422 && e.response.data?.code === 'PARENT_PHONE_IS_STUDENT') {
+        // The «parent» number is a brother's own login: offer his parent's number and record
+        // this child as his sibling (the server still links a repeat of the same child).
+        const sib = e.response.data.errors?.sibling as { name: string | null; parent_phone: string | null } | undefined;
+        const siblingParent = sib?.parent_phone;
+        Alert.alert(t('enroll_ui.register_failed'), e.response.data?.message ?? '', siblingParent
+          ? [
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('enroll_ui.use_sibling_parent', { name: firstName(sib?.name ?? '') }), onPress: () => { setParentPhone(siblingParent); void submit('new', undefined, { ...opts, parentPhone: siblingParent }); } },
+            ]
+          : undefined);
       } else if (isAxiosError(e) && e.response?.status === 422) {
         Alert.alert(t('enroll_ui.register_failed'), e.response.data?.message ?? t('enroll_ui.check_input'));
       } else {

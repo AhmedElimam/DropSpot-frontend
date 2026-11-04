@@ -3243,6 +3243,7 @@
     "other_child_record_new": "سجّل «{{typed}}» طالب جديد بدون رقم هاتف",
     "other_child_clear_phone": "امسح رقم الطالب",
     "other_child_is_owner": "لا، ده «{{owner}}» نفسه — سجّله في «{{course}}»",
+    "use_sibling_parent": "استخدم رقم ولي أمر «{{name}}»",
     "grade_mismatch_title": "صف مختلف",
     "grade_mismatch_confirm": "تسجيل رغم اختلاف الصف",
     "token_unusable": "تعذّر استخدام هذا الرمز",
