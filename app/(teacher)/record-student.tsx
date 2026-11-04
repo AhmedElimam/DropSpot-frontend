@@ -116,11 +116,15 @@ export default function RecordStudent() {
     nameRef.current?.focus();
   }
 
-  async function submit(decision?: 'new' | 'link', linkStudentId?: number) {
+  async function submit(decision?: 'new' | 'link', linkStudentId?: number, opts: { withoutStudentPhone?: boolean; acceptGrade?: boolean } = {}) {
     if (courseId == null) return;
+    // «سجّله بدون رقم هاتف»: the typed number is a sibling's own login, so this child is
+    // recorded on the parent's number alone.
+    if (opts.withoutStudentPhone) setStudentPhone('');
+    const ownPhone = opts.withoutStudentPhone ? '' : studentPhone.trim();
     const payload: RecordStudentPayload = {
       student_name: name.trim(),
-      ...(studentPhone.trim() ? { student_phone: studentPhone.trim() } : {}),
+      ...(ownPhone ? { student_phone: ownPhone } : {}),
       ...(parentPhone.trim() ? { parent_phone: parentPhone.trim() } : {}),
       ...(parentName.trim() ? { parent_name: parentName.trim() } : {}),
       ...(relationship ? { relationship } : {}),
@@ -128,6 +132,7 @@ export default function RecordStudent() {
       course_id: courseId,
       ...(decision ? { dedupe_decision: decision } : {}),
       ...(linkStudentId ? { link_student_id: linkStudentId } : {}),
+      ...(opts.acceptGrade ? { accept_grade_mismatch: true } : {}),
     };
     setSaving(true);
     try {
@@ -148,6 +153,12 @@ export default function RecordStudent() {
         setOwnStudent(e.response.data.errors?.offer ?? null);
       } else if (isAxiosError(e) && e.response?.status === 409 && e.response.data?.code === 'DEDUPE_REQUIRED') {
         setDedupe({ matches: e.response.data.errors?.matches ?? [], payload });
+      } else if (isAxiosError(e) && e.response?.status === 422 && e.response.data?.code === 'GRADE_MISMATCH') {
+        // The server asks a question here — answer it with a real button, not «حسنًا».
+        Alert.alert(t('enroll_ui.grade_mismatch_title'), e.response.data?.message ?? '', [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('enroll_ui.grade_mismatch_confirm'), onPress: () => { void submit(decision, linkStudentId, { ...opts, acceptGrade: true }); } },
+        ]);
       } else if (isAxiosError(e) && e.response?.status === 422) {
         Alert.alert(t('enroll_ui.register_failed'), e.response.data?.message ?? t('enroll_ui.check_input'));
       } else {
@@ -487,7 +498,7 @@ export default function RecordStudent() {
               teacher's list: the same invitation the scanner shows, enrolling into this group. */}
           <Surface id="teacher.record_student.invitation_modal">
           <StudentInvitationModal
-            student={ownStudent && !ownStudent.is_own && !ownStudent.already_in_target ? { name: ownStudent.name, grade: ownStudent.grade, via: 'card' } : null}
+            student={ownStudent && !ownStudent.is_own && !ownStudent.already_in_target && !ownStudent.other_child ? { name: ownStudent.name, grade: ownStudent.grade, via: 'card' } : null}
             course={ownStudent?.target_course_name ?? course?.name ?? null}
             busy={saving}
             onEnroll={() => ownStudent && submit('link', ownStudent.student_id)}
@@ -498,7 +509,7 @@ export default function RecordStudent() {
           {/* QR-style popup — the entered phone is already one of THIS teacher's students.
               Same shape the scanner shows on a "wrong group" card: profile + enroll-here. */}
           <Surface id="teacher.record_student.existing_modal">
-          <Modal visible={ownStudent !== null && (!!ownStudent.is_own || !!ownStudent.already_in_target)} transparent animationType="fade" onRequestClose={() => setOwnStudent(null)}>
+          <Modal visible={ownStudent !== null && (!!ownStudent.is_own || !!ownStudent.already_in_target || !!ownStudent.other_child)} transparent animationType="fade" onRequestClose={() => setOwnStudent(null)}>
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: spacing.lg }}>
               <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, alignItems: 'center' }}>
                 <Icon name="children" size={48} color={colors.brand} />
@@ -518,7 +529,9 @@ export default function RecordStudent() {
                 </View>
 
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.md, paddingHorizontal: spacing.sm }}>
-                  {ownStudent?.already_in_target
+                  {ownStudent?.other_child
+                    ? t(parentPhone.trim() ? 'enroll_ui.other_child_body' : 'enroll_ui.other_child_body_no_parent', { owner: ownStudent.name, typed: name.trim() })
+                    : ownStudent?.already_in_target
                     ? t('enroll_ui.own_already_in_target', { course: ownStudent?.target_course_name })
                     : ownStudent?.is_own
                       ? t('enroll_ui.own_in_other_course', { current: ownStudent?.current_course_name ?? '—', course: ownStudent?.target_course_name })
@@ -527,6 +540,26 @@ export default function RecordStudent() {
 
                 {saving ? (
                   <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.lg }} />
+                ) : ownStudent?.other_child ? (
+                  <>
+                    {parentPhone.trim() ? (
+                      <TouchableOpacity onPress={() => submit('new', undefined, { withoutStudentPhone: true })} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, alignItems: 'center', alignSelf: 'stretch' }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff', textAlign: 'center' }}>{t('enroll_ui.other_child_record_new', { typed: firstName(name) })}</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity onPress={() => { setStudentPhone(''); setOwnStudent(null); }} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', alignSelf: 'stretch' }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('enroll_ui.other_child_clear_phone')}</Text>
+                      </TouchableOpacity>
+                    )}
+                    {!ownStudent.already_in_target ? (
+                      <TouchableOpacity onPress={() => submit('link', ownStudent.student_id)} activeOpacity={0.85} style={{ marginTop: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, alignItems: 'center', alignSelf: 'stretch' }}>
+                        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, textAlign: 'center' }}>{t('enroll_ui.other_child_is_owner', { owner: firstName(ownStudent.name), course: ownStudent.target_course_name })}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <TouchableOpacity onPress={() => setOwnStudent(null)} activeOpacity={0.7} style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>{t('common.cancel')}</Text>
+                    </TouchableOpacity>
+                  </>
                 ) : ownStudent?.already_in_target ? (
                   <TouchableOpacity onPress={() => setOwnStudent(null)} activeOpacity={0.85} style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.xxl, alignItems: 'center' }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: '#fff' }}>{t('common.ok')}</Text>
@@ -552,6 +585,10 @@ export default function RecordStudent() {
     </View>
     </Surface>
   );
+}
+
+function firstName(full: string): string {
+  return full.trim().split(/\s+/)[0] ?? '';
 }
 
 /** A numbered section head: the order a teacher fills the form in. */

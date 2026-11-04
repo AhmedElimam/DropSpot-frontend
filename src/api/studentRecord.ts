@@ -20,6 +20,8 @@ export interface RecordStudentPayload extends EnrollmentTermsInput {
   course_id: number;
   dedupe_decision?: 'new' | 'link';
   link_student_id?: number;
+  /** «تسجيل رغم اختلاف الصف» — the answer to a GRADE_MISMATCH on a link. */
+  accept_grade_mismatch?: boolean;
 }
 
 export interface RecordStudentResult {
@@ -53,6 +55,8 @@ export interface ExistingStudentOffer {
   current_course_name: string | null;
   target_course_name: string;
   already_in_target: boolean;
+  /** The typed name opens with another first name: the number is a sibling's, not this child's. */
+  other_child?: boolean;
 }
 
 export async function recordStudent(payload: RecordStudentPayload): Promise<RecordStudentResult> {
