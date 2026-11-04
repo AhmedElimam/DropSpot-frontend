@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { isAxiosError } from 'axios';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { fonts } from '@/theme/typography';
@@ -65,6 +66,17 @@ export default function RegisterScreen() {
   const step1Valid = !!name && !nameError && fullPhone(phone) && password.length >= 6 && confirmPassword === password;
   const step2Valid = !!parentName && !parentNameError && fullPhone(parentPhone) && !samePhoneError && !!parentRelation && termsAccepted;
 
+  // The door's «this number already has an account» answers (founder 2026-11-04: students and
+  // parents were making second accounts). Each carries a way in instead of a dead end.
+  const existing = (() => {
+    const e = registerMutation.error;
+    if (!isAxiosError(e)) return null;
+    const code = e.response?.data?.code as string | undefined;
+    if (!code || !['ACCOUNT_EXISTS', 'PHONE_IS_PARENT', 'STUDENT_ALREADY_REGISTERED'].includes(code)) return null;
+    const errs = e.response?.data?.errors ?? {};
+    return { code, phone: errs.phone_number as string | undefined, hasOwnPhone: errs.has_own_phone === true };
+  })();
+
   const handleRegister = () => {
     if (!step1Valid || !step2Valid) return;
     registerMutation.mutate(
@@ -99,7 +111,29 @@ export default function RegisterScreen() {
     >
       <StepBar step={step} total={2} labels={[t('auth.step_student'), t('auth.step_parent')]} />
 
-      {registerMutation.isError ? <AuthBanner tone="danger" text={getFriendlyErrorMessage(registerMutation.error)} /> : null}
+      {registerMutation.isError ? <AuthBanner tone={existing ? 'info' : 'danger'} text={getFriendlyErrorMessage(registerMutation.error)} /> : null}
+      {existing ? (
+        <View style={{ gap: spacing.sm, marginBottom: spacing.lg }}>
+          {/* The number already has a student account: choose a password (activation), or log in. */}
+          {existing.code === 'ACCOUNT_EXISTS' ? (
+            <>
+              <Button title={t('auth.exists_choose_password')} onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: { mode: 'activate', phone: existing.phone ?? phone } })} />
+              <Button title={t('auth.exists_login')} variant="outline" onPress={() => router.replace('/(auth)/login')} />
+            </>
+          ) : null}
+          {/* Same child under the parent's number: their account is on another number (hinted). */}
+          {existing.code === 'STUDENT_ALREADY_REGISTERED' && existing.hasOwnPhone ? (
+            <>
+              <Button title={t('auth.activate_account')} onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: { mode: 'activate' } })} />
+              <Button title={t('auth.exists_login')} variant="outline" onPress={() => router.replace('/(auth)/login')} />
+            </>
+          ) : null}
+          {/* A parent typed their own number: the login screen sends their setup link. */}
+          {existing.code === 'PHONE_IS_PARENT' ? (
+            <Button title={t('auth.login')} variant="outline" onPress={() => router.replace('/(auth)/login')} />
+          ) : null}
+        </View>
+      ) : null}
       {registerMutation.isSuccess ? <AuthBanner tone="success" text={t('auth.registration_success')} /> : null}
 
       {step === 1 ? (

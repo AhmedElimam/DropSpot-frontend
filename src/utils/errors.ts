@@ -35,6 +35,12 @@ export function getFriendlyErrorMessage(error: unknown): string {
       return t('errors.forbidden');
     }
     if (status === 404) return t('errors.not_found_generic');
+    if (status === 409) {
+      // «This number already has an account» — the server says whose and what to do.
+      const msg = error.response.data?.message;
+      if (typeof msg === 'string' && msg.length > 0 && msg.length < 300 && /[\u0600-\u06FF]/.test(msg)) return msg;
+      return t('errors.generic_friendly');
+    }
     if (status === 422) {
       // Validation problems are the one case where the server message helps,
       // but only if it exists; still never fall through to raw JSON.

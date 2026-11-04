@@ -33,6 +33,11 @@ export default function LoginScreen() {
     loginMutation.mutate({ phone_number: phone, password });
   };
 
+  // The teacher recorded this student and they never chose a password (founder 2026-11-04:
+  // they were making a second account instead). Activation is the reset flow, number filled.
+  const mayNeedActivation = isAxiosError(loginMutation.error) && loginMutation.error.response?.data?.errors?.may_need_activation === true;
+  const activate = (prefill?: string) => router.push({ pathname: '/(auth)/forgot-password', params: { mode: 'activate', ...(prefill ? { phone: prefill } : {}) } });
+
   return (
     <AuthScaffold
       hero="brand"
@@ -56,6 +61,12 @@ export default function LoginScreen() {
               : t('auth.invalid_credentials'))
             : getFriendlyErrorMessage(loginMutation.error)}
         />
+      ) : null}
+      {mayNeedActivation ? (
+        <View style={{ backgroundColor: colors.brandTint, borderRadius: 12, padding: spacing.md, marginBottom: spacing.lg, gap: spacing.sm }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, lineHeight: 21, color: colors.infoText }}>{t('auth.may_need_activation')}</Text>
+          <Button title={t('auth.activate_account')} onPress={() => activate(phone)} />
+        </View>
       ) : null}
 
       <AuthField
@@ -109,6 +120,12 @@ export default function LoginScreen() {
       </View>
 
       <Button title={t('auth.create_account')} variant="outline" onPress={() => router.push('/(auth)/register')} />
+
+      <TouchableOpacity onPress={() => activate()} hitSlop={{ top: 8, bottom: 8 }} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center', marginTop: spacing.md }}>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
+          {t('auth.activate_prompt')} <Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{t('auth.activate_account')}</Text>
+        </Text>
+      </TouchableOpacity>
     </AuthScaffold>
   );
 }

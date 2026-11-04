@@ -19,7 +19,7 @@ const RESEND_COOLDOWN = () => configRule('otp_resend_seconds');
 
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { phone, mode } = useLocalSearchParams<{ phone: string; mode?: string }>();
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const passwordRef = useRef<TextInput>(null);
@@ -54,7 +54,7 @@ export default function ResetPasswordScreen() {
   return (
     <AuthScaffold
       onBack={() => router.back()}
-      title={t('auth.reset_password_title')}
+      title={mode === 'activate' ? t('auth.choose_password_title') : t('auth.reset_password_title')}
       subtitle={t('auth.code_sent_to')}
     >
       {phone ? (

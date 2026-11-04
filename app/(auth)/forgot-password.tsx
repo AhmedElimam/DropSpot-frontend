@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { useForgotPassword } from '@/hooks/useAuth';
@@ -15,7 +15,11 @@ const digits = (v: string) => v.replace(/[^0-9]/g, '').slice(0, 11);
 
 export default function ForgotPasswordScreen() {
   const { t } = useTranslation();
-  const [phone, setPhone] = useState('');
+  // mode=activate: the same code + new password, worded for a student the teacher recorded
+  // who never had a password («تفعيل الحساب», not «نسيت كلمة المرور»).
+  const params = useLocalSearchParams<{ phone?: string; mode?: string }>();
+  const activating = params.mode === 'activate';
+  const [phone, setPhone] = useState(digits(params.phone ?? ''));
   const [touched, setTouched] = useState(false);
   const forgot = useForgotPassword();
 
@@ -27,17 +31,17 @@ export default function ForgotPasswordScreen() {
     forgot.mutate(phone, {
       // Always advance to the reset step — the backend never reveals whether the
       // number exists, so the UX is the same either way.
-      onSuccess: () => router.push({ pathname: '/(auth)/reset-password', params: { phone } }),
+      onSuccess: () => router.push({ pathname: '/(auth)/reset-password', params: activating ? { phone, mode: 'activate' } : { phone } }),
     });
   };
 
-  const steps = [t('auth.forgot_step_1'), t('auth.forgot_step_2'), t('auth.forgot_step_3')];
+  const steps = [activating ? t('auth.activate_step_1') : t('auth.forgot_step_1'), t('auth.forgot_step_2'), t('auth.forgot_step_3')];
 
   return (
     <AuthScaffold
       onBack={() => router.back()}
-      title={t('auth.reset_password_title')}
-      subtitle={t('auth.forgot_password_desc')}
+      title={activating ? t('auth.activate_title') : t('auth.reset_password_title')}
+      subtitle={activating ? t('auth.activate_desc') : t('auth.forgot_password_desc')}
     >
       {forgot.isError ? <AuthBanner tone="danger" text={getFriendlyErrorMessage(forgot.error)} /> : null}
 
@@ -69,7 +73,7 @@ export default function ForgotPasswordScreen() {
         onSubmitEditing={handleSend}
         error={phoneError}
         valid={phoneFull}
-        autoFocus
+        autoFocus={!phone}
         containerStyle={{ marginBottom: spacing.xl }}
       />
 
