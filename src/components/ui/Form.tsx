@@ -192,6 +192,21 @@ export function Chips<K extends string | number>({ options, value, onChange, fil
   );
 }
 
+/** A row of colour dots, one picked (a ring round it). */
+export function SwatchRow({ swatches, value, onChange }: { swatches: string[]; value: string; onChange: (c: string) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+      {swatches.map((c) => {
+        const on = value.toLowerCase() === c.toLowerCase();
+        return (
+          <TouchableOpacity key={c} onPress={() => onChange(c)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={c}
+            style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: on ? 3 : 1, borderColor: on ? colors.textPrimary : colors.border }} />
+        );
+      })}
+    </View>
+  );
+}
+
 /** The week as seven equal tiles, Saturday first (JS getDay values in / out). */
 export function DayPicker({ value, onChange, tint = colors.brand }: { value: number | null; onChange: (day: number) => void; tint?: string }) {
   return (
