@@ -293,6 +293,8 @@ export interface StudentDetail {
   phone_vouched?: boolean;
   /** Teacher can remove this TERMINATED (dropped, still-visible) student from the roster now. */
   can_remove_from_roster?: boolean;
+  /** «كارت المدرّس»: this teacher's card on the student, or the «برايم» mark that locks linking. Absent on older servers. */
+  teacher_card?: { mine: { id: number; seq: number } | null; universal: boolean; universal_label: string | null; message: string | null };
   attendance_stats: { total: number; attended: number; absent: number; excused: number; prior_attended?: number; prior_held?: number };
   attendance: StudentAttendanceRow[];
   /** «الواجب» in this teacher's own courses: the rate and the newest five. Older servers omit it. */
