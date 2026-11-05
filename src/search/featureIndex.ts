@@ -123,6 +123,8 @@ export const FEATURES: FeatureEntry[] = [
     keywords: ['اعتراض', 'اعتراضات', 'درجة غلط', 'شكوى', 'complaint', 'تظلم'] },
   { id: 'notifications', titleKey: 'manage.notifications_title', subKey: 'manage.notifications_sub', area: 'manage', icon: 'bell', href: '/(teacher)/notifications',
     keywords: ['اشعارات', 'تنبيهات', 'notifications', 'رسائل'] },
+  { id: 'data_export', titleKey: 'data_export.title', subKey: 'data_export.row_sub', area: 'settings', icon: 'download', href: '/(teacher)/data-export', assistantNeeds: 'teacher',
+    keywords: ['تصدير', 'اكسل', 'إكسل', 'excel', 'csv', 'نسخة', 'باك اب', 'backup', 'تحميل البيانات', 'شيت', 'ملف'] },
   { id: 'assistants', titleKey: 'assistants.title', subKey: 'assistants.subtitle', area: 'manage', icon: 'children', href: '/(teacher)/assistants', assistantNeeds: 'teacher',
     keywords: ['مساعد', 'مساعدين', 'سكرتير', 'صلاحيات', 'اضافة مساعد', 'assistant', 'permissions', 'اضافة مساعد', 'سكرتيرة', 'صلاحيات المساعد', 'وقف مساعد'] },
 

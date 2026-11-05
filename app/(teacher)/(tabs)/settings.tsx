@@ -147,6 +147,7 @@ export default function TeacherSettings() {
           <Surface id="teacher.settings.row_subscription" assistantNeeds="teacher"><SubscriptionStatusCard /></Surface>
           <Group>
             <Surface id="teacher.settings.row_assistants" assistantNeeds="teacher"><Row icon="children" tint={colors.brand} tintBg={colors.brandTint} label={t('assistants.title')} sub={t('assistants.subtitle')} onPress={() => router.push('/(teacher)/assistants' as Href)} /></Surface>
+            <Surface id="teacher.settings.row_data_export" assistantNeeds="teacher"><Row icon="download" tint={colors.info} tintBg={colors.infoLight} label={t('data_export.title')} sub={t('data_export.row_sub')} onPress={() => router.push('/(teacher)/data-export' as Href)} /></Surface>
             <Surface id="teacher.settings.row_change_password"><Row icon="lock" tint={colors.success} tintBg={colors.successLight} label={t('auth.change_password')} sub={t('setup.password_hint')} onPress={() => router.push('/change-password')} /></Surface>
           </Group>
           </Surface>
