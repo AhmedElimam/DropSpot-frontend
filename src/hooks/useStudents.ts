@@ -14,7 +14,8 @@ export function useTeacherStudents(params?: { course_id?: number; q?: string }) 
 
 export function useTeacherCourses() {
   return useQuery({
-    queryKey: ['teacher-courses'],
+    // Names only (/teacher/students/courses) — never the bare key; see useCourses.
+    queryKey: ['teacher-courses', 'names'],
     queryFn: getTeacherCourses,
     staleTime: 300_000,
   });
