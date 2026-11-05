@@ -6,6 +6,7 @@ import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Vibration } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { ScanFrame } from '@/components/teacher/ScanFrame';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -350,13 +351,7 @@ export default function TeacherEnroll() {
       {/* Scan frame */}
       {!review && !done ? (
         <Surface id="teacher.enroll.frame">
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
-          <View style={{ width: 240, height: 240, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)', borderRadius: 24 }} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: '#fff', marginTop: spacing.lg }}>
-            {busy ? t('enroll_ui.searching') : t('enroll_ui.aim_camera')}
-          </Text>
-          {busy ? <ActivityIndicator color="#fff" style={{ marginTop: spacing.md }} /> : null}
-        </View>
+        <ScanFrame icon="scan" busy={busy} label={busy ? t('enroll_ui.searching') : t('enroll_ui.aim_camera')} />
         </Surface>
       ) : null}
 

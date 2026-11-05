@@ -21,7 +21,7 @@ import { bufferScan, deleteScan } from '@/db/offlineScans';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { Icon } from '@/components/ui/Icon';
-import { bracket, FRAME_W, FRAME_H, FRAME_SLACK, WIN_W, WIN_H, VIGNETTE, scanCentre, type Pt } from '@/components/teacher/ScanFrame';
+import { ScanFrame, FRAME_W, FRAME_H, FRAME_SLACK, scanCentre, type Pt } from '@/components/teacher/ScanFrame';
 import { TeacherTip } from '@/components/TeacherTip';
 import { PayDuesModal } from '@/components/teacher/PayDuesModal';
 import { StudentInvitationModal, type InvitationStudent } from '@/components/teacher/StudentInvitationModal';
@@ -698,27 +698,9 @@ export default function TeacherScan() {
       {/* Scan frame + hint (hidden while the scanner is locked) */}
       {!locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup && !noSession && (
         <Surface id="teacher.scan.frame">
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
-          {/* A vignette around the aiming box — four still rectangles, no compositing — so the
-              card's spot is the bright part of the picture (founder 2026-10-11: «UI love on
-              the camera pages»). The box is where the scanner reads (FRAME_W/H). */}
-          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: (WIN_H - FRAME_H) / 2, backgroundColor: VIGNETTE }} />
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: (WIN_H - FRAME_H) / 2, backgroundColor: VIGNETTE }} />
-          <View style={{ position: 'absolute', left: 0, top: (WIN_H - FRAME_H) / 2, width: (WIN_W - FRAME_W) / 2, height: FRAME_H, backgroundColor: VIGNETTE }} />
-          <View style={{ position: 'absolute', right: 0, top: (WIN_H - FRAME_H) / 2, width: (WIN_W - FRAME_W) / 2, height: FRAME_H, backgroundColor: VIGNETTE }} />
-          <View style={{ width: FRAME_W, height: FRAME_H, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }}>
-            <View style={[bracket('tl'), { borderColor: frameTint }]} />
-            <View style={[bracket('tr'), { borderColor: frameTint }]} />
-            <View style={[bracket('bl'), { borderColor: frameTint }]} />
-            <View style={[bracket('br'), { borderColor: frameTint }]} />
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.xl, paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(13,18,48,0.62)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
-            {busy ? <ActivityIndicator color="#fff" size="small" /> : <Icon name={payMode ? 'money' : 'card'} size={16} color={frameTint} />}
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff', textAlign: 'center' }}>
-              {busy ? t('teacher.checking') : t('teacher.point_camera')}
-            </Text>
-          </View>
-        </View>
+        {/* The shade round the aiming box, its corners and the hint (founder 2026-10-11: «UI
+            love on the camera pages»). The box is where the scanner reads (FRAME_W/H). */}
+        <ScanFrame tint={frameTint} icon={payMode ? 'money' : 'card'} busy={busy} label={busy ? t('teacher.checking') : t('teacher.point_camera')} />
         </Surface>
       )}
 

@@ -1,4 +1,5 @@
-import { View, Text, ActivityIndicator, Dimensions, type ViewStyle } from 'react-native';
+import { useState } from 'react';
+import { View, Text, ActivityIndicator, Dimensions, type LayoutChangeEvent } from 'react-native';
 import { fonts } from '@/theme/typography';
 import { spacing } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -9,18 +10,11 @@ import { Icon, type IconName } from '@/components/ui/Icon';
  * «ربط كارت المدرّس» (founder 2026-11-05: the link camera had no focus box).
  */
 
-// A framed aiming target with bright corner brackets so there's an obvious spot
-// to line the student's QR card up against (a plain rectangle read as "nothing to
-// aim for"). One bracket per corner; the box itself keeps a faint full outline.
-export const BRACKET = 38;
-export const STROKE = 4;
-export function bracket(pos: 'tl' | 'tr' | 'bl' | 'br'): ViewStyle {
-  const s: ViewStyle = { position: 'absolute', width: BRACKET, height: BRACKET, borderColor: '#fff' };
-  if (pos === 'tl') return { ...s, top: -STROKE, left: -STROKE, borderTopWidth: STROKE, borderLeftWidth: STROKE, borderTopLeftRadius: 22 };
-  if (pos === 'tr') return { ...s, top: -STROKE, right: -STROKE, borderTopWidth: STROKE, borderRightWidth: STROKE, borderTopRightRadius: 22 };
-  if (pos === 'bl') return { ...s, bottom: -STROKE, left: -STROKE, borderBottomWidth: STROKE, borderLeftWidth: STROKE, borderBottomLeftRadius: 22 };
-  return { ...s, bottom: -STROKE, right: -STROKE, borderBottomWidth: STROKE, borderRightWidth: STROKE, borderBottomRightRadius: 22 };
-}
+// The corners: each an L of two straight bars with round ends (founder 2026-11-05: the old
+// two-sided rounded borders drew as a curl beside a line on iOS, outside a second faint box
+// with another radius). Bars render the same on iOS and Android.
+export const CORNER = 36;
+export const STROKE = 5;
 
 // The aiming frame (must match the on-screen box in the render) plus slack, so a
 // card only registers when it's lined up INSIDE the frame — not read from anywhere
@@ -68,23 +62,48 @@ export function outsideFrame(bounds?: { origin?: Pt; size?: { width: number; hei
       || Math.abs(centre.y - win.height / 2) > FRAME_H / 2 + FRAME_SLACK);
 }
 
-/** The frame itself, centred on the screen; the box is where the scanner reads (FRAME_W/H). */
-export function ScanFrame({ tint = '#FFFFFF', icon = 'card', label, busy = false }: { tint?: string; icon?: IconName; label: string; busy?: boolean }) {
+function Corner({ pos, left, top, tint }: { pos: 'tl' | 'tr' | 'bl' | 'br'; left: number; top: number; tint: string }) {
+  const right = pos === 'tr' || pos === 'br';
+  const bottom = pos === 'bl' || pos === 'br';
+  const bar = { position: 'absolute' as const, backgroundColor: tint, borderRadius: STROKE / 2 };
   return (
-    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
-      <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: (WIN_H - FRAME_H) / 2, backgroundColor: VIGNETTE }} />
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: (WIN_H - FRAME_H) / 2, backgroundColor: VIGNETTE }} />
-      <View style={{ position: 'absolute', left: 0, top: (WIN_H - FRAME_H) / 2, width: (WIN_W - FRAME_W) / 2, height: FRAME_H, backgroundColor: VIGNETTE }} />
-      <View style={{ position: 'absolute', right: 0, top: (WIN_H - FRAME_H) / 2, width: (WIN_W - FRAME_W) / 2, height: FRAME_H, backgroundColor: VIGNETTE }} />
-      <View style={{ width: FRAME_W, height: FRAME_H, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }}>
-        <View style={[bracket('tl'), { borderColor: tint }]} />
-        <View style={[bracket('tr'), { borderColor: tint }]} />
-        <View style={[bracket('bl'), { borderColor: tint }]} />
-        <View style={[bracket('br'), { borderColor: tint }]} />
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.xl, paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(13,18,48,0.62)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
-        {busy ? <ActivityIndicator color="#fff" size="small" /> : <Icon name={icon} size={16} color={tint} />}
-        <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff', textAlign: 'center' }}>{label}</Text>
+    <View style={{ position: 'absolute', left: right ? left + FRAME_W - CORNER : left, top: bottom ? top + FRAME_H - CORNER : top, width: CORNER, height: CORNER }}>
+      <View style={[bar, { left: 0, right: 0, height: STROKE, [bottom ? 'bottom' : 'top']: 0 }]} />
+      <View style={[bar, { top: 0, bottom: 0, width: STROKE, [right ? 'right' : 'left']: 0 }]} />
+    </View>
+  );
+}
+
+/**
+ * The frame itself. Everything is placed from ONE box position — the centre of the screen,
+ * where the gate above reads — so the hole in the shade, the corners and the reading spot
+ * always coincide; the hint sits below the box instead of pushing it up.
+ */
+export function ScanFrame({ tint = '#FFFFFF', icon = 'card', label, busy = false }: { tint?: string; icon?: IconName; label: string; busy?: boolean }) {
+  const [size, setSize] = useState({ w: WIN_W, h: WIN_H });
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (width && height && (width !== size.w || height !== size.h)) setSize({ w: width, h: height });
+  };
+  const left = (size.w - FRAME_W) / 2;
+  const top = (size.h - FRAME_H) / 2;
+  const shade = { position: 'absolute' as const, backgroundColor: VIGNETTE };
+
+  return (
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="none" onLayout={onLayout}>
+      <View style={[shade, { left: 0, right: 0, top: 0, height: top }]} />
+      <View style={[shade, { left: 0, right: 0, top: top + FRAME_H, bottom: 0 }]} />
+      <View style={[shade, { left: 0, top, width: left, height: FRAME_H }]} />
+      <View style={[shade, { right: 0, top, width: left, height: FRAME_H }]} />
+      <Corner pos="tl" left={left} top={top} tint={tint} />
+      <Corner pos="tr" left={left} top={top} tint={tint} />
+      <Corner pos="bl" left={left} top={top} tint={tint} />
+      <Corner pos="br" left={left} top={top} tint={tint} />
+      <View style={{ position: 'absolute', left: spacing.lg, right: spacing.lg, top: top + FRAME_H + spacing.xl, alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(13,18,48,0.62)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
+          {busy ? <ActivityIndicator color="#fff" size="small" /> : <Icon name={icon} size={16} color={tint} />}
+          <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff', textAlign: 'center' }}>{label}</Text>
+        </View>
       </View>
     </View>
   );

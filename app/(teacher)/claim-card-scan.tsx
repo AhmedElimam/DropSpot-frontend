@@ -60,6 +60,9 @@ export default function ClaimCardScanScreen() {
     try {
       const { message, queued } = await claimTeacherCard(code, studentId, replace);
       qc.invalidateQueries({ queryKey: ['teacher-cards'] });
+      // The student's page under this screen shows «معاه كارتك رقم N» from its own detail query.
+      qc.invalidateQueries({ queryKey: ['teacher-student', String(studentId)] });
+      qc.invalidateQueries({ queryKey: ['teacher-students'] });
       Alert.alert(queued ? t('teacher_cards.queued') : message || t('teacher_cards.claimed'));
       router.back();
     } catch (e) {

@@ -98,8 +98,9 @@ export default function ClaimCardScreen() {
 
   const claim = useMutation({
     mutationFn: ({ student, replace }: { student: RosterStudent; replace: boolean }) => claimTeacherCard(code, Number(student.id), replace),
-    onSuccess: ({ message, queued }) => {
+    onSuccess: ({ message, queued }, { student }) => {
       qc.invalidateQueries({ queryKey: ['teacher-cards'] });
+      qc.invalidateQueries({ queryKey: ['teacher-student', String(student.id)] });
       if (queued) {
         // Parked on the phone. The door already holds the scan when it sent us here; otherwise
         // the scanner buffers one now, after the link, so the replay runs in that order.
