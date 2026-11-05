@@ -8,12 +8,16 @@ export type TeacherCardState = 'pending_delivery' | 'unclaimed' | 'active' | 're
 
 export interface TeacherCardBatch {
   id: number;
+  /** TCB-2026-00012 — on the batch's file, its seal and here. */
+  reference?: string;
   quantity: number;
   /** requested / rejected: the teacher's own ask, before (or instead of) a batch with cards. */
   status: 'requested' | 'rejected' | 'pending_delivery' | 'delivered';
   status_label?: string;
   /** The admin's words on a declined request. */
   note?: string | null;
+  /** The print file, any time the batch has cards — the teacher's own. */
+  can_print?: boolean;
   expires_at: string | null;
   delivered_at: string | null;
   created_at: string | null;

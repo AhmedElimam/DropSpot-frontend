@@ -90,6 +90,10 @@ export default function TeacherCardsScreen() {
 
   const data = overview.data;
   const labels = data?.labels;
+  // The open batch as the server has it now (a confirmation from here changes it).
+  const live = open ? (data?.batches.find((b) => b.id === open.id) ?? open) : null;
+  // Any time the batch has cards (founder 2026-11-05); an older server says so only for an inert one.
+  const canPrint = (b: TeacherCardBatch) => b.can_print ?? (b.status === 'pending_delivery' && !!data?.can_print);
 
   const askRequest = () => {
     const n = Math.min(Math.max(1, Number(qty) || 0), data?.max_batch ?? 2000);
@@ -119,7 +123,7 @@ export default function TeacherCardsScreen() {
         <Icon name="forward" size={22} color={colors.textPrimary} />
       </TouchableOpacity>
       <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.textPrimary }}>
-        {open ? t('teacher_cards.batch_title', { n: open.quantity }) : t('teacher_cards.title')}
+        {live ? t('teacher_cards.batch_title', { n: live.quantity }) : t('teacher_cards.title')}
       </Text>
     </View>
   );
@@ -134,7 +138,10 @@ export default function TeacherCardsScreen() {
       style={{ padding: spacing.lg, marginBottom: spacing.md, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: border }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <Icon name={b.status === 'requested' ? 'clock' : 'card'} size={20} color={b.status === 'rejected' ? colors.danger : colors.brand} />
-        <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{t('teacher_cards.batch_title', { n: b.quantity })}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{t('teacher_cards.batch_title', { n: b.quantity })}</Text>
+          {b.reference && !isRequest ? <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 1 }}>{t('teacher_cards.reference', { ref: b.reference })}</Text> : null}
+        </View>
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>
           {isRequest
             ? (b.created_at ? t('teacher_cards.requested_on', { date: formatDate(new Date(b.created_at)) }) : '')
@@ -149,14 +156,14 @@ export default function TeacherCardsScreen() {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm }}>
         {labels ? ORDER.filter((s) => (b.counts[s] ?? 0) > 0).map((s) => <Chip key={s} state={s} label={labels[s]} n={b.counts[s]} />) : null}
       </View>
-      {b.status === 'pending_delivery' && data?.can_print ? (
+      {canPrint(b) ? (
         <>
           <TouchableOpacity onPress={() => print.mutate(b)} disabled={print.isPending} activeOpacity={0.85} accessibilityRole="button"
             style={{ marginTop: spacing.md, height: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
             {print.isPending && print.variables?.id === b.id ? <ActivityIndicator color={colors.brand} /> : <Icon name="download" size={18} color={colors.brand} />}
-            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('teacher_cards.print_file')}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('teacher_cards.download_pdf')}</Text>
           </TouchableOpacity>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.textSecondary, marginTop: spacing.xs }}>{t('teacher_cards.print_hint')}</Text>
+          {b.status === 'pending_delivery' ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.textSecondary, marginTop: spacing.xs }}>{t('teacher_cards.print_hint')}</Text> : null}
         </>
       ) : null}
       {b.status === 'pending_delivery' ? (
@@ -238,6 +245,75 @@ export default function TeacherCardsScreen() {
     </View>
   );
 
+  // The batch at a glance (founder 2026-11-05: «some love on that page»): what it is, where it
+  // stands, its dates, how much of it is linked, and its file.
+  const linked = live?.counts.active ?? 0;
+  const pct = live ? Math.min(100, Math.round((linked / Math.max(1, live.quantity)) * 100)) : 0;
+  const pending = live?.status === 'pending_delivery';
+  const hero = live ? (
+    <View style={{ padding: spacing.lg, marginBottom: spacing.md, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: pending ? colors.warning : colors.border }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+        <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="card" size={24} color={colors.brand} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('teacher_cards.batch_title', { n: live.quantity })}</Text>
+          {live.reference ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }}>{t('teacher_cards.reference', { ref: live.reference })}</Text> : null}
+        </View>
+        <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.full, backgroundColor: pending ? colors.warningLight : colors.successLight }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: pending ? colors.warning : colors.success }}>{live.status_label ?? (pending ? t('teacher_cards.awaiting_teacher') : '')}</Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: 'row', marginTop: spacing.lg, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken }}>
+        {([
+          [t('teacher_cards.released_on'), live.created_at ? formatDate(new Date(live.created_at)) : '—'],
+          [t('teacher_cards.delivered_label'), live.delivered_at ? formatDate(new Date(live.delivered_at)) : t('teacher_cards.not_yet')],
+          [t('teacher_cards.valid_label'), live.expires_at ? formatDate(new Date(live.expires_at)) : t('teacher_cards.open_ended')],
+        ] as const).map(([k, v], i) => (
+          <View key={k} style={{ flex: 1, alignItems: 'center', paddingHorizontal: 4, borderStartWidth: i ? 1 : 0, borderStartColor: colors.border }}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }}>{k}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary, marginTop: 2 }} numberOfLines={1}>{v}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={{ marginTop: spacing.lg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: colors.textPrimary }}>{t('teacher_cards.linked_of', { n: linked, total: live.quantity })}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.success }}>{pct}%</Text>
+        </View>
+        <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.surfaceSunken, marginTop: 6, overflow: 'hidden' }}>
+          <View style={{ width: `${pct}%`, height: 8, borderRadius: 4, backgroundColor: colors.success }} />
+        </View>
+      </View>
+
+      {labels ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.md }}>
+          {ORDER.filter((s) => (live.counts[s] ?? 0) > 0).map((s) => <Chip key={s} state={s} label={labels[s]} n={live.counts[s]} />)}
+        </View>
+      ) : null}
+
+      {pending && data?.can_confirm ? (
+        <TouchableOpacity onPress={() => askConfirm(live)} disabled={confirm.isPending} activeOpacity={0.85} accessibilityRole="button"
+          style={{ marginTop: spacing.lg, height: 46, borderRadius: radius.md, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+          {confirm.isPending ? <ActivityIndicator color="#fff" /> : <Icon name="success" size={18} color="#fff" />}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('teacher_cards.confirm_receipt')}</Text>
+        </TouchableOpacity>
+      ) : null}
+      {canPrint(live) ? (
+        <>
+          <TouchableOpacity onPress={() => print.mutate(live)} disabled={print.isPending} activeOpacity={0.85} accessibilityRole="button"
+            style={{ marginTop: spacing.md, height: 46, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+            {print.isPending ? <ActivityIndicator color={colors.brand} /> : <Icon name="download" size={18} color={colors.brand} />}
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('teacher_cards.download_pdf')}</Text>
+          </TouchableOpacity>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.textSecondary, marginTop: spacing.xs }}>{t('teacher_cards.download_hint')}</Text>
+        </>
+      ) : null}
+    </View>
+  ) : null;
+
   const refresh = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />;
   const pad = { flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl };
 
@@ -260,8 +336,9 @@ export default function TeacherCardsScreen() {
           contentContainerStyle={pad}
           ListHeaderComponent={labels ? (
             <View style={{ marginBottom: spacing.sm }}>
+              {hero}
               <FilterChips
-                options={[{ key: 'all' as const, label: t('teacher_cards.filter_all') }, ...ORDER.filter((s) => s !== 'pending_delivery' && (open.counts[s] ?? 0) > 0).map((s) => ({ key: s, label: `${labels[s]} ${open.counts[s]}` }))]}
+                options={[{ key: 'all' as const, label: t('teacher_cards.filter_all') }, ...ORDER.filter((s) => s !== 'pending_delivery' && ((live ?? open).counts[s] ?? 0) > 0).map((s) => ({ key: s, label: `${labels[s]} ${(live ?? open).counts[s]}` }))]}
                 value={state}
                 onChange={(k) => setState(k)}
               />
