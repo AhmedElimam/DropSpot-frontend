@@ -13,6 +13,7 @@ import { Alert } from '@/ui/dialog';
 import { Surface } from '@/ui/surfaces';
 import { claimTeacherCard, lookupTeacherCard } from '@/api/teacherCards';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { ScanFrame, outsideFrame, type Pt } from '@/components/teacher/ScanFrame';
 
 /** The camera stops after this long without a card — a sensor left running on a desk heats a cheap phone. */
 const IDLE_MS = 60_000;
@@ -73,8 +74,9 @@ export default function ClaimCardScanScreen() {
     }
   }, [studentId, qc, t, resume]);
 
-  const onScan = useCallback(async ({ data }: { data: string }) => {
-    if (lock.current || !data) return;
+  const onScan = useCallback(async ({ data, bounds, cornerPoints }: { data: string; bounds?: { origin?: Pt; size?: { width: number; height: number } }; cornerPoints?: Pt[] }) => {
+    // Same focus gate as the door: only a card lined up inside the frame counts.
+    if (lock.current || !data || outsideFrame(bounds, cornerPoints)) return;
     lock.current = true;
     setScanning(false);
     Vibration.vibrate(40);
@@ -130,6 +132,8 @@ export default function ClaimCardScanScreen() {
         <View style={{ flex: 1, backgroundColor: '#000' }} />
       )}
 
+      {scanning ? <ScanFrame label={t('teacher_cards.scan_hint')} /> : null}
+
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('common.back')}
           style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' }}>
@@ -137,7 +141,6 @@ export default function ClaimCardScanScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#fff' }}>{t('teacher_cards.claim_for', { name: studentName })}</Text>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>{t('teacher_cards.scan_hint')}</Text>
         </View>
       </View>
 

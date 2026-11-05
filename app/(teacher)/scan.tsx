@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, type ViewStyle } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Redirect, useLocalSearchParams, type Href } from 'expo-router';
@@ -21,6 +21,7 @@ import { bufferScan, deleteScan } from '@/db/offlineScans';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { Icon } from '@/components/ui/Icon';
+import { bracket, FRAME_W, FRAME_H, FRAME_SLACK, WIN_W, WIN_H, VIGNETTE, scanCentre, type Pt } from '@/components/teacher/ScanFrame';
 import { TeacherTip } from '@/components/TeacherTip';
 import { PayDuesModal } from '@/components/teacher/PayDuesModal';
 import { StudentInvitationModal, type InvitationStudent } from '@/components/teacher/StudentInvitationModal';
@@ -42,49 +43,8 @@ const COOLDOWN_MS = 2500; // ignore repeat reads of the SAME card
 const SCAN_THROTTLE_MS = 1500; // min gap between ANY two accepted scans (anti-burst)
 const FEEDBACK_MS = 1600; // how long the green/red result stays before resuming
 
-// A framed aiming target with bright corner brackets so there's an obvious spot
-// to line the student's QR card up against (a plain rectangle read as "nothing to
-// aim for"). One bracket per corner; the box itself keeps a faint full outline.
-const BRACKET = 38;
-const STROKE = 4;
-function bracket(pos: 'tl' | 'tr' | 'bl' | 'br'): ViewStyle {
-  const s: ViewStyle = { position: 'absolute', width: BRACKET, height: BRACKET, borderColor: '#fff' };
-  if (pos === 'tl') return { ...s, top: -STROKE, left: -STROKE, borderTopWidth: STROKE, borderLeftWidth: STROKE, borderTopLeftRadius: 22 };
-  if (pos === 'tr') return { ...s, top: -STROKE, right: -STROKE, borderTopWidth: STROKE, borderRightWidth: STROKE, borderTopRightRadius: 22 };
-  if (pos === 'bl') return { ...s, bottom: -STROKE, left: -STROKE, borderBottomWidth: STROKE, borderLeftWidth: STROKE, borderBottomLeftRadius: 22 };
-  return { ...s, bottom: -STROKE, right: -STROKE, borderBottomWidth: STROKE, borderRightWidth: STROKE, borderBottomRightRadius: 22 };
-}
-
-// The aiming frame (must match the on-screen box in the render) plus slack, so a
-// card only registers when it's lined up INSIDE the frame — not read from anywhere
-// in view.
-// Square (founder 2026-10-11: «it looks rectangular»): a card's QR is square and so is the box.
-const FRAME_W = 240;
-const FRAME_H = 240;
-const FRAME_SLACK = 56;
-const WIN_W = Dimensions.get('window').width;
-const WIN_H = Dimensions.get('window').height;
-/** The shade outside the aiming box — still, cheap, and it makes the box the bright part. */
-const VIGNETTE = 'rgba(0,0,0,0.42)';
-
-type Pt = { x: number; y: number };
-
-// Centre of a scanned barcode in view coordinates, from whichever geometry the
-// platform reports. Returns null when neither bounds nor cornerPoints are present —
-// the caller then can't gate and accepts the read, so scanning never breaks.
-function scanCentre(
-  bounds?: { origin?: Pt; size?: { width: number; height: number } },
-  corners?: Pt[],
-): Pt | null {
-  if (bounds?.origin && bounds.size && (bounds.size.width > 0 || bounds.size.height > 0)) {
-    return { x: bounds.origin.x + bounds.size.width / 2, y: bounds.origin.y + bounds.size.height / 2 };
-  }
-  if (corners && corners.length > 0) {
-    const n = corners.length;
-    return { x: corners.reduce((s, p) => s + p.x, 0) / n, y: corners.reduce((s, p) => s + p.y, 0) / n };
-  }
-  return null;
-}
+// The aiming frame, its vignette and the in-frame gate are shared with «ربط كارت المدرّس»
+// (src/components/teacher/ScanFrame.tsx).
 
 export default function TeacherScan() {
   const { t } = useTranslation();
