@@ -14,6 +14,8 @@ import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { getTeacherStudents, type RosterStudent } from '@/api/students';
 import { claimTeacherCard, lookupTeacherCard } from '@/api/teacherCards';
 import { getFriendlyErrorMessage } from '@/utils/errors';
+import { SwitchRow } from '@/components/ui/Form';
+import { handBackToDoor } from '@/stores/doorHandoff';
 
 /** The server's own words for a refusal (staff screen, Arabic, written for this door). */
 function serverMessage(e: unknown): string {
@@ -34,8 +36,12 @@ function fold(s: string): string {
 /**
  * «اربط الكارت بطالب» — opened from the door's popup on a blank «كارت المدرّس». The card is
  * tied to one of this teacher's students (already registered, so the parent's check already
- * happened). A new student is registered first, then the card is scanned again. Claiming
- * records no attendance: the student checks in with the next scan.
+ * happened). A new student is registered first, then the card is scanned again.
+ *
+ * «ربط الكارت وتحضير الطالب الآن» (on by default, founder 2026-11-05): the student is at the
+ * door, so the linked card goes straight back to the scanner and checks in through the ordinary
+ * scan. Off, the link records no attendance. Linking from the student's profile
+ * (claim-card-scan) never checks in.
  */
 export default function ClaimCardScreen() {
   const { t } = useTranslation();
@@ -45,6 +51,7 @@ export default function ClaimCardScreen() {
   const { card } = useLocalSearchParams<{ card?: string }>();
   const code = typeof card === 'string' ? card : '';
   const [q, setQ] = useState('');
+  const [checkIn, setCheckIn] = useState(true);
 
   const lookup = useQuery({ queryKey: ['teacher-card', code], queryFn: () => lookupTeacherCard(code), enabled: !!code, retry: false });
   const blank = lookup.data?.status === 'unclaimed';
@@ -61,7 +68,12 @@ export default function ClaimCardScreen() {
     mutationFn: ({ student, replace }: { student: RosterStudent; replace: boolean }) => claimTeacherCard(code, Number(student.id), replace),
     onSuccess: (message) => {
       qc.invalidateQueries({ queryKey: ['teacher-cards'] });
-      Alert.alert(message || t('teacher_cards.claimed'));
+      if (checkIn) {
+        // The scanner's own result (checked in, or why not) is the confirmation.
+        handBackToDoor(code);
+      } else {
+        Alert.alert(message || t('teacher_cards.claimed'));
+      }
       router.back();
     },
     onError: (e, { student }) => {
@@ -79,7 +91,7 @@ export default function ClaimCardScreen() {
   const pick = (s: RosterStudent) => {
     Alert.alert(t('teacher_cards.confirm_title'), t('teacher_cards.confirm_body', { name: s.name ?? '' }), [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('teacher_cards.claim'), onPress: () => claim.mutate({ student: s, replace: false }) },
+      { text: t(checkIn ? 'teacher_cards.claim_check_in_btn' : 'teacher_cards.claim'), onPress: () => claim.mutate({ student: s, replace: false }) },
     ]);
   };
 
@@ -118,9 +130,10 @@ export default function ClaimCardScreen() {
 
       {blank ? (
         <>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, paddingHorizontal: spacing.lg, marginBottom: spacing.sm }}>
-            {t('teacher_cards.claim_hint')}
-          </Text>
+          <View style={{ marginHorizontal: spacing.lg, marginBottom: spacing.md, padding: spacing.md, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: checkIn ? colors.brand : colors.border }}>
+            <SwitchRow first title={t('teacher_cards.claim_check_in')} value={checkIn} onChange={setCheckIn}
+              hint={t(checkIn ? 'teacher_cards.claim_check_in_hint' : 'teacher_cards.claim_hint')} />
+          </View>
           <View style={{ marginHorizontal: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 48, paddingHorizontal: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.brand }}>
             <Icon name="search" size={18} color={colors.brand} />
             <TextInput value={q} onChangeText={setQ} placeholder={t('teacher_cards.search')} placeholderTextColor={colors.textTertiary}

@@ -31,6 +31,7 @@ import { Surface } from '@/ui/surfaces';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ScanPending, DoorNumberAsk } from '@/api/teacher';
 import { acknowledgePhone } from '@/api/phoneConfirmations';
+import { takeDoorHandoff } from '@/stores/doorHandoff';
 
 /** True when a scanned student owes anything (bill / booklet(s) / booking). */
 function hasDues(p?: ScanPending | null): boolean {
@@ -189,10 +190,12 @@ export default function TeacherScan() {
   }, [isFocused, locked, IDLE_MS]);
 
   const handleScan = useCallback(
-    async ({ data, bounds, cornerPoints }: { data: string; bounds?: { origin?: Pt; size?: { width: number; height: number } }; cornerPoints?: Pt[] }) => {
+    async ({ data, bounds, cornerPoints, handedBack = false }: { data: string; bounds?: { origin?: Pt; size?: { width: number; height: number } }; cornerPoints?: Pt[]; handedBack?: boolean }) => {
       const now = Date.now();
       lastActivityRef.current = now;
-      if (paused) return;
+      // A card handed back by «ربط الكارت وتحضير الطالب الآن» is the teacher's explicit ask, not
+      // a camera read: no pause, frame or repeat-read gate applies (it was this card just now).
+      if (paused && !handedBack) return;
       // Focus gate: only accept a code whose centre is inside the aiming frame, so a
       // card must be lined up in the box — not read from anywhere in the view. When
       // the platform reports no geometry, `scanCentre` is null and we don't gate.
@@ -215,9 +218,9 @@ export default function TeacherScan() {
       // General throttle: at most one accepted scan per SCAN_THROTTLE_MS regardless
       // of the card, so a burst of reads (or two cards in quick succession) can't
       // fire the handler twice before the feedback pause takes hold.
-      if (now - lastRef.current.at < SCAN_THROTTLE_MS) return;
+      if (!handedBack && now - lastRef.current.at < SCAN_THROTTLE_MS) return;
       // Same card: a longer cooldown so the camera re-reading a lingering card is ignored.
-      if (data === lastRef.current.code && now - lastRef.current.at < COOLDOWN_MS) return;
+      if (!handedBack && data === lastRef.current.code && now - lastRef.current.at < COOLDOWN_MS) return;
       lastRef.current = { code: data, at: now };
       setBusy(true);
 
@@ -463,6 +466,14 @@ export default function TeacherScan() {
     if (pausedRef.current) return;
     handleScanRef.current(e);
   }, []);
+
+  // Back from the claim screen with «ربط الكارت وتحضير الطالب الآن»: the card just linked
+  // checks in now, through this same scan.
+  useEffect(() => {
+    if (!isFocused) return;
+    const code = takeDoorHandoff();
+    if (code) void handleScanRef.current({ data: code, handedBack: true });
+  }, [isFocused]);
 
   const confirmExemption = useCallback(async () => {
     if (!overdueBlock) return;
