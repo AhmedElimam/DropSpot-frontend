@@ -22,7 +22,7 @@ import { getInvitationOptions, type InvitationCourseOption } from '@/api/invitat
 import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
 import { useTranslation } from 'react-i18next';
 import { isQueued } from '@/api/offlineQueue';
-import { recordStudent, orderCardsForNewlyAdded, type DedupeMatch, type RecordStudentPayload, type ParentRelationship, type ExistingStudentOffer } from '@/api/studentRecord';
+import { recordStudent, type DedupeMatch, type RecordStudentPayload, type ParentRelationship, type ExistingStudentOffer } from '@/api/studentRecord';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { Surface } from '@/ui/surfaces';
 
@@ -59,12 +59,10 @@ export default function RecordStudent() {
   const terms = useEnrollmentTerms(courseId);
   const [saving, setSaving] = useState(false);
   const [count, setCount] = useState(0);
-  const [enrollmentIds, setEnrollmentIds] = useState<number[]>([]);
   const [flash, setFlash] = useState<string | null>(null);
   const [dedupe, setDedupe] = useState<{ matches: DedupeMatch[]; payload: RecordStudentPayload } | null>(null);
   // QR-style popup: the entered student phone already exists in the system.
   const [ownStudent, setOwnStudent] = useState<ExistingStudentOffer | null>(null);
-  const [orderingCards, setOrderingCards] = useState(false);
   // Names added in this batch, newest first (the page clears its fields after each one).
   const [added, setAdded] = useState<string[]>([]);
   const [addedByCourse, setAddedByCourse] = useState<Record<number, number>>({});
@@ -99,11 +97,10 @@ export default function RecordStudent() {
     !terms.overpaid &&
     !saving;
 
-  function afterCreated(enrollmentId: number | null, note?: string) {
+  function afterCreated(_enrollmentId: number | null, note?: string) {
     setCount((c) => c + 1);
     if (name.trim()) setAdded((list) => [name.trim(), ...list]);
     if (courseId != null) setAddedByCourse((m) => ({ ...m, [courseId]: (m[courseId] ?? 0) + 1 }));
-    if (enrollmentId) setEnrollmentIds((ids) => [...ids, enrollmentId]);
     setName('');
     setStudentPhone('');
     setParentPhone('');
@@ -187,43 +184,6 @@ export default function RecordStudent() {
    */
   function scanInstead() {
     router.push({ pathname: '/(teacher)/enroll', params: courseId != null ? { course_id: String(courseId) } : {} });
-  }
-
-  /**
-   * Card ordering is a SEPARATE, confirmed action — recording a student never orders a
-   * card on its own. The confirmation names the count so a tap can't quietly file a
-   * batch of print jobs.
-   */
-  function bulkOrderCards() {
-    if (enrollmentIds.length === 0) return;
-    Alert.alert(
-      t('enroll_ui.order_cards_title'),
-      t('enroll_ui.order_cards_body', { count: enrollmentIds.length }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('enroll_ui.order_cards_confirm'), onPress: submitCardOrders },
-      ],
-    );
-  }
-
-  async function submitCardOrders() {
-    setOrderingCards(true);
-    try {
-      const r = await orderCardsForNewlyAdded(enrollmentIds);
-      // The batch is filed, not printed: these families did not ask for a card, so the
-      // super-admin releases the batch first. Say so, or the teacher promises cards
-      // that may never be produced.
-      const parts = [t('enroll_ui.cards_ordered', { count: r.created })];
-      // A student may already be covered by another teacher's order — one card serves
-      // every teacher, so we say it plainly without naming who ordered it.
-      if (r.already_ordered) parts.push(t('enroll_ui.cards_already_covered', { count: r.already_ordered }));
-      Alert.alert(t('common.done'), parts.join('\n'));
-      setEnrollmentIds([]);
-    } catch {
-      Alert.alert(t('enroll_ui.error_title'), t('enroll_ui.order_cards_failed'));
-    } finally {
-      setOrderingCards(false);
-    }
   }
 
   if (flags?.fast_register === false) {
@@ -326,16 +286,6 @@ export default function RecordStudent() {
             </Surface>
           ) : null}
 
-          {/* Bulk card order for everyone added this session */}
-          {enrollmentIds.length > 0 ? (
-            <Surface id="teacher.record_student.order_cards">
-            <TouchableOpacity onPress={bulkOrderCards} disabled={orderingCards} activeOpacity={0.85}
-              style={{ marginTop: spacing.lg, borderWidth: 1.5, borderColor: colors.brand, borderRadius: radius.lg, paddingVertical: spacing.md, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: spacing.sm }}>
-              {orderingCards ? <ActivityIndicator color={colors.brand} /> : <Icon name="card" size={18} color={colors.brand} />}
-              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('enroll_ui.order_cards_for_added', { count: enrollmentIds.length })}</Text>
-            </TouchableOpacity>
-            </Surface>
-          ) : null}
         </View>
       </ScrollView>
 

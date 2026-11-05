@@ -59,8 +59,6 @@ export const FEATURES: FeatureEntry[] = [
     keywords: ['تأكيد رقم', 'ارقام', 'رقم ولي الامر', 'كود', 'تحقق', 'otp', 'رقم غلط', 'تأكيد ولي الامر'] },
   { id: 'teacher_cards', titleKey: 'teacher_cards.title', subKey: 'teacher_cards.manage_sub', area: 'students', icon: 'card', href: '/(teacher)/teacher-cards', assistantNeeds: 'claim_cards',
     keywords: ['كارت المدرس', 'كروت المدرس', 'كروت فاضية', 'ربط كارت', 'تفعيل الكروت', 'دفعة كروت', 'كارت ضاع'] },
-  { id: 'cards', titleKey: 'manage.cards_title', subKey: 'manage.cards_sub', area: 'students', icon: 'card', href: '/(teacher)/students?segment=cards', assistantNeeds: 'manage_students',
-    keywords: ['كروت', 'بطاقات', 'طباعة', 'طلب كارت', 'cards'] },
 
   // ── Money ──
   { id: 'collect', titleKey: 'manage.pending_collections', subKey: 'manage.pending_collections_sub', area: 'money', icon: 'money', href: '/(teacher)/pending-collections', assistantNeeds: 'scan_attendance',

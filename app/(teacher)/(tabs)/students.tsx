@@ -348,20 +348,9 @@ export default function TeacherStudents() {
         </>
       ) : (
         <Surface id="teacher.students.cards_segment">
-          {/* Card orders — order a card for an existing enrolment + track requests. */}
-          <Surface id="teacher.students.order_card">
-          <View style={{ marginHorizontal: spacing.lg, marginTop: spacing.md, marginBottom: spacing.sm }}>
-            <TouchableOpacity
-              onPress={() => router.push('/(teacher)/card-order-new' as Href)}
-              activeOpacity={0.85}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, minHeight: 48, borderRadius: radius.lg, backgroundColor: colors.brand }}
-            >
-              <Icon name="add" size={18} color="#fff" />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('teacher.order_card')}</Text>
-            </TouchableOpacity>
-          </View>
-          </Surface>
-
+          {/* Orders already filed, and confirming a delivery. Teachers no longer order cards
+              (founder 2026-11-05): families order their own; this is reached from the
+              «card delivered» notification. */}
           <Surface id="teacher.students.card_orders">
           {cardOrders.isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
