@@ -25,11 +25,15 @@ export async function getInvitation(token: string): Promise<InvitationInfo> {
 }
 
 export interface MintedInviteLink {
+  id?: string | number;
   token: string;
   url: string;
   student_name: string | null;
   course_name: string;
   expires_at: string;
+  /** For many families (a class's group chat) rather than one — founder 2026-11-05. */
+  reusable?: boolean;
+  max_uses?: number;
 }
 
 /**
@@ -40,16 +44,24 @@ export interface MintedInviteLink {
 export async function mintInviteLink(
   courseId: number,
   studentName?: string,
-  opts?: { collectPayment?: boolean; issueInvoice?: boolean },
+  opts?: { collectPayment?: boolean; issueInvoice?: boolean; reusable?: boolean },
 ): Promise<MintedInviteLink> {
-  const name = (studentName ?? '').trim();
+  const name = opts?.reusable ? '' : (studentName ?? '').trim();
   const { data } = await client.post('/invitations/link', {
     course_id: courseId,
     ...(name ? { student_name: name } : {}),
     booking_collect_payment: opts?.collectPayment ? 1 : 0,
     booking_issue_invoice: opts?.issueInvoice ? 1 : 0,
+    reusable: opts?.reusable ? 1 : 0,
   });
-  return extractAttrs(data.data ?? data);
+  const item = data.data ?? data;
+  return { ...extractAttrs(item), id: item?.id };
+}
+
+/** Close a reusable link before its month is up. POST /invitations/link/{id}/stop. */
+export async function stopInviteLink(id: string | number): Promise<string> {
+  const { data } = await client.post(`/invitations/link/${id}/stop`);
+  return String(data.message ?? '');
 }
 
 // ---- Phone invitation (full parity with the web /invitations page) ----

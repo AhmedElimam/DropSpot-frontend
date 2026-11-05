@@ -13,7 +13,9 @@ import { formatNumber } from '@/utils/format';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useCourses } from '@/hooks/useCourses';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
-import { mintInviteLink, type MintedInviteLink } from '@/api/invitation';
+import { mintInviteLink, stopInviteLink, type MintedInviteLink } from '@/api/invitation';
+import { Chips } from '@/components/ui/Form';
+import { formatDate } from '@/utils/format';
 import { isNetworkFailure } from '@/db/marksSync';
 import { isArabicName } from '@/utils/validators';
 import { Surface } from '@/ui/surfaces';
@@ -34,6 +36,9 @@ export default function InviteLink() {
 
   const [courseId, setCourseId] = useState<number | null>(null);
   const [name, setName] = useState('');
+  // One family (a single-use link) or many — a class's group chat (founder 2026-11-05).
+  const [use, setUse] = useState<'once' | 'many'>('once');
+  const [stopping, setStopping] = useState(false);
   const [busy, setBusy] = useState(false);
   const [minted, setMinted] = useState<MintedInviteLink | null>(null);
   // Per-link booking options.
@@ -47,20 +52,42 @@ export default function InviteLink() {
   const groups = useGroupFilter(eligible, (c) => `${c.name} ${c.grade_name ?? ''}`, (c) => c.grade_name);
   // The student name is OPTIONAL now — the family fills it on the booking form. If the
   // teacher does pre-fill it, it must be Arabic (same rule as the server).
-  const nameError = name.trim() !== '' && !isArabicName(name);
+  const nameError = use === 'once' && name.trim() !== '' && !isArabicName(name);
   const canSubmit = courseId != null && !nameError && !busy;
 
   const submit = async () => {
     if (!canSubmit || courseId == null) return;
     setBusy(true);
     try {
-      const res = await mintInviteLink(courseId, name.trim() || undefined, { collectPayment, issueInvoice });
+      const res = await mintInviteLink(courseId, name.trim() || undefined, { collectPayment, issueInvoice, reusable: use === 'many' });
       setMinted(res);
     } catch (e: any) {
       Alert.alert(t('common.error'), e?.response?.data?.message ?? (isNetworkFailure(e) ? t('offline.need_connection_link') : t('invite_link.failed')));
     } finally {
       setBusy(false);
     }
+  };
+
+  const stop = () => {
+    if (!minted?.id || stopping) return;
+    const id = minted.id;
+    Alert.alert(t('invite_link.stop_title'), t('invite_link.stop_body'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('invite_link.stop'), style: 'destructive', onPress: async () => {
+          setStopping(true);
+          try {
+            const message = await stopInviteLink(id);
+            setMinted(null);
+            Alert.alert(message || t('invite_link.stopped'));
+          } catch (e: any) {
+            Alert.alert(t('common.error'), e?.response?.data?.message ?? t('invite_link.failed'));
+          } finally {
+            setStopping(false);
+          }
+        },
+      },
+    ]);
   };
 
   const share = async () => {
@@ -131,9 +158,20 @@ export default function InviteLink() {
 
             <Surface id="teacher.invite_link.student_name">
             <View style={card}>
-              <StepHead n={2} title={t('invite_link.student_name_optional')} />
-              <TextInput value={name} onChangeText={setName} placeholder={t('invite_link.name_ph_optional')} placeholderTextColor={colors.textTertiary} maxLength={120} style={{ ...input, borderColor: nameError ? colors.danger : colors.border }} />
-              {nameError ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginTop: 6 }}>{t('invite_phone.name_arabic_error')}</Text> : <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 6 }}>{t('invite_link.name_hint')}</Text>}
+              <StepHead n={2} title={t('invite_link.who_title')} />
+              <Chips fill value={use} onChange={setUse} options={[
+                { key: 'once' as const, label: t('invite_link.use_once'), icon: 'child' },
+                { key: 'many' as const, label: t('invite_link.use_many'), icon: 'children' },
+              ]} />
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.sm }}>
+                {use === 'many' ? t('invite_link.use_many_hint', { days: 30, n: 300 }) : t('invite_link.use_once_hint')}
+              </Text>
+              {use === 'once' ? (
+                <View style={{ marginTop: spacing.md }}>
+                  <TextInput value={name} onChangeText={setName} placeholder={t('invite_link.name_ph_optional')} placeholderTextColor={colors.textTertiary} maxLength={120} style={{ ...input, borderColor: nameError ? colors.danger : colors.border }} />
+                  {nameError ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginTop: 6 }}>{t('invite_phone.name_arabic_error')}</Text> : <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 6 }}>{t('invite_link.name_hint')}</Text>}
+                </View>
+              ) : null}
             </View>
             </Surface>
 
@@ -175,13 +213,15 @@ export default function InviteLink() {
               </View>
               <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.successText, marginTop: spacing.sm }}>{t('invite_link.ready')}</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: spacing.sm, paddingHorizontal: spacing.lg }}>
-                <Chip icon="child" text={minted.student_name || t('invite_link.the_family')} />
+                <Chip icon={minted.reusable ? 'children' : 'child'} text={minted.reusable ? t('invite_link.many_families') : (minted.student_name || t('invite_link.the_family'))} />
                 <Chip icon="book" text={minted.course_name} />
               </View>
             </View>
             <View style={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'center' }}>
-                {t('invite_link.ready_hint', { student: minted.student_name || t('invite_link.the_family'), course: minted.course_name })}
+                {minted.reusable
+                  ? t('invite_link.ready_hint_many', { course: minted.course_name, n: minted.max_uses ?? 300, date: formatDate(new Date(minted.expires_at)) })
+                  : t('invite_link.ready_hint', { student: minted.student_name || t('invite_link.the_family'), course: minted.course_name })}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.md }}>
                 <Icon name="send" size={16} color={colors.textTertiary} />
@@ -195,6 +235,13 @@ export default function InviteLink() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onPrimary }}>{t('invite_link.share')}</Text>
               </TouchableOpacity>
               </Surface>
+              {minted.reusable && minted.id != null ? (
+                <Surface id="teacher.invite_link.minted_card.stop">
+                <TouchableOpacity onPress={stop} disabled={stopping} activeOpacity={0.85} accessibilityRole="button" style={{ paddingTop: spacing.md, alignItems: 'center' }}>
+                  {stopping ? <ActivityIndicator color={colors.danger} /> : <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.danger }}>{t('invite_link.stop')}</Text>}
+                </TouchableOpacity>
+                </Surface>
+              ) : null}
               <Surface id="teacher.invite_link.minted_card.another">
               <TouchableOpacity onPress={() => { setMinted(null); setName(''); }} activeOpacity={0.85} accessibilityRole="button" style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('invite_link.another')}</Text>
