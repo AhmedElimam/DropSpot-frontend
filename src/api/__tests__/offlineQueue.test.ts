@@ -16,6 +16,12 @@ describe('matchQueueRule', () => {
     expect(matchQueueRule('post', '/students/enroll-by-scan')?.label).toBe('qr_enroll');
     expect(matchQueueRule('post', '/invitations')?.label).toBe('invite');
     expect(matchQueueRule('post', '/teacher/courses')?.label).toBe('course');
+    // A teacher-card link waits, stamped with the moment it was made; the door scan itself never does.
+    const claim = matchQueueRule('post', '/teacher/teacher-cards/claim')!;
+    expect(claim.label).toBe('claim_card');
+    expect(typeof claim.park!({ card_code: '1', student_id: 2 }).claimed_at).toBe('string');
+    expect(claim.park!({ card_code: '1', claimed_at: 'kept' }).claimed_at).toBe('kept');
+    expect(matchQueueRule('post', '/teacher/teacher-cards/lookup')).toBeNull();
   });
 
   it('keeps sign-in, uploads, money going back and removals live', () => {

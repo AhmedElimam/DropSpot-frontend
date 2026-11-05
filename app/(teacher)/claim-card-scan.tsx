@@ -58,9 +58,9 @@ export default function ClaimCardScanScreen() {
 
   const claim = useCallback(async (code: string, replace: boolean) => {
     try {
-      const message = await claimTeacherCard(code, studentId, replace);
+      const { message, queued } = await claimTeacherCard(code, studentId, replace);
       qc.invalidateQueries({ queryKey: ['teacher-cards'] });
-      Alert.alert(message || t('teacher_cards.claimed'));
+      Alert.alert(queued ? t('teacher_cards.queued') : message || t('teacher_cards.claimed'));
       router.back();
     } catch (e) {
       if (serverCode(e) === 'TEACHER_CARD_STUDENT_HAS_ONE') {

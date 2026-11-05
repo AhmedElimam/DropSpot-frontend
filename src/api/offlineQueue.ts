@@ -72,6 +72,9 @@ export const QUEUE_RULES: QueueRule[] = [
   { method: 'post', path: new RegExp(`^/teacher/locations(/${N}/(toggle|assistants))?$`), label: 'venue' },
   { method: 'put', path: new RegExp(`^/teacher/locations/${N}$`), label: 'venue' },
   { method: 'post', path: new RegExp(`^/revisions/${N}/instances/${N}/mark$`), label: 'revision_mark' },
+  // «كارت المدرّس» linked with no signal at the door: replayed dated at the tap, so the scans the
+  // phone buffered right after it find the card already the student's (founder 2026-11-05).
+  { method: 'post', path: /^\/teacher\/teacher-cards\/claim$/, label: 'claim_card', park: (b) => (b.claimed_at ? b : { ...b, claimed_at: new Date().toISOString() }) },
 ];
 
 /** The rule that lets this request wait offline, or null when it must be live. */

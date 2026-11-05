@@ -26,12 +26,13 @@ import { TeacherTip } from '@/components/TeacherTip';
 import { PayDuesModal } from '@/components/teacher/PayDuesModal';
 import { StudentInvitationModal, type InvitationStudent } from '@/components/teacher/StudentInvitationModal';
 import { scanPreCard, cancelPreCard } from '@/api/preCardInvitation';
-import { useActiveAbilities } from '@/hooks/useActiveAbilities';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { Surface } from '@/ui/surfaces';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ScanPending, DoorNumberAsk } from '@/api/teacher';
 import { acknowledgePhone } from '@/api/phoneConfirmations';
 import { takeDoorHandoff } from '@/stores/doorHandoff';
+import { isTeacherCardToken } from '@/api/teacherCards';
 
 /** True when a scanned student owes anything (bill / booklet(s) / booking). */
 function hasDues(p?: ScanPending | null): boolean {
@@ -144,6 +145,9 @@ export default function TeacherScan() {
   // Merged pay-on-scan popup: after an attendance scan surfaces dues, open ONE popup
   // listing every kind (bill / booklets / booking) with the paid/remaining + pay-full UI.
   const [duesFor, setDuesFor] = useState<{ code: string; name: string; pending: ScanPending } | null>(null);
+  // A teacher-card token read with no signal: the scan is buffered, and if the card is a blank the
+  // link is made now and parked too (founder 2026-11-05: the line must not stop for the 4G).
+  const [offlineBlank, setOfflineBlank] = useState<{ code: string } | null>(null);
   const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
 
   useEffect(() => {
@@ -171,7 +175,7 @@ export default function TeacherScan() {
   }, []);
 
   // `locked` pauses scanning too — while the scanner is locked no card is read.
-  const paused = locked || idle || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup || !!noSession || !!invite || !!numberAsk;
+  const paused = locked || idle || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup || !!noSession || !!invite || !!numberAsk || !!offlineBlank;
   // The sensor itself runs only when there is something to read for. Locked or idle,
   // the preview goes dark and the phone stops heating; the screen stays mounted so the
   // teacher's session context is untouched.
@@ -385,6 +389,12 @@ export default function TeacherScan() {
         if (bufferFailed) {
           Vibration.vibrate([0, 60, 40, 60]);
           setFeedback({ success: false, message: t('teacher.storage_full'), student_name: null });
+        } else if (isTeacherCardToken(data) && can(ABILITY.CLAIM_CARDS)) {
+          // Saved. A blank in the hand of someone who may link it: hold, and offer to link now.
+          Vibration.vibrate(40);
+          setBusy(false);
+          setOfflineBlank({ code: data });
+          return;
         } else {
           Vibration.vibrate(40);
           setFeedback({ success: true, message: t('teacher.saved_offline'), student_name: null });
@@ -1018,6 +1028,30 @@ export default function TeacherScan() {
       {/* No session running for this student right now — held until dismissed. Our own
           student: a «من طلابك» pill, their dues (collect here) and their profile. A
           stranger's card: the fact, and nothing to go to. */}
+      {offlineBlank ? (
+        <Surface id="teacher.scan.offline_blank">
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,28,59,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="card" size={48} color="#fff" outline />
+          </View>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff', marginTop: spacing.lg, textAlign: 'center' }}>{t('teacher_cards.offline_blank_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: 'rgba(255,255,255,0.85)', marginTop: 4, textAlign: 'center', paddingHorizontal: spacing.lg }}>
+            {t('teacher_cards.offline_blank_body')}
+          </Text>
+          <TouchableOpacity
+            onPress={() => { const code = offlineBlank.code; setOfflineBlank(null); router.push(`/(teacher)/claim-card?card=${encodeURIComponent(code)}&queued=1` as Href); }}
+            activeOpacity={0.85} accessibilityRole="button"
+            style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}
+          >
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher_cards.offline_blank_link')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setOfflineBlank(null)} activeOpacity={0.85} accessibilityRole="button" style={{ marginTop: spacing.lg, minHeight: 44, justifyContent: 'center' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: 'rgba(255,255,255,0.85)' }}>{t('teacher_cards.offline_blank_no')}</Text>
+          </TouchableOpacity>
+        </View>
+        </Surface>
+      ) : null}
+
       {noSession ? (
         <Surface id="teacher.scan.no_session">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,28,59,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>

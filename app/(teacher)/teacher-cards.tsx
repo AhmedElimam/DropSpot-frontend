@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { NumberInput } from '@/components/ui/Form';
+import { openRemotePdf } from '@/utils/openPdf';
 import { FlatList } from '@/components/ui/Refreshable';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +18,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatDate } from '@/utils/format';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import {
-  confirmTeacherCardBatch, getTeacherCardBatch, getTeacherCards, revokeTeacherCard, unclaimTeacherCard,
+  confirmTeacherCardBatch, getTeacherCardBatch, getTeacherCardPrintUrl, getTeacherCards, requestTeacherCardBatch, revokeTeacherCard, unclaimTeacherCard,
   type TeacherCardBatch, type TeacherCardRow, type TeacherCardState,
 } from '@/api/teacherCards';
 
@@ -58,6 +60,8 @@ export default function TeacherCardsScreen() {
   const [open, setOpen] = useState<TeacherCardBatch | null>(null);
   // The batch's cards by state (founder 2026-11-05: filters on the cards page).
   const [state, setState] = useState<TeacherCardState | 'all'>('all');
+  // «طلب دفعة كروت» (founder 2026-11-05): the ask goes to the platform from right here.
+  const [qty, setQty] = useState('100');
 
   const overview = useQuery({ queryKey: ['teacher-cards', 'overview'], queryFn: getTeacherCards });
   const cards = useInfiniteQuery({
@@ -78,10 +82,23 @@ export default function TeacherCardsScreen() {
   const confirm = useMutation({ mutationFn: (b: TeacherCardBatch) => confirmTeacherCardBatch(b.id), onSuccess: done, onError: fail });
   const unclaim = useMutation({ mutationFn: (c: TeacherCardRow) => unclaimTeacherCard(c.id), onSuccess: done, onError: fail });
   const revoke = useMutation({ mutationFn: ({ c, reason }: { c: TeacherCardRow; reason: string }) => revokeTeacherCard(c.id, reason), onSuccess: done, onError: fail });
+  const request = useMutation({ mutationFn: (n: number) => requestTeacherCardBatch(n), onSuccess: done, onError: fail });
+  const print = useMutation({
+    mutationFn: async (b: TeacherCardBatch) => { const { url, filename } = await getTeacherCardPrintUrl(b.id); await openRemotePdf(url, filename); },
+    onError: fail,
+  });
 
   const data = overview.data;
   const labels = data?.labels;
 
+  const askRequest = () => {
+    const n = Math.min(Math.max(1, Number(qty) || 0), data?.max_batch ?? 2000);
+    if (!(n > 0)) return;
+    Alert.alert(t('teacher_cards.request_confirm_title'), t('teacher_cards.request_confirm_body', { n }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('teacher_cards.request_send'), onPress: () => request.mutate(n) },
+    ]);
+  };
   const askConfirm = (b: TeacherCardBatch) => Alert.alert(t('teacher_cards.confirm_receipt_title'), t('teacher_cards.confirm_receipt_body', { n: b.quantity }), [
     { text: t('common.cancel'), style: 'cancel' },
     { text: t('teacher_cards.confirm_receipt'), onPress: () => confirm.mutate(b) },
@@ -107,19 +124,41 @@ export default function TeacherCardsScreen() {
     </View>
   );
 
-  const batchRow = ({ item: b }: { item: TeacherCardBatch }) => (
-    <TouchableOpacity onPress={() => setOpen(b)} activeOpacity={0.85} accessibilityRole="button"
-      style={{ padding: spacing.lg, marginBottom: spacing.md, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: b.status === 'pending_delivery' ? colors.warning : colors.border }}>
+  const batchRow = ({ item: b }: { item: TeacherCardBatch }) => {
+    // A request has no cards to open: the row only says where it stands.
+    const isRequest = b.status === 'requested' || b.status === 'rejected';
+    const border = b.status === 'pending_delivery' ? colors.warning : b.status === 'rejected' ? colors.danger : colors.border;
+
+    return (
+    <TouchableOpacity onPress={() => setOpen(b)} disabled={isRequest} activeOpacity={0.85} accessibilityRole="button"
+      style={{ padding: spacing.lg, marginBottom: spacing.md, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: border }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <Icon name="card" size={20} color={colors.brand} />
+        <Icon name={b.status === 'requested' ? 'clock' : 'card'} size={20} color={b.status === 'rejected' ? colors.danger : colors.brand} />
         <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{t('teacher_cards.batch_title', { n: b.quantity })}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>
-          {b.expires_at ? t('teacher_cards.valid_until', { date: formatDate(new Date(b.expires_at)) }) : t('teacher_cards.no_expiry')}
+          {isRequest
+            ? (b.created_at ? t('teacher_cards.requested_on', { date: formatDate(new Date(b.created_at)) }) : '')
+            : b.expires_at ? t('teacher_cards.valid_until', { date: formatDate(new Date(b.expires_at)) }) : t('teacher_cards.no_expiry')}
         </Text>
       </View>
+      {isRequest ? (
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: b.status === 'rejected' ? colors.danger : colors.warning, marginTop: spacing.sm }}>
+          {b.status_label ?? b.status}{b.note ? ` — ${b.note}` : ''}
+        </Text>
+      ) : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm }}>
         {labels ? ORDER.filter((s) => (b.counts[s] ?? 0) > 0).map((s) => <Chip key={s} state={s} label={labels[s]} n={b.counts[s]} />) : null}
       </View>
+      {b.status === 'pending_delivery' && data?.can_print ? (
+        <>
+          <TouchableOpacity onPress={() => print.mutate(b)} disabled={print.isPending} activeOpacity={0.85} accessibilityRole="button"
+            style={{ marginTop: spacing.md, height: 44, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+            {print.isPending && print.variables?.id === b.id ? <ActivityIndicator color={colors.brand} /> : <Icon name="download" size={18} color={colors.brand} />}
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('teacher_cards.print_file')}</Text>
+          </TouchableOpacity>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.textSecondary, marginTop: spacing.xs }}>{t('teacher_cards.print_hint')}</Text>
+        </>
+      ) : null}
       {b.status === 'pending_delivery' ? (
         data?.can_confirm ? (
           <TouchableOpacity onPress={() => askConfirm(b)} disabled={confirm.isPending} activeOpacity={0.85} accessibilityRole="button"
@@ -132,7 +171,8 @@ export default function TeacherCardsScreen() {
         )
       ) : null}
     </TouchableOpacity>
-  );
+    );
+  };
 
   const cardRow = ({ item: c }: { item: TeacherCardRow }) => (
     <View style={{ padding: spacing.md, marginBottom: spacing.sm, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}>
@@ -170,6 +210,25 @@ export default function TeacherCardsScreen() {
   const intro = (
     <View>
       <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginBottom: spacing.md }}>{t('teacher_cards.intro')}</Text>
+      {data?.can_request ? (
+        <View style={{ padding: spacing.md, marginBottom: spacing.md, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('teacher_cards.request_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 18, color: colors.textSecondary, marginTop: 2 }}>{t('teacher_cards.request_hint')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm }}>
+            <View style={{ width: 110 }}><NumberInput value={qty} onChangeText={setQty} /></View>
+            <TouchableOpacity onPress={askRequest} disabled={request.isPending} activeOpacity={0.85} accessibilityRole="button"
+              style={{ flex: 1, height: 46, borderRadius: radius.md, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+              {request.isPending ? <ActivityIndicator color="#fff" /> : <Icon name="card" size={18} color="#fff" />}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('teacher_cards.request_send')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : data?.batches.some((b) => b.status === 'requested') ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, marginBottom: spacing.md, borderRadius: radius.lg, backgroundColor: colors.warningLight }}>
+          <Icon name="clock" size={18} color={colors.warning} />
+          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }}>{t('teacher_cards.request_waiting')}</Text>
+        </View>
+      ) : null}
       {data?.low_stock ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, marginBottom: spacing.md, borderRadius: radius.lg, backgroundColor: colors.warningLight }}>
           <Icon name="warning" size={18} color={colors.warning} />
