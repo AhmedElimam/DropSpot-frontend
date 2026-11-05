@@ -665,6 +665,14 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               </TouchableOpacity>
               </Surface>
             ) : null}
+            {/* «كارت المدرّس»: this student is chosen — scan the blank and confirm it is theirs. */}
+            <Surface id="teacher.student_profile.claim_teacher_card_button" ctx={{ student: s }} assistantNeeds="claim_cards">
+            <TouchableOpacity onPress={() => router.push(`/(teacher)/claim-card-scan?student=${s.id}&name=${encodeURIComponent(s.name ?? '')}` as Href)} accessibilityRole="button" activeOpacity={0.85}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+              <Icon name="card" size={16} color={colors.brand} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{t('teacher_cards.profile_button')}</Text>
+            </TouchableOpacity>
+            </Surface>
             <Surface id="teacher.student_profile.edit_request_button" ctx={{ student: s }} assistantNeeds="manage_students">
             <TouchableOpacity onPress={() => setEditOpen(true)} accessibilityRole="button" activeOpacity={0.85}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
