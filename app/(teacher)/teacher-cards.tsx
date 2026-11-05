@@ -9,6 +9,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { FilterChips } from '@/components/ui/FilterChips';
 import { Alert } from '@/ui/dialog';
 import { Surface } from '@/ui/surfaces';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
@@ -55,11 +56,13 @@ export default function TeacherCardsScreen() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const [open, setOpen] = useState<TeacherCardBatch | null>(null);
+  // The batch's cards by state (founder 2026-11-05: filters on the cards page).
+  const [state, setState] = useState<TeacherCardState | 'all'>('all');
 
   const overview = useQuery({ queryKey: ['teacher-cards', 'overview'], queryFn: getTeacherCards });
   const cards = useInfiniteQuery({
-    queryKey: ['teacher-cards', 'batch', open?.id],
-    queryFn: ({ pageParam }) => getTeacherCardBatch(open!.id, pageParam),
+    queryKey: ['teacher-cards', 'batch', open?.id, state],
+    queryFn: ({ pageParam }) => getTeacherCardBatch(open!.id, pageParam, state === 'all' ? undefined : state),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page < last.last_page ? last.page + 1 : undefined),
     enabled: !!open,
@@ -94,7 +97,7 @@ export default function TeacherCardsScreen() {
 
   const header = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
-      <TouchableOpacity onPress={() => (open ? setOpen(null) : router.back())} accessibilityRole="button" accessibilityLabel={t('common.back')}
+      <TouchableOpacity onPress={() => (open ? (setOpen(null), setState('all')) : router.back())} accessibilityRole="button" accessibilityLabel={t('common.back')}
         style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
         <Icon name="forward" size={22} color={colors.textPrimary} />
       </TouchableOpacity>
@@ -196,7 +199,16 @@ export default function TeacherCardsScreen() {
           refreshControl={refresh}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={pad}
-          ListEmptyComponent={cards.isLoading ? <ActivityIndicator color={colors.primary} /> : null}
+          ListHeaderComponent={labels ? (
+            <View style={{ marginBottom: spacing.sm }}>
+              <FilterChips
+                options={[{ key: 'all' as const, label: t('teacher_cards.filter_all') }, ...ORDER.filter((s) => s !== 'pending_delivery' && (open.counts[s] ?? 0) > 0).map((s) => ({ key: s, label: `${labels[s]} ${open.counts[s]}` }))]}
+                value={state}
+                onChange={(k) => setState(k)}
+              />
+            </View>
+          ) : null}
+          ListEmptyComponent={cards.isLoading ? <ActivityIndicator color={colors.primary} /> : <EmptyState icon="card" title={t('teacher_cards.none_in_filter')} />}
           ListFooterComponent={cards.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : null}
         />
       ) : (

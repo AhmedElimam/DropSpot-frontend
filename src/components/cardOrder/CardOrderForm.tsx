@@ -13,7 +13,7 @@ import { Icon } from '@/components/ui/Icon';
 import { getCardOrderTargets, createFamilyCardOrder, type CardOrderTarget } from '@/api/cardOrders';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '@/stores/authStore';
-import { CardPerks, CardIntroModal } from './CardPerks';
+import { CardPerks, CardIntroModal, CardCompare } from './CardPerks';
 
 /**
  * The family self-order screen body (student self / parent for a child). Routes here
@@ -118,6 +118,10 @@ export function CardOrderForm({ preselectStudentId }: { preselectStudentId?: num
             </TouchableOpacity>
           </View>
           <CardPerks compact />
+        </View>
+        <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginTop: spacing.md }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('card_compare.title')}</Text>
+          <CardCompare />
         </View>
 
         {/* Student picker — only when there's more than one and none pre-selected. */}

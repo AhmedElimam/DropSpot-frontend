@@ -6,7 +6,9 @@ import { searchScore } from '@/utils/smartSearch';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert } from '@/ui/dialog';
+import { getFriendlyErrorMessage } from '@/utils/errors';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
@@ -18,7 +20,7 @@ import { AddStudentSheet } from '@/components/teacher/AddStudentSheet';
 import { useTeacherStudents, useTeacherCourses } from '@/hooks/useStudents';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import { getTeacherCardOrders, type TeacherCardOrder, type RosterStudent } from '@/api/students';
+import { getTeacherCardOrders, confirmCardOrderReceipt, type TeacherCardOrder, type RosterStudent } from '@/api/students';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import { SeasonPaper } from '@/components/SeasonPaper';
@@ -98,11 +100,18 @@ const RosterRow = memo(function RosterRow({ s, onPress }: { s: RosterStudent; on
   );
 });
 
-const CardOrderRow = memo(function CardOrderRow({ o }: { o: TeacherCardOrder }) {
+/** The cards list's filter (founder 2026-11-05), by the server's `stage`. */
+type CardStage = 'all' | 'progress' | 'delivered' | 'done' | 'rejected';
+const STAGE_COLOR = (): Record<string, string> => ({ progress: colors.info, delivered: colors.warning, done: colors.success, rejected: colors.danger });
+
+const CardOrderRow = memo(function CardOrderRow({ o, onConfirm, confirming }: { o: TeacherCardOrder; onConfirm: (o: TeacherCardOrder) => void; confirming: boolean }) {
   const { t } = useTranslation();
-  // Unknown status → say so. Defaulting to "under review" made every status the app had
-  // not learned yet look like a live request.
-  const st = CARD_STATUS()[o.status] ?? { key: 'teacher.co_unknown', color: colors.textSecondary };
+  // The server's own words when it sends them; else the old map. Unknown status → say so.
+  // Defaulting to "under review" made every status the app had not learned look like a live request.
+  const known = CARD_STATUS()[o.status];
+  const st = o.status_label
+    ? { label: o.status_label, color: STAGE_COLOR()[o.stage ?? 'progress'] ?? colors.textSecondary }
+    : { label: t(known?.key ?? 'teacher.co_unknown'), color: known?.color ?? colors.textSecondary };
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: st.color, padding: spacing.md, marginBottom: spacing.sm }}>
       <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: st.color + '1A', justifyContent: 'center', alignItems: 'center' }}>
@@ -115,8 +124,14 @@ const CardOrderRow = memo(function CardOrderRow({ o }: { o: TeacherCardOrder }) 
         ) : null}
       </View>
       <View style={{ backgroundColor: st.color, borderRadius: radius.full, paddingVertical: 3, paddingHorizontal: 10 }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{t(st.key)}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{st.label}</Text>
       </View>
+      {o.can_confirm ? (
+        <TouchableOpacity onPress={() => onConfirm(o)} disabled={confirming} accessibilityRole="button" activeOpacity={0.85}
+          style={{ marginStart: spacing.xs, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: 6, paddingHorizontal: 10 }}>
+          {confirming ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: '#fff' }}>{t('teacher.co_confirm')}</Text>}
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 });
@@ -159,6 +174,31 @@ export default function TeacherStudents() {
     [courses, t],
   );
   const cardOrders = useQuery({ queryKey: ['teacher-card-orders'], queryFn: getTeacherCardOrders, enabled: segment === 'cards' });
+  const [cardStage, setCardStage] = useState<CardStage>('all');
+  const [cardSearch, setCardSearch] = useState('');
+  const stageCounts = useMemo(() => {
+    const c: Record<string, number> = { all: 0, progress: 0, delivered: 0, done: 0, rejected: 0 };
+    for (const o of cardOrders.data ?? []) { c.all++; c[o.stage ?? 'progress']++; }
+    return c;
+  }, [cardOrders.data]);
+  const shownOrders = useMemo(() => {
+    const q = cardSearch.trim();
+    return (cardOrders.data ?? []).filter((o) => (cardStage === 'all' || (o.stage ?? 'progress') === cardStage)
+      && (!q || searchScore({ name: o.student_name, tags: [o.course_name, o.grade_label] }, q) > 0));
+  }, [cardOrders.data, cardStage, cardSearch]);
+  const stageOptions = useMemo(() => (['all', 'delivered', 'progress', 'done', 'rejected'] as CardStage[])
+    .filter((k) => k === 'all' || stageCounts[k] > 0)
+    .map((k) => ({ key: k, label: `${t(`teacher.co_stage_${k}`)} ${formatNumber(stageCounts[k])}` })), [stageCounts, t]);
+  const qc = useQueryClient();
+  const confirmReceipt = useMutation({
+    mutationFn: (o: TeacherCardOrder) => confirmCardOrderReceipt(o.id),
+    onSuccess: (message) => { void qc.invalidateQueries({ queryKey: ['teacher-card-orders'] }); Alert.alert(message || t('common.done')); },
+    onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+  });
+  const askConfirm = useCallback((o: TeacherCardOrder) => Alert.alert(t('teacher.co_confirm_title'), t('teacher.co_confirm_body', { name: o.student_name }), [
+    { text: t('common.cancel'), style: 'cancel' },
+    { text: t('teacher.co_confirm'), onPress: () => confirmReceipt.mutate(o) },
+  ]), [t, confirmReceipt]);
 
   const studentsRefresh = usePullRefresh(refetchStudents);
   const cardsRefresh = usePullRefresh(cardOrders.refetch);
@@ -360,12 +400,26 @@ export default function TeacherStudents() {
               initialNumToRender={8}
               maxToRenderPerBatch={8}
               windowSize={7}
-              data={cardOrders.data ?? []}
+              data={shownOrders}
               keyExtractor={(o: TeacherCardOrder) => String(o.id)}
               contentContainerStyle={listPad}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               refreshControl={<RefreshControl refreshing={cardsRefresh.refreshing} onRefresh={cardsRefresh.onRefresh} />}
-              renderItem={({ item }: { item: TeacherCardOrder }) => <CardOrderRow o={item} />}
-              ListEmptyComponent={<EmptyState icon="card" title={t('teacher.no_card_orders')} message={t('teacher.order_card_sub')} />}
+              ListHeaderComponent={(cardOrders.data ?? []).length > 0 ? (
+                <View style={{ gap: spacing.sm, marginBottom: spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 44, paddingHorizontal: spacing.md, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}>
+                    <Icon name="search" size={16} color={colors.textTertiary} />
+                    <TextInput value={cardSearch} onChangeText={setCardSearch} placeholder={t('teacher.co_search')} placeholderTextColor={colors.textTertiary}
+                      autoCorrect={false} style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, textAlign: 'right' }} />
+                  </View>
+                  <FilterChips options={stageOptions} value={cardStage} onChange={(k) => setCardStage(k)} />
+                </View>
+              ) : null}
+              renderItem={({ item }: { item: TeacherCardOrder }) => <CardOrderRow o={item} onConfirm={askConfirm} confirming={confirmReceipt.isPending && confirmReceipt.variables?.id === item.id} />}
+              ListEmptyComponent={(cardOrders.data ?? []).length > 0
+                ? <EmptyState icon="search" title={t('teacher.co_none_in_filter')} />
+                : <EmptyState icon="card" title={t('teacher.no_card_orders')} />}
             />
           )}
           </Surface>

@@ -484,11 +484,23 @@ export async function flagParentNumber(
 export interface TeacherCardOrder {
   id: number;
   student_name: string;
-  status: 'submitted' | 'approved' | 'rejected' | 'link_generated';
+  status: string;
+  /** The teacher's words for the status, and the filter stage. Absent on older servers. */
+  status_label?: string;
+  stage?: 'progress' | 'delivered' | 'done' | 'rejected';
+  /** Delivered to this teacher: «تأكيد الاستلام» from the row. */
+  can_confirm?: boolean;
   payment_option: string | null;
   grade_label: string | null;
   course_name: string | null;
   created_at: string | null;
+  delivered_at?: string | null;
+}
+
+/** The teacher has the delivered card in hand — this is what makes it live. */
+export async function confirmCardOrderReceipt(id: number): Promise<string> {
+  const { data } = await client.post(`/teacher/card-orders/${id}/confirm-receipt`);
+  return String(data.message ?? '');
 }
 
 export async function getTeacherCardOrders(): Promise<TeacherCardOrder[]> {

@@ -11,7 +11,7 @@ import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { NazerFramed } from '@/components/nazer/NazerFramed';
-import { CardPerks, CardWhy, CardSteps } from '@/components/cardOrder/CardPerks';
+import { CardPerks, CardWhy, CardSteps, CardCompare } from '@/components/cardOrder/CardPerks';
 import { getCardOrderTargets } from '@/api/cardOrders';
 import { useAuthStore } from '@/stores/authStore';
 import { Surface } from '@/ui/surfaces';
@@ -88,6 +88,12 @@ export default function CardInfoScreen() {
             <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{t('card_order.intro_sub')}</Text>
             <Text style={{ fontFamily: fonts.medium, fontSize: 14, lineHeight: 23, color: colors.textPrimary, marginTop: 2 }}>{t('card_info.nazer_quote')}</Text>
           </View>
+        </View>
+
+        {/* Against the blank card a teacher may hand out (founder 2026-11-05). */}
+        <View style={panel}>
+          <Text style={sectionTitle}>{t('card_compare.title')}</Text>
+          <CardCompare />
         </View>
 
         <View style={panel}>
