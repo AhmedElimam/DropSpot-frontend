@@ -39,6 +39,7 @@ export const CAPABILITIES: ReadonlyArray<{ key: string; where: string }> = [
   { key: 'booking_requests', where: 'app/(teacher)/booking-requests.tsx' },
   { key: 'phone_confirmations', where: 'app/(teacher)/phone-confirmations.tsx' },
   { key: 'card_orders', where: 'app/(teacher)/card-order-new.tsx' },
+  { key: 'teacher_cards', where: 'app/(teacher)/teacher-cards.tsx' },
   { key: 'insights', where: 'app/(teacher)/insights.tsx' },
   { key: 'assistant_actions', where: 'app/(teacher)/assistant-actions.tsx' },
   { key: 'assistants', where: 'app/(teacher)/assistants.tsx' },

@@ -353,6 +353,13 @@ export default function TeacherScan() {
           await deleteScan(localId);
           await useOfflineStore.getState().refresh();
         }
+        // «كارت المدرّس»: a blank (claim it?) or a card the Dros Spot card retired (the
+        // one-time grace) — the server drew the popup and the client is showing it.
+        if (!res.success && res.has_popup && res.code?.startsWith('TEACHER_CARD_')) {
+          setBusy(false);
+          Vibration.vibrate(50);
+          return;
+        }
         // Same-grade "wrong group": the student isn't in this running group but is the
         // same grade → hold on a prompt to admit once or transfer them here.
         const profileId = res.enrolled_here && res.student_id ? res.student_id : null;

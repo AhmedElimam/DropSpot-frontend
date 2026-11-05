@@ -100,6 +100,9 @@ export interface ScanResult {
   enrolled_here?: boolean | null;
   // A number nobody confirmed, asked about ONCE at the door (the family is right there).
   confirm_number?: DoorNumberAsk | null;
+  // The server drew a popup for this answer (meta.popup) — the client already shows it, so
+  // the scan screen holds still instead of flashing a second message under it.
+  has_popup?: boolean;
 }
 
 export interface DoorNumberAsk {
@@ -147,6 +150,7 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
         pending: d.pending ?? null,
         offer: d.offer ?? null,
         enrolled_here: typeof d.enrolled_here === 'boolean' ? d.enrolled_here : null,
+        has_popup: !!d.meta?.popup,
       };
     }
     throw e;
