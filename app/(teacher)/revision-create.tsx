@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Surface } from '@/ui/surfaces';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FormScreen, FormCard, Field, Input, NumberInput, Chips, DayPicker, OptionRow, SwitchRow, DateField, TimeRangeRow } from '@/components/ui/Form';
+import { SelectField } from '@/components/ui/SelectField';
 import { getRevisionCreateOptions, createRevision, type BillingMode } from '@/api/revisions';
 
 const DURATIONS = [{ m: 60, l: 'ساعة' }, { m: 90, l: 'ساعة ونصف' }, { m: 120, l: 'ساعتان' }, { m: 180, l: '3 ساعات' }, { m: 240, l: '4 ساعات' }, { m: 300, l: '5 ساعات' }];
@@ -19,11 +20,18 @@ const DURATIONS = [{ m: 60, l: 'ساعة' }, { m: 90, l: 'ساعة ونصف' }, 
  * Special / revision session creation — parity with the web revise/create: purpose
  * (revision / exam) + max mark, same-grade course picker, billing free / bucket / spread
  * (+ fee), one-time or weekly timing, duration, location, notify students.
+ *
+ * «من مجموعاتي» or «مخصّصة» (founder 2026-11-06): a custom one is not tied to a group — any
+ * grade, in a chosen academic year. The teacher or an assistant with «إدارة الحصص» makes it.
  */
 export default function RevisionCreate() {
   const { t } = useTranslation();
   const qc = useQueryClient();
-  const { data: grades, isLoading } = useQuery({ queryKey: ['revision-create-options'], queryFn: getRevisionCreateOptions });
+  const { data: options, isLoading } = useQuery({ queryKey: ['revision-create-options'], queryFn: getRevisionCreateOptions });
+  const grades = options?.grades;
+  // A server that predates custom revisions sends no years: only the groups way is offered.
+  const customOffered = (options?.terms.length ?? 0) > 0 && (options?.all_grades.length ?? 0) > 0;
+  const groupsOffered = (grades ?? []).length > 0;
 
   // «امتحان جديد» from the revision desk opens the form already set to an exam.
   const params = useLocalSearchParams<{ purpose?: string }>();
@@ -44,25 +52,34 @@ export default function RevisionCreate() {
   const [location, setLocation] = useState('');
   const [notify, setNotify] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [source, setSource] = useState<'groups' | 'custom'>('groups');
+  const [termId, setTermId] = useState<number | null>(null);
+  const [customGrade, setCustomGrade] = useState<string | null>(null);
+  const custom = source === 'custom';
+  // No groups yet: the custom way is the only way. The current year is the default.
+  useEffect(() => { if (options && !groupsOffered && customOffered) setSource('custom'); }, [options, groupsOffered, customOffered]);
+  useEffect(() => { if (termId == null && options?.terms.length) setTermId((options.terms.find((x) => x.is_current) ?? options.terms[0]).id); }, [options, termId]);
 
   const grade = useMemo(() => (grades ?? []).find((g) => g.grade_id === gradeId), [grades, gradeId]);
   const isExam = purpose === 'quiz_exam';
   const toggleMember = (id: number) => setMembers((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
   const selectGrade = (id: number) => { setGradeId(id); setMembers([]); };
 
-  const canSubmit = title.trim().length > 0 && gradeId != null && members.length > 0
+  const pickedGrade = custom ? (customGrade ? Number(customGrade) : null) : gradeId;
+  const canSubmit = title.trim().length > 0 && pickedGrade != null && (custom ? termId != null : members.length > 0)
     && (!isExam || Number(maxMark) > 0) && (billing !== 'spread' || Number(feeTotal) > 0)
     && (recurring ? !!start : !!date && !!otTime) && !busy;
 
   const submit = async () => {
-    if (!canSubmit || gradeId == null) return;
+    if (!canSubmit || pickedGrade == null) return;
     setBusy(true);
     try {
       const res = await createRevision({
-        title: title.trim(), grade_id: gradeId, purpose,
+        mode: source, academic_session_id: custom ? termId : null,
+        title: title.trim(), grade_id: pickedGrade, purpose,
         max_mark: isExam ? Number(maxMark) : null,
         billing_mode: billing, fee_total: billing === 'spread' ? Number(feeTotal) : null,
-        course_ids: members, is_recurring: recurring,
+        course_ids: custom ? [] : members, is_recurring: recurring,
         day_of_week: recurring ? day : null, start_time: recurring ? start : null, end_time: recurring ? (end || null) : null,
         one_time_at: !recurring ? `${date} ${otTime}` : null,
         duration_minutes: duration || 60, location: location.trim() || null, notify_students: notify,
@@ -81,7 +98,7 @@ export default function RevisionCreate() {
   return (
     <Surface id="screen.teacher.revision-create" screen>
     <FormScreen title={t('revision_create.title')} loading={isLoading}>
-      {(grades ?? []).length === 0 ? (
+      {!groupsOffered && !customOffered ? (
         <EmptyState icon="book" title={t('revision_create.no_groups')} />
       ) : (
         <>
@@ -104,14 +121,39 @@ export default function RevisionCreate() {
           </Surface>
 
           <Surface id="teacher.revision_create.grade">
-          <FormCard icon="children" title={t('revision_create.grade')} required hint={grade ? t('revision_create.merge_courses') : t('revision_create.pick_grade')}>
-            <Chips options={(grades ?? []).map((g) => ({ key: g.grade_id, label: g.grade_name }))} value={gradeId} onChange={selectGrade} />
-            {grade ? (
-              <View style={{ marginTop: spacing.md }}>
-                {/* Course-level: one checkbox per COURSE — all its weekly days come with it. */}
-                {grade.courses.map((c) => <OptionRow key={c.course_id} mode="check" title={c.name} sub={c.slots_label} selected={members.includes(c.course_id)} onPress={() => toggleMember(c.course_id)} />)}
-              </View>
+          <FormCard icon="children" title={customOffered ? t('revision_create.source') : t('revision_create.grade')} required
+            hint={custom ? t('revision_create.source_custom_hint') : grade ? t('revision_create.merge_courses') : customOffered ? t('revision_create.source_groups_hint') : t('revision_create.pick_grade')}>
+            {customOffered && groupsOffered ? (
+              <Surface id="teacher.revision_create.grade.source">
+              <Chips fill
+                options={[{ key: 'groups' as const, label: t('revision_create.source_groups'), icon: 'children' }, { key: 'custom' as const, label: t('revision_create.source_custom'), icon: 'add' }]}
+                value={source} onChange={setSource} />
+              </Surface>
             ) : null}
+            {custom ? (
+              <>
+                {/* Any academic year, any grade — not tied to one of the teacher's groups. */}
+                <Field label={t('revision_create.year')} required>
+                  <Chips options={(options?.terms ?? []).map((tm) => ({ key: tm.id, label: tm.name }))} value={termId} onChange={setTermId} />
+                </Field>
+                <Field label={t('revision_create.grade')} required>
+                  <SelectField value={customGrade} options={(options?.all_grades ?? []).map((g) => ({ key: String(g.grade_id), label: g.grade_name }))}
+                    placeholder={t('revision_create.pick_grade_custom')} onChange={setCustomGrade} />
+                </Field>
+              </>
+            ) : (
+              <>
+                <View style={{ marginTop: customOffered ? spacing.md : 0 }}>
+                  <Chips options={(grades ?? []).map((g) => ({ key: g.grade_id, label: g.grade_name }))} value={gradeId} onChange={selectGrade} />
+                </View>
+                {grade ? (
+                  <View style={{ marginTop: spacing.md }}>
+                    {/* Course-level: one checkbox per COURSE — all its weekly days come with it. */}
+                    {grade.courses.map((c) => <OptionRow key={c.course_id} mode="check" title={c.name} sub={c.slots_label} selected={members.includes(c.course_id)} onPress={() => toggleMember(c.course_id)} />)}
+                  </View>
+                ) : null}
+              </>
+            )}
           </FormCard>
           </Surface>
 

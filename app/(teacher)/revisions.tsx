@@ -94,7 +94,7 @@ export default function TeacherRevisions() {
       right={(
         <>
           {list.length > 0 ? <HeaderCount n={list.length} /> : null}
-          <Surface id="teacher.revisions.create_button"><HeaderAction icon="add" onPress={() => router.push('/(teacher)/revision-create')} accessibilityLabel={t('revision_create.title')} /></Surface>
+          <Surface id="teacher.revisions.create_button" assistantNeeds="manage_sessions"><HeaderAction icon="add" onPress={() => router.push('/(teacher)/revision-create')} accessibilityLabel={t('revision_create.title')} /></Surface>
         </>
       )}>
       {isLoading ? (

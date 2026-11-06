@@ -48,20 +48,32 @@ export interface RevisionCreateSchedule { id: number; label: string }
 export interface RevisionCreateCourse { course_id: number; name: string; slots_label?: string; schedules: RevisionCreateSchedule[] }
 export interface RevisionCreateGrade { grade_id: number; grade_name: string; courses: RevisionCreateCourse[] }
 
-/** The teacher's grades → courses → mergeable schedules (the merge picker data). */
-export async function getRevisionCreateOptions(): Promise<RevisionCreateGrade[]> {
+export interface RevisionCreateOptions {
+  /** The teacher's grades → courses → mergeable schedules (the groups picker). */
+  grades: RevisionCreateGrade[];
+  /** Every grade, for a custom revision (founder 2026-11-06). Absent on an older server. */
+  all_grades: { grade_id: number; grade_name: string }[];
+  /** The academic years, newest first; `is_current` is the default. */
+  terms: { id: number; name: string; is_current: boolean }[];
+}
+
+export async function getRevisionCreateOptions(): Promise<RevisionCreateOptions> {
   const { data } = await client.get('/revisions/create-options');
-  return (data.data?.grades ?? data.grades ?? []) as RevisionCreateGrade[];
+  const d = data.data ?? data;
+  return { grades: d?.grades ?? [], all_grades: d?.all_grades ?? [], terms: d?.terms ?? [] };
 }
 
 export interface CreateRevisionPayload {
+  /** 'custom': any grade in `academic_session_id`, no groups (founder 2026-11-06). */
+  mode?: 'groups' | 'custom';
+  academic_session_id?: number | null;
   title: string;
   grade_id: number;
   purpose: 'revision' | 'quiz_exam';
   max_mark?: number | null;
   billing_mode: BillingMode;
   fee_total?: number | null;
-  /** COURSE-level selection — every weekly slot of each course is merged in. */
+  /** COURSE-level selection — every weekly slot of each course is merged in (empty when custom). */
   course_ids: number[];
   is_recurring: boolean;
   day_of_week?: number | null;
