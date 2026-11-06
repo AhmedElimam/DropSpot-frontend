@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Vibration } from 'react-native';
-import { Alert } from '@/ui/dialog';
+import { Alert, useDialogStore } from '@/ui/dialog';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { ScanFrame } from '@/components/teacher/ScanFrame';
 import { useOfflineStore } from '@/stores/offlineStore';
@@ -320,7 +320,9 @@ export default function TeacherEnroll() {
   }
 
   // ---- Step 2: scan + review ----
-  scanPausedRef.current = !!(busy || review || done);
+  // A popup on screen (the server's included) pauses the reader, so one card is read once.
+  const dialogOpen = useDialogStore((st) => st.queue.length > 0);
+  scanPausedRef.current = !!(busy || review || done || dialogOpen);
   return (
     <Surface id="screen.teacher.enroll" screen>
     <View style={{ flex: 1, backgroundColor: '#000' }}>

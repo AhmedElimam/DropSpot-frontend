@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
-import { Alert } from '@/ui/dialog';
+import { Alert, useDialogStore } from '@/ui/dialog';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -174,8 +174,11 @@ export default function TeacherScan() {
     clearFeedbackLater();
   }, []);
 
+  // Any popup on screen pauses the reader too — the server-drawn ones included (the blank
+  // «كارت المدرّس» «link it?» popup kept re-reading the same card under itself, 2026-11-06).
+  const dialogOpen = useDialogStore((st) => st.queue.length > 0);
   // `locked` pauses scanning too — while the scanner is locked no card is read.
-  const paused = locked || idle || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup || !!noSession || !!invite || !!numberAsk || !!offlineBlank;
+  const paused = locked || idle || !!feedback || busy || dialogOpen || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup || !!noSession || !!invite || !!numberAsk || !!offlineBlank;
   // The sensor itself runs only when there is something to read for. Locked or idle,
   // the preview goes dark and the phone stops heating; the screen stays mounted so the
   // teacher's session context is untouched.
@@ -467,6 +470,14 @@ export default function TeacherScan() {
       numberAskAfterDues.current = null;
     }
   }, [duesFor]);
+
+  // A popup just closed: the card that opened it may still be in front of the lens, so the
+  // same-card cooldown starts again from the close, not from the scan.
+  const hadDialog = useRef(false);
+  useEffect(() => {
+    if (hadDialog.current && !dialogOpen) lastRef.current = { ...lastRef.current, at: Date.now() };
+    hadDialog.current = dialogOpen;
+  }, [dialogOpen]);
 
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
