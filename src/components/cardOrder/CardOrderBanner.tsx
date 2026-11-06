@@ -10,7 +10,7 @@ import { useCardOrderDismiss } from '@/stores/cardOrderDismiss';
 
 /**
  * Homepage "no card yet" conversion banner (student + parent). Shows only for
- * students/children who don't have a card and can order one; names the specific
+ * students/children who don't have a card, can order one and have 2+ teachers; names the specific
  * child(ren) on the parent side. Routes into the existing order screen (pre-selecting
  * the child when there's exactly one). Session-only dismissal — reappears next launch.
  */
@@ -27,8 +27,10 @@ export function CardOrderBanner({ scope }: { scope: 'student' | 'parent' }) {
 
   if (isDismissed) return null;
 
-  // Orderable = lacks a card, has a teacher context, and no order already in flight.
-  const orderable = (data ?? []).filter((tgt) => tgt.can_order && !tgt.pending_review);
+  // Orderable = lacks a card, has a teacher context, and no order already in flight — and studies
+  // with two teachers or more here (founder 2026-11-06): one card for all of them is the point.
+  // A one-teacher child still finds the card on the profile and /card-info.
+  const orderable = (data ?? []).filter((tgt) => tgt.can_order && !tgt.pending_review && (tgt.teacher_count ?? 0) >= 2);
   if (orderable.length === 0) return null;
 
   const one = orderable.length === 1 ? orderable[0] : null;
