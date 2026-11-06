@@ -7,6 +7,9 @@ import client from './client';
  * tenant-scoped server-side to the operating teacher; writes need manage_courses.
  */
 
+/** «الفترة» (founder 2026-11-06): a morning or an evening course; null = not set. */
+export type CourseShift = 'morning' | 'evening';
+
 export interface CourseSummary {
   id: string;
   name: string;
@@ -28,6 +31,9 @@ export interface CourseSummary {
   hidden_from_assistants?: boolean;
   /** How many of its groups the teacher keeps from assistants. */
   hidden_groups_count?: number;
+  /** Absent on older servers. */
+  shift?: CourseShift | null;
+  shift_label?: string | null;
 }
 
 export interface CourseSchedule {
@@ -51,6 +57,8 @@ export interface CourseDetail {
   // Settings
   radius_horizontal_meters: number;
   allow_session_swap: boolean;
+  shift?: CourseShift | null;
+  shift_label?: string | null;
   /** Kept from assistants: the course, its groups, sessions and the students only there. */
   hidden_from_assistants?: boolean;
   attendance_mode?: 'door' | 'none';
@@ -99,6 +107,8 @@ export interface CourseSettingsPayload {
   radius_horizontal_meters?: number;
   phone_checkin_enabled?: boolean;
   allow_session_swap?: boolean;
+  /** null clears it; omit to leave unchanged. */
+  shift?: CourseShift | null;
   sheet_expected_by_default?: boolean;
   sheet_max_mark?: number | null;
   sessions_per_billing_cycle?: number;
@@ -146,6 +156,7 @@ export interface CreateCoursePayload {
   slots?: { day_of_week: number; start_time: string; end_time: string }[];
   // Per-course session-swap permission (default on).
   allow_session_swap?: boolean;
+  shift?: CourseShift | null;
   /** 'none' = a private lesson with no door. Omitted = door. */
   attendance_mode?: 'door' | 'none';
   // Pricing at creation (empty = disabled/none) — mirrors the web create form.

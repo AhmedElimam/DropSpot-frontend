@@ -35,6 +35,10 @@ export default function InviteLink() {
   const { data: courses, isLoading } = useCourses();
 
   const [courseId, setCourseId] = useState<number | null>(null);
+  // «العائلة تختار» (founder 2026-11-06): the family picks among the ticked courses on the link,
+  // filtering by grade and shift. Every course is ticked until the teacher unticks it.
+  const [pick, setPick] = useState<'one' | 'family'>('one');
+  const [unticked, setUnticked] = useState<Set<number>>(() => new Set());
   const [name, setName] = useState('');
   // One family (a single-use link) or many — a class's group chat (founder 2026-11-05).
   const [use, setUse] = useState<'once' | 'many'>('once');
@@ -52,14 +56,23 @@ export default function InviteLink() {
   const groups = useGroupFilter(eligible, (c) => `${c.name} ${c.grade_name ?? ''}`, (c) => c.grade_name);
   // The student name is OPTIONAL now — the family fills it on the booking form. If the
   // teacher does pre-fill it, it must be Arabic (same rule as the server).
-  const nameError = use === 'once' && name.trim() !== '' && !isArabicName(name);
-  const canSubmit = courseId != null && !nameError && !busy;
+  const family = pick === 'family';
+  const offered = useMemo(() => eligible.map((c) => Number(c.id)).filter((id) => !unticked.has(id)), [eligible, unticked]);
+  const toggleOffered = (id: number) => setUnticked((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const nameError = !family && use === 'once' && name.trim() !== '' && !isArabicName(name);
+  const canSubmit = (family ? offered.length > 0 : courseId != null) && !nameError && !busy;
 
   const submit = async () => {
-    if (!canSubmit || courseId == null) return;
+    if (!canSubmit) return;
     setBusy(true);
     try {
-      const res = await mintInviteLink(courseId, name.trim() || undefined, { collectPayment, issueInvoice, reusable: use === 'many' });
+      const res = await mintInviteLink(family ? null : courseId, family ? undefined : name.trim() || undefined, {
+        collectPayment, issueInvoice, reusable: use === 'many', ...(family ? { courseIds: offered } : {}),
+      });
       setMinted(res);
     } catch (e: any) {
       Alert.alert(t('common.error'), e?.response?.data?.message ?? (isNetworkFailure(e) ? t('offline.need_connection_link') : t('invite_link.failed')));
@@ -133,21 +146,38 @@ export default function InviteLink() {
             <Surface id="teacher.invite_link.course_picker">
             <View style={card}>
               <StepHead n={1} title={t('invite_link.course')} />
+              <Surface id="teacher.invite_link.course_picker.mode">
+              <Chips fill value={pick} onChange={setPick} options={[
+                { key: 'one' as const, label: t('invite_link.pick_one'), icon: 'book' },
+                { key: 'family' as const, label: t('invite_link.pick_family'), icon: 'children' },
+              ]} />
+              </Surface>
+              {family ? (
+                <View style={{ marginTop: spacing.sm, marginBottom: spacing.md }}>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>{t('invite_link.pick_family_hint')}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.sm }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('invite_link.picked_n', { n: formatNumber(offered.length) })}</Text>
+                    <TouchableOpacity onPress={() => setUnticked(offered.length === eligible.length ? new Set(eligible.map((c) => Number(c.id))) : new Set())} accessibilityRole="button" hitSlop={8}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t(offered.length === eligible.length ? 'invite_link.pick_clear' : 'invite_link.pick_all')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : <View style={{ height: spacing.md }} />}
               <GroupFilter grades={groups.grades} grade={groups.grade} onGrade={groups.setGrade} query={groups.query} onQuery={groups.setQuery} searchable={groups.searchable} />
               {groups.filtered.length === 0 ? (
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary }}>{t('group_filter.none')}</Text>
               ) : (
                 <View style={{ gap: spacing.sm }}>
                   {groups.filtered.map((c) => {
-                    const on = courseId === Number(c.id);
+                    const on = family ? !unticked.has(Number(c.id)) : courseId === Number(c.id);
                     return (
-                      <TouchableOpacity key={c.id} onPress={() => setCourseId(Number(c.id))} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
+                      <TouchableOpacity key={c.id} onPress={() => (family ? toggleOffered(Number(c.id)) : setCourseId(Number(c.id)))} activeOpacity={0.85} accessibilityRole={family ? 'checkbox' : 'button'} accessibilityState={family ? { checked: on } : { selected: on }}
                         style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1.5, borderColor: on ? colors.brand : 'transparent', backgroundColor: on ? colors.brandTint : colors.surfaceSunken }}>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}</Text>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}{c.shift_label ? ` · ${c.shift_label}` : ''}</Text>
                           {c.schedule_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{c.schedule_label}</Text> : null}
                         </View>
-                        {on ? <Icon name="success" size={20} color={colors.brand} /> : null}
+                        {on ? <Icon name="success" size={20} color={colors.brand} /> : family ? <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.borderStrong }} /> : null}
                       </TouchableOpacity>
                     );
                   })}
@@ -166,7 +196,7 @@ export default function InviteLink() {
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.sm }}>
                 {use === 'many' ? t('invite_link.use_many_hint', { days: 30, n: 300 }) : t('invite_link.use_once_hint')}
               </Text>
-              {use === 'once' ? (
+              {use === 'once' && !family ? (
                 <View style={{ marginTop: spacing.md }}>
                   <TextInput value={name} onChangeText={setName} placeholder={t('invite_link.name_ph_optional')} placeholderTextColor={colors.textTertiary} maxLength={120} style={{ ...input, borderColor: nameError ? colors.danger : colors.border }} />
                   {nameError ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginTop: 6 }}>{t('invite_phone.name_arabic_error')}</Text> : <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 6 }}>{t('invite_link.name_hint')}</Text>}
@@ -219,7 +249,9 @@ export default function InviteLink() {
             </View>
             <View style={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'center' }}>
-                {minted.reusable
+                {minted.family_picks
+                  ? t('invite_link.ready_hint_pick', { n: formatNumber(offered.length) })
+                  : minted.reusable
                   ? t('invite_link.ready_hint_many', { course: minted.course_name, n: minted.max_uses ?? 300, date: formatDate(new Date(minted.expires_at)) })
                   : t('invite_link.ready_hint', { student: minted.student_name || t('invite_link.the_family'), course: minted.course_name })}
               </Text>

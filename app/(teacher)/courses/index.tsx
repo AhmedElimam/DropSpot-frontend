@@ -46,6 +46,12 @@ const CourseRow = memo(function CourseRow({ c, onPress }: { c: CourseSummary; on
                 <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.textSecondary }}>{c.grade_name}</Text>
               </View>
             ) : null}
+            {c.shift ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.brandTint, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1 }}>
+                <Icon name={c.shift} size={11} color={colors.brand} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{c.shift_label ?? t(`course_shift.${c.shift}`)}</Text>
+              </View>
+            ) : null}
           </View>
           {c.schedule_label ? (
             <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{c.schedule_label}</Text>
@@ -71,6 +77,7 @@ const CourseRow = memo(function CourseRow({ c, onPress }: { c: CourseSummary; on
 });
 
 type CourseKind = 'all' | 'groups' | 'private';
+type ShiftFilter = 'all' | 'morning' | 'evening';
 
 /**
  * «المقررات» — the teacher's courses. Tap one for its settings, GPS anchor and weekly
@@ -86,7 +93,20 @@ export default function TeacherCourses() {
   const [kind, setKind] = useState<CourseKind>('all');
   const privateCount = useMemo(() => all.filter((c) => c.tracks_attendance === false).length, [all]);
   const mixed = privateCount > 0 && privateCount < all.length;
-  const list = useMemo(() => (!mixed || kind === 'all' ? all : all.filter((c) => (c.tracks_attendance === false) === (kind === 'private'))), [all, kind, mixed]);
+  // «الفترة» (founder 2026-11-06) — the row appears once any course has a shift.
+  const [shift, setShift] = useState<ShiftFilter>('all');
+  const morningCount = useMemo(() => all.filter((c) => c.shift === 'morning').length, [all]);
+  const eveningCount = useMemo(() => all.filter((c) => c.shift === 'evening').length, [all]);
+  const hasShifts = morningCount + eveningCount > 0;
+  const list = useMemo(() => {
+    const byKind = !mixed || kind === 'all' ? all : all.filter((c) => (c.tracks_attendance === false) === (kind === 'private'));
+    return !hasShifts || shift === 'all' ? byKind : byKind.filter((c) => c.shift === shift);
+  }, [all, kind, mixed, shift, hasShifts]);
+  const shifts: ChipOption<ShiftFilter>[] = [
+    { key: 'all', label: t('course_shift.filter_all') },
+    { key: 'morning', label: t('course_shift.filter_morning', { n: formatNumber(morningCount) }) },
+    { key: 'evening', label: t('course_shift.filter_evening', { n: formatNumber(eveningCount) }) },
+  ];
   const kinds: ChipOption<CourseKind>[] = [
     { key: 'all', label: t('course_ui.filter_all', { n: formatNumber(all.length) }) },
     { key: 'groups', label: t('course_ui.filter_groups', { n: formatNumber(all.length - privateCount) }) },
@@ -108,6 +128,7 @@ export default function TeacherCourses() {
       ) : (
         <>
         {mixed ? <Surface id="teacher.courses.filter_kind"><FilterChips options={kinds} value={kind} onChange={setKind} /></Surface> : null}
+        {hasShifts ? <Surface id="teacher.courses.filter_shift"><FilterChips options={shifts} value={shift} onChange={setShift} /></Surface> : null}
         <Surface id="teacher.courses.list">
         <FlatList showsVerticalScrollIndicator={false}
           data={list}

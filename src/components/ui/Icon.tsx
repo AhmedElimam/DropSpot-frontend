@@ -30,6 +30,9 @@ const ICON_MAP = {
   /** The parent's أبنائي centre tab (founder 2026-10-03: not the generic two-heads icon). */
   kids: 'happy',
   clock: 'time',
+  /** «الفترة»: a morning / an evening course (founder 2026-11-06). */
+  morning: 'sunny',
+  evening: 'moon',
   quiz: 'document-text',
   chat: 'chatbubbles',
   grades: 'ribbon',

@@ -34,6 +34,8 @@ export interface MintedInviteLink {
   /** For many families (a class's group chat) rather than one — founder 2026-11-05. */
   reusable?: boolean;
   max_uses?: number;
+  /** «العائلة تختار» (founder 2026-11-06): the family picks the course on the link. */
+  family_picks?: boolean;
 }
 
 /**
@@ -42,13 +44,15 @@ export interface MintedInviteLink {
  * OPTIONAL at mint — the family fills it. POST /invitations/link.
  */
 export async function mintInviteLink(
-  courseId: number,
+  courseId: number | null,
   studentName?: string,
-  opts?: { collectPayment?: boolean; issueInvoice?: boolean; reusable?: boolean },
+  opts?: { collectPayment?: boolean; issueInvoice?: boolean; reusable?: boolean; courseIds?: number[] },
 ): Promise<MintedInviteLink> {
-  const name = opts?.reusable ? '' : (studentName ?? '').trim();
+  // «العائلة تختار»: the courses the family picks from, instead of one course.
+  const picks = !!opts?.courseIds?.length;
+  const name = opts?.reusable || picks ? '' : (studentName ?? '').trim();
   const { data } = await client.post('/invitations/link', {
-    course_id: courseId,
+    ...(picks ? { family_picks: 1, course_ids: opts?.courseIds } : { course_id: courseId }),
     ...(name ? { student_name: name } : {}),
     booking_collect_payment: opts?.collectPayment ? 1 : 0,
     booking_issue_invoice: opts?.issueInvoice ? 1 : 0,

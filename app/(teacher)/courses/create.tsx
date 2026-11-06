@@ -15,6 +15,8 @@ import { useCourseFormOptions, useCreateCourse } from '@/hooks/useCourses';
 import { useTeacherOnboarding, useMarkOnboardingStep } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
+import type { CourseShift } from '@/api/courses';
+import { ShiftChips } from '@/components/teacher/ShiftChips';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 type Slot = { day_of_week: number; start_time: string; end_time: string };
@@ -50,6 +52,7 @@ export default function CourseCreateScreen() {
   // Phone (geofence) check-in — on by default; off hides the radius, which only it uses.
   const [geofence, setGeofence] = useState(true);
   const [allowSwap, setAllowSwap] = useState(true);
+  const [shift, setShift] = useState<CourseShift | null>(null);
   const [description, setDescription] = useState('');
   const [slots, setSlots] = useState<Slot[]>([]);
   // "When do you want to start" — now (mint this week's remaining days immediately) or
@@ -109,6 +112,7 @@ export default function CourseCreateScreen() {
         radius_horizontal_meters: radius_,
         phone_checkin_enabled: noDoor ? false : geofence,
         allow_session_swap: noDoor ? false : allowSwap,
+        ...(shift ? { shift } : {}),
         attendance_mode: noDoor ? 'none' : 'door',
         starts_at: startMode === 'date' && startDate ? startDate : undefined,
         description: description.trim() || undefined,
@@ -161,6 +165,9 @@ export default function CourseCreateScreen() {
             </Field>
             <Field label={t('teacher.term')} required>
               <Chips options={options.terms.map((tm) => ({ key: tm.id, label: tm.name + (tm.ended ? ` — ${t('teacher.term_ended_tag')}` : '') }))} value={termId} onChange={setTermId} />
+            </Field>
+            <Field label={t('course_shift.label')} hint={t('course_shift.hint')}>
+              <ShiftChips value={shift} onChange={setShift} />
             </Field>
             {/* Venue — optional. With none yet, show the way to add one rather than nothing. */}
             <Surface id="teacher.course_create.basics.venue">

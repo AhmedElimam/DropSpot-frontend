@@ -13,7 +13,8 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 /**
  * «إضافة طالب» — the four ways a student joins, in one sheet, instead of four cards spread
  * over Home and Management (founder 2026-10-02: "too much, not simple"). Each door opens
- * the same «شروط التسجيل» afterwards. The fast-register door follows the super-admin flag.
+ * the same «شروط التسجيل» afterwards. The fast-register door follows the super-admin flag, and
+ * leads the list when on.
  */
 export function AddStudentSheet({ visible, onClose, courseId }: { visible: boolean; onClose: () => void; courseId?: number }) {
   const { t } = useTranslation();
@@ -23,9 +24,10 @@ export function AddStudentSheet({ visible, onClose, courseId }: { visible: boole
   const go = (href: Href) => { onClose(); setTimeout(() => router.push(href), 60); };
   const param = courseId ? `?courseId=${courseId}` : '';
 
+  // Fast register first (founder 2026-11-06): the number box answers most arrivals at the door.
   const options: { icon: IconName; title: string; sub: string; href: Href; show: boolean }[] = [
-    { icon: 'scan', title: t('add_student.card'), sub: t('add_student.card_sub'), href: '/(teacher)/enroll' as Href, show: true },
     { icon: 'add', title: t('add_student.fast'), sub: t('add_student.fast_sub'), href: `/(teacher)/record-student${param}` as Href, show: !!flags?.fast_register },
+    { icon: 'scan', title: t('add_student.card'), sub: t('add_student.card_sub'), href: '/(teacher)/enroll' as Href, show: true },
     { icon: 'phone', title: t('add_student.phone'), sub: t('add_student.phone_sub'), href: `/(teacher)/invite-phone${param}` as Href, show: true },
     { icon: 'send', title: t('add_student.link'), sub: t('add_student.link_sub'), href: '/(teacher)/invite-link' as Href, show: true },
   ];

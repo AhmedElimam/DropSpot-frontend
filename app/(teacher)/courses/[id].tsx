@@ -19,7 +19,8 @@ import { getCourseFormOptions } from '@/api/courses';
 import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
-import type { CourseSchedule } from '@/api/courses';
+import type { CourseSchedule, CourseShift } from '@/api/courses';
+import { ShiftChips } from '@/components/teacher/ShiftChips';
 
 // Matches Course::PREFERRED_ACCURACY_METERS — a worse GPS fix is flagged low-confidence.
 const PREFERRED_ACCURACY = 20;
@@ -49,6 +50,7 @@ export default function CourseDetailScreen() {
   const [radius_, setRadius] = useState(20);
   const [geofence, setGeofence] = useState(true);
   const [allowSwap, setAllowSwap] = useState(true);
+  const [shift, setShift] = useState<CourseShift | null>(null);
   const [privateLesson, setPrivateLesson] = useState(false);
   const [sheetDefault, setSheetDefault] = useState(false);
   const [sheetMax, setSheetMax] = useState('');
@@ -71,6 +73,7 @@ export default function CourseDetailScreen() {
       setRadius(course.radius_horizontal_meters ?? 20);
       setGeofence(course.phone_checkin_enabled ?? true);
       setAllowSwap(course.allow_session_swap ?? true);
+      setShift(course.shift ?? null);
       setPrivateLesson(course.attendance_mode === 'none');
       setSheetDefault(course.sheet_expected_by_default);
       setSheetMax(course.sheet_max_mark != null ? String(course.sheet_max_mark) : '');
@@ -94,6 +97,7 @@ export default function CourseDetailScreen() {
         radius_horizontal_meters: radius_,
         phone_checkin_enabled: privateLesson ? false : geofence,
         allow_session_swap: privateLesson ? false : allowSwap,
+        shift,
         attendance_mode: privateLesson ? 'none' : 'door',
         sheet_expected_by_default: sheetDefault,
         sheet_max_mark: sheetMax.trim() ? Number(sheetMax.trim()) : null,
@@ -230,6 +234,9 @@ export default function CourseDetailScreen() {
           <FormCard icon="book" title={t('teacher.section_basics')}>
             <Field label={t('teacher.course_name_label')} first>
               <Input value={name} onChangeText={setName} placeholder={t('teacher.course_name_label')} maxLength={255} />
+            </Field>
+            <Field label={t('course_shift.label')} hint={t('course_shift.hint')}>
+              <ShiftChips value={shift} onChange={setShift} />
             </Field>
             <Field label={t('enroll_ui.venue_label')} hint={t('form_ui.optional')}>
               {venues.length > 0 ? (
