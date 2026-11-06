@@ -10,7 +10,8 @@ import type { EnrollmentTermsInput } from './enrollmentTerms';
 
 /** The shared enrolment terms (position, دفعة, booklet) ride along — see src/api/enrollmentTerms.ts. */
 export interface RecordStudentPayload extends EnrollmentTermsInput {
-  student_name: string;
+  /** Not needed on a link: nothing typed is saved on an existing student. */
+  student_name?: string;
   /** Optional when the student's own phone is given (one of the two is required). */
   parent_phone?: string;
   student_phone?: string | null;
@@ -22,6 +23,10 @@ export interface RecordStudentPayload extends EnrollmentTermsInput {
   link_student_id?: number;
   /** «تسجيل رغم اختلاف الصف» — the answer to a GRADE_MISMATCH on a link. */
   accept_grade_mismatch?: boolean;
+  /** One weekly time of the course; absent = the whole course (fast register v2). */
+  session_schedule_id?: number;
+  /** «بنفس الاسم؟» answered yes: a second child with this first name on the parent's number. */
+  allow_same_name?: boolean;
 }
 
 export interface RecordStudentResult {
@@ -78,4 +83,30 @@ export async function orderCardsForNewlyAdded(
 ): Promise<{ created: number; skipped: number; already_ordered?: number }> {
   const { data } = await client.post('/teacher/students/record/order-cards', { enrollment_ids: enrollmentIds });
   return (data.data ?? data) as { created: number; skipped: number; already_ordered?: number };
+}
+
+/** A child on a parent's number, as the fast-register lookup shows it (grade/code/group only for own). */
+export interface LookupChild {
+  student_id: number;
+  name: string;
+  is_own: boolean;
+  grade: string | null;
+  student_code: string | null;
+  current_course_name: string | null;
+  already_in_target: boolean;
+}
+
+/**
+ * Fast register v2 (founder 2026-11-06): «do we already know this number?» before the form.
+ * `phone` comes back normalised (01XXXXXXXXX).
+ */
+export type RecordLookup =
+  | { outcome: 'student'; phone: string; student: ExistingStudentOffer & { needs_parent: boolean } }
+  | { outcome: 'parent'; phone: string; children: LookupChild[] }
+  | { outcome: 'unknown'; phone: string }
+  | { outcome: 'role_conflict' | 'blocked'; phone: string; message: string };
+
+export async function lookupRecordPhone(courseId: number, phone: string): Promise<RecordLookup> {
+  const { data } = await client.post('/teacher/students/record/lookup', { course_id: courseId, phone });
+  return (data.data ?? data) as RecordLookup;
 }
