@@ -15,6 +15,7 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatNumber, formatDayDate, formatTime } from '@/utils/format';
 import { acceptAssistantAction, getAssistantActions, rejectAssistantAction, type AssistantAction } from '@/api/assistantActions';
 import { Surface } from '@/ui/surfaces';
+import { CountPill } from '@/components/ui/CountBadge';
 
 type Kind = AssistantAction['kind'];
 const KIND_ORDER: Kind[] = ['proof', 'bill', 'booklet', 'booking', 'attendance'];
@@ -47,9 +48,7 @@ function Chip({ label, count, on, tint, onPress, initial }: { label: string; cou
       ) : null}
       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? '#fff' : colors.textPrimary }} numberOfLines={1}>{label}</Text>
       {count !== undefined ? (
-        <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: on ? 'rgba(255,255,255,0.25)' : colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: on ? '#fff' : colors.textSecondary }}>{formatNumber(count)}</Text>
-        </View>
+        <CountPill count={count} bg={on ? 'rgba(255,255,255,0.25)' : colors.surfaceSunken} color={on ? '#fff' : colors.textSecondary} />
       ) : null}
     </TouchableOpacity>
   );

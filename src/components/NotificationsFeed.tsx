@@ -21,6 +21,7 @@ import { timeAgo, formatNumber } from '@/utils/format';
 import { notificationCategory, type NotificationCategory } from '@/utils/notificationCategory';
 import { RoseShield } from '@/components/rose/RoseStamp';
 import { useRose } from '@/hooks/useRose';
+import { CountPill } from '@/components/ui/CountBadge';
 
 /**
  * Hers: every message the server sends in مدام روز's voice carries `data.rose` (cash prompts,
@@ -306,9 +307,7 @@ export function NotificationsFeed({ can }: { can?: (ability: string) => boolean 
                   style={{ flex: 1, height: 34, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: on ? colors.heroChipActive : 'transparent' }}>
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.onHeroChipActive : colors.onHeroSoft }}>{t(`notifications.filter_${f}`)}</Text>
                   {f === 'unread' && unreadCount > 0 ? (
-                    <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onAccent }}>{formatNumber(unreadCount)}</Text>
-                    </View>
+                    <CountPill count={unreadCount} bg={colors.accent} color={colors.onAccent} fontSize={11} />
                   ) : null}
                 </TouchableOpacity>
               );

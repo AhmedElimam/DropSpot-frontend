@@ -16,6 +16,7 @@ import { Surface } from '@/ui/surfaces';
 import { foldForSearch, formatNumber, formatShortDate } from '@/utils/format';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { askRemovalSms } from '@/components/teacher/askRemovalSms';
+import { CountPill } from '@/components/ui/CountBadge';
 import {
   getTerminationCandidates, terminateEnrollment, getEndedEnrollments, reactivateEnrollment,
   type TerminationCandidate, type EndedEnrollment,
@@ -145,9 +146,7 @@ export default function EnrollmentEndsScreen() {
               style={{ flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', minHeight: 44, borderRadius: radius.lg, borderWidth: 1,
                 borderColor: on ? (k === 'absent' ? colors.danger : colors.brand) : colors.border, backgroundColor: on ? (k === 'absent' ? colors.danger : colors.brand) : colors.surface }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: on ? colors.white : colors.textSecondary }}>{t(`ends.tab_${k}`)}</Text>
-              <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? 'rgba(255,255,255,0.25)' : colors.surfaceSunken }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.white : colors.textSecondary }}>{formatNumber(counts[k])}</Text>
-              </View>
+              <CountPill count={counts[k]} size={22} bg={on ? 'rgba(255,255,255,0.25)' : colors.surfaceSunken} color={on ? colors.white : colors.textSecondary} />
             </TouchableOpacity>
           );
         })}

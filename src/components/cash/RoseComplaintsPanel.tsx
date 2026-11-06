@@ -15,6 +15,7 @@ import { formatEGP } from '@/utils/currency';
 import { timeAgo } from '@/utils/format';
 import type { Complaint } from '@/api/complaints';
 import { Surface } from '@/ui/surfaces';
+import { CountPill } from '@/components/ui/CountBadge';
 
 /**
  * «الاعتراضات» on مدام روز's desk (founder 2026-10-07: her tab carries more than the cash
@@ -99,9 +100,7 @@ function Section({ title, count, tint, children }: { title: string; count?: numb
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textTertiary }}>{title}</Text>
         {count ? (
-          <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: tint ?? colors.border, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{count}</Text>
-          </View>
+          <CountPill count={count} bg={tint ?? colors.border} color="#fff" fontSize={11} />
         ) : null}
       </View>
       {children}

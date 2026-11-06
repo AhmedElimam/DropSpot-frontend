@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { CountPill } from '@/components/ui/CountBadge';
 
 /**
  * The one list row for the teacher hubs (home attention list, management groups):
@@ -50,9 +51,7 @@ export const HubRow = memo(function HubRow({
         {sub ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.textSecondary, marginTop: 2 }} numberOfLines={2}>{sub}</Text> : null}
       </View>
       {badge > 0 ? (
-        <View style={{ minWidth: 26, height: 26, borderRadius: 13, paddingHorizontal: 8, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{badge}</Text>
-        </View>
+        <CountPill count={badge} size={26} bg={colors.warning} color="#fff" fontSize={13} />
       ) : (
         <Icon name="back" size={18} color={colors.textTertiary} />
       )}

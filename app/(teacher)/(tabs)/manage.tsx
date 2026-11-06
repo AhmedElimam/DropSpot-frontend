@@ -30,6 +30,7 @@ import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
 import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { RevisionFeatureCard } from '@/components/teacher/RevisionDesk';
 import { SeasonPaper } from '@/components/SeasonPaper';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 type Group = 'students' | 'schedule' | 'money' | 'followup';
 const GROUPS: Group[] = ['students', 'schedule', 'money', 'followup'];
@@ -145,12 +146,9 @@ export default function TeacherManage() {
                 style={{ flex: 1, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: radius.md, backgroundColor: on ? look.tint : colors.onHeroChip, borderWidth: 1, borderColor: on ? look.tint : colors.onHeroChip }}>
                 <Icon name={look.icon} size={15} color={on ? colors.onPrimary : colors.onHero} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onPrimary : colors.onHero }} numberOfLines={1}>{t(`manage.group_${g}`)}</Text>
-                {n > 0 ? (
-                  // Pinned to the corner, so four pills still fit a narrow phone.
-                  <View style={{ position: 'absolute', top: -6, end: -4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.accent, borderWidth: 1.5, borderColor: gradients.hero[1], alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onAccent }}>{formatNumber(n)}</Text>
-                  </View>
-                ) : null}
+                {/* Pinned to the corner, so four pills still fit a narrow phone; the shared badge,
+                    whose digits sit in the middle of the circle. */}
+                <CountBadge count={n} max={99} size={18} ringWidth={1.5} at={{ top: -6, end: -4 }} bg={colors.accent} ring={gradients.hero[1]} color={colors.onAccent} />
               </TouchableOpacity>
             );
           })}

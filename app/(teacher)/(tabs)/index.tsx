@@ -59,6 +59,7 @@ import { CountBadge } from '@/components/ui/CountBadge';
 import { SubscriptionStrip } from '@/components/subscription/SubscriptionStrip';
 import { useOnScreen } from '@/hooks/useAmbientMotion';
 import { usePopupSlotStore } from '@/ui/popupSlot';
+import { CountPill } from '@/components/ui/CountBadge';
 
 /** «وضع المراجعة»: the hero band's rounded foot (the day hero runs into the page instead). */
 const SEASON_HERO_RADIUS = 28;
@@ -368,9 +369,7 @@ export default function TeacherHome() {
                       </View>
                     )}
                     <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 17, color: colors.textPrimary }} numberOfLines={2}>{a.short}</Text>
-                    <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: a.tone === 'danger' ? colors.danger : colors.accent, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{a.badge > 99 ? '99+' : formatNumber(a.badge)}</Text>
-                    </View>
+                    <CountPill count={a.badge} size={22} bg={a.tone === 'danger' ? colors.danger : colors.accent} color="#fff" fontSize={11} />
                   </TouchableOpacity>
                   </Surface>
                 ))}

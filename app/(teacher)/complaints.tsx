@@ -26,6 +26,7 @@ import { formatDate, formatNumber, timeAgo } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
 import { ledgerMethodFor, type Complaint, type ComplaintBucket, type LedgerMethod } from '@/api/complaints';
 import { Surface } from '@/ui/surfaces';
+import { CountPill } from '@/components/ui/CountBadge';
 
 /**
  * «الاعتراضات» — the staff bucket (founder 2026-10-03). Three segments: what waits for a
@@ -176,9 +177,7 @@ export default function ComplaintsScreen() {
                 {/* One line always, like her desk's segments: «بانتظار القرار» + its count wrapped and spilled out of the 40-pt pill on a 360-pt phone. */}
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? colors.onPrimary : colors.textSecondary, flexShrink: 1 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{s.label}</Text>
                 {s.badge ? (
-                  <View style={{ minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: on ? colors.onPrimary : colors.accent, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: on ? colors.primary : colors.onAccent }}>{formatNumber(s.badge)}</Text>
-                  </View>
+                  <CountPill count={s.badge} size={18} bg={on ? colors.onPrimary : colors.accent} color={on ? colors.primary : colors.onAccent} />
                 ) : null}
               </TouchableOpacity>
             );
