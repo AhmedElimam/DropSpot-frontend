@@ -41,15 +41,17 @@ export default function ChangeNameScreen() {
     else router.replace('/(parent)/(tabs)');
   };
 
-  // Prefill from the current name: first token → first name, the rest → last name.
-  const parts = (user?.name ?? '').trim().split(/\s+/).filter(Boolean);
+  // Prefill from the current name: first token → first name, the rest → last name. A door
+  // label («ولي أمر <child>») is not their name: the boxes open empty and a name is required.
+  const placeholder = !!user?.name_is_placeholder;
+  const parts = placeholder ? [] : (user?.name ?? '').trim().split(/\s+/).filter(Boolean);
   const [first, setFirst] = useState(parts[0] ?? '');
   const [last, setLast] = useState(parts.slice(1).join(' '));
 
   const save = useMutation({
     mutationFn: () => updateMyName({ first_name: first.trim(), last_name: last.trim() || undefined }),
     onSuccess: async (d) => {
-      if (user && role) await setSession({ ...user, name: d.name, should_confirm_name: false }, role);
+      if (user && role) await setSession({ ...user, name: d.name, should_confirm_name: false, name_is_placeholder: false }, role);
       Alert.alert('', t('family_ui.name_updated'), [{ text: t('common.ok'), onPress: leave }]);
     },
     onError: (e) => Alert.alert('', getFriendlyErrorMessage(e)),
@@ -109,7 +111,7 @@ export default function ChangeNameScreen() {
           </TouchableOpacity>
           </Surface>
 
-          {isFirstLogin ? (
+          {isFirstLogin && !placeholder ? (
             <Surface id="parent.change_name.name_is_correct">
             <TouchableOpacity onPress={() => confirm.mutate()} disabled={confirm.isPending} activeOpacity={0.85}
               accessibilityRole="button"
