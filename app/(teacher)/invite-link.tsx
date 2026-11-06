@@ -53,7 +53,7 @@ export default function InviteLink() {
 
   // A course can only be invited into once it has a weekly schedule.
   const eligible = useMemo(() => (courses ?? []).filter((c) => c.slot_count > 0), [courses]);
-  const groups = useGroupFilter(eligible, (c) => `${c.name} ${c.grade_name ?? ''}`, (c) => c.grade_name);
+  const groups = useGroupFilter(eligible, (c) => `${c.name} ${c.grade_name ?? ''}`, (c) => c.grade_name, (c) => c.shift);
   // The student name is OPTIONAL now — the family fills it on the booking form. If the
   // teacher does pre-fill it, it must be Arabic (same rule as the server).
   const family = pick === 'family';
@@ -163,7 +163,7 @@ export default function InviteLink() {
                   </View>
                 </View>
               ) : <View style={{ height: spacing.md }} />}
-              <GroupFilter grades={groups.grades} grade={groups.grade} onGrade={groups.setGrade} query={groups.query} onQuery={groups.setQuery} searchable={groups.searchable} />
+              <GroupFilter grades={groups.grades} grade={groups.grade} onGrade={groups.setGrade} query={groups.query} onQuery={groups.setQuery} searchable={groups.searchable} hasShifts={groups.hasShifts} shift={groups.shift} onShift={groups.setShift} />
               {groups.filtered.length === 0 ? (
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary }}>{t('group_filter.none')}</Text>
               ) : (

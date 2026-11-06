@@ -87,6 +87,9 @@ export interface InvitationCourseOption {
   schedule_label: string; // "الأحد 9:00 AM، الثلاثاء 5:00 PM"
   /** Each weekly time (fast register v2 picks one, or the whole course). Absent on an older server. */
   slots?: { id: number; day_of_week: number; start_time: string | null; label: string }[];
+  /** «الفترة» — absent on older servers. */
+  shift?: 'morning' | 'evening' | null;
+  shift_label?: string | null;
 }
 
 export interface InvitationOptions {

@@ -93,11 +93,11 @@ export default function TeacherCourses() {
   const [kind, setKind] = useState<CourseKind>('all');
   const privateCount = useMemo(() => all.filter((c) => c.tracks_attendance === false).length, [all]);
   const mixed = privateCount > 0 && privateCount < all.length;
-  // «الفترة» (founder 2026-11-06) — the row appears once any course has a shift.
+  // «الفترة» (founder 2026-11-06) — always offered while there are courses.
   const [shift, setShift] = useState<ShiftFilter>('all');
   const morningCount = useMemo(() => all.filter((c) => c.shift === 'morning').length, [all]);
   const eveningCount = useMemo(() => all.filter((c) => c.shift === 'evening').length, [all]);
-  const hasShifts = morningCount + eveningCount > 0;
+  const hasShifts = all.length > 0;
   const list = useMemo(() => {
     const byKind = !mixed || kind === 'all' ? all : all.filter((c) => (c.tracks_attendance === false) === (kind === 'private'));
     return !hasShifts || shift === 'all' ? byKind : byKind.filter((c) => c.shift === shift);

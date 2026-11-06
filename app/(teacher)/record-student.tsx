@@ -102,7 +102,7 @@ export default function RecordStudent() {
   // and says «أضف المواعيد».
   const eligible = useMemo(() => options?.courses ?? [], [options]);
   const course = useMemo(() => eligible.find((c) => c.id === courseId) ?? null, [eligible, courseId]);
-  const groups = useGroupFilter(eligible, (c) => `${c.name} ${c.grade_name ?? ''}`, (c) => c.grade_name);
+  const groups = useGroupFilter(eligible, (c) => `${c.name} ${c.grade_name ?? ''}`, (c) => c.grade_name, (c) => c.shift);
 
   // Names lose تشكيل and may carry a hyphen; phones accept Arabic digits, spaces, dashes and
   // +20 — both exactly as the server cleans them (v2), shown as they will be saved.
@@ -351,7 +351,7 @@ export default function RecordStudent() {
           <View style={sectionCard}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: colors.textPrimary }}>{t('fast_register.pick_group')}</Text>
             <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md }}>{t('fast_register.pick_group_hint')}</Text>
-            <GroupFilter grades={groups.grades} grade={groups.grade} onGrade={groups.setGrade} query={groups.query} onQuery={groups.setQuery} searchable={groups.searchable} />
+            <GroupFilter grades={groups.grades} grade={groups.grade} onGrade={groups.setGrade} query={groups.query} onQuery={groups.setQuery} searchable={groups.searchable} hasShifts={groups.hasShifts} shift={groups.shift} onShift={groups.setShift} />
             {eligible.length === 0 ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary }}>{t('enroll_ui.no_scheduled_courses')}</Text>
             ) : groups.filtered.length === 0 ? (
