@@ -12,14 +12,14 @@ import { isAxiosError } from 'axios';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, control, nav, shadows } from '@/theme/index';
 import { StudentInvitationModal } from '@/components/teacher/StudentInvitationModal';
-import { GroupFilter, useGroupFilter } from '@/components/teacher/GroupFilter';
-import { formatNumber } from '@/utils/format';
+import { CoursePickCard } from '@/components/teacher/CoursePickCard';
+import { StepHead } from '@/components/teacher/StepHead';
 import type { IconName } from '@/components/ui/Icon';
 import { Icon } from '@/components/ui/Icon';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { isDoorName, cleanDoorName, normalizeEgyptPhone } from '@/utils/validators';
 import { addParentNumber } from '@/api/phoneConfirmations';
-import { getInvitationOptions, type InvitationCourseOption } from '@/api/invitation';
+import { getInvitationOptions } from '@/api/invitation';
 import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
 import { useTranslation } from 'react-i18next';
 import { isQueued } from '@/api/offlineQueue';
@@ -99,7 +99,6 @@ export default function RecordStudent() {
   // and says «أضف المواعيد».
   const eligible = useMemo(() => options?.courses ?? [], [options]);
   const course = useMemo(() => eligible.find((c) => c.id === courseId) ?? null, [eligible, courseId]);
-  const groups = useGroupFilter(eligible, (c) => `${c.name} ${c.grade_name ?? ''}`, (c) => c.grade_name, (c) => c.shift);
 
   // Names lose تشكيل and may carry a hyphen; phones accept Arabic digits, spaces, dashes and
   // +20 — both exactly as the server cleans them (v2), shown as they will be saved.
@@ -354,45 +353,7 @@ export default function RecordStudent() {
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
           {/* The groups: tapping one opens the inputs for it (founder 2026-10-22). */}
           <Surface id="teacher.record_student.course_picker">
-          <View style={sectionCard}>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: colors.textPrimary }}>{t('fast_register.pick_group')}</Text>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md }}>{t('fast_register.pick_group_hint')}</Text>
-            <GroupFilter grades={groups.grades} grade={groups.grade} onGrade={groups.setGrade} query={groups.query} onQuery={groups.setQuery} searchable={groups.searchable} hasShifts={groups.hasShifts} shift={groups.shift} onShift={groups.setShift} />
-            {eligible.length === 0 ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary }}>{t('enroll_ui.no_scheduled_courses')}</Text>
-            ) : groups.filtered.length === 0 ? (
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary }}>{t('group_filter.none')}</Text>
-            ) : (
-              <View style={{ gap: spacing.sm }}>
-                {groups.filtered.map((c: InvitationCourseOption) => {
-                  const n = addedByCourse[c.id] ?? 0;
-                  return (
-                    <TouchableOpacity key={c.id} onPress={() => openForm(c.id)} activeOpacity={0.85} accessibilityRole="button"
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
-                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon name="book" size={19} color={colors.brand} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}</Text>
-                        {c.schedule_label
-                          ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{c.schedule_label}</Text>
-                          : <Text onPress={() => router.push(`/(teacher)/courses/${c.id}` as never)} style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand, marginTop: 2 }}>{t('fast_register.no_slots')}</Text>}
-                      </View>
-                      {n > 0 ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.successLight, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2 }}>
-                          <Icon name="success" size={12} color={colors.successText} />
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.successText }}>{formatNumber(n)}</Text>
-                        </View>
-                      ) : null}
-                      <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon name="add" size={18} color={colors.onPrimary} />
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </View>
+          <CoursePickCard courses={eligible} onPick={(c) => openForm(c.id)} counts={addedByCourse} />
           </Surface>
 
           {/* Who went in this batch, newest first — a glance, not a list to manage. */}
@@ -829,14 +790,3 @@ function firstName(full: string): string {
 }
 
 /** A numbered section head: the order a teacher fills the form in. */
-function StepHead({ n, icon, title }: { n: number; icon: IconName; title: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
-      <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onPrimary }}>{formatNumber(n)}</Text>
-      </View>
-      <Icon name={icon} size={16} color={colors.textSecondary} />
-      <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: colors.textPrimary }}>{title}</Text>
-    </View>
-  );
-}
