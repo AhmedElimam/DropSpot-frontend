@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Stop, Path } from 'react-native-svg';
@@ -51,16 +52,17 @@ const GROW = 750;           // the popup's card grows to the middle of a full sc
 const CRACK_AT = GROW + 150; // the padlock breaks (the sound's latch)
 const REVEAL_AT = CRACK_AT + 820; // the chime: flash, the card spins in
 const SPIN = 3400;          // two full turns, slowing into the front
-const HOLD_UNTIL = REVEAL_AT + SPIN + 1500; // a moment on the card, the light crossing it
+const READY_AT = REVEAL_AT + SPIN; // «ده إيه؟» comes up; the screen waits for it
 const SHRINK = 1300;        // the screen closes up onto the popup's card
 
 /**
  * The Dros Spot card's level-up, full screen. It starts as the popup's own locked card (`from`),
  * which grows into the middle of a navy screen; the padlock breaks to الناظر's unlock sound, a
  * flash, and the card spins in twice and lands front-up with sparks, confetti and «LEVEL UP».
- * After a moment it closes up slowly: the screen fades while the card shrinks back onto the
- * popup's card (`target()` reads where that is once the popup has laid its text out), and
- * `onLanded` hands back. Every motion is a one-shot on the UI thread, cancelled on unmount.
+ * Then it waits on the card (a tap turns it over) until «ده إيه؟» is pressed (founder 2026-11-07):
+ * it closes up slowly, the screen fading while the card shrinks back onto the popup's card
+ * (`target()` reads where that is once the popup has laid its text out), and `onLanded` hands
+ * back to the popup, which explains it. Every motion is a one-shot on the UI thread, cancelled on unmount.
  */
 export function CardUnlockShow({ from, target, onCollapse, onLanded }: {
   from: CardRect | null;
@@ -76,6 +78,10 @@ export function CardUnlockShow({ from, target, onCollapse, onLanded }: {
   const cy = height * 0.45;
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const sound = useUnlockSound(true);
+  const insets = useSafeAreaInsets();
+  const [ready, setReady] = useState(false);
+  const closing = useRef(false);
+  const faceUp = useRef(true);
 
   // Where the card is: offset from the middle, and its scale against the big card.
   const fromX = from ? from.x + from.width / 2 - cx : 0;
@@ -102,6 +108,7 @@ export function CardUnlockShow({ from, target, onCollapse, onLanded }: {
   const lockPop = useSharedValue(0);
   const lockRing = useSharedValue(0);
   const fade = useSharedValue(1);
+  const ask = useSharedValue(0);
 
   useEffect(() => {
     const at = (ms: number, fn: () => void) => timers.current.push(setTimeout(fn, ms));
@@ -140,31 +147,50 @@ export function CardUnlockShow({ from, target, onCollapse, onLanded }: {
       tiltX.value = withDelay(SPIN - 600, withSequence(withTiming(7, { duration: 900 }), withTiming(0, { duration: 900 })));
     });
 
-    // 4. It closes up onto the popup's card.
-    at(HOLD_UNTIL, () => {
+    // 4. The card is in: «ده إيه؟» comes up, and the screen waits for it.
+    at(READY_AT, () => {
       turn.value = 0; // 720 ≡ 0
-      onCollapse();
-      // Two frames for the popup to lay out its text, then read where its card now sits.
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        // The modal covers the whole window (statusBarTranslucent), so window points are ours.
-        void target().then((rect) => {
-          const tx = rect ? rect.x + rect.width / 2 - cx : 0;
-          const ty = rect ? rect.y + rect.height / 2 - cy : height * 0.1;
-          const ts = rect ? rect.width / W : 0.5;
-          fx.value = withTiming(tx, { duration: SHRINK, easing: inOut });
-          fy.value = withTiming(ty, { duration: SHRINK, easing: inOut });
-          fs.value = withTiming(ts, { duration: SHRINK, easing: inOut });
-          fade.value = withTiming(0, { duration: SHRINK * 0.8, easing: Easing.in(Easing.quad) });
-          timers.current.push(setTimeout(onLanded, SHRINK + 60));
-        });
-      }));
+      setReady(true);
+      ask.value = withTiming(1, { duration: 500 });
     });
 
-    const all = [fx, fy, fs, bg, turn, tiltX, sheen, dark, pop, flash, wave, burst, fall, rays, spin, slam, title, lockDrop, lockPop, lockRing, fade];
+    const all = [fx, fy, fs, bg, turn, tiltX, sheen, dark, pop, flash, wave, burst, fall, rays, spin, slam, title, lockDrop, lockPop, lockRing, fade, ask];
     return () => { timers.current.forEach(clearTimeout); timers.current = []; all.forEach((v) => cancelAnimation(v)); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** A tap on the landed card turns it over. */
+  const flip = () => {
+    if (!ready || closing.current) return;
+    faceUp.current = !faceUp.current;
+    turn.value = withSpring(faceUp.current ? 0 : 180, { damping: 14, stiffness: 70 });
+  };
+
+  /** «ده إيه؟»: the screen closes up onto the popup's card, front up. */
+  const collapse = () => {
+    if (!ready || closing.current) return;
+    closing.current = true;
+    const inOut = Easing.inOut(Easing.cubic);
+    ask.value = withTiming(0, { duration: 200 });
+    onCollapse();
+    // Two frames for the popup to lay out its text, then read where its card now sits. The modal
+    // covers the whole window (statusBarTranslucent), so window points are ours.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      void target().then((rect) => {
+        const tx = rect ? rect.x + rect.width / 2 - cx : 0;
+        const ty = rect ? rect.y + rect.height / 2 - cy : height * 0.1;
+        const ts = rect ? rect.width / W : 0.5;
+        turn.value = withTiming(0, { duration: SHRINK, easing: inOut });
+        fx.value = withTiming(tx, { duration: SHRINK, easing: inOut });
+        fy.value = withTiming(ty, { duration: SHRINK, easing: inOut });
+        fs.value = withTiming(ts, { duration: SHRINK, easing: inOut });
+        fade.value = withTiming(0, { duration: SHRINK * 0.8, easing: Easing.in(Easing.quad) });
+        timers.current.push(setTimeout(onLanded, SHRINK + 60));
+      });
+    }));
+  };
+
+  const askStyle = useAnimatedStyle(() => ({ opacity: ask.value, transform: [{ translateY: (1 - ask.value) * 18 }] }));
   const bgStyle = useAnimatedStyle(() => ({ opacity: bg.value * fade.value }));
   const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
   const cardStyle = useAnimatedStyle(() => ({
@@ -218,8 +244,23 @@ export function CardUnlockShow({ from, target, onCollapse, onLanded }: {
         </Animated.View>
       </Animated.View>
 
+      {/* The landed card turns over on a tap. */}
+      {ready ? (
+        <Pressable onPress={flip} accessibilityRole="button" accessibilityLabel={t('card_unlock.tap_to_flip')}
+          style={{ position: 'absolute', left: cx - W / 2, top: cy - H / 2, width: W, height: H }} />
+      ) : null}
+
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, fadeStyle]}>
         {CONFETTI.map((c, i) => <Confetto key={i} piece={c} fall={fall} height={height} />)}
+      </Animated.View>
+      {/* «ده إيه؟» — the way back to the popup, which says what the card is. */}
+      <Animated.View pointerEvents={ready ? 'box-none' : 'none'} style={[{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + spacing.xl4, alignItems: 'center' }, askStyle]}>
+        <Pressable onPress={collapse} accessibilityRole="button" hitSlop={10}
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#C9A227', borderRadius: radius.full, paddingHorizontal: spacing.xl, paddingVertical: 14, opacity: pressed ? 0.85 : 1 })}>
+          <Icon name="help" size={20} color="#1A2147" />
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: '#1A2147' }}>{t('card_unlock.what_is_it')}</Text>
+        </Pressable>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: spacing.sm }}>{t('card_unlock.tap_to_flip')}</Text>
       </Animated.View>
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#FFF6D6' }, flashStyle]} />
     </View>

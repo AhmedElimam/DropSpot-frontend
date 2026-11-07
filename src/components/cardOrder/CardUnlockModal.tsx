@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { router, usePathname, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppModal as Modal } from '@/ui/AppModal';
@@ -63,6 +64,7 @@ export function CardUnlockModal() {
   const visible = usePopupSlot('card_unlock', family && fresh.length > 0 && !!tour?.completed && !touring && !blocked && !impersonating && !putAway);
   // Locked in the popup → a tap opens the full-screen show → it closes up onto the popup's card.
   const still = useReducedMotion();
+  const insets = useSafeAreaInsets();
   const [show, setShow] = useState<{ from: CardRect | null } | null>(null);
   const [revealed, setRevealed] = useState(false);
   const measureCard = useRef<(() => Promise<CardRect | null>) | null>(null);
@@ -88,13 +90,16 @@ export function CardUnlockModal() {
 
   return (
     <Modal visible={visible} transparent statusBarTranslucent animationType="fade" onRequestClose={() => { if (!show) setPutAway(true); }}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(15,12,30,0.6)', justifyContent: 'center', padding: spacing.lg }}>
+      {/* Inside the safe area: the brand mark over the popup's top never meets the notch. */}
+      <View style={{ flex: 1, backgroundColor: 'rgba(15,12,30,0.6)', justifyContent: 'center', paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.sm }}>
         <View style={{ paddingTop: LOGO / 2 }}>
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xxl, overflow: 'hidden', ...shadows.md }}>
           <CardUnlockStage play={visible} revealed={revealed} hideCard={!!show} onOpen={open} measureRef={measureCard} />
 
           <RiseIn show={revealed}>
-          <View style={{ padding: spacing.lg }}>
+          {/* Untouchable until the show has landed: the tap on «ده إيه؟» sits where «اطلب الكارت»
+              is, and must not reach it. */}
+          <View pointerEvents={show ? 'none' : 'auto'} style={{ padding: spacing.lg }}>
             {/* الناظر hands it over, in his own words. */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
               <NazerFace size={56} mood="proud" />

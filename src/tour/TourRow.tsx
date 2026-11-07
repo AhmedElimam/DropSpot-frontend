@@ -6,15 +6,18 @@ import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { useTourStore } from './store';
-import { tourForRole } from './tours';
+import { tourForRole, withCardStep } from './tours';
+import { useCardOpen } from '@/components/cardOrder/cardUnlock';
 
 /** «جولة تعريفية» — replay the tour from the settings of any role. Goes home first; the tour takes it from there. */
 export function TourRow({ home }: { home: Href }) {
   const { t } = useTranslation();
   const role = useAuthStore((s) => s.role);
   const start = useTourStore((s) => s.start);
-  const def = tourForRole(role);
-  if (!def) return null;
+  const cardOpen = useCardOpen();
+  const base = tourForRole(role);
+  if (!base) return null;
+  const def = withCardStep(base, cardOpen);
   const replay = () => {
     router.navigate(home);
     setTimeout(() => start(def), 350);

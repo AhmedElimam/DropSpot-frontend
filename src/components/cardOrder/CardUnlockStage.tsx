@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppState, View, Text, Pressable, StyleSheet } from 'react-native';
+import { AppState, View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,8 +12,8 @@ import { Icon } from '@/components/ui/Icon';
 import { DsCard3D, CARD_RATIO } from './DsCard3D';
 import { Rays, type CardRect } from './CardUnlockShow';
 
-export const STAGE_CARD_W = 128;
-const CARD_H = STAGE_CARD_W * CARD_RATIO;
+/** The popup's card: smaller on a short phone, so the popup keeps clear of the notch. */
+const stageCardWidth = (h: number) => (h < 760 ? 96 : h < 900 ? 112 : 128);
 const GOLD = '#E8C55A';
 const CREST = require('../../../assets/images/nazer/stamp-navy.webp');
 
@@ -35,6 +35,8 @@ export function CardUnlockStage({ play, revealed, hideCard, onOpen, measureRef }
 }) {
   const { t } = useTranslation();
   const still = useReducedMotion();
+  const STAGE_CARD_W = stageCardWidth(useWindowDimensions().height);
+  const CARD_H = STAGE_CARD_W * CARD_RATIO;
   const cardBox = useRef<View>(null);
   const faceUp = useRef(true);
   const [opening, setOpening] = useState(false);
@@ -95,6 +97,21 @@ export function CardUnlockStage({ play, revealed, hideCard, onOpen, measureRef }
     rays.value = withTiming(0.55, { duration: 600 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealed]);
+
+  // The show's card has just landed here: one slow full turn, as the popup used to play it.
+  const landed = useRef(false);
+  useEffect(() => {
+    if (!revealed || hideCard || landed.current) return;
+    landed.current = true;
+    if (still) return;
+    faceUp.current = true;
+    turn.value = 0;
+    turn.value = withTiming(360, { duration: 1900, easing: Easing.inOut(Easing.cubic) }, (finished) => { if (finished) turn.value = 0; });
+    sheen.value = 0;
+    sheen.value = withDelay(1500, withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealed, hideCard, still]);
+  useEffect(() => { if (!play) landed.current = false; }, [play]);
 
   // Bursts: the padlock's shake while locked; the lean and the light once revealed.
   useEffect(() => {

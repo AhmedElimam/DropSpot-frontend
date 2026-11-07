@@ -53,10 +53,10 @@ export function DsCard3D({ width, turn, tiltX, sheen, dark }: {
       </Animated.View>
       <Animated.View style={[StyleSheet.absoluteFill, faceBox, front]}>
         <Image source={CARD_FRONT} style={{ width, height }} contentFit="cover" cachePolicy="memory-disk" accessibilityLabel="كارت دروس سبوت — وجه رمز الحضور" />
-        {/* Locked: the card as a silhouette, the front's own shape filled with ink. */}
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, darkStyle]}>
-          <Image source={CARD_FRONT} tintColor="#070A1C" style={{ width, height }} contentFit="cover" cachePolicy="memory-disk" accessible={false} />
-        </Animated.View>
+        {/* Locked: the card as an ink silhouette. A plain panel in the face's own rounded box, so it
+            is there from the first frame — a tinted copy of the picture took a moment to load at
+            each new size and let the card show through before the reveal (founder 2026-11-07). */}
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#070A1C', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: radius }, darkStyle]} />
       </Animated.View>
       {/* The light sweeping across the card, clipped to its corners. */}
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: 'hidden', backfaceVisibility: 'hidden' }, front]}>

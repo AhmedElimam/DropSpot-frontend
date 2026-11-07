@@ -22,3 +22,14 @@ export function useCardUnlock() {
   const orderable = unlocked.filter((t) => t.can_order && !t.pending_review);
   return { family, loaded: isSuccess, targets, unlocked, orderable };
 }
+
+/**
+ * The card is open to this family: a child it has unlocked for, or — for a student — a card
+ * already held or ordered. The tour's card step and the profile's card row follow it.
+ */
+export function useCardOpen(): boolean {
+  const role = useAuthStore((s) => s.role);
+  const cardState = useAuthStore((s) => s.user?.card_state);
+  const { unlocked } = useCardUnlock();
+  return unlocked.length > 0 || (role === 'student' && !!cardState && cardState !== 'none');
+}
