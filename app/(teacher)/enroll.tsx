@@ -126,6 +126,9 @@ export default function TeacherEnroll() {
   // Android rebuild the whole camera on every card (founder 2026-10-09: «light on all devices»).
   const isFocused = useIsFocused();
   const scanPausedRef = useRef(false);
+  // A popup on screen (the server's included) pauses the reader, so one card is read once. Up here
+  // with the other hooks: below the course step's early return it crashed the app on choosing a course.
+  const dialogOpen = useDialogStore((st) => st.queue.length > 0);
   const handleScanRef = useRef(handleScan);
   handleScanRef.current = handleScan;
   const onCameraScan = useCallback((e: Parameters<typeof handleScan>[0]) => {
@@ -320,8 +323,6 @@ export default function TeacherEnroll() {
   }
 
   // ---- Step 2: scan + review ----
-  // A popup on screen (the server's included) pauses the reader, so one card is read once.
-  const dialogOpen = useDialogStore((st) => st.queue.length > 0);
   scanPausedRef.current = !!(busy || review || done || dialogOpen);
   return (
     <Surface id="screen.teacher.enroll" screen>
