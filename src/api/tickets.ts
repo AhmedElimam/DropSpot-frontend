@@ -51,7 +51,18 @@ export interface TicketDetail extends Ticket {
   can_change_status?: boolean;
   /** The teacher's side opened this ticket with the parent. */
   opened_by_teacher?: boolean;
+  /** A student's «رقم ولي الأمر غلط» from activation (staff only). */
+  parent_number_fix?: ParentNumberFix | null;
   messages: TicketMessage[];
+}
+
+export interface ParentNumberFix {
+  proposed: string | null;
+  current: string | null;
+  /** From the SMS link (the student's own number proved) rather than the login screen. */
+  from_link: boolean;
+  applied_at: string | null;
+  applied_number: string | null;
 }
 
 /** A file picked on the phone, before upload. */
@@ -131,6 +142,12 @@ export async function addMessage(ticketId: string, message: string, files: Pendi
 /** The teacher sends the student's performance report into the thread (no download on either side). */
 export async function sendStudentReport(ticketId: string) {
   const { data } = await client.post(`/tickets/${ticketId}/report`, {}, { timeout: 60_000 });
+  return data;
+}
+
+/** The teacher applies the parent number from a «رقم ولي الأمر غلط» ticket. */
+export async function fixParentNumber(ticketId: string, phone: string) {
+  const { data } = await client.post(`/tickets/${ticketId}/fix-parent-number`, { phone });
   return data;
 }
 

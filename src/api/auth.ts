@@ -75,6 +75,24 @@ export async function signupCheck(phone_number: string): Promise<SignupCheck> {
   return data.data as SignupCheck;
 }
 
+export type ActivationTeacher = { id: number; name: string };
+
+/**
+ * Activation with the code sent to the PARENT (founder 2026-11-07): only the parent number on
+ * file gets it. A wrong / missing one answers 422 PARENT_PHONE_MISMATCH | NO_PARENT |
+ * TOO_MANY_TRIES with `errors.teachers` (the student's teachers) and `errors.parent_hint`.
+ */
+export async function activationParentCode(phone_number: string, parent_phone: string): Promise<{ phone_number: string; parent_hint: string | null }> {
+  const { data } = await client.post('/auth/activation/parent-code', { phone_number, parent_phone });
+  return data.data;
+}
+
+/** «رقم ولي أمري اتسجّل غلط» → a ticket to the chosen teacher. Resolves to the server's line. */
+export async function activationFixRequest(phone_number: string, parent_phone: string, teacher_id: number): Promise<string> {
+  const { data } = await client.post('/auth/activation/fix-request', { phone_number, parent_phone, teacher_id });
+  return data.message as string;
+}
+
 /** Forgot password — step 1: request a reset code by SMS. Always succeeds (no enumeration). */
 export async function forgotPassword(phone_number: string): Promise<void> {
   await client.post('/auth/forgot-password', { phone_number });

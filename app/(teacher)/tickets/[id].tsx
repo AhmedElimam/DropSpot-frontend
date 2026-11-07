@@ -27,6 +27,7 @@ import { COMPOSER_PADS_ITSELF, useComposerBottomInset } from '@/hooks/useCompose
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { useScreenTopInset } from '@/hooks/useScreenTopInset';
 import { Surface } from '@/ui/surfaces';
+import { ParentNumberFixCard } from '@/components/tickets/ParentNumberFixCard';
 
 const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
@@ -182,6 +183,7 @@ export default function TeacherTicketDetail() {
           contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
           showsVerticalScrollIndicator={false}
         >
+          {ticket.parent_number_fix ? <ParentNumberFixCard ticketId={id ?? ''} fix={ticket.parent_number_fix} /> : null}
           {ticket.messages?.map((msg) => {
             const isMine = msg.user_id === user?.id;
             return (

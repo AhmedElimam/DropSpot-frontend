@@ -106,14 +106,18 @@ export default function LoginScreen() {
         containerStyle={{ marginBottom: spacing.sm }}
       />
 
-      <TouchableOpacity
-        onPress={() => router.push('/(auth)/forgot-password')}
-        hitSlop={{ top: 8, bottom: 8 }}
-        style={{ alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center', marginBottom: spacing.lg }}
-      >
-        {/* Also the door for a student the teacher registered who never knew (founder 2026-11-07). */}
-        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('auth.forgot_or_registered')}</Text>
-      </TouchableOpacity>
+      {/* Two doors (founder 2026-11-07): a forgotten password, and an account the teacher made
+          that its student or parent never knew about — that one checks the number first. */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: spacing.md, marginBottom: spacing.lg }}>
+        <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')} hitSlop={{ top: 8, bottom: 8 }} style={{ minHeight: 40, justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('auth.forgot_password')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => activate(phoneFull ? phone : undefined)} hitSlop={{ top: 8, bottom: 8 }} style={{ minHeight: 40, justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>
+            {t('auth.teacher_registered_q')} <Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{t('auth.activate_account')}</Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <Button title={t('auth.login_button')} onPress={handleLogin} disabled={!canSubmit} loading={loginMutation.isPending} />
 
