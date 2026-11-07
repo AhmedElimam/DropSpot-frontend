@@ -21,6 +21,7 @@ import { ThemeRow } from '@/components/ThemeRow';
 import { TourRow } from '@/tour/TourRow';
 import { useTourScroll } from '@/tour/useTourScroll';
 import { CardInfoRow } from '@/components/cardOrder/CardInfoRow';
+import { useCardUnlock } from '@/components/cardOrder/cardUnlock';
 import { useQuery } from '@tanstack/react-query';
 import { getMyCardStatus } from '@/api/profile';
 import { PageHero } from '@/components/ui/PageHero';
@@ -42,6 +43,8 @@ export default function StudentProfile() {
   const { data: card, refetch: refetchCard } = useQuery({ queryKey: ['my-card'], queryFn: getMyCardStatus, staleTime: 60_000 });
   const { refreshing, onRefresh } = usePullRefresh(refetchCoverage, refetchQuizzes, refetchCard);
   const cardState = card?.card_state ?? user?.card_state ?? 'none';
+  // The order button shows once the card has unlocked: two teachers or more on Dros Spot.
+  const canOrderCard = useCardUnlock().orderable.length > 0;
   // The phone QR is the card's own credential and exists ONLY once the card is in hand
   // (founder 2026-10-03: a fallback when the card is forgotten or lost — never a substitute
   // for a card that was not issued). Hidden behind a tap so it is not on screen by default.
@@ -111,7 +114,7 @@ export default function StudentProfile() {
                     ? t('family_ui.card_preparing_hint')
                     : cardState === 'ordered'
                       ? t('family_ui.card_ordered_hint')
-                      : t('family_ui.card_none_hint')}
+                      : canOrderCard ? t('family_ui.card_none_hint') : t('card_unlock.locked_hint')}
               </Text>
 
               {/* Where the order stands, in the admin's own words, so the student sees it move. */}
@@ -157,7 +160,7 @@ export default function StudentProfile() {
                 </View>
               ) : null}
 
-              {cardState === 'none' ? (
+              {cardState === 'none' && canOrderCard ? (
                 <Surface id="student.profile.order_card">
                 <TouchableOpacity
                   onPress={() => router.push('/(student)/order-card' as Href)}
@@ -174,7 +177,7 @@ export default function StudentProfile() {
           </View>
           </Surface>
 
-          <Surface id="student.profile.card_info"><CardInfoRow /></Surface>
+          <Surface id="student.profile.card_info"><CardInfoRow hasCard={cardState !== 'none'} /></Surface>
 
           <Surface id="student.profile.account">
           <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, ...shadows.sm }}>

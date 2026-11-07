@@ -74,6 +74,8 @@ const ICON_MAP = {
   lock: 'lock-closed',
   /** الناظر's padlock as it breaks open (NazerUnlockStage). */
   unlock: 'lock-open',
+  /** «LEVEL UP» on the card's unlock (founder 2026-11-07). */
+  levelUp: 'arrow-up-circle',
   /** A 15-day billing exemption (founder 2026-10-04). */
   shield: 'shield-checkmark',
   phone: 'phone-portrait',

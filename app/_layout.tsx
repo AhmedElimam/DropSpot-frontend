@@ -52,6 +52,7 @@ import { installErrorReporting } from '@/lib/errorReport';
 import { SessionSwitchWatcher } from '@/components/SessionSwitchWatcher';
 import { WhatsNewModal } from '@/components/WhatsNewModal';
 import { NazerUnlockModal } from '@/components/nazer/NazerUnlockModal';
+import { CardUnlockModal } from '@/components/cardOrder/CardUnlockModal';
 import { RoseUnlockModal } from '@/components/rose/RoseUnlockModal';
 import { SubscriptionStatusModal } from '@/components/subscription/SubscriptionStatusModal';
 import { SubscriptionCornerTag } from '@/components/subscription/SubscriptionCornerTag';
@@ -315,6 +316,7 @@ export default function RootLayout() {
             <WhatsNewModal />
             {/* الناظر introduces himself to a parent or student, once — after «ما الجديد». */}
             <NazerUnlockModal />
+            <CardUnlockModal />
             {/* مدام روز's new painted look, unlocked once by a teacher or an assistant (founder 2026-10-25). */}
             <RoseUnlockModal />
             {/* Then she shows where the subscription stands: receipt, exemption or bill, stamped (founder 2026-10-25). */}

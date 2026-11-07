@@ -13,6 +13,7 @@ import { BrandMark } from '@/components/ui/BrandMark';
 import { NazerFramed } from '@/components/nazer/NazerFramed';
 import { CardPerks, CardWhy, CardSteps, CardCompare } from '@/components/cardOrder/CardPerks';
 import { getCardOrderTargets } from '@/api/cardOrders';
+import { isCardUnlocked } from '@/components/cardOrder/cardUnlock';
 import { useAuthStore } from '@/stores/authStore';
 import { Surface } from '@/ui/surfaces';
 
@@ -32,7 +33,9 @@ export default function CardInfoScreen() {
   const role = useAuthStore((s) => s.role);
   const family = role === 'student' || role === 'parent';
   const { data: targets } = useQuery({ queryKey: ['card-order-targets'], queryFn: getCardOrderTargets, enabled: family });
-  const canOrder = (targets ?? []).some((x) => x.can_order && !x.pending_review);
+  // Only a child with two teachers or more on Dros Spot may order (founder 2026-11-07).
+  const canOrder = (targets ?? []).some((x) => x.can_order && !x.pending_review && isCardUnlocked(x));
+  const locked = family && !!targets && !targets.some(isCardUnlocked);
 
   // Everything the order screen's popup says is on this page: it need not open again.
   useEffect(() => {
@@ -111,6 +114,12 @@ export default function CardInfoScreen() {
           <CardSteps />
         </View>
 
+        {locked ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md }}>
+            <Icon name="lock" size={18} color={colors.textTertiary} />
+            <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, lineHeight: 21, color: colors.textSecondary }}>{t('card_unlock.locked_hint')}</Text>
+          </View>
+        ) : null}
         {canOrder ? (
           <TouchableOpacity onPress={order} activeOpacity={0.85} accessibilityRole="button"
             style={{ minHeight: 52, borderRadius: radius.lg, backgroundColor: colors.brand, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>

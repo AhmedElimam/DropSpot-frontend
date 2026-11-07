@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { isCardUnlocked } from './cardUnlock';
 import { getCardOrderTargets } from '@/api/cardOrders';
 import { useCardOrderDismiss } from '@/stores/cardOrderDismiss';
 
@@ -30,7 +31,7 @@ export function CardOrderBanner({ scope }: { scope: 'student' | 'parent' }) {
   // Orderable = lacks a card, has a teacher context, and no order already in flight — and studies
   // with two teachers or more here (founder 2026-11-06): one card for all of them is the point.
   // A one-teacher child still finds the card on the profile and /card-info.
-  const orderable = (data ?? []).filter((tgt) => tgt.can_order && !tgt.pending_review && (tgt.teacher_count ?? 0) >= 2);
+  const orderable = (data ?? []).filter((tgt) => tgt.can_order && !tgt.pending_review && isCardUnlocked(tgt));
   if (orderable.length === 0) return null;
 
   const one = orderable.length === 1 ? orderable[0] : null;

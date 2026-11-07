@@ -5,13 +5,18 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { TourTarget } from '@/tour/TourTarget';
+import { useCardUnlock } from './cardUnlock';
 
 /**
  * «كارت دروس سبوت» on a family's profile tab (founder 2026-10-24: «know more about it on the
  * more screen — why you need a card»): opens /card-info. The tour's last step points here.
  */
-export function CardInfoRow() {
+export function CardInfoRow({ hasCard = false }: { hasCard?: boolean }) {
   const { t } = useTranslation();
+  // Hidden until the card unlocks — a second teacher on Dros Spot (founder 2026-11-07) — unless
+  // the student already holds or ordered one.
+  const { unlocked } = useCardUnlock();
+  if (!hasCard && unlocked.length === 0) return null;
   return (
     <TourTarget id="profile:card">
       <TouchableOpacity onPress={() => router.push('/card-info' as Href)} activeOpacity={0.75} accessibilityRole="button"

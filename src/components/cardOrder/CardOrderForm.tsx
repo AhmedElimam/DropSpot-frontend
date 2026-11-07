@@ -11,6 +11,7 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { getCardOrderTargets, createFamilyCardOrder, type CardOrderTarget } from '@/api/cardOrders';
+import { isCardUnlocked } from './cardUnlock';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '@/stores/authStore';
 import { CardPerks, CardIntroModal, CardCompare } from './CardPerks';
@@ -48,7 +49,8 @@ export function CardOrderForm({ preselectStudentId }: { preselectStudentId?: num
     if (userId) AsyncStorage.setItem(`card_intro_seen:${userId}`, '1').catch(() => {});
   };
 
-  const list = targets ?? [];
+  // Only the children the card has unlocked for — two teachers or more on Dros Spot.
+  const list = useMemo(() => (targets ?? []).filter(isCardUnlocked), [targets]);
   const selected: CardOrderTarget | undefined = useMemo(
     () => list.find((tgt) => tgt.student_id === studentId) ?? (list.length === 1 ? list[0] : undefined),
     [list, studentId],
