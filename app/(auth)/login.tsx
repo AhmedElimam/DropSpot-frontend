@@ -39,6 +39,9 @@ export default function LoginScreen() {
   // The teacher recorded this student and they never chose a password (founder 2026-11-04:
   // they were making a second account instead). Activation is the reset flow, number filled.
   const mayNeedActivation = isAxiosError(loginMutation.error) && loginMutation.error.response?.data?.errors?.may_need_activation === true;
+  // From the FIRST wrong password (founder 2026-11-07, logins now allow 4): the teacher may have
+  // registered them — activate, or reset a forgotten password. An unknown number reads the same.
+  const wrongPassword = isAxiosError(loginMutation.error) && loginMutation.error.response?.data?.code === 'INVALID_CREDENTIALS';
   const activate = (prefill?: string) => router.push({ pathname: '/(auth)/forgot-password', params: { mode: 'activate', ...(prefill ? { phone: prefill } : {}) } });
 
   return (
@@ -65,10 +68,14 @@ export default function LoginScreen() {
             : getFriendlyErrorMessage(loginMutation.error)}
         />
       ) : null}
-      {mayNeedActivation ? (
+      {mayNeedActivation || wrongPassword ? (
         <View style={{ backgroundColor: colors.brandTint, borderRadius: 12, padding: spacing.md, marginBottom: spacing.lg, gap: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.medium, fontSize: 14, lineHeight: 21, color: colors.infoText }}>{t('auth.may_need_activation')}</Text>
-          <Button title={t('auth.activate_account')} onPress={() => activate(phone)} />
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, lineHeight: 21, color: colors.infoText }}>{t(mayNeedActivation ? 'auth.may_need_activation' : 'auth.wrong_password_hint')}</Text>
+          {/* Side by side, so the «دخول» button stays on screen under them. */}
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <View style={{ flex: 1 }}><Button title={t('auth.activate_account')} onPress={() => activate(phoneFull ? phone : undefined)} /></View>
+            <View style={{ flex: 1 }}><Button title={t('auth.forgot_password')} variant="outline" onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: phoneFull ? { phone } : {} })} /></View>
+          </View>
         </View>
       ) : null}
 
