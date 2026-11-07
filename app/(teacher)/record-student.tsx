@@ -26,7 +26,6 @@ import { isQueued } from '@/api/offlineQueue';
 import { recordStudent, lookupRecordPhone, type DedupeMatch, type RecordStudentPayload, type ParentRelationship, type ExistingStudentOffer, type RecordLookup, type LookupChild } from '@/api/studentRecord';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { Surface } from '@/ui/surfaces';
-import { Chips } from '@/components/ui/Form';
 
 const label = () => ({ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.xs } as const);
 const field = () => ({
@@ -80,12 +79,10 @@ export default function RecordStudent() {
   // The children already on the parent's number, when «طالب جديد» was chosen from them («بنفس الاسم؟»).
   const [siblings, setSiblings] = useState<LookupChild[]>([]);
   // One weekly time of the course, or null = the whole course (the default; founder's choice).
-  const [slotId, setSlotId] = useState<number | null>(null);
   const [addParentPhone, setAddParentPhone] = useState('');
   const [addingParent, setAddingParent] = useState(false);
   const openForm = (id: number) => {
     setCourseId(id);
-    setSlotId(null);
     backToBox();
     setFormOpen(true);
   };
@@ -168,7 +165,6 @@ export default function RecordStudent() {
       ...(decision ? { dedupe_decision: decision } : {}),
       ...(linkStudentId ? { link_student_id: linkStudentId } : {}),
       ...(opts.acceptGrade ? { accept_grade_mismatch: true } : {}),
-      ...(slotId != null ? { session_schedule_id: slotId } : {}),
       ...(opts.allowSameName ? { allow_same_name: true } : {}),
     };
     setSaving(true);
@@ -231,13 +227,13 @@ export default function RecordStudent() {
     try {
       const r = await lookupRecordPhone(courseId, phone);
       if (r.outcome === 'role_conflict' || r.outcome === 'blocked') { setBoxNote(r.message); return; }
-      if (r.outcome === 'unknown') { openNewForm(phone, []); return; }
+      if (r.outcome === 'unknown') { openNewForm(phone, [], 'student'); return; }
       setFound(r);
       setStep('found');
     } catch (e) {
       if (isAxiosError(e) && !e.response) {
         // No connection: today's form, exactly as before.
-        openNewForm(phone, []);
+        openNewForm(phone, [], 'student');
         setFlash(t('fast_register.offline_form'));
         setTimeout(() => setFlash(null), 3000);
       } else {
@@ -248,11 +244,15 @@ export default function RecordStudent() {
     }
   }
 
-  /** The form for a student nobody knows; the looked-up number goes in the parent's box. */
-  function openNewForm(phone: string, kids: LookupChild[]) {
+  /**
+   * The form. A number nobody knows (neither a student nor a parent) goes in the STUDENT's box,
+   * with «ده رقم ولي الأمر؟» to move it (founder 2026-11-07); a parent's number («طالب جديد على
+   * نفس الرقم») goes in the parent's box.
+   */
+  function openNewForm(phone: string, kids: LookupChild[], box: 'student' | 'parent') {
     setName('');
-    setParentPhone(phone);
-    setStudentPhone('');
+    setParentPhone(box === 'parent' ? phone : '');
+    setStudentPhone(box === 'student' ? phone : '');
     setParentName('');
     setRelationship(null);
     setSiblings(kids);
@@ -260,7 +260,13 @@ export default function RecordStudent() {
     setTimeout(() => nameRef.current?.focus(), 250);
   }
 
-  /** The unknown number was the student's own: move it to his box. */
+  /** The unknown number was the parent's: move it to the parent's box. */
+  function swapNumberToParent() {
+    setParentPhone(studentPhone);
+    setStudentPhone('');
+  }
+
+  /** The number in the parent's box was the student's own: move it to his box. */
   function swapNumberToStudent() {
     setStudentPhone(parentPhone);
     setParentPhone('');
@@ -425,21 +431,6 @@ export default function RecordStudent() {
             </TouchableOpacity>
           </View>
 
-          {/* The weekly time — only for a course with two or more. The whole course is the default
-              (founder 2026-11-06: one group may meet twice a week); today's time is marked. */}
-          {(course?.slots?.length ?? 0) >= 2 ? (
-            <Surface id="teacher.record_student.slot">
-            <View style={[sectionCard, { paddingVertical: spacing.md }]}>
-              <Text style={label()}>{t('fast_register.slot_label')}</Text>
-              <Chips
-                options={[{ key: 0, label: t('fast_register.slot_all') }, ...(course?.slots ?? []).map((sl) => ({
-                  key: sl.id, label: sl.day_of_week === new Date().getDay() ? `${sl.label} · ${t('fast_register.slot_today')}` : sl.label,
-                }))]}
-                value={slotId ?? 0} onChange={(k) => setSlotId(k === 0 ? null : k)} />
-            </View>
-            </Surface>
-          ) : null}
-
           {/* Step 1 (v2): one box — the student's or the parent's number — looked up before any form. */}
           {step !== 'form' ? (
             <Surface id="teacher.record_student.lookup_box">
@@ -545,7 +536,7 @@ export default function RecordStudent() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <TouchableOpacity onPress={() => openNewForm(found.phone, found.children)} activeOpacity={0.85}
+              <TouchableOpacity onPress={() => openNewForm(found.phone, found.children, 'parent')} activeOpacity={0.85}
                 style={{ marginTop: spacing.md, minHeight: 50, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.brand, flexDirection: 'row', gap: spacing.sm, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="add" size={18} color={colors.brand} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.brand }}>{t('fast_register.new_sibling')}</Text>
@@ -600,6 +591,12 @@ export default function RecordStudent() {
                 : studentNorm && studentNorm !== studentPhone.trim()
                   ? <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary }}>{t('fast_register.will_save', { phone: studentNorm })}</Text>
                   : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>{t('enroll_ui.student_phone_hint')}</Text>}
+            {/* An unknown number lands here; one tap moves it if it was the parent's. */}
+            {studentPhone.trim() !== '' && parentPhone.trim() === '' && siblings.length === 0 ? (
+              <TouchableOpacity onPress={swapNumberToParent} activeOpacity={0.7} hitSlop={{ top: 6, bottom: 6 }} style={{ marginTop: spacing.xs, alignSelf: 'flex-start' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('fast_register.number_is_parent')}</Text>
+              </TouchableOpacity>
+            ) : null}
             </Surface>
           </View>
 
@@ -624,7 +621,7 @@ export default function RecordStudent() {
                 : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>
                     {parentPhone.trim() === '' ? t('enroll_ui.parent_phone_optional_hint') : parentNorm && parentNorm !== parentPhone.trim() ? t('fast_register.will_save', { phone: parentNorm }) : t('enroll_ui.parent_phone_hint')}
                   </Text>}
-            {/* The looked-up number went in the parent's box; one tap moves it if it was the student's. */}
+            {/* A number in the parent's box that was the student's own: one tap moves it. */}
             {parentPhone.trim() !== '' && studentPhone.trim() === '' && siblings.length === 0 ? (
               <TouchableOpacity onPress={swapNumberToStudent} activeOpacity={0.7} style={{ marginTop: -spacing.sm, marginBottom: spacing.lg, alignSelf: 'flex-start' }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.brand }}>{t('fast_register.number_is_student')}</Text>

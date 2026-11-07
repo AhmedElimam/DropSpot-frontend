@@ -18,6 +18,7 @@ export const CAPABILITIES: ReadonlyArray<{ key: string; where: string }> = [
   { key: 'students', where: 'app/(teacher)/(tabs)/students.tsx' },
   { key: 'record_student', where: 'app/(teacher)/record-student.tsx' },
   { key: 'courses', where: 'app/(teacher)/courses/index.tsx' },
+  { key: 'course_shifts', where: 'app/(teacher)/courses/shifts.tsx' },
   { key: 'venues', where: 'app/(teacher)/venues.tsx' },
   { key: 'relocation', where: 'src/components/teacher/RelocationPrompt.tsx' },
   { key: 'enrollment_terms', where: 'src/components/teacher/EnrollmentTermsSheet.tsx' },

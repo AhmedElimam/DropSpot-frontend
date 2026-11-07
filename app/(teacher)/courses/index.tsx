@@ -15,6 +15,8 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import type { CourseSummary } from '@/api/courses';
+import { useShiftSettingsStore } from '@/stores/shiftSettingsStore';
+import { formatTime12 } from '@/components/ui/TimePicker';
 
 function Meta({ icon, label, color = colors.textSecondary }: { icon: IconName; label: string; color?: string }) {
   return (
@@ -93,11 +95,13 @@ export default function TeacherCourses() {
   const [kind, setKind] = useState<CourseKind>('all');
   const privateCount = useMemo(() => all.filter((c) => c.tracks_attendance === false).length, [all]);
   const mixed = privateCount > 0 && privateCount < all.length;
-  // «الفترة» (founder 2026-11-06) — always offered while there are courses.
+  // «الفترة» — once the teacher switches «الفترات» on (founder 2026-11-07); courses file
+  // themselves by their groups' times.
+  const shiftSettings = useShiftSettingsStore((s) => s.settings);
   const [shift, setShift] = useState<ShiftFilter>('all');
   const morningCount = useMemo(() => all.filter((c) => c.shift === 'morning').length, [all]);
   const eveningCount = useMemo(() => all.filter((c) => c.shift === 'evening').length, [all]);
-  const hasShifts = all.length > 0;
+  const hasShifts = !!shiftSettings?.enabled && all.length > 0;
   const list = useMemo(() => {
     const byKind = !mixed || kind === 'all' ? all : all.filter((c) => (c.tracks_attendance === false) === (kind === 'private'));
     return !hasShifts || shift === 'all' ? byKind : byKind.filter((c) => c.shift === shift);
@@ -129,6 +133,23 @@ export default function TeacherCourses() {
         <>
         {mixed ? <Surface id="teacher.courses.filter_kind"><FilterChips options={kinds} value={kind} onChange={setKind} /></Surface> : null}
         {hasShifts ? <Surface id="teacher.courses.filter_shift"><FilterChips options={shifts} value={shift} onChange={setShift} /></Surface> : null}
+        <Surface id="teacher.courses.shift_settings" assistantNeeds="teacher">
+          <TouchableOpacity onPress={() => router.push('/(teacher)/courses/shifts' as Href)} accessibilityRole="button"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.sm, paddingHorizontal: spacing.md, minHeight: 44,
+              borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight }}>
+            <Icon name="morning" size={18} color={shiftSettings?.enabled ? colors.brand : colors.textTertiary} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.textPrimary }}>{t('course_shift.settings_title')}</Text>
+            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary }} numberOfLines={1}>
+              {shiftSettings?.enabled
+                ? t('course_shift.row_on', {
+                  m: `${formatTime12(shiftSettings.morning.start)}–${formatTime12(shiftSettings.morning.end)}`,
+                  e: `${formatTime12(shiftSettings.evening.start)}–${formatTime12(shiftSettings.evening.end)}`,
+                })
+                : t('course_shift.row_off')}
+            </Text>
+            <Icon name="back" size={16} color={colors.textTertiary} />
+          </TouchableOpacity>
+        </Surface>
         <Surface id="teacher.courses.list">
         <FlatList showsVerticalScrollIndicator={false}
           data={list}

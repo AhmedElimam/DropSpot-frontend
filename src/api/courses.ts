@@ -1,4 +1,5 @@
 import client from './client';
+import { useShiftSettingsStore } from '@/stores/shiftSettingsStore';
 
 /**
  * Teacher courses management — parity with the web /courses + /courses/{id}/edit.
@@ -9,6 +10,13 @@ import client from './client';
 
 /** «الفترة» (founder 2026-11-06): a morning or an evening course; null = not set. */
 export type CourseShift = 'morning' | 'evening';
+
+/** «الفترات»: on/off and the hours («HH:mm»). Courses are filed by their groups' start times. */
+export interface ShiftSettings {
+  enabled: boolean;
+  morning: { start: string; end: string };
+  evening: { start: string; end: string };
+}
 
 export interface CourseSummary {
   id: string;
@@ -184,7 +192,17 @@ export async function createCourse(payload: CreateCoursePayload): Promise<Create
 
 export async function getCourses(): Promise<CourseSummary[]> {
   const { data } = await client.get('/teacher/courses');
+  if (data?.shift_settings) useShiftSettingsStore.getState().set(data.shift_settings as ShiftSettings);
   return (data.data ?? data ?? []) as CourseSummary[];
+}
+
+export async function saveShiftSettings(payload: {
+  enabled: boolean; morning_start?: string; morning_end?: string; evening_start?: string; evening_end?: string;
+}): Promise<{ settings: ShiftSettings; counts: { morning: number; evening: number }; message: string }> {
+  const { data } = await client.put('/teacher/shift-settings', payload);
+  const settings = data.data.shift_settings as ShiftSettings;
+  useShiftSettingsStore.getState().set(settings);
+  return { settings, counts: data.data.counts, message: data.message };
 }
 
 export async function getCourseDetail(id: string | number): Promise<CourseDetail> {
