@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { isAxiosError } from 'axios';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { useRegister } from '@/hooks/useAuth';
@@ -37,7 +37,9 @@ export default function RegisterScreen() {
   const { t } = useTranslation();
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  // The number sign-up's first step already checked (app/(auth)/signup.tsx).
+  const params = useLocalSearchParams<{ phone?: string }>();
+  const [phone, setPhone] = useState(digits(params.phone ?? ''));
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [parentName, setParentName] = useState('');

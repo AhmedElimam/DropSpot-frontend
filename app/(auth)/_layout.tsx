@@ -25,6 +25,7 @@ export default function AuthLayout() {
   return (
     <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: gradients.auth[0] } }}>
       <Stack.Screen name="login" />
+      <Stack.Screen name="signup" />
       <Stack.Screen name="register" />
       <Stack.Screen name="verify-otp" />
       <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />

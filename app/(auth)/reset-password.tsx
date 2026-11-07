@@ -19,7 +19,8 @@ const RESEND_COOLDOWN = () => configRule('otp_resend_seconds');
 
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
-  const { phone, mode } = useLocalSearchParams<{ phone: string; mode?: string }>();
+  // by: sign-up found the teacher's record (student | parent); sent=0: a recent code stands.
+  const { phone, mode, by, sent } = useLocalSearchParams<{ phone: string; mode?: string; by?: string; sent?: string }>();
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const passwordRef = useRef<TextInput>(null);
@@ -28,7 +29,7 @@ export default function ResetPasswordScreen() {
   const resend = useForgotPassword();
 
   // The code was just sent (we arrived from the previous screen) → the countdown runs.
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN());
+  const [cooldown, setCooldown] = useState(sent === '0' ? 0 : RESEND_COOLDOWN());
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
@@ -66,7 +67,10 @@ export default function ResetPasswordScreen() {
         </View>
       ) : null}
 
+      {by && !reset.isError ? <AuthBanner tone="info" text={t(by === 'parent' ? 'auth.signup_by_teacher_parent' : 'auth.signup_by_teacher_student')} /> : null}
+      {by && sent === '0' && !resend.isSuccess ? <AuthBanner tone="info" text={t('auth.signup_code_already_sent')} /> : null}
       {reset.isError ? <AuthBanner tone="danger" text={getFriendlyErrorMessage(reset.error)} /> : null}
+      {resend.isError ? <AuthBanner tone="danger" text={getFriendlyErrorMessage(resend.error)} /> : null}
       {resend.isSuccess && cooldown > RESEND_COOLDOWN() - 5 ? <AuthBanner tone="success" text={t('auth.reset_code_sent')} /> : null}
 
       <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('auth.otp_code')}</Text>

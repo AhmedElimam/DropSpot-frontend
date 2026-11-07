@@ -57,6 +57,24 @@ export async function changeRegistrationPhone(current_phone: string, new_phone: 
   return (data?.data?.parent_phone as string) ?? new_phone;
 }
 
+export type SignupCheck = {
+  status: 'new' | 'activate' | 'login';
+  role?: 'student' | 'parent' | 'other';
+  phone_number: string;
+  /** activate only: false when a code went out recently (the 3-an-hour limit) — that one stands. */
+  code_sent?: boolean;
+};
+
+/**
+ * Sign-up's first step (founder 2026-11-07): the number says where to go — `new` → the form,
+ * `activate` → the teacher already registered them and the code is on its way, `login` → they
+ * already have a password.
+ */
+export async function signupCheck(phone_number: string): Promise<SignupCheck> {
+  const { data } = await client.post('/auth/signup-check', { phone_number });
+  return data.data as SignupCheck;
+}
+
 /** Forgot password — step 1: request a reset code by SMS. Always succeeds (no enumeration). */
 export async function forgotPassword(phone_number: string): Promise<void> {
   await client.post('/auth/forgot-password', { phone_number });

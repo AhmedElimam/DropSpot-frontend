@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { isAxiosError } from 'axios';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
 import { useLogin } from '@/hooks/useAuth';
@@ -16,9 +16,12 @@ const digits = (v: string) => v.replace(/[^0-9]/g, '').slice(0, 11);
 
 export default function LoginScreen() {
   const { t } = useTranslation();
-  const [phone, setPhone] = useState('');
+  // Sign-up's «you already have an account» hands the number over.
+  const params = useLocalSearchParams<{ phone?: string }>();
+  const [phone, setPhone] = useState(digits(params.phone ?? ''));
   const [password, setPassword] = useState('');
   const passwordRef = useRef<TextInput>(null);
+  useEffect(() => { if (params.phone) { setPhone(digits(params.phone)); passwordRef.current?.focus(); } }, [params.phone]);
   const loginMutation = useLogin();
 
   // A full Egyptian number is 11 digits; say so only once the user has typed that many
@@ -119,13 +122,12 @@ export default function LoginScreen() {
         <View style={{ flex: 1, height: 1, backgroundColor: colors.borderLight }} />
       </View>
 
-      <Button title={t('auth.create_account')} variant="outline" onPress={() => router.push('/(auth)/register')} />
-
-      <TouchableOpacity onPress={() => activate()} hitSlop={{ top: 8, bottom: 8 }} style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center', marginTop: spacing.md }}>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
-          {t('auth.activate_prompt')} <Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{t('auth.activate_account')}</Text>
-        </Text>
-      </TouchableOpacity>
+      {/* Sign-up starts with the number (founder 2026-11-07): a number the teacher already
+          registered is activated there, so the separate «تفعيل الحساب» link folded into it. */}
+      <Button title={t('auth.create_account')} variant="outline" onPress={() => router.push('/(auth)/signup')} />
+      <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm }}>
+        {t('auth.signup_hint')}
+      </Text>
     </AuthScaffold>
   );
 }
