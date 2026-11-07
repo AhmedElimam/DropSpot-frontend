@@ -111,7 +111,8 @@ export default function LoginScreen() {
         hitSlop={{ top: 8, bottom: 8 }}
         style={{ alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center', marginBottom: spacing.lg }}
       >
-        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('auth.forgot_password')}</Text>
+        {/* Also the door for a student the teacher registered who never knew (founder 2026-11-07). */}
+        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('auth.forgot_or_registered')}</Text>
       </TouchableOpacity>
 
       <Button title={t('auth.login_button')} onPress={handleLogin} disabled={!canSubmit} loading={loginMutation.isPending} />
