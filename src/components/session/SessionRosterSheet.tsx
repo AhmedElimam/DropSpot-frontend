@@ -14,6 +14,7 @@ import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionH
 import { formatNumber, foldForSearch } from '@/utils/format';
 import type { SessionAttendee } from '@/api/teacherSessions';
 import { Surface } from '@/ui/surfaces';
+import { CoverPicker, COVER_COLOR, coveredOf } from '@/components/session/CoverPicker';
 
 type Status = 'present' | 'late' | 'absent' | 'excused';
 
@@ -89,6 +90,12 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
     setNoteDraft(a.note ?? '');
   };
 
+  // «تعويض» (founder 2026-11-08): the row whose list of other groups' sessions is open.
+  const [coverFor, setCoverFor] = useState<number | null>(null);
+  useEffect(() => { if (!sessionId) setCoverFor(null); }, [sessionId]);
+  const coverOptions = s?.cover_options ?? [];
+  const rosterIds = new Set((s?.attendees ?? []).map((a) => a.student_id));
+
   const fail = (e: any, fallback: string) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t(fallback));
   const mark = (studentId: number, status: Status) => controls.mark.mutate({ studentId, status }, { onError: (e) => fail(e, 'common.error') });
 
@@ -139,8 +146,11 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
         <Surface id="teacher.roster_sheet.list">
         <ScrollView style={{ maxHeight: Math.max(200, Math.min(height * 0.6, height - insets.top - insets.bottom - 300)) }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {shown.map((a) => {
-            const color = STATUS_COLOR()[a.status] ?? STATUS_COLOR().not_recorded;
+            const covered = coveredOf(a);
+            const color = covered ? COVER_COLOR() : STATUS_COLOR()[a.status] ?? STATUS_COLOR().not_recorded;
             const open = openId === a.student_id;
+            // A swap-in is already the other side of a covering; only the home roster covers.
+            const canCover = coverOptions.length > 0 && rosterIds.has(a.student_id);
             return (
               <View key={a.student_id} style={{ paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight }}>
                 <TouchableOpacity onPress={() => toggleOpen(a)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ expanded: open }}
@@ -150,8 +160,8 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
                     <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{a.name ?? '—'}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
                       <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color }} />
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>
-                        {t(STATUS_KEY[a.status] ?? 'teacher.not_recorded')}
+                      <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: covered ? COVER_COLOR() : colors.textSecondary, flexShrink: 1 }} numberOfLines={1}>
+                        {covered ? t('covering.covered_in', { where: covered.label ?? '—' }) : t(STATUS_KEY[a.status] ?? 'teacher.not_recorded')}
                         {a.mark != null ? ` · ${formatNumber(a.mark)}${s?.sheet_max_mark != null ? `/${formatNumber(s.sheet_max_mark)}` : ''}` : ''}
                         {a.pending_sync ? ` · ${t('teacher.mark_pending_sync')}` : ''}
                       </Text>
@@ -166,7 +176,7 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
                   <View style={{ flexDirection: 'row', gap: 6, marginTop: spacing.sm }}>
                     {MARKS.map((m) => {
                       const c = STATUS_COLOR()[m.status];
-                      const on = a.status === m.status;
+                      const on = a.status === m.status && !(m.status === 'excused' && covered);
                       return (
                         <TouchableOpacity key={m.status} onPress={() => { if (!on) mark(a.student_id, m.status); }} activeOpacity={0.8}
                           accessibilityRole="button" accessibilityLabel={t(STATUS_KEY[m.status])} accessibilityState={{ selected: on }}
@@ -176,7 +186,30 @@ export function SessionRosterSheet({ sessionId, onClose, onOpenFull }: {
                         </TouchableOpacity>
                       );
                     })}
+                    {canCover ? (
+                      <TouchableOpacity onPress={() => setCoverFor(coverFor === a.student_id ? null : a.student_id)} activeOpacity={0.8}
+                        accessibilityRole="button" accessibilityLabel={t('covering.mark')} accessibilityState={{ selected: !!covered, expanded: coverFor === a.student_id }}
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 36, borderRadius: radius.md, backgroundColor: covered ? COVER_COLOR() : 'transparent', borderWidth: 1, borderColor: covered || coverFor === a.student_id ? COVER_COLOR() : colors.border }}>
+                        <Icon name="transfer" size={15} color={covered ? '#fff' : COVER_COLOR()} />
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: covered ? '#fff' : COVER_COLOR() }} numberOfLines={1}>{t('covering.covered')}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
+                  {canCover && coverFor === a.student_id ? (
+                    <CoverPicker
+                      studentId={a.student_id}
+                      coveredIn={covered}
+                      options={coverOptions}
+                      open
+                      showToggle={false}
+                      busy={controls.cover.isPending}
+                      onToggle={() => setCoverFor(null)}
+                      onPick={(targetId) => controls.cover.mutate({ studentId: a.student_id, targetId }, {
+                        onSuccess: () => setCoverFor(null),
+                        onError: (e) => fail(e, 'common.error'),
+                      })}
+                    />
+                  ) : null}
                   </Surface>
                 ) : null}
 
