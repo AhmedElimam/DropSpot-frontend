@@ -103,6 +103,11 @@ export interface ScanResult {
   // The server drew a popup for this answer (meta.popup) — the client already shows it, so
   // the scan screen holds still instead of flashing a second message under it.
   has_popup?: boolean;
+  // The door's sound (DoorToneService): all clear / money to pay / missed the last session
+  // with no excuse. null on a refused scan (the vibration says it). Absent on an older backend.
+  door_tone?: 'clear' | 'bill' | 'absent' | null;
+  // The group's previous session for this student: 'unexcused' / 'excused' / null (came, or new).
+  last_absence?: 'unexcused' | 'excused' | null;
 }
 
 export interface DoorNumberAsk {
@@ -135,6 +140,8 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
       offer: data.offer ?? null,
       enrolled_here: typeof data.enrolled_here === 'boolean' ? data.enrolled_here : null,
       confirm_number: data.confirm_number ?? null,
+      door_tone: data.door_tone ?? null,
+      last_absence: data.last_absence ?? null,
     };
   } catch (e: any) {
     // Non-2xx failures (expired card, not enrolled, overdue block, etc.) carry the same shape.
@@ -151,6 +158,7 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
         offer: d.offer ?? null,
         enrolled_here: typeof d.enrolled_here === 'boolean' ? d.enrolled_here : null,
         has_popup: !!d.meta?.popup,
+        door_tone: d.door_tone ?? null,
       };
     }
     throw e;

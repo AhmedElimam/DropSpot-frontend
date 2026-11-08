@@ -1794,6 +1794,7 @@
     "point_camera": "وجّه الكاميرا نحو بطاقة الطالب",
     "checking": "جارٍ التحقق...",
     "checked_in": "تم تسجيل الحضور",
+    "last_absence_unexcused": "غاب الحصة اللي فاتت من غير عذر",
     "scan_failed": "تعذّر تسجيل الحضور",
     "other_group_once": "تسجيل حضور لهذه الحصة فقط",
     "other_group_transfer": "نقله إلى هذه المجموعة نهائيًا",

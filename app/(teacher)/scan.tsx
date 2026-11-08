@@ -18,6 +18,7 @@ import { previewPayment, previewAllPayments, collectPayment, waivePayment, type 
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import { useReviseMode } from '@/hooks/useReviseMode';
 import { bufferScan, deleteScan } from '@/db/offlineScans';
+import { doorToneFor, useDoorTones } from '@/utils/doorTones';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { Icon } from '@/components/ui/Icon';
@@ -167,6 +168,10 @@ export default function TeacherScan() {
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
     feedbackTimer.current = setTimeout(() => { feedbackTimer.current = null; setFeedback(null); setBusy(false); }, FEEDBACK_MS);
   }, []);
+
+  // The door's sounds: all clear / money to pay / missed the last session with no excuse.
+  // Loaded only while this screen is in front (founder 2026-11-08).
+  const playTone = useDoorTones(isFocused);
 
   const flash = useCallback((success: boolean, message: string, studentName?: string | null, pending?: import('@/api/teacher').ScanPending | null) => {
     Vibration.vibrate(success ? 60 : [0, 120, 90, 120]);
@@ -330,6 +335,7 @@ export default function TeacherScan() {
           Vibration.vibrate(50);
           return;
         }
+        playTone(doorToneFor(res));
         // Same-grade "wrong group": the student isn't in this running group but is the
         // same grade → hold on a prompt to admit once or transfer them here.
         const profileId = res.enrolled_here && res.student_id ? res.student_id : null;
@@ -374,7 +380,13 @@ export default function TeacherScan() {
           return;
         }
         // Passive flags ride along on the auto-dismissing success flash — non-interactive.
-        flash(res.success, res.message || (res.success ? t('teacher.checked_in') : t('teacher.scan_failed')), res.student_name, res.pending);
+        flash(
+          res.success,
+          (res.message || (res.success ? t('teacher.checked_in') : t('teacher.scan_failed')))
+            + (res.success && res.last_absence === 'unexcused' ? `\n${t('teacher.last_absence_unexcused')}` : ''),
+          res.student_name,
+          res.pending,
+        );
         // Merged pay-on-scan: if the checked-in student owes anything, open ONE popup
         // to collect (bill / booklets / booking) — reversing the old passive-only chips.
         if (res.success && hasDues(res.pending)) {
