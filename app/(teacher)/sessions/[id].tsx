@@ -26,7 +26,7 @@ import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
 import { isNetworkFailure } from '@/db/marksSync';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
-import type { SessionAttendee, SwapInAttendee } from '@/api/teacherSessions';
+import type { CoverOption, CoveredIn, SessionAttendee, SwapInAttendee } from '@/api/teacherSessions';
 import { dayLabel, formatNumber } from '@/utils/format';
 import { goToScan } from '@/utils/sessionNav';
 import { Surface } from '@/ui/surfaces';
@@ -62,6 +62,60 @@ const MARK_OPTIONS = (): { status: Status; color: string; icon: IconName }[] => 
 ]);
 // Rows still to record float to the top: they are what the teacher came here to do.
 const ORDER: Record<Bucket, number> = { awaiting: 0, present: 1, absent: 2, excused: 3 };
+// «تعويض»: an 'excused' row the server says was covered in another group's session.
+const COVER_COLOR = () => colors.brand;
+const coveredOf = (a: { status: string; covered_in?: CoveredIn | null }): CoveredIn | null =>
+  a.status === 'excused' && a.covered_in ? a.covered_in : null;
+
+/**
+ * The student sheet's «بيعوّض في حصة تانية»: the teacher's other groups of this grade within a
+ * week, nearest first — the one the student was already recorded at comes first, marked «حضر هناك».
+ */
+function CoverPicker({ studentId, coveredIn, options, open, busy, onToggle, onPick }: {
+  studentId: number; coveredIn: CoveredIn | null; options: CoverOption[]; open: boolean; busy: boolean;
+  onToggle: () => void; onPick: (targetId: number) => void;
+}) {
+  const { t } = useTranslation();
+  const c = COVER_COLOR();
+  const sorted = [...options].sort((a, b) => Number(b.attended_student_ids.includes(studentId)) - Number(a.attended_student_ids.includes(studentId)));
+  return (
+    <View style={{ marginTop: -spacing.sm, marginBottom: spacing.lg, gap: spacing.sm }}>
+      {coveredIn ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: c + '14', borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+          <Icon name="transfer" size={16} color={c} />
+          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, lineHeight: 20, color: c }}>{t('covering.covered_in', { where: coveredIn.label ?? '—' })}</Text>
+        </View>
+      ) : null}
+      <TouchableOpacity onPress={onToggle} disabled={busy} accessibilityRole="button"
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: open ? c : c + '12', borderWidth: open ? 0 : 1, borderColor: c + '55' }}>
+        {busy ? <ActivityIndicator color={open ? '#fff' : c} /> : <Icon name="transfer" size={20} color={open ? '#fff' : c} />}
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: open ? '#fff' : c }}>{t(coveredIn ? 'covering.change' : 'covering.mark')}</Text>
+      </TouchableOpacity>
+      {open ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textTertiary }}>{t('covering.pick_hint')}</Text>
+          {sorted.map((o) => {
+            const went = o.attended_student_ids.includes(studentId);
+            const chosen = coveredIn?.session_id === String(o.id);
+            return (
+              <TouchableOpacity key={o.id} onPress={() => onPick(o.id)} disabled={busy || chosen} accessibilityRole="button"
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: chosen ? c + '14' : colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: chosen ? c : colors.border, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, minHeight: 52 }}>
+                <Icon name="calendar" size={16} color={chosen ? c : colors.textTertiary} />
+                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 20, color: colors.textPrimary }}>{o.label}</Text>
+                {went ? (
+                  <View style={{ backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 8 }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onPrimary }}>{t('covering.attended_there')}</Text>
+                  </View>
+                ) : null}
+                {chosen ? <Icon name="success" size={18} color={c} /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 /**
  * One session's attendance sheet (founder 2026-10-02: "session details needs some love").
@@ -79,6 +133,8 @@ export default function SessionDetailScreen() {
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const controls = useSessionControls(id!);
   const [selected, setSelected] = useState<SessionAttendee | null>(null);
+  // «تعويض»: the student sheet's list of other groups' sessions, open or closed.
+  const [coverOpen, setCoverOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
   const [gradeDraft, setGradeDraft] = useState('');
   const [tab, setTab] = useState<RosterTab>('roster');
@@ -166,6 +222,7 @@ export default function SessionDetailScreen() {
   const closeSheet = () => {
     const a = current;
     setSelected(null);
+    setCoverOpen(false);
     if (!a) return;
     const jobs: Promise<unknown>[] = [];
     const what: ('mark' | 'note')[] = [];
@@ -248,7 +305,8 @@ export default function SessionDetailScreen() {
   };
 
   const renderAttendee = ({ item }: { item: SessionAttendee | SwapInAttendee }) => {
-    const color = noDoor ? STATUS_COLOR().not_recorded : STATUS_COLOR()[item.status] ?? STATUS_COLOR().not_recorded;
+    const covered = coveredOf(item);
+    const color = noDoor ? STATUS_COLOR().not_recorded : covered ? COVER_COLOR() : STATUS_COLOR()[item.status] ?? STATUS_COLOR().not_recorded;
     const fromLabel = 'from_label' in item ? item.from_label : null;
     const awaiting = bucketOf(item.status) === 'awaiting';
     const justSaved = saved?.id === item.student_id;
@@ -262,7 +320,7 @@ export default function SessionDetailScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
             {/* A private lesson has no attendance status to show. */}
             {!awaiting && !noDoor ? (
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color }}>{t(STATUS_KEY[item.status] ?? 'teacher.not_recorded')}{item.checked_in_at ? ` · ${item.checked_in_at}` : ''}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color }}>{covered ? t('covering.covered') : t(STATUS_KEY[item.status] ?? 'teacher.not_recorded')}{item.checked_in_at ? ` · ${item.checked_in_at}` : ''}</Text>
             ) : (
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{item.student_code ?? (item.card_less ? t('teacher.card_less') : '')}</Text>
             )}
@@ -280,6 +338,7 @@ export default function SessionDetailScreen() {
             ) : null}
           </View>
           {fromLabel ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand, marginTop: 2 }} numberOfLines={1}>{t('teacher.swapped_from', { from: fromLabel })}</Text> : null}
+          {covered?.label ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: COVER_COLOR(), marginTop: 2 }} numberOfLines={1}>{t('covering.covered_in', { where: covered.label })}</Text> : null}
         </View>
         {noDoor ? null : (
         <Surface id="teacher.session_detail.row_quick_marks" ctx={{ session: s }} assistantNeeds="mark_attendance_manual">
@@ -680,7 +739,7 @@ export default function SessionDetailScreen() {
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.mark_attendance')}</Text>
                   <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
                     {MARK_OPTIONS().map((o) => {
-                      const active = current.status === o.status;
+                      const active = current.status === o.status && !(o.status === 'excused' && coveredOf(current));
                       return (
                         <TouchableOpacity key={o.status} onPress={() => mark(current.student_id, o.status)} disabled={controls.mark.isPending}
                           style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: active ? o.color : o.color + '12', borderWidth: active ? 0 : 1, borderColor: o.color + '55' }}>
@@ -690,6 +749,22 @@ export default function SessionDetailScreen() {
                       );
                     })}
                   </View>
+                  {/* «تعويض» (founder 2026-11-08): missed this session, attended another group's (same
+                      grade, within a week). Roster rows only — a swap-in is already the other side. */}
+                  {!('from_label' in current) && (s?.cover_options?.length ?? 0) > 0 ? (
+                    <CoverPicker
+                      studentId={current.student_id}
+                      coveredIn={coveredOf(current)}
+                      options={s!.cover_options!}
+                      open={coverOpen}
+                      busy={controls.cover.isPending}
+                      onToggle={() => setCoverOpen((v) => !v)}
+                      onPick={(targetId) => controls.cover.mutate({ studentId: current.student_id, targetId }, {
+                        onSuccess: () => setCoverOpen(false),
+                        onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+                      })}
+                    />
+                  ) : null}
                 </>
                 </Surface>
                 )}

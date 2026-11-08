@@ -61,7 +61,8 @@ type RowProps = {
 const RecordableRow = memo(function RecordableRow({ session, rec, live, studentId, onOpen, onRecorded }: RowProps) {
   const { t } = useTranslation();
   const controls = useSessionControls(session.id);
-  const color = STATUS_COLOR()[rec.status] ?? STATUS_COLOR().not_recorded;
+  const covered = rec.status === 'excused' && rec.covered_in ? rec.covered_in : null;
+  const color = covered ? colors.brand : STATUS_COLOR()[rec.status] ?? STATUS_COLOR().not_recorded;
   const recorded = rec.status !== 'not_recorded';
 
   const mark = (status: Status) => markStudent(controls, studentId, session.id, status, rec.status, onRecorded, t);
@@ -75,7 +76,7 @@ const RecordableRow = memo(function RecordableRow({ session, rec, live, studentI
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
           {live ? <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.success }}>{t('teacher.live_now')}</Text> : null}
           {recorded ? (
-            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color }}>{t(STATUS_KEY[rec.status])}{rec.checked_in_at && (rec.status === 'present' || rec.status === 'late') ? ` · ${rec.checked_in_at}` : ''}</Text>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11, color }}>{covered ? t('covering.covered_in', { where: covered.label ?? '—' }) : t(STATUS_KEY[rec.status])}{rec.checked_in_at && (rec.status === 'present' || rec.status === 'late') ? ` · ${rec.checked_in_at}` : ''}</Text>
           ) : (
             <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{session.time ?? t('teacher.not_recorded')}</Text>
           )}
@@ -110,7 +111,8 @@ const RecordableRow = memo(function RecordableRow({ session, rec, live, studentI
 /** A record with no recordable session behind it (e.g. the session was cancelled): read-only, opens its sheet. */
 const HistoryRow = memo(function HistoryRow({ r, beforeNavigate }: { r: StudentAttendanceRow; beforeNavigate?: () => void }) {
   const { t } = useTranslation();
-  const color = STATUS_COLOR()[r.status] ?? STATUS_COLOR().not_recorded;
+  const covered = r.status === 'excused' && r.covered_in ? r.covered_in : null;
+  const color = covered ? colors.brand : STATUS_COLOR()[r.status] ?? STATUS_COLOR().not_recorded;
   const open = r.session_id ? () => { beforeNavigate?.(); router.push(`/(teacher)/sessions/${r.session_id}` as Href); } : undefined;
   return (
     <TouchableOpacity onPress={open} disabled={!open} activeOpacity={0.85}
@@ -118,7 +120,7 @@ const HistoryRow = memo(function HistoryRow({ r, beforeNavigate }: { r: StudentA
       <DateTile iso={r.date} live={false} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{r.course_name ?? '—'}</Text>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color, marginTop: 2 }}>{t(STATUS_KEY[r.status] ?? 'teacher.not_recorded')}</Text>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 11, color, marginTop: 2 }} numberOfLines={2}>{covered ? t('covering.covered_in', { where: covered.label ?? '—' }) : t(STATUS_KEY[r.status] ?? 'teacher.not_recorded')}</Text>
       </View>
       {open ? <Icon name="back" size={16} color={colors.textTertiary} /> : null}
     </TouchableOpacity>

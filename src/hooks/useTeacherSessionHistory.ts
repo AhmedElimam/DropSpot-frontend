@@ -16,6 +16,7 @@ import {
   getSessionDetail,
   markAttendance,
   cancelSession,
+  coverInSession,
   restoreSession,
   recordNote,
   recordSummary,
@@ -148,6 +149,11 @@ export function useSessionControls(id: string) {
     },
     onSuccess: sync,
   });
+  // «تعويض» is online only: it books the other session, which a phone cannot do offline.
+  const cover = useMutation({
+    mutationFn: (v: { studentId: number; targetId: number }) => coverInSession(id, v.studentId, v.targetId),
+    onSuccess: sync,
+  });
   const cancel = useMutation({ mutationFn: () => cancelSession(id), onSuccess: sync });
   const restore = useMutation({ mutationFn: () => restoreSession(id), onSuccess: sync });
   const note = useMutation({
@@ -193,7 +199,7 @@ export function useSessionControls(id: string) {
     onError: () => qc.invalidateQueries({ queryKey: ['teacher-session-detail', id] }),
   });
 
-  return { mark, cancel, restore, note, summary, reopen, grade, sheet, sheetExcluded, sheetMax, setType, homework, homeworkDue, homeworkRate, homeworkRateAll };
+  return { mark, cover, cancel, restore, note, summary, reopen, grade, sheet, sheetExcluded, sheetMax, setType, homework, homeworkDue, homeworkRate, homeworkRateAll };
 }
 
 export function usePauseSessions() {

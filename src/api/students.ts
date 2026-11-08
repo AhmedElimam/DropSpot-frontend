@@ -248,6 +248,8 @@ export interface StudentAttendanceRow {
   date: string | null;
   status: string;
   method: string | null;
+  /** «تعويض»: this missed session was covered in another group's (status 'excused'). */
+  covered_in?: { session_id: string; label: string | null } | null;
 }
 
 /** A recent session the profile can record against, with this student's record in it. */
@@ -267,6 +269,7 @@ export interface QuickSession {
     checked_in_at: string | null;
     mark: number | null;
     sheet_marked: boolean;
+    covered_in?: { session_id: string; label: string | null } | null;
   };
 }
 

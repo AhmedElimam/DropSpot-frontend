@@ -70,6 +70,24 @@ export interface SessionAttendee {
   homework_missed_streak?: number;
   /** This course's homework so far — the four counts and the rate. null when none was graded, and on a swap-in. */
   homework_summary?: HomeworkSummary | null;
+  /** «تعويض»: this row (status 'excused') was covered by attending another group's session. */
+  covered_in?: CoveredIn | null;
+}
+
+/** Where a missed home session was covered — another group's session of the same teacher and grade. */
+export interface CoveredIn {
+  session_id: string;
+  label: string | null;
+}
+
+/** A session this session's students can cover in («تعويض»), nearest first. */
+export interface CoverOption {
+  id: number;
+  label: string;
+  course_name: string | null;
+  scheduled_at: string | null;
+  /** Roster students already recorded present there — the picker puts that session first for them. */
+  attended_student_ids: number[];
 }
 
 /** A student swapped INTO this session (one-time makeup) — roster attendee + origin. */
@@ -111,6 +129,8 @@ export interface SessionDetail {
   attendees: SessionAttendee[];
   /** Students swapped INTO this session — shown in a separate, non-default tab. */
   swap_ins?: SwapInAttendee[];
+  /** «تعويض»: the teacher's other groups of this grade within a week either side. Older servers omit it. */
+  cover_options?: CoverOption[];
   /** «ملاحظات الحصة» — the note to the whole session, read by its students and their parents. */
   summary?: { body: string | null; published_at: string | null };
   notes_window?: NotesWindow;
@@ -235,6 +255,12 @@ export async function cancelSession(sessionId: string | number): Promise<Session
 
 export async function restoreSession(sessionId: string | number): Promise<SessionDetail> {
   const { data } = await client.post(`/teacher/sessions/${sessionId}/restore`);
+  return detail(data);
+}
+
+/** «تعويض»: this roster student missed this session and covered (or will cover) it in `targetId`. */
+export async function coverInSession(sessionId: string | number, studentId: number, targetId: number): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/cover`, { student_id: studentId, target_session_instance_id: targetId });
   return detail(data);
 }
 
