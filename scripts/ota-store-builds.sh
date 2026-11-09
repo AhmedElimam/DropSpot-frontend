@@ -124,8 +124,10 @@ while read -r id platform art sha; do
     rt="${cached%% *}"; build="${cached##* }"
   else
     # Twice: a dropped connection is not a missing artifact (2026-11-09 — a reset skipped build 35).
-    gh run download "$id" -n "$art" -D "$dir" >/dev/null 2>&1 \
-      || { sleep 5; gh run download "$id" -n "$art" -D "$dir" >/dev/null 2>&1; } \
+    # </dev/null: gh must not read the loop's list of builds from stdin (a failed download
+    # swallowed the rest of it, so the builds after it were never published, 2026-11-09).
+    gh run download "$id" -n "$art" -D "$dir" </dev/null >/dev/null 2>&1 \
+      || { sleep 5; gh run download "$id" -n "$art" -D "$dir" </dev/null >/dev/null 2>&1; } \
       || { say "· run $id ($platform $short): artifact gone and not in $RT_CACHE — skipped"; continue; }
     f="$(find "$dir" -type f \( -name '*.ipa' -o -name '*.aab' \) | head -1)"
     if [ "$platform" = ios ]; then
@@ -162,10 +164,15 @@ while read -r id platform art sha; do
   # a clean cache; the rest reuse it, already built with this run's values.
   clear=""
   case " ${CLEARED[*]:-} " in *" $platform "*) ;; *) clear="--clear-cache"; CLEARED+=("$platform") ;; esac
-  env -u EXPO_PUBLIC_STAGING_KEY EXPO_PUBLIC_APP_ENV=production EXPO_PUBLIC_API_URL=https://drosspot.app/api/v1 \
-    EXPO_PUBLIC_BUNDLE_COMMIT="$HEAD_SHA" \
-    OTA_RUNTIME_VERSION="$rt" npx eas-cli update --branch "$CHANNEL" --platform "$platform" $clear \
-    --message "$MSG ($platform b$build)" --non-interactive >"$TMP/eas.log" 2>&1 \
+  # One upload, the production settings inlined. Tried twice: Expo's asset processing times out
+  # now and then («Asset processing timed out», 2026-11-09), which used to stop the whole run.
+  publish_once() {
+    env -u EXPO_PUBLIC_STAGING_KEY EXPO_PUBLIC_APP_ENV=production EXPO_PUBLIC_API_URL=https://drosspot.app/api/v1 \
+      EXPO_PUBLIC_BUNDLE_COMMIT="$HEAD_SHA" \
+      OTA_RUNTIME_VERSION="$rt" npx eas-cli update --branch "$CHANNEL" --platform "$platform" $1 \
+      --message "$MSG ($platform b$build)" --non-interactive </dev/null >"$TMP/eas.log" 2>&1
+  }
+  publish_once "$clear" || { say "  upload failed once — retrying"; sleep 20; publish_once ""; } \
     || { tail -20 "$TMP/eas.log"; die "publish failed for $label"; }
   [ "$(served_at "$rt" "$platform")" -ge "$HEAD_TIME" ] || die "published, but EAS does not serve it to $label"
   say "  ✓ served"
