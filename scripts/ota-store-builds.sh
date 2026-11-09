@@ -43,6 +43,10 @@ PROJECT_URL="https://u.expo.dev/$(node -p "require('./app.json').expo.extra.eas.
 CHANNEL=production
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 SEEN="$TMP/seen"; : > "$SEEN"
+# What each store build's file said (runtime, build number), kept on this Mac: GitHub deletes a
+# build's artifact after 30 days, and without this the store build in people's hands would stop
+# getting updates (android build 35's expired 2026-11-12). One line per run: id platform runtime build.
+RT_CACHE="${HOME}/.cache/drosspot-ota/runtimes.txt"; mkdir -p "$(dirname "$RT_CACHE")"; touch "$RT_CACHE"
 
 say() { printf '%s\n' "$*"; }
 die() { printf '✗ %s\n' "$*" >&2; exit 1; }
@@ -115,18 +119,27 @@ PUBLISHED=0; SKIPPED=0; DONE=()
 while read -r id platform art sha; do
   short="${sha:0:7}"
   dir="$TMP/$id"; mkdir -p "$dir"
-  gh run download "$id" -n "$art" -D "$dir" >/dev/null 2>&1 || { say "· run $id ($platform $short): artifact gone — skipped"; continue; }
-  f="$(find "$dir" -type f \( -name '*.ipa' -o -name '*.aab' \) | head -1)"
-  if [ "$platform" = ios ]; then
-    rt="$(unzip -p "$f" 'Payload/*.app/EXUpdates.bundle/fingerprint' 2>/dev/null || true)"
-    bid="$(unzip -p "$f" 'Payload/*.app/Info.plist' | plutil -extract CFBundleIdentifier raw - 2>/dev/null || true)"
-    build="$(unzip -p "$f" 'Payload/*.app/Info.plist' | plutil -extract CFBundleVersion raw - 2>/dev/null || true)"
-    [ "$bid" = com.drosspot.app ] || { say "· run $id: $bid is not the store app — skipped"; rm -rf "$dir"; continue; }
+  cached="$(awk -v id="$id" '$1 == id { print $3 " " $4; exit }' "$RT_CACHE")"
+  if [ -n "$cached" ]; then
+    rt="${cached%% *}"; build="${cached##* }"
   else
-    rt="$(unzip -p "$f" base/assets/fingerprint 2>/dev/null || true)"
-    build="$(basename "$f" .aab)"; build="${build##*-}"
+    # Twice: a dropped connection is not a missing artifact (2026-11-09 — a reset skipped build 35).
+    gh run download "$id" -n "$art" -D "$dir" >/dev/null 2>&1 \
+      || { sleep 5; gh run download "$id" -n "$art" -D "$dir" >/dev/null 2>&1; } \
+      || { say "· run $id ($platform $short): artifact gone and not in $RT_CACHE — skipped"; continue; }
+    f="$(find "$dir" -type f \( -name '*.ipa' -o -name '*.aab' \) | head -1)"
+    if [ "$platform" = ios ]; then
+      rt="$(unzip -p "$f" 'Payload/*.app/EXUpdates.bundle/fingerprint' 2>/dev/null || true)"
+      bid="$(unzip -p "$f" 'Payload/*.app/Info.plist' | plutil -extract CFBundleIdentifier raw - 2>/dev/null || true)"
+      build="$(unzip -p "$f" 'Payload/*.app/Info.plist' | plutil -extract CFBundleVersion raw - 2>/dev/null || true)"
+      [ "$bid" = com.drosspot.app ] || { say "· run $id: $bid is not the store app — skipped"; rm -rf "$dir"; continue; }
+    else
+      rt="$(unzip -p "$f" base/assets/fingerprint 2>/dev/null || true)"
+      build="$(basename "$f" .aab)"; build="${build##*-}"
+    fi
+    rm -rf "$dir"
+    [ -n "$rt" ] && echo "$id $platform $rt ${build:-?}" >> "$RT_CACHE"
   fi
-  rm -rf "$dir"
   label="$platform build $build (run $id, $short)"
   [ -n "$rt" ] || { say "· $label: no runtime inside — skipped"; continue; }
   if grep -qx "$platform $rt" "$SEEN"; then continue; fi
