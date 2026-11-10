@@ -1,5 +1,5 @@
 import { track } from '@/lib/analytics';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { PageHero } from '@/components/ui/PageHero';
@@ -23,7 +23,7 @@ import { getInvitationOptions } from '@/api/invitation';
 import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
 import { useTranslation } from 'react-i18next';
 import { isQueued } from '@/api/offlineQueue';
-import { recordStudent, lookupRecordPhone, type DedupeMatch, type RecordStudentPayload, type ParentRelationship, type ExistingStudentOffer, type RecordLookup, type LookupChild } from '@/api/studentRecord';
+import { recordStudent, lookupRecordPhone, type DedupeMatch, type RecordStudentPayload, type ParentRelationship, type ExistingStudentOffer, type RecordLookup, type LookupChild, getParentHint, type ParentHint } from '@/api/studentRecord';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { Surface } from '@/ui/surfaces';
 
@@ -106,6 +106,22 @@ export default function RecordStudent() {
   const parentNorm = normalizeEgyptPhone(parentPhone);
   const studentNorm = normalizeEgyptPhone(studentPhone);
   const phoneError = parentPhone.trim() !== '' && parentNorm === null;
+
+  // The sibling hint (founder 2026-11-10): asked once the parent number is complete, again when the
+  // name changes — who is already on that number (another teacher's child masked) and whether the
+  // typed name is the same child, a brother, or a family name that does not fit.
+  const [parentHint, setParentHint] = useState<ParentHint | null>(null);
+  const hintName = name.trim();
+  useEffect(() => {
+    if (!parentNorm) { setParentHint(null); return; }
+    let live = true;
+    const timer = setTimeout(() => {
+      getParentHint(parentNorm, hintName)
+        .then((h) => { if (live) setParentHint(h); })
+        .catch(() => { if (live) setParentHint(null); });
+    }, 400);
+    return () => { live = false; clearTimeout(timer); };
+  }, [parentNorm, hintName]);
   // The student's own phone — optional (founder 2026-10-04) when the parent's is given; a typed
   // number must be valid. When given, the student signs in with it.
   const studentPhoneError = studentPhone.trim() !== '' && studentNorm === null;
@@ -582,6 +598,7 @@ export default function RecordStudent() {
                 : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, marginBottom: spacing.lg }}>
                     {parentPhone.trim() === '' ? t('enroll_ui.parent_phone_optional_hint') : parentNorm && parentNorm !== parentPhone.trim() ? t('fast_register.will_save', { phone: parentNorm }) : t('enroll_ui.parent_phone_hint')}
                   </Text>}
+            {parentHint && !phoneError ? <ParentHintCard hint={parentHint} /> : null}
             {/* A number in the parent's box that was the student's own: one tap moves it. */}
             {parentPhone.trim() !== '' && studentPhone.trim() === '' && siblings.length === 0 ? (
               <TouchableOpacity onPress={swapNumberToStudent} activeOpacity={0.7} style={{ marginTop: -spacing.sm, marginBottom: spacing.lg, alignSelf: 'flex-start' }}>
@@ -790,3 +807,20 @@ function firstName(full: string): string {
 }
 
 /** A numbered section head: the order a teacher fills the form in. */
+
+/** The sibling hint under the parent box: blue for «same child» / «a brother», amber for a misfit. */
+function ParentHintCard({ hint }: { hint: ParentHint }) {
+  const { t } = useTranslation();
+  const warn = hint.verdict === 'mismatch' || hint.verdict === 'student_login';
+  const c = warn ? colors.warningText : colors.brand;
+  const own = hint.children.filter((k) => k.is_own).length;
+  return (
+    <View accessibilityRole="alert" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: -spacing.sm, marginBottom: spacing.lg, padding: spacing.md, borderRadius: radius.lg, backgroundColor: warn ? colors.warningLight : colors.brandTint, borderWidth: 1, borderColor: warn ? colors.warning : colors.brand + '33' }}>
+      <Icon name={warn ? 'warning' : 'kids'} size={18} color={c} />
+      <View style={{ flex: 1, gap: 4 }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13, lineHeight: 20, color: c }}>{hint.message}</Text>
+        {own > 0 ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{t('fast_register.hint_own', { n: own })}</Text> : null}
+      </View>
+    </View>
+  );
+}

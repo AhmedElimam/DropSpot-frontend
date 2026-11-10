@@ -110,3 +110,19 @@ export async function lookupRecordPhone(courseId: number, phone: string): Promis
   const { data } = await client.post('/teacher/students/record/lookup', { course_id: courseId, phone });
   return (data.data ?? data) as RecordLookup;
 }
+
+/**
+ * Fast register's sibling hint (founder 2026-11-10): the children already on the parent number the
+ * teacher typed — this teacher's own by full name, anyone else's as «م*** ص*** الرفاعي» — and how the
+ * typed name fits them. Null when the number carries no child.
+ */
+export type ParentHint = {
+  children: { id: number; name: string; is_own: boolean }[];
+  verdict: 'same_child' | 'sibling' | 'mismatch' | 'unknown' | 'student_login';
+  message: string;
+};
+
+export async function getParentHint(phone: string, studentName: string): Promise<ParentHint | null> {
+  const { data } = await client.post('/teacher/students/record/parent-hint', { phone, student_name: studentName || null });
+  return ((data.data ?? data)?.hint ?? null) as ParentHint | null;
+}
