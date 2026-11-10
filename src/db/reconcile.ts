@@ -60,7 +60,7 @@ export async function applyBatchResults(
   }
 
   const toDelete: number[] = [];
-  const toReject: { id: number; reason: string }[] = [];
+  const toReject: { id: number; reason: string; name: string | null }[] = [];
 
   for (const r of results) {
     const queue = byCode.get(r.card_code);
@@ -69,13 +69,13 @@ export async function applyBatchResults(
     if (r.outcome === 'synced' || r.outcome === 'already_recorded') {
       toDelete.push(localId);
     } else {
-      toReject.push({ id: localId, reason: r.message || r.code || 'failed' });
+      toReject.push({ id: localId, reason: r.message || r.code || 'failed', name: r.student_name ?? null });
     }
   }
 
   await deleteScans(toDelete);
-  for (const { id, reason } of toReject) {
-    await markScanRejected(id, reason);
+  for (const { id, reason, name } of toReject) {
+    await markScanRejected(id, reason, name);
   }
   return { synced: toDelete.length, rejected: toReject.length };
 }
