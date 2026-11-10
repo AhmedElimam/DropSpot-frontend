@@ -95,9 +95,19 @@ LIST="$TMP/builds"; : > "$LIST"
 add_runs() { # workflow platform artifact
   local wf="$1" platform="$2" art="$3" ids
   if [ ${#RUNS[@]} -gt 0 ]; then ids="${RUNS[*]}"
-  else ids="$(gh run list --workflow "$wf" --status success --limit "$LAST" --json databaseId --jq '.[].databaseId' | tr '\n' ' ')"; fi
+  else
+    local t; for t in 1 2 3; do
+      ids="$(gh run list --workflow "$wf" --status success --limit "$LAST" --json databaseId --jq '.[].databaseId' </dev/null 2>/dev/null | tr '\n' ' ')" || ids=""
+      [ -n "${ids// /}" ] && break; sleep 5
+    done
+  fi
   local id; for id in $ids; do
-    local w; w="$(gh run view "$id" --json workflowName,headSha --jq '.workflowName + " " + .headSha')"
+    # Three tries: a reset connection here used to stop the whole run before any publish (2026-11-10).
+    local w="" t; for t in 1 2 3; do
+      w="$(gh run view "$id" --json workflowName,headSha --jq '.workflowName + " " + .headSha' </dev/null 2>/dev/null)" && break
+      sleep 5
+    done
+    [ -n "$w" ] || die "GitHub did not answer for run $id (3 tries) — check the connection and run again"
     case "$w" in
       "Build iOS IPA "*) [ "$platform" = ios ] || continue ;;
       "Build Android AAB"*) [ "$platform" = android ] || continue ;;
