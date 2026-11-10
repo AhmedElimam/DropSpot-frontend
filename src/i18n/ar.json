@@ -2925,7 +2925,9 @@
     "sessions_count": "حصة مسجَّلة",
     "exams_count": "امتحان",
     "minutes": "{{n}} دقيقة",
-    "not_found": "لا تدرس عند هذا المعلم"
+    "not_found": "لا تدرس عند هذا المعلم",
+    "past_child": "سجل حضور {{name}} عنده",
+    "past_child_f": "سجل حضور {{name}} عندها"
   },
   "schedule_tools": {
     "title": "أدوات الجدول",
@@ -4491,5 +4493,28 @@
     "bg_navy": "كحلي",
     "bg_none": "شفافة",
     "preview": "كده هيظهر لأولياء الأمور والطلاب"
+  },
+  "family_session": {
+    "open_hint": "يفتح كل تفاصيل الحصة",
+    "open_record": "سجل الحصص: الملاحظات والواجبات والدرجات",
+    "row_homework": "الواجب:",
+    "row_note": "ملاحظة:",
+    "teacher": "أ. {{name}}",
+    "teacher_f": "أ. {{name}}",
+    "attendance": "الحضور",
+    "upcoming": "الحصة لم تبدأ بعد",
+    "no_record": "لم يُسجَّل حضور في هذه الحصة",
+    "checked_in_at": "سُجّل الحضور الساعة {{time}}",
+    "via_swap": "حضر في مجموعة أخرى بدل مجموعته",
+    "covered_in": "تعويض: حضر في {{course}} {{day}}",
+    "excuse": "العذر: {{reason}}",
+    "cancelled": "أُلغيت هذه الحصة",
+    "mark": "درجة الحصة",
+    "exam_mark": "درجة الامتحان",
+    "homework_given": "الواجب المطلوب من هذه الحصة",
+    "homework_checked": "تصحيح واجب حصة {{day}}",
+    "nothing_written": "لم يكتب المعلم شيئًا عن هذه الحصة بعد.",
+    "load_failed": "تعذّر تحميل تفاصيل الحصة",
+    "retry": "إعادة المحاولة"
   }
 }

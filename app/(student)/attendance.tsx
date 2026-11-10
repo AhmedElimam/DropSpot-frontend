@@ -18,6 +18,7 @@ import { PageHero } from '@/components/ui/PageHero';
 import { SectionHead } from '@/components/ui/SectionHead';
 import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
 import { AttendanceRecordList } from '@/components/attendance/AttendanceRecordList';
+import { FamilySessionSheet, type FamilySessionTarget } from '@/components/session/FamilySessionSheet';
 import { ComplaintSheet, type ComplaintTarget } from '@/components/student/ComplaintSheet';
 import { Surface } from '@/ui/surfaces';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
@@ -38,6 +39,7 @@ export default function StudentAttendanceDetail() {
   const complaints = useMyComplaints();
   const { refreshing, onRefresh } = usePullRefresh(refetchStats, refetchRecords, teachersQ.refetch, complaints.refetch);
   const [complaintTarget, setComplaintTarget] = useState<ComplaintTarget | null>(null);
+  const [sessionTarget, setSessionTarget] = useState<FamilySessionTarget | null>(null);
 
   const attended = (stats?.present ?? 0) + (stats?.late ?? 0);
   const total = attended + (stats?.absent ?? 0) + (stats?.excused ?? 0);
@@ -146,6 +148,7 @@ export default function StudentAttendanceDetail() {
                 records={records ?? []}
                 complaintsBySession={complaints.bySession}
                 onComplain={(r) => setComplaintTarget({ type: 'attendance', sessionInstanceId: r.session_instance_id, courseName: r.course_name ?? '', sessionAt: r.session_time ?? null, recordedStatus: r.status ?? null })}
+                onOpen={(r) => studentId && setSessionTarget({ studentId, sessionId: r.session_instance_id, who: 'student' })}
                 limit={10}
               />
             )}
@@ -157,6 +160,7 @@ export default function StudentAttendanceDetail() {
       <Surface id="student.attendance.complaint_sheet">
       <ComplaintSheet visible={!!complaintTarget} onClose={() => setComplaintTarget(null)} target={complaintTarget} />
       </Surface>
+      <FamilySessionSheet target={sessionTarget} onClose={() => setSessionTarget(null)} />
     </View>
     </Surface>
   );

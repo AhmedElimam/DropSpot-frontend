@@ -207,6 +207,16 @@ function TeacherCardView({ card, showChildName, removingKey, onTicket, onRemove 
               </View>
             ) : null}
 
+            {/* The child's record under this teacher, each session's note, homework and mark (2026-11-10). */}
+            <Surface id="parent.teachers.open_record">
+            <TouchableOpacity onPress={() => router.push(`/(parent)/teacher/${teacher.id}?student_id=${child.student_id}` as Href)} activeOpacity={0.85} accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44, borderRadius: radius.lg, paddingHorizontal: spacing.md, backgroundColor: colors.brandTint }}>
+              <Icon name="attendance" size={16} color={colors.brand} />
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13.5, color: colors.brand }} numberOfLines={1}>{t('family_session.open_record')}</Text>
+              <Icon name="back" size={16} color={colors.brand} />
+            </TouchableOpacity>
+            </Surface>
+
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 }}>
               <Surface id="parent.teachers.contact_teacher">
               <TouchableOpacity onPress={() => onTicket(child)} activeOpacity={0.85} accessibilityRole="button"

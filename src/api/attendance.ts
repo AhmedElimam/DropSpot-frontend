@@ -1,3 +1,4 @@
+import { normalizeRating } from './homework';
 import client from './client';
 import { extractList, extractAttrs } from './utils';
 import type { AttendanceRecord, AbsenceExcuse, AttendanceStatus } from '@/types/attendance';
@@ -75,5 +76,12 @@ function extractRecord(item: any): AttendanceRecord {
     attendance_mode: a.attendance_mode ?? undefined,
     tracks_attendance: a.tracks_attendance ?? undefined,
     attendance_label: a.attendance_label ?? null,
+    // What was written at that session (2026-11-10) — absent from older servers.
+    summary: a.summary ?? null,
+    note: a.note ?? null,
+    homework: a.homework ?? null,
+    homework_rating: normalizeRating(a.homework_rating),
+    mark: a.mark ?? null,
+    max_mark: a.max_mark ?? null,
   };
 }

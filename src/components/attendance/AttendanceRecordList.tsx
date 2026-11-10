@@ -22,10 +22,12 @@ const FILTERS: { key: RecordFilter; label: string; match: (status: string | null
  * show-more toggle and the dispute hint. One component so the attendance page, the
  * teacher page and the parent's child page read the same record.
  */
-export function AttendanceRecordList({ records, complaintsBySession, onComplain, limit = 8, filters = true, hint = true, emptyText }: {
+export function AttendanceRecordList({ records, complaintsBySession, onComplain, onOpen, limit = 8, filters = true, hint = true, emptyText }: {
   records: AttendanceRecord[];
   complaintsBySession?: Map<number, Complaint>;
   onComplain?: (r: AttendanceRecord) => void;
+  /** Opens the session's details sheet. */
+  onOpen?: (r: AttendanceRecord) => void;
   limit?: number;
   filters?: boolean;
   hint?: boolean;
@@ -96,6 +98,7 @@ export function AttendanceRecordList({ records, complaintsBySession, onComplain,
               record={record}
               complaint={record.session_instance_id ? complaintsBySession?.get(record.session_instance_id) : undefined}
               onComplain={onComplain}
+              onOpen={onOpen}
               last={i === g.rows.length - 1}
             />
           ))}
