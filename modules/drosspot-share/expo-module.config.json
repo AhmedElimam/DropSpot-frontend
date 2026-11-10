@@ -1,0 +1,9 @@
+{
+  "platforms": ["android", "ios"],
+  "android": {
+    "modules": ["expo.modules.drosspotshare.DrosspotShareModule"]
+  },
+  "ios": {
+    "modules": ["DrosspotShareModule"]
+  }
+}
