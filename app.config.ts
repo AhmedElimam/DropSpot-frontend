@@ -193,6 +193,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // Android: the window behind the app is navy at night too (see the plugin) — no light
   // flash between the dark splash and the first screen.
   ['./plugins/withAndroidNightWindowBackground', { color: '#080E26' }],
+  // Receipts shared from InstaPay / Vodafone Cash to the teachers a family owes (2026-11-11).
+  './plugins/withShareToTeacher',
   // withRNFirebaseDisableSPM MUST come before the RNFirebase plugins so the Podfile global is set.
   './plugins/withRNFirebaseDisableSPM',
   '@react-native-firebase/app',

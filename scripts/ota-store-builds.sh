@@ -69,11 +69,18 @@ native_matches() {
     const pick = (p) => JSON.stringify([p.dependencies, p.devDependencies]);
     process.exit(pick(a) === pick(b) ? 0 : 1);
   ' "$(git show "$sha:package.json")" || return 1
-  local d; for d in patches plugins; do
+  # A native ADDITION the JavaScript checks for before using it (requireOptionalNativeModule)
+  # runs on an older build with that feature simply off — listed in scripts/ota-native-additive.txt
+  # (one anchored regex per line), it does not hold that build's updates back. Anything else in
+  # patches/, plugins/ or modules/ that changed since the build does.
+  local d changed; for d in patches plugins modules; do
     [ -e "$d" ] || continue
-    git diff --quiet "$sha" HEAD -- "$d" || return 1
+    changed="$(git diff --name-only "$sha" HEAD -- "$d" | grep -v -E -f <(grep -v -E '^\s*(#|$)' "$ADDITIVE") || true)"
+    [ -z "$changed" ] || return 1
   done
 }
+ADDITIVE="scripts/ota-native-additive.txt"
+[ -f "$ADDITIVE" ] || die "missing $ADDITIVE"
 
 # createdAt (epoch) of the update EAS serves to this runtime, or 0.
 served_at() {

@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.drosspot'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.drosspotshare"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+}
+
+dependencies {
+  implementation "androidx.core:core:1.13.1"
+  // Direct-share contacts on Android 6–9 (ChooserTargetService backport); 10+ reads the shortcuts natively.
+  implementation "androidx.sharetarget:sharetarget:1.2.0"
+}

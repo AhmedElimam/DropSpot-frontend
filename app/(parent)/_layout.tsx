@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { colors } from '@/theme/index';
 import { registerForPushNotifications, unregisterPushNotifications } from '@/utils/push-notifications';
 import { useNotificationTaps } from '@/hooks/useNotificationTaps';
+import { useParentShareInbox } from '@/hooks/useParentShareInbox';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 // A deep link straight to a detail screen still has the tabs underneath to go back to.
@@ -57,6 +58,10 @@ export default function ParentLayout() {
   // A tapped push opens the screen it is about — while running, and when the tap is
   // what launched the app (that case never reached the old listener).
   useNotificationTaps();
+
+  // A receipt shared from InstaPay / Vodafone Cash opens the send screen; the share sheet lists
+  // the teachers this family owes (2026-11-11). Not while impersonating: the phone is the admin's.
+  useParentShareInbox(isAuthenticated && role === 'parent' && !impersonating);
 
   if (isLoading) {
     return (

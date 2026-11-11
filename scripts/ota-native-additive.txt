@@ -1,0 +1,13 @@
+# Native additions that do NOT hold back over-the-air updates to older store builds.
+#
+# Read by scripts/ota-store-builds.sh. One anchored regex per line, matched against paths
+# under patches/, plugins/ and modules/ that changed since a build was made.
+#
+# Only list something here when its JavaScript checks the native part exists before using it
+# (requireOptionalNativeModule → null on an older build), so the JS runs on that build with
+# the feature simply off. A changed dependency, a patch, or a plugin that alters existing
+# native behaviour never belongs here.
+
+# Share a receipt to the teacher (2026-11-11) — modules/drosspot-share/src/index.ts guards it.
+^plugins/withShareToTeacher\.js$
+^modules/drosspot-share/
