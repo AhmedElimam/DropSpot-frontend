@@ -218,16 +218,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-location',
       {
         // Shown on the OS prompt AND read by App Store review. Must be plain Arabic.
-        // When-in-use only: a print shop's driver keeps sharing with the screen off through
-        // the `location` background mode (updates started in the app carry on, with the blue
-        // pill), and Android through a foreground service — no «Always» prompt, no
-        // ACCESS_BACKGROUND_LOCATION (src/background/driverLocation.ts).
+        // When-in-use only, and foreground only (founder 2026-11-12, docs/PERFORMANCE.md rule 8):
+        // a screen reads the position once every 30 s while it is in front — the driver's trip,
+        // «موقعي المباشر» on an order, the shops map. No `location` background mode, no Android
+        // foreground service, no «Always» prompt, no ACCESS_BACKGROUND_LOCATION
+        // (src/utils/foregroundLocation.ts).
         locationWhenInUsePermission:
           'يستخدم التطبيق موقعك للتأكد من حضورك في مكان الحصة عند تسجيل الحضور، ولعرض الطباعات القريبة منك، ولمتابعة توصيل طلبات الطباعة.',
         locationAlwaysAndWhenInUsePermission:
           'يستخدم التطبيق موقعك للتأكد من حضورك في مكان الحصة عند تسجيل الحضور، ولعرض الطباعات القريبة منك، ولمتابعة توصيل طلبات الطباعة.',
-        isIosBackgroundLocationEnabled: true,
-        isAndroidForegroundServiceEnabled: true,
         isAndroidBackgroundLocationEnabled: false,
       },
     ],

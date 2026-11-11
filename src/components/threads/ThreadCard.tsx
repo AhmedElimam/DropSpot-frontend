@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
@@ -25,13 +25,11 @@ export { stateOf, type ThreadState } from './format';
  * memo + a stable `onOpen`: a poll that returns the same rows re-renders nothing, and the
  * clock inside re-renders only itself (Countdown.tsx).
  */
-export const ThreadCard = memo(function ThreadCard({ thread: t, onOpen, staff, index = 0 }: {
+export const ThreadCard = memo(function ThreadCard({ thread: t, onOpen, staff }: {
   thread: Thread;
   onOpen: (id: number) => void;
   /** The reader moderates (teacher / assistant): their wording, the audience size. */
   staff: boolean;
-  /** Position in the list — staggers the entrance (capped). */
-  index?: number;
 }) {
   const { t: tr } = useTranslation();
   const state = stateOf(t);
@@ -44,72 +42,70 @@ export const ThreadCard = memo(function ThreadCard({ thread: t, onOpen, staff, i
   const forChildren = childLabel(t.children);
 
   return (
-    <Animated.View entering={FadeInDown.delay(Math.min(index, 6) * 45).duration(280)}>
-      <Pressable
-        onPress={open}
-        onPressIn={() => { scale.value = withTiming(0.975, { duration: 90 }); }}
-        onPressOut={() => { scale.value = withSpring(1, { damping: 16, stiffness: 260 }); }}
-        accessibilityRole="button"
-        accessibilityLabel={t.title ?? t.body ?? undefined}
+    <Pressable
+      onPress={open}
+      onPressIn={() => { scale.value = withTiming(0.975, { duration: 90 }); }}
+      onPressOut={() => { scale.value = withSpring(1, { damping: 16, stiffness: 260 }); }}
+      accessibilityRole="button"
+      accessibilityLabel={t.title ?? t.body ?? undefined}
+    >
+      <Animated.View
+        style={[{
+          backgroundColor: note ? colors.accentWarmTint : colors.surface,
+          borderRadius: radius.xl,
+          borderWidth: 1,
+          // Unread is the avatar's ring and the dot — never a heavy border.
+          borderColor: note ? colors.accentLight : colors.borderLight,
+          padding: spacing.lg,
+          gap: spacing.md,
+          ...shadows.sm,
+        }, pressStyle]}
       >
-        <Animated.View
-          style={[{
-            backgroundColor: note ? colors.accentWarmTint : colors.surface,
-            borderRadius: radius.xl,
-            borderWidth: 1,
-            // Unread is the avatar's ring and the dot — never a heavy border.
-            borderColor: note ? colors.accentLight : colors.borderLight,
-            padding: spacing.lg,
-            gap: spacing.md,
-            ...shadows.sm,
-          }, pressStyle]}
-        >
-          {forChildren ? <ChildTag label={forChildren} /> : null}
+        {forChildren ? <ChildTag label={forChildren} /> : null}
 
-          {/* Who, where, when */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            <InitialsAvatar id={t.teacher.id} name={t.teacher.name} size={42} ring={t.unread ? colors.brand : null} />
-            <View style={{ flex: 1, gap: 3 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>{t.teacher.name}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 1, borderRadius: radius.full, backgroundColor: note ? colors.surface : colors.surfaceSunken, borderWidth: 1, borderColor: colors.borderLight }}>
-                  <Icon name="teacher" size={11} color={colors.textTertiary} outline />
-                  <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textSecondary }} numberOfLines={1}>{t.grade.name ?? '—'}</Text>
-                </View>
-                <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }}>{ago(t.created_at)}</Text>
+        {/* Who, where, when */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          <InitialsAvatar id={t.teacher.id} name={t.teacher.name} size={42} ring={t.unread ? colors.brand : null} />
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary }} numberOfLines={1}>{t.teacher.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 1, borderRadius: radius.full, backgroundColor: note ? colors.surface : colors.surfaceSunken, borderWidth: 1, borderColor: colors.borderLight }}>
+                <Icon name="teacher" size={11} color={colors.textTertiary} outline />
+                <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textSecondary }} numberOfLines={1}>{t.grade.name ?? '—'}</Text>
               </View>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }}>{ago(t.created_at)}</Text>
             </View>
-            {t.unread ? <UnreadDot /> : null}
-            <KindTag note={note} />
           </View>
+          {t.unread ? <UnreadDot /> : null}
+          <KindTag note={note} />
+        </View>
 
-          {/* The words, and the video's poster beside them */}
-          <View style={{ flexDirection: 'row', gap: spacing.md }}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 17.5, lineHeight: 28, color: colors.textPrimary }} numberOfLines={4}>
-                {t.title ?? t.body ?? tr('threads.video_badge')}
-              </Text>
-              {t.title && t.body ? (
-                <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary }} numberOfLines={2}>{t.body}</Text>
-              ) : null}
-            </View>
-            {video ? <PosterThumb video={video} width={64} /> : null}
+        {/* The words, and the video's poster beside them */}
+        <View style={{ flexDirection: 'row', gap: spacing.md }}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 17.5, lineHeight: 28, color: colors.textPrimary }} numberOfLines={4}>
+              {t.title ?? t.body ?? tr('threads.video_badge')}
+            </Text>
+            {t.title && t.body ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary }} numberOfLines={2}>{t.body}</Text>
+            ) : null}
           </View>
+          {video ? <PosterThumb video={video} width={64} /> : null}
+        </View>
 
-          {note ? null : <StateStrip thread={t} state={state} staff={staff} />}
+        {note ? null : <StateStrip thread={t} state={state} staff={staff} />}
 
-          {/* Footer */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            {!note ? <Pill icon="chat" text={tr('threads.answers_count', { n: arDigits(t.comments_count) })} /> : null}
-            {staff && t.audience_count !== null ? <Pill icon="people" text={tr('threads.audience_count', { n: arDigits(t.audience_count) })} /> : null}
-            {!staff && !note ? <MyAnswer thread={t} /> : null}
-            <View style={{ flex: 1 }} />
-            {/* RTL: a row's disclosure points left. */}
-            <Icon name="back" size={16} color={colors.textTertiary} />
-          </View>
-        </Animated.View>
-      </Pressable>
-    </Animated.View>
+        {/* Footer */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          {!note ? <Pill icon="chat" text={tr('threads.answers_count', { n: arDigits(t.comments_count) })} /> : null}
+          {staff && t.audience_count !== null ? <Pill icon="people" text={tr('threads.audience_count', { n: arDigits(t.audience_count) })} /> : null}
+          {!staff && !note ? <MyAnswer thread={t} /> : null}
+          <View style={{ flex: 1 }} />
+          {/* RTL: a row's disclosure points left. */}
+          <Icon name="back" size={16} color={colors.textTertiary} />
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 });
 

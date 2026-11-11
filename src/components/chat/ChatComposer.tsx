@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
-import Animated, { FadeInDown, FadeOutDown, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { chat, senderColor } from '@/theme/chat';
 import { Icon } from '@/components/ui/Icon';
+import { Appear } from '@/components/ui/Appear';
 import { SEND_FLIP, useVoiceRecorder, type VoiceClip } from '@/components/chat/VoiceRecorder';
 import type { ChatReplyRef } from '@/api/chat';
 
@@ -50,7 +50,7 @@ export function ChatComposer({
   return (
     <View style={{ backgroundColor: chat.bar, borderTopWidth: 1, borderTopColor: chat.barBorder }}>
     {replyTo ? (
-      <Animated.View entering={FadeInDown.duration(160)} exiting={FadeOutDown.duration(120)}
+      <Appear duration={160} rise={10}
         style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.md, marginTop: spacing.sm, paddingVertical: 6, paddingHorizontal: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surfaceSunken, borderStartWidth: 3, borderStartColor: replyColor }}>
         <Icon name="reply" size={16} color={replyColor} />
         <View style={{ flex: 1 }}>
@@ -63,7 +63,7 @@ export function ChatComposer({
           style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="close" size={18} color={colors.textTertiary} />
         </TouchableOpacity>
-      </Animated.View>
+      </Appear>
     ) : null}
     <View
       style={{
@@ -136,7 +136,7 @@ export function ChatComposer({
       </View>
 
       {canSend && !voice.active ? (
-        <Animated.View entering={ZoomIn.duration(140)} exiting={ZoomOut.duration(100)}>
+        <Appear duration={140} from={0.6}>
         <TouchableOpacity
           onPress={onSend}
           disabled={sending}
@@ -147,7 +147,7 @@ export function ChatComposer({
         >
           {sending ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="send" size={20} color="#fff" style={SEND_FLIP} />}
         </TouchableOpacity>
-        </Animated.View>
+        </Appear>
       ) : voice.button}
     </View>
     </View>

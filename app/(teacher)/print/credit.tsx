@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, RefreshControl, ActivityIndicator, TextInput } from 'react-native';
-import { ScrollView } from '@/components/ui/Refreshable';
+import { FlatList } from '@/components/ui/Refreshable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useIsFocused } from '@react-navigation/native';
@@ -19,7 +19,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber, formatShortDate } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import { useAuthStore } from '@/stores/authStore';
-import { OrderSection } from '@/components/print/OrderSection';
+import { OrderSection, OrderSectionHead } from '@/components/print/OrderSection';
 import { CreditRing, creditTint, egpAmount, daysText, jobsText, graceText } from '@/components/print/CreditBits';
 import { getPrintCredit, disputePrintStrike, creditUsed, type PrintCredit } from '@/api/print';
 
@@ -47,6 +47,38 @@ function Row({ icon, label, value, tone, last }: { icon: IconName; label: string
     </View>
   );
 }
+
+type Strike = PrintCredit['strikes'][number];
+const NO_STRIKES: Strike[] = [];
+const strikeKey = (s: Strike, i: number) => `${s.at}-${i}`;
+/** The strikes card's sides: its head, every row and its foot wear them, so the list reads as one card. */
+const STRIKE_SIDES = () => ({ backgroundColor: colors.surface, borderColor: colors.border, borderStartWidth: 1, borderEndWidth: 1, paddingHorizontal: spacing.lg });
+
+/** One standing strike: what it was, when, where its dispute stands, and what it cost. */
+const StrikeRow = memo(function StrikeRow({ s, last, onDispute }: { s: Strike; last: boolean; onDispute: (id: number) => void }) {
+  const { t } = useTranslation();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: 9, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.borderLight }}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.textPrimary }}>{s.label}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }}>{formatShortDate(s.at)}</Text>
+        {s.dispute_open ? (
+          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.warningText }}>{t('print.credit_dispute_pending')}</Text>
+        ) : s.dispute_answer ? (
+          <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>{t('print.credit_dispute_answer', { a: s.dispute_answer })}</Text>
+        ) : s.can_dispute && s.id ? (
+          <TouchableOpacity onPress={() => onDispute(s.id!)} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 12, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Icon name="ticket" size={13} color={colors.brand} />
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('print.credit_dispute')}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+      <View style={{ paddingHorizontal: 9, height: 24, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center' }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.dangerText }}>{t('print.credit_strike_points', { p: formatNumber(s.points) })}</Text>
+      </View>
+    </View>
+  );
+});
 
 /**
  * «سجل الدفع» — the teacher's payment record on the print market (founder 2026-10-15: «a credit
@@ -81,14 +113,27 @@ export default function PrintCreditScreen() {
   const used = m ? creditUsed(m) : 0;
   const overdue = !!m && m.overdue_count > 0;
   const barColor = overdue ? colors.danger : used > 0.8 ? colors.warning : colors.brand;
+  // The page is one windowed list: the standing strikes are its rows, the rest its header and footer.
+  const strikes = c && m ? c.strikes : NO_STRIKES;
+  const renderStrike = useCallback(({ item, index }: { item: Strike; index: number }) => (
+    <View style={{ paddingHorizontal: spacing.lg }}>
+      <View style={STRIKE_SIDES()}>
+        <StrikeRow s={item} last={index === strikes.length - 1} onDispute={setDisputing} />
+      </View>
+    </View>
+  ), [strikes.length]);
   const goPay = () => router.push('/(teacher)/print' as Href);
 
   return (
     <Surface id="screen.teacher.print_credit" screen assistantNeeds="teacher">
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {focused ? <StatusBar style="light" /> : null}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      <FlatList data={strikes} keyExtractor={strikeKey} renderItem={renderStrike}
+        initialNumToRender={8} maxToRenderPerBatch={8} windowSize={7}
+        showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        ListHeaderComponent={(
+        <>
         {/* hero */}
         <LinearGradient colors={heroFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, borderBottomStartRadius: 28, borderBottomEndRadius: 28, overflow: 'hidden' }}>
@@ -200,32 +245,21 @@ export default function PrintCreditScreen() {
                 })}
               </OrderSection>
 
-              {/* standing strikes */}
+              {/* standing strikes: the card's head here, its rows are the list's rows */}
               {c.strikes.length ? (
-                <OrderSection icon="warning" title={t('print.credit_strikes_title')} hint={t('print.credit_strikes_hint')} tint={{ bg: colors.dangerLight, fg: colors.dangerText }}>
-                  {c.strikes.map((s, i) => (
-                    <View key={`${s.at}-${i}`} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: 9, borderBottomWidth: i === c.strikes.length - 1 ? 0 : 1, borderBottomColor: colors.borderLight }}>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.textPrimary }}>{s.label}</Text>
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary }}>{formatShortDate(s.at)}</Text>
-                        {s.dispute_open ? (
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.warningText }}>{t('print.credit_dispute_pending')}</Text>
-                        ) : s.dispute_answer ? (
-                          <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>{t('print.credit_dispute_answer', { a: s.dispute_answer })}</Text>
-                        ) : s.can_dispute && s.id ? (
-                          <TouchableOpacity onPress={() => setDisputing(s.id!)} accessibilityRole="button" style={{ alignSelf: 'flex-start', marginTop: 4, paddingHorizontal: 12, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                            <Icon name="ticket" size={13} color={colors.brand} />
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('print.credit_dispute')}</Text>
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
-                      <View style={{ paddingHorizontal: 9, height: 24, borderRadius: 12, backgroundColor: colors.dangerLight, justifyContent: 'center' }}>
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.dangerText }}>{t('print.credit_strike_points', { p: formatNumber(s.points) })}</Text>
-                      </View>
-                    </View>
-                  ))}
-                </OrderSection>
+                <View style={[STRIKE_SIDES(), { borderTopWidth: 1, borderTopStartRadius: radius.xl, borderTopEndRadius: radius.xl, paddingTop: spacing.lg }]}>
+                  <OrderSectionHead icon="warning" title={t('print.credit_strikes_title')} hint={t('print.credit_strikes_hint')} tint={{ bg: colors.dangerLight, fg: colors.dangerText }} />
+                </View>
               ) : null}
+            </>
+          ) : null}
+        </View>
+        </>
+        )}
+        ListFooterComponent={c && m ? (
+        <View style={{ paddingHorizontal: spacing.lg }}>
+              {/* the foot of the strikes card */}
+              {c.strikes.length ? <View style={[STRIKE_SIDES(), { borderBottomWidth: 1, borderBottomStartRadius: radius.xl, borderBottomEndRadius: radius.xl, height: spacing.lg, marginBottom: spacing.md }]} /> : null}
 
               {/* what would raise it */}
               {c.tips.length ? (
@@ -277,10 +311,8 @@ export default function PrintCreditScreen() {
                   <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textTertiary }}>{t('print.credit_privacy')}</Text>
                 </View>
               </OrderSection>
-            </>
-          ) : null}
         </View>
-      </ScrollView>
+        ) : null} />
       <SheetModal visible={disputing !== null} onClose={() => { setDisputing(null); dispute.reset(); }} avoidKeyboard style={{ backgroundColor: colors.surface, padding: spacing.xxl, paddingBottom: spacing.xl5 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.textPrimary }}>{t('print.credit_dispute_title')}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: spacing.xs }}>{t('print.credit_dispute_hint')}</Text>

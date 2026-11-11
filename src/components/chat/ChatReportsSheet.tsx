@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -77,98 +77,139 @@ export function ChatReportsSheet({
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {loading ? (
+          <FlatList
+            data={loading ? NO_REPORTS : reports}
+            keyExtractor={reportKey}
+            renderItem={({ item }) => (
+              <ReportRow
+                report={item}
+                open={active?.id === item.id}
+                note={note}
+                onNote={setNote}
+                onOpen={() => { setActive(item); setNote(''); }}
+                onCancel={() => setActive(null)}
+                onAct={confirmAct}
+                busy={resolve.isPending}
+                muteMaxHours={muteMaxHours}
+              />
+            )}
+            // The open report's note and the pending answer live up here: tell the rows.
+            extraData={[active?.id, note, resolve.isPending]}
+            ItemSeparatorComponent={RowGap}
+            ListEmptyComponent={loading ? (
               <ActivityIndicator color={colors.primary} style={{ paddingVertical: spacing.xl }} />
-            ) : reports.length === 0 ? (
+            ) : (
               <View style={{ alignItems: 'center', paddingVertical: spacing.xl4 }}>
                 <Icon name="success" size={40} color={colors.success} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary, marginTop: spacing.md }}>
                   {t('chat.reports_empty')}
                 </Text>
               </View>
-            ) : (
-              reports.map((r) => {
-                const open = active?.id === r.id;
-                return (
-                  <View
-                    key={r.id}
-                    style={{
-                      borderWidth: 1, borderColor: r.late ? colors.danger : colors.border,
-                      backgroundColor: r.late ? colors.dangerLight : colors.surfaceSunken,
-                      borderRadius: radius.lg, padding: spacing.md,
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                      <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: 7, paddingVertical: 2 }}>
-                        <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textSecondary }}>{r.reason_label}</Text>
-                      </View>
-                      <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: r.late ? colors.dangerText : colors.textTertiary }}>
-                        {t('chat.report_age', { hours: r.age_hours })}{r.late ? ` · ${t('chat.report_late')}` : ''}
-                      </Text>
-                    </View>
-
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right', marginTop: spacing.sm }}>
-                      {r.reported_user?.name ?? t('chat.report_about_room')}
-                    </Text>
-
-                    {r.captured_body ? (
-                      <View style={{ borderStartWidth: 3, borderStartColor: colors.border, paddingStart: spacing.sm, marginTop: 4 }}>
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 20, color: colors.textSecondary, textAlign: 'right' }} numberOfLines={open ? undefined : 3}>
-                          {r.captured_body}
-                        </Text>
-                      </View>
-                    ) : null}
-                    {r.note ? (
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, textAlign: 'right', marginTop: 4 }}>
-                        {r.note}
-                      </Text>
-                    ) : null}
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, textAlign: 'right', marginTop: 4 }}>
-                      {t('chat.reported_by', { name: r.reporter.name ?? '—' })}
-                    </Text>
-
-                    {!open ? (
-                      <TouchableOpacity
-                        onPress={() => { setActive(r); setNote(''); }}
-                        style={{ marginTop: spacing.md, minHeight: 42, borderRadius: radius.md, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}
-                      >
-                        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('chat.handle')}</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
-                        <TextInput
-                          value={note}
-                          onChangeText={setNote}
-                          placeholder={t('chat.handle_note')}
-                          placeholderTextColor={colors.textTertiary}
-                          maxLength={1000}
-                          multiline
-                          style={{ fontFamily: fonts.regular, fontSize: 14, minHeight: 54, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10, color: colors.textPrimary, textAlign: 'right' }}
-                        />
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-                          <ActionChip label={t('chat.action_dismiss')} onPress={() => confirmAct(r, 'dismiss')} disabled={resolve.isPending} />
-                          <ActionChip label={t('chat.action_warn')} onPress={() => confirmAct(r, 'warn')} disabled={resolve.isPending || !r.reported_user} />
-                          <ActionChip label={t('chat.action_remove')} onPress={() => confirmAct(r, 'remove')} disabled={resolve.isPending || !r.message_id} />
-                          <ActionChip label={t('chat.action_mute', { hours: 24 })} onPress={() => confirmAct(r, 'mute')} disabled={resolve.isPending || !r.reported_user} tone="warn" />
-                          <ActionChip label={t('chat.action_escalate')} onPress={() => confirmAct(r, 'escalate')} disabled={resolve.isPending || !r.reported_user} tone="danger" />
-                        </View>
-                        <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 18, color: colors.textTertiary, textAlign: 'right' }}>
-                          {t('chat.handle_hint', { max: muteMaxHours })}
-                        </Text>
-                        <TouchableOpacity onPress={() => setActive(null)} style={{ alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' }}>
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{t('common.cancel')}</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                );
-              })
             )}
-          </ScrollView>
+            contentContainerStyle={{ padding: spacing.lg }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={6}
+            maxToRenderPerBatch={6}
+            windowSize={7}
+          />
         </View>
       </View>
     </Modal>
+  );
+}
+
+const NO_REPORTS: ChatReport[] = [];
+const reportKey = (r: ChatReport) => String(r.id);
+
+function RowGap() {
+  return <View style={{ height: spacing.md }} />;
+}
+
+/** One report: what was said (as it was), who reported it, how long it has waited — and, once opened, the five answers. */
+function ReportRow({ report: r, open, note, onNote, onOpen, onCancel, onAct, busy, muteMaxHours }: {
+  report: ChatReport;
+  open: boolean;
+  note: string;
+  onNote: (text: string) => void;
+  onOpen: () => void;
+  onCancel: () => void;
+  onAct: (report: ChatReport, action: ChatReportAction) => void;
+  busy: boolean;
+  muteMaxHours: number;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View
+      style={{
+        borderWidth: 1, borderColor: r.late ? colors.danger : colors.border,
+        backgroundColor: r.late ? colors.dangerLight : colors.surfaceSunken,
+        borderRadius: radius.lg, padding: spacing.md,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: 7, paddingVertical: 2 }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textSecondary }}>{r.reason_label}</Text>
+        </View>
+        <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12, color: r.late ? colors.dangerText : colors.textTertiary }}>
+          {t('chat.report_age', { hours: r.age_hours })}{r.late ? ` · ${t('chat.report_late')}` : ''}
+        </Text>
+      </View>
+
+      <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right', marginTop: spacing.sm }}>
+        {r.reported_user?.name ?? t('chat.report_about_room')}
+      </Text>
+
+      {r.captured_body ? (
+        <View style={{ borderStartWidth: 3, borderStartColor: colors.border, paddingStart: spacing.sm, marginTop: 4 }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 20, color: colors.textSecondary, textAlign: 'right' }} numberOfLines={open ? undefined : 3}>
+            {r.captured_body}
+          </Text>
+        </View>
+      ) : null}
+      {r.note ? (
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary, textAlign: 'right', marginTop: 4 }}>
+          {r.note}
+        </Text>
+      ) : null}
+      <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, textAlign: 'right', marginTop: 4 }}>
+        {t('chat.reported_by', { name: r.reporter.name ?? '—' })}
+      </Text>
+
+      {!open ? (
+        <TouchableOpacity
+          onPress={onOpen}
+          style={{ marginTop: spacing.md, minHeight: 42, borderRadius: radius.md, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('chat.handle')}</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+          <TextInput
+            value={note}
+            onChangeText={onNote}
+            placeholder={t('chat.handle_note')}
+            placeholderTextColor={colors.textTertiary}
+            maxLength={1000}
+            multiline
+            style={{ fontFamily: fonts.regular, fontSize: 14, minHeight: 54, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 10, color: colors.textPrimary, textAlign: 'right' }}
+          />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+            <ActionChip label={t('chat.action_dismiss')} onPress={() => onAct(r, 'dismiss')} disabled={busy} />
+            <ActionChip label={t('chat.action_warn')} onPress={() => onAct(r, 'warn')} disabled={busy || !r.reported_user} />
+            <ActionChip label={t('chat.action_remove')} onPress={() => onAct(r, 'remove')} disabled={busy || !r.message_id} />
+            <ActionChip label={t('chat.action_mute', { hours: 24 })} onPress={() => onAct(r, 'mute')} disabled={busy || !r.reported_user} tone="warn" />
+            <ActionChip label={t('chat.action_escalate')} onPress={() => onAct(r, 'escalate')} disabled={busy || !r.reported_user} tone="danger" />
+          </View>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 18, color: colors.textTertiary, textAlign: 'right' }}>
+            {t('chat.handle_hint', { max: muteMaxHours })}
+          </Text>
+          <TouchableOpacity onPress={onCancel} style={{ alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{t('common.cancel')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
   );
 }
 

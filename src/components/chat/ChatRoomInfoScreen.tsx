@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity, FlatList, ScrollView, TextInput, ActivityIndicator, Alert, Keyboard, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Alert, Keyboard, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +24,7 @@ import { chunk, fromYmd, groupByMonth, lastDays, ymd } from '@/chat/roomView';
 import { ChatCalendarSheet } from '@/components/chat/ChatCalendarSheet';
 import { ChatReportsSheet } from '@/components/chat/ChatReportsSheet';
 import { MuteSheet } from '@/components/chat/MuteSheet';
+import { RoomInfoTabs, type RoomInfoTab } from '@/components/chat/RoomInfoTabs';
 import { ImageViewer } from '@/components/chat/ImageViewer';
 import { FilePreview, canPreviewInApp } from '@/components/chat/FilePreview';
 import { VoiceNote } from '@/components/chat/VoiceNote';
@@ -34,7 +35,7 @@ import { formatDateOnly, formatDateTime, formatNumber, foldForSearch, timeAgo } 
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { useKeyboardDropOnLeave } from '@/hooks/useKeyboardDropOnLeave';
 
-type Tab = 'members' | ChatMediaType;
+type Tab = RoomInfoTab;
 
 type Row =
   | { type: 'section'; key: string; title: string }
@@ -42,8 +43,6 @@ type Row =
   | { type: 'photos'; key: string; items: ChatMessage[] }
   | { type: 'file' | 'voice' | 'link'; key: string; item: ChatMessage }
   | { type: 'empty'; key: string; text: string };
-
-const TAB_ICON: Record<Tab, IconName> = { members: 'people', media: 'image', files: 'attach', voice: 'mic', links: 'link' };
 
 /**
  * A room's own page — what tapping its name opens (founder 2026-10-12: «clicking on the group
@@ -185,13 +184,6 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
   }
 
   const counts = data.counts;
-  const tabs: { key: Tab; label: string; n: number }[] = [
-    { key: 'members', label: t('chat.tab_members'), n: counts.members },
-    { key: 'media', label: t('chat.tab_media'), n: counts.media },
-    { key: 'files', label: t('chat.tab_files'), n: counts.files },
-    { key: 'voice', label: t('chat.tab_voice'), n: counts.voice },
-    { key: 'links', label: t('chat.tab_links'), n: counts.links },
-  ];
   const actions: { key: string; icon: IconName; label: string; sub?: string; badge?: number; tone?: string; onPress: () => void }[] = [
     { key: 'notify', icon: data.notify ? 'bell' : 'bellOff', label: t('chat.info_notify'), sub: data.notify ? t('chat.info_on') : t('chat.info_off'), onPress: () => setNotify.mutate(!data.notify) },
     { key: 'date', icon: 'calendar', label: t('chat.jump_to_date'), onPress: () => setCalendarOpen(true) },
@@ -282,19 +274,7 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
       </View>
 
       {/* The tabs: members, then the shelf. */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm }}>
-        {tabs.map((x) => {
-          const on = tab === x.key;
-          return (
-            <TouchableOpacity key={x.key} onPress={() => setTab(x.key)} accessibilityRole="tab" accessibilityState={{ selected: on }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border }}>
-              <Icon name={TAB_ICON[x.key]} size={15} color={on ? '#fff' : colors.textSecondary} outline={!on} />
-              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: on ? '#fff' : colors.textSecondary }}>{x.label}</Text>
-              <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: on ? 'rgba(255,255,255,0.8)' : colors.textTertiary }}>{formatNumber(x.n)}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <RoomInfoTabs value={tab} onChange={setTab} counts={counts} />
 
       {tab === 'members' && data.members.length > 10 ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.xs, marginBottom: spacing.xs, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md }}>
@@ -378,6 +358,10 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
         onEndReachedThreshold={0.6}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        // Windowed: a class is a few hundred members, a shelf a term of photos.
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        windowSize={9}
       />
 
       <ChatCalendarSheet visible={calendarOpen} courseId={courseId} onClose={() => setCalendarOpen(false)}

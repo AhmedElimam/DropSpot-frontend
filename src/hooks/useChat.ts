@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useOnScreen } from '@/hooks/useAmbientMotion';
 import {
   blockChatUser, deleteChatMessage, getChatCalendar, getChatChannels, getChatInfo, getChatMedia, getChatReports, getChatRoom, muteChatUser,
   reportChatMessage, resolveChatReport, sendChatMessage, setChatNotify, setChatSettings, unblockChatUser, unmuteChatUser,
@@ -11,8 +12,18 @@ import { applyRecentHidden, lastServerId, mergeTail } from '@/chat/roomView';
 
 export const CHAT_FLAG = 'course_chat';
 
-/** How often an open room asks for new messages. No socket — FCM wakes the app, REST fills it. */
-export const CHAT_POLL_MS = 8000;
+/**
+ * How often an open room asks for new messages when the socket is not delivering them. It is
+ * the fallback only: the private channel (useChatSocket) and FCM bring a message at once, and
+ * no poll in this app runs faster than 30 s (docs/PERFORMANCE.md rule 7 — the 8 s poll kept
+ * the radio awake). The server's `poll_ms` / `poll_ms_fallback` are floored at the same value.
+ */
+export const CHAT_POLL_MS = 30_000;
+
+/** A server cadence, never faster than the floor; nothing usable from the server → the floor. */
+export function chatPollMs(serverMs: number | null | undefined): number {
+  return Math.max(CHAT_POLL_MS, serverMs || 0);
+}
 
 /** True only when the super-admin has switched course chat on. Everything chat hangs off this. */
 export function useChatEnabled(): boolean {
@@ -22,12 +33,13 @@ export function useChatEnabled(): boolean {
 
 export function useChatChannels(enabled = true) {
   const on = useChatEnabled();
+  const onScreen = useOnScreen(); // the tabs stay mounted under every other screen
   return useQuery({
     queryKey: ['chat', 'channels'],
     queryFn: getChatChannels,
     enabled: on && enabled,
     staleTime: 15_000,
-    refetchInterval: 30_000,
+    refetchInterval: onScreen ? 30_000 : false,
     refetchIntervalInBackground: false,
   });
 }
@@ -65,18 +77,20 @@ export async function pollChatRoom(courseId: number, prev: ChatRoom | undefined,
   return { ...fresh, messages: mergeTail(hidden.messages, fresh.messages) };
 }
 
+/** The server's cadence for this room: the slow one behind a live socket, the fallback otherwise. */
+function roomCadence(room: ChatRoom | undefined, live: boolean): number | undefined {
+  return live ? room?.limits?.poll_ms : room?.limits?.poll_ms_fallback;
+}
+
 export function useChatRoom(courseId: number, active: boolean, live = false) {
   const on = useChatEnabled();
   const qc = useQueryClient();
+  const onScreen = useOnScreen() && active;
   return useQuery({
     queryKey: ['chat', 'room', courseId],
     queryFn: () => pollChatRoom(courseId, qc.getQueryData<ChatRoom>(['chat', 'room', courseId])),
     enabled: on && courseId !== 0,
-    refetchInterval: (query) => {
-      if (!active) return false;
-      const limits = query.state.data?.limits;
-      return (live ? limits?.poll_ms : limits?.poll_ms_fallback) || CHAT_POLL_MS;
-    },
+    refetchInterval: (query) => (onScreen ? chatPollMs(roomCadence(query.state.data, live)) : false),
     refetchIntervalInBackground: false,
     staleTime: 0,
   });
@@ -267,12 +281,13 @@ export function useSetChatNotify(courseId: number) {
 /** Open reports on one room. Only fetched when the viewer actually moderates it. */
 export function useChatReports(courseId: number, enabled: boolean) {
   const on = useChatEnabled();
+  const onScreen = useOnScreen() && enabled;
   return useQuery({
     queryKey: ['chat', 'reports', courseId],
     queryFn: () => getChatReports(courseId),
     enabled: on && enabled && courseId !== 0,
     staleTime: 10_000,
-    refetchInterval: enabled ? 30_000 : false,
+    refetchInterval: onScreen ? 30_000 : false,
     refetchIntervalInBackground: false,
   });
 }

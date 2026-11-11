@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { View, Text, TouchableOpacity, Alert, I18nManager, AccessibilityInfo } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  Easing, Extrapolation, FadeIn, FadeOut, ZoomIn, cancelAnimation, interpolate, runOnJS,
-  useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming,
+  Easing, Extrapolation, cancelAnimation, interpolate, runOnJS,
+  useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated';
 import {
   useAudioRecorder, RecordingPresets, getRecordingPermissionsAsync, requestRecordingPermissionsAsync,
@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { Appear } from '@/components/ui/Appear';
 import { attachmentFileName } from '@/api/chat';
 import { haptic } from '@/utils/haptics';
 
@@ -143,15 +144,18 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
   const recording = phase === 'holding' || phase === 'locked';
   useEffect(() => { onStateChange?.(phase !== 'idle'); }, [phase, onStateChange]);
 
-  // The red dot breathes while recording — and only then (no idle loops).
+  // The red dot breathes once for every second on the clock while recording — one short
+  // transition started by the tick that already happens, never a loop of its own.
+  const second = Math.floor(ms / 1000);
   useEffect(() => {
     if (recording && micLive) {
-      blink.value = withRepeat(withSequence(withTiming(0.25, { duration: 520 }), withTiming(1, { duration: 520 })), -1);
+      blink.value = withSequence(withTiming(0.25, { duration: 420 }), withTiming(1, { duration: 420 }));
     } else {
       cancelAnimation(blink);
       blink.value = 1;
     }
-  }, [recording, micLive, blink]);
+  }, [recording, micLive, second, blink]);
+  useEffect(() => () => cancelAnimation(blink), [blink]);
 
   // Clock + level, read straight from the recorder while it records.
   useEffect(() => {
@@ -396,13 +400,13 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
   let bar: ReactNode = null;
   if (phase === 'cancelled') {
     bar = (
-      <Animated.View entering={FadeIn.duration(90)} exiting={FadeOut.duration(160)} style={barShell()} accessibilityLabel={t('chat.recording_cancelled')}>
+      <View style={barShell()} accessibilityLabel={t('chat.recording_cancelled')}>
         <CancelBin />
-      </Animated.View>
+      </View>
     );
   } else if (recording) {
     bar = (
-      <Animated.View entering={FadeIn.duration(110)} exiting={FadeOut.duration(120)} style={barShell()}>
+      <View style={barShell()}>
         {phase === 'locked' ? (
           <TouchableOpacity onPress={() => { void finish('cancel'); }} accessibilityRole="button" accessibilityLabel={t('chat.recording_discard')} hitSlop={10} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="trash" size={21} color={colors.danger} outline />
@@ -421,7 +425,7 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
             <Icon name={I18nManager.isRTL ? 'forward' : 'back'} size={14} color={colors.textSecondary} />
           </Animated.View>
         ) : null}
-      </Animated.View>
+      </View>
     );
   }
 
@@ -429,7 +433,7 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
   const button = (
     <View style={{ width: BTN, height: BTN, zIndex: 2 }}>
       {phase === 'holding' ? (
-        <Animated.View pointerEvents="none" entering={FadeIn.duration(140)} exiting={FadeOut.duration(100)} style={[{ position: 'absolute', bottom: BTN + 14, left: 0, right: 0, alignItems: 'center' }, lockStyle]}>
+        <Animated.View pointerEvents="none" style={[{ position: 'absolute', bottom: BTN + 14, left: 0, right: 0, alignItems: 'center' }, lockStyle]}>
           <View style={{ width: 40, paddingVertical: 10, borderRadius: 20, alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, ...shadows.md }}>
             <Icon name="lock" size={18} color={colors.textSecondary} outline />
             <Animated.View style={lockChevronStyle}><Icon name="up" size={16} color={colors.textTertiary} /></Animated.View>
@@ -438,13 +442,13 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
       ) : null}
 
       {hint ? (
-        <Animated.View pointerEvents="none" entering={FadeIn.duration(140)} exiting={FadeOut.duration(200)} style={{ position: 'absolute', bottom: BTN + 12, end: 0, width: 236, backgroundColor: colors.textPrimary, borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: 12, ...shadows.md }}>
+        <View pointerEvents="none" style={{ position: 'absolute', bottom: BTN + 12, end: 0, width: 236, backgroundColor: colors.textPrimary, borderRadius: radius.md, paddingVertical: 8, paddingHorizontal: 12, ...shadows.md }}>
           <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.background, textAlign: 'right' }}>{hint}</Text>
-        </Animated.View>
+        </View>
       ) : null}
 
       {phase === 'locked' ? (
-        <Animated.View entering={ZoomIn.duration(160)}>
+        <Appear duration={160} from={0.6}>
           <TouchableOpacity
             onPress={() => { void finish('send'); }}
             activeOpacity={0.85}
@@ -454,7 +458,7 @@ export function useVoiceRecorder({ maxSeconds, disabled, onClip, onStateChange }
           >
             <Icon name="send" size={20} color="#fff" style={SEND_FLIP} />
           </TouchableOpacity>
-        </Animated.View>
+        </Appear>
       ) : (
         <GestureDetector gesture={gesture}>
           <Animated.View

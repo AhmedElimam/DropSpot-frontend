@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { BulletLines } from '@/components/auth/TermsLines';
 import { useAuthStore } from '@/stores/authStore';
 import { getTermsState, type TermsRole } from '@/api/terms';
 import { useTermsContent } from '@/hooks/useTermsContent';
@@ -171,28 +172,7 @@ function TermsUpdateSheet({ termsRole, onLater }: { termsRole: TermsRole; onLate
               >
                 {t('terms.update_whats_new')}
               </Text>
-              {changes.map((line, i) => (
-                <View
-                  key={i}
-                  style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.sm }}
-                >
-                  <View
-                    style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand, marginTop: 8 }}
-                  />
-                  <Text
-                    style={{
-                      flex: 1,
-                      fontFamily: fonts.regular,
-                      fontSize: 13.5,
-                      lineHeight: 22,
-                      color: colors.textSecondary,
-                      textAlign: 'right',
-                    }}
-                  >
-                    {line}
-                  </Text>
-                </View>
-              ))}
+              <BulletLines lines={changes} />
             </ScrollView>
           )}
 

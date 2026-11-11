@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, RefreshControl } from 'react-native';
-import { ScrollView } from '@/components/ui/Refreshable';
+import { FlatList } from '@/components/ui/Refreshable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useIsFocused } from '@react-navigation/native';
@@ -27,6 +27,7 @@ import { useFeatureTermsOnFocus } from '@/hooks/useFeatureTermsOnFocus';
 
 const FEATURE_KEYS = ['print_market'] as const;
 
+const jobKey = (j: PrintJob) => String(j.id);
 const money = (v: number) => formatNumber(v, { maximumFractionDigits: v % 1 ? 2 : 0 });
 
 // The hero is deep ink in BOTH schemes (founder: no washed tops), so what sits on it is white.
@@ -60,7 +61,8 @@ function SectionHead({ title, count, link, onLink }: { title: string; count?: nu
  * «المطبعة» — the teacher's print tab (founder 2026-10-14: «put some love on the printing tab»),
  * laid out like a delivery app's home: an ink hero with the month in three glass chips and
  * the one big «اطبع ملف جديد», then what is on its way, how it works (first time only), the
- * shops by their work, and the past jobs one tap from printing again.
+ * shops by their work, and the past jobs one tap from printing again. The page is ONE windowed
+ * list: the jobs on their way are its rows, everything above and below its header and footer.
  */
 export default function PrintTab() {
   // The market reached this teacher but its agreement is still due: bring it back here.
@@ -90,6 +92,11 @@ export default function PrintTab() {
     return { spent: mine.reduce((a, j) => a + j.total, 0), pages: mine.reduce((a, j) => a + j.pages * j.copies, 0) };
   }, [open, closed]);
 
+  const renderJob = useCallback(({ item }: { item: PrintJob }) => (
+    <Surface id="teacher.print_tab.open">
+      <View style={{ paddingHorizontal: spacing.lg }}><PrintTabJobCard j={item} /></View>
+    </Surface>
+  ), []);
   const goNew = () => router.push('/(teacher)/print/shops' as Href);
   const goAll = () => router.push('/(teacher)/print' as Href);
   const again = (j: PrintJob) => Alert.alert(t('print.reorder'), t('print.reorder_confirm', { shop: j.shop.name ?? '' }), [
@@ -115,8 +122,12 @@ export default function PrintTab() {
     <Surface id="screen.teacher.print_tab" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {focused ? <StatusBar style="light" /> : null}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
+      <FlatList data={open} keyExtractor={jobKey} renderItem={renderJob}
+        initialNumToRender={6} maxToRenderPerBatch={6} windowSize={7}
+        showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        ListHeaderComponent={(
+        <>
         {/* hero */}
         <LinearGradient colors={heroFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={{ paddingTop: insets.top + spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl, borderBottomStartRadius: 28, borderBottomEndRadius: 28, overflow: 'hidden' }}>
@@ -192,11 +203,13 @@ export default function PrintTab() {
           <Surface id="teacher.print_tab.open">
           <View style={{ marginTop: spacing.xl, paddingHorizontal: spacing.lg }}>
             <SectionHead title={t('print.on_the_way')} count={open.length} />
-            {open.map((j) => <PrintTabJobCard key={j.id} j={j} />)}
           </View>
           </Surface>
         ) : null}
-
+        </>
+        )}
+        ListFooterComponent={(
+        <>
         {/* first time: how a print goes */}
         {firstTime ? (
           <Surface id="teacher.print_tab.how">
@@ -228,7 +241,8 @@ export default function PrintTab() {
         ) : null}
         {/* The marketplace reached this teacher as a beta: the note line closes the screen. */}
         <BetaLine feature="print_market" />
-      </ScrollView>
+        </>
+        )} />
     </View>
     </Surface>
   );

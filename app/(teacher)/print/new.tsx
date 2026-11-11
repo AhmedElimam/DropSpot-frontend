@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { Redirect, router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +21,7 @@ import {
   type PrintUpload, type PrintSpec, type Choice,
 } from '@/api/print';
 import { Stars, SpeedLine } from './shops/index';
+import { PrintCompareStrip } from '@/components/print/PrintCompareStrip';
 import { PlacePicker, type PickedPlace } from '@/components/print/PlacePicker';
 import { graceText } from '@/components/print/CreditBits';
 
@@ -101,6 +102,8 @@ export default function PrintNew() {
     placeholderData: (prev) => prev,
   });
   const others = (board.data?.shops ?? []).filter((x) => x.vendor_id !== Number(vendor) && x.quote.ok);
+
+  const switchShop = useCallback((vendorId: number) => router.setParams({ vendor: String(vendorId) }), []);
 
   const pickPdf = async () => {
     const res = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true, multiple: false });
@@ -338,25 +341,7 @@ export default function PrintNew() {
                 <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, flex: 1 }}>{t('print.compare_title')}</Text>
                 {board.isFetching ? <ActivityIndicator size="small" color={colors.primary} /> : null}
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
-                {others.map((x) => {
-                  const d = Math.round(((x.quote.total ?? 0) - (quote?.total ?? 0)) * 100) / 100;
-                  const tone = d < 0 ? colors.successText : d > 0 ? colors.textTertiary : colors.textSecondary;
-                  return (
-                    <TouchableOpacity key={x.vendor_id} onPress={() => router.setParams({ vendor: String(x.vendor_id) })} activeOpacity={0.85} accessibilityRole="button"
-                      style={{ width: 150, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: d < 0 ? colors.success : colors.border, padding: spacing.sm }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{x.name}</Text>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, marginTop: 2 }}>{money(x.quote.total ?? 0)} <Text style={{ fontSize: 11, color: colors.textTertiary }}>{egp}</Text></Text>
-                      <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: tone }}>{d < 0 ? t('print.compare_cheaper', { d: money(-d) }) : d > 0 ? t('print.compare_pricier', { d: money(d) }) : t('print.compare_same')}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                        <Icon name="clock" size={11} color={colors.textTertiary} />
-                        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textTertiary }}>{t('print.within_hours', { h: formatNumber(x.turnaround_hours) })}</Text>
-                        {x.rating != null ? <><View style={{ width: 1, height: 10, backgroundColor: colors.border, marginHorizontal: 2 }} /><Icon name="star" size={11} color={colors.warning} /><Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.textTertiary }}>{formatNumber(x.rating, { maximumFractionDigits: 1 })}</Text></> : null}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+              <PrintCompareStrip shops={others} mine={quote?.total ?? 0} egp={egp} onPick={switchShop} />
             </View>
             </Surface>
           ) : null}

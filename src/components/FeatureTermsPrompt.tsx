@@ -10,6 +10,7 @@ import { usePopupSlot } from '@/ui/popupSlot';
 import { fonts } from '@/theme/typography';
 import { colors, gradients, radius, spacing } from '@/theme/index';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { NumberedClauses } from '@/components/auth/TermsLines';
 import { BETA_GOLD, BETA_INK } from '@/components/ui/betaTokens';
 import { useAuthStore } from '@/stores/authStore';
 import { useAppConfigStore } from '@/stores/appConfigStore';
@@ -131,16 +132,7 @@ function Agreement({ doc }: { doc: FeatureTermsDoc }) {
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xl }} showsVerticalScrollIndicator={false}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 25, color: colors.textPrimary }}>{doc.heading}</Text>
           <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, marginTop: 4 }}>{doc.intro}</Text>
-          <View style={{ marginTop: spacing.md, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.md }}>
-            {doc.body.map((line, i) => (
-              <View key={i} style={{ flexDirection: 'row', gap: spacing.sm }}>
-                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{(i + 1).toLocaleString('ar-EG')}</Text>
-                </View>
-                <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14.5, lineHeight: 23, color: colors.textPrimary }}>{line}</Text>
-              </View>
-            ))}
-          </View>
+          <NumberedClauses lines={doc.body} />
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textTertiary, marginTop: spacing.sm }}>{t('feature_terms.addon_note', { version: doc.version })}</Text>
         </ScrollView>
 

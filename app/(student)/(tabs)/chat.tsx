@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, RefreshControl } from 'react-native';
-import { ScrollView } from '@/components/ui/Refreshable';
+import { View, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -132,6 +131,8 @@ function StudentConversations() {
     </LinearGradient>
   );
 
+  const listContent = { paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 };
+
   return (
     <View style={{ flex: 1, backgroundColor: showCommunity ? colors.background : gradients.hero[0] }}>
       {bar}
@@ -144,22 +145,29 @@ function StudentConversations() {
           contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, flexGrow: 1 }}
         />
       ) : (
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: nav.bottomHeight + insets.bottom, backgroundColor: colors.background, flexGrow: 1 }}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        >
-          {head}
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl }}>
-            {showThreads ? (
-              <ThreadsFeed onOpen={(id) => router.push(`/(student)/chat/thread/${id}` as Href)} />
-            ) : (
-              <ChatInboxList onOpen={(room) => router.push(`/(student)/chat/${room}` as Href)} />
-            )}
-          </View>
-          {/* The note line closes the screen — after the content, never above it. */}
-          <BetaLine feature={flag} />
-        </ScrollView>
+        // Each side is its own windowed list: the hero scrolls with it as the list's header, and
+        // the note line closes the screen as its footer — after the content, never above it.
+        showThreads ? (
+          <ThreadsFeed
+            header={head}
+            footer={<BetaLine feature={flag} />}
+            overlap={spacing.xl}
+            contentContainerStyle={listContent}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            onOpen={(id) => router.push(`/(student)/chat/thread/${id}` as Href)}
+          />
+        ) : (
+          <ChatInboxList
+            header={head}
+            footer={<BetaLine feature={flag} />}
+            overlap={spacing.xl}
+            contentContainerStyle={listContent}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            onOpen={(room) => router.push(`/(student)/chat/${room}` as Href)}
+          />
+        )
       )}
     </View>
   );

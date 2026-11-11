@@ -22,17 +22,24 @@ export function OrderSection({ icon, title, hint, tint, end, clip, style, childr
 }) {
   return (
     <View style={[{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, overflow: clip ? 'hidden' : 'visible' }, style]}>
-      <View style={{ flexDirection: 'row', alignItems: hint ? 'flex-start' : 'center', gap: spacing.sm, marginBottom: spacing.md }}>
-        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: tint.bg, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name={icon} size={19} color={tint.fg} />
-        </View>
-        <View style={{ flex: 1, minHeight: 36, justifyContent: 'center' }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{title}</Text>
-          {hint ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.textSecondary, marginTop: 1 }}>{hint}</Text> : null}
-        </View>
-        {end}
-      </View>
+      <OrderSectionHead icon={icon} title={title} hint={hint} tint={tint} end={end} />
       {children}
+    </View>
+  );
+}
+
+/** The head of a section card on its own — for a card whose body is the rows of a list. */
+export function OrderSectionHead({ icon, title, hint, tint, end }: { icon: IconName; title: string; hint?: string | null; tint: { bg: string; fg: string }; end?: ReactNode }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: hint ? 'flex-start' : 'center', gap: spacing.sm, marginBottom: spacing.md }}>
+      <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: tint.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={icon} size={19} color={tint.fg} />
+      </View>
+      <View style={{ flex: 1, minHeight: 36, justifyContent: 'center' }}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }} numberOfLines={1}>{title}</Text>
+        {hint ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: colors.textSecondary, marginTop: 1 }}>{hint}</Text> : null}
+      </View>
+      {end}
     </View>
   );
 }

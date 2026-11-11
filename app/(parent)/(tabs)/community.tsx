@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, RefreshControl } from 'react-native';
-import { ScrollView } from '@/components/ui/Refreshable';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -122,6 +121,8 @@ function ParentConversations() {
     />
   );
 
+  const listContent = { flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {bar}
@@ -134,31 +135,39 @@ function ParentConversations() {
           contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
         />
       ) : (
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.bottomHeight + insets.bottom + spacing.lg }}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        >
-          {head}
-          {showThreads ? (
-            <View style={{ paddingHorizontal: spacing.lg, marginTop: -(spacing.xl4 - spacing.sm) }}>
-              <ThreadsFeed reader="parent" onOpen={(id) => router.push(`/(parent)/chat/thread/${id}` as Href)} />
-            </View>
-          ) : (
-            <>
-              {rooms.length ? (
-                <View style={{ paddingBottom: spacing.md }}>
-                  <InboxChips list={rooms} value={filter} onChange={setFilter} />
-                </View>
-              ) : null}
-              <View style={{ paddingHorizontal: spacing.lg }}>
-                <ChatInboxList filter={filter} onOpen={(room) => router.push(`/(parent)/chat/${room}` as Href)} />
-              </View>
-            </>
-          )}
-          {/* The note line closes the screen — after the content, never above it. */}
-          <BetaLine feature={flag} />
-        </ScrollView>
+        // Each side is its own windowed list: the hero scrolls with it as the list's header, and
+        // the note line closes the screen as its footer — after the content, never above it.
+        showThreads ? (
+          <ThreadsFeed
+            reader="parent"
+            header={head}
+            footer={<BetaLine feature={flag} />}
+            overlap={spacing.xl4 - spacing.sm}
+            contentContainerStyle={listContent}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            onOpen={(id) => router.push(`/(parent)/chat/thread/${id}` as Href)}
+          />
+        ) : (
+          <ChatInboxList
+            filter={filter}
+            header={(
+              <>
+                {head}
+                {rooms.length ? (
+                  <View style={{ paddingBottom: spacing.md }}>
+                    <InboxChips list={rooms} value={filter} onChange={setFilter} />
+                  </View>
+                ) : null}
+              </>
+            )}
+            footer={<BetaLine feature={flag} />}
+            contentContainerStyle={listContent}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            onOpen={(room) => router.push(`/(parent)/chat/${room}` as Href)}
+          />
+        )
       )}
       <ChildrenConsentSheet visible={consentOpen} onClose={() => setConsentOpen(false)} />
     </View>

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { ScrollView } from '@/components/ui/Refreshable';
+import { FlatList } from '@/components/ui/Refreshable';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +16,9 @@ import { getPrintOptions, type MarketShop, type PrintJob } from '@/api/print';
 const SHOWN = 8;
 const CHIP_ICON: Record<StripChip, IconName> = { recommended: 'thumbUp', nearest: 'location', cheapest: 'pricetag', fastest: 'flash', delivery: 'delivery' };
 const CHIP_LABEL: Record<StripChip, string> = { recommended: 'print.chip_recommended', nearest: 'print.sort_nearest', cheapest: 'print.sort_cheapest', fastest: 'print.sort_fastest', delivery: 'print.chip_delivery' };
+
+const chipKey = (c: StripChip) => c;
+const shopKey = (s: MarketShop) => String(s.vendor_id);
 
 /** «مطبعة واحدة / مطبعتين / ٥ مطابع / ١٢ مطبعة». */
 function countLine(t: (k: string, o?: any) => string, n: number) {
@@ -43,6 +46,20 @@ export function PrintTabShopsStrip({ shops, jobs, onAll }: { shops: MarketShop[]
   // A chip the data no longer honours (pull-to-refresh changed the list) falls back to «مقترحة».
   const active: StripChip = chips.includes(chip) ? chip : 'recommended';
   const shown = useMemo(() => orderStrip(shops, active, used).slice(0, SHOWN), [shops, active, used]);
+
+  const renderChip = useCallback(({ item: c }: { item: StripChip }) => {
+    const on = c === active;
+    return (
+      <TouchableOpacity onPress={() => setChip(c)} activeOpacity={0.85} accessibilityRole="radio" accessibilityState={{ selected: on }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border }}>
+        <Icon name={CHIP_ICON[c]} size={13} color={on ? colors.onPrimary : colors.textTertiary} />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onPrimary : colors.textSecondary }}>{t(CHIP_LABEL[c])}</Text>
+      </TouchableOpacity>
+    );
+  }, [active, t]);
+  const renderShop = useCallback(({ item: s }: { item: MarketShop }) => (
+    <PrintTabShopCard s={s} labels={labels} used={used.get(s.vendor_id) ?? 0} focus={active} />
+  ), [labels, used, active]);
 
   // The soft line under the title: count, then the nearest (or how many are open), then delivery.
   type Fact = { k: string; icon: IconName; text: string; tone?: string };
@@ -87,29 +104,22 @@ export function PrintTabShopsStrip({ shops, jobs, onAll }: { shops: MarketShop[]
       {/* quick chips — they re-order the strip here, nothing is fetched */}
       {chips.length ? (
         <Surface id="teacher.print_tab.shops.chips">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
-            {chips.map((c) => {
-              const on = c === active;
-              return (
-                <TouchableOpacity key={c} onPress={() => setChip(c)} activeOpacity={0.85} accessibilityRole="radio" accessibilityState={{ selected: on }}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: on ? colors.brand : colors.surface, borderWidth: 1, borderColor: on ? colors.brand : colors.border }}>
-                  <Icon name={CHIP_ICON[c]} size={13} color={on ? colors.onPrimary : colors.textTertiary} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onPrimary : colors.textSecondary }}>{t(CHIP_LABEL[c])}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <FlatList horizontal data={chips} keyExtractor={chipKey} renderItem={renderChip} extraData={active}
+            initialNumToRender={5} maxToRenderPerBatch={5} windowSize={5}
+            showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }} />
         </Surface>
       ) : null}
 
       {/* re-keyed per chip so a new order starts at its first card */}
-      <ScrollView key={active} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: 4 }}>
-        {shown.map((s) => <PrintTabShopCard key={s.vendor_id} s={s} labels={labels} used={used.get(s.vendor_id) ?? 0} focus={active} />)}
-
-        {/* the end of the strip: every shop, on the map */}
+      <FlatList key={active} horizontal data={shown} keyExtractor={shopKey} renderItem={renderShop}
+        initialNumToRender={3} maxToRenderPerBatch={3} windowSize={5}
+        showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: 4 }}
+        ListFooterComponentStyle={{ alignSelf: 'stretch' }}
+        // the end of the strip: every shop, on the map
+        ListFooterComponent={(
         <Surface id="teacher.print_tab.shops.map">
           <TouchableOpacity onPress={onAll} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel={t('print.strip_map_title')}
-            style={{ width: 156, alignSelf: 'stretch', borderRadius: radius.xl, overflow: 'hidden' }}>
+            style={{ width: 156, flex: 1, borderRadius: radius.xl, overflow: 'hidden' }}>
             <LinearGradient colors={gradients.auth} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, padding: spacing.md, justifyContent: 'space-between' }}>
               {/* a hint of a map: two roads and three pins, barely there */}
               <View pointerEvents="none" style={{ position: 'absolute', top: 58, start: -20, width: 220, height: 2, backgroundColor: 'rgba(255,255,255,0.08)', transform: [{ rotate: '-18deg' }] }} />
@@ -134,7 +144,7 @@ export function PrintTabShopsStrip({ shops, jobs, onAll }: { shops: MarketShop[]
             </LinearGradient>
           </TouchableOpacity>
         </Surface>
-      </ScrollView>
+        )} />
     </View>
   );
 }

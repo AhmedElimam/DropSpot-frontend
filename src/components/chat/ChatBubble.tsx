@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, Text, TouchableOpacity, I18nManager } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  Extrapolation, FadeInDown, ZoomIn, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming,
+  Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
@@ -288,7 +288,7 @@ export const ChatBubble = memo(function ChatBubble({
       {reactions.map((r) => {
         const own = myId != null && r.user_ids.includes(myId);
         return (
-          <Animated.View key={r.emoji} entering={bare ? undefined : ZoomIn.springify().damping(14)}>
+          <View key={r.emoji}>
             <TouchableOpacity
               onPress={onReact && !bare ? () => onReact(message, r.emoji) : undefined}
               disabled={!onReact || bare}
@@ -306,17 +306,14 @@ export const ChatBubble = memo(function ChatBubble({
               {kindOfEmoji(r.emoji) ? <ReactionGlyph kind={kindOfEmoji(r.emoji)!} size={17} /> : <Text style={{ fontSize: 14 }}>{r.emoji}</Text>}
               {r.count > 1 ? <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: own ? colors.brand : colors.textSecondary }}>{r.count}</Text> : null}
             </TouchableOpacity>
-          </Animated.View>
+          </View>
         );
       })}
     </View>
   ) : null;
 
   return (
-    <Animated.View
-      entering={sending && !bare ? FadeInDown.duration(180).springify().damping(18) : undefined}
-      style={{ alignSelf: side, maxWidth: '85%', marginTop: bare ? 0 : showName ? spacing.md : 3 }}
-    >
+    <View style={{ alignSelf: side, maxWidth: '85%', marginTop: bare ? 0 : showName ? spacing.md : 3 }}>
       {canSwipe ? (
         // The reply arrow waits at the bubble's left edge; the bubble slides off it.
         <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: 0, bottom: 0, justifyContent: 'center', width: 34, ...(rtl ? { end: 0 } : { start: 0 }) }, arrowStyle]}>
@@ -351,7 +348,7 @@ export const ChatBubble = memo(function ChatBubble({
           <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.dangerText }}>{t('chat.retry')}</Text>
         </TouchableOpacity>
       ) : null}
-    </Animated.View>
+    </View>
   );
 });
 

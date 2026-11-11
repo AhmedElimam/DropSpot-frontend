@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Pressable, RefreshControl } from 'react-native';
-import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
-import { ScrollView } from '@/components/ui/Refreshable';
+import { FlatList } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -29,6 +28,13 @@ import { AnswerSheet, AudienceSheet, ExtendSheet, ReportSheet, Sheet, TextSheet 
 import { CalmNote } from './ThreadsFeed';
 import { audienceLine, childLabel, hiddenByParent, readOnlyNote } from './parents';
 import { ReactionGlyph } from '@/components/reactions/ReactionGlyph';
+
+const NO_COMMENTS: ThreadComment[] = [];
+const commentKey = (c: ThreadComment) => String(c.id);
+
+function CommentGap() {
+  return <View style={{ height: spacing.md }} />;
+}
 
 type MenuItem = { key: string; icon: IconName; label: string; danger?: boolean; onPress: () => void };
 
@@ -167,6 +173,25 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
     });
   };
 
+  // One answer of the list. The row is memoised; everything it needs is a value or a stable handler.
+  const canVote = !!perms?.can_vote;
+  const canComment = !!perms?.can_comment;
+  const downvotes = !!thread?.downvotes_enabled;
+  const renderComment = useCallback(({ item: c }: { item: ThreadComment }) => (
+    <View style={{ paddingHorizontal: spacing.lg }}>
+      <CommentRow
+        comment={c}
+        canVote={canVote && !c.author.is_me && !c.hidden}
+        scoreOnly={isParent}
+        downvotes={downvotes}
+        canEdit={c.author.is_me && !c.hidden && canComment}
+        onVote={onVote}
+        onMenu={onCommentMenu}
+        onEdit={editMine}
+      />
+    </View>
+  ), [canVote, canComment, downvotes, isParent, onVote, onCommentMenu, editMine]);
+
   const state: ThreadState = thread ? stateOf(thread) : 'open';
   const question = thread?.kind === 'question';
   const maxChars = data?.limits.comment_max_chars ?? 1000;
@@ -191,75 +216,72 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
             <ErrorState onRetry={() => refetch()} />
           </>
         ) : (
-          <ScrollView
+          // The answers are the page's one scroller, windowed; the hero, the teacher's answer and
+          // the notices scroll with them as the list's header.
+          <FlatList
+            data={question ? data.comments : NO_COMMENTS}
+            keyExtractor={commentKey}
+            renderItem={renderComment}
+            ItemSeparatorComponent={CommentGap}
+            ListHeaderComponent={(
+              <>
+                <Hero
+                  thread={thread}
+                  state={state}
+                  perms={perms}
+                  isModerator={isModerator}
+                  onMore={postMenu.length ? () => setMenu({ title: t('threads.post_actions'), items: postMenu }) : undefined}
+                  onPlay={setPlayer}
+                  onAudience={isModerator ? setAudienceFor : undefined}
+                  onElapsed={refetch}
+                  onAnswer={() => setAnswerOpen(true)}
+                  onLock={() => Alert.alert(t('threads.lock_now'), t('threads.lock_confirm'), [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    { text: t('threads.lock_short'), onPress: () => lock.mutate(undefined, { onSuccess: () => haptic('success'), onError: fail }) },
+                  ])}
+                  onExtend={() => setExtendOpen(true)}
+                />
+
+                <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl, gap: spacing.md, paddingBottom: question && data.comments.length > 0 ? spacing.md : 0 }}>
+                  {question && thread.answer ? <AnswerCard thread={thread} onPlay={setPlayer} onAudience={isModerator ? setAudienceFor : undefined} /> : null}
+
+                  {question && !thread.answer && !thread.open && !isModerator ? (
+                    <Notice icon="hourglass" tone="warning" text={thread.closed_reason === 'locked' ? t('threads.closed_banner_locked') : t('threads.closed_banner_timer')} />
+                  ) : null}
+
+                  {thread.answers_hidden ? <QuizLocked parent={isParent} /> : null}
+
+                  {/* The student is told their parents can read this (founder 2026-10-15). */}
+                  {question && isStudent && thread.parents_can_see ? <CalmNote icon="people" text={t('threads.parents_can_see')} /> : null}
+
+                  {question ? (
+                    <>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: 4, marginTop: spacing.sm }}>
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('threads.student_answers')}</Text>
+                        <View style={{ paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{arDigits(thread.comments_count)}</Text>
+                        </View>
+                        <View style={{ flex: 1 }} />
+                      </View>
+                      {!thread.answers_hidden && data.comments.length > 1 ? (
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, paddingHorizontal: 4, marginTop: -spacing.sm }}>{t('threads.ranking_hint')}</Text>
+                      ) : null}
+
+                      {data.comments.length === 0 ? <NoAnswers staff={isModerator} parent={isParent} /> : null}
+                    </>
+                  ) : null}
+                </View>
+              </>
+            )}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ flexGrow: 1, paddingBottom: spacing.xl + (perms?.can_comment || readOnlyBar ? 0 : insets.bottom) }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-          >
-            <Hero
-              thread={thread}
-              state={state}
-              perms={perms}
-              isModerator={isModerator}
-              onMore={postMenu.length ? () => setMenu({ title: t('threads.post_actions'), items: postMenu }) : undefined}
-              onPlay={setPlayer}
-              onAudience={isModerator ? setAudienceFor : undefined}
-              onElapsed={refetch}
-              onAnswer={() => setAnswerOpen(true)}
-              onLock={() => Alert.alert(t('threads.lock_now'), t('threads.lock_confirm'), [
-                { text: t('common.cancel'), style: 'cancel' },
-                { text: t('threads.lock_short'), onPress: () => lock.mutate(undefined, { onSuccess: () => haptic('success'), onError: fail }) },
-              ])}
-              onExtend={() => setExtendOpen(true)}
-            />
-
-            <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl, gap: spacing.md }}>
-              {question && thread.answer ? <AnswerCard thread={thread} onPlay={setPlayer} onAudience={isModerator ? setAudienceFor : undefined} /> : null}
-
-              {question && !thread.answer && !thread.open && !isModerator ? (
-                <Notice icon="hourglass" tone="warning" text={thread.closed_reason === 'locked' ? t('threads.closed_banner_locked') : t('threads.closed_banner_timer')} />
-              ) : null}
-
-              {thread.answers_hidden ? <QuizLocked parent={isParent} /> : null}
-
-              {/* The student is told their parents can read this (founder 2026-10-15). */}
-              {question && isStudent && thread.parents_can_see ? <CalmNote icon="people" text={t('threads.parents_can_see')} /> : null}
-
-              {question ? (
-                <>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: 4, marginTop: spacing.sm }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{t('threads.student_answers')}</Text>
-                    <View style={{ paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{arDigits(thread.comments_count)}</Text>
-                    </View>
-                    <View style={{ flex: 1 }} />
-                  </View>
-                  {!thread.answers_hidden && data.comments.length > 1 ? (
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, paddingHorizontal: 4, marginTop: -spacing.sm }}>{t('threads.ranking_hint')}</Text>
-                  ) : null}
-
-                  {data.comments.length === 0 ? (
-                    <NoAnswers staff={isModerator} parent={isParent} />
-                  ) : data.comments.map((c, i) => (
-                    <CommentRow
-                      key={c.id}
-                      comment={c}
-                      index={i}
-                      canVote={!!perms?.can_vote && !c.author.is_me && !c.hidden}
-                      scoreOnly={isParent}
-                      downvotes={thread.downvotes_enabled}
-                      canEdit={c.author.is_me && !c.hidden && !!perms?.can_comment}
-                      onVote={onVote}
-                      onMenu={onCommentMenu}
-                      onEdit={editMine}
-                    />
-                  ))}
-                </>
-              ) : null}
-            </View>
-          </ScrollView>
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={9}
+          />
         )}
 
         {/* The student's composer, pinned like the chat's. */}
@@ -408,7 +430,7 @@ function Hero({ thread, state, perms, isModerator, onMore, onPlay, onAudience, o
       </View>
 
       {/* Row 2: who asked, which grade, when */}
-      <Animated.View entering={FadeIn.duration(240)} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.lg }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.lg }}>
         <InitialsAvatar id={thread.teacher.id} name={thread.teacher.name} size={44} ring={colors.onHeroChipBorder} />
         <View style={{ flex: 1, gap: 3 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.onHero }} numberOfLines={1}>{thread.teacher.name}</Text>
@@ -437,13 +459,13 @@ function Hero({ thread, state, perms, isModerator, onMore, onPlay, onAudience, o
           <Icon name={note ? 'lightbulb' : 'question'} size={14} color={colors.onPrimary} />
           <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.onPrimary }}>{note ? t('threads.note_badge') : t('threads.kind_question')}</Text>
         </View>
-      </Animated.View>
+      </View>
 
       {/* The question */}
-      <Animated.View entering={FadeInDown.delay(60).duration(300)} style={{ marginTop: spacing.lg, gap: spacing.sm }}>
+      <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
         {thread.title ? <Text selectable style={{ fontFamily: fonts.bold, fontSize: 22, lineHeight: 35, color: colors.onHero }}>{thread.title}</Text> : null}
         {thread.body ? <Text selectable style={{ fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 26, color: colors.onHeroSoft }}>{thread.body}</Text> : null}
-      </Animated.View>
+      </View>
 
       {thread.video ? (
         <View style={{ marginTop: spacing.md }}>
@@ -452,7 +474,7 @@ function Hero({ thread, state, perms, isModerator, onMore, onPlay, onAudience, o
       ) : null}
 
       {/* The round: a ring that empties, or a seal once it is over */}
-      <Animated.View entering={FadeInDown.delay(120).duration(300)} style={{ marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.xl, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, gap: spacing.md }}>
+      <View style={{ marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.xl, backgroundColor: colors.onHeroChip, borderWidth: 1, borderColor: colors.onHeroChipBorder, gap: spacing.md }}>
         <RoundState thread={thread} state={state} staff={isModerator} onElapsed={onElapsed} />
         {staffActions ? (
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -466,7 +488,7 @@ function Hero({ thread, state, perms, isModerator, onMore, onPlay, onAudience, o
             {perms?.can_extend && !thread.open ? <HeroAction icon="timer" label={t('threads.extend')} onPress={onExtend} /> : null}
           </View>
         ) : null}
-      </Animated.View>
+      </View>
     </LinearGradient>
   );
 }
@@ -509,9 +531,9 @@ function RoundState({ thread, state, staff, onElapsed }: { thread: Thread; state
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}>
-      <Animated.View entering={ZoomIn.duration(260)} style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: seal.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: colors.onHeroChipBorder }}>
+      <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: seal.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: colors.onHeroChipBorder }}>
         <Icon name={seal.icon} size={28} color={colors.onPrimary} />
-      </Animated.View>
+      </View>
       <View style={{ flex: 1, gap: 4 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onHero }}>{seal.title}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft }}>{seal.sub}</Text>
@@ -538,7 +560,7 @@ function AnswerCard({ thread, onPlay, onAudience }: { thread: Thread; onPlay: (v
   const { t } = useTranslation();
   const a = thread.answer!;
   return (
-    <Animated.View entering={FadeInDown.delay(80).duration(320)} style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1.5, borderColor: colors.success, overflow: 'hidden', ...shadows.md }}>
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1.5, borderColor: colors.success, overflow: 'hidden', ...shadows.md }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.successLight }}>
         <InitialsAvatar id={thread.teacher.id} name={thread.teacher.name} size={32} />
         <View style={{ flex: 1 }}>
@@ -551,7 +573,7 @@ function AnswerCard({ thread, onPlay, onAudience }: { thread: Thread; onPlay: (v
         {a.body ? <Text selectable style={{ fontFamily: fonts.regular, fontSize: 16, lineHeight: 27, color: colors.textPrimary }}>{a.body}</Text> : null}
         {a.video ? <VideoBlock video={a.video} onPlay={() => onPlay(a.video!)} onAudience={onAudience ? () => onAudience(a.video!.id) : undefined} /> : null}
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -592,7 +614,7 @@ function VideoBlock({ video, onPlay, onAudience, onHero }: { video: ThreadVideo;
 function QuizLocked({ parent }: { parent?: boolean }) {
   const { t } = useTranslation();
   return (
-    <Animated.View entering={FadeInDown.duration(300)} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg, padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.border }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg, padding: spacing.lg, borderRadius: radius.xl, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.border }}>
       <View style={{ width: 66, height: 66 }}>
         <View style={{ position: 'absolute', top: 6, start: 6, width: 54, height: 54, borderRadius: 18, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }] }}>
           <Icon name="lock" size={26} color={colors.onPrimary} />
@@ -605,7 +627,7 @@ function QuizLocked({ parent }: { parent?: boolean }) {
         <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, color: colors.textPrimary }}>{t('threads.answers_hidden_title')}</Text>
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>{parent ? t('threads.answers_hidden_body_parent') : t('threads.answers_hidden_body')}</Text>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -613,7 +635,7 @@ function QuizLocked({ parent }: { parent?: boolean }) {
 function Unavailable({ student }: { student: boolean }) {
   const { t } = useTranslation();
   return (
-    <Animated.View entering={FadeInDown.duration(300)} style={{ margin: spacing.lg, alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, borderRadius: radius.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight }}>
+    <View style={{ margin: spacing.lg, alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, borderRadius: radius.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight }}>
       <View style={{ width: 72, height: 72, borderRadius: 26, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm }}>
         <Icon name="lock" size={30} color={colors.brand} />
       </View>
@@ -624,38 +646,37 @@ function Unavailable({ student }: { student: boolean }) {
       <TouchableOpacity onPress={() => router.back()} activeOpacity={0.85} accessibilityRole="button" style={{ marginTop: spacing.md, paddingHorizontal: spacing.xl, height: 44, borderRadius: radius.full, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: colors.onPrimary }}>{t('threads.end_back')}</Text>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 }
 
 function NoAnswers({ staff, parent }: { staff: boolean; parent?: boolean }) {
   const { t } = useTranslation();
   return (
-    <Animated.View entering={FadeIn.duration(260)} style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl, borderRadius: radius.xl, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border }}>
+    <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl, borderRadius: radius.xl, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border }}>
       <View style={{ width: 56, height: 56, borderRadius: 20, backgroundColor: colors.accentWarmTint, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="sparkles" size={26} color={colors.accentWarm} />
       </View>
       <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{staff ? t('threads.no_answers_teacher') : parent ? t('threads.no_answers_parent') : t('threads.no_answers')}</Text>
-    </Animated.View>
+    </View>
   );
 }
 
 function Notice({ icon, tone, text }: { icon: IconName; tone: 'warning'; text: string }) {
   return (
-    <Animated.View entering={FadeInDown.duration(280)} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.xl, backgroundColor: tone === 'warning' ? colors.warningLight : colors.surface, borderWidth: 1, borderColor: colors.warning }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.xl, backgroundColor: tone === 'warning' ? colors.warningLight : colors.surface, borderWidth: 1, borderColor: colors.warning }}>
       <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={icon} size={18} color={colors.warning} outline />
       </View>
       <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, lineHeight: 21, color: colors.warningText }}>{text}</Text>
-    </Animated.View>
+    </View>
   );
 }
 
 // ── An answer ───────────────────────────────────────────────────────────────
 
-const CommentRow = memo(function CommentRow({ comment: c, index, canVote, scoreOnly, downvotes, canEdit, onVote, onMenu, onEdit }: {
+const CommentRow = memo(function CommentRow({ comment: c, canVote, scoreOnly, downvotes, canEdit, onVote, onMenu, onEdit }: {
   comment: ThreadComment;
-  index: number;
   canVote: boolean;
   /** A parent: the score, read-only, no arrows. */
   scoreOnly?: boolean;
@@ -675,7 +696,6 @@ const CommentRow = memo(function CommentRow({ comment: c, index, canVote, scoreO
   const border = c.picked ? colors.accentWarm : own ? colors.brand : colors.borderLight;
 
   return (
-    <Animated.View entering={FadeInDown.delay(Math.min(index, 6) * 40).duration(260)}>
       <Pressable onLongPress={() => onMenu(c)} delayLongPress={320} style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}>
         <View style={{ flexDirection: 'row', gap: spacing.md, backgroundColor: bg, borderRadius: radius.xl, borderWidth: c.picked || own ? 1.5 : 1, borderColor: border, padding: spacing.md }}>
           <InitialsAvatar id={c.author.id} name={c.author.name} size={38} ring={c.picked ? colors.accentWarm : null} />
@@ -728,7 +748,6 @@ const CommentRow = memo(function CommentRow({ comment: c, index, canVote, scoreO
           </View>
         </View>
       </Pressable>
-    </Animated.View>
   );
 });
 
@@ -759,9 +778,9 @@ function VotePill({ comment: c, canVote, downvotes, onVote }: { comment: ThreadC
         {/* The up-vote wears the app's own «like» (founder 2026-10-28: our own reactions everywhere). */}
         <ReactionGlyph kind="like" size={20} muted={!up} />
       </TouchableOpacity>
-      <Animated.Text key={c.score} entering={ZoomIn.duration(160)} style={{ minWidth: 22, textAlign: 'center', fontFamily: fonts.bold, fontSize: 14, color: scoreInk, fontVariant: ['tabular-nums'] }}>
+      <Text style={{ minWidth: 22, textAlign: 'center', fontFamily: fonts.bold, fontSize: 14, color: scoreInk, fontVariant: ['tabular-nums'] }}>
         {c.score > 0 ? `+${arDigits(c.score)}` : c.score < 0 ? `-${arDigits(-c.score)}` : arDigits(0)}
-      </Animated.Text>
+      </Text>
       {downvotes ? (
         <TouchableOpacity onPress={() => onVote(c, down ? 0 : -1)} disabled={!canVote} hitSlop={6} accessibilityRole="button" accessibilityLabel={t('threads.vote_down')} accessibilityState={{ selected: down, disabled: !canVote }}
           style={{ width: 34, height: 32, alignItems: 'center', justifyContent: 'center' }}>

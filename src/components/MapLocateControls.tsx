@@ -6,7 +6,7 @@ import { Icon } from '@/components/ui/Icon';
 /**
  * The two round buttons on every map (founder 2026-10-14: «on the locator, above it the icon of
  * live tracking, and change the locator icon»): on top, live tracking — the waves of the live
- * location, lit while the map follows the phone (a drag stops it); under it the locator, a
+ * location, lit while the map follows the phone's 30 s readings (a drag stops it); under it the locator, a
  * crosshair, that brings the map back to where you are once.
  */
 export function MapLocateControls({ hasFix, following, onFollow, onLocate }: {
@@ -15,9 +15,11 @@ export function MapLocateControls({ hasFix, following, onFollow, onLocate }: {
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!following) { pulse.setValue(0); return; }
-    const loop = Animated.loop(Animated.timing(pulse, { toValue: 1, duration: 1500, easing: Easing.out(Easing.quad), useNativeDriver: true }));
-    loop.start();
-    return () => loop.stop();
+    // Two waves when following starts, then still: the lit button says the rest (no endless animation).
+    const wave = () => Animated.timing(pulse, { toValue: 1, duration: 1500, easing: Easing.out(Easing.quad), useNativeDriver: true });
+    const burst = Animated.sequence([wave(), Animated.timing(pulse, { toValue: 0, duration: 0, useNativeDriver: true }), wave()]);
+    burst.start();
+    return () => burst.stop();
   }, [following, pulse]);
   const btn = { width: 46, height: 46, borderRadius: 23, alignItems: 'center' as const, justifyContent: 'center' as const, ...shadows.md };
 

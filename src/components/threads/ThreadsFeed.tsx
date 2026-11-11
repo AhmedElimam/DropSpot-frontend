@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { View, Text, ActivityIndicator, RefreshControl, TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native';
+import { FlatList } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from '@react-navigation/native';
 import { fonts } from '@/theme/typography';
@@ -9,22 +9,44 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useAuthStore } from '@/stores/authStore';
 import { useThreadsFeed, useThreadsRealtime } from '@/hooks/useThreads';
+import type { Thread } from '@/api/threads';
 import { ThreadCard } from './ThreadCard';
+import { ThreadFilterChips } from './ThreadFilterChips';
 import { InitialsAvatar } from './Avatar';
-import { arDigits, filterCounts, matchesFilter, stateOf, type ThreadFilter } from './format';
+import { filterCounts, matchesFilter, stateOf, type ThreadFilter } from './format';
+
+const threadKey = (th: Thread) => String(th.id);
+
+function CardGap() {
+  return <View style={{ height: spacing.md }} />;
+}
 
 /**
  * حكاوي's feed, shared by the student's tab and the teacher's segment. Newest first, with
  * client-side filter chips (open / waiting for the teacher / answered / تكات). A teacher gets
  * a social composer on top and — while their own switch is off — an amber card that says
  * their students see nothing yet. Settings and the reports queue live in the page hero.
+ *
+ * The posts are the page's ONE vertical scroller, windowed (a FlatList, never a ScrollView of
+ * cards): the caller's hero comes in as `header` and scrolls with them, the closing line as
+ * `footer`. Never put this inside a ScrollView.
  */
-export function ThreadsFeed({ onOpen, onCompose, onSettings, reader }: {
+export function ThreadsFeed({ onOpen, onCompose, onSettings, reader, header, footer, overlap = 0, contentContainerStyle, refreshing, onRefresh }: {
   onOpen: (id: number) => void;
   onCompose?: (kind: 'question' | 'note') => void;
   onSettings?: () => void;
   /** A parent's feed (founder 2026-10-15): their wording, read-only. */
   reader?: 'parent';
+  /** What scrolls above the feed (the screen's hero). */
+  header?: ReactElement | null;
+  /** After the last post (the beta note line). */
+  footer?: ReactElement | null;
+  /** How far the feed rises over the hero's foot. */
+  overlap?: number;
+  contentContainerStyle?: StyleProp<ViewStyle>;
+  /** Pull-to-refresh (the host's own queries: the feed and its badges). */
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }) {
   const { t } = useTranslation();
   const focused = useIsFocused();
@@ -55,89 +77,82 @@ export function ThreadsFeed({ onOpen, onCompose, onSettings, reader }: {
   const parentsSee = !isStaff && !isParent && list.some((th) => th.parents_can_see && th.permissions.role === 'student');
   const closedByParent = !isStaff && !isParent && data?.participation === 'off';
 
-  if (isLoading) return <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl4 }} />;
-  if (isError) return <ErrorState onRetry={() => refetch()} />;
-
-  const chips: { key: ThreadFilter; label: string; icon: IconName }[] = [
-    { key: 'all', label: t('threads.filter_all'), icon: 'threads' },
-    { key: 'open', label: t('threads.filter_open'), icon: 'timer' },
-    { key: 'waiting', label: isStaff ? t('threads.filter_waiting_teacher') : t('threads.filter_waiting'), icon: 'hourglass' },
-    { key: 'answered', label: t('threads.filter_answered'), icon: 'success' },
-    ...(counts.notes > 0 ? [{ key: 'notes' as const, label: t('threads.filter_notes'), icon: 'lightbulb' as const }] : []),
-  ];
-
-  if (closedByParent && list.length === 0) return <ClosedByParent />;
-
-  return (
-    <View style={{ gap: spacing.md }}>
-      {isTeacher && data?.settings && !data.settings.enabled ? <OffCard onPress={onSettings} /> : null}
-
-      {parentsSee ? <CalmNote icon="people" text={t('threads.parents_can_see')} /> : null}
-      {isParent && list.length > 0 ? <CalmNote icon="shield" text={t('threads.parent_note')} /> : null}
-
-      {isStaff && !isTeacher ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brandTint }}>
-          <Icon name="shield" size={17} color={colors.brand} />
-          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.textPrimary }}>{t('threads.assistant_note')}</Text>
-        </View>
-      ) : null}
-
-      {isTeacher && onCompose ? (
-        <ComposerRow
-          teacher={list[0]?.teacher}
-          onQuestion={() => onCompose('question')}
-          onNote={() => onCompose('note')}
-        />
-      ) : null}
-
-      {list.length > 0 ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginHorizontal: -spacing.lg, flexGrow: 0 }}
-          contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.sm, paddingVertical: 2 }}
-        >
-          {chips.map((c) => (
-            <FilterChip key={c.key} label={c.label} icon={c.icon} count={counts[c.key]} active={filter === c.key} onPress={() => setFilter(c.key)} />
-          ))}
-        </ScrollView>
-      ) : null}
-
-      {list.length === 0 ? (
-        <EmptyFeed teacher={isTeacher} parent={isParent} onCompose={onCompose ? () => onCompose('question') : undefined} />
-      ) : shown.length === 0 ? (
-        <Animated.Text entering={FadeIn.duration(200)} style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }}>
-          {t('threads.filter_empty')}
-        </Animated.Text>
-      ) : (
-        shown.map((th, i) => <ThreadCard key={th.id} thread={th} onOpen={open} staff={isStaff} index={i} />)
-      )}
+  const renderItem = useCallback(({ item }: { item: Thread }) => (
+    <View style={{ paddingHorizontal: spacing.lg }}>
+      <ThreadCard thread={item} onOpen={open} staff={isStaff} />
     </View>
+  ), [open, isStaff]);
+
+  const ready = !isLoading && !isError && !(closedByParent && list.length === 0);
+
+  // Everything above the posts: the screen's hero, then this feed's own notes, composer and chips.
+  const top = (
+    <>
+      {header}
+      <View style={{ paddingHorizontal: spacing.lg, marginTop: -overlap, gap: spacing.md, paddingBottom: ready && shown.length > 0 ? spacing.md : 0 }}>
+        {isLoading ? (
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: spacing.xl4 }} />
+        ) : isError ? (
+          <ErrorState onRetry={() => refetch()} />
+        ) : !ready ? (
+          <ClosedByParent />
+        ) : (
+          <>
+            {isTeacher && data?.settings && !data.settings.enabled ? <OffCard onPress={onSettings} /> : null}
+
+            {parentsSee ? <CalmNote icon="people" text={t('threads.parents_can_see')} /> : null}
+            {isParent && list.length > 0 ? <CalmNote icon="shield" text={t('threads.parent_note')} /> : null}
+
+            {isStaff && !isTeacher ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brandTint }}>
+                <Icon name="shield" size={17} color={colors.brand} />
+                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.textPrimary }}>{t('threads.assistant_note')}</Text>
+              </View>
+            ) : null}
+
+            {isTeacher && onCompose ? (
+              <ComposerRow
+                teacher={list[0]?.teacher}
+                onQuestion={() => onCompose('question')}
+                onNote={() => onCompose('note')}
+              />
+            ) : null}
+
+            {list.length > 0 ? <ThreadFilterChips value={filter} onChange={setFilter} counts={counts} staff={isStaff} bleed={spacing.lg} /> : null}
+
+            {list.length === 0 ? (
+              <EmptyFeed teacher={isTeacher} parent={isParent} onCompose={onCompose ? () => onCompose('question') : undefined} />
+            ) : shown.length === 0 ? (
+              <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textTertiary, textAlign: 'center', paddingVertical: spacing.xl }}>
+                {t('threads.filter_empty')}
+              </Text>
+            ) : null}
+          </>
+        )}
+      </View>
+    </>
+  );
+
+  return (
+    <FlatList
+      data={ready ? shown : NO_THREADS}
+      keyExtractor={threadKey}
+      renderItem={renderItem}
+      ListHeaderComponent={top}
+      ListFooterComponent={footer}
+      ItemSeparatorComponent={CardGap}
+      refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={colors.primary} /> : undefined}
+      // Fills the viewport, so the pull works on a short or empty feed too (Android).
+      contentContainerStyle={[{ flexGrow: 1 }, contentContainerStyle]}
+      showsVerticalScrollIndicator={false}
+      initialNumToRender={5}
+      maxToRenderPerBatch={5}
+      windowSize={7}
+    />
   );
 }
 
-function FilterChip({ label, icon, count, active, onPress }: { label: string; icon: IconName; count: number; active: boolean; onPress: () => void }) {
-  return (
-    <TouchableOpacity
-      onPress={() => { if (!active) onPress(); }}
-      activeOpacity={0.8}
-      accessibilityRole="tab"
-      accessibilityState={{ selected: active }}
-      style={{
-        flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: spacing.md, borderRadius: radius.full,
-        backgroundColor: active ? colors.brand : colors.surface, borderWidth: 1, borderColor: active ? colors.brand : colors.border,
-      }}
-    >
-      <Icon name={icon} size={14} color={active ? colors.onPrimary : colors.textTertiary} outline={!active} />
-      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: active ? colors.onPrimary : colors.textSecondary }}>{label}</Text>
-      {count > 0 ? (
-        <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? 'rgba(255,255,255,0.22)' : colors.surfaceSunken }}>
-          <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: active ? colors.onPrimary : colors.textTertiary }}>{arDigits(count)}</Text>
-        </View>
-      ) : null}
-    </TouchableOpacity>
-  );
-}
+const NO_THREADS: Thread[] = [];
 
 /** The teacher's «what's on your mind»: one tap to a question, one to a تكة. */
 function ComposerRow({ teacher, onQuestion, onNote }: { teacher?: { id: number; name: string }; onQuestion: () => void; onNote: () => void }) {
@@ -145,7 +160,7 @@ function ComposerRow({ teacher, onQuestion, onNote }: { teacher?: { id: number; 
   const me = useAuthStore((s) => s.user);
   const who = teacher ?? (me ? { id: me.id, name: me.name } : { id: 0, name: '' });
   return (
-    <Animated.View entering={FadeInDown.duration(260)} style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.md, gap: spacing.md, ...shadows.sm }}>
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.borderLight, padding: spacing.md, gap: spacing.md, ...shadows.sm }}>
       <TouchableOpacity onPress={onQuestion} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('threads.compose')} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <InitialsAvatar id={who.id} name={who.name} size={42} />
         <View style={{ flex: 1, minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.md, borderRadius: radius.full, backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border }}>
@@ -156,7 +171,7 @@ function ComposerRow({ teacher, onQuestion, onNote }: { teacher?: { id: number; 
         <QuickAction icon="question" label={t('threads.kind_question')} tint={colors.brandTint} ink={colors.brand} onPress={onQuestion} />
         <QuickAction icon="lightbulb" label={t('threads.kind_note')} tint={colors.accentWarmTint} ink={colors.accentText} onPress={onNote} />
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -202,7 +217,7 @@ function EmptyFeed({ teacher, parent, onCompose }: { teacher: boolean; parent?: 
     </View>
   );
   return (
-    <Animated.View entering={FadeInDown.duration(320)} style={{ alignItems: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, borderRadius: radius.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight }}>
+    <View style={{ alignItems: 'center', paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, borderRadius: radius.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: spacing.lg }}>
         {bubble('lightbulb', colors.accentWarm, colors.onAccent, 58, '-10deg', 6)}
         <View style={{ marginHorizontal: -10, zIndex: 1 }}>{bubble('question', colors.brand, colors.onPrimary, 80, '0deg')}</View>
@@ -218,17 +233,17 @@ function EmptyFeed({ teacher, parent, onCompose }: { teacher: boolean; parent?: 
           <Text style={{ fontFamily: fonts.bold, fontSize: 14.5, color: '#FFFFFF' }}>{t('threads.empty_teacher_cta')}</Text>
         </TouchableOpacity>
       ) : null}
-    </Animated.View>
+    </View>
   );
 }
 
 /** One calm line on the feed's top: who can see, what a parent can do. Never alarming. */
 export function CalmNote({ icon, text }: { icon: IconName; text: string }) {
   return (
-    <Animated.View entering={FadeIn.duration(220)} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brandTint }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brandTint }}>
       <Icon name={icon} size={16} color={colors.brand} outline />
       <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.textPrimary }}>{text}</Text>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -236,7 +251,7 @@ export function CalmNote({ icon, text }: { icon: IconName; text: string }) {
 export function ClosedByParent() {
   const { t } = useTranslation();
   return (
-    <Animated.View entering={FadeInDown.duration(320)} style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, borderRadius: radius.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight }}>
+    <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg, borderRadius: radius.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderLight }}>
       <View style={{ width: 76, height: 76, borderRadius: 28, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm }}>
         <Icon name="lock" size={32} color={colors.brand} />
         <View style={{ position: 'absolute', bottom: -6, end: -6, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.accentWarm, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: colors.surface }}>
@@ -245,6 +260,6 @@ export function ClosedByParent() {
       </View>
       <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, textAlign: 'center' }}>{t('threads.off_title')}</Text>
       <Text style={{ fontFamily: fonts.regular, fontSize: 14, lineHeight: 22, color: colors.textSecondary, textAlign: 'center' }}>{t('threads.off_body')}</Text>
-    </Animated.View>
+    </View>
   );
 }

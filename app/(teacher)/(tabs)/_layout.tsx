@@ -59,8 +59,12 @@ export default function TeacherTabsLayout() {
   // A gold dot on «المطبعة» while the marketplace reached this teacher as a beta (feature targeting).
   const printBeta = useBetaFeature('print_market');
   const tabs = (printTab ? PRINT_ORDER : TAB_ORDER).filter((n) => !hiddenSurfaces.has(`tab.teacher.${n}`));
-  // Jobs on their way light the tab, like a delivery app's.
-  const printJobs = useQuery({ queryKey: ['print-jobs'], queryFn: getPrintJobs, enabled: printTab, staleTime: 60_000, refetchInterval: 120_000 });
+  // Jobs on their way light the tab, like a delivery app's. No poll here: this layout is always
+  // mounted, so a timer would run under every screen. The badge reads the SAME cached query the
+  // print tab polls while it is in front (['print-jobs'], 30 s), the order pages invalidate it
+  // on every action, and returning to the app refetches it once it is 2 minutes old
+  // (src/api/queryFocus.ts) — and only when the print tab is on for this person.
+  const printJobs = useQuery({ queryKey: ['print-jobs'], queryFn: getPrintJobs, enabled: printTab, staleTime: 60_000 });
   const badges = useMemo(() => ({ print: (printJobs.data?.open ?? []).filter((j) => j.status === 'ready' || j.delivery?.is_active).length }), [printJobs.data]);
   const center = tabs.includes(CENTER_TAB) ? CENTER_TAB : (tabs[Math.floor(tabs.length / 2)] ?? CENTER_TAB);
   // Freezing the hidden tabs (react-freeze) is a FLAG, off by default (2026-10-01): with 5+

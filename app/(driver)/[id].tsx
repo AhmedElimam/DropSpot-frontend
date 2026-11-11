@@ -4,14 +4,16 @@ import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Location from 'expo-location';
 import { Alert } from '@/ui/dialog';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { Field, Input, Banner } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
-import { LiveMap, headingOf } from '@/components/LiveMap';
+import { LiveMap, useMyLocation } from '@/components/LiveMap';
+import { TripSteps } from '@/components/driver/TripSteps';
+import { useOnScreen } from '@/hooks/useAmbientMotion';
+import { LOCATION_BEAT_MS, sampleFix } from '@/utils/foregroundLocation';
 import { formatNumber, formatTime } from '@/utils/format';
 import { getDriverDelivery, deliveryStep, deliveryPing, deliveryDeliver, deliveryFail, DELIVERY_FLOW, type DriverDelivery } from '@/api/driver';
 import { TONE, teacherLabel } from './index';
@@ -33,24 +35,26 @@ function openDirections(lat: number, lng: number, label?: string | null) {
 
 /**
  * One trip, the rider's way: the map with the pin, the teacher's phone, one big button per
- * step. While the trip is active the phone's position goes up every few seconds, so the
- * teacher watches the dot and the server calls «arrived» by itself near the pin.
+ * step. While the trip is active and THIS screen is in front (it keeps the phone awake), one
+ * reading of the phone's position goes up every 30 s — and at once on opening and on «وصلت» /
+ * handing over — so the teacher watches the dot and the server calls «arrived» by itself near
+ * the pin. Foreground only: nothing is sent with the screen off (performance rule 8).
  */
 export default function DriverTrip() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const qc = useQueryClient();
-  const trip = useQuery({ queryKey: ['driver-delivery', id], queryFn: () => getDriverDelivery(id!), enabled: !!id, refetchInterval: 15000 });
+  const onScreen = useOnScreen();
+  const trip = useQuery({ queryKey: ['driver-delivery', id], queryFn: () => getDriverDelivery(id!), enabled: !!id,
+    refetchInterval: onScreen ? 30_000 : false,
+  });
   const d = trip.data;
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState('');
   const [failing, setFailing] = useState(false);
   const [reason, setReason] = useState('');
-  const [me, setMe] = useState<{ lat: number; lng: number; heading: number | null } | null>(null);
   const vehicle = useDriverStore((s) => s.driver?.vehicle);
-  const [gpsDenied, setGpsDenied] = useState(false);
-  const watch = useRef<Location.LocationSubscription | null>(null);
   const mapsKey = useDriverStore((s) => s.driver?.maps_key ?? null);
   const lastSent = useRef(0);
 
@@ -63,32 +67,33 @@ export default function DriverTrip() {
     finally { setBusy(false); }
   };
 
-  // Position streaming: on while the trip is in hand, off the moment it closes.
+  // Position: on while the trip is in hand, off the moment it closes.
   const active = !!d?.is_active;
   const streaming = active && (d!.status === 'picked_up' || d!.status === 'en_route' || d!.status === 'arrived' || d!.status === 'assigned');
+  const here = useMyLocation(streaming);
+  const me = here.me ? { lat: here.me.lat, lng: here.me.lng, heading: here.me.heading ?? null } : null;
+  const gpsDenied = streaming && here.denied;
+  const status = useRef(d?.status);
+  status.current = d?.status;
+  /** One reading to the server. `now`: a tap — read the GPS at once instead of waiting for the beat. */
+  const ping = async (now = false) => {
+    if (!now && Date.now() - lastSent.current < LOCATION_BEAT_MS - 5_000) return;
+    const f = await sampleFix(now);
+    if (!f) return;
+    lastSent.current = Date.now();
+    try {
+      const r = await deliveryPing(Number(id), f.lat, f.lng, f.speed);
+      if (r.status !== status.current) refresh();
+    } catch { /* the next beat retries */ }
+  };
+  const hasFix = !!here.me;
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!streaming) { watch.current?.remove(); watch.current = null; return; }
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') { setGpsDenied(true); return; }
-      setGpsDenied(false);
-      if (cancelled) return;
-      watch.current?.remove();
-      watch.current = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, timeInterval: 8000, distanceInterval: 15 }, async (pos) => {
-        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude, heading: headingOf(pos) };
-        setMe(p);
-        if (Date.now() - lastSent.current < 7000) return;
-        lastSent.current = Date.now();
-        try {
-          const r = await deliveryPing(Number(id), p.lat, p.lng, pos.coords.speed ?? null);
-          if (r.status !== d?.status) refresh();
-        } catch { /* the next fix retries */ }
-      });
-    })();
-    return () => { cancelled = true; watch.current?.remove(); watch.current = null; };
+    if (!streaming || !onScreen) return;
+    ping();
+    const timer = setInterval(() => { ping(); }, LOCATION_BEAT_MS);
+    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [streaming, id]);
+  }, [streaming, onScreen, id, hasFix]);
 
   if (!d) {
     return <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top + spacing.lg, alignItems: 'center' }}><Text style={{ fontFamily: fonts.medium, color: colors.textSecondary }}>{t('common.loading')}</Text></View>;
@@ -102,7 +107,7 @@ export default function DriverTrip() {
     switch (d.status) {
       case 'assigned': return { label: t('driver.btn_pickup'), go: () => run(() => deliveryStep(d.id, 'pickup')) };
       case 'picked_up': return { label: t('driver.btn_enroute'), go: () => run(() => deliveryStep(d.id, 'enroute'), t('driver.enroute_ok')) };
-      case 'en_route': return { label: t('driver.btn_arrived'), go: () => run(() => deliveryStep(d.id, 'arrived')) };
+      case 'en_route': return { label: t('driver.btn_arrived'), go: () => { void ping(true); run(() => deliveryStep(d.id, 'arrived')); } };
       default: return null;
     }
   })();
@@ -136,19 +141,7 @@ export default function DriverTrip() {
         {gpsDenied ? <View style={{ marginTop: spacing.sm }}><Banner tone="warn" icon="gps" text={t('driver.gps_denied')} /></View> : null}
 
         {/* the walk */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing.md }}>
-          {DELIVERY_FLOW.map((s, i) => (
-            <View key={s} style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: i < stepIdx ? colors.success : i === stepIdx ? colors.brand : colors.surfaceSunken }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: i <= stepIdx ? colors.onPrimary : colors.textTertiary }}>{i < stepIdx ? '✓' : i + 1}</Text>
-              </View>
-              {i < DELIVERY_FLOW.length - 1 ? <View style={{ flex: 1, height: 2, backgroundColor: i < stepIdx ? colors.success : colors.border }} /> : null}
-            </View>
-          ))}
-        </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-          {DELIVERY_FLOW.map((s) => <Text key={s} style={{ fontFamily: fonts.medium, fontSize: 9.5, color: colors.textTertiary }}>{t(`driver.step_${s}`)}</Text>)}
-        </View>
+        <TripSteps at={stepIdx} />
 
         {/* where and who */}
         <View style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginTop: spacing.md }}>
@@ -175,7 +168,7 @@ export default function DriverTrip() {
             <View style={{ marginTop: spacing.sm }}>
               <Input value={code} onChangeText={(v) => setCode(v.replace(/[^0-9٠-٩]/g, '').slice(0, 4))} keyboardType="number-pad" maxLength={4} placeholder="••••" center style={{ fontSize: 26, letterSpacing: 10 }} />
             </View>
-            <View style={{ marginTop: spacing.sm }}><Button title={t('driver.btn_deliver')} onPress={() => run(() => deliveryDeliver(d.id, code), t('driver.delivered_ok'))} loading={busy} disabled={code.length < 4} /></View>
+            <View style={{ marginTop: spacing.sm }}><Button title={t('driver.btn_deliver')} onPress={() => { void ping(true); run(() => deliveryDeliver(d.id, code), t('driver.delivered_ok')); }} loading={busy} disabled={code.length < 4} /></View>
           </View>
         ) : null}
 

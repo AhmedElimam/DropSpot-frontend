@@ -1,4 +1,3 @@
-import { useIsFocused } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Animated, Easing, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +10,9 @@ import { SheetModal } from '@/components/ui/SheetModal';
 import { useMyLocation, type MyPoint } from '@/components/LiveMap';
 import { formatNumber, formatTime } from '@/utils/format';
 import type { TeacherShare } from '@/api/print';
-import { readLiveShare, sendStaticLocation, startLiveShare, stopLiveShare, type LiveShare, type ShareResult } from '@/background/shareLocation';
+import { useOnScreen } from '@/hooks/useAmbientMotion';
+import { LOCATION_BEAT_MS } from '@/utils/foregroundLocation';
+import { readLiveShare, sendLiveBeat, sendStaticLocation, startLiveShare, stopLiveShare, type LiveShare, type ShareResult } from '@/utils/liveShare';
 
 export type ShareMode = 'off' | 'static' | 'live' | 'live_other';
 export const SHARE_LENGTHS = [15, 60, 480] as const;
@@ -19,8 +20,9 @@ export const SHARE_LENGTHS = [15, 60, 480] as const;
 /**
  * Where you are, for the driver — WhatsApp's two ways (founder 2026-10-14):
  *  - «موقعي الحالي»: one tap, a fixed pin for the trip;
- *  - «موقعي المباشر»: live for 15 min / 1 h / 8 h, from the phone in a pocket too
- *    (src/background/shareLocation.ts), ending by itself.
+ *  - «موقعي المباشر»: for 15 min / 1 h / 8 h, ending by itself. Foreground only (founder
+ *    2026-11-12, performance rule 8): one reading goes up every 30 s while THIS page is in
+ *    front and the app is open — nothing is sent with the screen off (src/utils/liveShare.ts).
  * The teacher or an assistant at the centre; the server says who shares (`share.by`).
  */
 export function useOrderShare(jobId: number | null, tripLive: boolean, server: TeacherShare | null | undefined) {
@@ -30,14 +32,24 @@ export function useOrderShare(jobId: number | null, tripLive: boolean, server: T
   const [, tick] = useState(0);
   const refresh = useCallback(() => { readLiveShare().then(setLive); }, []);
   useEffect(refresh, [refresh]);
-  // the countdown, and noticing the end
-  const focused = useIsFocused();
+  // The beat: every 30 s while the page is in front — the countdown, noticing the end, and
+  // (while this phone shares live for this job) the reading of that half-minute to the driver.
+  const onScreen = useOnScreen();
   useEffect(() => {
-    if (!focused) return;
-    refresh();
-    const t = setInterval(() => { tick((n) => n + 1); refresh(); }, 30_000);
-    return () => clearInterval(t);
-  }, [refresh, focused]);
+    if (!onScreen) return;
+    let gone = false;
+    const beat = async () => {
+      const share = await readLiveShare();
+      if (gone) return;
+      if (share && share.jobId === jobId) await sendLiveBeat(share);
+      if (gone) return;
+      tick((n) => n + 1);
+      refresh();
+    };
+    beat();
+    const t = setInterval(beat, LOCATION_BEAT_MS);
+    return () => { gone = true; clearInterval(t); };
+  }, [refresh, onScreen, jobId]);
 
   const mineLive = !!live && live.jobId === jobId && live.until > Date.now();
   const mode: ShareMode = mineLive ? 'live'
@@ -77,13 +89,17 @@ export function useOrderShare(jobId: number | null, tripLive: boolean, server: T
   };
 }
 
-/** WhatsApp's live-location mark: a dot with waves breathing out (native driver, only while live). */
+/**
+ * WhatsApp's live-location mark: a dot with a wave breathing out — two waves when it appears,
+ * then still (no endless animation: docs/PERFORMANCE.md rule 1).
+ */
 function LiveDot({ color, size = 14 }: { color: string; size?: number }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const loop = Animated.loop(Animated.timing(v, { toValue: 1, duration: 1400, easing: Easing.out(Easing.quad), useNativeDriver: true }));
-    loop.start();
-    return () => loop.stop();
+    const wave = () => Animated.timing(v, { toValue: 1, duration: 1400, easing: Easing.out(Easing.quad), useNativeDriver: true });
+    const burst = Animated.sequence([wave(), Animated.timing(v, { toValue: 0, duration: 0, useNativeDriver: true }), wave()]);
+    burst.start();
+    return () => burst.stop();
   }, [v]);
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
-import * as Location from 'expo-location';
-import { useIsFocused } from '@react-navigation/native';
+import { useOnScreen } from '@/hooks/useAmbientMotion';
+import { LOCATION_BEAT_MS, lastKnownFix as lastFix, locationPermitted, sampleFix, seedFix, type Fix } from '@/utils/foregroundLocation';
 import client from '@/api/client';
 import { getApiBaseOverride } from '@/api/apiBase';
 import { colors, radius, shadows } from '@/theme/index';
@@ -27,47 +27,42 @@ export function apiOrigin(): string {
 }
 
 /** The last place this phone was seen at, shared by every map — a new map opens there at once. */
-let lastFix: MyPoint | null = null;
-export const lastKnownFix = () => lastFix;
+const asPoint = (f: Fix | null): MyPoint | null => (f ? { lat: f.lat, lng: f.lng, heading: f.heading } : null);
+export const lastKnownFix = (): MyPoint | null => asPoint(lastFix());
 
 /**
- * The phone's own position, live (founder 2026-10-14: «live location like Talabat … get the
- * location right away»). Starts from the last place any map saw this phone, then the OS's
- * last known fix, then one quick reading — so the dot is there at once — and watches while
- * the screen that asked is in front. Null only before any fix ever, or without permission.
+ * The phone's own position (founder 2026-10-14: «live location like Talabat … get the location
+ * right away»). Starts from the last place any map saw this phone, then the OS's last known
+ * fix, then one balanced reading — so the dot is there at once — and after that ONE reading
+ * every 30 s, only while the screen that asked is in front and the app is open. No watch:
+ * continuous GPS under a map was heat (docs/PERFORMANCE.md rule 8, founder 2026-11-12).
+ * Null only before any fix ever, or without permission.
  */
 export function useMyLocation(wanted = true): { me: MyPoint | null; denied: boolean } {
-  // Only while the asking screen is in front: a page pushed over the map, or another tab,
-  // must not keep high-accuracy GPS running underneath (battery, heat — founder 2026-10-15
-  // «the app's becoming slow again»). Coming back resumes from the last fix at once.
-  const focused = useIsFocused();
-  const enabled = wanted && focused;
-  const [me, setMe] = useState<MyPoint | null>(() => (enabled ? lastFix : null));
+  // A page pushed over the map, another tab, or the app in the background must not read the
+  // GPS underneath. Coming back resumes from the last fix at once.
+  const onScreen = useOnScreen();
+  const enabled = wanted && onScreen;
+  const [me, setMe] = useState<MyPoint | null>(() => (enabled ? lastKnownFix() : null));
   const [denied, setDenied] = useState(false);
   useEffect(() => {
     if (!enabled) return;
-    let sub: Location.LocationSubscription | null = null;
     let gone = false;
-    let fresh = false;
-    const put = (p: MyPoint, live: boolean) => {
-      if (gone || (fresh && !live)) return;
-      if (live) fresh = true;
-      lastFix = p;
-      setMe(p);
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const put = (f: Fix | null) => {
+      if (gone || !f) return;
+      setMe((cur) => (cur && cur.lat === f.lat && cur.lng === f.lng && (cur.heading ?? null) === f.heading ? cur : asPoint(f)));
     };
     (async () => {
-      const cur = await Location.getForegroundPermissionsAsync().catch(() => null);
-      const status = cur?.status === 'granted' ? 'granted' : (await Location.requestForegroundPermissionsAsync().catch(() => ({ status: 'denied' }))).status;
+      const ok = await locationPermitted();
       if (gone) return;
-      if (status !== 'granted') { setDenied(true); return; }
-      Location.getLastKnownPositionAsync().then((l) => { if (l) put({ lat: l.coords.latitude, lng: l.coords.longitude }, false); }).catch(() => {});
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then((c) => put({ lat: c.coords.latitude, lng: c.coords.longitude }, false)).catch(() => {});
-      sub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, timeInterval: 4000, distanceInterval: 5 }, (pos) => {
-        put({ lat: pos.coords.latitude, lng: pos.coords.longitude, heading: headingOf(pos) }, true);
-      });
-      if (gone) sub.remove();
+      setDenied(!ok);
+      if (!ok) return;
+      seedFix().then(put);
+      sampleFix().then(put);
+      timer = setInterval(() => { sampleFix().then(put); }, LOCATION_BEAT_MS);
     })();
-    return () => { gone = true; sub?.remove(); };
+    return () => { gone = true; if (timer) clearInterval(timer); };
   }, [enabled]);
   return { me, denied };
 }
@@ -81,20 +76,13 @@ function mapVersion(): number {
   return Math.floor(Date.now() / 600_000);
 }
 
-/** The direction of travel, only while really moving (a still phone's heading is noise). */
-export function headingOf(pos: Location.LocationObject): number | null {
-  const h = pos.coords.heading;
-  const v = pos.coords.speed;
-  return h != null && h >= 0 && v != null && v > 0.8 ? Math.round(h) : null;
-}
-
 /**
  * The marketplace map, navy night (founder 2026-10-14). The drawing lives in ONE file on the
  * server (public/js/drosmap.js — styled Google Maps with the brand pins, OpenStreetMap when
  * there is no key), shared with the shop's portal; this component hosts it in a WebView and
  * pushes the points in. The page loads once; every update is injected.
  *
- * `showMe` adds the phone's own live blue dot and a «موقعي» button. `picker` turns it into
+ * `showMe` adds the phone's own blue dot (one reading every 30 s while in front) and a «موقعي» button. `picker` turns it into
  * Talabat's «حدد موقعك»: a fixed pin in the middle, the map moves under it, and `onCenter` /
  * `onAddress` report where it rests.
  */
@@ -134,7 +122,7 @@ export function LiveMap({ mapsKey, shop, dest, driver, drivers, me, teacher, tra
   // Light mode gets Google's own look, dark mode the navy night (founder 2026-10-14).
   const theme = useThemeStore((st) => st.scheme) === 'dark' ? 'dark' : 'light';
   // Open where things are: the picker's start, else the phone's last place (no «all Egypt» first).
-  const startHere = useRef<MapPoint | null>(start ?? lastFix);
+  const startHere = useRef<MapPoint | null>(start ?? lastKnownFix());
   const bg = MAP_BG[theme];
   const live = useMyLocation(!!showMe || !!picker);
   const mine = me ?? (showMe || picker ? live.me : null);
@@ -171,7 +159,7 @@ window.__pan = function (lat, lng) { if (window.__map && window.__map.pan) windo
   }, [picker, live.me]);
 
   useEffect(() => { if (centerTo) { centreOn(centerTo, centerTo.zoom ?? 17); centred.current = true; } }, [centerTo?.nonce]);
-  // Live tracking (founder 2026-10-14): the map follows the phone until a drag.
+  // «Follow me» (founder 2026-10-14): the map follows the phone's 30 s readings until a drag.
   const [selfFollow, setSelfFollow] = useState(false);
   const following = followMe ?? selfFollow;
   const followed = useRef(false);

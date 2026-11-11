@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
@@ -74,15 +74,17 @@ export function RoomSwitcher({ visible, current, onClose, onPick }: {
         <InboxChips list={list} value={filter} onChange={setFilter} />
       </View>
 
-      {/* The rooms, on the page's paper so the cards read as they do on the page. */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        style={{ maxHeight: height * 0.6, borderTopWidth: 1, borderTopColor: colors.borderLight }}
-        contentContainerStyle={{ paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.lg }}
-      >
-        <ChatInboxList onOpen={onPick} filter={filter} query={query} current={current} />
-      </ScrollView>
+      {/* The rooms, on the page's paper so the cards read as they do on the page — the list
+          is its own (windowed) scroller. */}
+      <ChatInboxList
+        onOpen={onPick}
+        filter={filter}
+        query={query}
+        current={current}
+        inset={spacing.md}
+        style={{ maxHeight: height * 0.6, flexGrow: 0, borderTopWidth: 1, borderTopColor: colors.borderLight }}
+        contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: spacing.lg }}
+      />
     </SheetModal>
   );
 }

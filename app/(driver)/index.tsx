@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, useWindowDimensions, AppState } from 'react-native';
-import { ScrollView } from '@/components/ui/Refreshable';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
+import { FlatList } from '@/components/ui/Refreshable';
 import { Redirect, router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { StatusBar } from 'expo-status-bar';
@@ -14,7 +14,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatNumber, formatTime } from '@/utils/format';
 import { LiveMap, useMyLocation, MAP_BG } from '@/components/LiveMap';
-import { startDriverTracking, stopDriverTracking } from '@/background/driverLocation';
+import { useOnScreen } from '@/hooks/useAmbientMotion';
+import { LOCATION_BEAT_MS, stopLegacyLocationTasks } from '@/utils/foregroundLocation';
 import { Banner } from '@/components/ui/Form';
 import { getDriverDeliveries, driverMe, driverHeartbeat, type DriverDelivery } from '@/api/driver';
 import { useDriverStore } from '@/stores/driverStore';
@@ -33,7 +34,10 @@ export const TONE = (): Record<DriverDelivery['tone'], { bg: string; fg: string 
   gray: { bg: colors.surfaceSunken, fg: colors.textSecondary },
 });
 
-function TripRow({ d }: { d: DriverDelivery }) {
+/** The panel's rows: a heading over each group of trips, then the trips. */
+type PanelRow = { key: string; head: string; quiet?: boolean } | { key: string; trip: DriverDelivery };
+
+const TripRow = memo(function TripRow({ d }: { d: DriverDelivery }) {
   const { t } = useTranslation();
   const tone = TONE()[d.tone];
   return (
@@ -55,14 +59,15 @@ function TripRow({ d }: { d: DriverDelivery }) {
       <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary, marginTop: 6 }}>{t('print.copies_x_pages', { copies: formatNumber(d.job.copies), pages: formatNumber(d.job.pages) })} · {d.job.spec_label}{d.assigned_at ? ' · ' + formatTime(d.assigned_at) : ''}</Text>
     </TouchableOpacity>
   );
-}
+});
 
 /**
  * The rider's home, map first (founder 2026-10-14: «live location like Talabat»): himself as
  * his vehicle on the navy map, the trip in hand drawn on it, and the day's trips in a panel
- * below. «متصل» is a switch: on duty his position goes up from the background task (screen
- * off, any app) and every 30 s from here even standing still, so the shop sees him «متاح»
- * and the teacher watches him come. Off duty nothing is sent.
+ * below. «متصل» is a switch: on duty one reading of his position goes up every 30 s while
+ * this screen is in front and the app is open (the trip page does the same for its trip), so
+ * the shop sees him «متاح» and the teacher watches him come. Foreground only — nothing is sent
+ * with the screen off (performance rule 8, founder 2026-11-12). Off duty nothing is sent.
  */
 export default function DriverHome() {
   const { t } = useTranslation();
@@ -72,43 +77,52 @@ export default function DriverHome() {
   const driver = useDriverStore((s) => s.driver);
   const setDriver = useDriverStore((s) => s.setDriver);
   const signOut = useDriverStore((s) => s.signOut);
+  const onScreen = useOnScreen();
   const me = useQuery({ queryKey: ['driver-me'], queryFn: driverMe, enabled: !!token, retry: false });
-  const trips = useQuery({ queryKey: ['driver-deliveries'], queryFn: getDriverDeliveries, enabled: !!token, refetchInterval: 20000, retry: false });
+  const trips = useQuery({ queryKey: ['driver-deliveries'], queryFn: getDriverDeliveries, enabled: !!token,
+    refetchInterval: onScreen ? 30_000 : false,
+    retry: false,
+  });
   const { refreshing, onRefresh } = usePullRefresh(trips.refetch, me.refetch);
+  const [duty, setDuty] = useState(true);
   const here = useMyLocation(!!token);
   const [beatAt, setBeatAt] = useState<number | null>(null);
-  const [duty, setDuty] = useState(true);
-  const [bgOk, setBgOk] = useState<boolean | null>(null);
 
-  const list = trips.data ?? [];
-  const active = list.filter((d) => d.is_active);
-  const done = list.filter((d) => !d.is_active);
+  const list = trips.data;
+  const active = useMemo(() => (list ?? []).filter((d) => d.is_active), [list]);
+  const done = useMemo(() => (list ?? []).filter((d) => !d.is_active), [list]);
 
-  // On duty: the background stream runs, and from here a beat every 30 s even standing still.
-  useEffect(() => {
-    if (!token) return;
-    if (duty) startDriverTracking().then(setBgOk);
-    else { stopDriverTracking(); setBgOk(null); setBeatAt(null); }
-  }, [token, duty]);
+  // A background stream left running by a build from before location became foreground-only.
+  useEffect(() => { void stopLegacyLocationTasks(); }, []);
+  useEffect(() => { if (!duty) setBeatAt(null); }, [duty]);
+  // On duty, in front: a beat every 30 s even standing still, from the map's own reading.
   const latest = useRef(here.me);
   latest.current = here.me;
   const lastBeat = useRef(0);
   const beat = () => {
     const p = latest.current;
-    // Only with the screen in front: in the background this watch goes stale, and the
-    // background task is the one sending (a stale point would pull the dot back).
-    if (AppState.currentState !== 'active') return;
-    if (!p || Date.now() - lastBeat.current < 10000) return;
+    if (!p || Date.now() - lastBeat.current < LOCATION_BEAT_MS - 5_000) return;
     lastBeat.current = Date.now();
     driverHeartbeat(p.lat, p.lng).then(() => setBeatAt(Date.now())).catch(() => {});
   };
+  const hasFix = !!here.me;
   useEffect(() => {
-    if (!token || !duty) return;
+    if (!token || !duty || !onScreen) return;
     beat();
-    const t = setInterval(beat, 30000);
-    return () => clearInterval(t);
+    const timer = setInterval(beat, LOCATION_BEAT_MS);
+    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, duty, !!here.me]);
+  }, [token, duty, onScreen, hasFix]);
+
+  const rows = useMemo<PanelRow[]>(() => [
+    ...(active.length ? [{ key: 'h-active', head: t('driver.active_n', { n: formatNumber(active.length) }) }] : []),
+    ...active.map((d) => ({ key: `t${d.id}`, trip: d })),
+    ...(done.length ? [{ key: 'h-done', head: t('driver.done_today'), quiet: true }] : []),
+    ...done.map((d) => ({ key: `t${d.id}`, trip: d })),
+  ], [active, done, t]);
+  const renderRow = useCallback(({ item }: { item: PanelRow }) => ('trip' in item ? <TripRow d={item.trip} /> : (
+    <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: item.quiet ? colors.textSecondary : colors.textPrimary, marginTop: item.quiet ? spacing.md : 0, marginBottom: spacing.sm }}>{item.head}</Text>
+  )), []);
 
   useEffect(() => { if (me.data) setDriver(me.data); }, [me.data, setDriver]);
   // A cut driver (the shop switched them off) is sent out.
@@ -162,26 +176,22 @@ export default function DriverHome() {
       <View style={{ position: 'absolute', start: 0, end: 0, bottom: 0, top: panelTop, backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, ...shadows.lg }}>
         <View style={{ alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: colors.border, marginTop: 8 }} />
         {trips.isLoading ? <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} /> : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
-            {here.denied ? <Banner tone="warn" icon="gps" text={t('driver.gps_denied')} /> : null}
-            {!duty ? <Banner tone="info" icon="gps" text={t('driver.off_duty_hint')} /> : bgOk === true ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm }}>
-                <Icon name="gps" size={14} color={colors.successText} />
-                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{t('driver.bg_on')}</Text>
-              </View>
-            ) : null}
-            {list.length === 0 ? (
-              <EmptyState icon="print" title={t('driver.empty_title')} message={t('driver.empty_sub')} />
-            ) : (
+          <FlatList data={rows} keyExtractor={(r) => r.key} renderItem={renderRow}
+            initialNumToRender={8} maxToRenderPerBatch={8} windowSize={7}
+            showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+            ListHeaderComponent={(
               <>
-                {active.length ? <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary, marginBottom: spacing.sm }}>{t('driver.active_n', { n: formatNumber(active.length) })}</Text> : null}
-                {active.map((d) => <TripRow key={d.id} d={d} />)}
-                {done.length ? <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary, marginTop: spacing.md, marginBottom: spacing.sm }}>{t('driver.done_today')}</Text> : null}
-                {done.map((d) => <TripRow key={d.id} d={d} />)}
+                {here.denied ? <Banner tone="warn" icon="gps" text={t('driver.gps_denied')} /> : null}
+                {!duty ? <Banner tone="info" icon="gps" text={t('driver.off_duty_hint')} /> : !here.denied ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm }}>
+                    <Icon name="gps" size={14} color={colors.successText} />
+                    <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, color: colors.textSecondary }}>{t('driver.sharing_hint')}</Text>
+                  </View>
+                ) : null}
               </>
             )}
-          </ScrollView>
+            ListEmptyComponent={<EmptyState icon="print" title={t('driver.empty_title')} message={t('driver.empty_sub')} />} />
         )}
       </View>
     </View>

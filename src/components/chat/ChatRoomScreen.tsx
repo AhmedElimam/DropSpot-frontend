@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Keyboard, ActivityIndicator, Alert, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
@@ -884,7 +883,7 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
           {/* The floating day (Telegram): the date at the top while you scroll, and for as long
               as the room shows the past. Tap it to pick another day. */}
           {(pill.visible || win) && pill.date ? (
-            <Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(220)} pointerEvents="box-none"
+            <View pointerEvents="box-none"
               style={{ position: 'absolute', top: spacing.sm, left: 0, right: 0, alignItems: 'center' }}>
               <TouchableOpacity
                 onPress={() => setCalendarOpen(true)}
@@ -896,7 +895,7 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
                 <Icon name="calendar" size={13} color={colors.brand} outline />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textPrimary }}>{relativeDay(pill.date) ?? formatDayDate(pill.date)}</Text>
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           ) : null}
 
           {(showJump || win) && messages.length > 0 ? (

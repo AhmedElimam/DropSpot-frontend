@@ -1,5 +1,6 @@
 import { memo, useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, Pattern, Rect, Path, Circle, G } from 'react-native-svg';
 import { colors, isDark } from '@/theme/index';
@@ -102,11 +103,12 @@ export const ChatWallpaper = memo(function ChatWallpaper() {
           <Image
             key={m.key}
             source={m.kind === 'logo' ? BRAND_MARK : ROSE_CREST}
-            fadeDuration={0}
+            tintColor={ink}
+            contentFit="contain"
+            transition={0}
             style={m.kind === 'logo'
-              ? { position: 'absolute', left: m.x, top: m.y, height: LOGO.h, width: Math.round(LOGO.h * 1.14), tintColor: ink, opacity: markOpacity, transform: [{ rotate: LOGO.rotate }] }
-              : { position: 'absolute', left: m.x, top: m.y, height: CREST.size, width: CREST.size, tintColor: ink, opacity: markOpacity, transform: [{ rotate: CREST.rotate }] }}
-            resizeMode="contain"
+              ? { position: 'absolute', left: m.x, top: m.y, height: LOGO.h, width: Math.round(LOGO.h * 1.14), opacity: markOpacity, transform: [{ rotate: LOGO.rotate }] }
+              : { position: 'absolute', left: m.x, top: m.y, height: CREST.size, width: CREST.size, opacity: markOpacity, transform: [{ rotate: CREST.rotate }] }}
           />
         ))}
       </View>

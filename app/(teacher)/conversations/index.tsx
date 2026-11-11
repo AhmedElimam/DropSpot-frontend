@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, RefreshControl, TouchableOpacity, Text } from 'react-native';
-import { ScrollView } from '@/components/ui/Refreshable';
+import { View, TouchableOpacity, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { router, type Href } from 'expo-router';
 import { fonts } from '@/theme/typography';
@@ -11,7 +10,6 @@ import { COMMUNITY_FLAG, useCommunityEnabled, useCommunitySpaces } from '@/hooks
 import { BetaChip, BetaLine } from '@/components/ui/Beta';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { ChatInbox, ChatInboxList } from '@/components/chat/ChatInbox';
 import { THREADS_FLAG, useThreadsEnabled, useThreadsFeed, useThreadsUnread } from '@/hooks/useThreads';
 import { ThreadsFeed } from '@/components/threads/ThreadsFeed';
@@ -156,6 +154,10 @@ function ConversationsHub() {
     />
   );
 
+  const hero = <Surface id="teacher.conversations.hero">{head}</Surface>;
+  const closing = <BetaLine feature={flag} />;
+  const listContent = { flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom };
+
   return (
     <Surface id="screen.teacher.conversations" screen>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -169,17 +171,17 @@ function ConversationsHub() {
           contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
         />
       ) : (
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: nav.pageEnd + insets.bottom }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <Surface id="teacher.conversations.hero">{head}</Surface>
-
-        {showThreads ? (
-          <Surface id="teacher.conversations.threads">
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.lg }}>
+        // Each side is its own windowed list: the hero scrolls with it as the list's header, and
+        // the note line closes the screen as its footer — after the content, never above it.
+        showThreads ? (
+          <Surface id="teacher.conversations.threads" fallback={<View>{hero}{closing}</View>}>
             <ThreadsFeed
+              header={hero}
+              footer={closing}
+              overlap={spacing.lg}
+              contentContainerStyle={listContent}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
               onOpen={openThread}
               onCompose={(kind) => { setComposeKind(kind); setComposeOpen(true); }}
               onSettings={() => setSettingsOpen(true)}
@@ -195,22 +197,21 @@ function ConversationsHub() {
             />
             <SettingsSheet visible={settingsOpen} settings={threadsFeed?.settings} onClose={() => setSettingsOpen(false)} />
             <ReportsSheet visible={reportsOpen} onClose={() => setReportsOpen(false)} onOpenThread={(id) => { setReportsOpen(false); openThread(id); }} />
-          </View>
-          </Surface>
-        ) : showChat ? (
-          <Surface id="teacher.conversations.chat">
-          <View style={{ marginHorizontal: spacing.lg, marginTop: -spacing.lg }}>
-            <ChatInboxList onOpen={(room) => router.push(`/(teacher)/conversations/chat/${room}` as Href)} />
-          </View>
           </Surface>
         ) : (
-          <View style={{ paddingHorizontal: spacing.lg }}>
-            <EmptyState icon="chat" title={t('common.not_available')} />
-          </View>
-        )}
-        {/* The note line closes the screen — after the content, never above it. */}
-        <BetaLine feature={flag} />
-      </ScrollView>
+          // Chat off shows the list's own «غير متاح» card.
+          <Surface id="teacher.conversations.chat" fallback={<View>{hero}{closing}</View>}>
+            <ChatInboxList
+              header={hero}
+              footer={closing}
+              overlap={spacing.lg}
+              contentContainerStyle={listContent}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              onOpen={(room) => router.push(`/(teacher)/conversations/chat/${room}` as Href)}
+            />
+          </Surface>
+        )
       )}
     </View>
     </Surface>

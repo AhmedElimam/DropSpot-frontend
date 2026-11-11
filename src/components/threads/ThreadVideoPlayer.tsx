@@ -190,10 +190,22 @@ function PlayerBody({ video, teacher, gradeName, onClose }: { video: ThreadVideo
   );
 }
 
+/** Every this often both marks move. */
+const HOP_MS = 5000;
+/** How long the big mark takes to glide to its next place; then it rests until the next hop. */
+const GLIDE_MS = 2000;
+/** Where the big mark stands after hop `n`, as fractions of its travel. The two steps are
+ *  irrational to each other, so the places never line up into a path a fixed crop could miss. Pure. */
+export function watermarkSpot(n: number): { x: number; y: number } {
+  const frac = (v: number) => v - Math.floor(v);
+  return { x: frac(0.12 + n * 0.6180339887), y: frac(0.3 + n * 0.4142135624) };
+}
+
 /**
- * Two marks. The big one — name | student code | play code — glides along a slow diagonal
- * path that never repeats exactly (two incommensurate periods), so no fixed crop removes it.
- * The small crest medallion + play code hops between corners every few seconds.
+ * Two marks. The big one — name | student code | play code — moves to a new place across the
+ * whole picture every few seconds (a short glide, then it rests: a burst, never an endless
+ * loop — docs/PERFORMANCE.md rule 1), on a sequence that never repeats, so no fixed crop
+ * removes it. The small crest medallion + play code hops between corners on the same beat.
  */
 function Watermark({ play, width, height }: { play: ThreadPlay; width: number; height: number }) {
   const x = useRef(new RNAnimated.Value(0)).current;
@@ -201,18 +213,20 @@ function Watermark({ play, width, height }: { play: ThreadPlay; width: number; h
   const [corner, setCorner] = useState(0);
 
   useEffect(() => {
-    const loopX = RNAnimated.loop(RNAnimated.sequence([
-      RNAnimated.timing(x, { toValue: 1, duration: 13000, easing: RNEasing.inOut(RNEasing.sin), useNativeDriver: true }),
-      RNAnimated.timing(x, { toValue: 0, duration: 13000, easing: RNEasing.inOut(RNEasing.sin), useNativeDriver: true }),
-    ]));
-    const loopY = RNAnimated.loop(RNAnimated.sequence([
-      RNAnimated.timing(y, { toValue: 1, duration: 8300, easing: RNEasing.inOut(RNEasing.sin), useNativeDriver: true }),
-      RNAnimated.timing(y, { toValue: 0, duration: 8300, easing: RNEasing.inOut(RNEasing.sin), useNativeDriver: true }),
-    ]));
-    loopX.start();
-    loopY.start();
-    const hop = setInterval(() => setCorner((c) => (c + 1) % 4), 5000);
-    return () => { loopX.stop(); loopY.stop(); clearInterval(hop); };
+    let n = 0;
+    let glide: RNAnimated.CompositeAnimation | null = null;
+    const start = watermarkSpot(0);
+    x.setValue(start.x);
+    y.setValue(start.y);
+    const hop = setInterval(() => {
+      n += 1;
+      setCorner((c) => (c + 1) % 4);
+      const to = watermarkSpot(n);
+      const move = { duration: GLIDE_MS, easing: RNEasing.inOut(RNEasing.sin), useNativeDriver: true };
+      glide = RNAnimated.parallel([RNAnimated.timing(x, { toValue: to.x, ...move }), RNAnimated.timing(y, { toValue: to.y, ...move })]);
+      glide.start();
+    }, HOP_MS);
+    return () => { clearInterval(hop); glide?.stop(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bars, not a middle dot: «·» beside digits reads as a zero in Arabic.

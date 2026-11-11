@@ -56,7 +56,7 @@ export function PrintTabShopCard({ s, labels = {}, used = 0, focus = 'recommende
   return (
     <TouchableOpacity onPress={() => router.push(`/(teacher)/print/shops/${s.vendor_id}` as Href)} activeOpacity={0.9} accessibilityRole="button"
       accessibilityLabel={[s.name, mine ? usedLine(t, used) : null].filter(Boolean).join('، ')}
-      style={{ width: SHOP_CARD_WIDTH, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: mine ? 1.5 : 1, borderColor: mine ? colors.accent : colors.border, overflow: 'hidden', opacity: paused ? 0.82 : 1 }}>
+      style={{ width: SHOP_CARD_WIDTH, flexGrow: 1, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: mine ? 1.5 : 1, borderColor: mine ? colors.accent : colors.border, overflow: 'hidden', opacity: paused ? 0.82 : 1 }}>
       <View style={{ height: COVER }}>
         {s.cover ? (
           <Image source={sampleSource(s.cover.url)} style={{ width: '100%', height: '100%', backgroundColor: colors.surfaceSunken }} contentFit="cover" transition={150} recyclingKey={String(s.cover.id)} />

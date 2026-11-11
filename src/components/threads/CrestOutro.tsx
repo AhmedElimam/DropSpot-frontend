@@ -1,8 +1,8 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, Image as RNImage, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import Animated, {
-  Easing, FadeIn, FadeInDown, cancelAnimation, interpolate, Extrapolation, useAnimatedProps, useAnimatedStyle, useSharedValue,
-  withDelay, withRepeat, withSpring, withTiming, type SharedValue,
+  Easing, cancelAnimation, interpolate, Extrapolation, useAnimatedProps, useAnimatedStyle, useSharedValue,
+  withDelay, withSequence, withSpring, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, G, LinearGradient as SvgLinearGradient, Path, Polygon, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
 import { spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import { Appear } from '@/components/ui/Appear';
 import {
   CREST_GOLD, CREST_GOLD_DEEP, CREST_GOLD_LIGHT, CREST_NAVY, CREST_NAVY_DEEP, LAUREL_STATIONS, LEAF_SPREAD, crestGeometry, leafPath,
   type CrestGeometry, type LeafStation,
@@ -22,8 +23,10 @@ const brandLogo = require('@/assets/images/brand-logo.png');
 const LOGO_ASPECT = 1.14;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
+/** How far a line travels up into place as it appears. */
+const RISE = 25;
 
-// The timeline, ms from the last frame (≈4 s, then it holds; only the watermark keeps moving).
+// The timeline, ms from the last frame (≈4 s, played once, then it holds; only the watermark keeps moving).
 const T = {
   ring: 120, ringFor: 1100,
   disc: 150,
@@ -58,7 +61,7 @@ export const CrestMedallion = memo(function CrestMedallion({ size }: { size: num
         <Circle cx={size / 2} cy={size / 2} r={size / 2 - stroke / 2} fill="url(#mdisc)" stroke="url(#mring)" strokeWidth={stroke} />
         {size >= 28 ? <Circle cx={size / 2} cy={size / 2} r={size / 2 - stroke * 2.1} fill="none" stroke={CREST_GOLD} strokeWidth={Math.max(0.6, size * 0.018)} opacity={0.75} /> : null}
       </Svg>
-      <RNImage source={brandLogo} style={{ height: logoH, width: Math.round(logoH * LOGO_ASPECT), tintColor: CREST_GOLD_LIGHT }} resizeMode="contain" />
+      <Image source={brandLogo} tintColor={CREST_GOLD_LIGHT} contentFit="contain" style={{ height: logoH, width: Math.round(logoH * LOGO_ASPECT) }} />
     </View>
   );
 });
@@ -72,7 +75,8 @@ export const CrestMedallion = memo(function CrestMedallion({ size }: { size: num
  * who watched with the play code, the day, and whose rights these are. Then «شوف تاني» / «رجوع».
  *
  * Every motion runs on the UI thread (Reanimated shared values and SVG animated props, set once
- * at mount); nothing re-renders per frame. The player's moving watermark is drawn ABOVE this
+ * at mount, cancelled at unmount); nothing re-renders per frame and nothing loops. The texts
+ * arrive with `Appear` (one timed opacity/transform each), not with layout animations. The player's moving watermark is drawn ABOVE this
  * card, so a recording of the outro still names the viewer.
  */
 export function CrestOutro({ teacher, gradeName, viewerName, code, onReplay, onBack }: {
@@ -109,7 +113,9 @@ export function CrestOutro({ teacher, gradeName, viewerName, code, onReplay, onB
     stems.value = withDelay(T.stems, withTiming(1, { duration: T.stemsFor, easing: Easing.out(Easing.quad) }));
     leaves.value = withDelay(T.leaves, withTiming(LAUREL_STATIONS, { duration: LAUREL_STATIONS * T.leafEach, easing: Easing.linear }));
     medal.value = withDelay(T.medal, withSpring(1, { damping: 7, stiffness: 150, mass: 0.8 }));
-    shimmer.value = withDelay(T.shimmer, withRepeat(withTiming(1, { duration: 950, easing: Easing.inOut(Easing.quad) }), 2, false));
+    // Two passes of the gold shimmer, then it is done — a fixed sequence, not a repeat.
+    const pass = () => withTiming(1, { duration: 950, easing: Easing.inOut(Easing.quad) });
+    shimmer.value = withDelay(T.shimmer, withSequence(pass(), withTiming(0, { duration: 0 }), pass()));
     ribbon.value = withDelay(T.ribbon, withTiming(1, { duration: 560, easing: Easing.out(Easing.back(1.3)) }));
     return () => { [ring, disc, stems, leaves, medal, shimmer, ribbon].forEach((v) => cancelAnimation(v)); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -132,7 +138,7 @@ export function CrestOutro({ teacher, gradeName, viewerName, code, onReplay, onB
   const titleSize = Math.round(size * 0.115);
 
   return (
-    <Animated.View entering={FadeIn.duration(350)} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}>
+    <Appear duration={350} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}>
       <LinearGradient colors={['rgba(7,11,34,0.9)', 'rgba(16,22,58,0.97)', 'rgba(6,9,28,0.99)']} style={{ flex: 1, alignItems: 'center', paddingTop: insets.top + 56 }}>
         {/* The frame */}
         <View style={{ width: size, height: size }}>
@@ -177,18 +183,22 @@ export function CrestOutro({ teacher, gradeName, viewerName, code, onReplay, onB
 
           {/* Inside the disc: «حكاوي», the ribbon, the subject */}
           <View pointerEvents="none" style={{ position: 'absolute', left: g.c - g.disc, top: g.c - g.disc, width: g.disc * 2, height: g.disc * 2, alignItems: 'center', justifyContent: 'center', paddingTop: g.medallion * 0.35 }}>
-            <Animated.Text entering={FadeInDown.delay(T.title).duration(420)} style={{ fontFamily: fonts.bold, fontSize: titleSize, lineHeight: Math.round(titleSize * 1.45), color: CREST_GOLD_LIGHT, textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 8 }}>
-              {t('threads.end_title')}
-            </Animated.Text>
+            <Appear delay={T.title} duration={420} rise={RISE}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: titleSize, lineHeight: Math.round(titleSize * 1.45), color: CREST_GOLD_LIGHT, textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 8 }}>
+                {t('threads.end_title')}
+              </Text>
+            </Appear>
             <View style={{ width: ribbonWidth, alignItems: 'center', marginTop: 2 }}>
               <Animated.View style={[{ width: ribbonWidth }, ribbonStyle]}>
                 <Ribbon width={ribbonWidth} name={teacher?.name ?? null} logo={teacher?.logo_url ?? null} />
               </Animated.View>
             </View>
             {sub ? (
-              <Animated.Text entering={FadeIn.delay(T.subject).duration(400)} numberOfLines={1} style={{ maxWidth: g.disc * 1.6, marginTop: spacing.sm, fontFamily: fonts.medium, fontSize: 12.5, color: 'rgba(255,255,255,0.82)' }}>
-                {sub}
-              </Animated.Text>
+              <Appear delay={T.subject} duration={400} style={{ maxWidth: g.disc * 1.6, marginTop: spacing.sm }}>
+                <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 12.5, color: 'rgba(255,255,255,0.82)' }}>
+                  {sub}
+                </Text>
+              </Appear>
             ) : null}
           </View>
 
@@ -205,32 +215,32 @@ export function CrestOutro({ teacher, gradeName, viewerName, code, onReplay, onB
 
         {/* The data block */}
         <View style={{ alignItems: 'center', gap: 5, marginTop: spacing.md, paddingHorizontal: spacing.lg }}>
-          <Animated.View entering={FadeInDown.delay(T.data).duration(380)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Appear delay={T.data} duration={380} rise={RISE} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Icon name="link" size={15} color={CREST_GOLD_LIGHT} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 17, letterSpacing: 0.6, color: CREST_GOLD_LIGHT, writingDirection: 'ltr' }}>{t('threads.end_site')}</Text>
-          </Animated.View>
-          <Animated.View entering={FadeInDown.delay(T.data + 140).duration(380)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          </Appear>
+          <Appear delay={T.data + 140} duration={380} rise={RISE} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Icon name="download" size={14} color="rgba(255,255,255,0.85)" />
             <Text style={{ fontFamily: fonts.medium, fontSize: 13.5, color: 'rgba(255,255,255,0.88)' }}>{t('threads.end_app')}</Text>
-          </Animated.View>
-          <Animated.View entering={FadeIn.delay(T.data + 300).duration(380)}>
+          </Appear>
+          <Appear delay={T.data + 300} duration={380}>
             <GoldRule width={Math.min(200, width * 0.5)} />
-          </Animated.View>
+          </Appear>
           {viewer ? (
-            <Animated.Text entering={FadeIn.delay(T.data + 420).duration(380)} numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.78)' }}>
-              {viewer}
-            </Animated.Text>
+            <Appear delay={T.data + 420} duration={380}>
+              <Text numberOfLines={1} style={{ fontFamily: fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.78)' }}>{viewer}</Text>
+            </Appear>
           ) : null}
-          <Animated.Text entering={FadeIn.delay(T.data + 540).duration(380)} style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
-            {t('threads.end_watched', { date: day })}
-          </Animated.Text>
-          <Animated.Text entering={FadeIn.delay(T.data + 660).duration(380)} style={{ fontFamily: fonts.regular, fontSize: 10.5, color: 'rgba(255,255,255,0.45)' }}>
-            {t('threads.end_rights')}
-          </Animated.Text>
+          <Appear delay={T.data + 540} duration={380}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{t('threads.end_watched', { date: day })}</Text>
+          </Appear>
+          <Appear delay={T.data + 660} duration={380}>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 10.5, color: 'rgba(255,255,255,0.45)' }}>{t('threads.end_rights')}</Text>
+          </Appear>
         </View>
 
         {/* Replay first (the start side), back beside it */}
-        <Animated.View entering={FadeInDown.delay(T.buttons).duration(420)} style={{ position: 'absolute', bottom: insets.bottom + spacing.xl, left: spacing.lg, right: spacing.lg, flexDirection: 'row', justifyContent: 'center', gap: spacing.md }}>
+        <Appear delay={T.buttons} duration={420} rise={RISE} style={{ position: 'absolute', bottom: insets.bottom + spacing.xl, left: spacing.lg, right: spacing.lg, flexDirection: 'row', justifyContent: 'center', gap: spacing.md }}>
           <TouchableOpacity onPress={onReplay} activeOpacity={0.85} accessibilityRole="button"
             style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingHorizontal: spacing.xl, height: 50, borderRadius: radius.full, backgroundColor: CREST_GOLD_LIGHT }}>
             <Icon name="replay" size={20} color={CREST_NAVY_DEEP} />
@@ -242,9 +252,9 @@ export function CrestOutro({ teacher, gradeName, viewerName, code, onReplay, onB
             <Icon name="forward" size={18} color={CREST_GOLD_LIGHT} />
             <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: CREST_GOLD_LIGHT }}>{t('threads.end_back')}</Text>
           </TouchableOpacity>
-        </Animated.View>
+        </Appear>
       </LinearGradient>
-    </Animated.View>
+    </Appear>
   );
 }
 

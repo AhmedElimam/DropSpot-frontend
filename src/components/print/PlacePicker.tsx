@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, Text, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppModal as Modal } from '@/ui/AppModal';
@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/Form';
 import { Button } from '@/components/ui/Button';
 import { LiveMap, type MapPoint, MAP_BG } from '@/components/LiveMap';
 import type { Destination } from '@/api/print';
+
+const venueKey = (v: Destination) => String(v.id);
 
 export type PickedPlace = { lat: number; lng: number; name: string | null; address: string; details: string };
 
@@ -33,6 +35,14 @@ export function PlacePicker({ visible, onClose, onPick, mapsKey, venues, initial
   const [jump, setJump] = useState<(MapPoint & { nonce: number }) | null>(null);
 
   const goVenue = (v: Destination) => { setName(v.name); setJump({ lat: v.lat, lng: v.lng, nonce: Date.now() }); if (v.address) setDetails((d) => d || v.address || ''); };
+  // Her venues, one chip each — a windowed strip (a teacher with many centres has many).
+  const renderVenue = useCallback(({ item: v }: { item: Destination }) => (
+    <TouchableOpacity onPress={() => goVenue(v)} accessibilityRole="button"
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 34, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: name === v.name ? colors.brand : colors.surface, borderWidth: 1, borderColor: name === v.name ? colors.brand : colors.border }}>
+      <Icon name="book" size={14} color={name === v.name ? colors.onPrimary : colors.textSecondary} />
+      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: name === v.name ? colors.onPrimary : colors.textSecondary }}>{v.name}</Text>
+    </TouchableOpacity>
+  ), [name]);
   const confirm = () => {
     if (!at) return;
     onPick({ lat: at.lat, lng: at.lng, name, address: address || t('print.picked_point'), details: details.trim() });
@@ -72,15 +82,9 @@ export function PlacePicker({ visible, onClose, onPick, mapsKey, venues, initial
           </View>
 
           {venues.length ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: spacing.sm }}>
-              {venues.map((v) => (
-                <TouchableOpacity key={v.id} onPress={() => goVenue(v)} accessibilityRole="button"
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 34, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: name === v.name ? colors.brand : colors.surface, borderWidth: 1, borderColor: name === v.name ? colors.brand : colors.border }}>
-                  <Icon name="book" size={14} color={name === v.name ? colors.onPrimary : colors.textSecondary} />
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: name === v.name ? colors.onPrimary : colors.textSecondary }}>{v.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <FlatList horizontal data={venues} keyExtractor={venueKey} renderItem={renderVenue} extraData={name}
+              initialNumToRender={6} maxToRenderPerBatch={6} windowSize={5}
+              showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: spacing.sm }} style={{ flexGrow: 0 }} />
           ) : <View style={{ height: spacing.sm }} />}
 
           <Input value={details} onChangeText={setDetails} placeholder={t('print.pick_details_ph')} maxLength={200} />

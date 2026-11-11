@@ -23,6 +23,7 @@ import { OrderReceiveCard, OrderRatedCard } from '@/components/print/OrderReceiv
 import { OrderReorderTile, OrderCancelButton } from '@/components/print/OrderActions';
 import { useAuthStore } from '@/stores/authStore';
 import { useArrived } from '@/hooks/useArrived';
+import { useOnScreen } from '@/hooks/useAmbientMotion';
 import { useThemeStore } from '@/stores/themeStore';
 import {
   getPrintJob, getPrintOptions, cancelPrintJob, receivePrintJob, reorderPrintJob, claimPrintPayment, trackPrintJob, getReceiveJob, trackReceive } from '@/api/print';
@@ -43,18 +44,24 @@ export default function PrintJobScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const qc = useQueryClient();
   const arrived = useArrived();
+  // Polls run only while this page is in front, at the app's 30 s floor (performance rule 7).
+  const onScreen = useOnScreen();
   const mapBg = MAP_BG[useThemeStore((st) => st.scheme) === 'dark' ? 'dark' : 'light'];
   // An assistant with «receive_prints» opens the same page through the receiving end: the
   // trip, the code and sharing — never the money (the server leaves it out).
   const isAssistant = useAuthStore((st) => st.role === 'assistant');
-  const job = useQuery({ queryKey: ['print-job', id, isAssistant], queryFn: () => (isAssistant ? getReceiveJob(id!) : getPrintJob(id)), enabled: !!id, refetchInterval: 30000 });
+  const job = useQuery({ queryKey: ['print-job', id, isAssistant], queryFn: () => (isAssistant ? getReceiveJob(id!) : getPrintJob(id)), enabled: !!id,
+    refetchInterval: onScreen ? 30_000 : false,
+  });
   const options = useQuery({ queryKey: ['print-options'], queryFn: getPrintOptions });
   // Live once there is something to watch: a trip in hand, or a ready job waiting for its code.
   const watch = !!job.data && (job.data.status === 'ready' || job.data.status === 'delivered' || job.data.status === 'printing');
-  const track = useQuery({ queryKey: ['print-track', id], queryFn: () => (isAssistant ? trackReceive(id!) : trackPrintJob(id!)), enabled: !!id && watch, refetchInterval: (q) => (q.state.data?.delivery?.is_active ? 8000 : 30000) });
+  const track = useQuery({ queryKey: ['print-track', id], queryFn: () => (isAssistant ? trackReceive(id!) : trackPrintJob(id!)), enabled: !!id && watch,
+    refetchInterval: onScreen ? 30_000 : false,
+  });
   // While a driver is on the way, show the driver where you are — WhatsApp's two ways
-  // (founder 2026-10-14): a fixed pin at once, or live for 15 min / 1 h / 8 h from the
-  // background. The teacher or an assistant at the centre.
+  // (founder 2026-10-14): a fixed pin at once, or live for 15 min / 1 h / 8 h while this page
+  // is open (one reading every 30 s, foreground only). The teacher or an assistant at the centre.
   const tripLive = !!track.data?.delivery?.is_active;
   const share = useOrderShare(id ? Number(id) : null, tripLive, track.data?.teacher_live);
   const [busy, setBusy] = useState(false);

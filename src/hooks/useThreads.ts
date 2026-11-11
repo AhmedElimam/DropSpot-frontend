@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useOnScreen } from '@/hooks/useAmbientMotion';
 import { useRealtimeChannels } from '@/hooks/useRealtimeChannels';
 import type { ChatRealtime } from '@/api/chat';
 import {
@@ -10,7 +11,19 @@ import {
 } from '@/api/threads';
 
 export const THREADS_FLAG = 'threads';
-const DEFAULT_POLL_MS = 15000;
+/** The floor of every thread poll (docs/PERFORMANCE.md rule 7); the socket is what makes it live. */
+const MIN_POLL_MS = 30_000;
+const SOCKET_POLL_MS = 60_000;
+
+/** A server cadence, never faster than the floor; nothing usable from the server → `fallback`. */
+function pollMs(serverMs: number | null | undefined, fallback: number): number {
+  return Math.max(MIN_POLL_MS, serverMs || fallback);
+}
+
+/** The server's cadence for one thread: the slow one behind a live socket, the plain one otherwise. */
+function threadCadence(thread: ThreadDetail | undefined, live: boolean): number {
+  return live ? pollMs(thread?.limits?.poll_ms_socket, SOCKET_POLL_MS) : pollMs(thread?.limits?.poll_ms, MIN_POLL_MS);
+}
 
 /** True only when the super-admin has switched threads on. Everything threads hangs off this. */
 export function useThreadsEnabled(): boolean {
@@ -25,12 +38,13 @@ export function useThreadsEnabled(): boolean {
  */
 export function useThreadsFeed(enabled = true, live = false) {
   const on = useThreadsEnabled();
+  const onScreen = useOnScreen();
   return useQuery({
     queryKey: ['threads', 'feed'],
     queryFn: () => getThreadsFeed(),
     enabled: on && enabled,
     staleTime: 15_000,
-    refetchInterval: live ? 5 * 60_000 : 60_000,
+    refetchInterval: onScreen ? (live ? 300_000 : 60_000) : false,
     refetchIntervalInBackground: false,
   });
 }
@@ -54,12 +68,13 @@ export function useThreadsRealtime(realtime: ChatRealtime | null | undefined, ch
 /** The badge, on its own light endpoint. */
 export function useThreadsUnread(enabled = true) {
   const on = useThreadsEnabled();
+  const onScreen = useOnScreen(); // the tabs stay mounted under every other screen
   return useQuery({
     queryKey: ['threads', 'unread'],
     queryFn: getThreadsUnread,
     enabled: on && enabled,
     staleTime: 20_000,
-    refetchInterval: 45_000,
+    refetchInterval: onScreen ? 45_000 : false,
     refetchIntervalInBackground: false,
   });
 }
@@ -70,15 +85,12 @@ export function useThreadsUnread(enabled = true) {
  */
 export function useThread(id: number, active: boolean, live = false) {
   const on = useThreadsEnabled();
+  const onScreen = useOnScreen() && active;
   return useQuery({
     queryKey: ['threads', 'one', id],
     queryFn: () => getThread(id),
     enabled: on && id > 0,
-    refetchInterval: (query) => {
-      if (!active) return false;
-      const limits = query.state.data?.limits;
-      return live ? (limits?.poll_ms_socket || 60_000) : (limits?.poll_ms || DEFAULT_POLL_MS);
-    },
+    refetchInterval: (query) => (onScreen ? threadCadence(query.state.data, live) : false),
     refetchIntervalInBackground: false,
     staleTime: 0,
   });
@@ -183,7 +195,8 @@ export function useUploadThreadVideo() {
 
 export function useThreadReports(enabled: boolean) {
   const on = useThreadsEnabled();
-  return useQuery({ queryKey: ['threads', 'reports'], queryFn: getThreadReports, enabled: on && enabled, refetchInterval: 30_000, refetchIntervalInBackground: false });
+  const onScreen = useOnScreen() && enabled; // `enabled` = the reports sheet is open
+  return useQuery({ queryKey: ['threads', 'reports'], queryFn: getThreadReports, enabled: on && enabled, refetchInterval: onScreen ? 30_000 : false, refetchIntervalInBackground: false });
 }
 
 export function useResolveThreadReport() {

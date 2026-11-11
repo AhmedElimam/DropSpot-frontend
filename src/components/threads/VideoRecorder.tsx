@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import { AppModal as Modal } from '@/ui/AppModal';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { fonts } from '@/theme/typography';
@@ -40,6 +41,9 @@ export function VideoRecorder({ visible, maxSeconds, onClose, onRecorded }: {
   const [clip, setClip] = useState<RecordedClip | null>(null);
   const [error, setError] = useState<string | null>(null);
   const startedAt = useRef<number>(0);
+  // The sensor runs only while the recorder is open on the screen in front (rule 10).
+  const isFocused = useIsFocused();
+  const live = isFocused && visible;
 
   useEffect(() => {
     if (!visible) { setClip(null); setRecording(false); setElapsed(0); setError(null); }
@@ -93,8 +97,11 @@ export function VideoRecorder({ visible, maxSeconds, onClose, onRecorded }: {
           </View>
         ) : clip ? (
           <Review clip={clip} onRetake={() => setClip(null)} onUse={() => onRecorded(clip)} />
+        ) : live ? (
+          // `active` is iOS-only in expo-camera; on Android the view is unmounted when not live.
+          <CameraView ref={camera} active={live} style={{ flex: 1 }} facing={facing} mode="video" videoQuality="720p" videoBitrate={2_500_000} mute={false} />
         ) : (
-          <CameraView ref={camera} style={{ flex: 1 }} facing={facing} mode="video" videoQuality="720p" videoBitrate={2_500_000} mute={false} />
+          <View style={{ flex: 1 }} />
         )}
 
         {/* Header */}

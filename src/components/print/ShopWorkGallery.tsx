@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, Pressable, useWindowDimensions } from 'react-native';
-import { ScrollView } from '@/components/ui/Refreshable';
+import { FlatList } from '@/components/ui/Refreshable';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,8 @@ import { sampleSource, type ShopSample } from '@/api/print';
 
 const KIND_ICON: Record<string, IconName> = { booklet: 'book', exam: 'document', color: 'brush', binding: 'list', cover: 'image', other: 'images' };
 const GAP = 6;
+type KindTab = { k: string | null; label: string; n: number };
+const tabKey = (x: KindTab) => x.k ?? 'all';
 /** How many tiles the mosaic shows before «+N». */
 const SHOWN = 6;
 
@@ -32,6 +34,19 @@ export function ShopWorkGallery({ items, onOpen }: { items: ShopSample[]; onOpen
     return [...seen.entries()];
   }, [items]);
   const list = kind ? items.filter((p) => p.kind === kind) : items;
+  // «الكل» first, then one tab a kind.
+  const tabs = useMemo<KindTab[]>(() => [{ k: null, label: t('print.work_all'), n: items.length }, ...kinds.map(([k, v]) => ({ k, label: v.label, n: v.n }))], [kinds, items.length, t]);
+  const renderTab = useCallback(({ item: { k, label, n } }: { item: KindTab }) => {
+    const on = kind === k;
+    return (
+      <TouchableOpacity onPress={() => setKind(k)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: on ? colors.brand : colors.surfaceSunken }}>
+        {k ? <Icon name={KIND_ICON[k] ?? 'images'} size={13} color={on ? colors.onPrimary : colors.textSecondary} /> : null}
+        <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onPrimary : colors.textSecondary }}>{label}</Text>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: on ? colors.onPrimary : colors.textTertiary, opacity: 0.85 }}>({formatNumber(n)})</Text>
+      </TouchableOpacity>
+    );
+  }, [kind]);
   if (!items.length) return null;
 
   // the card's inner width: page gutter + card padding on both sides
@@ -82,19 +97,9 @@ export function ShopWorkGallery({ items, onOpen }: { items: ShopSample[]; onOpen
       </View>
 
       {kinds.length > 1 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: spacing.sm, paddingHorizontal: 2 }}>
-          {[[null, { label: t('print.work_all'), n: items.length }] as const, ...kinds].map(([k, v]) => {
-            const on = kind === k;
-            return (
-              <TouchableOpacity key={k ?? 'all'} onPress={() => setKind(k)} activeOpacity={0.85} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: on ? colors.brand : colors.surfaceSunken }}>
-                {k ? <Icon name={KIND_ICON[k] ?? 'images'} size={13} color={on ? colors.onPrimary : colors.textSecondary} /> : null}
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onPrimary : colors.textSecondary }}>{v.label}</Text>
-                <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: on ? colors.onPrimary : colors.textTertiary, opacity: 0.85 }}>({formatNumber(v.n)})</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <FlatList horizontal data={tabs} keyExtractor={tabKey} renderItem={renderTab} extraData={kind}
+          initialNumToRender={6} maxToRenderPerBatch={6} windowSize={5}
+          showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: spacing.sm, paddingHorizontal: 2 }} />
       ) : null}
 
       {/* the mosaic: one big + two stacked, then three across */}

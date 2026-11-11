@@ -8,6 +8,7 @@ import { Icon } from '@/components/ui/Icon';
 import { ShopLogo } from '@/components/print/ShopLogo';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { useOnScreen } from '@/hooks/useAmbientMotion';
 import { getReceiveJobs } from '@/api/print';
 
 /**
@@ -20,8 +21,12 @@ export function PrintArrivingCard() {
   const { t } = useTranslation();
   const { isAssistant, can } = useActiveAbilities();
   const flags = useFeatureFlags().data;
+  // The home tab stays mounted under every other screen: poll only while it is in front.
+  const onScreen = useOnScreen();
   const on = isAssistant && can(ABILITY.RECEIVE_PRINTS) && !!flags?.print_market;
-  const jobs = useQuery({ queryKey: ['print-receive'], queryFn: getReceiveJobs, enabled: on, refetchInterval: 60_000 });
+  const jobs = useQuery({ queryKey: ['print-receive'], queryFn: getReceiveJobs, enabled: on,
+    refetchInterval: onScreen ? 60_000 : false,
+  });
   const list = (jobs.data ?? []).slice(0, 3);
   if (!on || list.length === 0) return null;
 

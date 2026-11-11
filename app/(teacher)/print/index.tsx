@@ -1,5 +1,6 @@
+import { memo, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { ScrollView } from '@/components/ui/Refreshable';
+import { FlatList } from '@/components/ui/Refreshable';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,7 +25,7 @@ const TONE = (): Record<PrintJob['status_tone'], { bg: string; fg: string }> => 
 });
 
 /** One job on the list: title, shop, what it is, where it stands, what it costs. */
-function JobRow({ j }: { j: PrintJob }) {
+const JobRow = memo(function JobRow({ j }: { j: PrintJob }) {
   const { t } = useTranslation();
   const tone = TONE()[j.status_tone];
   return (
@@ -52,7 +53,11 @@ function JobRow({ j }: { j: PrintJob }) {
       </View>
     </TouchableOpacity>
   );
-}
+});
+
+/** The list's rows: a heading over the open jobs and one over the closed ones, then the jobs. */
+type Row = { key: string; group: 'open' | 'closed'; head: string } | { key: string; group: 'open' | 'closed'; job: PrintJob };
+const SURFACE = { open: 'teacher.print.open', closed: 'teacher.print.closed' } as const;
 
 /**
  * «المطبعة» — the teacher's print jobs, open first. «طلب جديد» opens the composer, where
@@ -63,8 +68,24 @@ export default function PrintJobs() {
   const insets = useSafeAreaInsets();
   const jobs = useQuery({ queryKey: ['print-jobs'], queryFn: getPrintJobs });
   const { refreshing, onRefresh } = usePullRefresh(jobs.refetch);
-  const open = jobs.data?.open ?? [];
-  const closed = jobs.data?.closed ?? [];
+  // One windowed list: open first, then closed, each under its heading.
+  const rows = useMemo<Row[]>(() => {
+    const open = jobs.data?.open ?? [];
+    const closed = jobs.data?.closed ?? [];
+    return [
+      ...(open.length ? [{ key: 'h-open', group: 'open' as const, head: t('print.open_jobs') }] : []),
+      ...open.map((j) => ({ key: `j${j.id}`, group: 'open' as const, job: j })),
+      ...(closed.length ? [{ key: 'h-closed', group: 'closed' as const, head: t('print.closed_jobs') }] : []),
+      ...closed.map((j) => ({ key: `j${j.id}`, group: 'closed' as const, job: j })),
+    ];
+  }, [jobs.data, t]);
+  const renderRow = useCallback(({ item }: { item: Row }) => (
+    <Surface id={SURFACE[item.group]}>
+      {'job' in item ? <JobRow j={item.job} /> : (
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary, marginTop: item.group === 'closed' ? spacing.lg : 0, marginBottom: spacing.sm }}>{item.head}</Text>
+      )}
+    </Surface>
+  ), []);
   const goNew = () => router.push('/(teacher)/print/shops' as Href);
 
   return (
@@ -74,28 +95,17 @@ export default function PrintJobs() {
       {jobs.isLoading ? (
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false}
+        <FlatList data={rows} keyExtractor={(r) => r.key} renderItem={renderRow}
+          initialNumToRender={8} maxToRenderPerBatch={8} windowSize={7}
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: nav.pageEnd + insets.bottom + spacing.lg }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
-          {open.length === 0 && closed.length === 0 ? (
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          ListEmptyComponent={(
             <Surface id="teacher.print.empty">
               <EmptyState icon="print" title={t('print.empty_title')} message={t('print.empty_hint')} />
               <Button title={t('print.new')} onPress={goNew} style={{ marginTop: spacing.md }} />
             </Surface>
-          ) : null}
-          {open.length > 0 ? (
-            <Surface id="teacher.print.open">
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('print.open_jobs')}</Text>
-              {open.map((j) => <JobRow key={j.id} j={j} />)}
-            </Surface>
-          ) : null}
-          {closed.length > 0 ? (
-            <Surface id="teacher.print.closed">
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm }}>{t('print.closed_jobs')}</Text>
-              {closed.map((j) => <JobRow key={j.id} j={j} />)}
-            </Surface>
-          ) : null}
-        </ScrollView>
+          )} />
       )}
     </FormScreen>
     </Surface>
