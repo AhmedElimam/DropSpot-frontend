@@ -71,3 +71,10 @@ describe('complaint notifications open where they are about', () => {
     expect(notificationRouteFor({ role: 'student', type: 'brand_new_type', data: { route: '/(student)/marks?x=1' } })).toBe('/(student)/marks?x=1');
   });
 });
+
+describe('homework reminders open where they are about (2026-11-11)', () => {
+  it('the teacher reaches the session, the student their homework', () => {
+    expect(notificationRouteFor({ role: 'teacher', type: 'homework_check_reminder', data: { session_instance_id: 81, homework_id: 4 } })).toBe('/(teacher)/sessions/81');
+    expect(notificationRouteFor({ role: 'student', type: 'homework_due_reminder', data: { session_instance_id: 81, homework_id: 4 } })).toBe('/(student)/homework');
+  });
+});

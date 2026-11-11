@@ -58,6 +58,8 @@ function teacherRoute(type: string, data: Record<string, unknown> | null | undef
     case 'homework_streak':
       return student ? `/(teacher)/students/${student}` : '/(teacher)/students';
     case 'left_early':
+    // «فيه واجب»: an hour before a session with homework to grade (2026-11-11).
+    case 'homework_check_reminder':
     case 'assistant_checkin_review':
     case 'assistant_session_created':
     case 'assistant_session_cancelled':
@@ -221,6 +223,8 @@ function studentRoute(type: string, data: Record<string, unknown> | null | undef
     // «واجب جديد»: the teacher gave homework at a session.
     case 'homework':
     case 'homework_streak':
+    // الناظر, before the session the homework is due at (2026-11-11).
+    case 'homework_due_reminder':
       return '/(student)/homework';
     case 'card_preparing':
     case 'card_released':

@@ -45,6 +45,7 @@ function hasDues(p?: ScanPending | null): boolean {
 const COOLDOWN_MS = 2500; // ignore repeat reads of the SAME card
 const SCAN_THROTTLE_MS = 1500; // min gap between ANY two accepted scans (anti-burst)
 const FEEDBACK_MS = 1600; // how long the green/red result stays before resuming
+const FEEDBACK_HOMEWORK_MS = 2600; // …and when it also names last session's homework
 
 // The aiming frame, its vignette and the in-frame gate are shared with «ربط كارت المدرّس»
 // (src/components/teacher/ScanFrame.tsx).
@@ -164,19 +165,21 @@ export default function TeacherScan() {
   // timer clear the next card's feedback (and `busy`) early.
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); }, []);
-  const clearFeedbackLater = useCallback(() => {
+  const clearFeedbackLater = useCallback((ms: number = FEEDBACK_MS) => {
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = setTimeout(() => { feedbackTimer.current = null; setFeedback(null); setBusy(false); }, FEEDBACK_MS);
+    feedbackTimer.current = setTimeout(() => { feedbackTimer.current = null; setFeedback(null); setBusy(false); }, ms);
   }, []);
 
   // The door's sounds: all clear / money to pay / missed the last session with no excuse.
   // Loaded only while this screen is in front (founder 2026-11-08).
   const playTone = useDoorTones(isFocused);
 
-  const flash = useCallback((success: boolean, message: string, studentName?: string | null, pending?: import('@/api/teacher').ScanPending | null) => {
+  const flash = useCallback((success: boolean, message: string, studentName?: string | null, pending?: import('@/api/teacher').ScanPending | null, homework?: ScanResult['homework']) => {
     Vibration.vibrate(success ? 60 : [0, 120, 90, 120]);
-    setFeedback({ success, message, student_name: studentName ?? null, pending: pending ?? null });
-    clearFeedbackLater();
+    // Homework still to grade (2026-11-11) stays on the flash a little longer, to be read.
+    const owesHomework = success && !!homework && !homework.rating;
+    setFeedback({ success, message, student_name: studentName ?? null, pending: pending ?? null, homework: owesHomework ? homework : null });
+    clearFeedbackLater(owesHomework ? FEEDBACK_HOMEWORK_MS : FEEDBACK_MS);
   }, []);
 
   // Any popup on screen pauses the reader too — the server-drawn ones included (the blank
@@ -386,6 +389,7 @@ export default function TeacherScan() {
             + (res.success && res.last_absence === 'unexcused' ? `\n${t('teacher.last_absence_unexcused')}` : ''),
           res.student_name,
           res.pending,
+          res.homework,
         );
         // Merged pay-on-scan: if the checked-in student owes anything, open ONE popup
         // to collect (bill / booklets / booking) — reversing the old passive-only chips.
@@ -1217,6 +1221,19 @@ export default function TeacherScan() {
                 <PendingChip text={t('teacher.flag_booklet') + (feedback.pending.booklets.length > 1 ? ` (${feedback.pending.booklets.length})` : '')} />
               ) : null}
               {feedback.pending.booking ? <PendingChip text={t('teacher.flag_booking') + (feedback.pending.booking.secures ? ` — ${feedback.pending.booking.secures}` : '')} /> : null}
+            </View>
+            </Surface>
+          ) : null}
+          {/* «عليه واجب» (2026-11-11): last session's homework, still to grade — read it, grade
+              it in the session sheet. Passive like the dues: no buttons, gone with the flash. */}
+          {feedback.success && feedback.homework ? (
+            <Surface id="teacher.scan.feedback.homework">
+            <View style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, borderRadius: radius.xl, backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }}>
+              <Icon name="list" size={22} color="#fff" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('teacher.flag_homework')}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 15, lineHeight: 23, color: 'rgba(255,255,255,0.95)' }} numberOfLines={3}>{feedback.homework.body}</Text>
+              </View>
             </View>
             </Surface>
           ) : null}

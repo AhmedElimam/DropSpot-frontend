@@ -472,6 +472,17 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
               {s.time ?? ''}{s.location ? ` · ${s.location}` : ''}
             </Text>
           )}
+          {s.homework_due && !noDoor ? (
+            // «فيه واجب» (2026-11-11): what was given last time — grade it as they come in.
+            <Surface id="teacher.home.spotlight_homework" ctx={{ session: s }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4, alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 8 }}>
+              <Icon name="list" size={12} color="#fff" />
+              <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>
+                {t('home.spotlight_homework', { body: s.homework_due.body })}
+              </Text>
+            </View>
+            </Surface>
+          ) : null}
         </View>
         {canScan && !noDoor ? (
           <Surface id="teacher.home.spotlight_scan" ctx={{ session: s }}>

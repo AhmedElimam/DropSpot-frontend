@@ -1420,7 +1420,10 @@
     "roster_count": "حضر {{present}} من {{total}}",
     "session_cancel_failed": "تعذّر إلغاء الحصة",
     "insights_short": "الرؤى",
-    "schedule_short": "الجدول"
+    "schedule_short": "الجدول",
+    "homework_chip": "فيه واجب",
+    "spotlight_homework": "واجب: {{body}}",
+    "student_homework_due": "واجبك للحصة دي: {{body}}"
   },
   "swap": {
     "title": "طلب موعد بديل",
@@ -2281,7 +2284,8 @@
     "co_none_in_filter": "مفيش كروت بالفلتر ده",
     "co_confirm": "تأكيد الاستلام",
     "co_confirm_title": "الكارت وصلك؟",
-    "co_confirm_body": "أكّد بس لو كارت {{name}} في إيدك فعلًا — التأكيد بيشغّل الكارت."
+    "co_confirm_body": "أكّد بس لو كارت {{name}} في إيدك فعلًا — التأكيد بيشغّل الكارت.",
+    "flag_homework": "عليه واجب الحصة اللي فاتت"
   },
   "assistants": {
     "title": "المساعدون",
@@ -4157,7 +4161,8 @@
       "daily_4": "لو في حاجة مش مفهومة، اسأل المعلم من التذاكر.",
       "session_note": "أ. {{teacher}} كتب عن حصة {{course}}. اقراها قبل الحصة الجاية.",
       "digest": "ملخص النهارده عندي: حضورك وملاحظات المعلمين."
-    }
+    },
+    "homework_next_title": "واجب حصة {{course}} — {{when}}"
   },
   "subscription": {
     "title": "اشتراك دروس سبوت",

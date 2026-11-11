@@ -3,8 +3,9 @@ import { createVideoPlayer, type VideoPlayer } from 'expo-video';
 import type { ScanResult, ScanPending } from '@/api/teacher';
 
 /**
- * The door's three sounds (founder 2026-11-08): «all clear, go in», «has money to pay», and
- * «missed the last session without an excuse». A last absence WITH an excuse sounds like all clear.
+ * The door's sounds (founder 2026-11-08): «all clear, go in», «has money to pay», «missed the
+ * last session without an excuse», and (2026-11-11) «last session's homework to grade». A last
+ * absence WITH an excuse sounds like all clear; money, then the absence, win over homework.
  *
  * Same approach as الناظر's unlock sound (src/components/nazer/unlockSound.ts): the files live on
  * drosspot.app (public/sounds in the backend), so a sound can be swapped with no store build and
@@ -12,10 +13,11 @@ import type { ScanResult, ScanPending } from '@/api/teacher';
  * every store build already carries. Loaded while the scan screen is open; no network, no sound —
  * the vibration still says yes or no.
  */
-export type DoorTone = 'clear' | 'bill' | 'absent';
+export type DoorTone = 'clear' | 'bill' | 'absent' | 'homework';
 
 const BASE = 'https://drosspot.app/sounds/door-';
-const TONES: DoorTone[] = ['clear', 'bill', 'absent'];
+// 'homework' (2026-11-11): a school-bell trill — last session's homework still to grade.
+const TONES: DoorTone[] = ['clear', 'bill', 'absent', 'homework'];
 
 function owes(p?: ScanPending | null): boolean {
   return !!p && (!!p.bill || (p.booklets?.length ?? 0) > 0 || !!p.booking);
@@ -23,6 +25,7 @@ function owes(p?: ScanPending | null): boolean {
 
 /** The server's choice (DoorToneService), or the same rule from the dues for an older backend. */
 export function doorToneFor(res: ScanResult): DoorTone | null {
+  if (res.door_sound) return res.door_sound;
   if (res.door_tone) return res.door_tone;
   if (!res.success) return res.code === 'BILLING_OVERDUE' ? 'bill' : null;
   return owes(res.pending) ? 'bill' : 'clear';
