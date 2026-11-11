@@ -189,7 +189,7 @@ export const ChatBubble = memo(function ChatBubble({
             {message.sender.name}
           </Text>
           {staff ? (
-            <View style={{ backgroundColor: chat.staffInk, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 }}>
+            <View style={{ backgroundColor: chat.staffBadge, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 9.5, color: '#fff' }}>
                 {message.sender.is_teacher ? t('chat.teacher_badge') : t('chat.assistant_badge')}
               </Text>

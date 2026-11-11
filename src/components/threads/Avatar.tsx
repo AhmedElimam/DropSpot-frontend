@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { fonts } from '@/theme/typography';
 import { colors } from '@/theme/index';
-import { senderColor } from '@/theme/chat';
+import { senderFill } from '@/theme/chat';
 import { initials } from './format';
 
 /**
@@ -18,7 +18,7 @@ export const InitialsAvatar = memo(function InitialsAvatar({ id, name, size = 40
   ring?: string | null;
   logoUrl?: string | null;
 }) {
-  const tone = senderColor(id);
+  const tone = senderFill(id);
   const inner = ring ? size - 6 : size;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', borderWidth: ring ? 2 : 0, borderColor: ring ?? 'transparent' }}>

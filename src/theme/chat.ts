@@ -1,4 +1,4 @@
-import { colors } from './index';
+import { colors, isDark } from './index';
 
 /**
  * Chat tokens, in one place.
@@ -12,60 +12,80 @@ import { colors } from './index';
  * The shape of a message bubble is deliberately the one this app ALREADY uses in a ticket
  * thread: filled brand for mine, bordered surface for theirs, one squared corner. A student
  * who has read a ticket reply has already learnt how to read this room.
+ *
+ * Every token is a GETTER (founder 2026-11-12: «the chat on dark mode doesn't show the right
+ * colours»). `colors` is rewritten when the scheme changes; a plain object here kept whatever
+ * scheme was live at first import — paper-white bubbles and day ink on the navy room. The
+ * staff bubble, the name colours and the badges had day-only hex values on top of that.
  */
 export const chat = {
-  /** The room's ground — the same warm paper as every other screen. */
-  canvas: colors.background,
+  /** The room's ground — the same canvas as every other screen. */
+  get canvas() { return colors.background; },
 
-  /** Your own words: filled ink indigo, white type. */
-  bubbleMine: colors.brand,
+  /** Your own words: filled indigo, white type. By night the deeper primary keeps white readable. */
+  get bubbleMine() { return isDark() ? colors.primary : colors.brand; },
   textOnMine: '#FFFFFF',
   metaOnMine: 'rgba(255,255,255,0.62)',
 
   /** Everyone else: a plain surface card. */
-  bubbleTheirs: colors.surface,
-  bubbleTheirsBorder: colors.border,
-  text: colors.textPrimary,
-  meta: colors.textTertiary,
+  get bubbleTheirs() { return colors.surface; },
+  get bubbleTheirsBorder() { return colors.border; },
+  get text() { return colors.textPrimary; },
+  get meta() { return colors.textTertiary; },
 
   /** The teacher or a granted assistant — the one place the apricot accent earns its keep. */
-  bubbleStaff: colors.accentWarmTint,
-  bubbleStaffBorder: '#F0DDB8',
-  staffInk: '#8A5B00',
+  get bubbleStaff() { return colors.accentWarmTint; },
+  get bubbleStaffBorder() { return isDark() ? '#6B4E14' : '#F0DDB8'; },
+  /** The adult's name, as type on the staff bubble. */
+  get staffInk() { return isDark() ? colors.accentText : '#8A5B00'; },
+  /** The «المعلم» / «مساعد» badge: a fill that carries white type in both schemes. */
+  get staffBadge() { return isDark() ? '#A8700A' : '#8A5B00'; },
 
   /** A message a moderator removed: still readable to them, visibly withdrawn. */
-  bubbleHidden: colors.dangerLight,
-  hiddenInk: colors.dangerText,
+  get bubbleHidden() { return colors.dangerLight; },
+  get hiddenInk() { return colors.dangerText; },
 
   /** The day separator. */
-  chipBg: colors.surface,
-  chipBorder: colors.border,
-  chipText: colors.textTertiary,
+  get chipBg() { return colors.surface; },
+  get chipBorder() { return colors.border; },
+  get chipText() { return colors.textTertiary; },
 
   /** Composer + header chrome. */
-  bar: colors.surface,
-  barBorder: colors.border,
+  get bar() { return colors.surface; },
+  get barBorder() { return colors.border; },
 
   /** Sent tick; the second, lit, when every member has read it (members' read cursors). */
   tick: 'rgba(255,255,255,0.62)',
   tickSeen: '#8FE3F0',
 
-  /** A message that never reached the server, on the ink-indigo bubble: warm enough to be
+  /** A message that never reached the server, on the indigo bubble: warm enough to be
    *  seen, not a red alarm — the words are still right there, one tap from being sent. */
   failedInk: '#FFD1CC',
-} as const;
+};
 
 /**
  * Name colours for a group room, hashed per sender — the cue that tells three classmates
  * apart at a glance. Drawn from the product's own ink/indigo/teal/plum family rather than a
- * messenger's primaries, so a busy room still looks like this app.
+ * messenger's primaries, so a busy room still looks like this app. The day inks are too deep
+ * to read on navy, so the night has the same ten hues lifted.
  */
 const NAME_COLORS = [
   '#34419B', '#00695C', '#7B1FA2', '#B26500', '#00838F',
   '#4E342E', '#283593', '#AD1457', '#33691E', '#5D4037',
 ] as const;
+const NAME_COLORS_NIGHT = [
+  '#9DAEFF', '#5FD3C0', '#D79BF0', '#FFB454', '#6FD6E3',
+  '#D9B9A9', '#A8B4FF', '#F58CB8', '#A6D97A', '#D8B894',
+] as const;
 
+/** A sender's colour as TYPE (their name, a quote's edge) — follows the scheme. */
 export function senderColor(userId: number): string {
+  const list = isDark() ? NAME_COLORS_NIGHT : NAME_COLORS;
+  return list[Math.abs(userId) % list.length];
+}
+
+/** A sender's colour as a FILL under white type (an avatar) — the same in both schemes. */
+export function senderFill(userId: number): string {
   return NAME_COLORS[Math.abs(userId) % NAME_COLORS.length];
 }
 

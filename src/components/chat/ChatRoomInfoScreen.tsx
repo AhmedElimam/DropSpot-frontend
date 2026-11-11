@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, shadows, gradients } from '@/theme/index';
-import { chat, senderColor } from '@/theme/chat';
+import { chat, senderFill } from '@/theme/chat';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { ErrorState } from '@/components/ui/ErrorState';
 import {
@@ -356,7 +356,7 @@ export function ChatRoomInfoScreen({ courseId }: { courseId: number }) {
         return (
           <ShelfRow item={r.item} onShowInChat={() => jump({ messageId: r.item.id })}
             onPress={() => { if (raw) openLink(raw); }}
-            leading={<View style={{ width: 44, height: 44, borderRadius: radius.md, backgroundColor: senderColor(domain.length * 7 + domain.charCodeAt(0)), alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontFamily: fonts.bold, fontSize: 18, color: '#fff' }}>{domain.charAt(0).toUpperCase()}</Text></View>}
+            leading={<View style={{ width: 44, height: 44, borderRadius: radius.md, backgroundColor: senderFill(domain.length * 7 + domain.charCodeAt(0)), alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontFamily: fonts.bold, fontSize: 18, color: '#fff' }}>{domain.charAt(0).toUpperCase()}</Text></View>}
             title={domain}
             sub={raw}
             extra={(r.item.body ?? '').replace(raw, '').trim() || undefined}
@@ -454,7 +454,7 @@ function MemberRow({ m, viewerIsModerator, readOnly = false, onPress }: { m: Cha
           <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{m.name}</Text>
           {m.is_you ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.textTertiary }}>{t('chat.you_paren')}</Text> : null}
           {m.is_moderator ? (
-            <View style={{ backgroundColor: chat.staffInk, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 }}>
+            <View style={{ backgroundColor: chat.staffBadge, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1 }}>
               <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: '#fff' }}>{m.role === 'teacher' ? t('chat.teacher_badge') : t('chat.assistant_badge')}</Text>
             </View>
           ) : null}
