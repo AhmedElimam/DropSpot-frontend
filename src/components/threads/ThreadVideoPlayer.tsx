@@ -201,6 +201,21 @@ export function watermarkSpot(n: number): { x: number; y: number } {
   return { x: frac(0.12 + n * 0.6180339887), y: frac(0.3 + n * 0.4142135624) };
 }
 
+/** Kept clear of the picture's edges: the sides, the top bar and the controls at the foot. */
+const WATERMARK_SIDE = 16;
+const WATERMARK_TOP = 96;
+const WATERMARK_BOTTOM = 96;
+
+/** Where the big mark may stand: its top-left corner's start and travel, so the WHOLE mark stays inside the picture. Pure. */
+export function watermarkTravel(width: number, height: number, markW: number, markH: number): { x0: number; y0: number; travelX: number; travelY: number } {
+  return {
+    x0: WATERMARK_SIDE,
+    y0: WATERMARK_TOP,
+    travelX: Math.max(0, width - markW - 2 * WATERMARK_SIDE),
+    travelY: Math.max(0, height - markH - WATERMARK_TOP - WATERMARK_BOTTOM),
+  };
+}
+
 /**
  * Two marks. The big one — name | student code | play code — moves to a new place across the
  * whole picture every few seconds (a short glide, then it rests: a burst, never an endless
@@ -235,19 +250,28 @@ function Watermark({ play, width, height }: { play: ThreadPlay; width: number; h
     return parts.join('  |  ');
   }, [play]);
 
-  const travelX = Math.max(0, width - 240);
-  const travelY = Math.max(0, height - 180);
-  const translateX = x.interpolate({ inputRange: [0, 1], outputRange: [0, travelX] });
-  const translateY = y.interpolate({ inputRange: [0, 1], outputRange: [60, 60 + travelY] });
+  // The mark's real size, measured: a long name used to run past the edge on a guessed width
+  // (founder 2026-11-12: «the watermark is on the edge of the screen»).
+  const [mark, setMark] = useState({ w: 240, h: 44 });
+  const { x0, y0, travelX, travelY } = watermarkTravel(width, height, mark.w, mark.h);
+  const translateX = x.interpolate({ inputRange: [0, 1], outputRange: [x0, x0 + travelX] });
+  const translateY = y.interpolate({ inputRange: [0, 1], outputRange: [y0, y0 + travelY] });
 
   const cornerStyle = [
     { top: 90, left: 14 }, { top: 90, right: 14 }, { bottom: 70, right: 14 }, { bottom: 70, left: 14 },
   ][corner];
 
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, width, height }}>
-      <RNAnimated.View style={{ position: 'absolute', left: 0, top: 0, transform: [{ translateX }, { translateY }], alignItems: 'flex-start' }}>
-        <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: 'rgba(255,255,255,0.55)', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 }}>
+    // LTR on purpose: under the app's forced RTL an absolute `left` means the START (the right
+    // edge), so the mark was anchored there and every move pushed it off the picture.
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, width, height, direction: 'ltr' }}>
+      <RNAnimated.View
+        onLayout={(e) => {
+          const { width: w, height: h } = e.nativeEvent.layout;
+          if (Math.abs(w - mark.w) > 1 || Math.abs(h - mark.h) > 1) setMark({ w, h });
+        }}
+        style={{ position: 'absolute', left: 0, top: 0, maxWidth: Math.max(120, width - 2 * WATERMARK_SIDE), transform: [{ translateX }, { translateY }], alignItems: 'flex-start' }}>
+        <Text numberOfLines={2} style={{ fontFamily: fonts.bold, fontSize: 15, color: 'rgba(255,255,255,0.55)', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 }}>
           {label}
         </Text>
         <Text style={{ fontFamily: fonts.medium, fontSize: 13, letterSpacing: 2, color: 'rgba(255,255,255,0.5)', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 }}>
