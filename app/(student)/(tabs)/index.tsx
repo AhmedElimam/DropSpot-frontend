@@ -305,6 +305,17 @@ function Spotlight({ s, now }: { s: Session; now: number }) {
         <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 2 }} numberOfLines={1}>
           {t('home.spotlight_sub', { teacher: s.teacher_name, place: s.location })}
         </Text>
+        {s.homework_due && !s.homework_due.rating ? (
+          // «واجبك للحصة دي» (2026-11-11): what the teacher grades at the door.
+          <Surface id="student.home.spotlight.homework" ctx={{ session: s }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: spacing.sm, backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.lg, paddingVertical: 6, paddingHorizontal: spacing.md }}>
+            <Icon name="list" size={14} color="#fff" />
+            <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 20, color: '#fff' }} numberOfLines={2}>
+              {t('home.student_homework_due', { body: s.homework_due.body })}
+            </Text>
+          </View>
+          </Surface>
+        ) : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.md }}>
             <Icon name="clock" size={14} color="#fff" outline />

@@ -4,8 +4,9 @@ export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 export type CheckInMethod = 'card_scan' | 'phone_permitted' | 'manual';
 
 import type { AttendanceModeFields } from './attendance-mode';
+import type { SessionRowExtras } from '@/api/familySession';
 
-export interface AttendanceRecord extends AttendanceModeFields {
+export interface AttendanceRecord extends AttendanceModeFields, SessionRowExtras {
   id: number;
   session_instance_id: number;
   student_id: number;

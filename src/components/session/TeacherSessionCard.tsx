@@ -40,6 +40,8 @@ export interface SessionCardData {
   /** «ملاحظات الحصة»: the notes window (48 h after the end) and whether the session note was written. */
   notes_state?: 'upcoming' | 'open' | 'closed' | 'cancelled';
   notes_written?: boolean;
+  /** «فيه واجب» (2026-11-11): last session's homework, graded at this one. */
+  homework_due?: { body: string; assigned_on: string | null } | null;
 }
 
 const PHASE = (): Record<SessionPhase, { stripe: string; chipBg: string; chipText: string; key: string }> => ({
@@ -127,6 +129,15 @@ export const SessionCard = memo(function SessionCard({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.warningLight, borderRadius: radius.full, paddingVertical: 1, paddingHorizontal: 8 }}>
               <Icon name="note" size={11} color={colors.warningText} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.warningText }} numberOfLines={1}>{t('session_notes.awaiting_chip')}</Text>
+            </View>
+            </Surface>
+          ) : null}
+          {(phase === 'live' || phase === 'upcoming') && s.homework_due ? (
+            // Last session's homework, graded at this one: the door will ring for it.
+            <Surface id="teacher.session_card.homework_chip" ctx={{ session: s }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.infoLight, borderRadius: radius.full, paddingVertical: 1, paddingHorizontal: 8 }}>
+              <Icon name="list" size={11} color={colors.infoText} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.infoText }} numberOfLines={1}>{t('home.homework_chip')}</Text>
             </View>
             </Surface>
           ) : null}

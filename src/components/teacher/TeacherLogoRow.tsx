@@ -9,6 +9,7 @@ import { colors, spacing, radius, shadows } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { getTeacherLogo, uploadTeacherLogo, deleteTeacherLogo } from '@/api/teacherLogo';
 import { useAuthStore } from '@/stores/authStore';
+import { LogoEditor, prepareForEditor, type EditorPicture, type LogoEdit } from '@/components/teacher/LogoEditor';
 
 /**
  * Teacher settings row: upload / change / remove the teacher's brand logo. The logo is
@@ -40,19 +41,32 @@ export function TeacherLogoRow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The picked picture, open in the editor (founder 2026-11-08: crop it like a profile picture).
+  const [editing, setEditing] = useState<EditorPicture | null>(null);
+
   async function pickAndUpload() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) { Alert.alert(t('teacher.logo_perm_needed')); return; }
-      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
+      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
       if (res.canceled || !res.assets?.[0]?.uri) return;
       setBusy(true);
-      const url = await uploadTeacherLogo(res.assets[0].uri);
-      setLogo(url);
+      setEditing(await prepareForEditor(res.assets[0]));
     } catch {
       Alert.alert(t('common.error'), t('teacher.logo_upload_failed'));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function saveEdit(edit: LogoEdit) {
+    try {
+      const url = await uploadTeacherLogo(edit.uri, { crop: edit.crop, background: edit.background });
+      setLogo(url);
+      setEditing(null);
+    } catch {
+      // The editor stays open with the same framing: try again, or cancel.
+      Alert.alert(t('common.error'), t('teacher.logo_upload_failed'));
     }
   }
 
@@ -100,6 +114,7 @@ export function TeacherLogoRow() {
           ) : null}
         </View>
       ) : null}
+      <LogoEditor picture={editing} onCancel={() => setEditing(null)} onDone={saveEdit} />
     </View>
   );
 }

@@ -121,3 +121,44 @@ export function CardIntroModal({ visible, onOrder, onLater }: { visible: boolean
     </Modal>
   );
 }
+
+/** The rows of «كارت المدرّس» against «كارت دروس سبوت» (founder 2026-11-05). */
+const COMPARE: string[] = ['teachers', 'years', 'name', 'count'];
+
+/**
+ * «كارت المدرّس ولا كارت دروس سبوت؟» — the families' side of the teacher card: one column for
+ * the blank card a teacher hands out, one for the Dros Spot card, the second one lit. Facts
+ * only; the last line says what happens to the teacher cards once the Dros Spot card is used.
+ */
+export function CardCompare() {
+  const { t } = useTranslation();
+  const cell = { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingVertical: spacing.sm, paddingHorizontal: spacing.sm } as const;
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <View style={{ flex: 1, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, paddingVertical: spacing.sm, alignItems: 'center' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('card_compare.teacher_card')}</Text>
+        </View>
+        <View style={{ flex: 1, borderRadius: radius.lg, backgroundColor: colors.brand, paddingVertical: spacing.sm, alignItems: 'center' }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.onPrimary }}>{t('card_compare.ds_card')}</Text>
+        </View>
+      </View>
+      {COMPARE.map((k) => (
+        <View key={k} style={{ marginTop: spacing.sm }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textTertiary, marginBottom: 2 }}>{t(`card_compare.${k}_q`)}</Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <View style={[cell, { borderRadius: radius.md, backgroundColor: colors.surfaceSunken }]}>
+              <Icon name="close" size={14} color={colors.textTertiary} />
+              <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary }}>{t(`card_compare.${k}_teacher`)}</Text>
+            </View>
+            <View style={[cell, { borderRadius: radius.md, backgroundColor: colors.brandTint, borderWidth: 1, borderColor: colors.brand }]}>
+              <Icon name="success" size={14} color={colors.brand} />
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13, lineHeight: 20, color: colors.textPrimary }}>{t(`card_compare.${k}_ds`)}</Text>
+            </View>
+          </View>
+        </View>
+      ))}
+      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 20, color: colors.textSecondary, marginTop: spacing.md }}>{t('card_compare.note')}</Text>
+    </View>
+  );
+}

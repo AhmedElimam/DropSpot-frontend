@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { isAxiosError } from 'axios';
 import { useTranslation } from 'react-i18next';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { fonts } from '@/theme/typography';
 import { colors, spacing } from '@/theme/index';
 import { useLogin } from '@/hooks/useAuth';
@@ -16,9 +16,12 @@ const digits = (v: string) => v.replace(/[^0-9]/g, '').slice(0, 11);
 
 export default function LoginScreen() {
   const { t } = useTranslation();
-  const [phone, setPhone] = useState('');
+  // Sign-up's «you already have an account» hands the number over.
+  const params = useLocalSearchParams<{ phone?: string }>();
+  const [phone, setPhone] = useState(digits(params.phone ?? ''));
   const [password, setPassword] = useState('');
   const passwordRef = useRef<TextInput>(null);
+  useEffect(() => { if (params.phone) { setPhone(digits(params.phone)); passwordRef.current?.focus(); } }, [params.phone]);
   const loginMutation = useLogin();
 
   // A full Egyptian number is 11 digits; say so only once the user has typed that many
@@ -32,6 +35,14 @@ export default function LoginScreen() {
     if (!canSubmit) return;
     loginMutation.mutate({ phone_number: phone, password });
   };
+
+  // The teacher recorded this student and they never chose a password (founder 2026-11-04:
+  // they were making a second account instead). Activation is the reset flow, number filled.
+  const mayNeedActivation = isAxiosError(loginMutation.error) && loginMutation.error.response?.data?.errors?.may_need_activation === true;
+  // From the FIRST wrong password (founder 2026-11-07, logins now allow 4): the teacher may have
+  // registered them — activate, or reset a forgotten password. An unknown number reads the same.
+  const wrongPassword = isAxiosError(loginMutation.error) && loginMutation.error.response?.data?.code === 'INVALID_CREDENTIALS';
+  const activate = (prefill?: string) => router.push({ pathname: '/(auth)/forgot-password', params: { mode: 'activate', ...(prefill ? { phone: prefill } : {}) } });
 
   return (
     <AuthScaffold
@@ -56,6 +67,16 @@ export default function LoginScreen() {
               : t('auth.invalid_credentials'))
             : getFriendlyErrorMessage(loginMutation.error)}
         />
+      ) : null}
+      {mayNeedActivation || wrongPassword ? (
+        <View style={{ backgroundColor: colors.brandTint, borderRadius: 12, padding: spacing.md, marginBottom: spacing.lg, gap: spacing.sm }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, lineHeight: 21, color: colors.infoText }}>{t(mayNeedActivation ? 'auth.may_need_activation' : 'auth.wrong_password_hint')}</Text>
+          {/* Side by side, so the «دخول» button stays on screen under them. */}
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <View style={{ flex: 1 }}><Button title={t('auth.activate_account')} onPress={() => activate(phoneFull ? phone : undefined)} /></View>
+            <View style={{ flex: 1 }}><Button title={t('auth.forgot_password')} variant="outline" onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: phoneFull ? { phone } : {} })} /></View>
+          </View>
+        </View>
       ) : null}
 
       <AuthField
@@ -92,13 +113,18 @@ export default function LoginScreen() {
         containerStyle={{ marginBottom: spacing.sm }}
       />
 
-      <TouchableOpacity
-        onPress={() => router.push('/(auth)/forgot-password')}
-        hitSlop={{ top: 8, bottom: 8 }}
-        style={{ alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center', marginBottom: spacing.lg }}
-      >
-        <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('auth.forgot_password')}</Text>
-      </TouchableOpacity>
+      {/* Two doors (founder 2026-11-07): a forgotten password, and an account the teacher made
+          that its student or parent never knew about — that one checks the number first. */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: spacing.md, marginBottom: spacing.lg }}>
+        <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')} hitSlop={{ top: 8, bottom: 8 }} style={{ minHeight: 40, justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.brand }}>{t('auth.forgot_password')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => activate(phoneFull ? phone : undefined)} hitSlop={{ top: 8, bottom: 8 }} style={{ minHeight: 40, justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary }}>
+            {t('auth.teacher_registered_q')} <Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{t('auth.activate_account')}</Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <Button title={t('auth.login_button')} onPress={handleLogin} disabled={!canSubmit} loading={loginMutation.isPending} />
 
@@ -108,7 +134,12 @@ export default function LoginScreen() {
         <View style={{ flex: 1, height: 1, backgroundColor: colors.borderLight }} />
       </View>
 
-      <Button title={t('auth.create_account')} variant="outline" onPress={() => router.push('/(auth)/register')} />
+      {/* Sign-up starts with the number (founder 2026-11-07): a number the teacher already
+          registered is activated there, so the separate «تفعيل الحساب» link folded into it. */}
+      <Button title={t('auth.create_account')} variant="outline" onPress={() => router.push('/(auth)/signup')} />
+      <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.sm }}>
+        {t('auth.signup_hint')}
+      </Text>
     </AuthScaffold>
   );
 }

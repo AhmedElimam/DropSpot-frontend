@@ -1,4 +1,5 @@
 import client from './client';
+import { useShiftSettingsStore } from '@/stores/shiftSettingsStore';
 
 /**
  * Teacher courses management — parity with the web /courses + /courses/{id}/edit.
@@ -6,6 +7,16 @@ import client from './client';
  * location (which auto-enables phone check-in), and retire weekly slots. All
  * tenant-scoped server-side to the operating teacher; writes need manage_courses.
  */
+
+/** «الفترة» (founder 2026-11-06): a morning or an evening course; null = not set. */
+export type CourseShift = 'morning' | 'evening';
+
+/** «الفترات»: on/off and the hours («HH:mm»). Courses are filed by their groups' start times. */
+export interface ShiftSettings {
+  enabled: boolean;
+  morning: { start: string; end: string };
+  evening: { start: string; end: string };
+}
 
 export interface CourseSummary {
   id: string;
@@ -24,6 +35,13 @@ export interface CourseSummary {
   upcoming_count: number;
   /** Weekly schedule label — weekday + start time, e.g. «الأحد 9:00 AM، الثلاثاء 5:00 PM». */
   schedule_label?: string;
+  /** Kept from assistants by the teacher (an assistant never receives a hidden course). Absent on older servers. */
+  hidden_from_assistants?: boolean;
+  /** How many of its groups the teacher keeps from assistants. */
+  hidden_groups_count?: number;
+  /** Absent on older servers. */
+  shift?: CourseShift | null;
+  shift_label?: string | null;
 }
 
 export interface CourseSchedule {
@@ -35,6 +53,8 @@ export interface CourseSchedule {
   capacity: number | null;
   upcoming_count: number;
   headcount: number;
+  /** This group is kept from assistants (teacher-only switch). */
+  hidden_from_assistants?: boolean;
 }
 
 export interface CourseDetail {
@@ -45,6 +65,10 @@ export interface CourseDetail {
   // Settings
   radius_horizontal_meters: number;
   allow_session_swap: boolean;
+  shift?: CourseShift | null;
+  shift_label?: string | null;
+  /** Kept from assistants: the course, its groups, sessions and the students only there. */
+  hidden_from_assistants?: boolean;
   attendance_mode?: 'door' | 'none';
   tracks_attendance?: boolean;
   attendance_label?: string | null;
@@ -91,6 +115,8 @@ export interface CourseSettingsPayload {
   radius_horizontal_meters?: number;
   phone_checkin_enabled?: boolean;
   allow_session_swap?: boolean;
+  /** null clears it; omit to leave unchanged. */
+  shift?: CourseShift | null;
   sheet_expected_by_default?: boolean;
   sheet_max_mark?: number | null;
   sessions_per_billing_cycle?: number;
@@ -138,6 +164,7 @@ export interface CreateCoursePayload {
   slots?: { day_of_week: number; start_time: string; end_time: string }[];
   // Per-course session-swap permission (default on).
   allow_session_swap?: boolean;
+  shift?: CourseShift | null;
   /** 'none' = a private lesson with no door. Omitted = door. */
   attendance_mode?: 'door' | 'none';
   // Pricing at creation (empty = disabled/none) — mirrors the web create form.
@@ -165,7 +192,17 @@ export async function createCourse(payload: CreateCoursePayload): Promise<Create
 
 export async function getCourses(): Promise<CourseSummary[]> {
   const { data } = await client.get('/teacher/courses');
+  if (data?.shift_settings) useShiftSettingsStore.getState().set(data.shift_settings as ShiftSettings);
   return (data.data ?? data ?? []) as CourseSummary[];
+}
+
+export async function saveShiftSettings(payload: {
+  enabled: boolean; morning_start?: string; morning_end?: string; evening_start?: string; evening_end?: string;
+}): Promise<{ settings: ShiftSettings; counts: { morning: number; evening: number }; message: string }> {
+  const { data } = await client.put('/teacher/shift-settings', payload);
+  const settings = data.data.shift_settings as ShiftSettings;
+  useShiftSettingsStore.getState().set(settings);
+  return { settings, counts: data.data.counts, message: data.message };
 }
 
 export async function getCourseDetail(id: string | number): Promise<CourseDetail> {
@@ -180,6 +217,18 @@ export async function updateCourseSettings(id: string | number, payload: CourseS
 
 export async function updateCourseLocation(id: string | number, payload: LocationPayload): Promise<CourseDetail> {
   const { data } = await client.post(`/teacher/courses/${id}/location`, payload);
+  return (data.data ?? data) as CourseDetail;
+}
+
+/** Keep the course from assistants, or give it back — teacher only (the server refuses an assistant). */
+export async function setCourseHidden(id: string | number, hidden: boolean): Promise<CourseDetail> {
+  const { data } = await client.post(`/teacher/courses/${id}/visibility`, { hidden_from_assistants: hidden });
+  return (data.data ?? data) as CourseDetail;
+}
+
+/** The same for one group of the course. */
+export async function setScheduleHidden(courseId: string | number, scheduleId: string | number, hidden: boolean): Promise<CourseDetail> {
+  const { data } = await client.post(`/teacher/courses/${courseId}/schedules/${scheduleId}/visibility`, { hidden_from_assistants: hidden });
   return (data.data ?? data) as CourseDetail;
 }
 

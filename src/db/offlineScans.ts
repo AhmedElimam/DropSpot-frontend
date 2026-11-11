@@ -25,6 +25,9 @@ export interface OfflineScan {
   //   for a human decision (dismiss, or re-queue against a different session).
   //   This is the transient-vs-permanent split (reliability addendum §2).
   status: 'pending' | 'rejected';
+  // Who the server said the card belongs to, kept with a rejected scan so «بحاجة لقرارك» names the
+  // student instead of showing the raw card link (2026-11-10). Null on older rows.
+  student_name?: string | null;
 }
 
 let dbRef: SQLite.SQLiteDatabase | null = null;
@@ -55,6 +58,7 @@ export async function initOfflineScans(): Promise<void> {
   for (const alter of [
     'ALTER TABLE offline_scans ADD COLUMN teacher_id INTEGER',
     "ALTER TABLE offline_scans ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'",
+    'ALTER TABLE offline_scans ADD COLUMN student_name TEXT',
   ]) {
     try {
       await db().execAsync(alter);
@@ -139,8 +143,8 @@ export async function deleteScans(ids: number[]): Promise<void> {
  * Mark a scan as permanently rejected (addendum §2): kept locally, taken OUT of
  * the retry queue, and surfaced to the teacher as "needs your decision".
  */
-export async function markScanRejected(id: number, error: string): Promise<void> {
-  await db().runAsync("UPDATE offline_scans SET status = 'rejected', last_error = ? WHERE id = ?", error, id);
+export async function markScanRejected(id: number, error: string, studentName: string | null = null): Promise<void> {
+  await db().runAsync("UPDATE offline_scans SET status = 'rejected', last_error = ?, student_name = ? WHERE id = ?", error, studentName, id);
 }
 
 /**

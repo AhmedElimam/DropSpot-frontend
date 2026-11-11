@@ -13,6 +13,8 @@ describe('notificationCategory', () => {
     ['student_report_safety', 'students'],
     ['admin_ticket_reply', 'followup'],
     ['assistant_action_review', 'followup'],
+    ['homework', 'followup'],
+    ['homework_streak', 'followup'],
     ['something_new', 'other'],
   ])('%s → %s', (type, cat) => {
     expect(notificationCategory(type)).toBe(cat);

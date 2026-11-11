@@ -43,6 +43,10 @@ PROJECT_URL="https://u.expo.dev/$(node -p "require('./app.json').expo.extra.eas.
 CHANNEL=production
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 SEEN="$TMP/seen"; : > "$SEEN"
+# What each store build's file said (runtime, build number), kept on this Mac: GitHub deletes a
+# build's artifact after 30 days, and without this the store build in people's hands would stop
+# getting updates (android build 35's expired 2026-11-12). One line per run: id platform runtime build.
+RT_CACHE="${HOME}/.cache/drosspot-ota/runtimes.txt"; mkdir -p "$(dirname "$RT_CACHE")"; touch "$RT_CACHE"
 
 say() { printf '%s\n' "$*"; }
 die() { printf '✗ %s\n' "$*" >&2; exit 1; }
@@ -91,9 +95,19 @@ LIST="$TMP/builds"; : > "$LIST"
 add_runs() { # workflow platform artifact
   local wf="$1" platform="$2" art="$3" ids
   if [ ${#RUNS[@]} -gt 0 ]; then ids="${RUNS[*]}"
-  else ids="$(gh run list --workflow "$wf" --status success --limit "$LAST" --json databaseId --jq '.[].databaseId' | tr '\n' ' ')"; fi
+  else
+    local t; for t in 1 2 3; do
+      ids="$(gh run list --workflow "$wf" --status success --limit "$LAST" --json databaseId --jq '.[].databaseId' </dev/null 2>/dev/null | tr '\n' ' ')" || ids=""
+      [ -n "${ids// /}" ] && break; sleep 5
+    done
+  fi
   local id; for id in $ids; do
-    local w; w="$(gh run view "$id" --json workflowName,headSha --jq '.workflowName + " " + .headSha')"
+    # Three tries: a reset connection here used to stop the whole run before any publish (2026-11-10).
+    local w="" t; for t in 1 2 3; do
+      w="$(gh run view "$id" --json workflowName,headSha --jq '.workflowName + " " + .headSha' </dev/null 2>/dev/null)" && break
+      sleep 5
+    done
+    [ -n "$w" ] || die "GitHub did not answer for run $id (3 tries) — check the connection and run again"
     case "$w" in
       "Build iOS IPA "*) [ "$platform" = ios ] || continue ;;
       "Build Android AAB"*) [ "$platform" = android ] || continue ;;
@@ -115,18 +129,29 @@ PUBLISHED=0; SKIPPED=0; DONE=()
 while read -r id platform art sha; do
   short="${sha:0:7}"
   dir="$TMP/$id"; mkdir -p "$dir"
-  gh run download "$id" -n "$art" -D "$dir" >/dev/null 2>&1 || { say "· run $id ($platform $short): artifact gone — skipped"; continue; }
-  f="$(find "$dir" -type f \( -name '*.ipa' -o -name '*.aab' \) | head -1)"
-  if [ "$platform" = ios ]; then
-    rt="$(unzip -p "$f" 'Payload/*.app/EXUpdates.bundle/fingerprint' 2>/dev/null || true)"
-    bid="$(unzip -p "$f" 'Payload/*.app/Info.plist' | plutil -extract CFBundleIdentifier raw - 2>/dev/null || true)"
-    build="$(unzip -p "$f" 'Payload/*.app/Info.plist' | plutil -extract CFBundleVersion raw - 2>/dev/null || true)"
-    [ "$bid" = com.drosspot.app ] || { say "· run $id: $bid is not the store app — skipped"; rm -rf "$dir"; continue; }
+  cached="$(awk -v id="$id" '$1 == id { print $3 " " $4; exit }' "$RT_CACHE")"
+  if [ -n "$cached" ]; then
+    rt="${cached%% *}"; build="${cached##* }"
   else
-    rt="$(unzip -p "$f" base/assets/fingerprint 2>/dev/null || true)"
-    build="$(basename "$f" .aab)"; build="${build##*-}"
+    # Twice: a dropped connection is not a missing artifact (2026-11-09 — a reset skipped build 35).
+    # </dev/null: gh must not read the loop's list of builds from stdin (a failed download
+    # swallowed the rest of it, so the builds after it were never published, 2026-11-09).
+    gh run download "$id" -n "$art" -D "$dir" </dev/null >/dev/null 2>&1 \
+      || { sleep 5; gh run download "$id" -n "$art" -D "$dir" </dev/null >/dev/null 2>&1; } \
+      || { say "· run $id ($platform $short): artifact gone and not in $RT_CACHE — skipped"; continue; }
+    f="$(find "$dir" -type f \( -name '*.ipa' -o -name '*.aab' \) | head -1)"
+    if [ "$platform" = ios ]; then
+      rt="$(unzip -p "$f" 'Payload/*.app/EXUpdates.bundle/fingerprint' 2>/dev/null || true)"
+      bid="$(unzip -p "$f" 'Payload/*.app/Info.plist' | plutil -extract CFBundleIdentifier raw - 2>/dev/null || true)"
+      build="$(unzip -p "$f" 'Payload/*.app/Info.plist' | plutil -extract CFBundleVersion raw - 2>/dev/null || true)"
+      [ "$bid" = com.drosspot.app ] || { say "· run $id: $bid is not the store app — skipped"; rm -rf "$dir"; continue; }
+    else
+      rt="$(unzip -p "$f" base/assets/fingerprint 2>/dev/null || true)"
+      build="$(basename "$f" .aab)"; build="${build##*-}"
+    fi
+    rm -rf "$dir"
+    [ -n "$rt" ] && echo "$id $platform $rt ${build:-?}" >> "$RT_CACHE"
   fi
-  rm -rf "$dir"
   label="$platform build $build (run $id, $short)"
   [ -n "$rt" ] || { say "· $label: no runtime inside — skipped"; continue; }
   if grep -qx "$platform $rt" "$SEEN"; then continue; fi
@@ -149,10 +174,15 @@ while read -r id platform art sha; do
   # a clean cache; the rest reuse it, already built with this run's values.
   clear=""
   case " ${CLEARED[*]:-} " in *" $platform "*) ;; *) clear="--clear-cache"; CLEARED+=("$platform") ;; esac
-  env -u EXPO_PUBLIC_STAGING_KEY EXPO_PUBLIC_APP_ENV=production EXPO_PUBLIC_API_URL=https://drosspot.app/api/v1 \
-    EXPO_PUBLIC_BUNDLE_COMMIT="$HEAD_SHA" \
-    OTA_RUNTIME_VERSION="$rt" npx eas-cli update --branch "$CHANNEL" --platform "$platform" $clear \
-    --message "$MSG ($platform b$build)" --non-interactive >"$TMP/eas.log" 2>&1 \
+  # One upload, the production settings inlined. Tried twice: Expo's asset processing times out
+  # now and then («Asset processing timed out», 2026-11-09), which used to stop the whole run.
+  publish_once() {
+    env -u EXPO_PUBLIC_STAGING_KEY EXPO_PUBLIC_APP_ENV=production EXPO_PUBLIC_API_URL=https://drosspot.app/api/v1 \
+      EXPO_PUBLIC_BUNDLE_COMMIT="$HEAD_SHA" \
+      OTA_RUNTIME_VERSION="$rt" npx eas-cli update --branch "$CHANNEL" --platform "$platform" $1 \
+      --message "$MSG ($platform b$build)" --non-interactive </dev/null >"$TMP/eas.log" 2>&1
+  }
+  publish_once "$clear" || { say "  upload failed once — retrying"; sleep 20; publish_once ""; } \
     || { tail -20 "$TMP/eas.log"; die "publish failed for $label"; }
   [ "$(served_at "$rt" "$platform")" -ge "$HEAD_TIME" ] || die "published, but EAS does not serve it to $label"
   say "  ✓ served"

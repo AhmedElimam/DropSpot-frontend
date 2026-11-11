@@ -4,18 +4,23 @@ import { useTranslation } from 'react-i18next';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
+import type { CourseShift } from '@/api/courses';
 import { foldForSearch } from '@/utils/format';
 
 const SEARCH_FROM = 6;
 
 /**
- * Narrow a teacher's groups by grade (chips, when there is more than one) and by name (a
- * search field, once there are more than a handful). Used where a group is chosen to add
- * students: fast register and the invitation link.
+ * Narrow a teacher's groups by grade (chips, when there is more than one), by «الفترة» (once any
+ * group has a shift — founder 2026-11-06) and by name (a search field, once there are more than a
+ * handful). Used where a group is chosen to add students: fast register and the invitation link.
  */
-export function useGroupFilter<T>(items: T[], name: (x: T) => string, grade: (x: T) => string | null | undefined) {
+export function useGroupFilter<T>(items: T[], name: (x: T) => string, grade: (x: T) => string | null | undefined, shiftOf?: (x: T) => CourseShift | null | undefined) {
   const [chosen, setChosen] = useState<string | null>(null);
+  const [shift, setShift] = useState<CourseShift | null>(null);
   const [query, setQuery] = useState('');
+  const hasShifts = useMemo(() => !!shiftOf && items.some((x) => !!shiftOf(x)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items]);
   const grades = useMemo(() => {
     const seen = new Set<string>();
     for (const x of items) { const g = grade(x); if (g) seen.add(g); }
@@ -24,22 +29,25 @@ export function useGroupFilter<T>(items: T[], name: (x: T) => string, grade: (x:
   }, [items]);
   const filtered = useMemo(() => {
     const q = foldForSearch(query.trim());
-    return items.filter((x) => (!chosen || grade(x) === chosen) && (!q || foldForSearch(name(x)).includes(q)));
+    return items.filter((x) => (!chosen || grade(x) === chosen) && (!shift || shiftOf?.(x) === shift) && (!q || foldForSearch(name(x)).includes(q)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, chosen, query]);
-  return { grades, grade: chosen, setGrade: setChosen, query, setQuery, filtered, searchable: items.length > SEARCH_FROM };
+  }, [items, chosen, shift, query]);
+  return { grades, grade: chosen, setGrade: setChosen, shift, setShift, hasShifts, query, setQuery, filtered, searchable: items.length > SEARCH_FROM };
 }
 
-export function GroupFilter({ grades, grade, onGrade, query, onQuery, searchable }: {
+export function GroupFilter({ grades, grade, onGrade, query, onQuery, searchable, hasShifts = false, shift = null, onShift }: {
   grades: string[];
   grade: string | null;
   onGrade: (g: string | null) => void;
   query: string;
   onQuery: (q: string) => void;
   searchable: boolean;
+  hasShifts?: boolean;
+  shift?: CourseShift | null;
+  onShift?: (s: CourseShift | null) => void;
 }) {
   const { t } = useTranslation();
-  if (grades.length < 2 && !searchable) return null;
+  if (grades.length < 2 && !searchable && !hasShifts) return null;
   return (
     <View style={{ gap: spacing.sm, marginBottom: spacing.md }}>
       {searchable ? (
@@ -48,6 +56,20 @@ export function GroupFilter({ grades, grade, onGrade, query, onQuery, searchable
           <TextInput value={query} onChangeText={onQuery} placeholder={t('group_filter.search')} placeholderTextColor={colors.textTertiary}
             style={{ flex: 1, height: 42, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 14.5, color: colors.textPrimary, textAlign: 'right' }} />
           {query ? <TouchableOpacity onPress={() => onQuery('')} hitSlop={8} accessibilityLabel={t('common.close')}><Icon name="close" size={15} color={colors.textTertiary} /></TouchableOpacity> : null}
+        </View>
+      ) : null}
+      {hasShifts && onShift ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {([null, 'morning', 'evening'] as const).map((k) => {
+            const on = shift === k;
+            return (
+              <TouchableOpacity key={k ?? 'all'} onPress={() => onShift(k)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: spacing.md, borderRadius: radius.full, borderWidth: 1, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brand : colors.surface }}>
+                {k ? <Icon name={k} size={13} color={on ? colors.onPrimary : colors.textSecondary} /> : null}
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: on ? colors.onPrimary : colors.textSecondary }}>{k ? t(`course_shift.${k}`) : t('course_shift.filter_all')}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       ) : null}
       {grades.length > 1 ? (

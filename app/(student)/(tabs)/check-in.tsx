@@ -28,6 +28,7 @@ import { ComplaintSheet, type ComplaintTarget } from '@/components/student/Compl
 import { useMyComplaints } from '@/hooks/useComplaints';
 import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
 import { AttendanceRecordRow } from '@/components/attendance/AttendanceRecordRow';
+import { FamilySessionSheet, type FamilySessionTarget } from '@/components/session/FamilySessionSheet';
 import { TodaySessionCard } from '@/components/student/TodaySessionCard';
 import { useQuery } from '@tanstack/react-query';
 import { getStudentTeachers } from '@/api/studentOverview';
@@ -92,6 +93,7 @@ export default function CheckInTab() {
   const [checkedInCourse, setCheckedInCourse] = useState('');
   const [excuseVisible, setExcuseVisible] = useState(false);
   const [complaintTarget, setComplaintTarget] = useState<ComplaintTarget | null>(null);
+  const [sessionTarget, setSessionTarget] = useState<FamilySessionTarget | null>(null);
   const myComplaints = useMyComplaints();
   const recentRecords = (records ?? []).filter(Boolean).slice(0, 5);
   const [excuseText, setExcuseText] = useState('');
@@ -414,6 +416,7 @@ export default function CheckInTab() {
                   record={record}
                   complaint={record.session_instance_id ? myComplaints.bySession.get(record.session_instance_id) : undefined}
                   onComplain={(r) => setComplaintTarget({ type: 'attendance', sessionInstanceId: r.session_instance_id, courseName: r.course_name ?? '', sessionAt: r.session_time ?? null, recordedStatus: r.status ?? null })}
+                  onOpen={(r) => studentIdForTeachers && setSessionTarget({ studentId: studentIdForTeachers, sessionId: r.session_instance_id, who: 'student' })}
                   last={i === recentRecords.length - 1}
                 />
               ))}
@@ -435,6 +438,7 @@ export default function CheckInTab() {
       <Surface id="student.check_in.complaint_sheet">
       <ComplaintSheet visible={!!complaintTarget} onClose={() => setComplaintTarget(null)} target={complaintTarget} />
       </Surface>
+      <FamilySessionSheet target={sessionTarget} onClose={() => setSessionTarget(null)} />
 
       {/* Excuse modal — pick which absence, then explain */}
       <Surface id="student.check_in.excuse_sheet">

@@ -8,6 +8,8 @@ import { Avatar } from '@/components/layout/Avatar';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
+import { HomeworkRateChips, HomeworkStreakBadge } from '@/components/homework/HomeworkChips';
+import type { HomeworkRating } from '@/api/homework';
 
 export type SessionKind = 'normal_sheet' | 'quiz_exam';
 
@@ -48,7 +50,7 @@ export function toLatinNumber(raw: string): string {
   return raw.trim().replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace('٫', '.').replace(',', '.');
 }
 
-type RowStudent = { student_id: number; name: string | null; status: string; mark: number | null };
+type RowStudent = { student_id: number; name: string | null; status: string; mark: number | null; homework_rating?: HomeworkRating | null; homework_missed_streak?: number };
 
 /**
  * One row of the «الدرجات» tab: the student and a number field. Saves on «تم» / leaving the
@@ -56,10 +58,12 @@ type RowStudent = { student_id: number; name: string | null; status: string; mar
  * server needs their attendance record), so the others show why the field is closed —
  * except in a private lesson (`noDoor`): there is no attendance, so the field is always open.
  */
-export const MarkRow = memo(function MarkRow({ a, max, onSave, noDoor = false }: {
+export const MarkRow = memo(function MarkRow({ a, max, onSave, noDoor = false, onHomework }: {
   a: RowStudent; max: number | null; onSave: (studentId: number, mark: number | null) => Promise<void>;
   /** The session's course tracks no attendance (attendance_mode 'none'): never gate on it. */
   noDoor?: boolean;
+  /** «الواجب»: the previous homework is graded on this row too (a private lesson has no other row). */
+  onHomework?: (studentId: number, rating: HomeworkRating | null) => void;
 }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState(a.mark != null ? String(a.mark) : '');
@@ -78,7 +82,8 @@ export const MarkRow = memo(function MarkRow({ a, max, onSave, noDoor = false }:
 
   const border = state === 'error' || state === 'invalid' ? colors.danger : state === 'saved' ? colors.success : colors.border;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: a.mark != null ? colors.success : attended ? colors.accent : colors.borderStrong, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 62, opacity: attended ? 1 : 0.6 }}>
+    <View style={{ backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: a.mark != null ? colors.success : attended ? colors.accent : colors.borderStrong, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 62, justifyContent: 'center' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, opacity: attended ? 1 : 0.6 }}>
       <Avatar name={a.name ?? '—'} seed={avatarSeed.student(a.student_id, a.name ?? '—')} size={38} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{a.name ?? '—'}</Text>
@@ -114,6 +119,14 @@ export const MarkRow = memo(function MarkRow({ a, max, onSave, noDoor = false }:
       ) : (
         <Icon name="lock" size={18} color={colors.textTertiary} />
       )}
+    </View>
+    {onHomework ? (
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
+        <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textTertiary }}>{t('homework.row_label')}</Text>
+        <HomeworkRateChips value={a.homework_rating ?? null} onChange={(r) => onHomework(a.student_id, r)} />
+        <HomeworkStreakBadge n={a.homework_missed_streak} />
+      </View>
+    ) : null}
     </View>
   );
 });

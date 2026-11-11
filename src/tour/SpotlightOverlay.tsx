@@ -18,7 +18,8 @@ import { useWhatsNew } from '@/hooks/useReleaseNotes';
 import { getTourStatus, completeTour } from '@/api/tour';
 import { useTourStore, nextShowable, routeFor } from './store';
 import { tourSeen, markTourSeen } from './seen';
-import { tourForRole } from './tours';
+import { tourForRole, withCardStep } from './tours';
+import { useCardOpen } from '@/components/cardOrder/cardUnlock';
 import { useRosePictures } from '@/components/rose/RoseCostume';
 import { NazerFramed } from '@/components/nazer/NazerFramed';
 import { useRoseUnlockGate, useStatusPopupGate } from '@/hooks/usePopupTurn';
@@ -81,6 +82,7 @@ function useAutoStart() {
   const { showPopup } = useWhatsNew();
   const eligible = !!user && !!role && !impersonating && !!tourForRole(role);
   const { data: status } = useQuery({ queryKey: ['tour-status', user?.id], queryFn: getTourStatus, enabled: eligible, staleTime: 5 * 60_000 });
+  const cardOpen = useCardOpen();
   const onboardingDue = role === 'teacher' && !!onboarding && onboarding.active && !onboarding.steps.intro && !onboarding.has_courses;
   const blocked = BLOCKING_PREFIXES.some((p) => pathname.startsWith(p));
   // A parent or student meets الناظر first (his «شخصية جديدة» popup), then he gives the tour.
@@ -95,7 +97,7 @@ function useAutoStart() {
 
   useEffect(() => {
     if (!eligible || running || !homeReady || !quiet || !status || status.completed) return;
-    const def = tourForRole(role)!;
+    const def = withCardStep(tourForRole(role)!, cardOpen);
     const stamp = `${role}:${user!.id}`;
     if (tried.current === stamp) return;
     tried.current = stamp;
@@ -114,7 +116,7 @@ function useAutoStart() {
     });
     // Interrupted before it started (a popup came up first): try again once it is quiet.
     return () => { cancelled = true; if (!settled) tried.current = null; };
-  }, [eligible, running, homeReady, quiet, status, role, user, start, qc]);
+  }, [eligible, running, homeReady, quiet, status, role, user, start, qc, cardOpen]);
 }
 
 function Runner() {

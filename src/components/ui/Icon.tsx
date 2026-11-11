@@ -33,6 +33,9 @@ const ICON_MAP = {
   /** The parent's أبنائي centre tab (founder 2026-10-03: not the generic two-heads icon). */
   kids: 'happy',
   clock: 'time',
+  /** «الفترة»: a morning / an evening course (founder 2026-11-06). */
+  morning: 'sunny',
+  evening: 'moon',
   quiz: 'document-text',
   terms: 'document-text',
   chat: 'chatbubbles',
@@ -85,6 +88,8 @@ const ICON_MAP = {
   lock: 'lock-closed',
   /** الناظر's padlock as it breaks open (NazerUnlockStage). */
   unlock: 'lock-open',
+  /** «LEVEL UP» on the card's unlock (founder 2026-11-07). */
+  levelUp: 'arrow-up-circle',
   /** A 15-day billing exemption (founder 2026-10-04). */
   shield: 'shield-checkmark',
   phone: 'phone-portrait',
@@ -157,6 +162,13 @@ const ICON_MAP = {
 
 export type IconName = keyof typeof ICON_MAP;
 
+/**
+ * Glyphs drawn for left-to-right reading that must face the other way in Arabic. The paper
+ * plane pointed right, back into the reply box it sits beside (founder 2026-11-01, tickets).
+ */
+const MIRRORED: ReadonlySet<IconName> = new Set<IconName>(['send']);
+const MIRROR = { transform: [{ scaleX: -1 }] };
+
 interface IconProps {
   name: IconName;
   size?: number;
@@ -173,5 +185,6 @@ interface IconProps {
 export const Icon = memo(function Icon({ name, size = 22, color, outline = false, style }: IconProps) {
   const base = ICON_MAP[name];
   const glyph = (outline ? `${base}-outline` : base) as IoniconName;
-  return <Ionicons name={glyph} size={size} color={color ?? colors.textPrimary} style={style} />;
+  const drawn = MIRRORED.has(name) ? (style ? [MIRROR, style] : MIRROR) : style;
+  return <Ionicons name={glyph} size={size} color={color ?? colors.textPrimary} style={drawn} />;
 });

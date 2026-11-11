@@ -46,7 +46,7 @@ describe('applyBatchResults — per-scan outcome handling (§1) + permanent reje
     expect(out).toEqual({ synced: 2, rejected: 1 });
     expect(mockDeleteScans).toHaveBeenCalledWith([1, 3]); // A + C safely on server
     expect(mockMarkRejected).toHaveBeenCalledTimes(1);
-    expect(mockMarkRejected).toHaveBeenCalledWith(2, 'NOT_ENROLLED'); // B needs a decision
+    expect(mockMarkRejected).toHaveBeenCalledWith(2, 'NOT_ENROLLED', null); // B needs a decision
   });
 
   it('maps by card_code, not by index, if the server returns a different order', async () => {
@@ -58,7 +58,7 @@ describe('applyBatchResults — per-scan outcome handling (§1) + permanent reje
 
     expect(out).toEqual({ synced: 1, rejected: 1 });
     expect(mockDeleteScans).toHaveBeenCalledWith([2]); // B (id 2), not A
-    expect(mockMarkRejected).toHaveBeenCalledWith(1, 'CARD_EXPIRED'); // A (id 1)
+    expect(mockMarkRejected).toHaveBeenCalledWith(1, 'CARD_EXPIRED', null); // A (id 1)
   });
 
   it('consumes duplicate card codes in order (FIFO), never double-mapping one row', async () => {
@@ -68,7 +68,7 @@ describe('applyBatchResults — per-scan outcome handling (§1) + permanent reje
     await applyBatchResults(bucket, results);
 
     expect(mockDeleteScans).toHaveBeenCalledWith([1]); // first A synced
-    expect(mockMarkRejected).toHaveBeenCalledWith(2, 'ALREADY_CHECKED_IN'); // second A rejected
+    expect(mockMarkRejected).toHaveBeenCalledWith(2, 'ALREADY_CHECKED_IN', null); // second A rejected
   });
 
   it('leaves a local row untouched when no result accounts for it (stays pending)', async () => {
@@ -124,5 +124,11 @@ describe('session disambiguation across a multi-day gap (§5)', () => {
   it('suggests nothing when no occurrence contains the bucket start (original session gone)', () => {
     const bucket = bucketOf([{ ...localScan(1, 'A'), scanned_at: '2026-08-20T09:05:00.000Z' }]);
     expect(suggestSessionId(bucket, sessions)).toBeNull();
+  });
+
+  it('keeps the student the server named with a rejected scan, so the decision names him', async () => {
+    const bucket = bucketOf([localScan(7, 'X')]);
+    await applyBatchResults(bucket, [{ card_code: 'X', outcome: 'failed', code: 'NOT_ENROLLED', message: 'الطالب غير مسجل في هذه الحصة', student_name: 'زياد حماده' }]);
+    expect(mockMarkRejected).toHaveBeenCalledWith(7, 'الطالب غير مسجل في هذه الحصة', 'زياد حماده');
   });
 });

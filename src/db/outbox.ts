@@ -58,6 +58,25 @@ export async function getPendingActions(): Promise<OutboxAction[]> {
   return db().getAllAsync<OutboxAction>(`SELECT * FROM outbox WHERE state = 'pending' ORDER BY id ASC`);
 }
 
+/** The pending actions sent to these urls, oldest first (a sheet lays them over what it shows). */
+export async function getPendingActionsFor(urls: string[]): Promise<OutboxAction[]> {
+  if (!urls.length) return [];
+  return db().getAllAsync<OutboxAction>(
+    `SELECT * FROM outbox WHERE state = 'pending' AND url IN (${urls.map(() => '?').join(',')}) ORDER BY id ASC`,
+    ...urls,
+  );
+}
+
+/**
+ * Drop the pending actions a newer one replaces (same url, and `same` says the body is about
+ * the same thing): the newest would win on replay anyway; this keeps one line per thing on
+ * the sync screen instead of every tap.
+ */
+export async function dropSupersededActions(url: string, same: (body: string | null) => boolean): Promise<void> {
+  const rows = await db().getAllAsync<OutboxAction>(`SELECT * FROM outbox WHERE state = 'pending' AND url = ?`, url);
+  await deleteActions(rows.filter((r) => same(r.body)).map((r) => r.id));
+}
+
 export async function getRejectedActions(): Promise<OutboxAction[]> {
   return db().getAllAsync<OutboxAction>(`SELECT * FROM outbox WHERE state = 'rejected' ORDER BY id ASC`);
 }

@@ -1,5 +1,5 @@
 import type { InternalAxiosRequestConfig } from 'axios';
-import { bodyString, isQueued, matchQueueRule, parkedBody, queuedDetails, queuedLabel, syntheticQueuedResponse } from '../offlineQueue';
+import { bodyString, isQueued, matchQueueRule, parkedBody, queuedDetails, queuedLabel, supersedeKey, syntheticQueuedResponse } from '../offlineQueue';
 import { formatNumber } from '@/utils/format';
 
 jest.mock('@/i18n', () => ({ t: (k: string) => k }));
@@ -16,6 +16,12 @@ describe('matchQueueRule', () => {
     expect(matchQueueRule('post', '/students/enroll-by-scan')?.label).toBe('qr_enroll');
     expect(matchQueueRule('post', '/invitations')?.label).toBe('invite');
     expect(matchQueueRule('post', '/teacher/courses')?.label).toBe('course');
+    // A teacher-card link waits, stamped with the moment it was made; the door scan itself never does.
+    const claim = matchQueueRule('post', '/teacher/teacher-cards/claim')!;
+    expect(claim.label).toBe('claim_card');
+    expect(typeof claim.park!({ card_code: '1', student_id: 2 }).claimed_at).toBe('string');
+    expect(claim.park!({ card_code: '1', claimed_at: 'kept' }).claimed_at).toBe('kept');
+    expect(matchQueueRule('post', '/teacher/teacher-cards/lookup')).toBeNull();
   });
 
   it('keeps sign-in, uploads, money going back and removals live', () => {
@@ -29,6 +35,17 @@ describe('matchQueueRule', () => {
     ]) {
       expect(matchQueueRule(m, u)).toBeNull();
     }
+  });
+
+  it('parks homework grades, one line per student (the last tap wins); giving homework stays live', () => {
+    const one = matchQueueRule('post', '/teacher/sessions/7/homework-rate')!;
+    expect(one.label).toBe('homework_rate');
+    expect(matchQueueRule('post', '/teacher/sessions/7/homework-rate-all')?.label).toBe('homework_rate');
+    expect(matchQueueRule('post', '/teacher/sessions/7/homework')).toBeNull();
+    expect(supersedeKey(one, '{"student_id":5,"rating":"good"}')).toBe('5');
+    expect(supersedeKey(one, '{"student_id":5,"rating":null}')).toBe('5');
+    expect(supersedeKey(matchQueueRule('post', '/teacher/sessions/7/homework-rate-all')!, '{"rating":"good"}')).toBeNull();
+    expect(supersedeKey(one, 'not json')).toBeNull();
   });
 
   it('ignores the host, the API prefix and the query string', () => {

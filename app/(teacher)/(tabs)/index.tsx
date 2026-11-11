@@ -63,6 +63,7 @@ import { CountBadge } from '@/components/ui/CountBadge';
 import { SubscriptionStrip } from '@/components/subscription/SubscriptionStrip';
 import { useOnScreen } from '@/hooks/useAmbientMotion';
 import { usePopupSlotStore } from '@/ui/popupSlot';
+import { CountPill } from '@/components/ui/CountBadge';
 
 /** «وضع المراجعة»: the hero band's rounded foot (the day hero runs into the page instead). */
 const SEASON_HERO_RADIUS = 28;
@@ -387,9 +388,7 @@ export default function TeacherHome() {
                       </View>
                     )}
                     <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 12.5, lineHeight: 17, color: colors.textPrimary }} numberOfLines={2}>{a.short}</Text>
-                    <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: a.tone === 'danger' ? colors.danger : colors.accent, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: '#fff' }}>{a.badge > 99 ? '99+' : formatNumber(a.badge)}</Text>
-                    </View>
+                    <CountPill count={a.badge} size={22} bg={a.tone === 'danger' ? colors.danger : colors.accent} color="#fff" fontSize={11} />
                   </TouchableOpacity>
                   </Surface>
                 ))}
@@ -492,6 +491,17 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
               {s.time ?? ''}{s.location ? ` · ${s.location}` : ''}
             </Text>
           )}
+          {s.homework_due && !noDoor ? (
+            // «فيه واجب» (2026-11-11): what was given last time — grade it as they come in.
+            <Surface id="teacher.home.spotlight_homework" ctx={{ session: s }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4, alignSelf: 'flex-start', maxWidth: '100%', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 2, paddingHorizontal: 8 }}>
+              <Icon name="list" size={12} color="#fff" />
+              <Text style={{ flexShrink: 1, fontFamily: fonts.bold, fontSize: 12, color: '#fff' }} numberOfLines={1}>
+                {t('home.spotlight_homework', { body: s.homework_due.body })}
+              </Text>
+            </View>
+            </Surface>
+          ) : null}
         </View>
         {canScan && !noDoor ? (
           <Surface id="teacher.home.spotlight_scan" ctx={{ session: s }}>

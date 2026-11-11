@@ -26,6 +26,11 @@ export interface QueueRule {
    * will be there to answer when the request finally arrives.
    */
   park?: (body: Record<string, unknown>) => Record<string, unknown>;
+  /**
+   * What the action is about («the grade of student 5»): a newer parked action with the same
+   * url and the same answer replaces the older one — the last write wins.
+   */
+  supersede?: (body: Record<string, unknown>) => string | null;
 }
 
 const N = '\\d+';
@@ -34,12 +39,15 @@ export const QUEUE_RULES: QueueRule[] = [
   { method: 'post', path: new RegExp(`^/teacher/(pending-collections/collect|students/${N}/collect)$`), label: 'collect' },
   { method: 'post', path: /^\/teacher\/pending-collections\/cancel-due$/, label: 'cancel_due' },
   { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/(note|summary|sheet-grade|sheet-toggle|sheet-excluded|sheet-max-mark|type)$`), label: 'session_sheet' },
+  // «الواجب» grades: idempotent (they set the grade); a student tapped again offline keeps only the last.
+  { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/homework-rate$`), label: 'homework_rate', supersede: (b) => (b.student_id != null ? String(b.student_id) : null) },
+  { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/homework-rate-all$`), label: 'homework_rate' },
   { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/cancel$`), label: 'session_cancel' },
   { method: 'post', path: new RegExp(`^/teacher/sessions/${N}/restore$`), label: 'session_restore' },
   { method: 'post', path: /^\/teacher\/sessions$/, label: 'session_create' },
   { method: 'post', path: new RegExp(`^/teacher/(excuses|session-swaps|student-edit-requests)/${N}/(approve|reject)$`), label: 'decision' },
   { method: 'post', path: new RegExp(`^/teacher/assistant-reports/[a-z_-]+/${N}/(approve|reject)$`), label: 'decision' },
-  { method: 'post', path: new RegExp(`^/teacher/assistant-actions/${N}/reject$`), label: 'decision' },
+  { method: 'post', path: new RegExp(`^/teacher/assistant-actions/${N}/(accept|reject)$`), label: 'decision' },
   { method: 'post', path: new RegExp(`^/teacher/booking-requests/${N}/(accept|reject)$`), label: 'decision' },
   { method: 'post', path: new RegExp(`^/teacher/payment-proofs/${N}/(approve|reject)$`), label: 'decision' },
   { method: 'post', path: new RegExp(`^/teacher/complaints/${N}/(approve|reject|review)$`), label: 'decision' },
@@ -64,6 +72,9 @@ export const QUEUE_RULES: QueueRule[] = [
   { method: 'post', path: new RegExp(`^/teacher/locations(/${N}/(toggle|assistants))?$`), label: 'venue' },
   { method: 'put', path: new RegExp(`^/teacher/locations/${N}$`), label: 'venue' },
   { method: 'post', path: new RegExp(`^/revisions/${N}/instances/${N}/mark$`), label: 'revision_mark' },
+  // «كارت المدرّس» linked with no signal at the door: replayed dated at the tap, so the scans the
+  // phone buffered right after it find the card already the student's (founder 2026-11-05).
+  { method: 'post', path: /^\/teacher\/teacher-cards\/claim$/, label: 'claim_card', park: (b) => (b.claimed_at ? b : { ...b, claimed_at: new Date().toISOString() }) },
 ];
 
 /** The rule that lets this request wait offline, or null when it must be live. */
@@ -90,6 +101,17 @@ export function parkedBody(rule: QueueRule, data: unknown): string | null {
   }
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return bodyString(data);
   return JSON.stringify(rule.park(obj as Record<string, unknown>));
+}
+
+/** The rule's «same thing» answer for a stored body, or null when it supersedes nothing. */
+export function supersedeKey(rule: QueueRule, body: string | null): string | null {
+  if (!rule.supersede || !body) return null;
+  try {
+    const obj = JSON.parse(body) as unknown;
+    return obj && typeof obj === 'object' && !Array.isArray(obj) ? rule.supersede(obj as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** «تحصيل · 300 ج.م» — the line on the sync screen. */

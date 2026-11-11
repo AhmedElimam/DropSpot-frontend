@@ -3,7 +3,7 @@ import { SheetModal } from '@/components/ui/SheetModal';
 import { View, Text, TouchableOpacity, ActivityIndicator, Linking, RefreshControl, TextInput } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { ScrollView } from '@/components/ui/Refreshable';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { openRemotePdf } from '@/utils/openPdf';
 import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +27,7 @@ import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { useAuthStore } from '@/stores/authStore';
 import { reportStudentIncident, flagParentNumber, type IncidentType, type SafetyCategory, type CorrectableBill } from '@/api/students';
+import { askRemovalSms } from '@/components/teacher/askRemovalSms';
 import { terminateEnrollment, transferEnrollment, backfillAttendance, setCyclePosition, setCycleAmount, settleCycleBeforeJoining } from '@/api/enrollments';
 import { reportParentUnreachable, getStudentPerformanceUrl, getEnrollableClasses, reverseStudentPayment, removeStudentFromRoster, requestStudentEdit, collectStudentCharge, type EnrollableClass, type PendingBill, type BackfillDay } from '@/api/students';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -34,6 +35,7 @@ import { dayLabel, formatDayDate, formatNumber, relationshipLabel } from '@/util
 import { Surface } from '@/ui/surfaces';
 import { Slot } from '@/ui/Slot';
 import { SendReportSheet } from '@/components/tickets/SendReportSheet';
+import { StudentHomeworkCard } from '@/components/homework/StudentHomeworkCard';
 import { OpenTicketSheet } from '@/components/tickets/OpenTicketSheet';
 
 /** One person to call: who, the number with who has proved it, call (and report, for a parent). */
@@ -114,6 +116,15 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
   const go = (href: Href) => { onClose?.(); router.push(href); };
   const { data: s, isLoading, refetch } = useStudentDetail(id);
   const { refreshing, onRefresh } = usePullRefresh(refetch);
+  // The roster behind the profile shows what changes here (founder 2026-11-01: a student
+  // removed, a mark's percentage edited, and the list kept the old row until it was pulled).
+  // Whatever the profile refetches after a change arrives as a new object (react-query keeps
+  // the same one when nothing changed), so the roster refreshes then, and only then.
+  const shown = useRef(s);
+  useEffect(() => {
+    if (shown.current && s && s !== shown.current) void qc.invalidateQueries({ queryKey: ['teacher-students'] });
+    shown.current = s;
+  }, [s, qc]);
   const allowanceBlock = useSetStudentAllowanceBlock(Number(id));
   const [exporting, setExporting] = useState(false);
   const [sendReportOpen, setSendReportOpen] = useState(false);
@@ -465,6 +476,7 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
           onPress: async () => {
             try {
               await removeStudentFromRoster(id);
+              void qc.invalidateQueries({ queryKey: ['teacher-students'] });
               if (onClose) onClose(); else router.back();
             } catch {
               Alert.alert(t('common.error'), t('student_profile_ui.remove_from_roster_failed'));
@@ -486,12 +498,16 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
           text: t('teacher.terminate_confirm'),
           style: 'destructive',
           onPress: async () => {
+            let sms;
             try {
-              await terminateEnrollment(enrollmentId);
+              sms = await terminateEnrollment(enrollmentId);
               refetch();
             } catch {
               Alert.alert(t('common.error'), t('teacher.terminate_failed'));
+              return;
             }
+            // Then ask whether to text the family (nothing is sent unless the teacher says so).
+            askRemovalSms(t, enrollmentId, sms);
           },
         },
       ],
@@ -649,6 +665,25 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
               </TouchableOpacity>
               </Surface>
             ) : null}
+            {/* «كارت المدرّس»: this student is chosen — scan the blank and confirm it is theirs. A
+                «برايم» student's card works at every teacher, so the chip is a lock, not a link. */}
+            <Surface id="teacher.student_profile.claim_teacher_card_button" ctx={{ student: s }} assistantNeeds="claim_cards">
+            {s.teacher_card?.universal ? (
+              <TouchableOpacity onPress={() => Alert.alert(s.teacher_card?.universal_label ?? '', s.teacher_card?.message ?? undefined)} accessibilityRole="button" activeOpacity={0.85}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.warningLight, borderRadius: radius.full, borderWidth: 1, borderColor: colors.warning, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+                <Icon name="lock" size={16} color={colors.warning} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>{s.teacher_card.universal_label}</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => router.push(`/(teacher)/claim-card-scan?student=${s.id}&name=${encodeURIComponent(s.name ?? '')}` as Href)} accessibilityRole="button" activeOpacity={0.85}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: s.teacher_card?.mine ? colors.successLight : colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: s.teacher_card?.mine ? colors.success : colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
+                <Icon name="card" size={16} color={s.teacher_card?.mine ? colors.success : colors.brand} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.textPrimary }}>
+                  {s.teacher_card?.mine ? t('teacher_cards.has_mine', { seq: s.teacher_card.mine.seq }) : t('teacher_cards.profile_button')}
+                </Text>
+              </TouchableOpacity>
+            )}
+            </Surface>
             <Surface id="teacher.student_profile.edit_request_button" ctx={{ student: s }} assistantNeeds="manage_students">
             <TouchableOpacity onPress={() => setEditOpen(true)} accessibilityRole="button" activeOpacity={0.85}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: spacing.md }}>
@@ -1016,6 +1051,15 @@ export function StudentProfile({ id, onClose, sheet = false, initialName, heroGe
                   );
                 })}
               </View>
+            </Section>
+            </Surface>
+          ) : null}
+
+          {/* «الواجبات» — only once something was graded or given in this teacher's courses. */}
+          {s.homework && (s.homework.summary.graded > 0 || s.homework.recent.length > 0) ? (
+            <Surface id="teacher.student_profile.homework_section" ctx={{ student: s }}>
+            <Section title={t('homework.title')}>
+              <StudentHomeworkCard homework={s.homework} />
             </Section>
             </Surface>
           ) : null}

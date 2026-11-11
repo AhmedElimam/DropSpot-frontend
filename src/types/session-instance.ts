@@ -30,4 +30,6 @@ export interface SessionInstance extends AttendanceModeFields {
   present_count?: number;
   absent_count?: number;
   late_count?: number;
+  /** «واجب الحصة» (2026-11-11): the group's last session's homework, due at this one; `rating` once graded. */
+  homework_due?: { body: string; assigned_on: string | null; rating: string | null } | null;
 }

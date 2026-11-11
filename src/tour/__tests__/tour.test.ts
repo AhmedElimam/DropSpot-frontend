@@ -1,7 +1,7 @@
 import ar from '../../i18n/ar.json';
 import { nextShowable, useTourStore } from '../store';
 import { holeFor, placeCard, onScreen } from '../geometry';
-import { TEACHER_TOUR, PARENT_TOUR, STUDENT_TOUR, tourForRole } from '../tours';
+import { TEACHER_TOUR, PARENT_TOUR, STUDENT_TOUR, tourForRole, withCardStep } from '../tours';
 
 const has = (key: string) => key.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Record<string, unknown>)[k] : undefined), ar) !== undefined;
 
@@ -208,5 +208,14 @@ describe('الناظر before the first tour', () => {
   it('has the popup button that hands over to the tour', () => {
     expect(has('nazer_unlock.start_tour')).toBe(true);
     expect(has('nazer_unlock.tap_to_open')).toBe(true);
+  });
+});
+
+describe('the card step', () => {
+  it.each([PARENT_TOUR, STUDENT_TOUR])('$id: shown only while the card is open to the family', (tour) => {
+    const has = (def: typeof tour) => def.steps.some((s) => s.target === 'profile:card');
+    expect(has(withCardStep(tour, true))).toBe(true);
+    expect(has(withCardStep(tour, false))).toBe(false);
+    expect(withCardStep(tour, false).steps).toHaveLength(tour.steps.length - 1);
   });
 });

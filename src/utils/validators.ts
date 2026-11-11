@@ -49,3 +49,39 @@ export function isTripleName(value: string): boolean {
   const min = rule('triple_name')?.min_words ?? 3;
   return value.trim().split(/\s+/).filter(Boolean).length >= min;
 }
+
+/**
+ * An Egyptian mobile as people type it → «01XXXXXXXXX», or null when it is not one. Mirrors the
+ * server's App\Support\EgyptPhone (fast register v2, founder 2026-11-06): Arabic-Indic and
+ * Persian digits become Latin, everything else that is not a digit goes, +20 / 0020 / a bare
+ * 20… become the leading 0, and the result must be 01[0125] + 8 digits.
+ */
+export function normalizeEgyptPhone(raw: string): string | null {
+  let d = raw
+    .replace(/[٠-٩]/g, (c) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
+    .replace(/[۰-۹]/g, (c) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))
+    .replace(/\D+/g, '');
+  if (d.startsWith('0020')) d = '0' + d.slice(4);
+  else if (d.startsWith('20') && d.length === 12) d = '0' + d.slice(2);
+  return /^01[0125]\d{8}$/.test(d) ? d : null;
+}
+
+/**
+ * A name as typed at the door → as the server stores it (App\Rules\ArabicName::clean): تشكيل
+ * dropped, spaces folded, a hyphen kept tight. Digits and Latin stay, so the check still refuses them.
+ */
+export function cleanDoorName(raw: string): string {
+  return raw
+    .replace(/[ً-ٰٟ]/g, '')
+    .replace(/[‐‑–—]/g, '-')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^-+|-+$/g, '');
+}
+
+/** The door's name rule: Arabic letters, tatweel, spaces and a hyphen (after {@link cleanDoorName}). */
+export function isDoorName(value: string): boolean {
+  const v = cleanDoorName(value);
+  return v !== '' && /^[ء-يـ\s-]+$/.test(v);
+}

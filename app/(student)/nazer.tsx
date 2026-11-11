@@ -17,6 +17,8 @@ import { useCoverageStats, useStudentAttendanceRisk } from '@/hooks/useAttendanc
 import { useStudentBillingStatus } from '@/hooks/useInvoices';
 import { useTodaySessions, useUpcomingSessions } from '@/hooks/useSessions';
 import { useSessionNotes } from '@/hooks/useSessionNotes';
+import { useHomework } from '@/hooks/useHomework';
+import { homeworkNote } from '@/nazer/homework';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { latestNotes } from '@/nazer/notes';
 import { NazerReportsCard } from '@/components/nazer/NazerReportsCard';
@@ -50,8 +52,9 @@ export default function StudentNazerOffice() {
   const { data: today, refetch: refetchToday } = useTodaySessions();
   const { data: upcoming, refetch: refetchUpcoming } = useUpcomingSessions(3);
   const { data: notesPages, refetch: refetchNotes } = useSessionNotes('student');
+  const { data: homeworkPages, refetch: refetchHomework } = useHomework('student');
   // Pull to refresh (founder 2026-10-22): the office re-reads everything it shows; the page itself stays put.
-  const { refreshing, onRefresh } = usePullRefresh(refetchStats, refetchRisks, refetchBilling, refetchToday, refetchUpcoming, refetchNotes);
+  const { refreshing, onRefresh } = usePullRefresh(refetchStats, refetchRisks, refetchBilling, refetchToday, refetchUpcoming, refetchNotes, refetchHomework);
   const recentNotes = latestNotes(notesPages?.pages[0]?.items ?? []);
 
   const total = stats?.total ?? 0;
@@ -92,6 +95,14 @@ export default function StudentNazerOffice() {
   for (const e of recentNotes.top) {
     notes.push({ id: `notes-${e.id}`, icon: 'book', tone: 'info', title: t('nazer.note_latest_title', { course: e.course_name ?? '', teacher: e.teacher_name ?? '' }), sub: e.summary ?? e.note ?? undefined, route: '/(student)/session-notes' as Href });
   }
+  // The homework due at the next session (2026-11-11): what the teacher grades at the door.
+  const dueNext = (upcoming ?? []).find((s) => s.homework_due && !s.homework_due.rating);
+  if (dueNext?.homework_due) {
+    notes.push({ id: `homework-next-${dueNext.id}`, icon: 'list', tone: 'warning', title: t('nazer.homework_next_title', { course: dueNext.course_name ?? '', when: `${formatDayDate(dueNext.scheduled_at)} · ${formatTime(dueNext.scheduled_at)}` }), sub: dueNext.homework_due.body, stamp: 'notice', route: '/(student)/homework' as Href });
+  }
+  // «الواجبات»: the rate over every homework given, then the list.
+  const hw = homeworkNote(homeworkPages?.pages[0]?.summary, homeworkPages?.pages[0]?.meta.total ?? 0, (key, opts) => String(t(key, opts)));
+  if (hw) notes.push({ id: 'homework', icon: 'list', ...hw, route: '/(student)/homework' as Href });
   for (const s of (upcoming ?? []).slice(0, 3)) {
     notes.push({ id: `next-${s.id}`, icon: 'sessions', tone: 'info', title: s.course_name ?? t('nazer.see_sessions'), sub: `${formatDayDate(s.scheduled_at)} · ${formatTime(s.scheduled_at)}`, route: '/(student)/(tabs)/check-in' as Href });
   }

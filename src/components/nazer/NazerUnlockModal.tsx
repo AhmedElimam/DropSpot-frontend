@@ -18,7 +18,8 @@ import { usePopupSlot } from '@/ui/popupSlot';
 
 const KEY = 'nazer_unlocked';
 const LOGO = 64;
-const BLOCKING_PREFIXES = [
+/** Screens no family popup opens over (gates, auth, the check-in) — shared with the card's unlock. */
+export const BLOCKING_PREFIXES = [
   '/accept-terms', '/change-password', '/verify-own-number', '/parent-setup', '/needs-teacher',
   '/request-name-correction', '/impersonate', '/invite', '/login', '/register', '/verify-otp', '/forgot-password',
   '/reset-password', '/welcome', '/check-in', '/whats-new',

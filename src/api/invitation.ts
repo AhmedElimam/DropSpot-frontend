@@ -25,11 +25,17 @@ export async function getInvitation(token: string): Promise<InvitationInfo> {
 }
 
 export interface MintedInviteLink {
+  id?: string | number;
   token: string;
   url: string;
   student_name: string | null;
   course_name: string;
   expires_at: string;
+  /** For many families (a class's group chat) rather than one — founder 2026-11-05. */
+  reusable?: boolean;
+  max_uses?: number;
+  /** «العائلة تختار» (founder 2026-11-06): the family picks the course on the link. */
+  family_picks?: boolean;
 }
 
 /**
@@ -38,18 +44,28 @@ export interface MintedInviteLink {
  * OPTIONAL at mint — the family fills it. POST /invitations/link.
  */
 export async function mintInviteLink(
-  courseId: number,
+  courseId: number | null,
   studentName?: string,
-  opts?: { collectPayment?: boolean; issueInvoice?: boolean },
+  opts?: { collectPayment?: boolean; issueInvoice?: boolean; reusable?: boolean; courseIds?: number[] },
 ): Promise<MintedInviteLink> {
-  const name = (studentName ?? '').trim();
+  // «العائلة تختار»: the courses the family picks from, instead of one course.
+  const picks = !!opts?.courseIds?.length;
+  const name = opts?.reusable || picks ? '' : (studentName ?? '').trim();
   const { data } = await client.post('/invitations/link', {
-    course_id: courseId,
+    ...(picks ? { family_picks: 1, course_ids: opts?.courseIds } : { course_id: courseId }),
     ...(name ? { student_name: name } : {}),
     booking_collect_payment: opts?.collectPayment ? 1 : 0,
     booking_issue_invoice: opts?.issueInvoice ? 1 : 0,
+    reusable: opts?.reusable ? 1 : 0,
   });
-  return extractAttrs(data.data ?? data);
+  const item = data.data ?? data;
+  return { ...extractAttrs(item), id: item?.id };
+}
+
+/** Close a reusable link before its month is up. POST /invitations/link/{id}/stop. */
+export async function stopInviteLink(id: string | number): Promise<string> {
+  const { data } = await client.post(`/invitations/link/${id}/stop`);
+  return String(data.message ?? '');
 }
 
 // ---- Phone invitation (full parity with the web /invitations page) ----
@@ -69,6 +85,11 @@ export interface InvitationCourseOption {
   booklet_price: number | null;
   has_schedule: boolean;
   schedule_label: string; // "الأحد 9:00 AM، الثلاثاء 5:00 PM"
+  /** Each weekly time (fast register v2 picks one, or the whole course). Absent on an older server. */
+  slots?: { id: number; day_of_week: number; start_time: string | null; label: string }[];
+  /** «الفترة» — absent on older servers. */
+  shift?: 'morning' | 'evening' | null;
+  shift_label?: string | null;
 }
 
 export interface InvitationOptions {

@@ -85,7 +85,7 @@ export async function runAutoSync(now: Date = new Date()): Promise<number> {
         if (r.outcome === 'synced' || r.outcome === 'already_recorded') {
           toDelete.push(id);
         } else {
-          await markScanRejected(id, r.message || r.code || 'failed'); // permanent → decision bucket
+          await markScanRejected(id, r.message || r.code || 'failed', r.student_name ?? null); // permanent → decision bucket
         }
       }
       await deleteScans(toDelete);

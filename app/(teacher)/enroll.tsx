@@ -1,11 +1,12 @@
 import { track } from '@/lib/analytics';
 import { SheetModal } from '@/components/ui/SheetModal';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Vibration } from 'react-native';
-import { Alert } from '@/ui/dialog';
+import { Alert, useDialogStore } from '@/ui/dialog';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { ScanFrame } from '@/components/teacher/ScanFrame';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -15,12 +16,13 @@ import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import {
-  getEnrollableClasses,
   lookupStudent,
   enrollByCard,
-  type EnrollableClass,
   type LookupStudent,
 } from '@/api/students';
+import { getInvitationOptions, type InvitationCourseOption } from '@/api/invitation';
+import { PageHero } from '@/components/ui/PageHero';
+import { CoursePickCard } from '@/components/teacher/CoursePickCard';
 import {
   scanPreCard,
   confirmPreCard,
@@ -28,7 +30,6 @@ import {
   enrollByScan,
   type PreCardScanStudent,
 } from '@/api/preCardInvitation';
-import { TeacherTip } from '@/components/TeacherTip';
 import { Button } from '@/components/ui/Button';
 import { EnrollmentTermsSheet, useEnrollmentTerms } from '@/components/teacher/EnrollmentTermsSheet';
 import { Surface } from '@/ui/surfaces';
@@ -41,15 +42,24 @@ type Review =
   | { kind: 'miss' }
   | null;
 
+/** The group being enrolled into: the course (schedule master) and its term. */
+type PickedCourse = { course_id: number; course_name: string; academic_session_id: number };
+
 export default function TeacherEnroll() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { isAssistant } = useActiveAbilities();
   const [permission, requestPermission] = useCameraPermissions();
-  const { data: classes, isLoading } = useQuery({ queryKey: ['enrollable-classes'], queryFn: getEnrollableClasses });
+  // The same course list fast register shows (founder 2026-11-07: «slow … not like the fast
+  // register») — usually already cached, so the page opens at once.
+  const { data: options, isLoading } = useQuery({ queryKey: ['invitation-options'], queryFn: getInvitationOptions });
+  const classes = useMemo(() => (options?.courses ?? []).filter((c) => c.has_schedule && c.academic_session_id != null), [options]);
 
   // Enrollment is on the COURSE (schedule master) — pick the course, not a session.
-  const [course, setCourse] = useState<EnrollableClass | null>(null);
+  const [course, setCourse] = useState<PickedCourse | null>(null);
+  const pickCourse = (c: InvitationCourseOption) => setCourse({
+    course_id: c.id, course_name: c.grade_name ? `${c.name} · ${c.grade_name}` : c.name, academic_session_id: c.academic_session_id!,
+  });
   // Arriving from a «دعوة طالب» (the home scanner or fast register): the scanned value waits
   // for the group, then runs as if scanned here; fast register also names the group.
   const params = useLocalSearchParams<{ value?: string; course_id?: string }>();
@@ -86,30 +96,27 @@ export default function TeacherEnroll() {
       }
       setBusy(true);
       try {
-        // 1. Is this a parent-generated pre-card invitation token? (structurally
-        //    distinct from a card code — server reserves it and returns the student.)
-        //    Teacher-only on the server: an assistant skips straight to the card lookup.
-        //    Asking first used to answer every assistant scan with TEACHER_ONLY and stop,
-        //    so an assistant granted manage_students could never enroll a card at all.
-        if (!isAssistant) {
-          try {
-            const pre = await scanPreCard(data);
-            Vibration.vibrate(50);
-            setReview({ kind: 'precard', invitationId: pre.invitation_id, student: pre.student });
-            return;
-          } catch (e: any) {
-            const code = e?.response?.data?.code;
-            // A real pre-card conflict must surface, not be retried as a card.
-            if (code === 'RESERVED_ELSEWHERE' || code === 'TEACHER_ONLY') {
-              Alert.alert('', e?.response?.data?.message || t('enroll_ui.token_unusable'));
-              return;
-            }
-            // INVALID_TOKEN / anything else → fall through to a normal card scan.
-          }
+        // Both questions at once (founder 2026-11-07: «slow»): a parent's pre-card invitation token,
+        // or a card. They used to run one after the other — every card waited for the token's «no»
+        // first. A card value is simply INVALID_TOKEN to the first; a token is «not found» to the
+        // second. The token check is teacher-only on the server, so an assistant asks only for a card.
+        const [pre, card] = await Promise.allSettled([
+          isAssistant ? Promise.reject(new Error('assistant')) : scanPreCard(data),
+          lookupStudent('qr', data, course.course_id),
+        ]);
+        if (pre.status === 'fulfilled') {
+          Vibration.vibrate(50);
+          setReview({ kind: 'precard', invitationId: pre.value.invitation_id, student: pre.value.student });
+          return;
         }
-
-        // 2. Otherwise treat it as a physical card (QR/serial).
-        const res = await lookupStudent('qr', data, course.course_id);
+        // A real pre-card conflict must surface, not be read as an unknown card.
+        const code = (pre.reason as { response?: { data?: { code?: string; message?: string } } })?.response?.data;
+        if (code?.code === 'RESERVED_ELSEWHERE' || code?.code === 'TEACHER_ONLY') {
+          Alert.alert('', code.message || t('enroll_ui.token_unusable'));
+          return;
+        }
+        if (card.status === 'rejected') throw card.reason;
+        const res = card.value;
         Vibration.vibrate(50);
         setReview(res.found && res.student ? { kind: 'match', student: res.student, value: data } : { kind: 'miss' });
       } catch {
@@ -125,6 +132,9 @@ export default function TeacherEnroll() {
   // Android rebuild the whole camera on every card (founder 2026-10-09: «light on all devices»).
   const isFocused = useIsFocused();
   const scanPausedRef = useRef(false);
+  // A popup on screen (the server's included) pauses the reader, so one card is read once. Up here
+  // with the other hooks: below the course step's early return it crashed the app on choosing a course.
+  const dialogOpen = useDialogStore((st) => st.queue.length > 0);
   const handleScanRef = useRef(handleScan);
   handleScanRef.current = handleScan;
   const onCameraScan = useCallback((e: Parameters<typeof handleScan>[0]) => {
@@ -134,8 +144,9 @@ export default function TeacherEnroll() {
 
   useEffect(() => {
     if (course || !params.course_id || !classes) return;
-    const c = classes.find((x) => String(x.course_id) === String(params.course_id));
-    if (c) setCourse(c);
+    const c = classes.find((x) => String(x.id) === String(params.course_id));
+    if (c) pickCourse(c);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classes, course, params.course_id]);
   useEffect(() => {
     if (!course || !pendingRef.current) return;
@@ -250,76 +261,45 @@ export default function TeacherEnroll() {
     );
   }
 
-  // ---- Step 1: pick the course (schedule master) ----
+  // ---- Step 1: pick the course (schedule master) — fast register's page ----
   if (!ready) {
     return (
       <Surface id="screen.teacher.enroll" screen>
-      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-        <Surface id="teacher.enroll.tip">
-        <TeacherTip
-          tip="invitation"
-          icon="add"
-          titleKey="onboarding.tip_invitation_title"
-          bodyKey="onboarding.tip_invitation_body"
-          bulletKeys={['onboarding.tip_invitation_b1', 'onboarding.tip_invitation_b2']}
-        />
-        </Surface>
-        <View style={{ padding: spacing.xl }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
-              <Icon name="forward" size={22} color={colors.textPrimary} />
-            </TouchableOpacity>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 22, color: colors.textPrimary }}>{t('offline.actions.record_student')}</Text>
-          </View>
-          <Text style={{ fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary, marginTop: spacing.md }}>
-            {t('enroll_ui.enroll_intro')}
-          </Text>
-          {awaitingGroup ? (
-            <Surface id="teacher.enroll.invitation_waiting">
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.md }}>
-              <Icon name="add" size={18} color={colors.brand} />
-              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13.5, lineHeight: 20, color: colors.brand }}>{t('invitation_modal.pick_group')}</Text>
-            </View>
-            </Surface>
-          ) : null}
-        </View>
-        {isLoading ? (
-          <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.xl }} />
-        ) : (
-          <Surface id="teacher.enroll.course_picker">
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl, gap: spacing.sm }}>
-            {(classes ?? []).length === 0 ? (
-              <Text style={{ fontFamily: fonts.regular, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.xl }}>
-                {t('enroll_ui.no_scheduled_courses')}
-              </Text>
-            ) : (
-              (classes ?? []).map((c) => (
-                <TouchableOpacity
-                  key={c.course_id}
-                  activeOpacity={0.7}
-                  onPress={() => setCourse(c)}
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.textPrimary }}>{c.course_name}</Text>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>
-                      {c.slots.length} {c.slots.length === 1 ? t('enroll_ui.weekly_slot_one') : t('enroll_ui.weekly_slot_many')}
-                    </Text>
-                  </View>
-                  <Icon name="back" size={18} color={colors.brand} />
-                </TouchableOpacity>
-              ))
-            )}
-          </ScrollView>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xxl }}>
+          <Surface id="teacher.enroll.header">
+          <PageHero
+            title={t('enroll_ui.qr_title')}
+            subtitle={t('enroll_ui.qr_subtitle')}
+            onBack
+            action={{ icon: 'phone', label: t('enroll_ui.qr_by_phone'), onPress: () => router.push('/(teacher)/invite-phone'), accessibilityLabel: t('invites.by_phone') }}
+          />
           </Surface>
-        )}
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
+            {awaitingGroup ? (
+              <Surface id="teacher.enroll.invitation_waiting">
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md, backgroundColor: colors.brandTint, borderRadius: radius.lg, padding: spacing.md }}>
+                <Icon name="add" size={18} color={colors.brand} />
+                <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 13.5, lineHeight: 20, color: colors.brand }}>{t('invitation_modal.pick_group')}</Text>
+              </View>
+              </Surface>
+            ) : null}
+            {isLoading ? (
+              <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.xl }} />
+            ) : (
+              <Surface id="teacher.enroll.course_picker">
+                <CoursePickCard courses={classes} onPick={pickCourse} hint={t('enroll_ui.qr_pick_hint')} actionIcon="scan" />
+              </Surface>
+            )}
+          </View>
+        </ScrollView>
       </View>
       </Surface>
     );
   }
 
   // ---- Step 2: scan + review ----
-  scanPausedRef.current = !!(busy || review || done);
+  scanPausedRef.current = !!(busy || review || done || dialogOpen);
   return (
     <Surface id="screen.teacher.enroll" screen>
     <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -350,13 +330,7 @@ export default function TeacherEnroll() {
       {/* Scan frame */}
       {!review && !done ? (
         <Surface id="teacher.enroll.frame">
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
-          <View style={{ width: 240, height: 240, borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)', borderRadius: 24 }} />
-          <Text style={{ fontFamily: fonts.medium, fontSize: 16, color: '#fff', marginTop: spacing.lg }}>
-            {busy ? t('enroll_ui.searching') : t('enroll_ui.aim_camera')}
-          </Text>
-          {busy ? <ActivityIndicator color="#fff" style={{ marginTop: spacing.md }} /> : null}
-        </View>
+        <ScanFrame icon="scan" busy={busy} label={busy ? t('enroll_ui.searching') : t('enroll_ui.aim_camera')} />
         </Surface>
       ) : null}
 

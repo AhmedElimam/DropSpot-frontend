@@ -58,7 +58,7 @@ export const PARENT_TOUR: TourDef = {
     spot('tab:profile', 'tour.parent.profile_title', 'tour.parent.profile_body', '/(parent)/(tabs)/profile' as Href),
     // Last, the card (founder 2026-10-24: «make the card step the last one»): its row on the
     // profile tab, whose button opens the page that explains it; «لاحقًا» just ends the tour.
-    spot('profile:card', 'tour.parent.card_title', 'tour.parent.card_body', '/(parent)/(tabs)/profile' as Href, { cta: 'tour.card_cta', href: '/card-info' as Href }),
+    spot('profile:card', 'tour.parent.card_title', 'tour.parent.card_body', '/(parent)/(tabs)/profile' as Href, { cta: 'tour.card_cta', href: '/card-info' as Href, needs: 'card' }),
   ],
 };
 
@@ -79,9 +79,17 @@ export const STUDENT_TOUR: TourDef = {
     spot('tab:profile', 'tour.student.profile_title', 'tour.student.profile_body', '/(student)/(tabs)/profile' as Href),
     // Last, the card (founder 2026-10-24: «make the card step the last one»): its row on the
     // profile tab, whose button opens the page that explains it; «لاحقًا» just ends the tour.
-    spot('profile:card', 'tour.student.card_title', 'tour.student.card_body', '/(student)/(tabs)/profile' as Href, { cta: 'tour.card_cta', href: '/card-info' as Href }),
+    spot('profile:card', 'tour.student.card_title', 'tour.student.card_body', '/(student)/(tabs)/profile' as Href, { cta: 'tour.card_cta', href: '/card-info' as Href, needs: 'card' }),
   ],
 };
+
+/**
+ * The tour as this family sees it: the card's step only once the card is open to them (founder
+ * 2026-11-07: a family with one teacher was walked to a card row that is no longer there).
+ */
+export function withCardStep(def: TourDef, cardOpen: boolean): TourDef {
+  return cardOpen ? def : { ...def, steps: def.steps.filter((s) => s.needs !== 'card') };
+}
 
 export function tourForRole(role: string | null | undefined): TourDef | null {
   switch (role) {

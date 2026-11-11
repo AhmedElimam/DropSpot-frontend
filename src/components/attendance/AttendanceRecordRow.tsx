@@ -9,7 +9,8 @@ import { ComplaintPill } from '@/components/student/ComplaintSheet';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
 import { tracksAttendance } from '@/utils/privateLesson';
 import { Surface } from '@/ui/surfaces';
-import { formatDate, formatTime } from '@/utils/format';
+import { formatDate, formatNumber, formatTime } from '@/utils/format';
+import { RATING_TONE } from '@/components/homework/HomeworkChips';
 import type { AttendanceRecord } from '@/types/attendance';
 import type { Complaint } from '@/api/complaints';
 
@@ -31,11 +32,13 @@ export function statusTone(status: string | null | undefined): { fg: string; bg:
  * the complaint already filed on it. Shared by the student check-in page and the parent's
  * child page so both sides read the same row (founder 2026-10-03).
  */
-export const AttendanceRecordRow = memo(function AttendanceRecordRow({ record, complaint, onComplain, last }: {
+export const AttendanceRecordRow = memo(function AttendanceRecordRow({ record, complaint, onComplain, onOpen, last }: {
   record: AttendanceRecord;
   complaint?: Complaint | null;
   /** Present when this reader may dispute the record. */
   onComplain?: (record: AttendanceRecord) => void;
+  /** Opens the session's details sheet (founder 2026-11-10) — the whole row becomes a button. */
+  onOpen?: (record: AttendanceRecord) => void;
   last?: boolean;
 }) {
   const { t } = useTranslation();
@@ -48,8 +51,16 @@ export const AttendanceRecordRow = memo(function AttendanceRecordRow({ record, c
 
   const icon = !tracked ? 'book' : record.status === 'present' ? 'present' : record.status === 'late' ? 'late' : record.status === 'excused' ? 'excused' : 'absent';
 
+  // What was written at that session, at a glance (founder 2026-11-10); the sheet has the rest.
+  const written = record.summary || record.note;
+  const rating = record.homework_rating ? RATING_TONE()[record.homework_rating] : null;
+  const Wrap = onOpen && record.session_instance_id ? TouchableOpacity : View;
+  const wrapProps = onOpen && record.session_instance_id
+    ? { onPress: () => onOpen(record), activeOpacity: 0.7, accessibilityRole: 'button' as const, accessibilityHint: t('family_session.open_hint') }
+    : {};
+
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.borderLight }}>
+    <Wrap {...wrapProps} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.borderLight }}>
       <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: tone.bg, alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
         <Icon name={icon} size={18} color={tone.fg} outline={!tracked} />
       </View>
@@ -64,8 +75,35 @@ export const AttendanceRecordRow = memo(function AttendanceRecordRow({ record, c
         <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
           {[valid ? formatDate(when, { weekday: 'long', day: 'numeric', month: 'short' }) : null, valid ? formatTime(when) : null, record.teacher_name].filter(Boolean).join(' · ')}
         </Text>
+        {record.homework ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+            <Icon name="list" size={13} color={colors.brand} />
+            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12.5, color: colors.textPrimary }} numberOfLines={1}>
+              <Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{t('family_session.row_homework')} </Text>{record.homework}
+            </Text>
+            {rating && record.homework_rating ? (
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: rating.ink, backgroundColor: rating.bg, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 1, overflow: 'hidden' }}>{t(`homework.rating.${record.homework_rating}`)}</Text>
+            ) : null}
+          </View>
+        ) : null}
+        {written ? (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 4 }}>
+            <Icon name="note" size={13} color={colors.info} />
+            <Text style={{ flex: 1, fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }} numberOfLines={2}>
+              <Text style={{ fontFamily: fonts.bold, color: colors.info }}>{t('family_session.row_note')} </Text>{record.note || record.summary}
+            </Text>
+          </View>
+        ) : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: 6 }}>
           {tracked && attended && record.check_in_method ? <StatusBadge status={record.check_in_method} size="sm" /> : null}
+          {record.mark != null ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radius.full, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.brandTint }}>
+              <Icon name="grades" size={12} color={colors.brand} />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, color: colors.brand }}>
+                {formatNumber(record.mark)}{record.max_mark != null ? `/${formatNumber(record.max_mark)}` : ''}
+              </Text>
+            </View>
+          ) : null}
           {complaint ? (
             <ComplaintPill status={complaint.status} />
           ) : tracked && onComplain && record.session_instance_id ? (
@@ -79,6 +117,11 @@ export const AttendanceRecordRow = memo(function AttendanceRecordRow({ record, c
           <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 4 }} numberOfLines={2}>«{complaint.decision_note}»</Text>
         ) : null}
       </View>
-    </View>
+      {onOpen && record.session_instance_id ? (
+        <View style={{ alignSelf: 'center' }}>
+          <Icon name="back" size={16} color={colors.textTertiary} />
+        </View>
+      ) : null}
+    </Wrap>
   );
 });

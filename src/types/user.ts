@@ -36,6 +36,11 @@ export interface User {
    * or correct it. Cleared by confirming or editing — never blocks the account.
    */
   should_confirm_name?: boolean;
+  /**
+   * Parent only. The stored name is the door's label («ولي أمر <child>»), not theirs: the
+   * prompt opens empty and has no «اسمي مكتوب صحيحًا» (founder review 2026-11-06).
+   */
+  name_is_placeholder?: boolean;
   /** Student: nobody has proved the parent's number yet — the app asks for a code from the parent (soft). */
   needs_parent_number_check?: boolean;
   /** The masked parent number that code goes to («010•••••789»). */

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTickets, getTicket, getStudentTeachers, addMessage, sendStudentReport, updateTicketStatus, type PendingFile } from '@/api/tickets';
+import { getTickets, getTicket, getStudentTeachers, addMessage, sendStudentReport, updateTicketStatus, fixParentNumber, type PendingFile } from '@/api/tickets';
 
 export function useTickets() {
   return useQuery({ queryKey: ['tickets'], queryFn: getTickets });
@@ -39,6 +39,17 @@ export function useSendStudentReport(ticketId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => sendStudentReport(ticketId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tickets', ticketId] });
+      qc.invalidateQueries({ queryKey: ['tickets'] });
+    },
+  });
+}
+
+export function useFixParentNumber(ticketId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (phone: string) => fixParentNumber(ticketId, phone),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tickets', ticketId] });
       qc.invalidateQueries({ queryKey: ['tickets'] });

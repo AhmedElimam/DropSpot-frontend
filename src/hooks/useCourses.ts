@@ -13,11 +13,17 @@ import {
   type CourseDetail,
   type CourseSettingsPayload,
   type CreateCoursePayload,
-  type LocationPayload,
-} from '@/api/courses';
+  type LocationPayload, setCourseHidden, setScheduleHidden } from '@/api/courses';
 
+/**
+ * The full group list (/teacher/courses: schedules, counts, door). Its own key under
+ * 'teacher-courses': the roster filter's names-only list (useTeacherCourses) once shared the
+ * bare key, so whichever landed last was served to the other — «دعوة برابط» then read names
+ * with no `slot_count`, showed no groups and no spinner until a refetch replaced them.
+ * Invalidating ['teacher-courses'] still refreshes both.
+ */
 export function useCourses() {
-  return useQuery({ queryKey: ['teacher-courses'], queryFn: getCourses, staleTime: 30_000 });
+  return useQuery({ queryKey: ['teacher-courses', 'summary'], queryFn: getCourses, staleTime: 30_000 });
 }
 
 export function useCourseFormOptions() {
@@ -61,6 +67,24 @@ export function useUpdateCourseLocation(id: string) {
   const sync = useSyncCourse(id);
   return useMutation({
     mutationFn: (payload: LocationPayload) => updateCourseLocation(id, payload),
+    onSuccess: sync,
+  });
+}
+
+/** Keep the course from assistants, or give it back (teacher only). */
+export function useSetCourseHidden(id: string) {
+  const sync = useSyncCourse(id);
+  return useMutation({
+    mutationFn: (hidden: boolean) => setCourseHidden(id, hidden),
+    onSuccess: sync,
+  });
+}
+
+/** The same for one group. */
+export function useSetScheduleHidden(courseId: string) {
+  const sync = useSyncCourse(courseId);
+  return useMutation({
+    mutationFn: ({ scheduleId, hidden }: { scheduleId: string; hidden: boolean }) => setScheduleHidden(courseId, scheduleId, hidden),
     onSuccess: sync,
   });
 }

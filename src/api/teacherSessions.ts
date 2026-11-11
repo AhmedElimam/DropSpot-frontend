@@ -1,5 +1,6 @@
 import client from './client';
 import { extractList, extractAttrs } from './utils';
+import type { HomeworkRating, HomeworkSummary } from './homework';
 
 // Teacher sessions HISTORY (beyond today) + per-session attendance detail. The
 // existing /teacher/sessions/today is today-only and carries no attendee roster.
@@ -63,6 +64,30 @@ export interface SessionAttendee {
   number_flagged?: boolean;
   /** A manual mark queued on this phone, not yet on the server (offline). */
   pending_sync?: boolean;
+  /** The grade on the session's `homework_due`; null when ungraded or none. Always null on a swap-in. */
+  homework_rating?: HomeworkRating | null;
+  /** The current run of «لم يُحلّ» in this group (0+). Always 0 on a swap-in. */
+  homework_missed_streak?: number;
+  /** This course's homework so far — the four counts and the rate. null when none was graded, and on a swap-in. */
+  homework_summary?: HomeworkSummary | null;
+  /** «تعويض»: this row (status 'excused') was covered by attending another group's session. */
+  covered_in?: CoveredIn | null;
+}
+
+/** Where a missed home session was covered — another group's session of the same teacher and grade. */
+export interface CoveredIn {
+  session_id: string;
+  label: string | null;
+}
+
+/** A session this session's students can cover in («تعويض»), nearest first. */
+export interface CoverOption {
+  id: number;
+  label: string;
+  course_name: string | null;
+  scheduled_at: string | null;
+  /** Roster students already recorded present there — the picker puts that session first for them. */
+  attended_student_ids: number[];
 }
 
 /** A student swapped INTO this session (one-time makeup) — roster attendee + origin. */
@@ -104,9 +129,27 @@ export interface SessionDetail {
   attendees: SessionAttendee[];
   /** Students swapped INTO this session — shown in a separate, non-default tab. */
   swap_ins?: SwapInAttendee[];
+  /** «تعويض»: the teacher's other groups of this grade within a week either side. Older servers omit it. */
+  cover_options?: CoverOption[];
   /** «ملاحظات الحصة» — the note to the whole session, read by its students and their parents. */
   summary?: { body: string | null; published_at: string | null };
   notes_window?: NotesWindow;
+  /** «الواجب» given at this session (null = none yet). Older servers omit the three fields. */
+  homework?: { id: number; body: string; updated_at: string | null } | null;
+  /** The homework graded at THIS session: the group's previous one, else this session's own. */
+  homework_due?: {
+    id: number;
+    body: string;
+    session_id: string;
+    session_date: string | null;
+    /** True when this is the session's OWN homework (nothing earlier in the group to grade). */
+    same_session?: boolean;
+    counts: Record<HomeworkRating | 'ungraded', number>;
+  } | null;
+  /** Nothing recorded at the group's previous session: that session, so its homework can be written now. */
+  homework_previous?: { session_id: string; session_date: string | null } | null;
+  /** False on a cancelled session. */
+  can_edit_homework?: boolean;
   /** Served from the phone's last-known copy because the server could not be reached. */
   offline?: boolean;
   cached_at?: string;
@@ -215,6 +258,12 @@ export async function restoreSession(sessionId: string | number): Promise<Sessio
   return detail(data);
 }
 
+/** «تعويض»: this roster student missed this session and covered (or will cover) it in `targetId`. */
+export async function coverInSession(sessionId: string | number, studentId: number, targetId: number): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/cover`, { student_id: studentId, target_session_instance_id: targetId });
+  return detail(data);
+}
+
 export async function recordNote(sessionId: string | number, studentId: number, note: string): Promise<SessionDetail> {
   const { data } = await client.post(`/teacher/sessions/${sessionId}/note`, { student_id: studentId, note });
   return detail(data);
@@ -229,6 +278,33 @@ export async function recordSummary(sessionId: string | number, body: string): P
 /** Reopen a session's notes for another 48 hours. */
 export async function reopenNotes(sessionId: string | number): Promise<SessionDetail> {
   const { data } = await client.post(`/teacher/sessions/${sessionId}/notes-reopen`);
+  return detail(data);
+}
+
+/** «الواجب» given at this session; empty clears. 422 HOMEWORK_CANCELLED on a cancelled session. */
+export async function recordHomework(sessionId: string | number, body: string): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/homework`, { body: body || null });
+  return detail(data);
+}
+
+/**
+ * Write the group's previous session's homework from this one (nothing was recorded then), so
+ * it can be graded now — quietly, no «واجب جديد». 422 HOMEWORK_NO_PREVIOUS on a group's first session.
+ */
+export async function recordDueHomework(sessionId: string | number, body: string): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/homework-due`, { body });
+  return detail(data);
+}
+
+/** Grade one student on the session's `homework_due`; null clears. */
+export async function rateHomework(sessionId: string | number, studentId: number, rating: HomeworkRating | null): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/homework-rate`, { student_id: studentId, rating });
+  return detail(data);
+}
+
+/** Grade every attending, still-ungraded student at once («الكل حلّ»). */
+export async function rateHomeworkAll(sessionId: string | number, rating: HomeworkRating): Promise<SessionDetail> {
+  const { data } = await client.post(`/teacher/sessions/${sessionId}/homework-rate-all`, { rating });
   return detail(data);
 }
 

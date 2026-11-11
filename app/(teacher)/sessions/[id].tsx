@@ -1,9 +1,9 @@
 import { SheetModal } from '@/components/ui/SheetModal';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Switch, KeyboardAvoidingView } from 'react-native';
 import { Alert } from '@/ui/dialog';
 import { FlatList, ScrollView } from '@/components/ui/Refreshable';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,12 +18,16 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { AttendanceRing } from '@/components/session/AttendanceVisuals';
 import { MarkRow, MarksHeader, type SessionKind } from '@/components/session/SessionMarks';
 import { SessionNotesCard } from '@/components/session/SessionNotesCard';
+import { SessionHomeworkCard } from '@/components/session/SessionHomeworkCard';
+import { HomeworkRateChips, HomeworkRatingBadge, HomeworkStreakBadge, HomeworkSummaryRow } from '@/components/homework/HomeworkChips';
+import type { HomeworkRating } from '@/api/homework';
 import { sessionPhase } from '@/utils/sessionPhase';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useSessionDetail, useSessionControls } from '@/hooks/useTeacherSessionHistory';
 import { isNetworkFailure } from '@/db/marksSync';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import type { SessionAttendee, SwapInAttendee } from '@/api/teacherSessions';
+import { CoverPicker, COVER_COLOR, coveredOf } from '@/components/session/CoverPicker';
 import { dayLabel, formatNumber } from '@/utils/format';
 import { goToScan } from '@/utils/sessionNav';
 import { Surface } from '@/ui/surfaces';
@@ -76,6 +80,8 @@ export default function SessionDetailScreen() {
   const { refreshing, onRefresh } = usePullRefresh(refetch);
   const controls = useSessionControls(id!);
   const [selected, setSelected] = useState<SessionAttendee | null>(null);
+  // «تعويض»: the student sheet's list of other groups' sessions, open or closed.
+  const [coverOpen, setCoverOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
   const [gradeDraft, setGradeDraft] = useState('');
   const [tab, setTab] = useState<RosterTab>('roster');
@@ -135,6 +141,12 @@ export default function SessionDetailScreen() {
       throw e;
     }
   }, [controls.grade, t]);
+  // «الواجب»: the previous session's homework is graded on each roster row (never a swap-in's:
+  // theirs is another group's homework).
+  const gradesHomework = !!s?.homework_due && s.can_edit_homework !== false && activeTab === 'roster';
+  const rateHomework = useCallback((studentId: number, rating: HomeworkRating | null) => {
+    controls.homeworkRate.mutate({ studentId, rating }, { onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) });
+  }, [controls.homeworkRate, t]);
   const setKind = (k: SessionKind) => controls.setType.mutate(k, { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('teacher.session_type_failed')) });
 
   const current = selected
@@ -145,6 +157,43 @@ export default function SessionDetailScreen() {
     setSelected(a);
     setNoteDraft(a.note ?? '');
     setGradeDraft(a.mark != null ? String(a.mark) : '');
+  };
+  // Closing the student's sheet saves what was typed and left unsaved (founder 2026-11-03), and
+  // the row lights up for a moment so the teacher sees it was kept.
+  const [saved, setSaved] = useState<{ id: number; text: string } | null>(null);
+  useEffect(() => {
+    if (!saved) return;
+    const timer = setTimeout(() => setSaved(null), 3500);
+    return () => clearTimeout(timer);
+  }, [saved]);
+  const closeSheet = () => {
+    const a = current;
+    setSelected(null);
+    setCoverOpen(false);
+    if (!a) return;
+    const jobs: Promise<unknown>[] = [];
+    const what: ('mark' | 'note')[] = [];
+    const typed = gradeDraft.trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace('٫', '.');
+    if (typed !== (a.mark != null ? String(a.mark) : '')) {
+      const value = typed ? Number(typed) : null;
+      if (value !== null && !Number.isFinite(value)) {
+        Alert.alert(t('common.error'), t('session_ui.autosave_bad_mark'));
+      } else {
+        jobs.push(controls.grade.mutateAsync({ studentId: a.student_id, mark: value }));
+        what.push('mark');
+      }
+    }
+    if (!notesShut && noteDraft.trim() !== (a.note ?? '').trim()) {
+      jobs.push(controls.note.mutateAsync({ studentId: a.student_id, note: noteDraft.trim() }));
+      what.push('note');
+    }
+    if (!jobs.length) return;
+    Promise.all(jobs)
+      .then(() => setSaved({
+        id: a.student_id,
+        text: t('session_ui.autosaved', { what: t(what.length === 2 ? 'session_ui.autosaved_both' : `session_ui.autosaved_${what[0]}`), name: a.name ?? '' }),
+      }))
+      .catch((e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)));
   };
   const mark = (studentId: number, status: Status) =>
     controls.mark.mutate({ studentId, status }, { onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('common.error')) });
@@ -203,19 +252,22 @@ export default function SessionDetailScreen() {
   };
 
   const renderAttendee = ({ item }: { item: SessionAttendee | SwapInAttendee }) => {
-    const color = noDoor ? STATUS_COLOR().not_recorded : STATUS_COLOR()[item.status] ?? STATUS_COLOR().not_recorded;
+    const covered = coveredOf(item);
+    const color = noDoor ? STATUS_COLOR().not_recorded : covered ? COVER_COLOR() : STATUS_COLOR()[item.status] ?? STATUS_COLOR().not_recorded;
     const fromLabel = 'from_label' in item ? item.from_label : null;
     const awaiting = bucketOf(item.status) === 'awaiting';
+    const justSaved = saved?.id === item.student_id;
     return (
       <TouchableOpacity onPress={() => openAttendee(item)} activeOpacity={0.85}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStartWidth: 4, borderStartColor: color, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 64 }}>
+        style={{ backgroundColor: justSaved ? colors.successLight : colors.surface, borderRadius: radius.lg, borderWidth: justSaved ? 2 : 1, borderColor: justSaved ? colors.success : colors.border, borderStartWidth: 4, borderStartColor: color, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.sm, minHeight: 64, justifyContent: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <Avatar name={item.name ?? '—'} seed={avatarSeed.student(item.student_id, item.name ?? '—')} size={40} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{item.name ?? '—'}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
             {/* A private lesson has no attendance status to show. */}
             {!awaiting && !noDoor ? (
-              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color }}>{t(STATUS_KEY[item.status] ?? 'teacher.not_recorded')}{item.checked_in_at ? ` · ${item.checked_in_at}` : ''}</Text>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 11, color }}>{covered ? t('covering.covered') : t(STATUS_KEY[item.status] ?? 'teacher.not_recorded')}{item.checked_in_at ? ` · ${item.checked_in_at}` : ''}</Text>
             ) : (
               <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{item.student_code ?? (item.card_less ? t('teacher.card_less') : '')}</Text>
             )}
@@ -224,8 +276,16 @@ export default function SessionDetailScreen() {
             {item.sheet_awaited ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.warning }}>{`· ${t('teacher.sheet_awaited')}`}</Text> : null}
             {item.note ? <Icon name="note" size={12} color={colors.textTertiary} /> : null}
             {item.number_flagged ? <Icon name="warning" size={12} color={colors.danger} /> : null}
+            {activeTab === 'roster' ? <HomeworkStreakBadge n={item.homework_missed_streak} /> : null}
+            {justSaved ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.success, borderRadius: radius.full, paddingVertical: 1, paddingHorizontal: 8 }}>
+                <Icon name="success" size={11} color={colors.onPrimary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.onPrimary }}>{t('session_ui.autosaved_pill')}</Text>
+              </View>
+            ) : null}
           </View>
           {fromLabel ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: colors.brand, marginTop: 2 }} numberOfLines={1}>{t('teacher.swapped_from', { from: fromLabel })}</Text> : null}
+          {covered?.label ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: COVER_COLOR(), marginTop: 2 }} numberOfLines={1}>{t('covering.covered_in', { where: covered.label })}</Text> : null}
         </View>
         {noDoor ? null : (
         <Surface id="teacher.session_detail.row_quick_marks" ctx={{ session: s }} assistantNeeds="mark_attendance_manual">
@@ -243,6 +303,15 @@ export default function SessionDetailScreen() {
         </View>
         </Surface>
         )}
+        </View>
+        {gradesHomework ? (
+          <Surface id="teacher.session_detail.row_homework" ctx={{ session: s }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm }}>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 11.5, color: colors.textTertiary }}>{t('homework.row_label')}</Text>
+            <HomeworkRateChips value={item.homework_rating ?? null} onChange={(r) => rateHomework(item.student_id, r)} />
+          </View>
+          </Surface>
+        ) : null}
       </TouchableOpacity>
     );
   };
@@ -393,9 +462,10 @@ export default function SessionDetailScreen() {
           data={[PINNED, EXTRAS, ...(mode === 'marks' ? marksList : list)] as Row[]}
           keyExtractor={(a) => (a === PINNED ? 'pinned' : a === EXTRAS ? 'extras' : String((a as SessionAttendee | SwapInAttendee).student_id))}
           stickyHeaderIndices={[1]}
+          extraData={saved}
           renderItem={({ item }) => item === PINNED ? pinned
             : item === EXTRAS ? extrasNode
-            : mode === 'marks' ? <MarkRow a={item as SessionAttendee | SwapInAttendee} max={s.sheet_max_mark} onSave={saveMark} noDoor={noDoor} />
+            : mode === 'marks' ? <MarkRow a={item as SessionAttendee | SwapInAttendee} max={s.sheet_max_mark} onSave={saveMark} noDoor={noDoor} onHomework={gradesHomework ? rateHomework : undefined} />
             : renderAttendee({ item: item as SessionAttendee | SwapInAttendee })}
           // No clipping: it hides a pinned header on Android, and it drops a focused mark
           // field's keyboard there too; the window below keeps the rows bounded.
@@ -452,6 +522,10 @@ export default function SessionDetailScreen() {
               {/* «ملاحظات الحصة» — to the whole session; open 48 h after the end, then reopenable. */}
               <Surface id="teacher.session_detail.notes_card" ctx={{ session: s }}>
               <SessionNotesCard s={s} save={controls.summary} reopen={controls.reopen} autoOpen={notesParam === '1'} />
+              </Surface>
+              {/* «الواجب» — given at this session, and the previous one's graded here. */}
+              <Surface id="teacher.session_detail.homework_card" ctx={{ session: s }}>
+              <SessionHomeworkCard s={s} save={controls.homework} saveDue={controls.homeworkDue} rateAll={controls.homeworkRateAll} />
               </Surface>
             </View>
           }
@@ -535,9 +609,17 @@ export default function SessionDetailScreen() {
       </SheetModal>
       </Surface>
 
+      {/* What closing a student's sheet just saved — a moment, then gone. */}
+      {saved ? (
+        <View pointerEvents="none" style={{ position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: nav.pageEnd + insets.bottom + 70, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.successText, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, ...shadows.md }}>
+          <Icon name="success" size={18} color={colors.onPrimary} />
+          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.onPrimary }} numberOfLines={2}>{saved.text}</Text>
+        </View>
+      ) : null}
+
       {/* One student — mark, sheet grade, note. */}
       <Surface id="teacher.session_detail.student_sheet">
-      <SheetModal visible={!!current} onClose={() => setSelected(null)} avoidKeyboard style={{ backgroundColor: colors.background, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
+      <SheetModal visible={!!current} onClose={closeSheet} avoidKeyboard style={{ backgroundColor: colors.background, paddingBottom: insets.bottom + spacing.lg, maxHeight: '85%' }}>
             {current ? (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
@@ -546,9 +628,56 @@ export default function SessionDetailScreen() {
                     <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary }}>{current.name ?? '—'}</Text>
                     <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{current.student_code ?? (current.card_less ? t('teacher.card_less') : '')}</Text>
                   </View>
-                  <TouchableOpacity onPress={() => setSelected(null)} accessibilityLabel={t('common.close')} style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
+                  <TouchableOpacity onPress={closeSheet} accessibilityLabel={t('common.close')} style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
                     <Icon name="close" size={18} color={colors.textPrimary} />
                   </TouchableOpacity>
+                </View>
+
+                {/* The whole record is one tap away (founder 2026-11-03). */}
+                <Surface id="teacher.session_detail.student_sheet.profile">
+                <TouchableOpacity
+                  onPress={() => { const id = current.student_id; closeSheet(); router.push(`/(teacher)/students/${id}` as Href); }}
+                  activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t('teacher.open_student_profile')}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.lg, paddingVertical: spacing.md, paddingHorizontal: spacing.md, marginBottom: spacing.lg }}>
+                  <Icon name="child" size={18} color={colors.brand} />
+                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('teacher.open_student_profile')}</Text>
+                  <Icon name="back" size={16} color={colors.brand} />
+                </TouchableOpacity>
+                </Surface>
+
+                {/* «الواجب»: grade the homework due here (the previous session's, else this one's own), then this course's record
+                    (rate + four counts). Not on a swap-in — theirs is another group's homework. */}
+                {!('from_label' in current) && s?.can_edit_homework !== undefined ? (
+                  <Surface id="teacher.session_detail.student_sheet.homework">
+                  <View style={{ gap: spacing.sm, marginBottom: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t(s.homework_due?.same_session ? 'homework.sheet_title_same' : 'homework.sheet_title')}</Text>
+                    {s.homework_due ? (
+                      <>
+                        <Text style={{ fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 21, color: colors.textPrimary }} numberOfLines={3}>{s.homework_due.body}</Text>
+                        {s.can_edit_homework
+                          ? <HomeworkRateChips value={current.homework_rating ?? null} onChange={(r) => rateHomework(current.student_id, r)} />
+                          : <HomeworkRatingBadge rating={current.homework_rating ?? null} />}
+                      </>
+                    ) : (
+                      <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textTertiary }}>
+                        {t(s.homework_previous ? 'homework.sheet_none_previous' : 'homework.sheet_first_session')}
+                      </Text>
+                    )}
+                    <HomeworkStreakBadge n={current.homework_missed_streak} big />
+                    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm, gap: spacing.sm }}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary }}>{t('homework.title')}</Text>
+                      {current.homework_summary && current.homework_summary.graded > 0
+                        ? <HomeworkSummaryRow summary={current.homework_summary} />
+                        : <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textTertiary }}>{t('homework.sheet_no_rate')}</Text>}
+                    </View>
+                  </View>
+                  </Surface>
+                ) : null}
+
+                {/* Typed and left unsaved: kept when the sheet closes — said up front. */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.brandTint, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginBottom: spacing.lg }}>
+                  <Icon name="success" size={16} color={colors.brand} />
+                  <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.brand }}>{t('session_ui.autosave_hint')}</Text>
                 </View>
 
                 {noDoor ? null : (
@@ -557,7 +686,7 @@ export default function SessionDetailScreen() {
                   <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('teacher.mark_attendance')}</Text>
                   <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
                     {MARK_OPTIONS().map((o) => {
-                      const active = current.status === o.status;
+                      const active = current.status === o.status && !(o.status === 'excused' && coveredOf(current));
                       return (
                         <TouchableOpacity key={o.status} onPress={() => mark(current.student_id, o.status)} disabled={controls.mark.isPending}
                           style={{ flex: 1, alignItems: 'center', gap: 4, paddingVertical: spacing.md, borderRadius: radius.lg, backgroundColor: active ? o.color : o.color + '12', borderWidth: active ? 0 : 1, borderColor: o.color + '55' }}>
@@ -567,6 +696,22 @@ export default function SessionDetailScreen() {
                       );
                     })}
                   </View>
+                  {/* «تعويض» (founder 2026-11-08): missed this session, attended another group's (same
+                      grade, within a week). Roster rows only — a swap-in is already the other side. */}
+                  {!('from_label' in current) && (s?.cover_options?.length ?? 0) > 0 ? (
+                    <CoverPicker
+                      studentId={current.student_id}
+                      coveredIn={coveredOf(current)}
+                      options={s!.cover_options!}
+                      open={coverOpen}
+                      busy={controls.cover.isPending}
+                      onToggle={() => setCoverOpen((v) => !v)}
+                      onPick={(targetId) => controls.cover.mutate({ studentId: current.student_id, targetId }, {
+                        onSuccess: () => setCoverOpen(false),
+                        onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)),
+                      })}
+                    />
+                  ) : null}
                 </>
                 </Surface>
                 )}

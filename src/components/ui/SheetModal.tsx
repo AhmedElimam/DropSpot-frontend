@@ -217,7 +217,10 @@ export function SheetModal({ visible, onClose, children, avoidKeyboard = false, 
                 bounces={false}
                 nestedScrollEnabled
               >
-                <View ref={contentRef} collapsable={false}>{children}</View>
+                {/* The card's `gap` belongs between the caller's children, which now live in here —
+                    left on the card it spaced nothing, and the record sheet's marks sat on the box
+                    under them (founder 2026-11-01). */}
+                <View ref={contentRef} collapsable={false} style={contentGap(style)}>{children}</View>
               </ScrollView>
             ) : children}
           </Animated.View>
@@ -228,6 +231,14 @@ export function SheetModal({ visible, onClose, children, avoidKeyboard = false, 
 }
 
 /** A real Modal normally; an overlay over the current screen inside an InlineSheetHost. Either way it hosts popups raised while it is open. */
+/** The gaps a caller set on the sheet, for the scrolling content that holds its children. */
+function contentGap(style: StyleProp<ViewStyle>): ViewStyle | undefined {
+  const flat = StyleSheet.flatten(style);
+  if (!flat) return undefined;
+  const { gap, rowGap, columnGap } = flat;
+  return gap == null && rowGap == null && columnGap == null ? undefined : { gap, rowGap, columnGap };
+}
+
 function Host({ inline, onRequestClose, children }: { inline: boolean; onRequestClose: () => void; children: ReactNode }) {
   // A real Modal is up: the app-wide popups wait for it (src/ui/popupSlot.ts).
   useModalPresence(!inline);

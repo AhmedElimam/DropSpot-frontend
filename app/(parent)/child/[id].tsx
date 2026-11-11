@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 
 import { AppModal as Modal } from '@/ui/AppModal';
 import { ScrollView, FlatList } from '@/components/ui/Refreshable';
 import { useTranslation } from 'react-i18next';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { fonts } from '@/theme/typography';
@@ -28,6 +28,7 @@ import { AttendanceOverview } from '@/components/attendance/AttendanceOverview';
 import { AttendanceRecordRow } from '@/components/attendance/AttendanceRecordRow';
 import { ComplaintSheet, type ComplaintTarget } from '@/components/student/ComplaintSheet';
 import { useMyComplaints } from '@/hooks/useComplaints';
+import { FamilySessionSheet, type FamilySessionTarget } from '@/components/session/FamilySessionSheet';
 import { GradeComplaintSheet, GradeComplaintStatus, gradeTargetFromExam, gradeTargetFromRecord, type GradeComplaintTarget } from '@/components/complaints/GradeComplaintSheet';
 import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Surface } from '@/ui/surfaces';
@@ -65,6 +66,7 @@ export default function ChildDetailScreen() {
   const [showAllRecords, setShowAllRecords] = useState(false);
   // A parent may dispute a child's mark the way the student can (founder 2026-10-03).
   const [complaintTarget, setComplaintTarget] = useState<ComplaintTarget | null>(null);
+  const [sessionTarget, setSessionTarget] = useState<FamilySessionTarget | null>(null);
   const complaints = useMyComplaints();
   // …and a grade or exam mark («اعتراض على الدرجة», founder 2026-10-05).
   const [gradeTarget, setGradeTarget] = useState<GradeComplaintTarget | null>(null);
@@ -268,6 +270,7 @@ export default function ChildDetailScreen() {
                         record={r}
                         complaint={r.session_instance_id ? complaints.bySession.get(r.session_instance_id) : undefined}
                         onComplain={(rec) => setComplaintTarget({ type: 'attendance', sessionInstanceId: rec.session_instance_id, courseName: rec.course_name ?? '', sessionAt: rec.session_time ?? null, recordedStatus: rec.status ?? null })}
+                        onOpen={(rec) => setSessionTarget({ studentId: child.student_id, sessionId: rec.session_instance_id, who: 'parent' })}
                         last={i === arr.length - 1}
                       />
                     ))}
@@ -350,6 +353,16 @@ export default function ChildDetailScreen() {
                 title={t('reports.view_reports')}
                 onPress={() => router.push(`/(parent)/report-cards?studentId=${child.student_id}`)}
               />
+              </Surface>
+              {/* «الواجبات»: every homework this child was given, and how it was done. */}
+              <Surface id="parent.child.view_homework">
+              <View style={{ marginTop: spacing.md }}>
+                <Button
+                  variant="secondary"
+                  title={t('homework.view_child')}
+                  onPress={() => router.push(`/(parent)/homework?student_id=${child.student_id}` as Href)}
+                />
+              </View>
               </Surface>
             </Surface>
           )}
@@ -475,6 +488,7 @@ export default function ChildDetailScreen() {
       <Surface id="parent.child.grade_complaint_sheet">
       <GradeComplaintSheet visible={!!gradeTarget} onClose={() => setGradeTarget(null)} target={gradeTarget} forStudentId={child.student_id} />
       </Surface>
+      <FamilySessionSheet target={sessionTarget} onClose={() => setSessionTarget(null)} />
 
       <Surface id="parent.child.child_picker">
       <Modal visible={showPicker} transparent animationType="fade" onRequestClose={() => setShowPicker(false)}>

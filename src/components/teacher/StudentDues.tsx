@@ -118,7 +118,8 @@ export function StudentDuesCard({ billing: b, canCollect, onCollect }: { billing
         <Surface id="teacher.student_profile.dues_lines">
         <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
           {bills.map((x) => row(`bill-${x.id}`, 'money', x.month ? t('student_profile_ui.bill_month', { month: x.month }) : t('student_profile_ui.cycle_bill'),
-            [x.course, Number(x.paid) > 0 ? t('student_profile_ui.paid_of', { paid: formatNumber(Number(x.paid)), total: formatNumber(Number(x.amount)) }) : null].filter(Boolean).join(' · ') || null,
+            // Issued early for the next month (the month's sessions ran out): say so, or it reads as a double bill.
+            [x.issued_month ? t('student_profile_ui.bill_issued_early', { issued: x.issued_month }) : null, x.course, Number(x.paid) > 0 ? t('student_profile_ui.paid_of', { paid: formatNumber(Number(x.paid)), total: formatNumber(Number(x.amount)) }) : null].filter(Boolean).join(' · ') || null,
             Number(x.remaining), x.overdue,
             { kind: 'bill', chargeId: x.id || undefined, label: x.month ? `${t('student_profile_ui.bill_month', { month: x.month })}${x.course ? ` — ${x.course}` : ''}` : t('nav.invoices'), remaining: Number(x.remaining) }))}
           {booklets.map((x) => row(`booklet-${x.id}`, 'book', t('student_profile_ui.booklet_of', { course: x.course ?? '' }), x.partial ? t('student_profile_ui.remaining_of', { amount: formatNumber(Number(x.original)) }) : null,

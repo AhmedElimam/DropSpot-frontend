@@ -1,4 +1,4 @@
-import { TouchableOpacity, Text, ActivityIndicator, type ViewStyle } from 'react-native';
+import { TouchableOpacity, Text, ActivityIndicator, useWindowDimensions, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '@/theme/typography';
 import { colors, gradients, control } from '@/theme/index';
@@ -32,6 +32,14 @@ export function Button({
   style,
   accessibilityLabel,
 }: ButtonProps) {
+  // Responsive label (founder 2026-11-01: «the text inside some buttons is too big»): smaller on
+  // narrow phones, never wider than the button (shrinks to fit, one line), and the system text
+  // size can grow it only a little — a half-width button in a row stays readable.
+  const { width } = useWindowDimensions();
+  const narrow = width < 380;
+  const labelProps = { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.72, maxFontSizeMultiplier: 1.15 } as const;
+  const fontSize = narrow ? 15.5 : 17;
+  const padX = narrow ? 16 : 24;
   if (variant === 'outline' || variant === 'ghost') {
     const isOutline = variant === 'outline';
     return (
@@ -43,7 +51,7 @@ export function Button({
           {
             minHeight: control.minHeight,
             paddingVertical: 14,
-            paddingHorizontal: 24,
+            paddingHorizontal: padX,
             borderRadius: 14,
             alignItems: 'center',
             justifyContent: 'center',
@@ -63,9 +71,11 @@ export function Button({
           <ActivityIndicator color={colors.primary} size="small" />
         ) : (
           <Text
+            {...labelProps}
             style={{
+              flexShrink: 1,
               fontFamily: fonts.bold,
-              fontSize: 17,
+              fontSize,
               textAlign: 'center',
               color: colors.primary,
             }}
@@ -93,15 +103,17 @@ export function Button({
         colors={config.bg}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={{ minHeight: control.minHeight, paddingVertical: 14, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
+        style={{ minHeight: control.minHeight, paddingVertical: 14, paddingHorizontal: padX, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
       >
         {loading ? (
           <ActivityIndicator color={config.textColor} size="small" />
         ) : (
           <Text
+            {...labelProps}
             style={{
+              flexShrink: 1,
               fontFamily: fonts.bold,
-              fontSize: 17,
+              fontSize,
               textAlign: 'center',
               color: config.textColor,
             }}

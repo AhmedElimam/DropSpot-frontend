@@ -22,7 +22,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
-import { useKeyboardShown } from '@/hooks/useKeyboardShown';
+import { COMPOSER_PADS_ITSELF, useComposerBottomInset } from '@/hooks/useComposerBottomInset';
+import { useStickToBottom } from '@/hooks/useStickToBottom';
+import { useScreenTopInset } from '@/hooks/useScreenTopInset';
 import { PageHero } from '@/components/ui/PageHero';
 import { Surface } from '@/ui/surfaces';
 
@@ -38,7 +40,10 @@ export default function TicketDetail() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const keyboardShown = useKeyboardShown();
+  const composerBottom = useComposerBottomInset();
+  const topInset = useScreenTopInset();
+  // While the reply is being typed the header keeps only the title (founder 2026-11-02).
+  const typing = COMPOSER_PADS_ITSELF && composerBottom > insets.bottom;
   const user = useAuthStore((s) => s.user);
   const { data: ticket, isLoading, refetch } = useTicket(id ?? '');
   const addMessage = useAddMessage(id ?? '');
@@ -46,6 +51,7 @@ export default function TicketDetail() {
   const [newMessage, setNewMessage] = useState('');
   const [files, setFiles] = useState<PendingFile[]>([]);
   const scrollRef = useRef<ScrollView>(null);
+  const stickToBottom = useStickToBottom(scrollRef);
 
   useEffect(() => {
     if (ticket?.messages?.length) {
@@ -94,14 +100,16 @@ export default function TicketDetail() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior="padding"
+        enabled={!COMPOSER_PADS_ITSELF}
         // No navigation header sits above this screen — its own hero is inside — so there is
         // nothing to offset. The old 90 was a header that no longer exists: empty space.
         keyboardVerticalOffset={0}
       >
         {/* Header */}
         <Surface id="parent.ticket.hero">
-        <PageHero title={ticket.subject} subtitle={`${ticket.student_name} - ${ticket.teacher_name}`} onBack compact>
-          <View style={{ marginTop: spacing.md }}>
+        <PageHero title={ticket.subject} subtitle={`${ticket.student_name} - ${ticket.teacher_name}`} onBack compact inset={topInset}>
+          {typing ? null : (
+          <View style={{ marginTop: spacing.sm }}>
 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View
               style={{
@@ -172,12 +180,14 @@ export default function TicketDetail() {
             )}
           </View>
           </View>
+          )}
         </PageHero>
         </Surface>
 
         {/* Messages */}
         <ScrollView
           ref={scrollRef}
+          {...stickToBottom}
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
           showsVerticalScrollIndicator={false}
@@ -261,7 +271,7 @@ export default function TicketDetail() {
               flexDirection: 'row',
               alignItems: 'flex-end',
               padding: spacing.md,
-              paddingBottom: spacing.md + (keyboardShown ? 0 : insets.bottom),
+              paddingBottom: spacing.md + composerBottom,
               gap: spacing.sm,
             }}
           >

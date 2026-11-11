@@ -23,8 +23,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Icon } from '@/components/ui/Icon';
-import { useKeyboardShown } from '@/hooks/useKeyboardShown';
+import { COMPOSER_PADS_ITSELF, useComposerBottomInset } from '@/hooks/useComposerBottomInset';
+import { useStickToBottom } from '@/hooks/useStickToBottom';
+import { useScreenTopInset } from '@/hooks/useScreenTopInset';
 import { Surface } from '@/ui/surfaces';
+import { ParentNumberFixCard } from '@/components/tickets/ParentNumberFixCard';
 
 const statusColors = (): Record<string, [string, string]> => ({
   open: [colors.brand, colors.brandDeep],
@@ -40,7 +43,11 @@ export default function TeacherTicketDetail() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const keyboardShown = useKeyboardShown();
+  const composerBottom = useComposerBottomInset();
+  const topInset = useScreenTopInset();
+  // While the reply is being typed the header keeps only the title: the thread needs the room
+  // between it and the keys (founder 2026-11-02: «the header swallows the whole page»).
+  const typing = COMPOSER_PADS_ITSELF && composerBottom > insets.bottom;
   const user = useAuthStore((s) => s.user);
   const { data: ticket, isLoading, refetch } = useTicket(id ?? '');
   const addMessage = useAddMessage(id ?? '');
@@ -49,6 +56,7 @@ export default function TeacherTicketDetail() {
   const [files, setFiles] = useState<PendingFile[]>([]);
   const sendReport = useSendStudentReport(id ?? '');
   const scrollRef = useRef<ScrollView>(null);
+  const stickToBottom = useStickToBottom(scrollRef);
 
   useEffect(() => {
     if (ticket?.messages?.length) {
@@ -95,6 +103,7 @@ export default function TeacherTicketDetail() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior="padding"
+        enabled={!COMPOSER_PADS_ITSELF}
         // No navigation header sits above this screen — its own hero is inside — so there is
         // nothing to offset. The old 90 was a header that no longer exists: empty space.
         keyboardVerticalOffset={0}
@@ -104,24 +113,25 @@ export default function TeacherTicketDetail() {
           colors={gradients.hero}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl4 + insets.top, paddingBottom: spacing.lg }}
+          style={{ paddingHorizontal: spacing.lg, paddingTop: topInset + spacing.sm, paddingBottom: spacing.md }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: typing ? 0 : spacing.xs }}>
             <TouchableOpacity onPress={() => router.back()} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', marginEnd: spacing.sm }}>
               <Icon name="forward" size={26} color={colors.onHero} />
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: colors.onHero }} numberOfLines={1}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.onHero }} numberOfLines={1}>
                 {ticket.subject}
               </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.onHeroSoft, marginTop: 2 }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.onHeroSoft, marginTop: 1 }} numberOfLines={1}>
                 {ticket.student_name}{ticket.parent_name ? ` · ${ticket.parent_name}` : ''}
               </Text>
             </View>
           </View>
 
           <Surface id="teacher.tickets.detail.status_row">
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          {typing ? null : (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginStart: 44 + spacing.sm }}>
             <Surface id="teacher.tickets.detail.status_chip">
             <View
               style={{
@@ -160,6 +170,7 @@ export default function TeacherTicketDetail() {
             )}
             </Surface>
           </View>
+          )}
           </Surface>
         </LinearGradient>
         </Surface>
@@ -167,10 +178,12 @@ export default function TeacherTicketDetail() {
         <Surface id="teacher.tickets.detail.thread">
         <ScrollView
           ref={scrollRef}
+          {...stickToBottom}
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
           showsVerticalScrollIndicator={false}
         >
+          {ticket.parent_number_fix ? <ParentNumberFixCard ticketId={id ?? ''} fix={ticket.parent_number_fix} /> : null}
           {ticket.messages?.map((msg) => {
             const isMine = msg.user_id === user?.id;
             return (
@@ -221,7 +234,7 @@ export default function TeacherTicketDetail() {
         <Surface id="teacher.tickets.detail.reply_box" assistantNeeds="reply_tickets" fallback={ticket.status !== 'closed' ? <View style={{ height: insets.bottom }} /> : null}>
         {ticket.status !== 'closed' ? (
           <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>
-          {ticket.can_send_report ? (
+          {ticket.can_send_report && !typing ? (
             <Surface id="teacher.tickets.detail.send_report">
             <TouchableOpacity onPress={handleReport} disabled={sendReport.isPending} activeOpacity={0.8} accessibilityRole="button"
               style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginHorizontal: spacing.md, marginTop: spacing.sm, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.full, backgroundColor: colors.accentWarmTint, borderWidth: 1, borderColor: colors.accentWarm }}>
@@ -234,7 +247,7 @@ export default function TeacherTicketDetail() {
           <View
             style={{
               flexDirection: 'row', alignItems: 'flex-end', padding: spacing.md,
-              paddingBottom: spacing.md + (keyboardShown ? 0 : insets.bottom), gap: spacing.sm,
+              paddingBottom: spacing.md + composerBottom, gap: spacing.sm,
             }}
           >
             <Surface id="teacher.tickets.detail.attach_button">

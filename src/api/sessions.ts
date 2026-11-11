@@ -49,5 +49,6 @@ function extractSession(item: any): SessionInstance {
     attendance_mode: a.attendance_mode ?? undefined,
     tracks_attendance: a.tracks_attendance ?? undefined,
     attendance_label: a.attendance_label ?? null,
+    homework_due: a.homework_due ?? null,
   };
 }

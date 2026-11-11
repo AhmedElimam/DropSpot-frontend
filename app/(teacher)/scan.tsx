@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, type ViewStyle } from 'react-native';
-import { Alert } from '@/ui/dialog';
+import { View, Text, TextInput, TouchableOpacity, Vibration, ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { Alert, useDialogStore } from '@/ui/dialog';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Redirect, useLocalSearchParams, type Href } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
@@ -18,17 +18,22 @@ import { previewPayment, previewAllPayments, collectPayment, waivePayment, type 
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import { useReviseMode } from '@/hooks/useReviseMode';
 import { bufferScan, deleteScan } from '@/db/offlineScans';
+import { doorToneFor, useDoorTones } from '@/utils/doorTones';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { useAuthStore, stampTeacherId } from '@/stores/authStore';
 import { Icon } from '@/components/ui/Icon';
+import { ScanFrame, FRAME_W, FRAME_H, FRAME_SLACK, scanCentre, type Pt } from '@/components/teacher/ScanFrame';
 import { TeacherTip } from '@/components/TeacherTip';
 import { PayDuesModal } from '@/components/teacher/PayDuesModal';
 import { StudentInvitationModal, type InvitationStudent } from '@/components/teacher/StudentInvitationModal';
 import { scanPreCard, cancelPreCard } from '@/api/preCardInvitation';
-import { useActiveAbilities } from '@/hooks/useActiveAbilities';
+import { useActiveAbilities, ABILITY } from '@/hooks/useActiveAbilities';
 import { Surface } from '@/ui/surfaces';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { ScanPending } from '@/api/teacher';
+import type { ScanPending, DoorNumberAsk } from '@/api/teacher';
+import { acknowledgePhone } from '@/api/phoneConfirmations';
+import { takeDoorHandoff } from '@/stores/doorHandoff';
+import { isTeacherCardToken } from '@/api/teacherCards';
 
 /** True when a scanned student owes anything (bill / booklet(s) / booking). */
 function hasDues(p?: ScanPending | null): boolean {
@@ -40,50 +45,10 @@ function hasDues(p?: ScanPending | null): boolean {
 const COOLDOWN_MS = 2500; // ignore repeat reads of the SAME card
 const SCAN_THROTTLE_MS = 1500; // min gap between ANY two accepted scans (anti-burst)
 const FEEDBACK_MS = 1600; // how long the green/red result stays before resuming
+const FEEDBACK_HOMEWORK_MS = 2600; // …and when it also names last session's homework
 
-// A framed aiming target with bright corner brackets so there's an obvious spot
-// to line the student's QR card up against (a plain rectangle read as "nothing to
-// aim for"). One bracket per corner; the box itself keeps a faint full outline.
-const BRACKET = 38;
-const STROKE = 4;
-function bracket(pos: 'tl' | 'tr' | 'bl' | 'br'): ViewStyle {
-  const s: ViewStyle = { position: 'absolute', width: BRACKET, height: BRACKET, borderColor: '#fff' };
-  if (pos === 'tl') return { ...s, top: -STROKE, left: -STROKE, borderTopWidth: STROKE, borderLeftWidth: STROKE, borderTopLeftRadius: 22 };
-  if (pos === 'tr') return { ...s, top: -STROKE, right: -STROKE, borderTopWidth: STROKE, borderRightWidth: STROKE, borderTopRightRadius: 22 };
-  if (pos === 'bl') return { ...s, bottom: -STROKE, left: -STROKE, borderBottomWidth: STROKE, borderLeftWidth: STROKE, borderBottomLeftRadius: 22 };
-  return { ...s, bottom: -STROKE, right: -STROKE, borderBottomWidth: STROKE, borderRightWidth: STROKE, borderBottomRightRadius: 22 };
-}
-
-// The aiming frame (must match the on-screen box in the render) plus slack, so a
-// card only registers when it's lined up INSIDE the frame — not read from anywhere
-// in view.
-// Square (founder 2026-10-11: «it looks rectangular»): a card's QR is square and so is the box.
-const FRAME_W = 240;
-const FRAME_H = 240;
-const FRAME_SLACK = 56;
-const WIN_W = Dimensions.get('window').width;
-const WIN_H = Dimensions.get('window').height;
-/** The shade outside the aiming box — still, cheap, and it makes the box the bright part. */
-const VIGNETTE = 'rgba(0,0,0,0.42)';
-
-type Pt = { x: number; y: number };
-
-// Centre of a scanned barcode in view coordinates, from whichever geometry the
-// platform reports. Returns null when neither bounds nor cornerPoints are present —
-// the caller then can't gate and accepts the read, so scanning never breaks.
-function scanCentre(
-  bounds?: { origin?: Pt; size?: { width: number; height: number } },
-  corners?: Pt[],
-): Pt | null {
-  if (bounds?.origin && bounds.size && (bounds.size.width > 0 || bounds.size.height > 0)) {
-    return { x: bounds.origin.x + bounds.size.width / 2, y: bounds.origin.y + bounds.size.height / 2 };
-  }
-  if (corners && corners.length > 0) {
-    const n = corners.length;
-    return { x: corners.reduce((s, p) => s + p.x, 0) / n, y: corners.reduce((s, p) => s + p.y, 0) / n };
-  }
-  return null;
-}
+// The aiming frame, its vignette and the in-frame gate are shared with «ربط كارت المدرّس»
+// (src/components/teacher/ScanFrame.tsx).
 
 export default function TeacherScan() {
   const { t } = useTranslation();
@@ -161,6 +126,11 @@ export default function TeacherScan() {
   const [payConfirm, setPayConfirm] = useState<{ name: string; owed: number; paid: number; code: string } | null>(null);
   const [payInput, setPayInput] = useState('');
   // Overdue-bill block: held until the operator grants a 15-day exemption or cancels.
+  // «رقم الأب 010… صحيح؟» — one tap at the door for a number nobody confirmed (founder 2026-10-30).
+  const [numberAsk, setNumberAsk] = useState<{ name: string; ask: DoorNumberAsk } | null>(null);
+  const [numberBusy, setNumberBusy] = useState(false);
+  // Asked while the dues popup was up: shown the moment that popup closes (the server asks once).
+  const numberAskAfterDues = useRef<{ name: string; ask: DoorNumberAsk } | null>(null);
   const [overdueBlock, setOverdueBlock] = useState<{ name: string; message: string; code: string; pending?: ScanPending | null } | null>(null);
   // Same-grade "wrong group" scan → admit once / transfer here.
   const [otherGroup, setOtherGroup] = useState<{ name: string; message: string; cardCode: string; offer: ScanOffer; profileId: number | null } | null>(null);
@@ -177,6 +147,9 @@ export default function TeacherScan() {
   // Merged pay-on-scan popup: after an attendance scan surfaces dues, open ONE popup
   // listing every kind (bill / booklets / booking) with the paid/remaining + pay-full UI.
   const [duesFor, setDuesFor] = useState<{ code: string; name: string; pending: ScanPending } | null>(null);
+  // A teacher-card token read with no signal: the scan is buffered, and if the card is a blank the
+  // link is made now and parked too (founder 2026-11-05: the line must not stop for the 4G).
+  const [offlineBlank, setOfflineBlank] = useState<{ code: string } | null>(null);
   const lastRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
 
   useEffect(() => {
@@ -192,19 +165,28 @@ export default function TeacherScan() {
   // timer clear the next card's feedback (and `busy`) early.
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); }, []);
-  const clearFeedbackLater = useCallback(() => {
+  const clearFeedbackLater = useCallback((ms: number = FEEDBACK_MS) => {
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = setTimeout(() => { feedbackTimer.current = null; setFeedback(null); setBusy(false); }, FEEDBACK_MS);
+    feedbackTimer.current = setTimeout(() => { feedbackTimer.current = null; setFeedback(null); setBusy(false); }, ms);
   }, []);
 
-  const flash = useCallback((success: boolean, message: string, studentName?: string | null, pending?: import('@/api/teacher').ScanPending | null) => {
+  // The door's sounds: all clear / money to pay / missed the last session with no excuse.
+  // Loaded only while this screen is in front (founder 2026-11-08).
+  const playTone = useDoorTones(isFocused);
+
+  const flash = useCallback((success: boolean, message: string, studentName?: string | null, pending?: import('@/api/teacher').ScanPending | null, homework?: ScanResult['homework']) => {
     Vibration.vibrate(success ? 60 : [0, 120, 90, 120]);
-    setFeedback({ success, message, student_name: studentName ?? null, pending: pending ?? null });
-    clearFeedbackLater();
+    // Homework still to grade (2026-11-11) stays on the flash a little longer, to be read.
+    const owesHomework = success && !!homework && !homework.rating;
+    setFeedback({ success, message, student_name: studentName ?? null, pending: pending ?? null, homework: owesHomework ? homework : null });
+    clearFeedbackLater(owesHomework ? FEEDBACK_HOMEWORK_MS : FEEDBACK_MS);
   }, []);
 
+  // Any popup on screen pauses the reader too — the server-drawn ones included (the blank
+  // «كارت المدرّس» «link it?» popup kept re-reading the same card under itself, 2026-11-06).
+  const dialogOpen = useDialogStore((st) => st.queue.length > 0);
   // `locked` pauses scanning too — while the scanner is locked no card is read.
-  const paused = locked || idle || !!feedback || busy || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup || !!noSession || !!invite;
+  const paused = locked || idle || !!feedback || busy || dialogOpen || !!guestPrompt || phoneOpen || !!payConfirm || !!overdueBlock || !!duesFor || !!otherGroup || !!noSession || !!invite || !!numberAsk || !!offlineBlank;
   // The sensor itself runs only when there is something to read for. Locked or idle,
   // the preview goes dark and the phone stops heating; the screen stays mounted so the
   // teacher's session context is untouched.
@@ -223,10 +205,12 @@ export default function TeacherScan() {
   }, [isFocused, locked, IDLE_MS]);
 
   const handleScan = useCallback(
-    async ({ data, bounds, cornerPoints }: { data: string; bounds?: { origin?: Pt; size?: { width: number; height: number } }; cornerPoints?: Pt[] }) => {
+    async ({ data, bounds, cornerPoints, handedBack = false }: { data: string; bounds?: { origin?: Pt; size?: { width: number; height: number } }; cornerPoints?: Pt[]; handedBack?: boolean }) => {
       const now = Date.now();
       lastActivityRef.current = now;
-      if (paused) return;
+      // A card handed back by «ربط الكارت وتحضير الطالب الآن» is the teacher's explicit ask, not
+      // a camera read: no pause, frame or repeat-read gate applies (it was this card just now).
+      if (paused && !handedBack) return;
       // Focus gate: only accept a code whose centre is inside the aiming frame, so a
       // card must be lined up in the box — not read from anywhere in the view. When
       // the platform reports no geometry, `scanCentre` is null and we don't gate.
@@ -249,9 +233,9 @@ export default function TeacherScan() {
       // General throttle: at most one accepted scan per SCAN_THROTTLE_MS regardless
       // of the card, so a burst of reads (or two cards in quick succession) can't
       // fire the handler twice before the feedback pause takes hold.
-      if (now - lastRef.current.at < SCAN_THROTTLE_MS) return;
+      if (!handedBack && now - lastRef.current.at < SCAN_THROTTLE_MS) return;
       // Same card: a longer cooldown so the camera re-reading a lingering card is ignored.
-      if (data === lastRef.current.code && now - lastRef.current.at < COOLDOWN_MS) return;
+      if (!handedBack && data === lastRef.current.code && now - lastRef.current.at < COOLDOWN_MS) return;
       lastRef.current = { code: data, at: now };
       setBusy(true);
 
@@ -347,6 +331,14 @@ export default function TeacherScan() {
           await deleteScan(localId);
           await useOfflineStore.getState().refresh();
         }
+        // «كارت المدرّس»: a blank (claim it?) or a card the Dros Spot card retired (the
+        // one-time grace) — the server drew the popup and the client is showing it.
+        if (!res.success && res.has_popup && res.code?.startsWith('TEACHER_CARD_')) {
+          setBusy(false);
+          Vibration.vibrate(50);
+          return;
+        }
+        playTone(doorToneFor(res));
         // Same-grade "wrong group": the student isn't in this running group but is the
         // same grade → hold on a prompt to admit once or transfer them here.
         const profileId = res.enrolled_here && res.student_id ? res.student_id : null;
@@ -391,11 +383,22 @@ export default function TeacherScan() {
           return;
         }
         // Passive flags ride along on the auto-dismissing success flash — non-interactive.
-        flash(res.success, res.message || (res.success ? t('teacher.checked_in') : t('teacher.scan_failed')), res.student_name, res.pending);
+        flash(
+          res.success,
+          (res.message || (res.success ? t('teacher.checked_in') : t('teacher.scan_failed')))
+            + (res.success && res.last_absence === 'unexcused' ? `\n${t('teacher.last_absence_unexcused')}` : ''),
+          res.student_name,
+          res.pending,
+          res.homework,
+        );
         // Merged pay-on-scan: if the checked-in student owes anything, open ONE popup
         // to collect (bill / booklets / booking) — reversing the old passive-only chips.
         if (res.success && hasDues(res.pending)) {
+          numberAskAfterDues.current = res.confirm_number ? { name: res.student_name ?? '', ask: res.confirm_number } : null;
           setDuesFor({ code: data, name: res.student_name ?? '', pending: res.pending! });
+        } else if (res.success && res.confirm_number) {
+          // Nothing to collect → ask about the number while the family is here (once per number).
+          setNumberAsk({ name: res.student_name ?? '', ask: res.confirm_number });
         }
       } catch {
         // Live scan failed (offline). If the buffer write succeeded the scan is
@@ -405,6 +408,12 @@ export default function TeacherScan() {
         if (bufferFailed) {
           Vibration.vibrate([0, 60, 40, 60]);
           setFeedback({ success: false, message: t('teacher.storage_full'), student_name: null });
+        } else if (isTeacherCardToken(data) && can(ABILITY.CLAIM_CARDS)) {
+          // Saved. A blank in the hand of someone who may link it: hold, and offer to link now.
+          Vibration.vibrate(40);
+          setBusy(false);
+          setOfflineBlank({ code: data });
+          return;
         } else {
           Vibration.vibrate(40);
           setFeedback({ success: true, message: t('teacher.saved_offline'), student_name: null });
@@ -471,6 +480,21 @@ export default function TeacherScan() {
   // be `paused ? undefined : handleScan`) flips the native barcode switch, and on Android that
   // tears the whole camera down and builds it again — twice per scanned card, ~120 times a door
   // session: a stall, a CPU spike, heat (founder 2026-10-09: «light on all devices»).
+  useEffect(() => {
+    if (!duesFor && numberAskAfterDues.current) {
+      setNumberAsk(numberAskAfterDues.current);
+      numberAskAfterDues.current = null;
+    }
+  }, [duesFor]);
+
+  // A popup just closed: the card that opened it may still be in front of the lens, so the
+  // same-card cooldown starts again from the close, not from the scan.
+  const hadDialog = useRef(false);
+  useEffect(() => {
+    if (hadDialog.current && !dialogOpen) lastRef.current = { ...lastRef.current, at: Date.now() };
+    hadDialog.current = dialogOpen;
+  }, [dialogOpen]);
+
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   const handleScanRef = useRef(handleScan);
@@ -479,6 +503,14 @@ export default function TeacherScan() {
     if (pausedRef.current) return;
     handleScanRef.current(e);
   }, []);
+
+  // Back from the claim screen with «ربط الكارت وتحضير الطالب الآن»: the card just linked
+  // checks in now, through this same scan.
+  useEffect(() => {
+    if (!isFocused) return;
+    const code = takeDoorHandoff();
+    if (code) void handleScanRef.current({ data: code, handedBack: true });
+  }, [isFocused]);
 
   const confirmExemption = useCallback(async () => {
     if (!overdueBlock) return;
@@ -693,27 +725,9 @@ export default function TeacherScan() {
       {/* Scan frame + hint (hidden while the scanner is locked) */}
       {!locked && !feedback && !guestPrompt && !phoneOpen && !payConfirm && !overdueBlock && !otherGroup && !noSession && (
         <Surface id="teacher.scan.frame">
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
-          {/* A vignette around the aiming box — four still rectangles, no compositing — so the
-              card's spot is the bright part of the picture (founder 2026-10-11: «UI love on
-              the camera pages»). The box is where the scanner reads (FRAME_W/H). */}
-          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: (WIN_H - FRAME_H) / 2, backgroundColor: VIGNETTE }} />
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: (WIN_H - FRAME_H) / 2, backgroundColor: VIGNETTE }} />
-          <View style={{ position: 'absolute', left: 0, top: (WIN_H - FRAME_H) / 2, width: (WIN_W - FRAME_W) / 2, height: FRAME_H, backgroundColor: VIGNETTE }} />
-          <View style={{ position: 'absolute', right: 0, top: (WIN_H - FRAME_H) / 2, width: (WIN_W - FRAME_W) / 2, height: FRAME_H, backgroundColor: VIGNETTE }} />
-          <View style={{ width: FRAME_W, height: FRAME_H, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)' }}>
-            <View style={[bracket('tl'), { borderColor: frameTint }]} />
-            <View style={[bracket('tr'), { borderColor: frameTint }]} />
-            <View style={[bracket('bl'), { borderColor: frameTint }]} />
-            <View style={[bracket('br'), { borderColor: frameTint }]} />
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.xl, paddingHorizontal: spacing.lg, paddingVertical: 10, borderRadius: 999, backgroundColor: 'rgba(13,18,48,0.62)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
-            {busy ? <ActivityIndicator color="#fff" size="small" /> : <Icon name={payMode ? 'money' : 'card'} size={16} color={frameTint} />}
-            <Text style={{ fontFamily: fonts.medium, fontSize: 15, color: '#fff', textAlign: 'center' }}>
-              {busy ? t('teacher.checking') : t('teacher.point_camera')}
-            </Text>
-          </View>
-        </View>
+        {/* The shade round the aiming box, its corners and the hint (founder 2026-10-11: «UI
+            love on the camera pages»). The box is where the scanner reads (FRAME_W/H). */}
+        <ScanFrame tint={frameTint} icon={payMode ? 'money' : 'card'} busy={busy} label={busy ? t('teacher.checking') : t('teacher.point_camera')} />
         </Surface>
       )}
 
@@ -860,6 +874,45 @@ export default function TeacherScan() {
         </Surface>
       ) : null}
 
+      {/* One tap to confirm a number nobody confirmed — the family is standing at the door. */}
+      {numberAsk ? (
+        <Surface id="teacher.scan.confirm_number">
+        <View style={{ position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: insets.bottom + spacing.xl, backgroundColor: colors.surface, borderRadius: radius.xl, padding: spacing.lg, borderWidth: 1, borderColor: colors.border }}>
+          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.textSecondary }}>{numberAsk.name}</Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 17, color: colors.textPrimary, marginTop: 2 }}>
+            {t('teacher.door_number_question', { label: numberAsk.ask.label })}
+          </Text>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 24, color: colors.textPrimary, writingDirection: 'ltr', textAlign: 'center', marginVertical: spacing.md, letterSpacing: 1 }}>
+            {numberAsk.ask.phone}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <TouchableOpacity onPress={() => setNumberAsk(null)} disabled={numberBusy} activeOpacity={0.85}
+              style={{ flex: 1, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.surfaceSunken, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textSecondary }}>{t('teacher.door_number_later')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={async () => {
+                const a = numberAsk.ask;
+                setNumberBusy(true);
+                try {
+                  await acknowledgePhone(a.student_id, a.scope, a.subject_id, t('teacher.door_number_note'));
+                } catch {
+                  // A vouch that did not land is asked again on a later visit; never block the door.
+                } finally {
+                  setNumberBusy(false);
+                  setNumberAsk(null);
+                }
+              }}
+              disabled={numberBusy} activeOpacity={0.85}
+              style={{ flex: 2, minHeight: 50, borderRadius: radius.lg, backgroundColor: colors.success, flexDirection: 'row', gap: 6, justifyContent: 'center', alignItems: 'center' }}>
+              {numberBusy ? <ActivityIndicator color={colors.white} /> : <Icon name="success" size={18} color={colors.white} />}
+              <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.white }}>{t('teacher.door_number_yes')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        </Surface>
+      ) : null}
+
       {/* Overdue-bill block — cannot check in; offer an in-the-moment 15-day exemption */}
       {overdueBlock ? (
         <Surface id="teacher.scan.overdue_block">
@@ -984,6 +1037,30 @@ export default function TeacherScan() {
       {/* No session running for this student right now — held until dismissed. Our own
           student: a «من طلابك» pill, their dues (collect here) and their profile. A
           stranger's card: the fact, and nothing to go to. */}
+      {offlineBlank ? (
+        <Surface id="teacher.scan.offline_blank">
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,28,59,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
+          <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.14)', justifyContent: 'center', alignItems: 'center' }}>
+            <Icon name="card" size={48} color="#fff" outline />
+          </View>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff', marginTop: spacing.lg, textAlign: 'center' }}>{t('teacher_cards.offline_blank_title')}</Text>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: 'rgba(255,255,255,0.85)', marginTop: 4, textAlign: 'center', paddingHorizontal: spacing.lg }}>
+            {t('teacher_cards.offline_blank_body')}
+          </Text>
+          <TouchableOpacity
+            onPress={() => { const code = offlineBlank.code; setOfflineBlank(null); router.push(`/(teacher)/claim-card?card=${encodeURIComponent(code)}&queued=1` as Href); }}
+            activeOpacity={0.85} accessibilityRole="button"
+            style={{ marginTop: spacing.xl, backgroundColor: '#fff', borderRadius: radius.lg, minHeight: 54, justifyContent: 'center', paddingHorizontal: spacing.xxl }}
+          >
+            <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: onWhite.brand }}>{t('teacher_cards.offline_blank_link')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setOfflineBlank(null)} activeOpacity={0.85} accessibilityRole="button" style={{ marginTop: spacing.lg, minHeight: 44, justifyContent: 'center' }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: 'rgba(255,255,255,0.85)' }}>{t('teacher_cards.offline_blank_no')}</Text>
+          </TouchableOpacity>
+        </View>
+        </Surface>
+      ) : null}
+
       {noSession ? (
         <Surface id="teacher.scan.no_session">
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(23,28,59,0.97)', justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
@@ -1144,6 +1221,19 @@ export default function TeacherScan() {
                 <PendingChip text={t('teacher.flag_booklet') + (feedback.pending.booklets.length > 1 ? ` (${feedback.pending.booklets.length})` : '')} />
               ) : null}
               {feedback.pending.booking ? <PendingChip text={t('teacher.flag_booking') + (feedback.pending.booking.secures ? ` — ${feedback.pending.booking.secures}` : '')} /> : null}
+            </View>
+            </Surface>
+          ) : null}
+          {/* «عليه واجب» (2026-11-11): last session's homework, still to grade — read it, grade
+              it in the session sheet. Passive like the dues: no buttons, gone with the flash. */}
+          {feedback.success && feedback.homework ? (
+            <Surface id="teacher.scan.feedback.homework">
+            <View style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, borderRadius: radius.xl, backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }}>
+              <Icon name="list" size={22} color="#fff" />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: '#fff' }}>{t('teacher.flag_homework')}</Text>
+                <Text style={{ fontFamily: fonts.medium, fontSize: 15, lineHeight: 23, color: 'rgba(255,255,255,0.95)' }} numberOfLines={3}>{feedback.homework.body}</Text>
+              </View>
             </View>
             </Surface>
           ) : null}

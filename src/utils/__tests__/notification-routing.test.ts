@@ -9,6 +9,7 @@ describe('notificationRouteFor (feed + push taps)', () => {
     expect(notificationRouteFor({ role: 'teacher', type: 'cash_gap', data: { reconciliation_id: 3 } })).toBe('/(teacher)/cash-review?id=3');
     expect(notificationRouteFor({ role: 'teacher', type: 'assistant_checkin_review', data: { session_instance_id: 44 } })).toBe('/(teacher)/sessions/44');
     expect(notificationRouteFor({ role: 'teacher', type: 'invitation_accepted', data: { student_id: 9 } })).toBe('/(teacher)/students/9');
+    expect(notificationRouteFor({ role: 'teacher', type: 'homework_streak', data: { student_id: 9, homework_id: 3 } })).toBe('/(teacher)/students/9');
     expect(notificationRouteFor({ role: 'teacher', type: 'admin_ticket_reply', data: { admin_ticket_id: 1 } })).toBe('/(teacher)/resolution');
     // A new streak of unexcused absences (2026-10-12) opens the Resolution Center.
     expect(notificationRouteFor({ role: 'teacher', type: 'termination_candidate', data: { count: 2 } })).toBe('/(teacher)/resolution');
@@ -33,6 +34,9 @@ describe('notificationRouteFor (feed + push taps)', () => {
     expect(notificationRouteFor({ role: 'parent', type: 'daily_digest', data: { student_id: 5 } })).toBe('/(parent)/today');
     expect(notificationRouteFor({ role: 'parent', type: 'session_notes', data: { student_id: 5 } })).toBe('/(parent)/session-notes?student_id=5');
     expect(notificationRouteFor({ role: 'parent', type: 'nazer_morning', data: { student_id: 5 } })).toBe('/(parent)/nazer');
+    expect(notificationRouteFor({ role: 'parent', type: 'homework', data: { student_id: 5, session_instance_id: 9 } })).toBe('/(parent)/homework?student_id=5');
+    expect(notificationRouteFor({ role: 'parent', type: 'homework' })).toBe('/(parent)/homework');
+    expect(notificationRouteFor({ role: 'parent', type: 'homework_streak', data: { student_id: 5, homework_id: 9 } })).toBe('/(parent)/homework?student_id=5');
     expect(notificationRouteFor({ role: 'parent', type: 'ticket_reply', data: { ticket_id: 8 } })).toBe('/(parent)/tickets/8');
     expect(notificationRouteFor({ role: 'parent', type: 'ticket_new', data: { ticket_id: 9 } })).toBe('/(parent)/tickets/9');
   });
@@ -42,6 +46,8 @@ describe('notificationRouteFor (feed + push taps)', () => {
     expect(notificationRouteFor({ role: 'student', type: 'session_notes', data: { student_id: 5 } })).toBe('/(student)/session-notes');
     expect(notificationRouteFor({ role: 'student', type: 'daily_digest' })).toBe('/(student)/session-notes');
     expect(notificationRouteFor({ role: 'student', type: 'nazer_morning' })).toBe('/(student)/nazer');
+    expect(notificationRouteFor({ role: 'student', type: 'homework', data: { session_instance_id: 9 } })).toBe('/(student)/homework');
+    expect(notificationRouteFor({ role: 'student', type: 'homework_streak', data: { student_id: 5 } })).toBe('/(student)/homework');
     expect(notificationRouteFor({ role: 'student', type: 'card_released', data: { student_id: 5 } })).toBe('/(student)/order-card');
     expect(notificationRouteFor({ role: 'student', type: 'test_notification' })).toBeNull();
     expect(notificationRouteFor({ role: null, type: 'grade' })).toBeNull();
@@ -99,5 +105,12 @@ describe('chat pushes open the right room (founder 2026-10-12: parents in the ch
     expect(notificationRouteFor({ role: 'teacher', type: 'chat_message', data: { course_id: '12', room: 'students' } })).toBe('/(teacher)/conversations/chat/12');
     expect(notificationRouteFor({ role: 'parent', type: 'chat_muted_parent', data: { course_id: 12 } })).toBe('/(parent)/chat/12');
     expect(notificationRouteFor({ role: 'parent', type: 'chat_message', data: {} })).toBe('/(parent)/(tabs)/community');
+  });
+});
+
+describe('homework reminders open where they are about (2026-11-11)', () => {
+  it('the teacher reaches the session, the student their homework', () => {
+    expect(notificationRouteFor({ role: 'teacher', type: 'homework_check_reminder', data: { session_instance_id: 81, homework_id: 4 } })).toBe('/(teacher)/sessions/81');
+    expect(notificationRouteFor({ role: 'student', type: 'homework_due_reminder', data: { session_instance_id: 81, homework_id: 4 } })).toBe('/(student)/homework');
   });
 });

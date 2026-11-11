@@ -13,7 +13,7 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { useAuthStore } from '@/stores/authStore';
-import { useKeyboardShown } from '@/hooks/useKeyboardShown';
+import { COMPOSER_PADS_ITSELF, useComposerBottomInset } from '@/hooks/useComposerBottomInset';
 import {
   useCommentOnThread, useExtendThread, useHideThreadComment, useLockThread, usePickThreadComment, useReportThreadComment, useThread, useThreadsRealtime, useVoteThreadComment, useWithdrawThread,
 } from '@/hooks/useThreads';
@@ -47,7 +47,7 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
-  const keyboardUp = useKeyboardShown();
+  const composerBottom = useComposerBottomInset();
   const appRole = useAuthStore((s) => s.role);
   // Live: a comment, a vote, the teacher's answer or lock lands the moment it happens; the
   // poll then only backstops (see useThread).
@@ -174,7 +174,7 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Android edge-to-edge no longer resizes the window for the keyboard: pad on both (as the chat room does). */}
-      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior="padding" enabled={!COMPOSER_PADS_ITSELF} style={{ flex: 1 }}>
         {isLoading ? (
           <>
             <TopBar />
@@ -264,7 +264,7 @@ export function ThreadScreen({ threadId }: { threadId: number }) {
 
         {/* The student's composer, pinned like the chat's. */}
         {thread && perms?.can_comment ? (
-          <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: keyboardUp ? spacing.sm : insets.bottom + spacing.sm }}>
+          <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: composerBottom + spacing.sm }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, marginBottom: 6 }}>
               <Icon name={mine ? 'pencil' : 'info'} size={13} color={mine ? colors.brand : colors.textTertiary} outline />
               <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12, color: mine ? colors.brand : colors.textTertiary }} numberOfLines={1}>

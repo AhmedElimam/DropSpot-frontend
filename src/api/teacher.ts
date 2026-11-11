@@ -50,6 +50,8 @@ export interface TeacherSession {
   tracks_attendance?: boolean;
   /** The server's words for a private lesson («درس خصوصي · بدون تسجيل حضور»); always drawn when present. */
   attendance_label?: string | null;
+  /** «فيه واجب» (2026-11-11): the group's last session's homework, graded at this one. Older servers omit it. */
+  homework_due?: { body: string; assigned_on: string | null } | null;
 }
 
 export async function getTeacherTodaySessions(): Promise<TeacherSession[]> {
@@ -98,6 +100,30 @@ export interface ScanResult {
   // may open their profile. Never true for a stranger's card. `null` when the server did
   // not say (an older backend): the popup then claims nothing either way.
   enrolled_here?: boolean | null;
+  // A number nobody confirmed, asked about ONCE at the door (the family is right there).
+  confirm_number?: DoorNumberAsk | null;
+  // The server drew a popup for this answer (meta.popup) — the client already shows it, so
+  // the scan screen holds still instead of flashing a second message under it.
+  has_popup?: boolean;
+  // The door's sound (DoorToneService): all clear / money to pay / missed the last session
+  // with no excuse. null on a refused scan (the vibration says it). Absent on an older backend.
+  door_tone?: 'clear' | 'bill' | 'absent' | null;
+  // The group's previous session for this student: 'unexcused' / 'excused' / null (came, or new).
+  last_absence?: 'unexcused' | 'excused' | null;
+  // Last session's homework this student owes, and their grade once given (2026-11-11).
+  homework?: { id: string; body: string; assigned_on: string | null; rating: string | null } | null;
+  // The sound to play: door_tone, or the homework bell for an all-clear student with homework to
+  // grade. Older servers omit it (then door_tone).
+  door_sound?: 'clear' | 'bill' | 'absent' | 'homework' | null;
+}
+
+export interface DoorNumberAsk {
+  scope: 'parent' | 'student';
+  subject_id: number;
+  student_id: number;
+  phone: string;
+  /** «رقم الأب» / «رقم الأم» / «رقم وليّ الأمر» / «رقم الطالب» — the server's words. */
+  label: string;
 }
 
 /**
@@ -120,6 +146,11 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
       pending: data.pending ?? null,
       offer: data.offer ?? null,
       enrolled_here: typeof data.enrolled_here === 'boolean' ? data.enrolled_here : null,
+      confirm_number: data.confirm_number ?? null,
+      door_tone: data.door_tone ?? null,
+      last_absence: data.last_absence ?? null,
+      homework: data.homework ?? null,
+      door_sound: data.door_sound ?? null,
     };
   } catch (e: any) {
     // Non-2xx failures (expired card, not enrolled, overdue block, etc.) carry the same shape.
@@ -135,6 +166,9 @@ export async function scanCard(cardCode: string): Promise<ScanResult> {
         pending: d.pending ?? null,
         offer: d.offer ?? null,
         enrolled_here: typeof d.enrolled_here === 'boolean' ? d.enrolled_here : null,
+        has_popup: !!d.meta?.popup,
+        door_tone: d.door_tone ?? null,
+        door_sound: d.door_sound ?? null,
       };
     }
     throw e;

@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { router, useLocalSearchParams } from 'expo-router';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius } from '@/theme/index';
+import { useMutation } from '@tanstack/react-query';
 import { useResetPassword, useForgotPassword } from '@/hooks/useAuth';
+import { activationParentCode } from '@/api/auth';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { Button } from '@/components/ui/Button';
 import { AuthScaffold, AuthBanner } from '@/components/auth/AuthScaffold';
@@ -19,16 +21,21 @@ const RESEND_COOLDOWN = () => configRule('otp_resend_seconds');
 
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  // by: sign-up found the teacher's record (student | parent); sent=0: a recent code stands.
+  // via=parent: the code went to the parent (activate-parent.tsx); pp = that number, hint = masked.
+  const { phone, mode, by, sent, via, pp, hint } = useLocalSearchParams<{ phone: string; mode?: string; by?: string; sent?: string; via?: string; pp?: string; hint?: string }>();
+  const viaParent = via === 'parent' && !!pp;
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const passwordRef = useRef<TextInput>(null);
 
   const reset = useResetPassword();
-  const resend = useForgotPassword();
+  const resendOwn = useForgotPassword();
+  const resendParent = useMutation({ mutationFn: (p: string) => activationParentCode(p, pp ?? '') });
+  const resend = viaParent ? resendParent : resendOwn;
 
   // The code was just sent (we arrived from the previous screen) → the countdown runs.
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN());
+  const [cooldown, setCooldown] = useState(sent === '0' ? 0 : RESEND_COOLDOWN());
   useEffect(() => {
     if (cooldown <= 0) return;
     const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
@@ -54,7 +61,7 @@ export default function ResetPasswordScreen() {
   return (
     <AuthScaffold
       onBack={() => router.back()}
-      title={t('auth.reset_password_title')}
+      title={mode === 'activate' ? t('auth.choose_password_title') : t('auth.reset_password_title')}
       subtitle={t('auth.code_sent_to')}
     >
       {phone ? (
@@ -66,7 +73,11 @@ export default function ResetPasswordScreen() {
         </View>
       ) : null}
 
+      {viaParent && !reset.isError ? <AuthBanner tone="info" text={t('auth.act_code_to_parent', { hint: `\u2066${hint ?? ''}\u2069` })} /> : null}
+      {by && !reset.isError ? <AuthBanner tone="info" text={t(by === 'parent' ? 'auth.signup_by_teacher_parent' : 'auth.signup_by_teacher_student')} /> : null}
+      {by && sent === '0' && !resend.isSuccess ? <AuthBanner tone="info" text={t('auth.signup_code_already_sent')} /> : null}
       {reset.isError ? <AuthBanner tone="danger" text={getFriendlyErrorMessage(reset.error)} /> : null}
+      {resend.isError ? <AuthBanner tone="danger" text={getFriendlyErrorMessage(resend.error)} /> : null}
       {resend.isSuccess && cooldown > RESEND_COOLDOWN() - 5 ? <AuthBanner tone="success" text={t('auth.reset_code_sent')} /> : null}
 
       <Text style={{ fontFamily: fonts.medium, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('auth.otp_code')}</Text>
@@ -98,6 +109,17 @@ export default function ResetPasswordScreen() {
       <PasswordStrength password={password} />
 
       <Button title={t('auth.reset_button')} onPress={handleReset} disabled={!canSubmit} loading={reset.isPending} />
+
+      {/* A student the teacher recorded whose own number doesn't get the code (or isn't theirs to
+          read): the code to the parent instead (founder 2026-11-07). */}
+      {!viaParent && phone ? (
+        <TouchableOpacity onPress={() => router.push({ pathname: '/(auth)/activate-parent', params: { phone } })} hitSlop={{ top: 8, bottom: 8 }}
+          style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center', marginTop: spacing.md }}>
+          <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary, textAlign: 'center' }}>
+            {t('auth.act_parent_prompt')} <Text style={{ fontFamily: fonts.bold, color: colors.brand }}>{t('auth.act_parent_link')}</Text>
+          </Text>
+        </TouchableOpacity>
+      ) : null}
     </AuthScaffold>
   );
 }

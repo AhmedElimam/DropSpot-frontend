@@ -48,6 +48,12 @@ export interface StudentTeacherPastSession extends AttendanceModeFields {
   teacher_name: string | null;
   teacher_id: number | null;
   type: string;
+  summary?: string | null;
+  note?: string | null;
+  homework?: string | null;
+  homework_rating?: import('./homework').HomeworkRating | null;
+  mark?: number | null;
+  max_mark?: number | null;
 }
 
 export interface StudentTeacherUpcoming extends AttendanceModeFields {

@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts } from '@/theme/typography';
-import { formatTime } from '@/utils/format';
+import { formatShortDate, formatTime, relativeDay } from '@/utils/format';
 import { colors, spacing, radius, shadows, gradients, nav } from '@/theme/index';
 import { useTeacherTodaySessions } from '@/hooks/useTeacherSessions';
 import type { TeacherSession } from '@/api/teacher';
@@ -34,6 +34,25 @@ function hhmm(iso: string): string {
   } catch {
     return '—';
   }
+}
+
+/**
+ * When a decision item was made: «اليوم ٩:٢٣ ص», «أمس ٩:٢٣ ص», or «٩ نوفمبر ٩:٢٣ ص» — an item can wait
+ * days, and a time alone read as today's (2026-11-10).
+ */
+function when(iso: string): string {
+  try {
+    return `${relativeDay(iso) ?? formatShortDate(iso)} · ${formatTime(iso)}`;
+  } catch {
+    return '—';
+  }
+}
+
+/** A scanned code as a person reads it: a card link or token by its last four digits, a code as is. */
+function cardLabel(code: string, t: (k: string, o?: Record<string, unknown>) => string): string {
+  const token = (code.includes('#') ? code.slice(code.lastIndexOf('#') + 1) : code).trim();
+  if (/^\d{12,}$/.test(token)) return t('teacher.rejected_card_tail', { tail: token.slice(-4) });
+  return token.length > 24 ? `${token.slice(0, 20)}…` : token;
 }
 
 export default function Reconcile() {
@@ -288,10 +307,17 @@ function RejectedSection({ scans, onChange }: { scans: OfflineScan[]; onChange: 
               backgroundColor: colors.background,
             }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{s.card_code}</Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{hhmm(s.scanned_at)}</Text>
+            {/* Who (the student when the server named him, else the card's last digits) and when —
+                the time used to sit outside the card, pushed off by the raw link (2026-11-10). */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>
+                {s.student_name || cardLabel(s.card_code, t)}
+              </Text>
+              <Text style={{ flexShrink: 0, fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{when(s.scanned_at)}</Text>
             </View>
+            {s.student_name ? (
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{cardLabel(s.card_code, t)}</Text>
+            ) : null}
             {s.last_error ? (
               <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.dangerText, marginTop: 4 }}>{s.last_error}</Text>
             ) : null}
@@ -345,7 +371,7 @@ function RejectedMarksSection({ marks, onChange }: { marks: OfflineMark[]; onCha
               <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>
                 {m.student_name ?? `#${m.student_id}`} · {t(statusKey[m.status] ?? 'teacher.not_recorded')}
               </Text>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{hhmm(m.marked_at)}</Text>
+              <Text style={{ flexShrink: 0, marginStart: spacing.sm, fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary }}>{when(m.marked_at)}</Text>
             </View>
             {m.course_name ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{m.course_name}</Text> : null}
             {m.last_error ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, color: colors.dangerText, marginTop: 4 }}>{m.last_error}</Text> : null}

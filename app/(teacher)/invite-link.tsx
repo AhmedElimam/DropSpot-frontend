@@ -1,25 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Share, KeyboardAvoidingView, Switch, ImageBackground } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Share, KeyboardAvoidingView, Switch } from 'react-native';
 import { Alert } from '@/ui/dialog';
-import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as ImagePicker from 'expo-image-picker';
 import { fonts } from '@/theme/typography';
 import { colors, spacing, radius, nav, shadows } from '@/theme/index';
 import { PageHero } from '@/components/ui/PageHero';
+import { SheetModal } from '@/components/ui/SheetModal';
 import { GroupFilter, useGroupFilter } from '@/components/teacher/GroupFilter';
 import { formatNumber } from '@/utils/format';
-import { onWhite } from '@/theme/onWhite';
 import { Icon, type IconName } from '@/components/ui/Icon';
-import { RichTextEditor, type RichTextEditorRef } from '@/components/RichTextEditor';
 import { useCourses } from '@/hooks/useCourses';
 import { useActiveAbilities } from '@/hooks/useActiveAbilities';
-import { mintInviteLink, type MintedInviteLink } from '@/api/invitation';
+import { mintInviteLink, stopInviteLink, type MintedInviteLink } from '@/api/invitation';
+import { Chips } from '@/components/ui/Form';
+import { formatDate } from '@/utils/format';
 import { isNetworkFailure } from '@/db/marksSync';
-import { getPaymentMethods, saveBookingTemplate, uploadBookingLinkImage, type BookingTemplate } from '@/api/paymentMethods';
 import { isArabicName } from '@/utils/validators';
 import { Surface } from '@/ui/surfaces';
 
@@ -27,6 +24,10 @@ import { Surface } from '@/ui/surfaces';
  * Invite-by-link (mobile parity for the web "رابط مُعبّأ" channel): the teacher picks
  * a course + student name, mints a single-use link, and shares it with the family —
  * who open it, confirm, and self-register into that course. No phone number needed.
+ *
+ * Founder 2026-11-05: the ready link opens in a sheet over the form (it used to replace the
+ * form at the top of the page while the teacher was scrolled down at the button), and the
+ * family page's design has its own screen behind the small «تصميم الصفحة» button up top.
  */
 export default function InviteLink() {
   const { t } = useTranslation();
@@ -34,141 +35,72 @@ export default function InviteLink() {
   const { data: courses, isLoading } = useCourses();
 
   const [courseId, setCourseId] = useState<number | null>(null);
+  // «العائلة تختار» (founder 2026-11-06): the family picks among the ticked courses on the link,
+  // filtering by grade and shift. Every course is ticked until the teacher unticks it.
+  const [pick, setPick] = useState<'one' | 'family'>('one');
+  const [unticked, setUnticked] = useState<Set<number>>(() => new Set());
   const [name, setName] = useState('');
+  // One family (a single-use link) or many — a class's group chat (founder 2026-11-05).
+  const [use, setUse] = useState<'once' | 'many'>('once');
+  const [stopping, setStopping] = useState(false);
   const [busy, setBusy] = useState(false);
   const [minted, setMinted] = useState<MintedInviteLink | null>(null);
   // Per-link booking options.
   const [collectPayment, setCollectPayment] = useState(false);
   const [issueInvoice, setIssueInvoice] = useState(false);
 
-  // Rich (WordPress-style) rules/conditions editor shown atop the family booking page
-  // (teacher-only). The HTML is the source of truth; the legacy font/size/bold values
-  // ride along unchanged so nothing is wiped for teachers still on the plain template.
   const { isAssistant } = useActiveAbilities();
-  const qc = useQueryClient();
-  const { data: pm } = useQuery({ queryKey: ['payment-methods'], queryFn: getPaymentMethods, enabled: !isAssistant });
-  const [tpl, setTpl] = useState<BookingTemplate | null>(null);
-  const [tplOpen, setTplOpen] = useState(false);
-  // Initial editor content: the stored rich HTML, else the legacy plain text as paragraphs.
-  const [initialHtml, setInitialHtml] = useState<string | null>(null);
-  const htmlRef = useRef<string>('');
-  const editorRef = useRef<RichTextEditorRef>(null);
-  const [uploading, setUploading] = useState(false);
-  useEffect(() => {
-    if (pm && !tpl) {
-      setTpl({
-        booking_link_html: pm.booking_link_html,
-        booking_link_rules: pm.booking_link_rules,
-        booking_link_font: pm.booking_link_font,
-        booking_link_font_size: pm.booking_link_font_size,
-        booking_link_bold: pm.booking_link_bold,
-        booking_logo_url: pm.booking_logo_url,
-        booking_title: pm.booking_title,
-        booking_intro: pm.booking_intro,
-        booking_brand_color: pm.booking_brand_color,
-        booking_bg_color: pm.booking_bg_color,
-        booking_bg_image_url: pm.booking_bg_image_url,
-        booking_font: pm.booking_font,
-      });
-      const legacy = (pm.booking_link_rules ?? '').trim();
-      const seed = (pm.booking_link_html ?? '').trim() || (legacy ? `<p>${legacy.replace(/\n/g, '<br>')}</p>` : '');
-      htmlRef.current = seed;
-      setInitialHtml(seed);
-    }
-  }, [pm, tpl]);
-  const saveTpl = useMutation({
-    mutationFn: (t: BookingTemplate) => saveBookingTemplate(t),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payment-methods'] }); Alert.alert(t('invite_link.template_saved')); },
-    onError: (e: any) => Alert.alert(t('common.error'), e?.response?.data?.message ?? t('invite_link.failed')),
-  });
-
-  const pickTemplateImage = async () => {
-    if (uploading) return;
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert(t('invite_link.image_permission')); return; }
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
-    if (res.canceled || !res.assets?.[0]) return;
-    setUploading(true);
-    try {
-      const url = await uploadBookingLinkImage(res.assets[0].uri);
-      editorRef.current?.insertImage(url);
-    } catch {
-      Alert.alert(t('common.error'), t('invite_link.image_failed'));
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const setTplField = (patch: Partial<BookingTemplate>) => setTpl((s) => (s ? { ...s, ...patch } : s));
-
-  // Upload a header logo (separate from inline rules images) and store its URL.
-  const pickLogo = async () => {
-    if (uploading) return;
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert(t('invite_link.image_permission')); return; }
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
-    if (res.canceled || !res.assets?.[0]) return;
-    setUploading(true);
-    try {
-      const url = await uploadBookingLinkImage(res.assets[0].uri);
-      setTplField({ booking_logo_url: url });
-    } catch {
-      Alert.alert(t('common.error'), t('invite_link.image_failed'));
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // Upload a modern background image (blurred on the real page).
-  const pickBg = async () => {
-    if (uploading) return;
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert(t('invite_link.image_permission')); return; }
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
-    if (res.canceled || !res.assets?.[0]) return;
-    setUploading(true);
-    try {
-      const url = await uploadBookingLinkImage(res.assets[0].uri);
-      setTplField({ booking_bg_image_url: url });
-    } catch {
-      Alert.alert(t('common.error'), t('invite_link.image_failed'));
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const saveTemplate = () => {
-    if (!tpl) return;
-    saveTpl.mutate({ ...tpl, booking_link_html: htmlRef.current.trim() || null });
-  };
-
-  const FONTS: { key: 'default' | 'cairo' | 'tajawal' | 'amiri'; label: string }[] = [
-    { key: 'default', label: t('billing_settings.font_default') }, { key: 'cairo', label: 'Cairo' }, { key: 'tajawal', label: 'Tajawal' }, { key: 'amiri', label: 'Amiri' },
-  ];
-  const BRAND_SWATCHES = ['#4C1D95', '#2563eb', '#059669', '#dc2626', '#d97706', '#0891b2', '#be185d', '#334155'];
-  const BG_SWATCHES = ['#F3F1FA', '#ffffff', '#f0f9ff', '#f0fdf4', '#fff7ed', '#fef2f2', '#f8fafc'];
-  const brand = tpl?.booking_brand_color || '#4C1D95';
-  const bg = tpl?.booking_bg_color || '#F3F1FA';
 
   // A course can only be invited into once it has a weekly schedule.
   const eligible = useMemo(() => (courses ?? []).filter((c) => c.slot_count > 0), [courses]);
-  const groups = useGroupFilter(eligible, (c) => `${c.name} ${c.grade_name ?? ''}`, (c) => c.grade_name);
+  const groups = useGroupFilter(eligible, (c) => `${c.name} ${c.grade_name ?? ''}`, (c) => c.grade_name, (c) => c.shift);
   // The student name is OPTIONAL now — the family fills it on the booking form. If the
   // teacher does pre-fill it, it must be Arabic (same rule as the server).
-  const nameError = name.trim() !== '' && !isArabicName(name);
-  const canSubmit = courseId != null && !nameError && !busy;
+  const family = pick === 'family';
+  const offered = useMemo(() => eligible.map((c) => Number(c.id)).filter((id) => !unticked.has(id)), [eligible, unticked]);
+  const toggleOffered = (id: number) => setUnticked((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const nameError = !family && use === 'once' && name.trim() !== '' && !isArabicName(name);
+  const canSubmit = (family ? offered.length > 0 : courseId != null) && !nameError && !busy;
 
   const submit = async () => {
-    if (!canSubmit || courseId == null) return;
+    if (!canSubmit) return;
     setBusy(true);
     try {
-      const res = await mintInviteLink(courseId, name.trim() || undefined, { collectPayment, issueInvoice });
+      const res = await mintInviteLink(family ? null : courseId, family ? undefined : name.trim() || undefined, {
+        collectPayment, issueInvoice, reusable: use === 'many', ...(family ? { courseIds: offered } : {}),
+      });
       setMinted(res);
     } catch (e: any) {
       Alert.alert(t('common.error'), e?.response?.data?.message ?? (isNetworkFailure(e) ? t('offline.need_connection_link') : t('invite_link.failed')));
     } finally {
       setBusy(false);
     }
+  };
+
+  const stop = () => {
+    if (!minted?.id || stopping) return;
+    const id = minted.id;
+    Alert.alert(t('invite_link.stop_title'), t('invite_link.stop_body'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('invite_link.stop'), style: 'destructive', onPress: async () => {
+          setStopping(true);
+          try {
+            const message = await stopInviteLink(id);
+            setMinted(null);
+            Alert.alert(message || t('invite_link.stopped'));
+          } catch (e: any) {
+            Alert.alert(t('common.error'), e?.response?.data?.message ?? t('invite_link.failed'));
+          } finally {
+            setStopping(false);
+          }
+        },
+      },
+    ]);
   };
 
   const share = async () => {
@@ -184,49 +116,12 @@ export default function InviteLink() {
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: nav.pageEnd + insets.bottom + spacing.xl }}>
         <Surface id="teacher.invite_link.header">
-        <PageHero title={t('invite_link.title')} subtitle={t('invite_link.hero_sub')} onBack />
+        <PageHero title={t('invite_link.title')} subtitle={t('invite_link.hero_sub')} onBack
+          action={isAssistant ? undefined : { icon: 'note', label: t('invite_link.design_button'), onPress: () => router.push('/(teacher)/invite-link-design' as Href) }} />
         </Surface>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: -spacing.xl4 }}>
-        {minted ? (
-          <Surface id="teacher.invite_link.minted_card">
-          <View style={[card, { padding: 0, overflow: 'hidden' }]}>
-            {/* Ready: who it is for, the link, and the one thing to do with it — send it. */}
-            <View style={{ backgroundColor: colors.successLight, alignItems: 'center', paddingVertical: spacing.lg }}>
-              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.sm }}>
-                <Icon name="success" size={34} color={colors.success} />
-              </View>
-              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.successText, marginTop: spacing.sm }}>{t('invite_link.ready')}</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: spacing.sm, paddingHorizontal: spacing.lg }}>
-                <Chip icon="child" text={minted.student_name || t('invite_link.the_family')} />
-                <Chip icon="book" text={minted.course_name} />
-              </View>
-            </View>
-            <View style={{ padding: spacing.lg }}>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'center' }}>
-                {t('invite_link.ready_hint', { student: minted.student_name || t('invite_link.the_family'), course: minted.course_name })}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.md }}>
-                <Icon name="send" size={16} color={colors.textTertiary} />
-                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, color: colors.textPrimary }} selectable numberOfLines={2}>{minted.url}</Text>
-              </View>
-              <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 4, textAlign: 'center' }}>{t('invite_link.long_press_copy')}</Text>
-              <Surface id="teacher.invite_link.minted_card.share">
-              <TouchableOpacity onPress={share} activeOpacity={0.85} accessibilityRole="button"
-                style={{ marginTop: spacing.md, minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.brand, borderRadius: radius.lg, ...shadows.sm }}>
-                <Icon name="send" size={18} color={colors.onPrimary} />
-                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onPrimary }}>{t('invite_link.share')}</Text>
-              </TouchableOpacity>
-              </Surface>
-              <Surface id="teacher.invite_link.minted_card.another">
-              <TouchableOpacity onPress={() => { setMinted(null); setName(''); }} activeOpacity={0.85} accessibilityRole="button" style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('invite_link.another')}</Text>
-              </TouchableOpacity>
-              </Surface>
-            </View>
-          </View>
-          </Surface>
-        ) : isLoading ? (
+        {isLoading ? (
           <ActivityIndicator color={colors.brand} style={{ marginTop: spacing.xl4 }} />
         ) : eligible.length === 0 ? (
           <View style={card}>
@@ -251,21 +146,38 @@ export default function InviteLink() {
             <Surface id="teacher.invite_link.course_picker">
             <View style={card}>
               <StepHead n={1} title={t('invite_link.course')} />
-              <GroupFilter grades={groups.grades} grade={groups.grade} onGrade={groups.setGrade} query={groups.query} onQuery={groups.setQuery} searchable={groups.searchable} />
+              <Surface id="teacher.invite_link.course_picker.mode">
+              <Chips fill value={pick} onChange={setPick} options={[
+                { key: 'one' as const, label: t('invite_link.pick_one'), icon: 'book' },
+                { key: 'family' as const, label: t('invite_link.pick_family'), icon: 'children' },
+              ]} />
+              </Surface>
+              {family ? (
+                <View style={{ marginTop: spacing.sm, marginBottom: spacing.md }}>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary }}>{t('invite_link.pick_family_hint')}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.sm }}>
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t('invite_link.picked_n', { n: formatNumber(offered.length) })}</Text>
+                    <TouchableOpacity onPress={() => setUnticked(offered.length === eligible.length ? new Set(eligible.map((c) => Number(c.id))) : new Set())} accessibilityRole="button" hitSlop={8}>
+                      <Text style={{ fontFamily: fonts.bold, fontSize: 12.5, color: colors.brand }}>{t(offered.length === eligible.length ? 'invite_link.pick_clear' : 'invite_link.pick_all')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : <View style={{ height: spacing.md }} />}
+              <GroupFilter grades={groups.grades} grade={groups.grade} onGrade={groups.setGrade} query={groups.query} onQuery={groups.setQuery} searchable={groups.searchable} hasShifts={groups.hasShifts} shift={groups.shift} onShift={groups.setShift} />
               {groups.filtered.length === 0 ? (
                 <Text style={{ fontFamily: fonts.regular, fontSize: 14, color: colors.textTertiary }}>{t('group_filter.none')}</Text>
               ) : (
                 <View style={{ gap: spacing.sm }}>
                   {groups.filtered.map((c) => {
-                    const on = courseId === Number(c.id);
+                    const on = family ? !unticked.has(Number(c.id)) : courseId === Number(c.id);
                     return (
-                      <TouchableOpacity key={c.id} onPress={() => setCourseId(Number(c.id))} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: on }}
+                      <TouchableOpacity key={c.id} onPress={() => (family ? toggleOffered(Number(c.id)) : setCourseId(Number(c.id)))} activeOpacity={0.85} accessibilityRole={family ? 'checkbox' : 'button'} accessibilityState={family ? { checked: on } : { selected: on }}
                         style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1.5, borderColor: on ? colors.brand : 'transparent', backgroundColor: on ? colors.brandTint : colors.surfaceSunken }}>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}</Text>
+                          <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }}>{c.name}{c.grade_name ? ` · ${c.grade_name}` : ''}{c.shift_label ? ` · ${c.shift_label}` : ''}</Text>
                           {c.schedule_label ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{c.schedule_label}</Text> : null}
                         </View>
-                        {on ? <Icon name="success" size={20} color={colors.brand} /> : null}
+                        {on ? <Icon name="success" size={20} color={colors.brand} /> : family ? <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.borderStrong }} /> : null}
                       </TouchableOpacity>
                     );
                   })}
@@ -276,9 +188,20 @@ export default function InviteLink() {
 
             <Surface id="teacher.invite_link.student_name">
             <View style={card}>
-              <StepHead n={2} title={t('invite_link.student_name_optional')} />
-              <TextInput value={name} onChangeText={setName} placeholder={t('invite_link.name_ph_optional')} placeholderTextColor={colors.textTertiary} maxLength={120} style={{ ...input, borderColor: nameError ? colors.danger : colors.border }} />
-              {nameError ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginTop: 6 }}>{t('invite_phone.name_arabic_error')}</Text> : <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 6 }}>{t('invite_link.name_hint')}</Text>}
+              <StepHead n={2} title={t('invite_link.who_title')} />
+              <Chips fill value={use} onChange={setUse} options={[
+                { key: 'once' as const, label: t('invite_link.use_once'), icon: 'child' },
+                { key: 'many' as const, label: t('invite_link.use_many'), icon: 'children' },
+              ]} />
+              <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: spacing.sm }}>
+                {use === 'many' ? t('invite_link.use_many_hint', { days: 30, n: 300 }) : t('invite_link.use_once_hint')}
+              </Text>
+              {use === 'once' && !family ? (
+                <View style={{ marginTop: spacing.md }}>
+                  <TextInput value={name} onChangeText={setName} placeholder={t('invite_link.name_ph_optional')} placeholderTextColor={colors.textTertiary} maxLength={120} style={{ ...input, borderColor: nameError ? colors.danger : colors.border }} />
+                  {nameError ? <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.danger, marginTop: 6 }}>{t('invite_phone.name_arabic_error')}</Text> : <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textTertiary, marginTop: 6 }}>{t('invite_link.name_hint')}</Text>}
+                </View>
+              ) : null}
             </View>
             </Surface>
 
@@ -303,158 +226,64 @@ export default function InviteLink() {
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onPrimary }}>{t('invite_link.mint')}</Text>
             </TouchableOpacity>
             </Surface>
-
-            {/* Editable rules/conditions template shown atop the family booking page. */}
-            {tpl ? (
-              <Surface id="teacher.invite_link.template" assistantNeeds="teacher">
-              <View style={[card, { marginTop: spacing.lg }]}>
-                <TouchableOpacity onPress={() => setTplOpen((o) => !o)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                  <Icon name="note" size={18} color={colors.brand} outline />
-                  <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }}>{t('invite_link.template_title')}</Text>
-                  <Icon name={tplOpen ? 'down' : 'back'} size={16} color={colors.textTertiary} />
-                </TouchableOpacity>
-
-                {tplOpen ? (
-                  <View style={{ marginTop: spacing.md }}>
-                    <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('invite_link.template_hint')}</Text>
-
-                    {/* Live preview of the family page. */}
-                    <Surface id="teacher.invite_link.template.preview">
-                    {(() => {
-                      const innerCard = (
-                        <View style={{ backgroundColor: '#fff', borderRadius: radius.lg, padding: spacing.md }}>
-                          {tpl.booking_logo_url ? (
-                            <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 120, height: 54, alignSelf: 'center', marginBottom: spacing.sm }} contentFit="contain" />
-                          ) : null}
-                          <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: brand, textAlign: 'center' }}>{(tpl.booking_title || '').trim() || t('enroll_ui.preview_booking_title')}</Text>
-                          {(tpl.booking_intro || '').trim() ? (
-                            <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: onWhite.muted, textAlign: 'center', marginTop: 4 }}>{tpl.booking_intro}</Text>
-                          ) : null}
-                          <View style={{ backgroundColor: '#f3ecfd', borderRadius: radius.md, padding: spacing.sm, marginTop: spacing.sm }}>
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: brand, textAlign: 'center' }}>{t('enroll_ui.preview_enroll_in_course')}</Text>
-                          </View>
-                          <View style={{ backgroundColor: brand, borderRadius: radius.md, paddingVertical: spacing.sm, marginTop: spacing.sm }}>
-                            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff', textAlign: 'center' }}>{t('enroll_ui.preview_agree')}</Text>
-                          </View>
-                        </View>
-                      );
-                      return tpl.booking_bg_image_url ? (
-                        <ImageBackground source={{ uri: tpl.booking_bg_image_url }} blurRadius={5} imageStyle={{ borderRadius: radius.lg }}
-                          style={{ borderRadius: radius.lg, overflow: 'hidden', marginBottom: spacing.md }}>
-                          <View style={{ backgroundColor: 'rgba(18,10,38,0.18)', padding: spacing.md }}>{innerCard}</View>
-                        </ImageBackground>
-                      ) : (
-                        <View style={{ backgroundColor: bg, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border }}>{innerCard}</View>
-                      );
-                    })()}
-                    </Surface>
-
-                    {/* Logo */}
-                    <Surface id="teacher.invite_link.template.logo">
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-                      {tpl.booking_logo_url ? <Image source={{ uri: tpl.booking_logo_url }} style={{ width: 40, height: 40, borderRadius: 8 }} contentFit="contain" /> : null}
-                      <TouchableOpacity onPress={pickLogo} disabled={uploading} activeOpacity={0.85} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
-                        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{t('invite_link.upload_logo')}</Text>
-                      </TouchableOpacity>
-                      {tpl.booking_logo_url ? (
-                        <TouchableOpacity onPress={() => setTplField({ booking_logo_url: null })} activeOpacity={0.85}>
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.danger }}>{t('invite_link.remove')}</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                    </Surface>
-
-                    {/* Title + intro */}
-                    <Surface id="teacher.invite_link.template.title_intro">
-                    <TextInput value={tpl.booking_title ?? ''} onChangeText={(v) => setTplField({ booking_title: v })} placeholder={t('invite_link.page_title_ph')} placeholderTextColor={colors.textTertiary} maxLength={120} style={{ ...input, marginBottom: spacing.sm }} />
-                    <TextInput value={tpl.booking_intro ?? ''} onChangeText={(v) => setTplField({ booking_intro: v })} placeholder={t('invite_link.page_intro_ph')} placeholderTextColor={colors.textTertiary} multiline maxLength={500} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.sm, minHeight: 64, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary, textAlign: 'right', textAlignVertical: 'top', marginBottom: spacing.md }} />
-                    </Surface>
-
-                    {/* Brand + background colours */}
-                    <Surface id="teacher.invite_link.template.colors">
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('invite_link.brand_color')}</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
-                      {BRAND_SWATCHES.map((c) => (
-                        <TouchableOpacity key={c} onPress={() => setTplField({ booking_brand_color: c })} activeOpacity={0.8}
-                          style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: brand.toLowerCase() === c.toLowerCase() ? 3 : 1, borderColor: brand.toLowerCase() === c.toLowerCase() ? colors.textPrimary : colors.border }} />
-                      ))}
-                    </View>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('invite_link.bg_color')}</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
-                      {BG_SWATCHES.map((c) => (
-                        <TouchableOpacity key={c} onPress={() => setTplField({ booking_bg_color: c })} activeOpacity={0.8}
-                          style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: bg.toLowerCase() === c.toLowerCase() ? 3 : 1, borderColor: bg.toLowerCase() === c.toLowerCase() ? colors.textPrimary : colors.border }} />
-                      ))}
-                    </View>
-                    </Surface>
-
-                    {/* Background image (modern blurred) */}
-                    <Surface id="teacher.invite_link.template.bg_image">
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('invite_link.bg_image')}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
-                      {tpl.booking_bg_image_url ? <Image source={{ uri: tpl.booking_bg_image_url }} style={{ width: 44, height: 44, borderRadius: 8 }} contentFit="cover" /> : null}
-                      <TouchableOpacity onPress={pickBg} disabled={uploading} activeOpacity={0.85} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
-                        <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.brand }}>{t('invite_link.upload_bg')}</Text>
-                      </TouchableOpacity>
-                      {tpl.booking_bg_image_url ? (
-                        <TouchableOpacity onPress={() => setTplField({ booking_bg_image_url: null })} activeOpacity={0.85}>
-                          <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: colors.danger }}>{t('invite_link.remove')}</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                    </Surface>
-
-                    {/* Page font */}
-                    <Surface id="teacher.invite_link.template.font">
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xs }}>{t('billing_settings.font')}</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
-                      {FONTS.map((f) => {
-                        const on = (tpl.booking_font ?? 'default') === f.key;
-                        return (
-                          <TouchableOpacity key={f.key} onPress={() => setTplField({ booking_font: f.key })} activeOpacity={0.85}
-                            style={{ paddingHorizontal: spacing.md, height: 34, justifyContent: 'center', borderRadius: radius.full, borderWidth: 1.5, borderColor: on ? colors.brand : colors.border, backgroundColor: on ? colors.brandTint : colors.surfaceSunken }}>
-                            <Text style={{ fontFamily: fonts.medium, fontSize: 13, color: on ? colors.brand : colors.textSecondary }}>{f.label}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                    </Surface>
-
-                    <Surface id="teacher.invite_link.template.rules_editor">
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textPrimary, marginBottom: spacing.xs }}>{t('invite_link.rules_label')}</Text>
-                    {initialHtml !== null ? (
-                      <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, overflow: 'hidden' }}>
-                        <RichTextEditor
-                          ref={editorRef}
-                          initialHtml={initialHtml}
-                          placeholder={t('invite_link.template_ph')}
-                          height={300}
-                          onChangeHtml={(h) => { htmlRef.current = h; }}
-                          onPickImage={pickTemplateImage}
-                        />
-                      </View>
-                    ) : (
-                      <ActivityIndicator color={colors.brand} style={{ marginVertical: spacing.lg }} />
-                    )}
-                    {uploading ? (
-                      <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: spacing.sm }}>{t('invite_link.image_uploading')}</Text>
-                    ) : null}
-                    </Surface>
-                    <Surface id="teacher.invite_link.template.save">
-                    <TouchableOpacity onPress={saveTemplate} disabled={saveTpl.isPending} activeOpacity={0.85}
-                      style={{ marginTop: spacing.lg, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', opacity: saveTpl.isPending ? 0.6 : 1 }}>
-                      {saveTpl.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: '#fff' }}>{t('invite_link.save_template')}</Text>}
-                    </TouchableOpacity>
-                    </Surface>
-                  </View>
-                ) : null}
-              </View>
-              </Surface>
-            ) : null}
           </>
         )}
         </View>
       </ScrollView>
+
+      {/* The link, ready: in a sheet over the form, wherever the teacher had scrolled to. */}
+      <SheetModal visible={!!minted} onClose={() => setMinted(null)} style={{ backgroundColor: colors.surface, padding: 0, overflow: 'hidden' }}>
+        {minted ? (
+          <Surface id="teacher.invite_link.minted_card">
+          <View>
+            {/* Ready: who it is for, the link, and the one thing to do with it — send it. */}
+            <View style={{ backgroundColor: colors.successLight, alignItems: 'center', paddingVertical: spacing.lg }}>
+              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', ...shadows.sm }}>
+                <Icon name="success" size={34} color={colors.success} />
+              </View>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 18, color: colors.successText, marginTop: spacing.sm }}>{t('invite_link.ready')}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: spacing.sm, paddingHorizontal: spacing.lg }}>
+                <Chip icon={minted.reusable ? 'children' : 'child'} text={minted.reusable ? t('invite_link.many_families') : (minted.student_name || t('invite_link.the_family'))} />
+                <Chip icon="book" text={minted.course_name} />
+              </View>
+            </View>
+            <View style={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.lg }}>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, textAlign: 'center' }}>
+                {minted.family_picks
+                  ? t('invite_link.ready_hint_pick', { n: formatNumber(offered.length) })
+                  : minted.reusable
+                  ? t('invite_link.ready_hint_many', { course: minted.course_name, n: minted.max_uses ?? 300, date: formatDate(new Date(minted.expires_at)) })
+                  : t('invite_link.ready_hint', { student: minted.student_name || t('invite_link.the_family'), course: minted.course_name })}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surfaceSunken, borderRadius: radius.lg, padding: spacing.md, marginTop: spacing.md }}>
+                <Icon name="send" size={16} color={colors.textTertiary} />
+                <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 12.5, color: colors.textPrimary }} selectable numberOfLines={2}>{minted.url}</Text>
+              </View>
+              <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 4, textAlign: 'center' }}>{t('invite_link.long_press_copy')}</Text>
+              <Surface id="teacher.invite_link.minted_card.share">
+              <TouchableOpacity onPress={share} activeOpacity={0.85} accessibilityRole="button"
+                style={{ marginTop: spacing.md, minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.brand, borderRadius: radius.lg, ...shadows.sm }}>
+                <Icon name="send" size={18} color={colors.onPrimary} />
+                <Text style={{ fontFamily: fonts.bold, fontSize: 16, color: colors.onPrimary }}>{t('invite_link.share')}</Text>
+              </TouchableOpacity>
+              </Surface>
+              {minted.reusable && minted.id != null ? (
+                <Surface id="teacher.invite_link.minted_card.stop">
+                <TouchableOpacity onPress={stop} disabled={stopping} activeOpacity={0.85} accessibilityRole="button" style={{ paddingTop: spacing.md, alignItems: 'center' }}>
+                  {stopping ? <ActivityIndicator color={colors.danger} /> : <Text style={{ fontFamily: fonts.bold, fontSize: 13.5, color: colors.danger }}>{t('invite_link.stop')}</Text>}
+                </TouchableOpacity>
+                </Surface>
+              ) : null}
+              <Surface id="teacher.invite_link.minted_card.another">
+              <TouchableOpacity onPress={() => { setMinted(null); setName(''); }} activeOpacity={0.85} accessibilityRole="button" style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 14, color: colors.brand }}>{t('invite_link.another')}</Text>
+              </TouchableOpacity>
+              </Surface>
+            </View>
+          </View>
+          </Surface>
+        ) : null}
+      </SheetModal>
     </KeyboardAvoidingView>
     </Surface>
   );

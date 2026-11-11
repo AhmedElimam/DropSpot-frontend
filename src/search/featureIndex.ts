@@ -57,8 +57,8 @@ export const FEATURES: FeatureEntry[] = [
     keywords: ['طلبات', 'حجز', 'انتظار', 'موافقة', 'قبول', 'requests'] },
   { id: 'phones', titleKey: 'home.phones_title', subKey: 'manage.phones_sub', area: 'students', icon: 'phone', href: '/(teacher)/phone-confirmations',
     keywords: ['تأكيد رقم', 'ارقام', 'رقم ولي الامر', 'كود', 'تحقق', 'otp', 'رقم غلط', 'تأكيد ولي الامر'] },
-  { id: 'cards', titleKey: 'manage.cards_title', subKey: 'manage.cards_sub', area: 'students', icon: 'card', href: '/(teacher)/students?segment=cards', assistantNeeds: 'manage_students',
-    keywords: ['كروت', 'بطاقات', 'طباعة', 'طلب كارت', 'cards'] },
+  { id: 'teacher_cards', titleKey: 'teacher_cards.title', subKey: 'teacher_cards.manage_sub', area: 'students', icon: 'card', href: '/(teacher)/teacher-cards', assistantNeeds: 'claim_cards',
+    keywords: ['كارت المدرس', 'كروت المدرس', 'كروت فاضية', 'ربط كارت', 'تفعيل الكروت', 'دفعة كروت', 'كارت ضاع'] },
 
   // ── Money ──
   { id: 'collect', titleKey: 'manage.pending_collections', subKey: 'manage.pending_collections_sub', area: 'money', icon: 'money', href: '/(teacher)/pending-collections', assistantNeeds: 'scan_attendance',
@@ -124,6 +124,8 @@ export const FEATURES: FeatureEntry[] = [
     keywords: ['اعتراض', 'اعتراضات', 'درجة غلط', 'شكوى', 'complaint', 'تظلم'] },
   { id: 'notifications', titleKey: 'manage.notifications_title', subKey: 'manage.notifications_sub', area: 'manage', icon: 'bell', href: '/(teacher)/notifications',
     keywords: ['اشعارات', 'تنبيهات', 'notifications', 'رسائل'] },
+  { id: 'data_export', titleKey: 'data_export.title', subKey: 'data_export.row_sub', area: 'settings', icon: 'download', href: '/(teacher)/data-export', assistantNeeds: 'teacher',
+    keywords: ['تصدير', 'اكسل', 'إكسل', 'excel', 'csv', 'نسخة', 'باك اب', 'backup', 'تحميل البيانات', 'شيت', 'ملف'] },
   { id: 'assistants', titleKey: 'assistants.title', subKey: 'assistants.subtitle', area: 'manage', icon: 'children', href: '/(teacher)/assistants', assistantNeeds: 'teacher',
     keywords: ['مساعد', 'مساعدين', 'سكرتير', 'صلاحيات', 'اضافة مساعد', 'assistant', 'permissions', 'اضافة مساعد', 'سكرتيرة', 'صلاحيات المساعد', 'وقف مساعد'] },
 

@@ -30,6 +30,8 @@ export const ABILITY = {
   EXPORT_REPORTS: 'export_reports',
   /** Follow the teacher's print deliveries, hold the hand-over code, share location (no money). */
   RECEIVE_PRINTS: 'receive_prints',
+  /** «كارت المدرّس»: claim a blank to a student at the door, correct or revoke one — off by default. */
+  CLAIM_CARDS: 'claim_cards',
 } as const;
 
 // The returned object and its `can` function are memoised. They used to be rebuilt on

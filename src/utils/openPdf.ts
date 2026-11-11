@@ -18,12 +18,20 @@ import * as WebBrowser from 'expo-web-browser';
  * still reach the document.
  */
 export async function openRemotePdf(url: string, filename: string): Promise<void> {
+  return openRemoteFile(url, filename, { ext: 'pdf', mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+}
+
+/**
+ * The same download-then-share path for any file type — the Excel-ready CSVs and the ZIP of
+ * «تصدير بياناتي» go to the share sheet the same way (Excel, Files, WhatsApp, Drive).
+ */
+export async function openRemoteFile(url: string, filename: string, kind: { ext: string; mimeType: string; UTI: string }): Promise<void> {
   // Strip only filesystem-unsafe characters (path separators, wildcards,
   // whitespace) so Arabic names survive; collapse to a generic name if nothing
   // usable is left.
   const cleaned = (filename || '').replace(/[\/\\:*?"<>|\s]+/g, '_').replace(/^[._-]+|[._-]+$/g, '');
   const base = cleaned || 'document';
-  const name = base.toLowerCase().endsWith('.pdf') ? base : `${base}.pdf`;
+  const name = base.toLowerCase().endsWith(`.${kind.ext}`) ? base : `${base}.${kind.ext}`;
 
   try {
     if (!(await Sharing.isAvailableAsync())) {
@@ -39,12 +47,12 @@ export async function openRemotePdf(url: string, filename: string): Promise<void
     }
     const file = await File.downloadFileAsync(url, dest);
     await Sharing.shareAsync(file.uri, {
-      mimeType: 'application/pdf',
+      mimeType: kind.mimeType,
       dialogTitle: name,
-      UTI: 'com.adobe.pdf',
+      UTI: kind.UTI,
     });
   } catch {
-    // Download or share failed — fall back to the browser so the PDF is still reachable.
+    // Download or share failed — fall back to the browser so the file is still reachable.
     await WebBrowser.openBrowserAsync(url);
   }
 }

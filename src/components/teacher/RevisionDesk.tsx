@@ -195,10 +195,10 @@ function RevisionToolkit({ now, revisions, loading }: { now: number; revisions: 
 
   const big: { key: string; icon: IconName; label: string; hint: string; fill: readonly [string, string]; assistantNeeds: string; onPress: () => void }[] = [
     { key: 'kiosk', icon: 'scan', label: t('revision.tool_kiosk'), hint: slotHint, fill: ['#2E3990', REVISION_INK.indigoDeep], assistantNeeds: 'teacher', onPress: () => (slot ? goToRevisionScan(slot.rev) : toList()) },
-    { key: 'new_revision', icon: 'add', label: t('revision.tool_new_revision'), hint: t('revision.tool_new_revision_hint'), fill: [REVISION_INK.amberGlow, REVISION_INK.amberDeep], assistantNeeds: 'teacher', onPress: () => router.push('/(teacher)/revision-create' as Href) },
+    { key: 'new_revision', icon: 'add', label: t('revision.tool_new_revision'), hint: t('revision.tool_new_revision_hint'), fill: [REVISION_INK.amberGlow, REVISION_INK.amberDeep], assistantNeeds: 'manage_sessions', onPress: () => router.push('/(teacher)/revision-create' as Href) },
   ];
   const small: { key: string; icon: IconName; label: string; color: string; assistantNeeds: string; onPress: () => void }[] = [
-    { key: 'new_exam', icon: 'trophy', label: t('revision.tool_new_exam'), color: REVISION_INK.amber, assistantNeeds: 'teacher', onPress: () => router.push('/(teacher)/revision-create?purpose=quiz_exam' as Href) },
+    { key: 'new_exam', icon: 'trophy', label: t('revision.tool_new_exam'), color: REVISION_INK.amber, assistantNeeds: 'manage_sessions', onPress: () => router.push('/(teacher)/revision-create?purpose=quiz_exam' as Href) },
     { key: 'marks', icon: 'grades', label: t('revision.tool_marks'), color: colors.primary, assistantNeeds: 'teacher', onPress: () => (exam ? goToRevisionMarks(exam) : toList()) },
     { key: 'guest_passes', icon: 'card', label: t('revision.tool_guest_passes'), color: colors.success, assistantNeeds: 'issue_guest_passes', onPress: toList },
     { key: 'merge', icon: 'transfer', label: t('revision.tool_merge'), color: colors.info, assistantNeeds: 'manage_courses', onPress: () => router.push('/(teacher)/schedule-merge' as Href) },

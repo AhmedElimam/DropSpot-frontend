@@ -22,6 +22,8 @@ export interface TourStep {
   href?: Href;
   /** Roles this step is not for (an assistant does not create courses). */
   notFor?: string[];
+  /** 'card': only while the Dros Spot card is open to this family — two teachers or more (2026-11-07). */
+  needs?: 'card';
 }
 
 export interface TourDef {

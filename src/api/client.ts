@@ -2,8 +2,8 @@ import { track } from '@/lib/analytics';
 import { IS_STAGING, STAGING_KEY, STAGING_HEADER } from '@/config/env';
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { uuid } from '@/utils/uuid';
-import { matchQueueRule, parkedBody, queuedLabel, syntheticQueuedResponse } from './offlineQueue';
-import { enqueueAction } from '@/db/outbox';
+import { matchQueueRule, parkedBody, queuedLabel, supersedeKey, syntheticQueuedResponse } from './offlineQueue';
+import { enqueueAction, dropSupersededActions } from '@/db/outbox';
 import { useOfflineStore } from '@/stores/offlineStore';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
@@ -163,6 +163,11 @@ client.interceptors.request.use(async (config) => {
 async function parkRequest(config: InternalAxiosRequestConfig): Promise<void> {
   const body = parkedBody(config.__queueRule!, config.data);
   const label = queuedLabel(config.__queueRule!, body);
+  // A newer action about the same thing (a homework grade tapped again) replaces the parked one.
+  const same = supersedeKey(config.__queueRule!, body);
+  if (same !== null) {
+    await dropSupersededActions(String(config.url), (b) => supersedeKey(config.__queueRule!, b) === same).catch(() => undefined);
+  }
   await enqueueAction({
     key: String(config.headers['X-Idempotency-Key']),
     method: (config.method ?? 'post').toLowerCase(),

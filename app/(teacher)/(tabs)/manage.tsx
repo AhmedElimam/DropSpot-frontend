@@ -32,6 +32,7 @@ import { Surface, useHiddenSurfaces } from '@/ui/surfaces';
 import { useRevisionActive } from '@/hooks/useRevisionTheme';
 import { RevisionFeatureCard } from '@/components/teacher/RevisionDesk';
 import { SeasonPaper } from '@/components/SeasonPaper';
+import { CountBadge } from '@/components/ui/CountBadge';
 
 type Group = 'students' | 'schedule' | 'money' | 'followup';
 const GROUPS: Group[] = ['students', 'schedule', 'money', 'followup'];
@@ -155,12 +156,9 @@ export default function TeacherManage() {
                 style={{ flex: 1, height: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: radius.md, backgroundColor: on ? look.tint : colors.onHeroChip, borderWidth: 1, borderColor: on ? look.tint : colors.onHeroChip }}>
                 <Icon name={look.icon} size={15} color={on ? colors.onPrimary : colors.onHero} />
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: on ? colors.onPrimary : colors.onHero }} numberOfLines={1}>{t(`manage.group_${g}`)}</Text>
-                {n > 0 ? (
-                  // Pinned to the corner, so four pills still fit a narrow phone.
-                  <View style={{ position: 'absolute', top: -6, end: -4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.accent, borderWidth: 1.5, borderColor: gradients.hero[1], alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 10, color: colors.onAccent }}>{formatNumber(n)}</Text>
-                  </View>
-                ) : null}
+                {/* Pinned to the corner, so four pills still fit a narrow phone; the shared badge,
+                    whose digits sit in the middle of the circle. */}
+                <CountBadge count={n} max={99} size={18} ringWidth={1.5} at={{ top: -6, end: -4 }} bg={colors.accent} ring={gradients.hero[1]} color={colors.onAccent} />
               </TouchableOpacity>
             );
           })}
@@ -188,8 +186,9 @@ export default function TeacherManage() {
             ) : null}
             <Surface id="teacher.manage.row_add_student" assistantNeeds="manage_students"><HubRow tint={tint} icon="add" title={t('add_student.title')} sub={t('add_student.subtitle')} onPress={() => setAddOpen(true)} /></Surface>
             <Surface id="teacher.manage.row_booking_requests" assistantNeeds="manage_students"><HubRow tint={tint} icon="bell" title={t('booking_requests.title')} sub={t('booking_requests.manage_sub')} badge={pendingReqs} onPress={() => router.push('/(teacher)/booking-requests' as Href)} /></Surface>
+            <Surface id="teacher.manage.row_enrollment_ends"><HubRow tint={tint} icon="warning" title={t('ends.title')} sub={t('ends.manage_sub')} onPress={() => router.push('/(teacher)/enrollment-ends' as Href)} /></Surface>
             <Surface id="teacher.manage.row_phone_confirmations"><HubRow tint={tint} icon="phone" title={t('home.phones_title')} sub={t('manage.phones_sub')} badge={phoneCount} onPress={() => router.push('/(teacher)/phone-confirmations' as Href)} /></Surface>
-            <Surface id="teacher.manage.row_cards" assistantNeeds="manage_students"><HubRow tint={tint} icon="card" title={t('manage.cards_title')} sub={t('manage.cards_sub')} onPress={() => router.push('/(teacher)/students?segment=cards' as Href)} /></Surface>
+            <Surface id="teacher.manage.row_teacher_cards" assistantNeeds="claim_cards"><HubRow tint={tint} icon="card" title={t('teacher_cards.title')} sub={t('teacher_cards.manage_sub')} onPress={() => router.push('/(teacher)/teacher-cards' as Href)} /></Surface>
             <Surface id="teacher.manage.row_overrides" assistantNeeds="scan_attendance"><HubRow tint={tint} icon="lock" title={t('teacher.overrides')} sub={t('manage.overrides_sub')} onPress={() => router.push('/(teacher)/overrides' as Href)} /></Surface>
           </Surface>
         ) : null}

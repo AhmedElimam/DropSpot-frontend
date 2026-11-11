@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PageHero } from '@/components/ui/PageHero';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
+import { HomeworkSummaryRow } from '@/components/homework/HomeworkChips';
 
 const pct = (v: ReportCard['overall_score']): string =>
   v === null || v === undefined || v === '' ? '—' : `${Math.round(Number(v))}%`;
@@ -142,6 +143,16 @@ function ReportRow({ report, opening, onOpen, t }: {
         </View>
       ) : null}
       </Surface>
+
+      {/* «الواجبات» over the report's period: the rate and the four counts. */}
+      {report.homework_summary ? (
+        <Surface id="parent.report_cards.homework">
+        <View style={{ marginTop: spacing.md, backgroundColor: colors.surfaceSunken, borderRadius: radius.md, padding: spacing.md }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm }}>{t('homework.title')}</Text>
+          <HomeworkSummaryRow summary={report.homework_summary} />
+        </View>
+        </Surface>
+      ) : null}
 
       <Surface id="parent.report_cards.download_pdf">
       <TouchableOpacity

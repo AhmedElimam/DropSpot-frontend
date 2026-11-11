@@ -17,6 +17,8 @@ export interface CardOrderTarget {
   pending_review: boolean;
   reason: 'NO_TEACHER' | 'PENDING_REVIEW' | null;
   teacher: { id: number; name: string } | null;
+  /** Distinct teachers the child studies with now; the home banner wants 2+. Absent on older servers. */
+  teacher_count?: number;
   payment_methods: CardOrderPaymentMethod[];
   /** Platform InstaPay the card-production fee is paid to (not the teacher's number). */
   card_instapay?: { number: string; name: string } | null;

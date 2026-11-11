@@ -23,6 +23,8 @@ export const POPUP_ORDER = [
   'feature_terms',
   'whats_new',
   'nazer_unlock',
+  // The Dros Spot card's level-up (founder 2026-11-07): a child's second teacher unlocks it.
+  'card_unlock',
   // The student's lock until the parent's number is proved (2026-10-26): straight after الناظر.
   'parent_number_check',
   'rose_unlock',
