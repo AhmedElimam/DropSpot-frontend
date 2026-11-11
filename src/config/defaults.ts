@@ -90,6 +90,11 @@ export interface AppConfigPayload {
   error_reporting?: 'on' | 'off';
   min_supported_app_version: string;
   /**
+   * The newest version on this phone's store (null / absent = none named). A binary below it —
+   * and not below the floor — gets the update popup it can put away (UpdatePromptModal).
+   */
+  latest_app_version?: string | null;
+  /**
    * Set by the server when THIS app identity has been retired (its store listing is
    * no longer ours to publish to). Carries where the user should go instead. Older
    * builds ignore this field entirely and are stopped by min_supported_app_version

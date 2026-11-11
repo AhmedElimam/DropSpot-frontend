@@ -22,6 +22,9 @@ export const POPUP_ORDER = [
   'parent_number_check',
   'rose_unlock',
   'subscription_status',
+  // «حدّث التطبيق» from مدام روز / الناظر, put away with «بعدين» (founder 2026-11-12): after
+  // everything the person must see, before a survey.
+  'app_update',
   // A survey comes after the app's own intro (founder 2026-10-26: «nazer intro doesn't show any
   // more because survey's on»); SurveyModal also waits out الناظر and the first tour.
   'survey',

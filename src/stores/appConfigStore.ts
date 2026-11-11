@@ -32,6 +32,7 @@ export function mergeConfig(server: Partial<AppConfigPayload>): AppConfigPayload
   return {
     schema_version: server.schema_version ?? CONFIG_DEFAULTS.schema_version,
     min_supported_app_version: server.min_supported_app_version ?? CONFIG_DEFAULTS.min_supported_app_version,
+    latest_app_version: typeof server.latest_app_version === 'string' && server.latest_app_version !== '' ? server.latest_app_version : null,
     app_retired: server.app_retired ?? false,
     migration: server.migration ?? null,
     feature_flags: { ...(server.feature_flags ?? {}) },

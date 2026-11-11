@@ -55,6 +55,7 @@ import { NazerUnlockModal } from '@/components/nazer/NazerUnlockModal';
 import { CardUnlockModal } from '@/components/cardOrder/CardUnlockModal';
 import { RoseUnlockModal } from '@/components/rose/RoseUnlockModal';
 import { SubscriptionStatusModal } from '@/components/subscription/SubscriptionStatusModal';
+import { UpdatePromptModal } from '@/components/update/UpdatePromptModal';
 import { SubscriptionCornerTag } from '@/components/subscription/SubscriptionCornerTag';
 import { SubscriptionSync } from '@/components/subscription/SubscriptionSync';
 import { ParentNumberCheckModal } from '@/components/student/ParentNumberCheckModal';
@@ -321,6 +322,8 @@ export default function RootLayout() {
             <RoseUnlockModal />
             {/* Then she shows where the subscription stands: receipt, exemption or bill, stamped (founder 2026-10-25). */}
             <SubscriptionStatusModal />
+            {/* «حدّث التطبيق»: a newer version is on the store — مدام روز / الناظر say so, «بعدين» puts it away for a day. */}
+            <UpdatePromptModal />
             {/* After him and his tour: a student proves their parent's number (soft, «بعدين»). */}
             <ParentNumberCheckModal />
             {/* The two-minute spotlight tour — once for a new account, replayable from settings. */}
