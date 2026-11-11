@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Publish the current main (JS only) as an OTA update to the store builds that are out.
+# Publish the current checkout (JS only; `main`, or the release line `demo`) as an OTA update
+# to the store builds that are out and whose native code matches it.
 #
 # Why this exists: every CI store build carries its OWN runtime fingerprint (the stamped
 # build number is part of it, and even two builds of one commit differ), so `eas update`
@@ -51,12 +52,21 @@ RT_CACHE="${HOME}/.cache/drosspot-ota/runtimes.txt"; mkdir -p "$(dirname "$RT_CA
 say() { printf '%s\n' "$*"; }
 die() { printf '✗ %s\n' "$*" >&2; exit 1; }
 
-# ── Publish only what is on origin/main, committed ─────────────────────────────────────
-git fetch -q origin main
+# ── Publish only what is pushed and committed, from a line that ships ──────────────────
+# Two lines can be live at once while a new store version rolls out (2026-11-12, 1.3.0):
+# `main` feeds the builds people have today, the release line (`demo`) feeds the new version's
+# builds. Each run publishes ITS checkout to the builds whose native code matches it and skips
+# the rest (native_matches below), so the two lines never reach each other's phones.
+LINE="$(git rev-parse --abbrev-ref HEAD)"
+case "$LINE" in
+  main|demo) ;;
+  *) [ "$CHECK" = 1 ] || die "on branch '$LINE' — updates are published from main or demo only" ;;
+esac
+git fetch -q origin "$LINE" 2>/dev/null || true
 HEAD_SHA="$(git rev-parse HEAD)"
 if [ "$CHECK" = 0 ]; then
   git diff --quiet && git diff --cached --quiet || die "uncommitted changes — commit or discard them first"
-  [ "$HEAD_SHA" = "$(git rev-parse origin/main)" ] || die "HEAD is not origin/main — pull/push first"
+  [ "$HEAD_SHA" = "$(git rev-parse "origin/$LINE")" ] || die "HEAD is not origin/$LINE — pull/push first"
 fi
 HEAD_TIME="$(git log -1 --format=%ct HEAD)"
 [ -n "$MSG" ] || MSG="$(git log -1 --format=%s HEAD)"
@@ -165,12 +175,12 @@ while read -r id platform art sha; do
   echo "$platform $rt" >> "$SEEN"
 
   if ! native_matches "$sha"; then
-    say "⚠ $label: native dependencies differ from main — skipped (needs a store build)"
+    say "⚠ $label: native dependencies differ from $LINE — skipped (needs a store build)"
     SKIPPED=$((SKIPPED + 1)); continue
   fi
 
   at="$(served_at "$rt" "$platform")"
-  if [ "$at" -ge "$HEAD_TIME" ] 2>/dev/null; then status="has main"; else status="behind main"; fi
+  if [ "$at" -ge "$HEAD_TIME" ] 2>/dev/null; then status="has $LINE"; else status="behind $LINE"; fi
   if [ "$CHECK" = 1 ]; then say "• $label  runtime ${rt:0:8}  → $status"; continue; fi
 
   say "▸ $label  runtime ${rt:0:8}  → publishing"
