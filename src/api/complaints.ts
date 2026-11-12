@@ -34,6 +34,11 @@ export interface Complaint {
   invoice_amount: number | null;
   /** Still due on the invoice now — the most a payment complaint can record. */
   invoice_remaining?: number | null;
+  /** The bill was settled (paid, written off, cancelled) after the complaint was filed. */
+  invoice_settled?: boolean;
+  invoice_status?: string | null;
+  /** Pending queue only: the newest payment on that settled bill — who took it, how, when. */
+  settled_by?: { amount: number; method: LedgerMethod; by: string | null; at: string | null } | null;
   // ---- payment complaints: what the family stated, and what was approved ----
   paid_method?: PaidMethod | null;
   claimed_amount?: number | null;
@@ -91,6 +96,16 @@ export interface ComplaintList {
   receivers: CashReceiver[];
 }
 
+/**
+ * A payment complaint whose bill has nothing left to collect (founder 2026-11-12: the bill was
+ * taken at the counter after the family filed, and «قبول» asked to record it again against
+ * 0 due). Approving it only closes it. Older servers send no flag: 0 remaining says the same.
+ */
+export function paymentAlreadySettled(c: Pick<Complaint, 'type' | 'status' | 'invoice_settled' | 'invoice_remaining'>): boolean {
+  if (c.type !== 'payment' || c.status !== 'pending') return false;
+  return !!c.invoice_settled || (c.invoice_remaining !== null && c.invoice_remaining !== undefined && c.invoice_remaining <= 0.001);
+}
+
 const num = (v: any): number | null => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 
 const row = (r: any): Complaint => {
@@ -104,6 +119,7 @@ const row = (r: any): Complaint => {
     corrected_mark: num(a.corrected_mark),
     invoice_remaining: num(a.invoice_remaining),
     claimed_amount: num(a.claimed_amount),
+    settled_by: a.settled_by ? { ...a.settled_by, amount: num(a.settled_by.amount) ?? 0 } : null,
     approved_amount: num(a.approved_amount),
     photo_annotations: a.photo_annotations ? parseAnnotations(a.photo_annotations) : null,
   };

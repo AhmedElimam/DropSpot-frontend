@@ -24,7 +24,7 @@ import { cleanMarkInput, formatMark, parseMarkInput } from '@/utils/markInput';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatDate, formatNumber, timeAgo } from '@/utils/format';
 import { formatEGP } from '@/utils/currency';
-import { ledgerMethodFor, type Complaint, type ComplaintBucket, type LedgerMethod } from '@/api/complaints';
+import { ledgerMethodFor, paymentAlreadySettled, type Complaint, type ComplaintBucket, type LedgerMethod } from '@/api/complaints';
 import { Surface } from '@/ui/surfaces';
 import { CountPill } from '@/components/ui/CountBadge';
 
@@ -87,6 +87,15 @@ export default function ComplaintsScreen() {
       const start = c.claimed_mark ?? c.recorded_mark;
       setMarkText(start !== null && start !== undefined ? formatMark(start) : '');
       setGrading(c);
+      return;
+    }
+    // Settled since it was filed: nothing to record — «قبول» only closes it (no money sheet).
+    if (paymentAlreadySettled(c)) {
+      Alert.alert(
+        t('complaints.approve'),
+        t('complaints.approve_settled_confirm'),
+        [{ text: t('common.cancel'), style: 'cancel' }, { text: t('complaints.approve'), onPress: () => approve.mutate({ id: c.id }, { onSuccess: stamped, onError: (e) => Alert.alert(t('common.error'), getFriendlyErrorMessage(e)) }) }],
+      );
       return;
     }
     if (c.type === 'payment') {
@@ -361,6 +370,7 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
   const { t } = useTranslation();
   const isAttendance = c.type === 'attendance';
   const isGrade = c.type === 'grade';
+  const settled = paymentAlreadySettled(c);
   const tint = isAttendance ? colors.warningDark : isGrade ? colors.info : colors.accent;
   const typeLabel = t(isAttendance ? 'complaints.file_attendance' : isGrade ? 'complaints.grade.file' : 'complaints.file_payment');
   const says = isAttendance
@@ -376,7 +386,14 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
     : isGrade
       ? `${c.exam_title ?? c.course_name ?? ''}${when}`
       : t('complaints.payment_label', { number: c.invoice_number ?? '—', amount: formatEGP(c.invoice_amount ?? 0) })
-        + (c.status === 'pending' && c.invoice_remaining !== null && c.invoice_remaining !== undefined ? ` · ${t('complaints.still_due', { amount: formatEGP(c.invoice_remaining) })}` : '');
+        + (c.status === 'pending' && !settled && c.invoice_remaining !== null && c.invoice_remaining !== undefined ? ` · ${t('complaints.still_due', { amount: formatEGP(c.invoice_remaining) })}` : '');
+  const settledHow = !settled ? null
+    : c.settled_by
+      ? (c.settled_by.method === 'digital'
+        ? t('complaints.settled_by_digital', { amount: formatEGP(c.settled_by.amount) })
+        : t('complaints.settled_by_cash', { amount: formatEGP(c.settled_by.amount), name: c.settled_by.by ?? '—' }))
+        + (c.settled_by.at ? ` · ${timeAgo(c.settled_by.at)}` : '')
+      : c.invoice_status === 'waived' ? t('complaints.settled_waived') : null;
   const decided = c.status !== 'pending';
   const statusTone = c.status === 'approved' ? { bg: colors.successLight, fg: colors.successText } : c.status === 'rejected' ? { bg: colors.dangerLight, fg: colors.dangerText } : { bg: colors.warningLight, fg: colors.warningText };
 
@@ -421,6 +438,18 @@ const ComplaintRow = memo(function ComplaintRow({ c, bucket, canDecide, busy, on
         ) : null}
       </View>
       {c.note ? <Text style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: spacing.sm }}>«{c.note}»</Text> : null}
+      {settled ? (
+        // The bill was taken another way after the family filed: say how, so a cash row for what
+        // the family calls a transfer stands out; «قبول» then only closes the complaint.
+        <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', marginTop: spacing.sm, backgroundColor: colors.successLight, borderRadius: radius.md, padding: spacing.sm }}>
+          <Icon name="success" size={16} color={colors.successText} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: colors.successText }}>{t('complaints.settled_line')}</Text>
+            {settledHow ? <Text style={{ fontFamily: fonts.medium, fontSize: 12.5, lineHeight: 19, color: colors.successText, marginTop: 2 }}>{settledHow}</Text> : null}
+            {canDecide ? <Text style={{ fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: colors.successText, marginTop: 2 }}>{t('complaints.settled_hint')}</Text> : null}
+          </View>
+        </View>
+      ) : null}
       <Surface id="teacher.complaints.row.photo">
       {isGrade && c.photo_url ? (
         <AnnotatedPhoto uri={c.photo_url} annotations={c.photo_annotations} height={170} style={{ marginTop: spacing.sm }} />
