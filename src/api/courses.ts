@@ -1,5 +1,6 @@
 import client from './client';
 import { useShiftSettingsStore } from '@/stores/shiftSettingsStore';
+import type { SessionDelivery } from '@/remote/delivery';
 
 /**
  * Teacher courses management — parity with the web /courses + /courses/{id}/edit.
@@ -31,6 +32,8 @@ export interface CourseSummary {
   tracks_attendance?: boolean;
   /** The server's words for a private lesson («درس خصوصي · بدون تسجيل حضور»); null on a course with a door. */
   attendance_label?: string | null;
+  /** «نوع المقرر: حضوري / أونلاين» — `in_person` while «حصة أونلاين» is off; absent on older servers (= in person). */
+  delivery?: SessionDelivery;
   slot_count: number;
   upcoming_count: number;
   /** Weekly schedule label — weekday + start time, e.g. «الأحد 9:00 AM، الثلاثاء 5:00 PM». */
@@ -55,8 +58,8 @@ export interface CourseSchedule {
   headcount: number;
   /** This group is kept from assistants (teacher-only switch). */
   hidden_from_assistants?: boolean;
-  /** «حضوري / أونلاين»: the group's standing answer — its new sessions are born with it. Absent on older servers. */
-  delivery?: 'in_person' | 'remote';
+  /** The group's copy of its course's type (the course is the unit — read the course's `delivery`). */
+  delivery?: SessionDelivery;
 }
 
 export interface CourseDetail {
@@ -74,6 +77,11 @@ export interface CourseDetail {
   attendance_mode?: 'door' | 'none';
   tracks_attendance?: boolean;
   attendance_label?: string | null;
+  /**
+   * «نوع المقرر: حضوري / أونلاين» — changed only through its own call (setCourseDelivery), never
+   * the settings save. `in_person` while «حصة أونلاين» is off; absent on older servers.
+   */
+  delivery?: SessionDelivery;
   /** Whether a private lesson may be offered, its cap and its words — the server decides. */
   private_courses?: PrivateCoursesOptions;
   sheet_expected_by_default: boolean;
@@ -169,6 +177,8 @@ export interface CreateCoursePayload {
   shift?: CourseShift | null;
   /** 'none' = a private lesson with no door. Omitted = door. */
   attendance_mode?: 'door' | 'none';
+  /** «نوع المقرر»: omitted = in person. `remote` is refused (422 REMOTE_OFF) while «حصة أونلاين» is off. */
+  delivery?: SessionDelivery;
   // Pricing at creation (empty = disabled/none) — mirrors the web create form.
   sessions_per_billing_cycle?: number;
   cycle_price?: number | null;

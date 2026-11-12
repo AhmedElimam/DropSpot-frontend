@@ -20,7 +20,9 @@ import { useTeacherOnboarding } from '@/hooks/useTeacherOnboarding';
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import type { CourseSchedule } from '@/api/courses';
-import { GroupDeliveryControl, OnlineChip } from '@/components/remote/SessionDelivery';
+import { CourseDeliveryControl, OnlineChip } from '@/components/remote/SessionDelivery';
+import { useRemoteSessionsEnabled } from '@/hooks/useRemoteSession';
+import { isRemoteDelivery } from '@/remote/delivery';
 
 // Matches Course::PREFERRED_ACCURACY_METERS — a worse GPS fix is flagged low-confidence.
 const PREFERRED_ACCURACY = 20;
@@ -65,6 +67,9 @@ export default function CourseDetailScreen() {
   const [venueId, setVenueId] = useState<string | null>(null);
   const { data: formOptions } = useQuery({ queryKey: ['course-form-options'], queryFn: getCourseFormOptions, staleTime: 300_000 });
   const venues = formOptions?.venues ?? [];
+  // «نوع المقرر: أونلاين» — a course held online has no place: no geofence card to set up.
+  const remoteOn = useRemoteSessionsEnabled();
+  const online = remoteOn && isRemoteDelivery(course);
 
   useEffect(() => {
     if (course && !seeded) {
@@ -183,9 +188,12 @@ export default function CourseDetailScreen() {
 
   return (
     <Surface id="screen.teacher.courses.detail" screen>
-    <FormScreen title={course.name} subtitle={course.grade_name ?? undefined}>
+    <FormScreen title={course.name} subtitle={course.grade_name ?? undefined}
+      right={<OnlineChip row={course} onColor />}>
+      {/* «نوع المقرر: حضوري | أونلاين» — the course is the unit; teacher only, feature on only. */}
+      <CourseDeliveryControl courseId={id} course={course} />
       {/* Where the phone check-in anchors — the card's colour IS the status. */}
-      {onboarding?.active && !privateLesson ? <Surface id="teacher.course_detail.onboarding_banner"><Banner tone="info" text={t('onboarding.location_hint')} /></Surface> : null}
+      {onboarding?.active && !privateLesson && !online ? <Surface id="teacher.course_detail.onboarding_banner"><Banner tone="info" text={t('onboarding.location_hint')} /></Surface> : null}
       {canChoosePrivate ? (
         <Surface id="teacher.course_detail.attendance_mode" assistantNeeds="manage_courses">
         <FormCard icon="attendance" title={t('course_ui.private_section')} tint={privateLesson ? colors.brand : colors.borderStrong}
@@ -196,7 +204,7 @@ export default function CourseDetailScreen() {
         </FormCard>
         </Surface>
       ) : null}
-      {privateLesson ? null : (
+      {privateLesson || online ? null : (
       <Surface id="teacher.course_detail.location">
       <FormCard icon="location"
         title={t(!geofence ? 'course_ui.geofence_off_title' : located ? 'teacher.phone_checkin_auto_on' : 'teacher.phone_checkin_off')}
@@ -323,8 +331,6 @@ export default function CourseDetailScreen() {
                       <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{t('course_ui.hidden_chip')}</Text>
                     </View>
                   ) : null}
-                  {/* «أونلاين»: this group's sessions are held online (changed from «تعديل الموعد»). */}
-                  {slot.delivery === 'remote' ? <OnlineChip row={slot} size="sm" /> : null}
                 </View>
                 <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
                   {t('form_ui.students_n', { n: formatNumber(slot.headcount) })}{slot.capacity != null ? ` / ${formatNumber(slot.capacity)}` : ''} · {t('teacher.upcoming_count', { count: slot.upcoming_count })}
@@ -357,8 +363,7 @@ export default function CourseDetailScreen() {
       </FormCard>
       </Surface>
 
-      {/* `delivery` is read off the live course, not the row captured when the sheet opened: it changes while the sheet is up. */}
-      <Surface id="teacher.course_detail.edit_slot_sheet"><EditSlotSheet courseId={id} slot={editing} delivery={course.schedules.find((x) => x.id === editing?.id)?.delivery} onClose={() => setEditing(null)} /></Surface>
+      <Surface id="teacher.course_detail.edit_slot_sheet"><EditSlotSheet courseId={id} slot={editing} onClose={() => setEditing(null)} /></Surface>
 
       {/* Danger zone — hard-delete the whole course. Teacher only. */}
         <Surface id="teacher.course_detail.danger_zone" assistantNeeds="teacher">
@@ -378,7 +383,7 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
  * of the week»). Upcoming sessions nothing has touched move with it; held ones stay; the
  * group's families are told — the server does all of that, this only asks.
  */
-function EditSlotSheet({ courseId, slot, delivery, onClose }: { courseId: string; slot: CourseSchedule | null; delivery?: CourseSchedule['delivery']; onClose: () => void }) {
+function EditSlotSheet({ courseId, slot, onClose }: { courseId: string; slot: CourseSchedule | null; onClose: () => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const update = useUpdateSchedule(courseId);
@@ -426,8 +431,6 @@ function EditSlotSheet({ courseId, slot, delivery, onClose }: { courseId: string
       <Field label={t('teacher.schedule_capacity')}>
         <NumberInput value={capacity} onChangeText={setCapacity} placeholder={t('teacher.optional')} maxLength={4} />
       </Field>
-      {/* «حصص المجموعة: حضوري | أونلاين» — this group's sessions from now on (teacher only, feature on). */}
-      {slot ? <GroupDeliveryControl courseId={courseId} scheduleId={slot.id} delivery={delivery} style={{ marginTop: spacing.md }} /> : null}
       <Banner tone="info" text={t('teacher.edit_slot_hint')} style={{ marginTop: spacing.md }} />
       <Button title={t('teacher.edit_slot_save')} onPress={save} loading={update.isPending} disabled={!ready} variant="primary" />
     </SheetModal>

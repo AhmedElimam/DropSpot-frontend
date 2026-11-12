@@ -116,7 +116,7 @@ describe('homework reminders open where they are about (2026-11-11)', () => {
 });
 
 describe('«حضوري / أونلاين» changed (session_delivery_changed)', () => {
-  const data = { session_instance_id: 81, student_id: 5, delivery: 'remote', scope: 'group' };
+  const data = { session_instance_id: 81, student_id: 5, delivery: 'remote', scope: 'course' };
 
   it('goes where «حصة أونلاين» goes: a student to home, a parent to that child\'s page', () => {
     expect(notificationRouteFor({ role: 'student', type: 'session_delivery_changed', data })).toBe('/(student)/(tabs)');

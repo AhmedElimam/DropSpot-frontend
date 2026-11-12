@@ -8,24 +8,26 @@ import { colors, radius, spacing } from '@/theme/index';
 import { Icon } from '@/components/ui/Icon';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { Surface } from '@/ui/surfaces';
-import { useRemoteSessionsEnabled, useSetGroupDelivery, useSetSessionDelivery } from '@/hooks/useRemoteSession';
+import { useRemoteSessionsEnabled, useSetCourseDelivery, useSetSessionDelivery } from '@/hooks/useRemoteSession';
 import { remoteErrorSentence, type DeliveryChange } from '@/api/remoteSession';
 import { getFriendlyErrorMessage } from '@/utils/errors';
 import { formatNumber } from '@/utils/format';
 import {
-  deliveryAskKey, deliveryDoneKey, deliveryLabelKey, deliveryOf, deliveryScopeOptions, scopeHintKey, scopeLabelKey,
-  showsDeliveryControl, showsOnlineChip, waitsForTeacher,
+  courseAskKey, deliveryAskKey, deliveryDoneKey, deliveryLabelKey, deliveryOf, deliveryScopeOptions, scopeHintKey, scopeLabelKey,
+  showsCourseDeliveryControl, showsDeliveryControl, showsOnlineChip, waitsForTeacher,
   type DeliveryScope, type SessionDelivery,
 } from '@/remote/delivery';
 
 /**
- * «حضوري / أونلاين» — how a session is held, said in advance from the schedule (founder
- * 2026-11-12). Four small pieces, each drawing nothing while «حصة أونلاين» is off:
+ * «نوع المقرر: حضوري / أونلاين» — how a course's sessions are held, said in advance (founder
+ * 2026-11-12: «we want this to be a type of course: either it's fully remote or physical»).
+ * Five small pieces, each drawing nothing while «حصة أونلاين» is off:
  *
- *  · OnlineChip             — «أونلاين» on a session card or a group row;
+ *  · OnlineChip             — «أونلاين» on a session card or a course row;
+ *  · CourseTypePicker       — the create form's «نوع المقرر» choice (two options);
+ *  · CourseDeliveryControl  — the teacher's course page: «نوع المقرر: حضوري | أونلاين», asked once;
  *  · SessionDeliveryControl — the teacher's session page: «الحصة: حضوري | أونلاين», and a
- *                             sheet asking how far the change goes;
- *  · GroupDeliveryControl   — the same choice where a group's schedule is edited (that group);
+ *                             sheet asking how far the change goes (this session, the course, all);
  *  · WaitsForTeacherLine    — a student's card for an online session not opened yet.
  *
  * Every decision is in src/remote/delivery.ts; the rules are the server's (it refuses a session
@@ -35,7 +37,7 @@ import {
 const VALUES: SessionDelivery[] = ['in_person', 'remote'];
 
 /**
- * «أونلاين» — a small chip on a session that is held online. `onColor`: on a gradient card
+ * «أونلاين» — a small chip on a session or a course that is held online. `onColor`: on a gradient card
  * (white ink on a translucent pill). `size="sm"` matches the 11-point chips of the teacher's
  * card; the default matches the 12-point pills of the student's.
  */
@@ -91,7 +93,8 @@ function useDoneMessage(): (to: SessionDelivery, change: DeliveryChange) => stri
 
 /**
  * The teacher's session page: «الحصة: حضوري | أونلاين». Choosing the other one opens a sheet
- * asking how far it goes — this session, the group's sessions from now on, or every group —
+ * asking how far it goes — this session alone, its whole course (the course's type), or every
+ * course —
  * then the change is made and the result said. Drawn only while the feature is on, the row
  * carries `delivery`, and the session can still change (not cancelled, not over). The
  * teacher's alone: the server refuses an assistant.
@@ -144,7 +147,7 @@ export const SessionDeliveryControl = memo(function SessionDeliveryControl({ ses
                 <TouchableOpacity key={scope} onPress={() => apply(scope)} disabled={change.isPending} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={t(scopeLabelKey(scope))}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 60, backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, opacity: change.isPending && !running ? 0.5 : 1 }}>
                   <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.brandTint, alignItems: 'center', justifyContent: 'center' }}>
-                    {running ? <ActivityIndicator size="small" color={colors.brand} /> : <Icon name={scope === 'session' ? 'sessions' : scope === 'group' ? 'calendar' : 'list'} size={18} color={colors.brand} />}
+                    {running ? <ActivityIndicator size="small" color={colors.brand} /> : <Icon name={scope === 'session' ? 'sessions' : scope === 'course' ? 'book' : 'list'} size={18} color={colors.brand} />}
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{t(scopeLabelKey(scope))}</Text>
@@ -165,50 +168,93 @@ export const SessionDeliveryControl = memo(function SessionDeliveryControl({ ses
 });
 
 /**
- * Where a group's schedule is edited: «حصص المجموعة: حضوري | أونلاين». There is nothing to
- * choose about how far it goes — it is this group, its sessions from now on and the ones made
- * later — so the other value asks once and is done. Drawn only while the feature is on and the
- * group row carries `delivery`. The teacher's alone.
+ * The course page: «نوع المقرر: حضوري | أونلاين», near the top, not inside a sheet. There is
+ * nothing to choose about how far it goes — it is this course, its groups, its sessions from now
+ * on and the ones made later — so the other value asks once (what will change, the families told
+ * once) and is done. Drawn only while the feature is on and the course row carries `delivery`.
+ * The teacher's alone (the server refuses an assistant).
  */
-export const GroupDeliveryControl = memo(function GroupDeliveryControl({ courseId, scheduleId, delivery, style }: {
+export const CourseDeliveryControl = memo(function CourseDeliveryControl({ courseId, course, style }: {
   courseId: string;
-  scheduleId: string;
-  delivery: unknown;
+  course: { delivery?: unknown } | null | undefined;
   style?: StyleProp<ViewStyle>;
 }) {
   const { t } = useTranslation();
   const on = useRemoteSessionsEnabled();
-  const change = useSetGroupDelivery(courseId);
+  const change = useSetCourseDelivery(courseId);
   const doneMessage = useDoneMessage();
 
   const ask = useCallback((to: SessionDelivery) => {
-    Alert.alert(t(to === 'remote' ? 'remote.group_ask_remote' : 'remote.group_ask_in_person'), t('remote.group_ask_body'), [
+    Alert.alert(t(courseAskKey(to)), t('remote.course_ask_body'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('remote.delivery_confirm_cta'),
         onPress: () => {
-          change.mutate({ scheduleId, delivery: to }, {
+          change.mutate(to, {
             onSuccess: (result) => Alert.alert('', doneMessage(to, result)),
             onError: (e) => Alert.alert(t('common.error'), remoteErrorSentence(e) ?? getFriendlyErrorMessage(e)),
           });
         },
       },
     ]);
-  }, [change, doneMessage, scheduleId, t]);
+  }, [change, doneMessage, t]);
 
-  if (!on || (delivery !== 'remote' && delivery !== 'in_person')) return null;
+  if (!showsCourseDeliveryControl(course, on)) return null;
+  const value = deliveryOf(course?.delivery);
 
   return (
-    <Surface id="teacher.course_detail.slots.delivery" assistantNeeds="teacher">
-      <View style={[{ gap: spacing.xs }, style]}>
+    <Surface id="teacher.course_detail.delivery" assistantNeeds="teacher">
+      <View style={[{ gap: spacing.xs, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: value === 'remote' ? colors.brand : colors.border, paddingVertical: spacing.md, paddingHorizontal: spacing.md, marginBottom: spacing.md }, style]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{t('remote.group_delivery_label')}</Text>
+          <Text style={{ flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary }} numberOfLines={1}>{t('remote.course_type_label')}</Text>
           {change.isPending ? <ActivityIndicator size="small" color={colors.brand} /> : null}
-          <DeliveryPills value={deliveryOf(delivery)} busy={change.isPending} onPick={ask} />
+          <DeliveryPills value={value} busy={change.isPending} onPick={ask} />
         </View>
-        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>{t('remote.group_delivery_hint')}</Text>
+        <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 19, color: colors.textSecondary }}>
+          {t(value === 'remote' ? 'remote.course_type_hint_remote' : 'remote.course_type_hint_in_person')}
+        </Text>
       </View>
     </Surface>
+  );
+});
+
+/**
+ * The create form's «نوع المقرر»: two clear options — «حضوري» (في المكان) and «أونلاين» (بث مباشر
+ * من التطبيق). The caller draws it only while the feature is on, and hides the fields that only
+ * mean something in a place while «أونلاين» is chosen.
+ */
+export const CourseTypePicker = memo(function CourseTypePicker({ value, onChange }: {
+  value: SessionDelivery;
+  onChange: (to: SessionDelivery) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', gap: spacing.sm }}>
+        {VALUES.map((v) => {
+          const selected = v === value;
+          return (
+            <TouchableOpacity key={v} onPress={() => onChange(v)} activeOpacity={0.85}
+              accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={t(deliveryLabelKey(v))}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 60, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.lg, borderWidth: 1.5, borderColor: selected ? colors.brand : colors.border, backgroundColor: selected ? colors.brandTint : colors.surfaceSunken }}>
+              <Icon name={v === 'remote' ? 'video' : 'location'} size={20} color={selected ? colors.brand : colors.textSecondary} outline={v !== 'remote' && !selected} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: selected ? colors.brand : colors.textPrimary }} numberOfLines={1}>{t(deliveryLabelKey(v))}</Text>
+                <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: colors.textSecondary }} numberOfLines={2}>
+                  {t(v === 'remote' ? 'remote.course_type_remote_sub' : 'remote.course_type_in_person_sub')}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      {value === 'remote' ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.infoLight, borderRadius: radius.lg, paddingVertical: spacing.sm, paddingHorizontal: spacing.md }}>
+          <Icon name="video" size={16} color={colors.infoText} />
+          <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, lineHeight: 20, color: colors.infoText }}>{t('remote.course_type_remote_note')}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 });
 

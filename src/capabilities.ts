@@ -61,6 +61,7 @@ export const CAPABILITIES: ReadonlyArray<{ key: string; where: string }> = [
   { key: 'survey', where: 'src/components/SurveyModal.tsx' },
   { key: 'remote_sessions', where: 'src/components/remote/RemoteRoomScreen.tsx' },
   { key: 'session_delivery', where: 'src/components/remote/SessionDelivery.tsx' },
+  { key: 'course_delivery', where: 'src/components/remote/SessionDelivery.tsx' },
 ];
 
 const store = new SQLiteStorage('app-meta');

@@ -16,6 +16,9 @@ import { useTeacherOnboarding, useMarkOnboardingStep } from '@/hooks/useTeacherO
 import { formatNumber } from '@/utils/format';
 import { Surface } from '@/ui/surfaces';
 import { BetaLine } from '@/components/ui/Beta';
+import { CourseTypePicker } from '@/components/remote/SessionDelivery';
+import { useRemoteSessionsEnabled } from '@/hooks/useRemoteSession';
+import { needsAPlace, type SessionDelivery } from '@/remote/delivery';
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 type Slot = { day_of_week: number; start_time: string; end_time: string };
@@ -36,6 +39,11 @@ export default function CourseCreateScreen() {
   const privateOptions = options?.private_courses;
   const [privateLesson, setPrivateLesson] = useState(false);
   const noDoor = !!privateOptions?.enabled && privateLesson;
+  // «نوع المقرر: حضوري / أونلاين» (founder 2026-11-12) — offered only while «حصة أونلاين» is on.
+  // An online course has no place: no venue, no phone geofence, no radius.
+  const remoteOn = useRemoteSessionsEnabled();
+  const [delivery, setDelivery] = useState<SessionDelivery>('in_person');
+  const online = remoteOn && !needsAPlace(delivery);
   const create = useCreateCourse();
   const { data: onboarding } = useTeacherOnboarding();
   const markStep = useMarkOnboardingStep();
@@ -106,11 +114,13 @@ export default function CourseCreateScreen() {
         grade_id: Number(gradeId),
         academic_session_id: Number(termId),
         capacity: capacity.trim() ? Number(capacity.trim()) : undefined,
-        teacher_location_id: venueId,
-        radius_horizontal_meters: radius_,
-        phone_checkin_enabled: noDoor ? false : geofence,
+        teacher_location_id: online ? null : venueId,
+        radius_horizontal_meters: online ? undefined : radius_,
+        phone_checkin_enabled: noDoor || online ? false : geofence,
         allow_session_swap: noDoor ? false : allowSwap,
         attendance_mode: noDoor ? 'none' : 'door',
+        // Sent only while the choice is offered: an older server and a switched-off teacher get nothing new.
+        delivery: remoteOn ? (online ? 'remote' : 'in_person') : undefined,
         starts_at: startMode === 'date' && startDate ? startDate : undefined,
         description: description.trim() || undefined,
         slots: slots.length ? slots : undefined,
@@ -151,6 +161,15 @@ export default function CourseCreateScreen() {
             </Surface>
           ) : null}
 
+          {/* ── «نوع المقرر» — the course is in a place, or online ── */}
+          {remoteOn ? (
+            <Surface id="teacher.course_create.delivery">
+            <FormCard icon={online ? 'video' : 'location'} title={t('remote.course_type_label')} tint={online ? colors.brand : colors.borderStrong}>
+              <CourseTypePicker value={online ? 'remote' : 'in_person'} onChange={setDelivery} />
+            </FormCard>
+            </Surface>
+          ) : null}
+
           {/* ── Basics ── */}
           <Surface id="teacher.course_create.basics">
           <FormCard icon="book" title={t('teacher.section_basics')} required>
@@ -163,7 +182,8 @@ export default function CourseCreateScreen() {
             <Field label={t('teacher.term')} required>
               <Chips options={options.terms.map((tm) => ({ key: tm.id, label: tm.name + (tm.ended ? ` — ${t('teacher.term_ended_tag')}` : '') }))} value={termId} onChange={setTermId} />
             </Field>
-            {/* Venue — optional. With none yet, show the way to add one rather than nothing. */}
+            {/* Venue — optional. With none yet, show the way to add one rather than nothing. An online course has none. */}
+            {online ? null : (
             <Surface id="teacher.course_create.basics.venue">
             <Field label={t('enroll_ui.venue_label')} hint={t('form_ui.optional')}>
               {(options.venues?.length ?? 0) > 0 ? (
@@ -179,6 +199,7 @@ export default function CourseCreateScreen() {
               )}
             </Field>
             </Surface>
+            )}
           </FormCard>
           </Surface>
 
@@ -273,7 +294,7 @@ export default function CourseCreateScreen() {
             </Surface>
           ) : null}
 
-          {noDoor ? null : (
+          {noDoor || online ? null : (
           <Surface id="teacher.course_create.geofence">
           <FormCard icon="location" title={t('course_ui.geofence_label')} tint={geofence ? colors.success : colors.borderStrong}>
             <SwitchRow title={t('course_ui.geofence_label')} hint={t(geofence ? 'course_ui.geofence_hint' : 'course_ui.geofence_off_hint')} value={geofence} onChange={setGeofence} first />

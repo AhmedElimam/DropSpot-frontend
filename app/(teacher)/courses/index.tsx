@@ -17,6 +17,8 @@ import { Surface } from '@/ui/surfaces';
 import type { CourseSummary } from '@/api/courses';
 import { useShiftSettingsStore } from '@/stores/shiftSettingsStore';
 import { formatTime12 } from '@/components/ui/TimePicker';
+import { OnlineChip } from '@/components/remote/SessionDelivery';
+import { isRemoteDelivery } from '@/remote/delivery';
 
 function Meta({ icon, label, color = colors.textSecondary }: { icon: IconName; label: string; color?: string }) {
   return (
@@ -33,9 +35,12 @@ const CourseRow = memo(function CourseRow({ c, onPress }: { c: CourseSummary; on
   const located = c.phone_checkin_active;
   // A private lesson has no door: no location to be missing, the server's label instead.
   const noDoor = c.tracks_attendance === false;
+  // «نوع المقرر: أونلاين» has no place either: no location to be missing (the server sends
+  // `in_person` while the feature is off for this teacher).
+  const online = isRemoteDelivery(c);
   return (
     <TouchableOpacity onPress={() => onPress(c.id)} activeOpacity={0.85} accessibilityRole="button"
-      style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 5, borderStartColor: noDoor ? colors.brand : located ? colors.success : colors.warning, padding: spacing.md, marginBottom: spacing.sm }}>
+      style={{ backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, borderStartWidth: 5, borderStartColor: noDoor || online ? colors.brand : located ? colors.success : colors.warning, padding: spacing.md, marginBottom: spacing.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
         <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: colors.brandTint, justifyContent: 'center', alignItems: 'center' }}>
           <Icon name="book" size={22} color={colors.brand} />
@@ -54,6 +59,7 @@ const CourseRow = memo(function CourseRow({ c, onPress }: { c: CourseSummary; on
                 <Text style={{ fontFamily: fonts.bold, fontSize: 11, color: colors.brand }}>{c.shift_label ?? t(`course_shift.${c.shift}`)}</Text>
               </View>
             ) : null}
+            <OnlineChip row={c} size="sm" />
           </View>
           {c.schedule_label ? (
             <Text style={{ fontFamily: fonts.regular, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>{c.schedule_label}</Text>
@@ -72,7 +78,8 @@ const CourseRow = memo(function CourseRow({ c, onPress }: { c: CourseSummary; on
             : null}
         {noDoor
           ? <Meta icon="attendance" label={c.attendance_label ?? t('course_ui.private_label')} color={colors.brand} />
-          : <Meta icon="location" label={t(located ? 'teacher.location_set' : 'teacher.location_missing')} color={located ? colors.success : colors.warning} />}
+          : online ? null
+            : <Meta icon="location" label={t(located ? 'teacher.location_set' : 'teacher.location_missing')} color={located ? colors.success : colors.warning} />}
       </View>
     </TouchableOpacity>
   );

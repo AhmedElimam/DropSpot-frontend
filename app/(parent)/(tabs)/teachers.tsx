@@ -23,6 +23,7 @@ import { formatNumber } from '@/utils/format';
 import type { Child } from '@/api/children';
 import { Surface } from '@/ui/surfaces';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
+import { OnlineChip } from '@/components/remote/SessionDelivery';
 import { isPrivateLesson } from '@/utils/privateLesson';
 
 type ChildTeacher = Child['teachers'][number];
@@ -181,6 +182,8 @@ function TeacherCardView({ card, showChildName, removingKey, onTicket, onRemove 
                   <Icon name="book" size={15} color={colors.brand} outline />
                 </View>
                 <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 14, color: colors.textPrimary }} numberOfLines={1}>{c.name ?? '—'}</Text>
+                {/* «نوع المقرر: أونلاين». */}
+                <OnlineChip row={c} size="sm" />
                 {isPrivateLesson(c) ? (
                   <Surface id="parent.teachers.course_private_chip" ctx={{ course: c }}>
                     <PrivateLessonChip of={c} short />

@@ -1,19 +1,22 @@
 /**
- * «حضوري / أونلاين» — how a session is held, said in advance from the schedule (founder
- * 2026-11-12: «where is the schedule setting to change from physical to remote»). The
- * decisions, kept pure (no React, no native module) so each is tested on its own: what a
- * row's `delivery` means, where the «أونلاين» chip is drawn, which scopes the teacher is
- * offered, and what a student is told while an online session has not started yet.
+ * «نوع المقرر: حضوري / أونلاين» — how a course's sessions are held, said in advance (founder
+ * 2026-11-12: «the course type is hidden on موعد — we want this to be a type of course: either
+ * it's fully remote or physical»). The decisions, kept pure (no React, no native module) so each
+ * is tested on its own: what a row's `delivery` means, where the «أونلاين» chip is drawn, which
+ * scopes the teacher is offered, and what a student is told while an online session has not
+ * started yet.
  *
- * A session row's `delivery` is its own answer; a group row's is the group's standing answer
- * (new sessions are born with it). The server reports `in_person` while «حصة أونلاين» is off
- * for that teacher — and an older server reports nothing, which reads the same.
+ * The COURSE is the unit: a course row's `delivery` is its type (chosen at creation, changed on
+ * the course page; its groups and upcoming sessions move with it, and new sessions are born
+ * with it). A session row's `delivery` is that session's own answer — one session can still be
+ * an exception. The server reports `in_person` while «حصة أونلاين» is off for that teacher — and
+ * an older server reports nothing, which reads the same.
  */
 
 export type SessionDelivery = 'in_person' | 'remote';
 
-/** One session · that session's group from now on · every group of this teacher. */
-export type DeliveryScope = 'session' | 'group' | 'all';
+/** One session · that session's whole course from now on (its type) · every course of this teacher. */
+export type DeliveryScope = 'session' | 'course' | 'all';
 
 /** The push / feed type sent to the students and their parents when the teacher changes it. */
 export const DELIVERY_CHANGED_NOTIFICATION = 'session_delivery_changed';
@@ -45,9 +48,25 @@ export function showsOnlineChip(row: { delivery?: unknown; status?: string | nul
 
 // ── What the teacher is offered ────────────────────────────────────────────────────────────
 
-/** From a session: the three scopes, the narrowest first. From a group's schedule there is nothing to choose — it is that group. */
-export function deliveryScopeOptions(from: 'session' | 'group'): DeliveryScope[] {
-  return from === 'session' ? ['session', 'group', 'all'] : ['group'];
+/** From a session: the three scopes, the narrowest first. From the course page there is nothing to choose — it is that course. */
+export function deliveryScopeOptions(from: 'session' | 'course'): DeliveryScope[] {
+  return from === 'session' ? ['session', 'course', 'all'] : ['course'];
+}
+
+/**
+ * Is the course page's «نوع المقرر» control drawn? The feature on, and a course the server sent
+ * a `delivery` for (an older server sends none: nothing to switch).
+ */
+export function showsCourseDeliveryControl(course: { delivery?: unknown } | null | undefined, featureOn: boolean): boolean {
+  return featureOn && !!course && (course.delivery === 'remote' || course.delivery === 'in_person');
+}
+
+/**
+ * On the create form: the fields that only mean something in a place (venue, phone geofence
+ * check-in, radius) are offered only for an in-person course.
+ */
+export function needsAPlace(delivery: SessionDelivery): boolean {
+  return delivery !== 'remote';
 }
 
 interface Timed {
@@ -109,7 +128,7 @@ export function deliveryLabelKey(delivery: SessionDelivery): string {
 
 const SCOPE_KEYS: Record<DeliveryScope, string> = {
   session: 'remote.scope_session',
-  group: 'remote.scope_group',
+  course: 'remote.scope_course',
   all: 'remote.scope_all',
 };
 export function scopeLabelKey(scope: DeliveryScope): string {
@@ -118,7 +137,7 @@ export function scopeLabelKey(scope: DeliveryScope): string {
 
 const SCOPE_HINT_KEYS: Record<DeliveryScope, string> = {
   session: 'remote.scope_session_hint',
-  group: 'remote.scope_group_hint',
+  course: 'remote.scope_course_hint',
   all: 'remote.scope_all_hint',
 };
 export function scopeHintKey(scope: DeliveryScope): string {
@@ -128,6 +147,11 @@ export function scopeHintKey(scope: DeliveryScope): string {
 /** The sheet's title: «تخلّي الحصة أونلاين؟» / «ترجّع الحصة حضوري؟». */
 export function deliveryAskKey(to: SessionDelivery): string {
   return to === 'remote' ? 'remote.delivery_ask_remote' : 'remote.delivery_ask_in_person';
+}
+
+/** The course page's question: «تخلّي المقرر أونلاين؟» / «ترجّع المقرر حضوري؟». */
+export function courseAskKey(to: SessionDelivery): string {
+  return to === 'remote' ? 'remote.course_ask_remote' : 'remote.course_ask_in_person';
 }
 
 /** What is said once it is done — by scope and direction (the families were told once). */

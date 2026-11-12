@@ -7,7 +7,7 @@ import { Alert } from '@/ui/dialog';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { binaryVersion } from '@/utils/binaryVersion';
 import { getFriendlyErrorMessage } from '@/utils/errors';
-import { endRemoteSession, remoteErrorSentence, setGroupDelivery, setSessionDelivery, startRemoteSession, type DeliveryChange } from '@/api/remoteSession';
+import { endRemoteSession, remoteErrorSentence, setCourseDelivery, setSessionDelivery, startRemoteSession, type DeliveryChange } from '@/api/remoteSession';
 import { canBroadcastFromPhone, offerJoinUrl } from '@/remote/room';
 import type { DeliveryScope, SessionDelivery } from '@/remote/delivery';
 
@@ -38,19 +38,20 @@ export function refreshFamilyRemote(qc: QueryClient): void {
 
 /**
  * «حضوري / أونلاين» changed: the session queries the remote hooks refresh (today's cards, the
- * sessions list, the session pages — every one of them, since a group's or every group's
- * sessions may have moved with this one) and the course pages, whose group rows carry the
- * standing answer.
+ * sessions list, the session pages — every one of them, since a course's or every course's
+ * sessions may have moved with this one), the course pages and the course list (the course's
+ * type and its «أونلاين» chip).
  */
 export function refreshAfterDelivery(qc: QueryClient, courseId?: string | number | null): void {
   qc.invalidateQueries({ queryKey: ['teacher-sessions-today'] });
   qc.invalidateQueries({ queryKey: ['teacher-session-detail'] });
   qc.invalidateQueries({ queryKey: ['teacher-session-history'] });
   qc.invalidateQueries({ queryKey: courseId != null ? ['teacher-course', String(courseId)] : ['teacher-course'] });
+  qc.invalidateQueries({ queryKey: ['teacher-courses'] });
 }
 
 /**
- * The teacher says how a session is held: that one, its group from now on, or every group.
+ * The teacher says how a session is held: that one, its course from now on, or every course.
  * The caller shows the result (the server's refusal is an Arabic sentence — remoteErrorSentence).
  */
 export function useSetSessionDelivery(sessionId: string) {
@@ -62,11 +63,11 @@ export function useSetSessionDelivery(sessionId: string) {
   });
 }
 
-/** The same from a group's schedule (the course page): that group, from now on. */
-export function useSetGroupDelivery(courseId: string) {
+/** «نوع المقرر» from the course page: the course, its groups and its sessions from now on. */
+export function useSetCourseDelivery(courseId: string) {
   const qc = useQueryClient();
-  return useMutation<DeliveryChange, unknown, { scheduleId: string; delivery: SessionDelivery }>({
-    mutationFn: ({ scheduleId, delivery }) => setGroupDelivery(courseId, scheduleId, delivery),
+  return useMutation<DeliveryChange, unknown, SessionDelivery>({
+    mutationFn: (delivery) => setCourseDelivery(courseId, delivery),
     onSettled: () => refreshAfterDelivery(qc, courseId),
   });
 }

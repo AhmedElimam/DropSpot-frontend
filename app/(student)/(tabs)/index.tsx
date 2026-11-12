@@ -449,6 +449,7 @@ function TeacherCard({ teacher }: { teacher: StudentTeacher }) {
               <Surface key={c.id} id="student.home.teacher_card.private_course" ctx={{ course: c }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                   <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{c.name}</Text>
+                  <OnlineChip row={c} size="sm" />
                   <PrivateLessonChip of={c} style={{ flexShrink: 1 }} />
                 </View>
               </Surface>
@@ -457,6 +458,8 @@ function TeacherCard({ teacher }: { teacher: StudentTeacher }) {
           return (
             <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.textPrimary }} numberOfLines={1}>{c.name}</Text>
+              {/* «نوع المقرر: أونلاين». */}
+              <OnlineChip row={c} size="sm" />
               <View style={{ width: 84, height: 6, borderRadius: 3, backgroundColor: colors.borderLight, overflow: 'hidden' }}>
                 <View style={{ width: `${c.rate ?? 0}%`, height: '100%', borderRadius: 3, backgroundColor: cTone }} />
               </View>

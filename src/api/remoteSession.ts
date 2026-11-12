@@ -20,8 +20,8 @@ export interface TeacherRemoteState {
 
 /**
  * «حضوري / أونلاين» — how a session is held, said in advance (src/remote/delivery.ts). On every
- * session row that carries `remote`, and on a group row of the course page. Absent on an older
- * server; `in_person` while the feature is off for that teacher.
+ * session row that carries `remote`, and on every course row (the course's type). Absent on an
+ * older server; `in_person` while the feature is off for that teacher.
  */
 export type { SessionDelivery, DeliveryScope } from '@/remote/delivery';
 
@@ -31,8 +31,10 @@ export interface DeliveryChange {
   scope: DeliveryScope;
   /** Sessions whose answer changed. */
   changed: number;
-  /** Groups whose standing answer changed (0 for one session). */
+  /** Group rows that took the course's type (0 for one session). */
   groups: number;
+  /** Courses whose type changed (0 for one session). */
+  courses: number;
 }
 
 /** On a student's session row (`/students/{id}/sessions/today` and `/upcoming`). Absent/null = feature off for that teacher. */
@@ -80,8 +82,7 @@ export const remotePaths = {
   studentJoin: (studentId: Id, sessionId: Id) =>
     `/students/${encodeURIComponent(String(studentId))}/sessions/${encodeURIComponent(String(sessionId))}/remote/join`,
   sessionDelivery: (sessionId: Id) => `/teacher/sessions/${encodeURIComponent(String(sessionId))}/delivery`,
-  groupDelivery: (courseId: Id, scheduleId: Id) =>
-    `/teacher/courses/${encodeURIComponent(String(courseId))}/schedules/${encodeURIComponent(String(scheduleId))}/delivery`,
+  courseDelivery: (courseId: Id) => `/teacher/courses/${encodeURIComponent(String(courseId))}/delivery`,
 } as const;
 
 /** The house envelope is `{ data: … }`; a bare body is read as it is. */
@@ -140,12 +141,13 @@ function changeOf(body: any, asked: SessionDelivery, scope: DeliveryScope): Deli
     scope,
     changed: Math.max(0, Number(d.changed) || 0),
     groups: Math.max(0, Number(d.groups) || 0),
+    courses: Math.max(0, Number(d.courses) || 0),
   };
 }
 
 /**
- * Say how a session is held — that one (`session`), its group from now on (`group`), or every
- * group of this teacher (`all`). The server refuses a session that is over or cancelled, and
+ * Say how a session is held — that one (`session`), its whole course from now on (`course`: the
+ * course's type), or every course of this teacher (`all`). The server refuses a session that is over or cancelled, and
  * going back to in person while its room is on air (409 `REMOTE_LIVE`). The students and
  * their parents get ONE notification for the whole change.
  */
@@ -154,10 +156,13 @@ export async function setSessionDelivery(sessionId: Id, delivery: SessionDeliver
   return changeOf(data, delivery, scope);
 }
 
-/** The same from a group's schedule, where there is no session to stand on: that group, from now on. */
-export async function setGroupDelivery(courseId: Id, scheduleId: Id, delivery: SessionDelivery): Promise<DeliveryChange> {
-  const { data } = await client.post(remotePaths.groupDelivery(courseId, scheduleId), { delivery });
-  return changeOf(data, delivery, 'group');
+/**
+ * «نوع المقرر» from the course page: the course, its groups and its sessions from now on. Same
+ * refusals (403 not this teacher's, 409 `REMOTE_LIVE`); the families are told once.
+ */
+export async function setCourseDelivery(courseId: Id, delivery: SessionDelivery): Promise<DeliveryChange> {
+  const { data } = await client.post(remotePaths.courseDelivery(courseId), { delivery });
+  return changeOf(data, delivery, 'course');
 }
 
 /**

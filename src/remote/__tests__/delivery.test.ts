@@ -1,21 +1,25 @@
 /**
- * «حضوري / أونلاين» — the decisions of src/remote/delivery.ts: what a row's `delivery` means,
- * where the «أونلاين» chip is drawn, which scopes the teacher is offered, when the control is
- * drawn at all, what a student is told while an online session has not started, and that every
- * word the screens ask for exists.
+ * «نوع المقرر: حضوري / أونلاين» — the decisions of src/remote/delivery.ts: what a row's `delivery`
+ * means, where the «أونلاين» chip is drawn, which scopes the teacher is offered (the course is
+ * the unit), when the controls are drawn at all, which create-form fields need a place, what a
+ * student is told while an online session has not started, and that every word the screens ask
+ * for exists.
  */
 import {
   DELIVERY_CHANGED_NOTIFICATION,
   canChangeDelivery,
+  courseAskKey,
   deliveryAskKey,
   deliveryDoneKey,
   deliveryLabelKey,
   deliveryOf,
   deliveryScopeOptions,
   isRemoteDelivery,
+  needsAPlace,
   otherDelivery,
   scopeHintKey,
   scopeLabelKey,
+  showsCourseDeliveryControl,
   showsDeliveryControl,
   showsOnlineChip,
   waitsForTeacher,
@@ -59,7 +63,7 @@ describe('what a row says', () => {
 describe('the «أونلاين» chip', () => {
   it('is drawn on an online session while the feature is on', () => {
     expect(showsOnlineChip({ delivery: 'remote', status: 'scheduled' }, true)).toBe(true);
-    // A group row has no status.
+    // A course row has no status.
     expect(showsOnlineChip({ delivery: 'remote' }, true)).toBe(true);
   });
 
@@ -77,12 +81,27 @@ describe('the «أونلاين» chip', () => {
 });
 
 describe('what the teacher is offered', () => {
-  it('from a session: the three scopes, the narrowest first', () => {
-    expect(deliveryScopeOptions('session')).toEqual(['session', 'group', 'all']);
+  it('from a session: the three scopes, the narrowest first — the session, its course, every course', () => {
+    expect(deliveryScopeOptions('session')).toEqual(['session', 'course', 'all']);
   });
 
-  it('from a group\'s schedule: that group, nothing to choose', () => {
-    expect(deliveryScopeOptions('group')).toEqual(['group']);
+  it('from the course page: that course, nothing to choose', () => {
+    expect(deliveryScopeOptions('course')).toEqual(['course']);
+  });
+
+  it('the course page\'s control: the feature on and a course the server sent a type for', () => {
+    expect(showsCourseDeliveryControl({ delivery: 'in_person' }, true)).toBe(true);
+    expect(showsCourseDeliveryControl({ delivery: 'remote' }, true)).toBe(true);
+    expect(showsCourseDeliveryControl({ delivery: 'remote' }, false)).toBe(false);
+    // An older server sends no type: nothing to switch.
+    expect(showsCourseDeliveryControl({}, true)).toBe(false);
+    expect(showsCourseDeliveryControl({ delivery: 'online' }, true)).toBe(false);
+    expect(showsCourseDeliveryControl(null, true)).toBe(false);
+  });
+
+  it('on the create form only an in-person course asks for a place', () => {
+    expect(needsAPlace('in_person')).toBe(true);
+    expect(needsAPlace('remote')).toBe(false);
   });
 
   it('a session can change until it is over', () => {
@@ -155,7 +174,7 @@ describe('words', () => {
     return remote[key.slice('remote.'.length)];
   };
   const values: SessionDelivery[] = ['in_person', 'remote'];
-  const scopes: DeliveryScope[] = ['session', 'group', 'all'];
+  const scopes: DeliveryScope[] = ['session', 'course', 'all'];
 
   it('the two values read «حضوري» and «أونلاين»', () => {
     expect(word(deliveryLabelKey('in_person'))).toBe('حضوري');
@@ -164,24 +183,30 @@ describe('words', () => {
 
   it('the three scopes read as the founder asked', () => {
     expect(word(scopeLabelKey('session'))).toBe('الحصة دي بس');
-    expect(word(scopeLabelKey('group'))).toBe('كل حصص المجموعة الجاية');
-    expect(word(scopeLabelKey('all'))).toBe('كل مجموعاتي');
+    expect(word(scopeLabelKey('course'))).toBe('المقرر كله');
+    expect(word(scopeLabelKey('all'))).toBe('كل مقرراتي');
+  });
+
+  it('the course type reads «نوع المقرر»', () => {
+    expect(remote.course_type_label).toBe('نوع المقرر');
   });
 
   it('every key the screens build exists in the Arabic file', () => {
     for (const v of values) {
       expect(word(deliveryAskKey(v))).toBeTruthy();
+      expect(word(courseAskKey(v))).toBeTruthy();
       for (const s of scopes) expect(word(deliveryDoneKey(v, s))).toBeTruthy();
     }
     for (const s of scopes) expect(word(scopeHintKey(s))).toBeTruthy();
     for (const k of ['online_chip', 'delivery_label', 'delivery_ask_sub', 'delivery_done_none', 'delivery_told', 'delivery_confirm_cta',
-      'group_delivery_label', 'group_delivery_hint', 'group_ask_remote', 'group_ask_in_person', 'group_ask_body', 'waits_for_teacher']) {
+      'course_type_label', 'course_type_in_person_sub', 'course_type_remote_sub', 'course_type_remote_note',
+      'course_type_hint_in_person', 'course_type_hint_remote', 'course_ask_body', 'waits_for_teacher']) {
       expect(remote[k]).toBeTruthy();
     }
   });
 
   it('a change of several sessions says how many', () => {
-    for (const v of values) for (const s of ['group', 'all'] as const) expect(word(deliveryDoneKey(v, s))).toContain('{{n}}');
+    for (const v of values) for (const s of ['course', 'all'] as const) expect(word(deliveryDoneKey(v, s))).toContain('{{n}}');
   });
 
   it('a student waiting is told the session is online and starts when the teacher opens it', () => {
@@ -190,12 +215,15 @@ describe('words', () => {
 });
 
 describe('the two calls', () => {
-  it('a session\'s, and a group\'s from its schedule', () => {
+  it('a session\'s, and a course\'s from the course page', () => {
     expect(remotePaths.sessionDelivery(81)).toBe('/teacher/sessions/81/delivery');
-    expect(remotePaths.groupDelivery(7, '12')).toBe('/teacher/courses/7/schedules/12/delivery');
+    expect(remotePaths.courseDelivery(7)).toBe('/teacher/courses/7/delivery');
+    // The per-group call is gone: the course is the unit.
+    expect((remotePaths as Record<string, unknown>).groupDelivery).toBeUndefined();
   });
 
   it('an id is never read as a path', () => {
     expect(remotePaths.sessionDelivery('8/../1')).toBe('/teacher/sessions/8%2F..%2F1/delivery');
+    expect(remotePaths.courseDelivery('7/../1')).toBe('/teacher/courses/7%2F..%2F1/delivery');
   });
 });

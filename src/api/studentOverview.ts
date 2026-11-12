@@ -13,6 +13,8 @@ export interface StudentCourseStanding extends AttendanceModeFields {
   /** present ÷ recorded, as a whole percent; null before anything was recorded — and always null for a private lesson. */
   rate: number | null;
   next_session_at: string | null;
+  /** «نوع المقرر: حضوري / أونلاين» — `in_person` while «حصة أونلاين» is off for that teacher; absent on older servers. */
+  delivery?: 'in_person' | 'remote';
 }
 
 export interface StudentTeacher {

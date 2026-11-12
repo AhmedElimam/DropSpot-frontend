@@ -23,6 +23,7 @@ import { GradeComplaintSheet, GradeComplaintStatus, gradeTargetFromExam, type Gr
 import type { AttendanceRecord } from '@/types/attendance';
 import { Surface } from '@/ui/surfaces';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
+import { OnlineChip } from '@/components/remote/SessionDelivery';
 import { tracksAttendance } from '@/utils/privateLesson';
 import { FamilySessionSheet, type FamilySessionTarget } from '@/components/session/FamilySessionSheet';
 
@@ -167,6 +168,8 @@ export function FamilyTeacherScreen({ studentId, teacherId, who, childName }: {
                     <Surface key={c.id} id="student.teacher.standing.private_course" ctx={{ course: c }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                         <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.textPrimary }} numberOfLines={1}>{c.name}</Text>
+                        {/* «نوع المقرر: أونلاين». */}
+                        <OnlineChip row={c} size="sm" />
                         <PrivateLessonChip of={c} style={{ flexShrink: 1 }} />
                       </View>
                     </Surface>
@@ -176,6 +179,7 @@ export function FamilyTeacherScreen({ studentId, teacherId, who, childName }: {
                   <View key={c.id}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                       <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 13.5, color: colors.textPrimary }} numberOfLines={1}>{c.name}</Text>
+                      <OnlineChip row={c} size="sm" />
                       <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: tone }}>{c.total > 0 ? `${formatNumber(c.present)}/${formatNumber(c.total)}` : '—'}</Text>
                     </View>
                     <View style={{ height: 7, borderRadius: 4, backgroundColor: colors.borderLight, overflow: 'hidden', marginTop: 5 }}>
