@@ -42,6 +42,8 @@ import { getFriendlyErrorMessage } from '@/utils/errors';
 import { useKeyboardDropOnLeave } from '@/hooks/useKeyboardDropOnLeave';
 import { isParentsRoom, roomIdOf, type RoomId } from '@/chat/room';
 import { RoomAvatar } from '@/components/chat/RoomAvatar';
+import { ChatRoomSkeleton, ChatSkeletonBubbles } from '@/components/chat/ChatRoomSkeleton';
+import { useArrived } from '@/hooks/useArrived';
 import { RoomSwitcher } from '@/components/chat/RoomSwitcher';
 import { formatDateTime, formatDayDate, relativeDay } from '@/utils/format';
 
@@ -77,6 +79,11 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
+  // The room opens as the room at once; its messages — the heavy part, a list of bubbles each
+  // with its gestures — mount when the page has landed (founder 2026-11-12: «it loads the
+  // whole page, not opening the chat itself and skeleton-loading the messages»). A saved
+  // page used to render in full before the slide could begin.
+  const arrived = useArrived();
   useKeyboardDropOnLeave();
   const qc = useQueryClient();
   const me = useAuthStore((s) => s.user);
@@ -346,7 +353,7 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
 
   // Scroll to a jumped-to message once it is in the rows, and let it glow.
   useEffect(() => {
-    if (pendingScrollId == null) return;
+    if (pendingScrollId == null || !arrived) return; // the list mounts on arrival
     const index = rows.findIndex((r) => r.type === 'msg' && r.message.id === pendingScrollId);
     if (index < 0) return;
     const id = pendingScrollId;
@@ -357,7 +364,7 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
       setHighlightId(id);
       setTimeout(() => setHighlightId((h) => (h === id ? null : h)), 2400);
     });
-  }, [pendingScrollId, rows]);
+  }, [pendingScrollId, rows, arrived]);
   const onScrollToIndexFailed = useCallback((info: { index: number; averageItemLength: number }) => {
     if (scrollRetries.current++ > 3) return;
     listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
@@ -698,11 +705,16 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
     setNotify.mutate(next, { onSuccess: () => Alert.alert('', next ? t('chat.notify_on') : t('chat.notify_off')) });
   };
 
+  // Not here yet: the room opens as the room — header, wallpaper, composer bar — with
+  // placeholder bubbles where the messages will be, not a spinner on an empty page.
   if (room.isLoading && !room.data) {
+    const known = channels.data?.find((c) => roomIdOf(c) === courseId)?.course_name;
     return (
-      <View style={{ flex: 1, backgroundColor: chat.canvas, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <ChatRoomSkeleton
+        room={courseId}
+        name={known ? (parentsRoom ? t('chat.parents_room_name', { course: known }) : known) : null}
+        onBack={() => { Keyboard.dismiss(); router.back(); }}
+      />
     );
   }
   if (!room.data) {
@@ -824,6 +836,7 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
         <View style={{ flex: 1 }}>
 
           <ChatWallpaper />
+          {!arrived ? <ChatSkeletonBubbles /> : (
           <FlatList
             ref={listRef}
             inverted
@@ -870,8 +883,9 @@ export function ChatRoomScreen({ courseId, infoHref, roomHref }: {
               ? <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: spacing.md }} />
               : (win ? !win.hasMoreBefore : (noMoreOlder || messages.length < pageSize)) ? <RoomNotice room={data} parentsRoom={parentsRoom} /> : null}
           />
+          )}
 
-          {messages.length === 0 && !room.isFetching ? (
+          {arrived && messages.length === 0 && !room.isFetching ? (
             <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center', padding: spacing.xl }}>
               <View style={{ backgroundColor: chat.chipBg, borderWidth: 1, borderColor: chat.chipBorder, borderRadius: radius.lg, paddingVertical: spacing.lg, paddingHorizontal: spacing.xl, maxWidth: 300 }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 15, color: colors.textPrimary, textAlign: 'center' }}>{t('chat.no_messages_title')}</Text>

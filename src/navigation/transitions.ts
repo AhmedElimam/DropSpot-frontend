@@ -15,7 +15,10 @@ import { notifyManager } from '@tanstack/react-query';
  * (`transitionListeners`, a navigator prop in all six Stacks); while one is in flight:
  *   - React Query holds its observer notifications and flushes them at the end, so no query
  *     result re-renders a sliding page (`installTransitionScheduler`);
- *   - `useOnScreen` answers false, so ambient motion, clocks and polls wait for the end.
+ *   - `useOnScreen` keeps its answer, so a screen that gains or loses focus under a slide
+ *     wakes or rests only at the end — and nothing reading it re-renders at the start either
+ *     (it used to answer false for the whole slide: the page being left re-rendered in the
+ *     first frames of every swipe back, the home in the first frames of every push).
  * A transition that never reports its end (a deep link, a replace) expires on its own.
  *
  * A swipe back is different (founder 2026-10-23: «it stalls when my finger touches something
@@ -82,6 +85,15 @@ export function settle(): void {
   until = 0;
   if (was) notify();
   flush();
+}
+
+/**
+ * What `useOnScreen` answers: while a screen slides it keeps the answer it had — a change of
+ * focus is read when the page has landed (`settle` tells the subscribers) — so nothing that
+ * reads it re-renders inside an animation.
+ */
+export function onScreenAnswer(previous: boolean, inFront: boolean): boolean {
+  return inTransition() ? previous : inFront;
 }
 
 export function subscribeTransitions(listener: () => void): () => void {

@@ -1,5 +1,5 @@
 import { notifyManager } from '@tanstack/react-query';
-import { _resetTransitions, inTransition, installTransitionScheduler, markTransition, noteTouchCancel, settle, subscribeTransitions, transitionListeners, SWIPE_LINK_MS, SWIPE_MAX_MS, TRANSITION_MAX_MS } from '../transitions';
+import { _resetTransitions, inTransition, onScreenAnswer, installTransitionScheduler, markTransition, noteTouchCancel, settle, subscribeTransitions, transitionListeners, SWIPE_LINK_MS, SWIPE_MAX_MS, TRANSITION_MAX_MS } from '../transitions';
 
 /**
  * The transition hold (src/navigation/transitions.ts): while a native stack slides, React Query
@@ -104,5 +104,50 @@ describe('a swipe back holds for as long as the finger does', () => {
     transitionListeners.transitionStart();
     jest.advanceTimersByTime(SWIPE_MAX_MS);
     expect(inTransition()).toBe(false);
+  });
+});
+
+/**
+ * `useOnScreen` (src/hooks/useAmbientMotion.ts) through a slide: its answer does not move
+ * until the page has landed, so a screen-level hook that reads it (polls, clocks, ambient
+ * motion) re-renders nothing inside the animation — founder 2026-11-12, the stall on an
+ * aggressive swipe back.
+ */
+describe('on-screen answers through a slide', () => {
+  beforeEach(() => { jest.useFakeTimers(); _resetTransitions(); });
+  afterEach(() => { jest.useRealTimers(); });
+
+  it('the page being left keeps its answer when the swipe starts', () => {
+    transitionListeners.transitionStart();
+    // Still focused, still in front: no change, so no re-render at the start of the gesture.
+    expect(onScreenAnswer(true, true)).toBe(true);
+  });
+
+  it('a page that loses focus under a push rests only once the new page has landed', () => {
+    transitionListeners.transitionStart();
+    expect(onScreenAnswer(true, false)).toBe(true);
+    transitionListeners.transitionEnd();
+    expect(onScreenAnswer(true, false)).toBe(false);
+  });
+
+  it('the page under a pop wakes only once the pop has landed', () => {
+    transitionListeners.transitionStart();
+    expect(onScreenAnswer(false, true)).toBe(false);
+    transitionListeners.transitionEnd();
+    expect(onScreenAnswer(false, true)).toBe(true);
+  });
+
+  it('subscribers are told at the end, when the answer may be read again', () => {
+    const answers: boolean[] = [];
+    let current = false;
+    subscribeTransitions(() => { current = onScreenAnswer(current, true); answers.push(current); });
+    transitionListeners.transitionStart();
+    transitionListeners.transitionEnd();
+    expect(answers).toEqual([false, true]);
+  });
+
+  it('outside a slide the answer is simply whether the screen is in front', () => {
+    expect(onScreenAnswer(false, true)).toBe(true);
+    expect(onScreenAnswer(true, false)).toBe(false);
   });
 });
