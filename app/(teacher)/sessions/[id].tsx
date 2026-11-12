@@ -32,6 +32,8 @@ import { dayLabel, formatNumber } from '@/utils/format';
 import { goToScan } from '@/utils/sessionNav';
 import { Surface } from '@/ui/surfaces';
 import type { TeacherSession } from '@/api/teacher';
+import { TeacherRemoteAction } from '@/components/remote/TeacherRemoteAction';
+import { isSameLocalDay } from '@/remote/room';
 
 type RosterTab = 'roster' | 'swap';
 // The roster list's two leading items (see its FlatList): the controls that pin under the bar,
@@ -519,6 +521,10 @@ export default function SessionDetailScreen() {
                 )}
               </LinearGradient>
               </Surface>
+              {/* «حصة أونلاين» — start today's class in our own live room, or go back into it. */}
+              {s.remote && !s.is_cancelled ? (
+                <TeacherRemoteAction sessionId={String(s.id)} remote={s.remote} variant="panel" canStart={isSameLocalDay(s.scheduled_at, now)} />
+              ) : null}
               {/* «ملاحظات الحصة» — to the whole session; open 48 h after the end, then reopenable. */}
               <Surface id="teacher.session_detail.notes_card" ctx={{ session: s }}>
               <SessionNotesCard s={s} save={controls.summary} reopen={controls.reopen} autoOpen={notesParam === '1'} />

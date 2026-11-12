@@ -37,7 +37,7 @@ const BLOCKING_PREFIXES = [
   '/reset-password', '/welcome', '/scan', '/enroll', '/check-in',
 ];
 
-const ICONS: Record<string, IconName> = { course_chat: 'chat', threads: 'threads', print_market: 'note', community: 'people' };
+const ICONS: Record<string, IconName> = { course_chat: 'chat', threads: 'threads', print_market: 'note', community: 'people', remote_sessions: 'video' };
 
 export function FeatureTermsPrompt() {
   const due = useAppConfigStore((s) => s.config.feature_terms ?? NONE);

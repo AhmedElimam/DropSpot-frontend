@@ -40,6 +40,9 @@ import { NazerHub } from '@/components/nazer/NazerHub';
 import { studentSay } from '@/nazer/mood';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
 import { tracksAttendance, attendanceLabel } from '@/utils/privateLesson';
+import { StudentRemoteJoin, RemoteLiveChip } from '@/components/remote/RemoteJoin';
+import { useRemoteSessionsEnabled } from '@/hooks/useRemoteSession';
+import { isRemoteLive } from '@/remote/room';
 
 const statusDot = (): Record<string, string> => ({
   live: colors.success,
@@ -82,7 +85,10 @@ export default function StudentDashboard() {
   const now = Date.now();
   // The one session to put first: live, else the next scheduled one the student has not been
   // marked for yet.
-  const spotlight = list.find((s) => s.status === 'live')
+  // «حصة أونلاين»: a class on air right now comes before everything — it is the one to enter.
+  const remoteOn = useRemoteSessionsEnabled();
+  const spotlight = (remoteOn ? list.find((s) => isRemoteLive(s.remote) && s.status !== 'cancelled') : undefined)
+    ?? list.find((s) => s.status === 'live')
     ?? list.find((s) => s.status === 'scheduled' && !s.attendance_status && new Date(s.scheduled_at).getTime() >= now);
   const firstName = (user?.name ?? '').split(' ')[0];
   // الناظر's one line about today, from what this screen already knows.
@@ -335,6 +341,8 @@ function Spotlight({ s, now }: { s: Session; now: number }) {
             </View>
           ) : <Icon name="back" size={18} color="rgba(255,255,255,0.8)" />}
         </View>
+        {/* «الحصة أونلاين دلوقتي — ادخل»: only while the class is on air; attendance records itself. */}
+        {isRemoteLive(s.remote) ? <StudentRemoteJoin sessionId={s.id} remote={s.remote} onColor style={{ marginTop: spacing.md }} /> : null}
       </LinearGradient>
     </TouchableOpacity>
   );
@@ -371,6 +379,9 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
         <Surface id="student.home.session_row.private_label" ctx={{ session }}>
           <PrivateLessonChip of={session} short />
         </Surface>
+      ) : isRemoteLive(session.remote) && !session.attendance_status && session.status !== 'cancelled' ? (
+        // On air and not attended yet: the row says so (the button is on the spotlight and the check-in tab).
+        <RemoteLiveChip remote={session.remote} />
       ) : startingSoon ? (
         <View style={{ backgroundColor: colors.brandTint, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.full }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 12, color: colors.brand }}>{t('attendance.starting_soon')}</Text>

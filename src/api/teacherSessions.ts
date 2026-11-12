@@ -1,6 +1,7 @@
 import client from './client';
 import { extractList, extractAttrs } from './utils';
 import type { HomeworkRating, HomeworkSummary } from './homework';
+import type { TeacherRemoteState } from './remoteSession';
 
 // Teacher sessions HISTORY (beyond today) + per-session attendance detail. The
 // existing /teacher/sessions/today is today-only and carries no attendee roster.
@@ -27,6 +28,8 @@ export interface SessionRow {
   /** «ملاحظات الحصة»: whether notes can be written now, and whether the session note was. Older servers omit both. */
   notes_state?: NotesWindowState;
   notes_written?: boolean;
+  /** «حصة أونلاين»: drawn on the card when the row carries it (today's list and the detail do). */
+  remote?: TeacherRemoteState | null;
 }
 
 /**
@@ -150,6 +153,8 @@ export interface SessionDetail {
   homework_previous?: { session_id: string; session_date: string | null } | null;
   /** False on a cancelled session. */
   can_edit_homework?: boolean;
+  /** «حصة أونلاين»: on air or not, and who is watching. Absent/null = the feature is off for this teacher. */
+  remote?: TeacherRemoteState | null;
   /** Served from the phone's last-known copy because the server could not be reached. */
   offline?: boolean;
   cached_at?: string;

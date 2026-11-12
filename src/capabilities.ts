@@ -59,6 +59,7 @@ export const CAPABILITIES: ReadonlyArray<{ key: string; where: string }> = [
   { key: 'offline', where: 'src/db/autoSync.ts' },
   { key: 'search', where: 'app/(teacher)/search.tsx' },
   { key: 'survey', where: 'src/components/SurveyModal.tsx' },
+  { key: 'remote_sessions', where: 'src/components/remote/RemoteRoomScreen.tsx' },
 ];
 
 const store = new SQLiteStorage('app-meta');

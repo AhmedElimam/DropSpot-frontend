@@ -12,6 +12,8 @@ import { RevisionChip } from '@/components/RevisionRibbon';
 import { useRevisionActive } from '@/hooks/useRevisionTheme';
 
 import { sessionPhase, type SessionPhase } from '@/utils/sessionPhase';
+import { TeacherRemoteAction } from '@/components/remote/TeacherRemoteAction';
+import { isSameLocalDay } from '@/remote/room';
 
 export { sessionPhase, type SessionPhase };
 
@@ -42,6 +44,8 @@ export interface SessionCardData {
   notes_written?: boolean;
   /** «فيه واجب» (2026-11-11): last session's homework, graded at this one. */
   homework_due?: { body: string; assigned_on: string | null } | null;
+  /** «حصة أونلاين»: on air or not, and who is watching (today's rows). Absent/null = feature off. */
+  remote?: { live: boolean; viewers: number } | null;
 }
 
 const PHASE = (): Record<SessionPhase, { stripe: string; chipBg: string; chipText: string; key: string }> => ({
@@ -177,6 +181,13 @@ export const SessionCard = memo(function SessionCard({
             <Icon name="back" size={14} color={phase === 'live' ? colors.successText : colors.brand} />
           </TouchableOpacity>
           </Surface>
+        ) : null}
+
+        {/* «حصة أونلاين»: start it for today's session, or go back into the one on air. Mounted only
+            when the row carries the field — a card costs nothing extra while the feature is off. */}
+        {s.remote && phase !== 'cancelled' ? (
+          <TeacherRemoteAction sessionId={s.id} remote={s.remote} variant="card"
+            canStart={(phase === 'live' || phase === 'upcoming') && isSameLocalDay(s.scheduled_at, now)} />
         ) : null}
 
         {actionable ? (

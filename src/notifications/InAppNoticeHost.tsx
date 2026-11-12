@@ -17,6 +17,7 @@ import { getNotifications, markRead } from '@/api/notifications';
 import { setupNotificationReceivedHandler } from '@/utils/push-notifications';
 import { useInAppNotice, noticeIdOf, type InAppNotice } from './inAppNotice';
 import { chatRoom } from '@/utils/notification-routing';
+import { REMOTE_LIVE_NOTIFICATION } from '@/remote/room';
 
 /** How long the toast stays before it slips away on its own (unread). */
 const STAY_MS = 6000;
@@ -43,6 +44,8 @@ export function InAppNoticeHost() {
     const sub = setupNotificationReceivedHandler(({ title, body, data }) => {
       useInAppNotice.getState().show({ id: noticeIdOf(data), title, body, type: String(data?.type ?? ''), data }, true);
       void qc.invalidateQueries({ queryKey: ['notifications'] });
+      // «حصة أونلاين» just went on air: the session cards show «ادخل» at once, with no poll.
+      if (data?.type === REMOTE_LIVE_NOTIFICATION) void qc.invalidateQueries({ queryKey: ['sessions'] });
     });
     return () => sub.remove();
   }, [isAuthenticated, qc]);

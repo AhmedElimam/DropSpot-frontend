@@ -22,6 +22,7 @@ import { useActiveAbilities } from '@/hooks/useActiveAbilities';
 import { RelocationPrompt } from '@/components/teacher/RelocationPrompt';
 import { RevisionThemeSync } from '@/hooks/useRevisionTheme';
 import { colors } from '@/theme/index';
+import { ROOM_BACKGROUND } from '@/remote/room';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
 import { stopLegacyLocationTasks } from '@/utils/foregroundLocation';
 
@@ -175,6 +176,9 @@ export default function TeacherLayout() {
     // hidden tabs the freeze was for — those keep their own `freeze_hidden_tabs` switch).
     <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
+      {/* «حصة أونلاين»: the live room, full screen and dark. It fades in (no paper frame sliding
+          over the page), and has no swipe back — leaving a class asks first (RemoteRoomScreen). */}
+      <Stack.Screen name="remote/[id]" options={{ animation: 'fade', gestureEnabled: false, contentStyle: { backgroundColor: ROOM_BACKGROUND } }} />
       {/* Search keeps the NATIVE push: a custom animation (the fade tried first) loses iOS's
           finger-tracking swipe back, which then stuttered (founder 2026-10-10). The stutter on
           the way in was the keyboard rising mid-push; app/(teacher)/search.tsx raises it only

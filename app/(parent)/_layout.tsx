@@ -4,6 +4,7 @@ import { transitionListeners } from '@/navigation/transitions';
 import { View, ActivityIndicator, AppState, AppStateStatus } from 'react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { colors } from '@/theme/index';
+import { ROOM_BACKGROUND } from '@/remote/room';
 import { registerForPushNotifications, unregisterPushNotifications } from '@/utils/push-notifications';
 import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { useParentShareInbox } from '@/hooks/useParentShareInbox';
@@ -89,6 +90,9 @@ export default function ParentLayout() {
     // hidden tabs the freeze was for — those keep their own `freeze_hidden_tabs` switch).
     <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
+      {/* «حصة أونلاين»: the live room, full screen and dark. It fades in (no paper frame sliding
+          over the page), and has no swipe back — leaving a class asks first (RemoteRoomScreen). */}
+      <Stack.Screen name="remote/[id]" options={{ animation: 'fade', gestureEnabled: false, contentStyle: { backgroundColor: ROOM_BACKGROUND } }} />
     </Stack>
   );
 }

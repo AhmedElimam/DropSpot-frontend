@@ -45,6 +45,8 @@ import { usePhoneConfirmations } from '@/hooks/usePhoneConfirmations';
 import { useTickets } from '@/hooks/useTickets';
 import { formatNumber, formatDayDate } from '@/utils/format';
 import { pickCurrentSession, goToScan } from '@/utils/sessionNav';
+import { TeacherRemoteAction } from '@/components/remote/TeacherRemoteAction';
+import { isSameLocalDay } from '@/remote/room';
 import { useMinuteClock } from '@/hooks/useMinuteClock';
 import { useRose } from '@/hooks/useRose';
 import { RosePortrait } from '@/components/rose/RoseStamp';
@@ -514,6 +516,12 @@ function Spotlight({ s, now, canScan, onScan, onOpen }: { s: TeacherSession; now
           </Surface>
         ) : null}
       </TouchableOpacity>
+      {/* «حصة أونلاين»: start today's class online, or go back into the one on air. Its own row,
+          under the card's tap area — the card still opens the sheet. */}
+      {s.remote ? (
+        <TeacherRemoteAction sessionId={s.id} remote={s.remote} variant="onColor" canStart={s.status !== 'cancelled' && isSameLocalDay(s.scheduled_at, now)}
+          style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.md }} />
+      ) : null}
     </LinearGradient>
   );
 }

@@ -50,5 +50,7 @@ function extractSession(item: any): SessionInstance {
     tracks_attendance: a.tracks_attendance ?? undefined,
     attendance_label: a.attendance_label ?? null,
     homework_due: a.homework_due ?? null,
+    // «حصة أونلاين»: only a well-formed field counts; anything else = the feature is off.
+    remote: a.remote && typeof a.remote === 'object' ? { live: a.remote.live === true } : null,
   };
 }

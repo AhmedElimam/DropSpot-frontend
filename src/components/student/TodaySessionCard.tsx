@@ -12,6 +12,8 @@ import type { SessionInstance } from '@/types/session-instance';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
 import { tracksAttendance } from '@/utils/privateLesson';
 import { Surface } from '@/ui/surfaces';
+import { StudentRemoteJoin } from '@/components/remote/RemoteJoin';
+import { isRemoteLive } from '@/remote/room';
 
 export type SessionPhase = 'live' | 'soon' | 'later' | 'done' | 'cancelled';
 
@@ -151,6 +153,10 @@ export const TodaySessionCard = memo(function TodaySessionCard({ session, now, t
       {tracked && session.phone_checkin_allowed && phase === 'live' && !inWindow && !outcome ? (
         <Text style={{ fontFamily: fonts.regular, fontSize: 11.5, color: colors.textTertiary, marginTop: 6 }}>{t('attendance.outside_window')}</Text>
       ) : null}
+
+      {/* «حصة أونلاين»: the class is on air — enter it from here. Attendance records itself after
+          watching for a while, and the card then shows it as it always does. */}
+      {isRemoteLive(session.remote) && phase !== 'cancelled' ? <StudentRemoteJoin sessionId={session.id} remote={session.remote} style={{ marginTop: spacing.sm }} /> : null}
     </TouchableOpacity>
   );
 });

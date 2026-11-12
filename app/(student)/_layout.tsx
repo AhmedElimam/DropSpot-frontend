@@ -6,6 +6,7 @@ import { registerForPushNotifications } from '@/utils/push-notifications';
 import { useNotificationTaps } from '@/hooks/useNotificationTaps';
 import { useAuthStore } from '@/stores/authStore';
 import { colors } from '@/theme/index';
+import { ROOM_BACKGROUND } from '@/remote/room';
 import { ROUTE_BY_ROLE } from '@/utils/routes';
 
 // A deep link straight to a detail screen still has the tabs underneath to go back to.
@@ -63,6 +64,9 @@ export default function StudentLayout() {
     // hidden tabs the freeze was for — those keep their own `freeze_hidden_tabs` switch).
     <Stack screenListeners={transitionListeners} screenOptions={{ headerShown: false, freezeOnBlur: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="(tabs)" />
+      {/* «حصة أونلاين»: the live room, full screen and dark. It fades in (no paper frame sliding
+          over the page), and has no swipe back — leaving a class asks first (RemoteRoomScreen). */}
+      <Stack.Screen name="remote/[id]" options={{ animation: 'fade', gestureEnabled: false, contentStyle: { backgroundColor: ROOM_BACKGROUND } }} />
     </Stack>
   );
 }

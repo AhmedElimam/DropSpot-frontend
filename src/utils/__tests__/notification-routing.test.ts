@@ -114,3 +114,28 @@ describe('homework reminders open where they are about (2026-11-11)', () => {
     expect(notificationRouteFor({ role: 'student', type: 'homework_due_reminder', data: { session_instance_id: 81, homework_id: 4 } })).toBe('/(student)/homework');
   });
 });
+
+describe('«حصة أونلاين» is on air (remote_session_live)', () => {
+  const data = { session_instance_id: 81, student_id: 5 };
+
+  it('a student lands on home, where the spotlight carries «ادخل»', () => {
+    expect(notificationRouteFor({ role: 'student', type: 'remote_session_live', data })).toBe('/(student)/(tabs)');
+    expect(notificationRouteFor({ role: 'student', type: 'remote_session_live' })).toBe('/(student)/(tabs)');
+  });
+
+  it('a parent lands on that child\'s page — or the home when the push names no child', () => {
+    expect(notificationRouteFor({ role: 'parent', type: 'remote_session_live', data })).toBe('/(parent)/child/5');
+    expect(notificationRouteFor({ role: 'parent', type: 'remote_session_live', data: { session_instance_id: 81 } })).toBe('/(parent)/(tabs)');
+  });
+
+  it('is nobody else\'s: a teacher or an assistant is taken nowhere', () => {
+    expect(notificationRouteFor({ role: 'teacher', type: 'remote_session_live', data })).toBeNull();
+    expect(notificationRouteFor({ role: 'assistant', type: 'remote_session_live', data, can: () => true })).toBeNull();
+  });
+
+  it('never opens the room itself from a push: a link is asked for by a tap inside the app', () => {
+    for (const role of ['student', 'parent'] as const) {
+      expect(notificationRouteFor({ role, type: 'remote_session_live', data })).not.toMatch(/\/remote\//);
+    }
+  });
+});

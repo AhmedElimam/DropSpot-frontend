@@ -13,7 +13,7 @@ import { useChildren } from '@/hooks/useChildren';
 import { getStudentCoverage, getAttendanceRecords } from '@/api/attendance';
 import { getStudentGrades } from '@/api/grades';
 import { getStudentExamResults } from '@/api/exams';
-import { getUpcomingStudentSessions } from '@/api/sessions';
+import { getTodayStudentSessions, getUpcomingStudentSessions } from '@/api/sessions';
 import { formatDate, formatTime } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -34,6 +34,9 @@ import { avatarSeed } from '@/components/ui/GeneratedAvatar';
 import { Surface } from '@/ui/surfaces';
 import { PrivateLessonChip } from '@/components/attendance/PrivateLessonChip';
 import { tracksAttendance } from '@/utils/privateLesson';
+import { ParentRemoteLive } from '@/components/remote/RemoteJoin';
+import { useRemoteSessionsEnabled } from '@/hooks/useRemoteSession';
+import { isRemoteLive } from '@/remote/room';
 
 type TabKey = 'attendance' | 'grades' | 'exams' | 'settings';
 
@@ -105,11 +108,23 @@ export default function ChildDetailScreen() {
     enabled: !!child,
   });
 
+  // «حصة أونلاين»: a class that has started is no longer «upcoming», so today's sessions are
+  // read too — only while the feature switch is on (off: no request, the page is as it was).
+  const remoteOn = useRemoteSessionsEnabled();
+  const { data: today, refetch: refetchToday } = useQuery({
+    queryKey: ['sessions', 'today', child?.student_id],
+    queryFn: () => getTodayStudentSessions(child!.student_id),
+    enabled: !!child && remoteOn,
+  });
+  const liveNow = remoteOn
+    ? [...(today ?? []), ...(upcoming ?? [])].filter((s, i, all) => isRemoteLive(s.remote) && s.status !== 'cancelled' && all.findIndex((x) => x.id === s.id) === i)
+    : [];
+
   // A parent opens this screen to check on their child right now — the pull must refresh
   // everything the page shows (attendance, marks, exams, payments, next sessions), not
   // whichever query happened to go stale first.
   const { refreshing, onRefresh } = usePullRefresh(
-    refetchChildren, refetchCoverage, refetchGrades, refetchExams, refetchRecords, refetchUpcoming,
+    refetchChildren, refetchCoverage, refetchGrades, refetchExams, refetchRecords, refetchUpcoming, ...(remoteOn ? [refetchToday] : []),
   );
 
   const present = coverage?.present ?? 0;
@@ -214,6 +229,10 @@ export default function ChildDetailScreen() {
         </View>
 
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md, gap: spacing.md }}>
+          {/* «حصة {{course}} أونلاين دلوقتي» — on every tab, while the child's class is on air. */}
+          {liveNow.map((s) => (
+            <ParentRemoteLive key={`remote-${s.id}`} sessionId={s.id} studentId={child.student_id} courseName={s.course_name} remote={s.remote} />
+          ))}
           {activeTab === 'attendance' && (
             <Surface id="parent.child.attendance_tab">
               {upcoming && upcoming.length > 0 && (
