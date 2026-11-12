@@ -298,13 +298,17 @@ function Spotlight({ s, now }: { s: Session; now: number }) {
   const soon = !live && start.getTime() - now <= FOUR_HOURS;
   // A private lesson has nothing to check into: the label takes the button's place.
   const tracked = tracksAttendance(s);
+  // «حصة أونلاين»: on air right now, and whether the student was already recorded for it —
+  // then the card says so instead of offering the door's check-in.
+  const onAir = isRemoteLive(s.remote);
+  const attended = s.attendance_status === 'present' || s.attendance_status === 'late';
   return (
     <TouchableOpacity onPress={() => router.navigate('/(student)/(tabs)/check-in')} activeOpacity={0.9} accessibilityRole="button" style={{ borderRadius: radius.xxl, overflow: 'hidden', ...shadows.md }}>
       <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: spacing.lg }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          {live ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' }} /> : null}
+          {live || onAir ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' }} /> : null}
           <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>
-            {live ? t('home.live_session') : t('home.next_session')}
+            {onAir ? t('remote.live_chip') : live ? t('home.live_session') : t('home.next_session')}
           </Text>
         </View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 20, color: '#fff', marginTop: 4 }} numberOfLines={1}>{s.course_name}</Text>
@@ -334,7 +338,12 @@ function Spotlight({ s, now }: { s: Session; now: number }) {
                 <Text style={{ fontFamily: fonts.medium, fontSize: 12, color: '#fff', flexShrink: 1 }} numberOfLines={1}>{attendanceLabel(s, t('family_ui.private_lesson'))}</Text>
               </View>
             </Surface>
-          ) : live || soon ? (
+          ) : attended ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.full, paddingVertical: 6, paddingHorizontal: spacing.md }}>
+              <Icon name="check" size={14} color="#fff" />
+              <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: '#fff' }}>{t('remote.checked_in')}</Text>
+            </View>
+          ) : onAir ? null : live || soon ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: radius.full, paddingVertical: 8, paddingHorizontal: spacing.lg }}>
               <Icon name="card" size={16} color={onWhite.brand} />
               <Text style={{ fontFamily: fonts.bold, fontSize: 13, color: onWhite.brand }}>{t('attendance.check_in')}</Text>
